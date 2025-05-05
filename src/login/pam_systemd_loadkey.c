@@ -13,6 +13,7 @@
 #include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "pam-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 /* By default, this module retrieves the key stored by systemd-cryptsetup.

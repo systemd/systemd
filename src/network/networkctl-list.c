@@ -2,6 +2,7 @@
 
 #include "sd-network.h"
 
+#include "alloc-util.h"
 #include "format-table.h"
 #include "netif-util.h"
 #include "networkctl.h"

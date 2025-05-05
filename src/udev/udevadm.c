@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "process-util.h"

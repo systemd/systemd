@@ -7,10 +7,8 @@
 
 #include "sd-event.h"
 
-#include "hashmap.h"
 #include "inotify-util.h"
 #include "list.h"
-#include "prioq.h"
 #include "ratelimit.h"
 
 typedef enum EventSourceType {

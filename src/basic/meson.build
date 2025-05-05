@@ -244,7 +244,13 @@ filesystem_includes = files(
 )
 
 check_filesystems = find_program('check-filesystems.sh')
-r = run_command([check_filesystems, cpp, files('filesystems-gperf.gperf')] + filesystem_includes, check: false)
+r = run_command(
+        [
+                'env', '--chdir', meson.project_build_root(),
+                check_filesystems, cpp, files('filesystems-gperf.gperf')
+        ] + filesystem_includes,
+        check: false,
+)
 if r.returncode() != 0
         warning('Unknown filesystems defined in kernel headers:\n\n' + r.stdout())
 endif

@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "edit-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"

@@ -539,7 +539,7 @@ int uki_hash(int fd,
                 if (!n)
                         return log_oom_debug();
 
-                i = string_table_lookup(unified_sections, _UNIFIED_SECTION_MAX, n);
+                i = string_table_lookup_from_string(unified_sections, _UNIFIED_SECTION_MAX, n);
                 if (i < 0)
                         continue;
 

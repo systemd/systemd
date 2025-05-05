@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-json.h"
 #include "sd-path.h"
 
 #include "alloc-util.h"

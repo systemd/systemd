@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
 #include "env-util.h"

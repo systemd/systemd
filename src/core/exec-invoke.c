@@ -64,6 +64,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "utmp-wtmp.h"
 #include "vpick.h"
 

@@ -1,11 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+int device_unref_and_replace(sd_device *a, sd_device *b) {
+        return unref_and_replace_full(a, b, sd_device_ref, sd_device_unref);
+}
 
 int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -147,4 +152,24 @@ bool device_is_devtype(sd_device *device, const char *devtype) {
 
         (void) sd_device_get_devtype(device, &s);
         return streq_ptr(s, devtype);
+}
+
+bool device_property_can_set(const char *property) {
+        return property &&
+                !STR_IN_SET(property,
+                            /* basic properties set by kernel, only in netlink event */
+                            "ACTION", "SEQNUM", "SYNTH_UUID",
+                            /* basic properties set by kernel, both in netlink event and uevent file */
+                            "DEVPATH", "DEVPATH_OLD", "SUBSYSTEM", "DEVTYPE", "DRIVER", "MODALIAS",
+                            /* device node */
+                            "DEVNAME", "DEVMODE", "DEVUID", "DEVGID", "MAJOR", "MINOR",
+                            /* block device */
+                            "DISKSEQ", "PARTN",
+                            /* network interface (INTERFACE_OLD is set by udevd) */
+                            "IFINDEX", "INTERFACE", "INTERFACE_OLD",
+                            /* basic properties set by udevd */
+                            "DEVLINKS", "TAGS", "CURRENT_TAGS", "USEC_INITIALIZED", "UDEV_DATABASE_VERSION") &&
+                /* Similar to SYNTH_UUID, but set based on KEY=VALUE arguments passed by userspace.
+                 * See kernel's f36776fafbaa0094390dd4e7e3e29805e0b82730 (v4.13) */
+                !startswith(property, "SYNTH_ARG_");
 }

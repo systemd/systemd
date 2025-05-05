@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "devnum-util.h"
 #include "hibernate-resume-config.h"

@@ -12,6 +12,7 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "gunicode.h"
+#include "hashmap.h"
 #include "log.h"
 #include "memory-util.h"
 #include "nulstr-util.h"
@@ -276,7 +277,7 @@ int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates) {
         if (p >= SIZE_MAX - q)
                 return -ENOMEM;
 
-        char **t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
+        char **t = reallocarray(*a, greedy_alloc_round_up(p + q + 1), sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -328,7 +329,7 @@ int strv_extend_strv_consume(char ***a, char **b, bool filter_duplicates) {
         if (p >= SIZE_MAX - q)
                 return -ENOMEM;
 
-        char **t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
+        char **t = reallocarray(*a, greedy_alloc_round_up(p + q + 1), sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -405,6 +406,15 @@ int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
         return n;
 }
 
+char** strv_split_newlines(const char *s) {
+        char **ret;
+
+        if (strv_split_newlines_full(&ret, s, 0) < 0)
+                return NULL;
+
+        return ret;
+}
+
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {
         _cleanup_strv_free_ char **l = NULL;
         size_t n = 0;
@@ -440,6 +450,15 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
         return (int) n;
 }
 
+char** strv_split(const char *s, const char *separators) {
+        char **ret;
+
+        if (strv_split_full(&ret, s, separators, EXTRACT_RETAIN_ESCAPE) < 0)
+                return NULL;
+
+        return ret;
+}
+
 int strv_split_and_extend_full(char ***t, const char *s, const char *separators, bool filter_duplicates, ExtractFlags flags) {
         char **l;
         int r;
@@ -456,6 +475,10 @@ int strv_split_and_extend_full(char ***t, const char *s, const char *separators,
                 return r;
 
         return (int) strv_length(*t);
+}
+
+int strv_split_and_extend(char ***t, const char *s, const char *separators, bool filter_duplicates) {
+        return strv_split_and_extend_full(t, s, separators, filter_duplicates, 0);
 }
 
 int strv_split_colon_pairs(char ***t, const char *s) {
@@ -579,7 +602,7 @@ int strv_push_with_size(char ***l, size_t *n, char *value) {
         if (size > SIZE_MAX-2)
                 return -ENOMEM;
 
-        char **c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(size + 2), sizeof(char*));
+        char **c = reallocarray(*l, greedy_alloc_round_up(size + 2), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -606,7 +629,7 @@ int strv_push_pair(char ***l, char *a, char *b) {
                 return -ENOMEM;
 
         /* increase and check for overflow */
-        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(n + !!a + !!b + 1), sizeof(char*));
+        c = reallocarray(*l, greedy_alloc_round_up(n + !!a + !!b + 1), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -637,7 +660,7 @@ int strv_insert(char ***l, size_t position, char *value) {
                 return -ENOMEM;
         m = n + 2;
 
-        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(m), sizeof(char*));
+        c = reallocarray(*l, greedy_alloc_round_up(m), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -737,7 +760,7 @@ int strv_extend_many_internal(char ***l, const char *value, ...) {
         if (m > SIZE_MAX-1)
                 return -ENOMEM;
 
-        char **c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(m+1), sizeof(char*));
+        char **c = reallocarray(*l, greedy_alloc_round_up(m+1), sizeof(char*));
         if (!c)
                 return -ENOMEM;
         *l = c;
@@ -1007,7 +1030,7 @@ int strv_extend_n(char ***l, const char *value, size_t n) {
         if (n >= SIZE_MAX - k)
                 return -ENOMEM;
 
-        nl = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(k + n + 1), sizeof(char *));
+        nl = reallocarray(*l, greedy_alloc_round_up(k + n + 1), sizeof(char *));
         if (!nl)
                 return -ENOMEM;
 
@@ -1066,6 +1089,10 @@ int fputstrv(FILE *f, char * const *l, const char *separator, bool *space) {
         return 0;
 }
 
+int strv_free_and_replace(char **a, char **b) {
+        return free_and_replace_full(a, b, strv_free);
+}
+
 void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value) {
         assert(key);
 
@@ -1081,6 +1108,10 @@ void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value) 
 
         _unused_ _cleanup_free_ char *key_free = NULL;
         strv_free(hashmap_remove2(h, key, (void**) &key_free));
+}
+
+void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value) {
+        string_strv_hashmap_remove(PLAIN_HASHMAP(h), key, value);
 }
 
 static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const char *value) {
@@ -1126,28 +1157,28 @@ static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const c
         return 1;
 }
 
-int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
+int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
         int r;
 
         assert(h);
         assert(key);
         assert(value);
 
-        r = _hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free);
         if (r < 0)
                 return r;
 
         return string_strv_hashmap_put_internal(*h, key, value);
 }
 
-int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
+int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value) {
         int r;
 
         assert(h);
         assert(key);
         assert(value);
 
-        r = _ordered_hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = ordered_hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free);
         if (r < 0)
                 return r;
 

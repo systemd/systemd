@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "fd-util.h"
 #include "main-func.h"
@@ -18,6 +19,7 @@
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
 

@@ -2570,7 +2570,7 @@ static void reset_scheduled_shutdown(Manager *m) {
 
         (void) unlink(SHUTDOWN_SCHEDULE_FILE);
 
-        manager_send_changed(m, "ScheduledShutdown", NULL);
+        manager_send_changed(m, "ScheduledShutdown");
 }
 
 static int update_schedule_file(Manager *m) {
@@ -2841,7 +2841,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 return r;
         }
 
-        manager_send_changed(m, "ScheduledShutdown", NULL);
+        manager_send_changed(m, "ScheduledShutdown");
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -4520,18 +4520,14 @@ int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error
         return 0;
 }
 
-int manager_send_changed(Manager *manager, const char *property, ...) {
-        char **l;
-
+int manager_send_changed_strv(Manager *manager, char **properties) {
         assert(manager);
-
-        l = strv_from_stdarg_alloca(property);
 
         return sd_bus_emit_properties_changed_strv(
                         manager->bus,
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        l);
+                        properties);
 }
 
 int manager_start_scope(

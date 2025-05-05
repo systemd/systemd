@@ -3,6 +3,9 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
+#include "alloc-util.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "errno-util.h"

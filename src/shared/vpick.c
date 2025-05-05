@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 
 #include "architecture.h"
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "chase.h"
 #include "fd-util.h"
@@ -11,6 +12,8 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
+#include "string-util.h"
+#include "strv.h"
 #include "vpick.h"
 
 void pick_result_done(PickResult *p) {
@@ -163,14 +166,14 @@ static int pin_choice(
 
         struct stat st;
         if (fstat(inode_fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat discovered inode '%s': %m", prefix_roota(toplevel_path, inode_path));
+                return log_debug_errno(errno, "Failed to stat discovered inode '%s%s': %m", toplevel_path, inode_path);
 
         if (filter->type_mask != 0 &&
             !BIT_SET(filter->type_mask, IFTODT(st.st_mode)))
                 return log_debug_errno(
                                 SYNTHETIC_ERRNO(errno_from_mode(filter->type_mask, st.st_mode)),
-                                "Inode '%s' has wrong type, found '%s'.",
-                                prefix_roota(toplevel_path, inode_path),
+                                "Inode '%s/%s' has wrong type, found '%s'.",
+                                empty_to_root(toplevel_path), skip_leading_slash(inode_path),
                                 inode_type_to_string(st.st_mode));
 
         _cleanup_(pick_result_done) PickResult result = {
@@ -297,7 +300,8 @@ static int make_choice(
                         return 0;
                 }
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
+                        return log_debug_errno(r, "Failed to open '%s/%s': %m",
+                                               empty_to_root(toplevel_path), skip_leading_slash(p));
 
                 return pin_choice(
                                 toplevel_path,
@@ -318,11 +322,13 @@ static int make_choice(
         /* Convert O_PATH to a regular directory fd */
         dir_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
         if (dir_fd < 0)
-                return log_debug_errno(dir_fd, "Failed to reopen '%s' as directory: %m", prefix_roota(toplevel_path, inode_path));
+                return log_debug_errno(dir_fd, "Failed to reopen '%s/%s' as directory: %m",
+                                       empty_to_root(toplevel_path), skip_leading_slash(inode_path));
 
         r = readdir_all(dir_fd, 0, &de);
         if (r < 0)
-                return log_debug_errno(r, "Failed to read directory '%s': %m", prefix_roota(toplevel_path, inode_path));
+                return log_debug_errno(r, "Failed to read directory '%s/%s': %m",
+                                       empty_to_root(toplevel_path), skip_leading_slash(inode_path));
 
         if (filter->architecture < 0) {
                 architectures = local_architectures;
@@ -466,7 +472,8 @@ static int make_choice(
 
         object_fd = openat(dir_fd, best_filename, O_CLOEXEC|O_PATH);
         if (object_fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
+                return log_debug_errno(errno, "Failed to open '%s/%s': %m",
+                                       empty_to_root(toplevel_path), skip_leading_slash(inode_path));
 
         return pin_choice(
                         toplevel_path,

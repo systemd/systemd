@@ -138,11 +138,6 @@ struct hashmap_debug_info {
         LIST_FIELDS(struct hashmap_debug_info, debug_list);
         unsigned max_entries;  /* high watermark of n_entries */
 
-        /* who allocated this hashmap */
-        int line;
-        const char *file;
-        const char *func;
-
         /* fields to detect modification while iterating */
         unsigned put_count;    /* counts puts into the hashmap */
         unsigned rem_count;    /* counts removals from hashmap */
@@ -778,7 +773,7 @@ static void shared_hash_key_initialize(void) {
         random_bytes(shared_hash_key, sizeof(shared_hash_key));
 }
 
-static struct HashmapBase* hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type  HASHMAP_DEBUG_PARAMS) {
+static struct HashmapBase* hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
 
@@ -803,9 +798,6 @@ static struct HashmapBase* hashmap_base_new(const struct hash_ops *hash_ops, enu
         assert_se(pthread_once(&once, shared_hash_key_initialize) == 0);
 
 #if ENABLE_DEBUG_HASHMAP
-        h->debug.func = func;
-        h->debug.file = file;
-        h->debug.line = line;
         assert_se(pthread_mutex_lock(&hashmap_debug_list_mutex) == 0);
         LIST_PREPEND(debug_list, hashmap_debug_list, &h->debug);
         assert_se(pthread_mutex_unlock(&hashmap_debug_list_mutex) == 0);
@@ -814,20 +806,20 @@ static struct HashmapBase* hashmap_base_new(const struct hash_ops *hash_ops, enu
         return h;
 }
 
-Hashmap *_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (Hashmap*)        hashmap_base_new(hash_ops, HASHMAP_TYPE_PLAIN  HASHMAP_DEBUG_PASS_ARGS);
+Hashmap *hashmap_new(const struct hash_ops *hash_ops) {
+        return (Hashmap*)        hashmap_base_new(hash_ops, HASHMAP_TYPE_PLAIN);
 }
 
-OrderedHashmap *_ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (OrderedHashmap*) hashmap_base_new(hash_ops, HASHMAP_TYPE_ORDERED  HASHMAP_DEBUG_PASS_ARGS);
+OrderedHashmap *ordered_hashmap_new(const struct hash_ops *hash_ops) {
+        return (OrderedHashmap*) hashmap_base_new(hash_ops, HASHMAP_TYPE_ORDERED);
 }
 
-Set *_set_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (Set*)            hashmap_base_new(hash_ops, HASHMAP_TYPE_SET  HASHMAP_DEBUG_PASS_ARGS);
+Set *set_new(const struct hash_ops *hash_ops) {
+        return (Set*)            hashmap_base_new(hash_ops, HASHMAP_TYPE_SET);
 }
 
 static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops *hash_ops,
-                                         enum HashmapType type  HASHMAP_DEBUG_PARAMS) {
+                                         enum HashmapType type) {
         HashmapBase *q;
 
         assert(h);
@@ -835,7 +827,7 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
         if (*h)
                 return 0;
 
-        q = hashmap_base_new(hash_ops, type  HASHMAP_DEBUG_PASS_ARGS);
+        q = hashmap_base_new(hash_ops, type);
         if (!q)
                 return -ENOMEM;
 
@@ -843,52 +835,52 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
         return 1;
 }
 
-int _hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_PLAIN  HASHMAP_DEBUG_PASS_ARGS);
+int hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops) {
+        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_PLAIN);
 }
 
-int _ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_ORDERED  HASHMAP_DEBUG_PASS_ARGS);
+int ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops) {
+        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_ORDERED);
 }
 
-int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET  HASHMAP_DEBUG_PASS_ARGS);
+int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops) {
+        return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET);
 }
 
-int _hashmap_ensure_put(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS) {
+int hashmap_ensure_put(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value) {
         int r;
 
-        r = _hashmap_ensure_allocated(h, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        r = hashmap_ensure_allocated(h, hash_ops);
         if (r < 0)
                 return r;
 
         return hashmap_put(*h, key, value);
 }
 
-int _ordered_hashmap_ensure_put(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS) {
+int ordered_hashmap_ensure_put(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value) {
         int r;
 
-        r = _ordered_hashmap_ensure_allocated(h, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        r = ordered_hashmap_ensure_allocated(h, hash_ops);
         if (r < 0)
                 return r;
 
         return ordered_hashmap_put(*h, key, value);
 }
 
-int _ordered_hashmap_ensure_replace(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS) {
+int ordered_hashmap_ensure_replace(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value) {
         int r;
 
-        r = _ordered_hashmap_ensure_allocated(h, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        r = ordered_hashmap_ensure_allocated(h, hash_ops);
         if (r < 0)
                 return r;
 
         return ordered_hashmap_replace(*h, key, value);
 }
 
-int _hashmap_ensure_replace(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS) {
+int hashmap_ensure_replace(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value) {
         int r;
 
-        r = _hashmap_ensure_allocated(h, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        r = hashmap_ensure_allocated(h, hash_ops);
         if (r < 0)
                 return r;
 
@@ -1290,20 +1282,20 @@ int set_put(Set *s, const void *key) {
         return hashmap_put_boldly(s, hash, &swap, true);
 }
 
-int _set_ensure_put(Set **s, const struct hash_ops *hash_ops, const void *key  HASHMAP_DEBUG_PARAMS) {
+int set_ensure_put(Set **s, const struct hash_ops *hash_ops, const void *key) {
         int r;
 
-        r = _set_ensure_allocated(s, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        r = _set_ensure_allocated(s, hash_ops);
         if (r < 0)
                 return r;
 
         return set_put(*s, key);
 }
 
-int _set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key  HASHMAP_DEBUG_PARAMS) {
+int set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key) {
         int r;
 
-        r = _set_ensure_put(s, hash_ops, key  HASHMAP_DEBUG_PASS_ARGS);
+        r = set_ensure_put(s, hash_ops, key);
         if (r <= 0) {
                 if (hash_ops && hash_ops->free_key)
                         hash_ops->free_key(key);
@@ -1754,13 +1746,13 @@ int _hashmap_move_one(HashmapBase *h, HashmapBase *other, const void *key) {
         return 0;
 }
 
-HashmapBase* _hashmap_copy(HashmapBase *h  HASHMAP_DEBUG_PARAMS) {
+HashmapBase* _hashmap_copy(HashmapBase *h) {
         HashmapBase *copy;
         int r;
 
         assert(h);
 
-        copy = hashmap_base_new(h->hash_ops, h->type  HASHMAP_DEBUG_PASS_ARGS);
+        copy = hashmap_base_new(h->hash_ops, h->type);
         if (!copy)
                 return NULL;
 
@@ -1850,10 +1842,10 @@ int set_consume(Set *s, void *value) {
         return r;
 }
 
-int _hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const char *k, const char *v  HASHMAP_DEBUG_PARAMS) {
+int hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const char *k, const char *v) {
         int r;
 
-        r = _hashmap_ensure_allocated(h, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        r = hashmap_ensure_allocated(h, hash_ops);
         if (r < 0)
                 return r;
 
@@ -1884,14 +1876,14 @@ int _hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const
         return r;
 }
 
-int _set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *p, size_t n  HASHMAP_DEBUG_PARAMS) {
+int set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *p, size_t n) {
         char *c;
         int r;
 
         assert(s);
         assert(p);
 
-        r = _set_ensure_allocated(s, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        r = _set_ensure_allocated(s, hash_ops);
         if (r < 0)
                 return r;
 
@@ -1908,13 +1900,13 @@ int _set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *
         return set_consume(*s, c);
 }
 
-int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HASHMAP_DEBUG_PARAMS) {
+int set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l) {
         int n = 0, r;
 
         assert(s);
 
         STRV_FOREACH(i, l) {
-                r = _set_put_strndup_full(s, hash_ops, *i, SIZE_MAX  HASHMAP_DEBUG_PASS_ARGS);
+                r = set_put_strndup_full(s, hash_ops, *i, SIZE_MAX);
                 if (r < 0)
                         return r;
 

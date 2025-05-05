@@ -3,12 +3,14 @@
 #include <getopt.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "build.h"
 #include "bus-dump.h"
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-signature.h"

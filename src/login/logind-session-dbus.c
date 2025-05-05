@@ -847,9 +847,8 @@ int session_send_signal(Session *s, bool new_session) {
                         "so", s->id, p);
 }
 
-int session_send_changed(Session *s, const char *properties, ...) {
+int session_send_changed_strv(Session *s, char **properties) {
         _cleanup_free_ char *p = NULL;
-        char **l;
 
         assert(s);
 
@@ -860,9 +859,7 @@ int session_send_changed(Session *s, const char *properties, ...) {
         if (!p)
                 return -ENOMEM;
 
-        l = strv_from_stdarg_alloca(properties);
-
-        return sd_bus_emit_properties_changed_strv(s->manager->bus, p, "org.freedesktop.login1.Session", l);
+        return sd_bus_emit_properties_changed_strv(s->manager->bus, p, "org.freedesktop.login1.Session", properties);
 }
 
 int session_send_lock(Session *s, bool lock) {

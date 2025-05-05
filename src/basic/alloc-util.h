@@ -15,9 +15,6 @@
 #  include <sanitizer/msan_interface.h>
 #endif
 
-typedef void (*free_func_t)(void *p);
-typedef void* (*mfree_func_t)(void *p);
-
 /* If for some reason more than 4M are allocated on the stack, let's abort immediately. It's better than
  * proceeding and smashing the stack limits. Note that by default RLIMIT_STACK is 8M on Linux. */
 #define ALLOCA_MAX (4U*1024U*1024U)
@@ -137,6 +134,8 @@ static inline void *memdup_suffix0_multiply(const void *p, size_t need, size_t s
         return memdup_suffix0(p, size * need);
 }
 
+size_t greedy_alloc_round_up(size_t l);
+
 void* greedy_realloc(void **p, size_t need, size_t size);
 void* greedy_realloc0(void **p, size_t need, size_t size);
 void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_from, size_t size);
@@ -222,19 +221,6 @@ static inline size_t malloc_sizeof_safe(void **xp) {
                 __builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
                 MALLOC_SIZEOF_SAFE(x)/sizeof((x)[0]),                   \
                 VOID_0))
-
-/* These are like strdupa()/strndupa(), but honour ALLOCA_MAX */
-#define strdupa_safe(s)                                                 \
-        ({                                                              \
-                const char *_t = (s);                                   \
-                (char*) memdupa_suffix0(_t, strlen(_t));                \
-        })
-
-#define strndupa_safe(s, n)                                             \
-        ({                                                              \
-                const char *_t = (s);                                   \
-                (char*) memdupa_suffix0(_t, strnlen(_t, n));            \
-        })
 
 /* Free every element of the array. */
 static inline void free_many(void **p, size_t n) {
