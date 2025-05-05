@@ -15,6 +15,7 @@
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 bool numa_policy_is_valid(const NUMAPolicy *policy) {
         assert(policy);

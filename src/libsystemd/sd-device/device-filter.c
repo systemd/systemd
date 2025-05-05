@@ -4,6 +4,7 @@
 
 #include "device-filter.h"
 #include "path-util.h"
+#include "strv.h"
 
 int update_match_strv(Hashmap **match_strv, const char *key, const char *value, bool clear_on_null) {
         char **strv;
