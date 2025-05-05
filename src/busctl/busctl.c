@@ -7,6 +7,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bitfield.h"
 #include "build.h"
 #include "bus-dump.h"

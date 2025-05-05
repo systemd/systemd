@@ -3,6 +3,7 @@
 #include <linux/capability.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bus-internal.h"
 #include "bus-introspect.h"
 #include "bus-message.h"

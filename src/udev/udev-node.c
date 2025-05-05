@@ -5,6 +5,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"

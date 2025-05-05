@@ -12,6 +12,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"

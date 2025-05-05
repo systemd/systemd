@@ -1,15 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <alloca.h>
 #include <malloc.h>
 #include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
 
-#include "assert-util.h"
 #include "macro.h"
-#include "memory-util.h"
 
 #if HAS_FEATURE_MEMORY_SANITIZER
 #  include <sanitizer/msan_interface.h>
@@ -18,34 +13,9 @@
 typedef void (*free_func_t)(void *p);
 typedef void* (*mfree_func_t)(void *p);
 
-/* If for some reason more than 4M are allocated on the stack, let's abort immediately. It's better than
- * proceeding and smashing the stack limits. Note that by default RLIMIT_STACK is 8M on Linux. */
-#define ALLOCA_MAX (4U*1024U*1024U)
-
 #define new(t, n) ((t*) malloc_multiply(n, sizeof(t)))
 
 #define new0(t, n) ((t*) calloc((n) ?: 1, sizeof(t)))
-
-#define alloca_safe(n)                                                  \
-        ({                                                              \
-                size_t _nn_ = (n);                                      \
-                assert(_nn_ <= ALLOCA_MAX);                             \
-                alloca(_nn_ == 0 ? 1 : _nn_);                           \
-        })                                                              \
-
-#define newa(t, n)                                                      \
-        ({                                                              \
-                size_t _n_ = (n);                                       \
-                assert_se(MUL_ASSIGN_SAFE(&_n_, sizeof(t)));            \
-                (t*) alloca_safe(_n_);                                  \
-        })
-
-#define newa0(t, n)                                                     \
-        ({                                                              \
-                size_t _n_ = (n);                                       \
-                assert_se(MUL_ASSIGN_SAFE(&_n_, sizeof(t)));            \
-                (t*) alloca0(_n_);                                      \
-        })
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, n, sizeof(t)))
 
@@ -79,23 +49,6 @@ typedef void* (*mfree_func_t)(void *p);
 
 void* memdup(const void *p, size_t l) _alloc_(2);
 void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, since we return a buffer one byte larger than the specified size */
-
-#define memdupa(p, l)                           \
-        ({                                      \
-                void *_q_;                      \
-                size_t _l_ = l;                 \
-                _q_ = alloca_safe(_l_);         \
-                memcpy_safe(_q_, p, _l_);       \
-        })
-
-#define memdupa_suffix0(p, l)                   \
-        ({                                      \
-                void *_q_;                      \
-                size_t _l_ = l;                 \
-                _q_ = alloca_safe(_l_ + 1);     \
-                ((uint8_t*) _q_)[_l_] = 0;      \
-                memcpy_safe(_q_, p, _l_);       \
-        })
 
 static inline void unsetp(void *p) {
         /* A trivial "destructor" that can be used in cases where we want to
@@ -153,32 +106,6 @@ void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_fr
                 greedy_realloc_append((void**) &(array), &(n_array), _from_, (n_from), sizeof((array)[0])); \
         })
 
-#define alloca0(n)                                      \
-        ({                                              \
-                char *_new_;                            \
-                size_t _len_ = n;                       \
-                _new_ = alloca_safe(_len_);             \
-                memset(_new_, 0, _len_);                \
-        })
-
-/* It's not clear what alignment glibc/gcc alloca() guarantee, hence provide a guaranteed safe version */
-#define alloca_align(size, align)                                       \
-        ({                                                              \
-                void *_ptr_;                                            \
-                size_t _mask_ = (align) - 1;                            \
-                size_t _size_ = size;                                   \
-                _ptr_ = alloca_safe(_size_ + _mask_);                   \
-                (void*)(((uintptr_t)_ptr_ + _mask_) & ~_mask_);         \
-        })
-
-#define alloca0_align(size, align)                                      \
-        ({                                                              \
-                void *_new_;                                            \
-                size_t _xsize_ = (size);                                \
-                _new_ = alloca_align(_xsize_, (align));                 \
-                memset(_new_, 0, _xsize_);                              \
-        })
-
 #if HAS_FEATURE_MEMORY_SANITIZER
 #  define msan_unpoison(r, s) __msan_unpoison(r, s)
 #else
@@ -192,19 +119,7 @@ void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_fr
  * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=96503 */
 void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_ _noinline_;
 
-static inline size_t malloc_sizeof_safe(void **xp) {
-        if (_unlikely_(!xp || !*xp))
-                return 0;
-
-        size_t sz = malloc_usable_size(*xp);
-        *xp = expand_to_usable(*xp, sz);
-        /* GCC doesn't see the _returns_nonnull_ when built with ubsan, so yet another hint to make it doubly
-         * clear that expand_to_usable won't return NULL.
-         * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79265 */
-        if (!*xp)
-                assert_not_reached();
-        return sz;
-}
+size_t malloc_sizeof_safe(void **xp);
 
 /* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), which may
  * return a value larger than the size that was actually allocated. Access to that additional memory is
@@ -223,48 +138,12 @@ static inline size_t malloc_sizeof_safe(void **xp) {
                 MALLOC_SIZEOF_SAFE(x)/sizeof((x)[0]),                   \
                 VOID_0))
 
-/* These are like strdupa()/strndupa(), but honour ALLOCA_MAX */
-#define strdupa_safe(s)                                                 \
-        ({                                                              \
-                const char *_t = (s);                                   \
-                (char*) memdupa_suffix0(_t, strlen(_t));                \
-        })
-
-#define strndupa_safe(s, n)                                             \
-        ({                                                              \
-                const char *_t = (s);                                   \
-                (char*) memdupa_suffix0(_t, strnlen(_t, n));            \
-        })
-
 /* Free every element of the array. */
-static inline void free_many(void **p, size_t n) {
-        assert(p || n == 0);
-
-        FOREACH_ARRAY(i, p, n)
-                *i = mfree(*i);
-}
+void free_many(void **p, size_t n);
 
 /* Typesafe wrapper for char** rather than void**. Unfortunately C won't implicitly cast this. */
 static inline void free_many_charp(char **c, size_t n) {
         free_many((void**) c, n);
 }
 
-_alloc_(2) static inline void *realloc0(void *p, size_t new_size) {
-        size_t old_size;
-        void *q;
-
-        /* Like realloc(), but initializes anything appended to zero */
-
-        old_size = MALLOC_SIZEOF_SAFE(p);
-
-        q = realloc(p, new_size);
-        if (!q)
-                return NULL;
-
-        new_size = MALLOC_SIZEOF_SAFE(q); /* Update with actually allocated space */
-
-        if (new_size > old_size)
-                memset((uint8_t*) q + old_size, 0, new_size - old_size);
-
-        return q;
-}
+_alloc_(2) void *realloc0(void *p, size_t new_size);

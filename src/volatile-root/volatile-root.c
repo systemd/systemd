@@ -3,6 +3,7 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "blockdev-util.h"
 #include "chase.h"
 #include "devnum-util.h"

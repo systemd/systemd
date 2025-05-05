@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bootctl.h"
 #include "bootctl-install.h"
 #include "bootctl-random-seed.h"
