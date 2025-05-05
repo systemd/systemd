@@ -10,6 +10,7 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "blockdev-util.h"
 #include "capability-util.h"
 #include "chattr-util.h"
