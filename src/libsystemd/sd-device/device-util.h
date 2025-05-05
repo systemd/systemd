@@ -7,13 +7,10 @@
 
 #include "sd-device.h"
 
-#include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
-#include "strv.h"
 
-#define device_unref_and_replace(a, b)                                  \
-        unref_and_replace_full(a, b, sd_device_ref, sd_device_unref)
+int device_unref_and_replace(sd_device *a, sd_device *b);
 
 #define FOREACH_DEVICE_PROPERTY(device, key, value)                     \
         for (const char *value, *key = sd_device_get_property_first(device, &value); \
