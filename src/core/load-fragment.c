@@ -974,7 +974,7 @@ int config_parse_exec(
                         return ignore ? 0 : -ENOEXEC;
                 }
 
-                if (!(path_is_absolute(path) ? path_is_valid(path) : filename_is_valid(path))) {
+                if (!filename_or_absolute_path_is_valid(path)) {
                         log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
                                    "Neither a valid executable name nor an absolute path%s: %s",
                                    ignore ? ", ignoring" : "", path);
