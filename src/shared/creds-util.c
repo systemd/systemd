@@ -18,6 +18,7 @@
 #include "creds-util.h"
 #include "efi-api.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
