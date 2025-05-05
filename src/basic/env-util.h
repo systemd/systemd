@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "assert-util.h"
 #include "macro.h"
 #include "string.h"
 

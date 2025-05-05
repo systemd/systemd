@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
+#include "alloca-util.h"
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"

@@ -4,6 +4,7 @@
 
 #include "sd-journal.h"
 
+#include "alloca-util.h"
 #include "build.h"
 #include "glob-util.h"
 #include "id128-print.h"
@@ -19,6 +20,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "pretty-print.h"
 #include "static-destruct.h"
 #include "string-table.h"

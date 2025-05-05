@@ -9,6 +9,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -17,6 +18,7 @@
 #include "path-util.h"
 #include "ratelimit.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "watchdog.h"
 

@@ -10,10 +10,12 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "binfmt-util.h"
 #include "build.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"

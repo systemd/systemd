@@ -38,6 +38,7 @@
 #include "hostname-util.h"
 #include "import-util.h"
 #include "in-addr-util.h"
+#include "label-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"

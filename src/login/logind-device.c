@@ -53,7 +53,7 @@ static void device_detach(Device *d) {
 
         if (!seat_has_master_device(s)) {
                 seat_add_to_gc_queue(s);
-                seat_send_changed(s, "CanGraphical", NULL);
+                seat_send_changed(s, "CanGraphical");
         }
 }
 
@@ -102,6 +102,6 @@ void device_attach(Device *d, Seat *s) {
 
         if (!had_master && d->master && s->started) {
                 seat_save(s);
-                seat_send_changed(s, "CanGraphical", NULL);
+                seat_send_changed(s, "CanGraphical");
         }
 }

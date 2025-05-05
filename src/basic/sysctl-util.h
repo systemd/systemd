@@ -4,10 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "hashmap.h"
 #include "macro.h"
 #include "stdio-util.h"
 #include "string-util.h"
+
+typedef struct Hashmap Hashmap;
 
 char* sysctl_normalize(char *s);
 int sysctl_read(const char *property, char **value);

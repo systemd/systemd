@@ -20,6 +20,7 @@
 #include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "clock-util.h"
 #include "conf-files.h"
 #include "constants.h"

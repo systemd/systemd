@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <errno.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "hexdecoct.h"
 #include "macro.h"
 #include "sha256.h"

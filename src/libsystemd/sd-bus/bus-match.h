@@ -5,7 +5,7 @@
 
 #include "sd-bus.h"
 
-#include "hashmap.h"
+typedef struct Hashmap Hashmap;
 
 enum bus_match_node_type {
         BUS_MATCH_ROOT,

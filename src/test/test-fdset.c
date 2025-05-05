@@ -6,6 +6,7 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "macro.h"
 #include "tests.h"
 #include "tmpfile-util.h"

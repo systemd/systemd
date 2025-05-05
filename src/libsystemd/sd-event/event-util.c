@@ -2,6 +2,7 @@
 
 #include <errno.h>
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "event-source.h"
 #include "event-util.h"

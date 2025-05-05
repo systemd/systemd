@@ -3,6 +3,7 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "cgroup-setup.h"
 #include "chase.h"
 #include "fd-util.h"

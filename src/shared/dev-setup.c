@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -14,6 +15,7 @@
 #include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"

@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -20,6 +21,7 @@
 #include "proc-cmdline.h"
 #include "specifier.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit-name.h"
 
 static const char *arg_dest = NULL;

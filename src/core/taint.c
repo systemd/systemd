@@ -11,6 +11,7 @@
 #include "log.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "taint.h"
 #include "uid-range.h"

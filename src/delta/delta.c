@@ -9,6 +9,8 @@
 #include "build.h"
 #include "chase.h"
 #include "dirent-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"

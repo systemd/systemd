@@ -8,6 +8,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "bus-error.h"

@@ -2,11 +2,13 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "chase.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "initrd-util.h"
 #include "main-func.h"
@@ -15,6 +17,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 #include "xattr-util.h"
 

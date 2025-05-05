@@ -9,6 +9,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "log.h"
 #include "macro.h"
 #include "microhttpd-util.h"

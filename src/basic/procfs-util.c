@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "constants.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"

@@ -3,6 +3,7 @@
 #include <linux/if_arp.h>
 #include <netinet/in.h>
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "dhcp-option.h"
