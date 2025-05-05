@@ -138,7 +138,7 @@ int block_device_get_originating(sd_device *dev, sd_device **ret) {
                 return -ENOENT;
 
         *ret = TAKE_PTR(first_found);
-        return 1; /* found */
+        return 0;
 }
 
 int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **ret) {
@@ -166,10 +166,10 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **re
                         return r;
 
                 r = block_device_get_originating(dev_whole_disk, &dev_origin);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-                if (r > 0)
+                if (r >= 0)
                         device_unref_and_replace(dev, dev_origin);
+                else if (r != -ENOENT)
+                        return r;
         }
 
         if (FLAGS_SET(flags, BLOCK_DEVICE_LOOKUP_WHOLE_DISK)) {
