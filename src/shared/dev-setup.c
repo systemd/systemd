@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

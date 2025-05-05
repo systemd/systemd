@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 #include "alloc-util.h"
 #include "alloca-util.h"
