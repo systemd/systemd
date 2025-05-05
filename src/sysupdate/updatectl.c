@@ -24,6 +24,7 @@
 #include "os-util.h"
 #include "pager.h"
 #include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "strv.h"
 #include "sysupdate-update-set-flags.h"

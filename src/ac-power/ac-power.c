@@ -8,6 +8,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
+#include "string-util.h"
 
 static bool arg_verbose = false;
 

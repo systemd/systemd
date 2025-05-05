@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <sys/mount.h>
 
+#include "sd-daemon.h"
+
 #include "blockdev-util.h"
 #include "bus-unit-util.h"
 #include "chown-recursive.h"
