@@ -236,6 +236,7 @@ static const NLAPolicy genl_wireguard_policies[] = {
 static const NLAPolicy genl_devlink_policies[] = {
         [DEVLINK_ATTR_BUS_NAME]                        = BUILD_POLICY(STRING),
         [DEVLINK_ATTR_DEV_NAME]                        = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_ESWITCH_MODE]                    = BUILD_POLICY(U16),
 };
 
 /***************** genl families *****************/
