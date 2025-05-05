@@ -3,12 +3,8 @@
 
 #include <linux/if_link.h>
 
-#include "sd-device.h"
-#include "sd-netlink.h"
-
 #include "conf-parser.h"
 #include "ether-addr-util.h"
-#include "hashmap.h"
 
 typedef enum SRIOVAttribute {
         SR_IOV_VF_MAC,

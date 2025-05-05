@@ -3,10 +3,9 @@
 
 #include <errno.h>
 #include <macro.h>
-#include <stdbool.h>
 #include <string.h>
 
-#include "set.h"
+#include "types.h"
 
 #define NULSTR_FOREACH(i, l)                                    \
         for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

@@ -25,6 +25,7 @@
 #include "quota-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
+#include "set.h"
 #include "smack-util.h"
 #include "stdio-util.h"
 #include "string-util.h"

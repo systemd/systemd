@@ -4,9 +4,7 @@
 #include "alloc-util.h"
 #include "macro.h"
 #include "siphash24.h"
-
-typedef void (*hash_func_t)(const void *p, struct siphash *state);
-typedef int (*compare_func_t)(const void *a, const void *b);
+#include "types.h"
 
 struct hash_ops {
         hash_func_t hash;

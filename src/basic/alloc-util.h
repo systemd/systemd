@@ -15,9 +15,6 @@
 #  include <sanitizer/msan_interface.h>
 #endif
 
-typedef void (*free_func_t)(void *p);
-typedef void* (*mfree_func_t)(void *p);
-
 /* If for some reason more than 4M are allocated on the stack, let's abort immediately. It's better than
  * proceeding and smashing the stack limits. Note that by default RLIMIT_STACK is 8M on Linux. */
 #define ALLOCA_MAX (4U*1024U*1024U)

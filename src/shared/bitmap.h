@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#include "hashmap.h"
-#include "macro.h"
+#include "memory-util.h"
+#include "types.h"
 
 typedef struct Bitmap {
         uint64_t *bitmaps;

@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "types.h"
 
 /* A framework for registering static variables that shall be freed on shutdown of a process. It's a bit like gcc's
  * destructor attribute, but allows us to precisely schedule when we want to free the variables. This is supposed to

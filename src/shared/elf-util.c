@@ -27,6 +27,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
+#include "set.h"
 #include "string-util.h"
 
 #define FRAMES_MAX 64

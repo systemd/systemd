@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "hashmap.h"
 #include "macro.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "types.h"
 
 char* sysctl_normalize(char *s);
 int sysctl_read(const char *property, char **value);

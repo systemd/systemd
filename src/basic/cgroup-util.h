@@ -3,15 +3,12 @@
 
 #include <dirent.h>
 #include <fcntl.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <sys/statfs.h>
-#include <sys/types.h>
 
 #include "constants.h"
-#include "pidref.h"
-#include "set.h"
+#include "macro.h"
+#include "types.h"
 
 #define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
 #define SYSTEMD_CGROUP_CONTROLLER_HYBRID "name=unified"

@@ -2,11 +2,10 @@
 #pragma once
 
 #include <limits.h>
-#include <stdbool.h>
-#include <stddef.h>
 
 #include "hash-funcs.h"
 #include "macro.h"
+#include "types.h"
 
 /*
  * A hash table implementation. As a minor optimization a NULL hashmap object
@@ -20,20 +19,6 @@
  */
 
 #define HASH_KEY_SIZE 16
-
-typedef void* (*hashmap_destroy_t)(void *p);
-
-/* The base type for all hashmap and set types. Many functions in the implementation take (HashmapBase*)
- * parameters and are run-time polymorphic, though the API is not meant to be polymorphic (do not call
- * underscore-prefixed functions directly). */
-typedef struct HashmapBase HashmapBase;
-
-/* Specific hashmap/set types */
-typedef struct Hashmap Hashmap;               /* Maps keys to values */
-typedef struct OrderedHashmap OrderedHashmap; /* Like Hashmap, but also remembers entry insertion order */
-typedef struct Set Set;                       /* Stores just keys */
-
-typedef struct IteratedCache IteratedCache;   /* Caches the iterated order of one of the above */
 
 /* Ideally the Iterator would be an opaque struct, but it is instantiated
  * by hashmap users, so the definition has to be here. Do not use its fields

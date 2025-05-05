@@ -10,6 +10,7 @@
 #include "bitfield.h"
 #include "build.h"
 #include "bus-dump.h"
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-signature.h"
