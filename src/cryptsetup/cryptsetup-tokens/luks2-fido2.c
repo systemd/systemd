@@ -2,6 +2,7 @@
 
 #include <libcryptsetup.h>
 
+#include "alloc-util.h"
 #include "cryptsetup-token-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
