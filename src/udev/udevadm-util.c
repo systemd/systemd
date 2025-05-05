@@ -17,6 +17,7 @@
 #include "udev-varlink.h"
 #include "udevadm-util.h"
 #include "unit-name.h"
+#include "strv.h"
 #include "varlink-util.h"
 
 static int find_device_from_unit(const char *unit_name, sd_device **ret) {
