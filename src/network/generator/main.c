@@ -4,6 +4,7 @@
 
 #include "build.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "generator.h"

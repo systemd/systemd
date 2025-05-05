@@ -53,6 +53,7 @@
 #include "tpm2-util.h"
 #include "unaligned.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "varlink-io.systemd.PCRLock.h"
 #include "varlink-util.h"

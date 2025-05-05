@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "log.h"
 #include "sysupdate-instance.h"
 

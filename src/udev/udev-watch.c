@@ -9,6 +9,7 @@
 #include "daemon-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
