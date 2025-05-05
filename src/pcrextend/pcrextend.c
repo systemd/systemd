@@ -6,6 +6,7 @@
 #include "sd-messages.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "efi-loader.h"
 #include "escape.h"

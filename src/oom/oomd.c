@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "bus-log-control-api.h"
 #include "bus-object.h"

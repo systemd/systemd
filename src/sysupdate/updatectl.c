@@ -6,6 +6,7 @@
 #include "sd-bus.h"
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-label.h"

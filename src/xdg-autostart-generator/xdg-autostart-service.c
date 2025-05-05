@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "escape.h"
 #include "extract-word.h"
