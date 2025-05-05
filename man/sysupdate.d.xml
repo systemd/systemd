@@ -65,6 +65,52 @@
     <citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
+    <para>Sometimes, distributions need to update certain parts of themselves independently from the normal
+    update cycle.
+    For example, the <ulink url="https://github.com/rhboot/shim">UEFI Shim loader</ulink> (necessary for
+    UEFI Secure Boot support in many cases) has its own release cycle, requires code signatures from a
+    third-party, and in general is not tied to a distribution's update cycle.
+    Support for this scenario is provided by "components", which allow distributions to define transfer
+    definitions that receive updates independently from the base OS.
+    Components are defined in <filename>/usr/lib/sysupdate.<replaceable>component</replaceable>.d/</filename>,
+    and have corresponding override directories for administrators (i.e.
+    <filename>/etc/sysupdate.<replaceable>component</replaceable>.d/</filename>, etc).</para>
+
+    <para>Some distributions may wish to maintain multiple update "streams" at a time, for example to offer
+    a beta/nightly update channel, or to distribute security updates to multiple major versions at a time.
+    Users of such distributions may wish to remain on their current stream, and switch streams at some future
+    point in time.
+    A distribution with multiple update streams should ship the transfer definitions for each stream in the
+    <filename>/usr/lib/sysupdate@<replaceable>stream</replaceable>.d/</filename> or
+    <filename>/var/cache/systemd/sysupdate@<replaceable>stream</replaceable>.d/</filename> directories.
+    For example, a distribution with multiple stable branches can ship the next major release's transfer
+    definitions in the current release's
+    <filename>/usr/lib/sysupdate@foobarOS-<replaceable>next</replaceable>.d/</filename> directory, and users
+    can switch to it by updating the <literal>foobarOS-<replaceable>next</replaceable></literal> stream.
+    How exactly these stream definition directories are delivered is up to distributions: they can stabilize
+    transfer definitions a version in advance and ship the stream definitions from day one, or they can ship
+    these files as part of a regular security patch that users will install anyway, or they can use a
+    component as described above to update the stream definitions under <filename>/var/cache/</filename>
+    independently from the host system.
+    Note that the presence of a stream definition directory does not imply the availability of an upgrade on
+    that stream; it just defines where to look and if an update is found on the remote how to install it.
+    Also note that the normal administrator override files (i.e. transfer definitions, feature definitions,
+    or drop-ins found in <filname>/etc/sysupdate.d/</filname>, <filename>/run/sysupdate.d/</filename>, etc)
+    are applied over top of the definitions found in the stream definition directory.
+    This is done because a the stream definition directory turns into the normal definition directory
+    (<filename>/usr/lib/sysupdate.d/</filename>) when that stream is switched to.</para>
+
+    <para>System Administrators must take <emphasis>extreme</emphasis> care when overriding any transfer or
+    optional feature definitions, other than to turn on or off features!
+    As with any configuration defined in <filename>/usr</filename> and overridden in
+    <filename>/etc</filename>, an update to the host system can break the administrator overrides.
+    However, <command>systemd-sysupdate</command> is uniquely destructive: a broken configuration could
+    prevent the system from updating (best case), or completely destroy an installation by wiping the wrong
+    partition.
+    Distributions must take care to avoid breaking systems where overrides exist only to turn on or off
+    optional features; supporting (or choosing not to) everything else is up to distribution policy.
+    <emphasis>You have been warned.</emphasis></para>
+
     <para>Each <filename>*.transfer</filename> file contains three sections: [Transfer], [Source] and [Target].</para>
   </refsect1>
 
