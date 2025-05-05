@@ -168,7 +168,7 @@ static int bus_manager_send_inhibited_change(Inhibitor *i) {
 
         property = IN_SET(i->mode, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK) ? "BlockInhibited" : "DelayInhibited";
 
-        return manager_send_changed(i->manager, property, NULL);
+        return manager_send_changed(i->manager, property);
 }
 
 int inhibitor_start(Inhibitor *i) {
