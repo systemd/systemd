@@ -7,6 +7,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 #include "xdg-autostart-service.h"
 
 TEST(translate_name) {

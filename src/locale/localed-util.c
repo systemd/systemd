@@ -9,6 +9,7 @@
 #include "env-file.h"
 #include "env-file-label.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "kbd-util.h"

@@ -9,6 +9,7 @@
 #include "build.h"
 #include "device-util.h"
 #include "efivars.h"
+#include "errno-util.h"
 #include "factory-reset.h"
 #include "fs-util.h"
 #include "json-util.h"
