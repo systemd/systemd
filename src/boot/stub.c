@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <limits.h>
+
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
