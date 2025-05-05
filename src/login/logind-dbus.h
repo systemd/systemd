@@ -25,7 +25,8 @@ int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *er
 int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
-int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;
+int manager_send_changed_strv(Manager *manager, char **properties);
+#define manager_send_changed(manager, ...) manager_send_changed_strv(manager, STRV_MAKE(__VA_ARGS__))
 
 int manager_start_scope(
                 Manager *manager,
