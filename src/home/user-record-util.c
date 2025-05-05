@@ -4,6 +4,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "home-util.h"

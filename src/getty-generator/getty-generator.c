@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "creds-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"

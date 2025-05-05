@@ -2,6 +2,7 @@
 
 #include <fnmatch.h>
 
+#include "alloc-util.h"
 #include "device-filter.h"
 #include "path-util.h"
 #include "strv.h"

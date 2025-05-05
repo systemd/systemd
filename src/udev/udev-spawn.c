@@ -7,6 +7,7 @@
 #include "device-util.h"
 #include "event-util.h"
 #include "exec-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "path-util.h"
 #include "process-util.h"

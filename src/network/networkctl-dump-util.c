@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "format-ifname.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"

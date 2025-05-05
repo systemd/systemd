@@ -18,6 +18,7 @@
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
