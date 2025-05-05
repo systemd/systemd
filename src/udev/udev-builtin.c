@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "device-private.h"
 #include "device-util.h"
