@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "authenticode.h"
 #include "build.h"
