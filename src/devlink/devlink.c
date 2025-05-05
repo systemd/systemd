@@ -11,9 +11,11 @@
 #include "devlink.h"
 #include "devlink-kind.h"
 #include "devlink-key.h"
+#include "devlink-dev.h"
 #include "devlinkd-manager.h"
 
 const DevlinkVTable * const devlink_vtable[_DEVLINK_KIND_MAX] = {
+        [DEVLINK_KIND_DEV] = &devlink_dev_vtable,
 };
 
 _printf_(7, 8)
