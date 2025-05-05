@@ -24,6 +24,7 @@
 #include "smack-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-node.h"
 #include "user-util.h"
 
