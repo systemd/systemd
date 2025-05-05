@@ -25,6 +25,7 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 assert_cc(SUN_PATH_LEN == 108);
 

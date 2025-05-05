@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "device-nodes.h"
+#include "errno-util.h"
 #include "fstab-util.h"
 #include "initrd-util.h"
 #include "libmount-util.h"

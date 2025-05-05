@@ -2,6 +2,7 @@
 
 #include "device-private.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "signal-util.h"
 #include "udev-error.h"
 

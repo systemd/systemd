@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 
 #include "btrfs.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "path-util.h"
