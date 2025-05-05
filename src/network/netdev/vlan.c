@@ -5,6 +5,7 @@
 #include <linux/if_vlan.h>
 #include <net/if.h>
 
+#include "alloc-util.h"
 #include "parse-util.h"
 #include "vlan.h"
 #include "vlan-util.h"

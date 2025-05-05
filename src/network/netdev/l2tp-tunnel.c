@@ -5,6 +5,7 @@
 #include <linux/l2tp.h>
 #include <netinet/in.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "hashmap.h"
 #include "l2tp-tunnel.h"

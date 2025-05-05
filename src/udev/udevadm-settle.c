@@ -12,6 +12,7 @@
 #include "sd-login.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "path-util.h"
 #include "strv.h"
