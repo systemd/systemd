@@ -18,4 +18,5 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-__Temp__,                               NULL,                 0,                             0
+Match.Kind,                               config_parse_devlink_kind,                           0,                  offsetof(Devlink, key.kind)
+Match.Handle,                             config_parse_devlink_dev_handle,                     0,                  offsetof(Devlink, key.match.dev)
