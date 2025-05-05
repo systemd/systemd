@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bus-message-util.h"
 #include "bus-util.h"
 #include "copy.h"

@@ -8,9 +8,8 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
-#include "alloc-util.h"
 #include "log.h"
-#include "macro.h"
+#include "memory-util.h"
 #include "time-util.h"
 
 struct siphash;
