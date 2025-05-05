@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "iovec-util.h"
+#include "memory-util.h"
 #include "string-util.h"
 
 static const uint8_t nul_byte = 0;

@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "device-nodes.h"
 #include "device-util.h"
 #include "fd-util.h"

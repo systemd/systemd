@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
