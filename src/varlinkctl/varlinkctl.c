@@ -19,6 +19,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "varlink-idl-util.h"
 #include "varlink-util.h"

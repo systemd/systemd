@@ -8,6 +8,7 @@
 #include "log.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "strv.h"
 
 #define IPE_SECFS_DIR "/sys/kernel/security/ipe"
 #define IPE_SECFS_NEW_POLICY IPE_SECFS_DIR "/new_policy"
