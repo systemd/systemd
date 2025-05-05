@@ -9,6 +9,7 @@
 #include "btrfs-util.h"
 #include "copy.h"
 #include "curl-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"

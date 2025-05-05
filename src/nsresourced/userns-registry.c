@@ -3,7 +3,9 @@
 #include "sd-json.h"
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
