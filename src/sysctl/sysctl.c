@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "conf-files.h"
 #include "constants.h"
