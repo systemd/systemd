@@ -2260,7 +2260,6 @@ static int make_extra_nodes(const char *dest) {
 
 static int setup_pts(const char *dest, uid_t chown_uid) {
         _cleanup_free_ char *options = NULL;
-        const char *p;
         int r;
 
 #if HAVE_SELINUX
@@ -2279,7 +2278,10 @@ static int setup_pts(const char *dest, uid_t chown_uid) {
                 return log_oom();
 
         /* Mount /dev/pts itself */
-        p = prefix_roota(dest, "/dev/pts");
+        _cleanup_free_ char *p = path_join(dest, "/dev/pts");
+        if (!p)
+                return log_oom();
+
         r = RET_NERRNO(mkdir(p, 0755));
         if (r < 0)
                 return log_error_errno(r, "Failed to create /dev/pts: %m");
@@ -2292,7 +2294,11 @@ static int setup_pts(const char *dest, uid_t chown_uid) {
                 return log_error_errno(r, "Failed to chown /dev/pts: %m");
 
         /* Create /dev/ptmx symlink */
-        p = prefix_roota(dest, "/dev/ptmx");
+        free(p);
+        p = path_join(dest, "/dev/ptmx");
+        if (!p)
+                return log_oom();
+
         if (symlink("pts/ptmx", p) < 0)
                 return log_error_errno(errno, "Failed to create /dev/ptmx symlink: %m");
         r = userns_lchown(p, 0, 0);
@@ -2300,7 +2306,11 @@ static int setup_pts(const char *dest, uid_t chown_uid) {
                 return log_error_errno(r, "Failed to chown /dev/ptmx: %m");
 
         /* And fix /dev/pts/ptmx ownership */
-        p = prefix_roota(dest, "/dev/pts/ptmx");
+        free(p);
+        p = path_join(dest, "/dev/pts/ptmx");
+        if (!p)
+                return log_oom();
+
         r = userns_lchown(p, 0, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to chown /dev/pts/ptmx: %m");
@@ -2384,7 +2394,6 @@ int make_run_host(const char *root) {
 
 static int setup_credentials(const char *root) {
         bool world_readable = false;
-        const char *q;
         int r;
 
         if (arg_credentials.n_credentials == 0)
@@ -2411,7 +2420,10 @@ static int setup_credentials(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/host/credentials: %m");
 
-        q = prefix_roota(root, "/run/host/credentials");
+        _cleanup_free_ char *q = path_join(root, "/run/host/credentials");
+        if (!q)
+                return log_oom();
+
         r = mount_nofollow_verbose(LOG_ERR, NULL, q, "ramfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0700");
         if (r < 0)
                 return r;
@@ -2527,7 +2539,6 @@ static int setup_hostname(void) {
 
 static int setup_journal(const char *directory) {
         _cleanup_free_ char *d = NULL;
-        const char *p, *q;
         sd_id128_t this_id;
         bool try;
         int r;
@@ -2563,8 +2574,13 @@ static int setup_journal(const char *directory) {
                 }
         }
 
-        p = strjoina("/var/log/journal/", SD_ID128_TO_STRING(arg_uuid));
-        q = prefix_roota(directory, p);
+        _cleanup_free_ char *p = path_join("/var/log/journal/", SD_ID128_TO_STRING(arg_uuid));
+        if (!p)
+                return log_oom();
+
+        _cleanup_free_ char *q = path_join(directory, p);
+        if (!q)
+                return log_oom();
 
         if (path_is_mount_point(p) > 0) {
                 if (try)
@@ -2741,7 +2757,6 @@ static int reset_audit_loginuid(void) {
 }
 
 static int mount_tunnel_dig(const char *root) {
-        const char *p, *q;
         int r;
 
         if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
@@ -2751,7 +2766,10 @@ static int mount_tunnel_dig(const char *root) {
 
         (void) mkdir_p("/run/systemd/nspawn/", 0755);
         (void) mkdir_p("/run/systemd/nspawn/propagate", 0600);
-        p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
+        _cleanup_free_ char *p = path_join("/run/systemd/nspawn/propagate/", arg_machine);
+        if (!p)
+                return log_oom();
+
         (void) mkdir_p(p, 0600);
 
         r = make_run_host(root);
@@ -2762,7 +2780,10 @@ static int mount_tunnel_dig(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create "NSPAWN_MOUNT_TUNNEL": %m");
 
-        q = prefix_roota(root, NSPAWN_MOUNT_TUNNEL);
+        _cleanup_free_ char *q = path_join(root, NSPAWN_MOUNT_TUNNEL);
+        if (!q)
+                return log_oom();
+
         r = mount_nofollow_verbose(LOG_ERR, p, q, NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
@@ -3819,7 +3840,6 @@ static int outer_child(
         _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
         bool idmap = false;
-        const char *p;
         pid_t pid;
         ssize_t l;
         int r;
@@ -4157,7 +4177,10 @@ static int outer_child(
 
         (void) dev_setup(directory, chown_uid, chown_uid);
 
-        p = prefix_roota(directory, "/run/host");
+        _cleanup_free_ char *p = path_join(directory, "/run/host");
+        if (!p)
+                return log_oom();
+
         (void) make_inaccessible_nodes(p, chown_uid, chown_uid);
 
         r = setup_unix_export_host_inside(directory, unix_export_path);
@@ -4212,11 +4235,19 @@ static int outer_child(
                 return r;
 
         /* The same stuff as the $container env var, but nicely readable for the entire payload */
-        p = prefix_roota(directory, "/run/host/container-manager");
+        free(p);
+        p = path_join(directory, "/run/host/container-manager");
+        if (!p)
+                return log_oom();
+
         (void) write_string_file(p, arg_container_service_name, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444);
 
         /* The same stuff as the $container_uuid env var */
-        p = prefix_roota(directory, "/run/host/container-uuid");
+        free(p);
+        p = path_join(directory, "/run/host/container-uuid");
+        if (!p)
+                return log_oom();
+
         (void) write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
 
         if (!arg_use_cgns) {

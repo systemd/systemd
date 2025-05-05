@@ -944,11 +944,21 @@ static int write_files(Context *c) {
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
         int r;
 
-        const char
-                *passwd_path = prefix_roota(arg_root, "/etc/passwd"),
-                *shadow_path = prefix_roota(arg_root, "/etc/shadow"),
-                *group_path = prefix_roota(arg_root, "/etc/group"),
-                *gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
+        _cleanup_free_ char *passwd_path = path_join(arg_root, "/etc/passwd");
+        if (!passwd_path)
+                return log_oom();
+
+        _cleanup_free_ char *shadow_path = path_join(arg_root, "/etc/shadow");
+        if (!shadow_path)
+                return log_oom();
+
+        _cleanup_free_ char *group_path = path_join(arg_root, "/etc/group");
+        if (!group_path)
+                return log_oom();
+
+        _cleanup_free_ char *gshadow_path = path_join(arg_root, "/etc/gshadow");
+        if (!gshadow_path)
+                return log_oom();
 
         assert(c);
 
