@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "dirent-util.h"

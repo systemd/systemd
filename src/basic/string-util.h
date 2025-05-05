@@ -109,21 +109,6 @@ char* strextendn(char **x, const char *s, size_t l) _nonnull_if_nonzero_(2, 3);
 
 #define strjoin(a, ...) strextend_with_separator_internal(NULL, NULL, a, __VA_ARGS__, NULL)
 
-#define strjoina(a, ...)                                                \
-        ({                                                              \
-                const char *_appendees_[] = { a, __VA_ARGS__ };         \
-                char *_d_, *_p_;                                        \
-                size_t _len_ = 0;                                       \
-                size_t _i_;                                             \
-                for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
-                        _len_ += strlen(_appendees_[_i_]);              \
-                _p_ = _d_ = newa(char, _len_ + 1);                      \
-                for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
-                        _p_ = stpcpy(_p_, _appendees_[_i_]);            \
-                *_p_ = 0;                                               \
-                _d_;                                                    \
-        })
-
 char* strstrip(char *s);
 char* delete_chars(char *s, const char *bad);
 char* delete_trailing_chars(char *s, const char *bad);

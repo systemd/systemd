@@ -12,6 +12,7 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "creds-util.h"
 #include "dns-domain.h"
 #include "event-util.h"

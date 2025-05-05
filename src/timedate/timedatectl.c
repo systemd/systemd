@@ -9,6 +9,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"

@@ -2,6 +2,7 @@
 
 #include <sys/mount.h>
 
+#include "alloca-util.h"
 #include "btrfs-util.h"
 #include "fd-util.h"
 #include "homework-blob.h"

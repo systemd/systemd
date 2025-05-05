@@ -6,6 +6,7 @@
 #include <linux/ipv6.h>
 #include <netinet/in.h>
 
+#include "alloca-util.h"
 #include "device-private.h"
 #include "missing_network.h"
 #include "netif-util.h"

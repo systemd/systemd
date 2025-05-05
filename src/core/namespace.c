@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "base-filesystem.h"
 #include "chase.h"
 #include "dev-setup.h"
