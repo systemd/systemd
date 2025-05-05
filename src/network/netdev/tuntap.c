@@ -10,6 +10,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bitfield.h"
 #include "daemon-util.h"
 #include "fd-util.h"

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bus-label.h"
 #include "hexdecoct.h"
 #include "macro.h"

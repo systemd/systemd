@@ -4,6 +4,7 @@
 
 #include "sd-journal.h"
 
+#include "alloca-util.h"
 #include "build.h"
 #include "glob-util.h"
 #include "id128-print.h"

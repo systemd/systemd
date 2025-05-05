@@ -4,11 +4,13 @@
 
 #include "sd-varlink-idl.h"
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fuzz.h"
 #include "io-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "string-util.h"
 #include "varlink-idl-util.h"
 

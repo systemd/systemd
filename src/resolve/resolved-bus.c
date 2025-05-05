@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-locator.h"

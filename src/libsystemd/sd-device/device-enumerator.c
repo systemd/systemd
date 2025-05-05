@@ -7,6 +7,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "device-enumerator-private.h"
 #include "device-filter.h"
 #include "device-util.h"
