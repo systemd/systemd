@@ -2,6 +2,7 @@
 
 #include <netinet/icmp6.h>
 
+#include "alloc-util.h"
 #include "icmp6-packet.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
