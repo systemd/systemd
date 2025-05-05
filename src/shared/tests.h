@@ -454,11 +454,14 @@ int _define_test_main_impl(
 #else
 #define ASSERT_NOT_NULL(expr)                                                                                   \
         ({                                                                                                      \
-                if ((expr) == NULL) {                                                                           \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result == NULL) {                                                                          \
                         log_error("%s:%i: Assertion failed: expected \"%s\" to be not NULL",                    \
                                   PROJECT_FILE, __LINE__, #expr);                                               \
                         abort();                                                                                \
                 }                                                                                               \
+                                                                                                                \
+                _result;                                                                                        \
         })
 #endif
 
