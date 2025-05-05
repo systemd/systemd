@@ -11,6 +11,7 @@
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit-file.h"
 
 /*

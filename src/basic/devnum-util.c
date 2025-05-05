@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "devnum-util.h"
 #include "parse-util.h"

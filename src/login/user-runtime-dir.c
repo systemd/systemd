@@ -27,6 +27,7 @@
 #include "selinux-util.h"
 #include "set.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
