@@ -6,7 +6,7 @@
 
 #include "sd-id128.h"
 
-#include "hashmap.h"
+typedef struct OrderedHashmap OrderedHashmap;
 
 int catalog_import_file(OrderedHashmap **h, const char *path);
 int catalog_update(const char *database, const char *root, const char* const *dirs);

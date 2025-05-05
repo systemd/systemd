@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "utf8.h"
 
 #if defined(__x86_64__)

@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "network-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 
 bool network_is_online(void) {

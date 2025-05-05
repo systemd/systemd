@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloca-util.h"
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "fuzz.h"

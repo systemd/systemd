@@ -3,6 +3,7 @@
 #include <linux/nl80211.h>
 #include <net/if_arp.h>
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "networkd-manager.h"

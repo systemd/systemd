@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <float.h>
+#include <sys/sysmacros.h>
 
 #include "sd-json.h"
 
@@ -13,6 +14,7 @@
 #include "json-util.h"
 #include "math-util.h"
 #include "ordered-set.h"
+#include "set.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

@@ -12,6 +12,7 @@
 #include "glyph-util.h"
 #include "memory-util.h"
 #include "plymouth-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unistd.h"
 

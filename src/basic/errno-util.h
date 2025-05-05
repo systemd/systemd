@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -42,6 +44,12 @@ static inline void _reset_errno_(int *saved_errno) {
 #define LOCAL_ERRNO(value)                      \
         PROTECT_ERRNO;                          \
         errno = abs(value)
+
+#define return_with_errno(r, err)                     \
+        do {                                          \
+                errno = abs(err);                     \
+                return r;                             \
+        } while (false)
 
 static inline int negative_errno(void) {
         /* This helper should be used to shut up gcc if you know 'errno' is

@@ -9,12 +9,13 @@
 
 #include "compress.h"
 #include "gcrypt-util.h"
-#include "hashmap.h"
 #include "journal-def.h"
 #include "missing_fcntl.h"
 #include "mmap-cache.h"
 #include "sparse-endian.h"
 #include "time-util.h"
+
+typedef struct OrderedHashmap OrderedHashmap;
 
 typedef struct JournalMetrics {
         /* For all these: UINT64_MAX means "pick automatically", and 0 means "no limit enforced" */

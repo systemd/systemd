@@ -3,6 +3,7 @@
 #include <malloc.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "audit-type.h"
 #include "errno-util.h"
 #include "fd-util.h"

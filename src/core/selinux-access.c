@@ -14,6 +14,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
 #include "errno-util.h"

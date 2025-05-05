@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "alloca-util.h"
 #include "clean-ipc.h"
 #include "dynamic-user.h"
 #include "fd-util.h"

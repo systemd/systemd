@@ -14,6 +14,7 @@
 #include "bus-message.h"
 #include "bus-polkit.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "constants.h"
 #include "daemon-util.h"
 #include "kbd-util.h"

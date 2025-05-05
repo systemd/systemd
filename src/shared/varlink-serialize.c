@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
+#include "alloca-util.h"
 #include "log.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "varlink-internal.h"
 #include "varlink-serialize.h"
 

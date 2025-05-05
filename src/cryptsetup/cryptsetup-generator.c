@@ -6,6 +6,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "cryptsetup-util.h"
 #include "dropin.h"
 #include "escape.h"
