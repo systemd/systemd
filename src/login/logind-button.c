@@ -9,6 +9,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "async.h"
 #include "fd-util.h"
 #include "logind.h"

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bootspec.h"
 #include "build.h"
 #include "devnum-util.h"

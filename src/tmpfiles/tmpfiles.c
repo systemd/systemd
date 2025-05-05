@@ -17,6 +17,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bitfield.h"
 #include "btrfs-util.h"
 #include "build.h"

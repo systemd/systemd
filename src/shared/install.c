@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bus-common-errors.h"
 #include "chase.h"
 #include "conf-files.h"
