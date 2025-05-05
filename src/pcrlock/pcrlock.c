@@ -49,6 +49,7 @@
 #include "recovery-key.h"
 #include "sort-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tpm2-util.h"
 #include "unaligned.h"

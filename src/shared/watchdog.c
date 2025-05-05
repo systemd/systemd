@@ -17,6 +17,7 @@
 #include "path-util.h"
 #include "ratelimit.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "watchdog.h"
 
