@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"

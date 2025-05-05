@@ -2,7 +2,7 @@
 #pragma once
 
 #include "hash-funcs.h"
-#include "macro.h"
+#include "memory-util.h"
 
 #if HAVE_PCRE2
 

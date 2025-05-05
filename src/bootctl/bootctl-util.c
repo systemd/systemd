@@ -2,6 +2,7 @@
 
 #include <sys/mman.h>
 
+#include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-util.h"
 #include "errno-util.h"

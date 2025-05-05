@@ -11,6 +11,7 @@
 #include "oomd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"

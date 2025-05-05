@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "dns-domain.h"
 #include "glyph-util.h"
 #include "hashmap.h"

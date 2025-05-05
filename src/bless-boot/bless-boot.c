@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bootspec.h"
 #include "build.h"
 #include "devnum-util.h"
@@ -18,6 +19,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "strv.h"
 #include "sync-util.h"
 #include "terminal-util.h"
 #include "verbs.h"

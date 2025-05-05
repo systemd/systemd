@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 
@@ -54,10 +55,10 @@ TEST(cg_create) {
         _cleanup_free_ char *here = NULL;
         ASSERT_OK(cg_pid_get_path_shifted(0, NULL, &here));
 
-        const char *test_a = prefix_roota(here, "/test-a"),
-                   *test_b = prefix_roota(here, "/test-b"),
-                   *test_c = prefix_roota(here, "/test-b/test-c"),
-                   *test_d = prefix_roota(here, "/test-b/test-d");
+        _cleanup_free_ char *test_a = ASSERT_NOT_NULL(path_join(here, "/test-a")),
+                            *test_b = ASSERT_NOT_NULL(path_join(here, "/test-b")),
+                            *test_c = ASSERT_NOT_NULL(path_join(here, "/test-b/test-c")),
+                            *test_d = ASSERT_NOT_NULL(path_join(here, "/test-b/test-d"));
         char *path;
 
         log_info("Paths for test:\n%s\n%s", test_a, test_b);

@@ -10,6 +10,7 @@
 #include "network-util.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
+#include "set.h"
 
 typedef struct DnsResourceRecord DnsResourceRecord;
 typedef struct DnsScope DnsScope;

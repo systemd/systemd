@@ -758,12 +758,11 @@ TEST(path_startswith) {
 
 static void test_prefix_root_one(const char *r, const char *p, const char *expected) {
         _cleanup_free_ char *s = NULL;
-        const char *t;
 
         assert_se(s = path_join(r, p));
         assert_se(path_equal(s, expected));
 
-        t = prefix_roota(r, p);
+        _cleanup_free_ char *t = path_join(r, p);
         assert_se(t);
         assert_se(path_equal(t, expected));
 }

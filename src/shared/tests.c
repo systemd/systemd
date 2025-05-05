@@ -364,3 +364,34 @@ const char* ci_environment(void) {
 
         return (ans = NULL);
 }
+
+int _define_test_main_impl(
+                int argc,
+                char *argv[],
+                int log_level,
+                IntroOutroFunction intro,
+                IntroOutroFunction outro,
+                typeof(static_destruct) _static_destruct) {
+
+        int r, q;
+
+        test_setup_logging(log_level);
+        save_argc_argv(argc, argv);
+
+        r = intro ? intro() : EXIT_SUCCESS;
+        if (r == EXIT_SUCCESS)
+                r = run_test_table();
+
+        q = outro ? outro() : EXIT_SUCCESS;
+
+        _static_destruct();
+
+        if (r < 0)
+                return EXIT_FAILURE;
+        if (r != EXIT_SUCCESS)
+                return r;
+        if (q < 0)
+                return EXIT_FAILURE;
+
+        return q;
+}

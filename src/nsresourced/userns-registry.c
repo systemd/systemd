@@ -3,7 +3,10 @@
 #include "sd-json.h"
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
+#include "alloca-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -13,6 +16,7 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "strv.h"
 #include "user-util.h"
 #include "userns-registry.h"
 

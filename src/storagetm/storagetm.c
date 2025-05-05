@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "id128-util.h"
 #include "local-addresses.h"
 #include "loop-util.h"
@@ -28,6 +29,7 @@
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "socket-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
 

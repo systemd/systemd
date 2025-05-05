@@ -12,11 +12,13 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "assert-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "macro.h"
 #include "pidref.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \

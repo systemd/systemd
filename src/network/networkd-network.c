@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "dns-domain.h"

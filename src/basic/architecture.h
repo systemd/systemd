@@ -2,6 +2,7 @@
 #pragma once
 
 #include <endian.h>
+#include <errno.h>
 
 #include "macro.h"
 

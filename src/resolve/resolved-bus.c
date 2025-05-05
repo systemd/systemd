@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-locator.h"
@@ -2287,20 +2288,19 @@ int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-int _manager_send_changed(Manager *manager, const char *property, ...) {
+int manager_send_changed_strv(Manager *manager, char **properties) {
         assert(manager);
 
         if (sd_bus_is_ready(manager->bus) <= 0)
                 return 0;
 
-        char **l = strv_from_stdarg_alloca(property);
-
         int r = sd_bus_emit_properties_changed_strv(
                         manager->bus,
                         "/org/freedesktop/resolve1",
                         "org.freedesktop.resolve1.Manager",
-                        l);
+                        properties);
         if (r < 0)
-                log_notice_errno(r, "Failed to emit notification about changed property %s: %m", property);
+                log_notice_errno(r, "Failed to emit notification about changed properties: %m");
+
         return r;
 }

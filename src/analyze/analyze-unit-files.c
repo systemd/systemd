@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
+
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-unit-files.h"
 #include "path-lookup.h"
