@@ -2,6 +2,7 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
