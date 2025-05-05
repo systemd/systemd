@@ -49,7 +49,7 @@ int mount_verbose_full(
                 int error_log_level,
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 unsigned long flags,
                 const char *options,
                 bool follow_symlink);
@@ -58,20 +58,20 @@ static inline int mount_follow_verbose(
                 int error_log_level,
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 unsigned long flags,
                 const char *options) {
-        return mount_verbose_full(error_log_level, what, where, type, flags, options, true);
+        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, true);
 }
 
 static inline int mount_nofollow_verbose(
                 int error_log_level,
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 unsigned long flags,
                 const char *options) {
-        return mount_verbose_full(error_log_level, what, where, type, flags, options, false);
+        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, false);
 }
 
 int umount_verbose(
