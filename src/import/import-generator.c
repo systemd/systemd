@@ -2,6 +2,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "creds-util.h"
 #include "discover-image.h"
 #include "efivars.h"
