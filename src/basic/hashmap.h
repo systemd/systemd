@@ -6,7 +6,7 @@
 #include <stddef.h>
 
 #include "hash-funcs.h"
-#include "macro.h"
+#include "memory-util.h"
 
 /*
  * A hash table implementation. As a minor optimization a NULL hashmap object
