@@ -154,32 +154,6 @@ int fsck_exists_for_fstype(const char *fstype);
              _slash && ((*_slash = 0), true);                           \
              _slash = strrchr((prefix), '/'))
 
-/* Similar to path_join(), but only works for two components, and only the first one may be NULL and returns
- * an alloca() buffer, or possibly a const pointer into the path parameter. */
-/* DEPRECATED: use path_join() instead */
-#define prefix_roota(root, path)                                        \
-        ({                                                              \
-                const char* _path = (path), *_root = (root), *_ret;     \
-                char *_p, *_n;                                          \
-                size_t _l;                                              \
-                while (_path[0] == '/' && _path[1] == '/')              \
-                        _path++;                                        \
-                if (isempty(_root))                                     \
-                        _ret = _path;                                   \
-                else {                                                  \
-                        _l = strlen(_root) + 1 + strlen(_path) + 1;     \
-                        _n = newa(char, _l);                            \
-                        _p = stpcpy(_n, _root);                         \
-                        while (_p > _n && _p[-1] == '/')                \
-                                _p--;                                   \
-                        if (_path[0] != '/')                            \
-                                *(_p++) = '/';                          \
-                        strcpy(_p, _path);                              \
-                        _ret = _n;                                      \
-                }                                                       \
-                _ret;                                                   \
-        })
-
 int path_find_first_component(const char **p, bool accept_dot_dot, const char **ret);
 int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret);
 const char* last_path_component(const char *path);
