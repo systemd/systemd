@@ -280,6 +280,19 @@ size_t strspn_from_end(const char *str, const char *accept);
 char* strdupspn(const char *a, const char *accept);
 char* strdupcspn(const char *a, const char *reject);
 
+/* These are like strdupa()/strndupa(), but honour ALLOCA_MAX */
+#define strdupa_safe(s)                                                 \
+        ({                                                              \
+                const char *_t = (s);                                   \
+                (char*) memdupa_suffix0(_t, strlen(_t));                \
+        })
+
+#define strndupa_safe(s, n)                                             \
+        ({                                                              \
+                const char *_t = (s);                                   \
+                (char*) memdupa_suffix0(_t, strnlen(_t, n));            \
+        })
+
 char* find_line_startswith(const char *haystack, const char *needle);
 
 bool version_is_valid(const char *s);
