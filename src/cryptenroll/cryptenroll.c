@@ -19,6 +19,7 @@
 #include "devnum-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "libfido2-util.h"
 #include "main-func.h"

@@ -7,6 +7,7 @@
 #include "bus-objects.h"
 #include "bus-slot.h"
 #include "log.h"
+#include "prioq.h"
 #include "set.h"
 #include "string-util.h"
 

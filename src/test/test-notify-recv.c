@@ -6,6 +6,7 @@
 
 #include "event-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "notify-recv.h"
 #include "path-util.h"
 #include "process-util.h"

@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "creds-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -16,6 +17,7 @@
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
+#include "string-util.h"
 #include "virt.h"
 
 /* A small generator binding potentially five or more SSH sockets:

@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "macro.h"
 #include "pidref.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \

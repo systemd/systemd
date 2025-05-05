@@ -2,6 +2,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-inspect-elf.h"
 #include "chase.h"

@@ -4,6 +4,7 @@
 #include <valgrind/memcheck.h>
 #endif
 
+#include <fnmatch.h>
 #include <linux/dm-ioctl.h>
 #include <linux/loop.h>
 #include <sys/file.h>
@@ -43,6 +44,7 @@
 #include "env-file.h"
 #include "env-util.h"
 #include "extension-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

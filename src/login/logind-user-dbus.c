@@ -399,9 +399,8 @@ int user_send_signal(User *u, bool new_user) {
                         "uo", (uint32_t) u->user_record->uid, p);
 }
 
-int user_send_changed(User *u, const char *properties, ...) {
+int user_send_changed_strv(User *u, char **properties) {
         _cleanup_free_ char *p = NULL;
-        char **l;
 
         assert(u);
 
@@ -412,7 +411,5 @@ int user_send_changed(User *u, const char *properties, ...) {
         if (!p)
                 return -ENOMEM;
 
-        l = strv_from_stdarg_alloca(properties);
-
-        return sd_bus_emit_properties_changed_strv(u->manager->bus, p, "org.freedesktop.login1.User", l);
+        return sd_bus_emit_properties_changed_strv(u->manager->bus, p, "org.freedesktop.login1.User", properties);
 }

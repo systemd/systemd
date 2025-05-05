@@ -9,6 +9,7 @@
 #include "fdset.h"
 #include "list.h"
 #include "macro.h"
+#include "types.h"
 
 typedef struct BPFProgram BPFProgram;
 

@@ -1,13 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "sd-id128.h"
-#include "sd-json.h"
-
-#include "hashmap.h"
 #include "image-policy.h"
 #include "lock-util.h"
 #include "macro.h"
@@ -15,7 +8,7 @@
 #include "path-util.h"
 #include "runtime-scope.h"
 #include "string-util.h"
-#include "time-util.h"
+#include "types.h"
 
 typedef enum ImageType {
         IMAGE_DIRECTORY,

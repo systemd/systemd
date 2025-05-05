@@ -12,6 +12,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
+#include "signal-util.h"
 #include "strv.h"
 
 static bool arg_quiet = false;

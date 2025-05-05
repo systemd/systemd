@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"

@@ -4,8 +4,6 @@
 #include "sd-device.h"
 
 #include "conf-parser.h"
-#include "hashmap.h"
-#include "time-util.h"
 
 int udev_parse_config_full(const ConfigTableItem config_table[]);
 int udev_parse_config(void);

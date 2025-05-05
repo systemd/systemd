@@ -2,6 +2,7 @@
  * Copyright © 2019 VMware, Inc. */
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "parse-util.h"

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -13,6 +14,7 @@
 #include "resolved-manager.h"
 #include "specifier.h"
 #include "strv.h"
+#include "utf8.h"
 
 #define DNSSD_SERVICE_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/dnssd"))
 

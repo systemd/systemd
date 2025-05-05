@@ -856,7 +856,7 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
 
         need_separator = !isempty(*x);
 
-        nr = realloc(*x, GREEDY_ALLOC_ROUND_UP(l+1));
+        nr = realloc(*x, greedy_alloc_round_up(l+1));
         if (!nr)
                 return NULL;
 
@@ -1111,6 +1111,19 @@ bool string_is_safe(const char *p) {
         }
 
         return true;
+}
+
+bool string_is_safe_ascii(const char *p) {
+        return ascii_is_valid(p) && string_is_safe(p);
+}
+
+char* str_realloc(char *p) {
+        /* Reallocate *p to actual size. Ignore failure, and return the original string on error. */
+
+        if (!p)
+                return NULL;
+
+        return realloc(p, strlen(p) + 1) ?: p;
 }
 
 char* string_erase(char *x) {

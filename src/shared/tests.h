@@ -9,6 +9,7 @@
 
 #include "argv-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "log.h"
 #include "macro.h"
 #include "process-util.h"
@@ -458,11 +459,14 @@ static inline int run_test_table(void) {
 #else
 #define ASSERT_NOT_NULL(expr)                                                                                   \
         ({                                                                                                      \
-                if ((expr) == NULL) {                                                                           \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result == NULL) {                                                                          \
                         log_error("%s:%i: Assertion failed: expected \"%s\" to be not NULL",                    \
                                   PROJECT_FILE, __LINE__, #expr);                                               \
                         abort();                                                                                \
                 }                                                                                               \
+                                                                                                                \
+                _result;                                                                                        \
         })
 #endif
 

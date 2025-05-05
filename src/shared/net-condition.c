@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <netinet/ether.h>
 
+#include "alloc-util.h"
 #include "condition.h"
 #include "env-util.h"
 #include "log.h"

@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "btrfs-util.h"
+#include "errno-util.h"
 #include "fs-util.h"
 #include "label.h"
 #include "label-util.h"

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "bus-print-properties.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
@@ -8,6 +9,7 @@
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
+#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

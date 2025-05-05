@@ -4,6 +4,7 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "arphrd-util.h"
 #include "id128-util.h"
 #include "memory-util.h"
