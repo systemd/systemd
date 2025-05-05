@@ -5,11 +5,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "copy.h"
 #include "env-file.h"
 #include "env-file-label.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "kbd-util.h"

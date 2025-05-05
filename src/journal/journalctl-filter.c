@@ -2,6 +2,7 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "devnum-util.h"
 #include "fileio.h"

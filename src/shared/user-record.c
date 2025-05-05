@@ -2,6 +2,7 @@
 
 #include <sys/mount.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "cap-list.h"
 #include "cgroup-util.h"

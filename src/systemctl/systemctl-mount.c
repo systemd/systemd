@@ -3,6 +3,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "dissect-image.h"
+#include "extract-word.h"
 #include "systemctl.h"
 #include "systemctl-mount.h"
 #include "systemctl-util.h"
