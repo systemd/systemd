@@ -5,6 +5,7 @@
 #include "devlink-kind.h"
 
 static const char* const devlink_kind_table[_DEVLINK_KIND_MAX] = {
+        [DEVLINK_KIND_DEV] = "dev",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(devlink_kind, DevlinkKind);
