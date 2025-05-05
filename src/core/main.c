@@ -2304,7 +2304,7 @@ static int invoke_main_loop(
                 case MANAGER_POWEROFF:
                 case MANAGER_HALT:
                 case MANAGER_KEXEC: {
-                        log_notice("Shutting down.");
+                        log_info("Shutting down.");
 
                         *ret_retval = m->return_value;
                         *ret_fds = NULL;
