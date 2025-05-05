@@ -882,10 +882,10 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
 
         /* Send signals */
         session_send_signal(s, true);
-        user_send_changed(s->user, "Display", NULL);
+        user_send_changed(s->user, "Display");
 
         if (s->seat && s->seat->active == s)
-                (void) seat_send_changed(s->seat, "ActiveSession", NULL);
+                (void) seat_send_changed(s->seat, "ActiveSession");
 
         return 0;
 }
@@ -1017,7 +1017,7 @@ int session_finalize(Session *s) {
         session_reset_leader(s, /* keep_fdstore = */ false);
 
         (void) user_save(s->user);
-        (void) user_send_changed(s->user, "Display", NULL);
+        (void) user_send_changed(s->user, "Display");
 
         return 0;
 }
@@ -1163,13 +1163,13 @@ int session_set_idle_hint(Session *s, bool b) {
         s->idle_hint = b;
         dual_timestamp_now(&s->idle_hint_timestamp);
 
-        session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+        session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
 
         if (s->seat)
-                seat_send_changed(s->seat, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+                seat_send_changed(s->seat, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
 
-        user_send_changed(s->user, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
-        manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+        user_send_changed(s->user, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
+        manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
 
         return 1;
 }
@@ -1191,7 +1191,7 @@ int session_set_locked_hint(Session *s, bool b) {
 
         s->locked_hint = b;
         (void) session_save(s);
-        (void) session_send_changed(s, "LockedHint", NULL);
+        (void) session_send_changed(s, "LockedHint");
 
         return 1;
 }
@@ -1204,7 +1204,7 @@ void session_set_type(Session *s, SessionType t) {
 
         s->type = t;
         (void) session_save(s);
-        (void) session_send_changed(s, "Type", NULL);
+        (void) session_send_changed(s, "Type");
 }
 
 void session_set_class(Session *s, SessionClass c) {
@@ -1215,7 +1215,7 @@ void session_set_class(Session *s, SessionClass c) {
 
         s->class = c;
         (void) session_save(s);
-        (void) session_send_changed(s, "Class", NULL);
+        (void) session_send_changed(s, "Class");
 
         /* This class change might mean we need the per-user session manager now. Try to start it. */
         (void) user_start_service_manager(s->user);
@@ -1232,7 +1232,7 @@ int session_set_display(Session *s, const char *display) {
                 return r;
 
         (void) session_save(s);
-        (void) session_send_changed(s, "Display", NULL);
+        (void) session_send_changed(s, "Display");
 
         return 1;
 }
@@ -1248,7 +1248,7 @@ int session_set_tty(Session *s, const char *tty) {
                 return r;
 
         (void) session_save(s);
-        (void) session_send_changed(s, "TTY", NULL);
+        (void) session_send_changed(s, "TTY");
 
         return 1;
 }

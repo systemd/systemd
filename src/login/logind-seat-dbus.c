@@ -381,9 +381,8 @@ int seat_send_signal(Seat *s, bool new_seat) {
                         "so", s->id, p);
 }
 
-int seat_send_changed(Seat *s, const char *properties, ...) {
+int seat_send_changed_strv(Seat *s, char **properties) {
         _cleanup_free_ char *p = NULL;
-        char **l;
 
         assert(s);
 
@@ -394,9 +393,7 @@ int seat_send_changed(Seat *s, const char *properties, ...) {
         if (!p)
                 return -ENOMEM;
 
-        l = strv_from_stdarg_alloca(properties);
-
-        return sd_bus_emit_properties_changed_strv(s->manager->bus, p, "org.freedesktop.login1.Seat", l);
+        return sd_bus_emit_properties_changed_strv(s->manager->bus, p, "org.freedesktop.login1.Seat", properties);
 }
 
 static const sd_bus_vtable seat_vtable[] = {
