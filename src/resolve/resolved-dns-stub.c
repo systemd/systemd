@@ -3,6 +3,7 @@
 #include <net/if_arp.h>
 #include <netinet/tcp.h>
 
+#include "alloc-util.h"
 #include "capability-util.h"
 #include "dns-type.h"
 #include "errno-util.h"
