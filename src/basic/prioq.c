@@ -28,7 +28,7 @@ struct Prioq {
         struct prioq_item *items;
 };
 
-Prioq *prioq_new(compare_func_t compare_func) {
+Prioq* prioq_new(compare_func_t compare_func) {
         Prioq *q;
 
         q = new(Prioq, 1);
@@ -269,7 +269,7 @@ void prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
         shuffle_up(q, k);
 }
 
-void *prioq_peek_by_index(Prioq *q, unsigned idx) {
+void* prioq_peek_by_index(Prioq *q, unsigned idx) {
         if (!q)
                 return NULL;
 
@@ -279,7 +279,7 @@ void *prioq_peek_by_index(Prioq *q, unsigned idx) {
         return q->items[idx].data;
 }
 
-void *prioq_pop(Prioq *q) {
+void* prioq_pop(Prioq *q) {
         void *data;
 
         if (!q)
