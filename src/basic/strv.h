@@ -9,9 +9,11 @@
 
 #include "alloc-util.h"
 #include "extract-word.h"
-#include "hashmap.h"
 #include "macro.h"
 #include "string-util.h"
+
+typedef struct Hashmap Hashmap;
+typedef struct OrderedHashmap OrderedHashmap;
 
 char* strv_find(char * const *l, const char *name) _pure_;
 char* strv_find_case(char * const *l, const char *name) _pure_;
@@ -259,9 +261,7 @@ int fputstrv(FILE *f, char * const *l, const char *separator, bool *space);
         free_and_replace_full(a, b, strv_free)
 
 void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value);
-static inline void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value) {
-        string_strv_hashmap_remove(PLAIN_HASHMAP(h), key, value);
-}
+void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value);
 int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value);
 int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value);
 #define string_strv_hashmap_put(h, k, v) _string_strv_hashmap_put(h, k, v)

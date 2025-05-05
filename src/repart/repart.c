@@ -69,6 +69,7 @@
 #include "random-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "stdio-util.h"

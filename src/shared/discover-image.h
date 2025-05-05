@@ -7,7 +7,6 @@
 #include "sd-id128.h"
 #include "sd-json.h"
 
-#include "hashmap.h"
 #include "image-policy.h"
 #include "lock-util.h"
 #include "macro.h"
@@ -16,6 +15,8 @@
 #include "runtime-scope.h"
 #include "string-util.h"
 #include "time-util.h"
+
+typedef struct Hashmap Hashmap;
 
 typedef enum ImageType {
         IMAGE_DIRECTORY,

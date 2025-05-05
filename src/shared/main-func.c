@@ -4,6 +4,7 @@
 
 #include "argv-util.h"
 #include "ask-password-agent.h"
+#include "hashmap.h"
 #include "main-func.h"
 #include "pager.h"
 #include "polkit-agent.h"
@@ -38,4 +39,23 @@ int _define_main_function_impl(
         mac_selinux_finish();
         static_destruct();
         return result_to_return_value(r);
+}
+
+int raise_or_exit_status(int ret) {
+        if (ret < 0)
+                return EXIT_FAILURE;
+        if (ret == 0)
+                return EXIT_SUCCESS;
+        if (!SIGNAL_VALID(ret))
+                return EXIT_FAILURE;
+
+#if HAVE_VALGRIND_VALGRIND_H
+        /* If raise() below succeeds, the destructor cleanup_pools() in hashmap.c will never called. */
+        if (RUNNING_ON_VALGRIND)
+                hashmap_trim_pools();
+#endif
+
+        (void) raise(ret);
+        /* exit with failure if raise() does not immediately abort the program. */
+        return EXIT_FAILURE;
 }
