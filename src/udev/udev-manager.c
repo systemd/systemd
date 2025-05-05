@@ -57,7 +57,6 @@ typedef struct Event {
 
         sd_device_action_t action;
         uint64_t seqnum;
-        uint64_t blocker_seqnum;
         const char *id;
         const char *devpath;
         const char *devpath_old;
@@ -70,6 +69,10 @@ typedef struct Event {
 
         sd_event_source *timeout_warning_event;
         sd_event_source *timeout_event;
+
+        bool dependencies_built;
+        Set *blocker_events;
+        Set *blocking_events;
 
         LIST_FIELDS(Event, event);
 } Event;
@@ -90,6 +93,21 @@ typedef struct Worker {
         Event *event;
 } Worker;
 
+static void event_clear_dependencies(Event *event) {
+        assert(event);
+
+        Event *e;
+        while ((e = set_steal_first(event->blocker_events)))
+                set_remove(e->blocking_events, event);
+        event->blocker_events = set_free(event->blocker_events);
+
+        while ((e = set_steal_first(event->blocking_events)))
+                set_remove(e->blocker_events, event);
+        event->blocking_events = set_free(event->blocking_events);
+
+        event->dependencies_built = false;
+}
+
 static Event* event_free(Event *event) {
         if (!event)
                 return NULL;
@@ -102,6 +120,8 @@ static Event* event_free(Event *event) {
 
         if (event->worker)
                 event->worker->event = NULL;
+
+        event_clear_dependencies(event);
 
         sd_device_unref(event->dev);
 
@@ -584,19 +604,51 @@ bool devpath_conflict(const char *a, const char *b) {
         return *a == '/' || *b == '/' || *a == *b;
 }
 
-static int event_is_blocked(Event *event) {
-        Event *loop_event = NULL;
+static int event_build_dependencies(Event *event) {
         int r;
+
+        assert(event);
 
         /* lookup event for identical, parent, child device */
 
+        if (event->dependencies_built)
+                return 0;
+
+        LIST_FOREACH_BACKWARDS(event, e, event->event_prev)
+                if (streq_ptr(event->id, e->id) ||
+                    devpath_conflict(event->devpath, e->devpath) ||
+                    devpath_conflict(event->devpath, e->devpath_old) ||
+                    devpath_conflict(event->devpath_old, e->devpath) ||
+                    (event->devnode && streq_ptr(event->devnode, e->devnode))) {
+
+                        r = set_ensure_put(&event->blocker_events, NULL, e);
+                        if (r < 0)
+                                return r;
+
+                        r = set_ensure_put(&e->blocking_events, NULL, event);
+                        if (r < 0) {
+                                set_remove(event->blocker_events, e);
+                                return r;
+                        }
+
+                        log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
+                                         event->seqnum, e->seqnum);
+                }
+
+        event->dependencies_built = true;
+        return 0;
+}
+
+static int event_is_blocked(Event *event) {
+        int r;
+
         assert(event);
         assert(event->manager);
-        assert(event->blocker_seqnum <= event->seqnum);
 
         if (event->retry_again_next_usec > 0) {
-                usec_t now_usec;
+                assert(event->dependencies_built);
 
+                usec_t now_usec;
                 r = sd_event_now(event->manager->event, CLOCK_BOOTTIME, &now_usec);
                 if (r < 0)
                         return r;
@@ -605,64 +657,11 @@ static int event_is_blocked(Event *event) {
                         return true;
         }
 
-        if (event->blocker_seqnum == event->seqnum)
-                /* we have checked previously and no blocker found */
-                return false;
+        r = event_build_dependencies(event);
+        if (r < 0)
+                return r;
 
-        LIST_FOREACH(event, e, event->manager->events) {
-                loop_event = e;
-
-                /* we already found a later event, earlier cannot block us, no need to check again */
-                if (loop_event->seqnum < event->blocker_seqnum)
-                        continue;
-
-                /* event we checked earlier still exists, no need to check again */
-                if (loop_event->seqnum == event->blocker_seqnum)
-                        return true;
-
-                /* found ourself, no later event can block us */
-                if (loop_event->seqnum >= event->seqnum)
-                        goto no_blocker;
-
-                /* found event we have not checked */
-                break;
-        }
-
-        assert(loop_event);
-        assert(loop_event->seqnum > event->blocker_seqnum &&
-               loop_event->seqnum < event->seqnum);
-
-        /* check if queue contains events we depend on */
-        LIST_FOREACH(event, e, loop_event) {
-                loop_event = e;
-
-                /* found ourself, no later event can block us */
-                if (loop_event->seqnum >= event->seqnum)
-                        goto no_blocker;
-
-                if (streq_ptr(loop_event->id, event->id))
-                        break;
-
-                if (devpath_conflict(event->devpath, loop_event->devpath) ||
-                    devpath_conflict(event->devpath, loop_event->devpath_old) ||
-                    devpath_conflict(event->devpath_old, loop_event->devpath))
-                        break;
-
-                if (event->devnode && streq_ptr(event->devnode, loop_event->devnode))
-                        break;
-        }
-
-        assert(loop_event);
-
-        log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
-                         event->seqnum, loop_event->seqnum);
-
-        event->blocker_seqnum = loop_event->seqnum;
-        return true;
-
-no_blocker:
-        event->blocker_seqnum = event->seqnum;
-        return false;
+        return !set_isempty(event->blocker_events);
 }
 
 static bool manager_can_process_event(Manager *manager) {
