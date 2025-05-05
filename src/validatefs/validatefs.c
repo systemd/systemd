@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "build.h"

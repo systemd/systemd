@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "conf-files.h"
 #include "constants.h"
