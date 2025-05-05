@@ -25,6 +25,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "virt.h"

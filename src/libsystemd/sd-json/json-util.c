@@ -14,7 +14,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "user-util.h"
 

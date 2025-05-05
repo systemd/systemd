@@ -14,6 +14,7 @@
 #include "logs-show.h"
 #include "missing_sched.h"
 #include "path-util.h"
+#include "strv.h"
 #include "unit-name.h"
 
 static int add_invocation(sd_journal *j) {

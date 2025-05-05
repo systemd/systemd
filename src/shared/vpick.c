@@ -11,6 +11,8 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
+#include "string-util.h"
+#include "strv.h"
 #include "vpick.h"
 
 void pick_result_done(PickResult *p) {

@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"

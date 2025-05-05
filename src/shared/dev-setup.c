@@ -14,6 +14,7 @@
 #include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
