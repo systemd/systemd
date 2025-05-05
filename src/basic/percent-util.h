@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #include "macro.h"
 

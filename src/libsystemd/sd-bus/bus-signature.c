@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 
+#include "assert-util.h"
 #include "bus-signature.h"
 #include "bus-type.h"
 
