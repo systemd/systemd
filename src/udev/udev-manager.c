@@ -538,19 +538,14 @@ static int worker_spawn(Manager *manager, Event *event) {
 }
 
 static int event_run(Event *event) {
-        static bool log_children_max_reached = true;
-        Manager *manager;
-        Worker *worker;
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(event)->manager);
         int r;
-
-        assert(event);
-        assert(event->manager);
 
         log_device_uevent(event->dev, "Device ready for processing");
 
         (void) event_source_disable(event->retry_event_source);
 
-        manager = event->manager;
+        Worker *worker;
         HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state != WORKER_IDLE)
                         continue;
@@ -564,28 +559,16 @@ static int event_run(Event *event) {
                         continue;
                 }
                 worker_attach_event(worker, event);
-                return 1; /* event is now processing. */
+                return 0;
         }
-
-        if (hashmap_size(manager->workers) >= manager->config.children_max) {
-                /* Avoid spamming the debug logs if the limit is already reached and
-                 * many events still need to be processed */
-                if (log_children_max_reached && manager->config.children_max > 1) {
-                        log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
-                        log_children_max_reached = false;
-                }
-                return 0; /* no free worker */
-        }
-
-        /* Re-enable the debug message for the next batch of events */
-        log_children_max_reached = true;
 
         /* start new worker and pass initial device */
+        assert(hashmap_size(manager->workers) < manager->config.children_max);
         r = worker_spawn(manager, event);
         if (r < 0)
                 return r;
 
-        return 1; /* event is now processing. */
+        return 0;
 }
 
 bool devpath_conflict(const char *a, const char *b) {
@@ -682,6 +665,36 @@ no_blocker:
         return false;
 }
 
+static bool manager_can_process_event(Manager *manager) {
+        static bool children_max_reached_logged = false;
+
+        assert(manager);
+
+        /* Check if there is a free room for processing an event. */
+
+        if (hashmap_size(manager->workers) < manager->config.children_max)
+                goto yes_we_can; /* new worker can be spawned */
+
+        Worker *worker;
+        HASHMAP_FOREACH(worker, manager->workers)
+                if (worker->state == WORKER_IDLE)
+                        goto yes_we_can; /* found an idle worker */
+
+        /* Avoid spamming the debug logs if the limit is already reached and
+         * many events still need to be processed */
+        if (!children_max_reached_logged) {
+                log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
+                children_max_reached_logged = true;
+        }
+
+        return false;
+
+yes_we_can:
+        /* Re-enable the debug message for the next batch of events */
+        children_max_reached_logged = false;
+        return true;
+}
+
 static int event_queue_start(Manager *manager) {
         int r;
 
@@ -696,6 +709,9 @@ static int event_queue_start(Manager *manager) {
                 log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
 
         manager_reload(manager, /* force = */ false);
+
+        if (!manager_can_process_event(manager))
+                return 0;
 
         LIST_FOREACH(event, event, manager->events) {
                 if (event->state != EVENT_QUEUED)
@@ -713,8 +729,11 @@ static int event_queue_start(Manager *manager) {
                                                  strna(device_action_to_string(event->action)));
 
                 r = event_run(event);
-                if (r <= 0) /* 0 means there are no idle workers. Let's escape from the loop. */
+                if (r < 0)
                         return r;
+
+                if (!manager_can_process_event(manager))
+                        break;
         }
 
         return 0;
