@@ -8,6 +8,7 @@
 #include "acl-util.h"
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"

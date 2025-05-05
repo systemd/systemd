@@ -7,6 +7,7 @@
 #include "sd-json.h"
 
 #include "architecture.h"
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "errno-util.h"
 #include "escape.h"

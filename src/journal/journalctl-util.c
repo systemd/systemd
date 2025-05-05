@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "glob-util.h"
 #include "id128-util.h"
 #include "journal-util.h"

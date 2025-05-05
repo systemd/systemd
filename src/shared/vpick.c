@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 
 #include "architecture.h"
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "chase.h"
 #include "fd-util.h"

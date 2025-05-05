@@ -13,6 +13,7 @@
 #include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
