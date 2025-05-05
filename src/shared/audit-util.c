@@ -11,6 +11,7 @@
 #endif
 
 #include "audit-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"

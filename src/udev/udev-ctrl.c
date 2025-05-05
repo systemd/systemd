@@ -11,6 +11,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"

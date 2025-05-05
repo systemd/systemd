@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "unit-def.h"
 
 #if HAVE_AUDIT
 #  include <libaudit.h>

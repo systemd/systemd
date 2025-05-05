@@ -15,7 +15,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "string-util.h"
 #include "strxcpyx.h"
 
 size_t strnpcpy_full(char **dest, size_t size, const char *src, size_t len, bool *ret_truncated) {

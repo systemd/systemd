@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "assert-util.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
 #include "fd-util.h"

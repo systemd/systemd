@@ -8,6 +8,7 @@
 #include "bus-dump.h"
 #include "bus-util.h"
 #include "fd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "sort-util.h"

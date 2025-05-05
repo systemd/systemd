@@ -2,12 +2,14 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
 
 #include "argv-util.h"
+#include "assert-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "log.h"

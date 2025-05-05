@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "path-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "user-util.h"

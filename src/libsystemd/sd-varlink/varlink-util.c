@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "errno-util.h"
 #include "log.h"
 #include "string-util.h"

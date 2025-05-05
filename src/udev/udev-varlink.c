@@ -2,6 +2,7 @@
 
 #include "json-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "udev-manager.h"
 #include "udev-varlink.h"

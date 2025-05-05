@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -19,7 +19,6 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

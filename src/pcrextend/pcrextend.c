@@ -17,6 +17,7 @@
 #include "parse-util.h"
 #include "pcrextend-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"

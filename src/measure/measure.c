@@ -22,6 +22,7 @@
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "sha256.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tpm2-pcr.h"

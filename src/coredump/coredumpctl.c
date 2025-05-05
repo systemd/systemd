@@ -21,6 +21,7 @@
 #include "constants.h"
 #include "dissect-image.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "fs-util.h"

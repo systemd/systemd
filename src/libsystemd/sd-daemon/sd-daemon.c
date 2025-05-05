@@ -16,6 +16,8 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"

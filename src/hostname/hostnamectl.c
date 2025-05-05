@@ -29,6 +29,7 @@
 #include "pretty-print.h"
 #include "socket-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static bool arg_ask_password = true;

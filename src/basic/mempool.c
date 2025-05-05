@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "assert-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "mempool.h"
 

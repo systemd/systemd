@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bitfield.h"
 #include "errno-util.h"
 #include "fd-util.h"

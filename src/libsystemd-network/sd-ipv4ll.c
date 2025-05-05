@@ -13,6 +13,7 @@
 #include "sd-ipv4ll.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "ether-addr-util.h"
 #include "in-addr-util.h"
 #include "network-common.h"

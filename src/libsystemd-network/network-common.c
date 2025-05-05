@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "assert-util.h"
 #include "env-util.h"
 #include "format-ifname.h"
 #include "network-common.h"

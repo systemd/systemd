@@ -14,6 +14,7 @@
 #include <float.h>
 
 #include "assert-util.h"
+#include "macro.h"
 #include "time-util.h"
 
 /* Print information about various types. Useful when diagnosing

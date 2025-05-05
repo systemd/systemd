@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "ansi-color.h"
 #include "log.h"
 #include "process-util.h"

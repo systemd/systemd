@@ -6,6 +6,7 @@
 #include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "glyph-util.h"
 #include "locale-util.h"
 #include "systemctl.h"
 #include "systemctl-list-jobs.h"

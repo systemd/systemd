@@ -6,6 +6,7 @@
 #include "sd-device.h"
 #include "sd-netlink.h"
 
+#include "assert-util.h"
 #include "macro.h"
 #include "udev-def.h"
 #include "udev-event.h"

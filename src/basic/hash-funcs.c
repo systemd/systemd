@@ -5,6 +5,7 @@
 
 #include "hash-funcs.h"
 #include "path-util.h"
+#include "siphash24.h"
 #include "strv.h"
 
 void string_hash_func(const char *p, struct siphash *state) {

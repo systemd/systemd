@@ -1,22 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
-
-#include "sd-bus.h"
-#include "sd-event.h"
-
 #include "errno-util.h"
 #include "log.h"
 #include "macro.h"
-#include "pidref.h"
 #include "runtime-scope.h"
-#include "set.h"
 #include "string-util.h"
-#include "time-util.h"
+#include "forward.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,

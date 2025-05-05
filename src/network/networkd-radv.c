@@ -7,6 +7,7 @@
 #include <netinet/icmp6.h>
 
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "ndisc-router-internal.h"
 #include "networkd-address.h"
 #include "networkd-address-generation.h"

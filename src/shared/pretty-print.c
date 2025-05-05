@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "color-util.h"

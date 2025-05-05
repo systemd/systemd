@@ -6,6 +6,7 @@
 #include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
 #include <libelf.h>
+#include <stdlib.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/types.h>
@@ -27,6 +28,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
+#include "set.h"
 #include "string-util.h"
 
 #define FRAMES_MAX 64

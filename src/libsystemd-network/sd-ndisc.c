@@ -9,6 +9,7 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"

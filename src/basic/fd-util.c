@@ -11,12 +11,11 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_fcntl.h"
 #include "missing_fs.h"
 #include "missing_syscall.h"
@@ -1129,6 +1128,13 @@ int fds_are_same_mount(int fd1, int fd2) {
         }
 
         return statx_mount_same(&sx1, &sx2);
+}
+
+char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
+        assert(buf);
+        assert(fd >= 0);
+        assert_se(snprintf_ok(buf, PROC_FD_PATH_MAX, "/proc/self/fd/%i", fd));
+        return buf;
 }
 
 const char* accmode_to_string(int flags) {

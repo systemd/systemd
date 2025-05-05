@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "assert-util.h"
 #include "format-util.h"
 #include "group-record.h"
 #include "homed-varlink.h"
 #include "json-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record.h"
 #include "user-record-util.h"

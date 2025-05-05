@@ -9,6 +9,7 @@
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "journal-compression-util.h"

@@ -16,10 +16,8 @@
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
 #include "ether-addr-util.h"
-#include "hashmap.h"
 #include "macro.h"
 #include "network-common.h"
-#include "ordered-set.h"
 #include "sparse-endian.h"
 #include "time-util.h"
 

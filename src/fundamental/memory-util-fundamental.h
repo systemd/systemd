@@ -9,7 +9,7 @@
 #  include <string.h>
 #endif
 
-#include "assert-fundamental.h"
+#include "forward-fundamental.h"
 #include "macro-fundamental.h"
 
 #define memzero(x, l)                                           \
@@ -108,42 +108,6 @@ static inline void array_cleanup(const ArrayCleanup *c) {
                         }),                                             \
         }
 
-/* A wrapper for 'func' to return void.
- * Only useful when a void-returning function is required by some API. */
-#define DEFINE_TRIVIAL_DESTRUCTOR(name, type, func)             \
-        static inline void name(type *p) {                      \
-                func(p);                                        \
-        }
-
-/* When func() returns the void value (NULL, -1, …) of the appropriate type */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
-        static inline void func##p(type *p) {                   \
-                if (*p)                                         \
-                        *p = func(*p);                          \
-        }
-
-/* When func() doesn't return the appropriate type, set variable to empty afterwards.
- * The func() may be provided by a dynamically loaded shared library, hence add an assertion. */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)     \
-        static inline void func##p(type *p) {                   \
-                if (*p != (empty)) {                            \
-                        DISABLE_WARNING_ADDRESS;                \
-                        assert(func);                           \
-                        REENABLE_WARNING;                       \
-                        func(*p);                               \
-                        *p = (empty);                           \
-                }                                               \
-        }
-
-/* When func() doesn't return the appropriate type, and is also a macro, set variable to empty afterwards. */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, func, empty)       \
-        static inline void func##p(type *p) {                           \
-                if (*p != (empty)) {                                    \
-                        func(*p);                                       \
-                        *p = (empty);                                   \
-                }                                                       \
-        }
-
 static inline size_t ALIGN_TO(size_t l, size_t ali) {
         assert(ISPOWEROF2(ali));
 
@@ -184,6 +148,23 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
         assert(ISPOWEROF2(ali));
 
         return l & (ali - 1);
+}
+
+/* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
+static inline unsigned long ALIGN_POWER2(unsigned long u) {
+        /* Avoid subtraction overflow */
+        if (u == 0)
+                return 0;
+
+        /* clz(0) is undefined */
+        if (u == 1)
+                return 1;
+
+        /* left-shift overflow is undefined */
+        if (__builtin_clzl(u - 1UL) < 1)
+                return 0;
+
+        return 1UL << (sizeof(u) * 8 - __builtin_clzl(u - 1UL));
 }
 
 #define ALIGN2(l) ALIGN_TO(l, 2)

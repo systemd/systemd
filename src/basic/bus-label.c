@@ -3,9 +3,10 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bus-label.h"
 #include "hexdecoct.h"
-#include "macro.h"
+#include "string-util.h"
 
 char* bus_label_escape(const char *s) {
         char *r, *t;
@@ -76,4 +77,8 @@ char* bus_label_unescape_n(const char *f, size_t l) {
         *t = 0;
 
         return r;
+}
+
+char* bus_label_unescape(const char *f) {
+        return bus_label_unescape_n(f, strlen_ptr(f));
 }

@@ -14,6 +14,7 @@
 #include "sd-dhcp-client.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "device-util.h"
 #include "dhcp-client-id-internal.h"
 #include "dhcp-client-internal.h"
@@ -22,6 +23,7 @@
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"

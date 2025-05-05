@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "assert-util.h"
 #include "import-compress.h"
 #include "log.h"

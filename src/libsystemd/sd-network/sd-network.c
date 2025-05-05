@@ -3,10 +3,12 @@
 #include <errno.h>
 #include <poll.h>
 #include <sys/inotify.h>
+#include <unistd.h>
 
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "extract-word.h"

@@ -6,6 +6,7 @@
 
 #include "crash-handler.h"
 #include "exit-status.h"
+#include "log.h"
 #include "macro.h"
 #include "main.h"
 #include "missing_syscall.h"

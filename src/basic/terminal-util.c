@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <linux/kd.h>
@@ -8,30 +7,25 @@
 #include <linux/vt.h>
 #include <poll.h>
 #include <signal.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <stdlib.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <sys/sysmacros.h>
 #include <sys/time.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "chase.h"
-#include "constants.h"
 #include "devnum-util.h"
-#include "env-util.h"
-#include "errno-list.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "inotify-util.h"
 #include "io-util.h"
@@ -47,12 +41,10 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
-#include "user-util.h"
 #include "utf8.h"
 
 static volatile unsigned cached_columns = 0;
@@ -810,6 +802,11 @@ int terminal_new_session(void) {
 
         (void) setsid();
         return RET_NERRNO(ioctl(STDIN_FILENO, TIOCSCTTY, 0));
+}
+
+void terminal_detach_session(void) {
+        (void) setsid();
+        (void) release_terminal();
 }
 
 int terminal_vhangup_fd(int fd) {

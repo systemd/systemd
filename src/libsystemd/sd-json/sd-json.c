@@ -10,6 +10,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "ansi-color.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -40,6 +41,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "utf8.h"
 

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "audit.h"
 #include "bus-creds.h"
 #include "bus-label.h"

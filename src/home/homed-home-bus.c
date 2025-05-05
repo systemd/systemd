@@ -3,6 +3,7 @@
 #include <linux/capability.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
 #include "fd-util.h"
@@ -13,6 +14,7 @@
 #include "homed-home-bus.h"
 #include "homed-manager.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-util.h"

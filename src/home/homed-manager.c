@@ -44,6 +44,7 @@
 #include "random-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "sort-util.h"
 #include "stat-util.h"

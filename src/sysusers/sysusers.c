@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include "extract-word.h"
 
 #if HAVE_AUDIT
 #  include <libaudit.h>

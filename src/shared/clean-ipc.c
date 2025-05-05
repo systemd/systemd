@@ -21,6 +21,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"

@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "dhcp-client-id-internal.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "unaligned.h"
 #include "utf8.h"
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -11,6 +12,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -19,6 +21,7 @@
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 

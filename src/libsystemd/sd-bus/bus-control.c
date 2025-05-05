@@ -10,6 +10,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bus-control.h"
 #include "bus-internal.h"
 #include "bus-message.h"

@@ -2,7 +2,9 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "daemon-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "iovec-util.h"

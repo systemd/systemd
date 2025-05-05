@@ -2,6 +2,7 @@
 
 #include "sd-netlink.h"
 
+#include "assert-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"

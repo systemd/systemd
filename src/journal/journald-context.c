@@ -19,6 +19,7 @@
 #include "journald-server.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "string-util.h"

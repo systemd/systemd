@@ -3,6 +3,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "assert-util.h"
 #include "log.h"
 #include "syslog-util.h"
 #include "udev-ctrl.h"

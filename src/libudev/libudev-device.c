@@ -20,6 +20,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"

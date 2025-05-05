@@ -4,6 +4,7 @@
 #include <netinet/tcp.h>
 #include <resolv.h>
 
+#include "assert-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "resolved-dns-packet.h"

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/wait.h>
 
 #include "sd-daemon.h"
@@ -18,6 +19,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "userdbd-manager.h"
 

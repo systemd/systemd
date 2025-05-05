@@ -9,6 +9,7 @@
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
+#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

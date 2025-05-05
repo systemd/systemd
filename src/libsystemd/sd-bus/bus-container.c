@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "bus-container.h"

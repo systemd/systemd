@@ -3,6 +3,7 @@
 #include <linux/capability.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
 #include "fd-util.h"

@@ -4,12 +4,15 @@
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 
+#include "alloc-util.h"
+#include "assert-util.h"
 #include "dhcp-duid-internal.h"
 #include "hexdecoct.h"
 #include "netif-util.h"
 #include "network-common.h"
 #include "siphash24.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "unaligned.h"
 
 #define HASH_KEY       SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)

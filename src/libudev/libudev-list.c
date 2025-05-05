@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "hashmap.h"
 #include "libudev-list-internal.h"
 #include "list.h"
+#include "string-util.h"
 
 /**
  * SECTION:libudev-list

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "hexdecoct.h"
 #include "homework-pkcs11.h"
 #include "log.h"

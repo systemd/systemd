@@ -6,6 +6,7 @@
 #include "sd-daemon.h"
 
 #include "bpf-dlopen.h"
+#include "time-util.h"
 #if HAVE_VMLINUX_H
 #include "bpf-link.h"
 #endif

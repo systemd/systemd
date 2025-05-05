@@ -3,6 +3,7 @@
 #include <sys/sysmacros.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
 #include "errno-util.h"

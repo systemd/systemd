@@ -6,11 +6,13 @@
 #include <errno.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
 #include "network-common.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
 

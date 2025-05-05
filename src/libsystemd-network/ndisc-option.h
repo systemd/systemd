@@ -11,6 +11,7 @@
 #include "sd-dns-resolver.h"
 #include "sd-ndisc-protocol.h"
 
+#include "assert-util.h"
 #include "icmp6-packet.h"
 #include "macro.h"
 #include "set.h"

@@ -14,6 +14,7 @@
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"

@@ -2,7 +2,7 @@
 #pragma once
 
 #include "assert-fundamental.h"
-#include "macro.h"
+#include "forward.h"
 
 /* Logging for various assertions */
 

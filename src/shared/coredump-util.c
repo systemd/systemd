@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <elf.h>
+#include <inttypes.h>
 
 #include "alloc-util.h"
 #include "coredump-util.h"
