@@ -2,6 +2,7 @@
 
 #include "sd-varlink-idl.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "json-util.h"
 #include "log.h"

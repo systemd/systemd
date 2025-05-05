@@ -4,6 +4,7 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "device-filter.h"
 #include "hashmap.h"
 #include "path-util.h"

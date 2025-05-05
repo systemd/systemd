@@ -2,6 +2,7 @@
 
 #include "sd-network.h"
 
+#include "alloc-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "log.h"
