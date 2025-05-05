@@ -381,7 +381,7 @@ void link_set_state(Link *link, LinkState state) {
 
         link->state = state;
 
-        link_send_changed(link, "AdministrativeState", NULL);
+        link_send_changed(link, "AdministrativeState");
         link_dirty(link);
 }
 
