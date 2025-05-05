@@ -5,6 +5,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "log.h"
 #include "netlink-internal.h"
 #include "netlink-slot.h"

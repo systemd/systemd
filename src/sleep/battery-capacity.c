@@ -2,6 +2,7 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "battery-capacity.h"
 #include "battery-util.h"
 #include "device-private.h"

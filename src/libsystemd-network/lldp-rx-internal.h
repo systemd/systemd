@@ -5,9 +5,10 @@
 #include "sd-json.h"
 #include "sd-lldp-rx.h"
 
-#include "hashmap.h"
 #include "network-common.h"
 #include "prioq.h"
+
+typedef struct Hashmap Hashmap;
 
 struct sd_lldp_rx {
         unsigned n_ref;

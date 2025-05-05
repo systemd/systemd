@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "common-signal.h"
 #include "constants.h"
 #include "daemon-util.h"

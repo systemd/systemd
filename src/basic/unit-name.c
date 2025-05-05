@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "glob-util.h"
+#include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "memory-util.h"

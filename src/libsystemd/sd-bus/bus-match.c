@@ -6,6 +6,7 @@
 #include "bus-message.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "memstream-util.h"

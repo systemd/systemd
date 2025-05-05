@@ -26,12 +26,14 @@
 #include "mkdir-label.h"
 #include "notify-recv.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "sysupdate-util.h"
+#include "utf8.h"
 
 #define FEATURES_DROPIN_NAME "systemd-sysupdate-enabled"
 

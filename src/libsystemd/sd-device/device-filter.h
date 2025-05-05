@@ -5,8 +5,8 @@
 
 #include "sd-device.h"
 
-#include "hashmap.h"
-#include "set.h"
+typedef struct Hashmap Hashmap;
+typedef struct Set Set;
 
 int update_match_strv(Hashmap **match_strv, const char *key, const char *value, bool clear_on_null);
 bool device_match_sysattr(sd_device *device, Hashmap *match_sysattr, Hashmap *nomatch_sysattr);

@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <sys/utsname.h>
 
+#include "argv-util.h"
 #include "boot-entry.h"
 #include "build.h"
 #include "chase.h"
@@ -12,6 +13,7 @@
 #include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"

@@ -66,9 +66,6 @@ Janitorial Clean-ups:
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
-* get rid of prefix_roota() and similar, only use chase() and related
-  calls instead.
-
 * get rid of basename() and replace by path_extract_filename()
 
 * Replace our fstype_is_network() with a call to libmount's mnt_fstype_is_netfs()?

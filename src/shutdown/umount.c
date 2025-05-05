@@ -28,6 +28,7 @@
 #include "random-util.h"
 #include "signal-util.h"
 #include "umount.h"
+#include "user-util.h"
 #include "virt.h"
 
 static void mount_point_free(MountPoint **head, MountPoint *m) {

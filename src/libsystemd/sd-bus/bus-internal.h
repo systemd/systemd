@@ -9,12 +9,14 @@
 #include "bus-kernel.h"
 #include "bus-match.h"
 #include "constants.h"
-#include "hashmap.h"
 #include "list.h"
 #include "prioq.h"
 #include "runtime-scope.h"
 #include "socket-util.h"
 #include "time-util.h"
+
+typedef struct OrderedHashmap OrderedHashmap;
+typedef struct Set Set;
 
 /* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and
  * that way we become independent of /var being mounted */

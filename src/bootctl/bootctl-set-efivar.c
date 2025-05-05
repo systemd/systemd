@@ -3,6 +3,7 @@
 #include <uchar.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-set-efivar.h"
 #include "efi-loader.h"

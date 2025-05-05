@@ -6,6 +6,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
@@ -13,6 +14,7 @@
 #include "log.h"
 #include "macro-fundamental.h"
 #include "memory-util.h"
+#include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "strv.h"

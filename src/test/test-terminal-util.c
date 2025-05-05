@@ -15,6 +15,7 @@
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
