@@ -9,6 +9,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
