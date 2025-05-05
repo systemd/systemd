@@ -1118,9 +1118,10 @@ static int remove_boot_efi(const char *esp_path) {
 }
 
 static int rmdir_one(const char *prefix, const char *suffix) {
-        const char *p;
+        _cleanup_free_ char *p = path_join(prefix, suffix);
+        if (!p)
+                return log_oom();
 
-        p = prefix_roota(prefix, suffix);
         if (rmdir(p) < 0) {
                 bool ignore = IN_SET(errno, ENOENT, ENOTEMPTY);
 
@@ -1160,10 +1161,12 @@ static int remove_entry_directory(const char *root) {
 }
 
 static int remove_binaries(const char *esp_path) {
-        const char *p;
         int r, q;
 
-        p = prefix_roota(esp_path, "/EFI/systemd");
+        _cleanup_free_ char *p = path_join(esp_path, "/EFI/systemd");
+        if (!p)
+                return log_oom();
+
         r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         q = remove_boot_efi(esp_path);
@@ -1174,12 +1177,13 @@ static int remove_binaries(const char *esp_path) {
 }
 
 static int remove_file(const char *root, const char *file) {
-        const char *p;
-
         assert(root);
         assert(file);
 
-        p = prefix_roota(root, file);
+        _cleanup_free_ char *p = path_join(root, file);
+        if (!p)
+                return log_oom();
+
         if (unlink(p) < 0) {
                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
                                "Failed to unlink file \"%s\": %m", p);
