@@ -856,7 +856,7 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
 
         need_separator = !isempty(*x);
 
-        nr = realloc(*x, GREEDY_ALLOC_ROUND_UP(l+1));
+        nr = realloc(*x, greedy_alloc_round_up(l+1));
         if (!nr)
                 return NULL;
 

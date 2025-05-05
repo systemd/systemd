@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <sys/param.h>
-
 #if defined(__FreeBSD_kernel__)
 #  define INIT_FIFO  "/etc/.initctl"
 #else
