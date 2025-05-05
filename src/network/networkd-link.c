@@ -2914,7 +2914,7 @@ int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
-                log_link_message_warning_errno(link, m, r, error_msg);
+                log_link_message_warning_errno(link, m, r, "%s", error_msg);
                 link_enter_failed(link);
                 return 0;
         }

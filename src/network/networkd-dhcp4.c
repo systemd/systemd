@@ -341,11 +341,11 @@ int dhcp4_check_ready(Link *link) {
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
-        assert(m);
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Could not set DHCPv4 route");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
@@ -897,8 +897,9 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv4 address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 
