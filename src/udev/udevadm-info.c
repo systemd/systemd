@@ -30,6 +30,7 @@
 #include "static-destruct.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "udevadm.h"
