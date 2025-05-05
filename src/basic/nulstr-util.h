@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "assert-util.h"
+
 typedef struct Set Set;
 
 #define NULSTR_FOREACH(i, l)                                    \
