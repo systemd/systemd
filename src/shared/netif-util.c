@@ -4,6 +4,7 @@
 #include <linux/if_arp.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "arphrd-util.h"
 #include "device-util.h"
 #include "hexdecoct.h"

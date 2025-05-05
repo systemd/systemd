@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bpf-firewall.h"
 #include "bpf-program.h"
 #include "fd-util.h"

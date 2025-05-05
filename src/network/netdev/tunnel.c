@@ -9,6 +9,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "conf-parser.h"
 #include "hexdecoct.h"
 #include "missing_network.h"

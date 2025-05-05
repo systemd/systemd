@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chase.h"
 #include "errno-util.h"
 #include "extract-word.h"

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "btrfs.h"
 #include "chase.h"
 #include "errno-util.h"
