@@ -487,6 +487,7 @@ static const char* const exec_command_strings[] = {
         "privileged",     /* EXEC_COMMAND_FULLY_PRIVILEGED */
         "no-setuid",      /* EXEC_COMMAND_NO_SETUID */
         "no-env-expand",  /* EXEC_COMMAND_NO_ENV_EXPAND */
+        "via-shell",      /* EXEC_COMMAND_VIA_SHELL */
 };
 
 assert_cc((1 << ELEMENTSOF(exec_command_strings)) - 1 == _EXEC_COMMAND_FLAGS_ALL);
