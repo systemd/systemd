@@ -6,6 +6,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
