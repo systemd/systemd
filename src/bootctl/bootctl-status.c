@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-status.h"
 #include "bootctl-util.h"

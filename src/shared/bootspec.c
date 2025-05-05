@@ -3,6 +3,7 @@
 #include <fnmatch.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bootspec.h"
 #include "bootspec-fundamental.h"
 #include "chase.h"
