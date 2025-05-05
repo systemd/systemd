@@ -561,10 +561,10 @@ int shall_fork_agent(void) {
         return true;
 }
 
-int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
+int _fork_agent(const char *name, char * const *argv, const int except[], size_t n_except, pid_t *ret_pid) {
         int r;
 
-        assert(path);
+        assert(!strv_isempty(argv));
 
         /* Spawns a temporary TTY agent, making sure it goes away when we go away */
 
@@ -617,8 +617,7 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
         }
 
         /* Count arguments */
-        char **l = strv_from_stdarg_alloca(path);
-        execv(path, l);
-        log_error_errno(errno, "Failed to execute %s: %m", path);
+        execv(argv[0], argv);
+        log_error_errno(errno, "Failed to execute %s: %m", argv[0]);
         _exit(EXIT_FAILURE);
 }

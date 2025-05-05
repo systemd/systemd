@@ -791,28 +791,6 @@ TEST(strv_foreach_pair) {
                 ASSERT_STREQ(*x, *y);
 }
 
-static void test_strv_from_stdarg_alloca_one(char **l, const char *first, ...) {
-        char **j;
-        unsigned i;
-
-        log_info("/* %s */", __func__);
-
-        j = strv_from_stdarg_alloca(first);
-
-        for (i = 0;; i++) {
-                ASSERT_STREQ(l[i], j[i]);
-
-                if (!l[i])
-                        break;
-        }
-}
-
-TEST(strv_from_stdarg_alloca) {
-        test_strv_from_stdarg_alloca_one(STRV_MAKE("foo", "bar"), "foo", "bar", NULL);
-        test_strv_from_stdarg_alloca_one(STRV_MAKE("foo"), "foo", NULL);
-        test_strv_from_stdarg_alloca_one(STRV_MAKE_EMPTY, NULL);
-}
-
 TEST(strv_insert) {
         _cleanup_strv_free_ char **a = NULL;
 
