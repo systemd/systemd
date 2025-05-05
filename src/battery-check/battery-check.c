@@ -7,6 +7,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "battery-util.h"
 #include "build.h"
 #include "errno-util.h"

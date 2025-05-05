@@ -5,6 +5,7 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
