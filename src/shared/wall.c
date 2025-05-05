@@ -12,6 +12,7 @@
 #include "io-util.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"

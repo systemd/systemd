@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"

@@ -27,6 +27,7 @@
 #include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
