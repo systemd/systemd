@@ -1512,7 +1512,7 @@ int bus_set_transient_exec_command(
                 if (r < 0)
                         return r;
 
-                if (!path_is_absolute(path) && !filename_is_valid(path))
+                if (!filename_or_absolute_path_is_valid(path))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "\"%s\" is neither a valid executable name nor an absolute path",
                                                  path);

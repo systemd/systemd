@@ -196,6 +196,12 @@ static inline bool path_is_safe(const char *p) {
         return path_is_valid_full(p, /* accept_dot_dot= */ false);
 }
 bool path_is_normalized(const char *p) _pure_;
+static inline bool filename_or_absolute_path_is_valid(const char *p) {
+        if (path_is_absolute(p))
+                return path_is_valid(p);
+
+        return filename_is_valid(p);
+}
 
 int file_in_same_dir(const char *path, const char *filename, char **ret);
 
