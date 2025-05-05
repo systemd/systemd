@@ -183,35 +183,6 @@ char* endswith_strv(const char *s, char * const *l);
 #define ENDSWITH_SET(p, ...)                                    \
         endswith_strv(p, STRV_MAKE(__VA_ARGS__))
 
-#define strv_from_stdarg_alloca(first)                          \
-        ({                                                      \
-                char **_l;                                      \
-                                                                \
-                if (!first)                                     \
-                        _l = (char**) &first;                   \
-                else {                                          \
-                        size_t _n;                              \
-                        va_list _ap;                            \
-                                                                \
-                        _n = 1;                                 \
-                        va_start(_ap, first);                   \
-                        while (va_arg(_ap, char*))              \
-                                _n++;                           \
-                        va_end(_ap);                            \
-                                                                \
-                        _l = newa(char*, _n+1);                 \
-                        _l[_n = 0] = (char*) first;             \
-                        va_start(_ap, first);                   \
-                        for (;;) {                              \
-                                _l[++_n] = va_arg(_ap, char*);  \
-                                if (!_l[_n])                    \
-                                        break;                  \
-                        }                                       \
-                        va_end(_ap);                            \
-                }                                               \
-                _l;                                             \
-        })
-
 #define STR_IN_SET(x, ...) strv_contains(STRV_MAKE(__VA_ARGS__), x)
 #define STRPTR_IN_SET(x, ...)                                    \
         ({                                                       \
