@@ -9,6 +9,8 @@ sources = files(
         'devlink-key.h',
         'devlink-match.c',
         'devlink-match.h',
+        'devlink-match-dev.c',
+        'devlink-match-dev.h',
         'devlinkd-manager.c',
         'devlinkd-manager.h',
 )
