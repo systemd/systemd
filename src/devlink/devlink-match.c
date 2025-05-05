@@ -9,6 +9,7 @@
 
 /* Has to be in-sync with DevlinkMatchBit */
 const DevlinkMatchVTable * const devlink_match_vtable[] = {
+        &devlink_match_dev_vtable,
 };
 
 #define DEVLINK_MATCH_VTABLE_SIZE ELEMENTSOF(devlink_match_vtable)

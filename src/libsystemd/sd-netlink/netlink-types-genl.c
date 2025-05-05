@@ -233,6 +233,11 @@ static const NLAPolicy genl_wireguard_policies[] = {
         [WGDEVICE_A_PEERS]       = BUILD_POLICY_NESTED(genl_wireguard_peer),
 };
 
+static const NLAPolicy genl_devlink_policies[] = {
+        [DEVLINK_ATTR_BUS_NAME]                        = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_DEV_NAME]                        = BUILD_POLICY(STRING),
+};
+
 /***************** genl families *****************/
 static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING(CTRL_GENL_NAME,               genl_ctrl),
@@ -243,6 +248,7 @@ static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING(NETLBL_NLTYPE_UNLABELED_NAME, genl_netlabel),
         BUILD_UNION_ELEMENT_BY_STRING(NL80211_GENL_NAME,            genl_nl80211),
         BUILD_UNION_ELEMENT_BY_STRING(WG_GENL_NAME,                 genl_wireguard),
+        BUILD_UNION_ELEMENT_BY_STRING(DEVLINK_GENL_NAME,            genl_devlink),
 };
 
 /* This is the root type system union, so match_attribute is not necessary. */
