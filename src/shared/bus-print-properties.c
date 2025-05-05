@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "bus-print-properties.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
