@@ -5,9 +5,8 @@
 #include <stdio.h>
 #include <syslog.h>
 
-#include "alloc-util.h"
 #include "log.h"
-#include "macro.h"
+#include "memory-util.h"
 #include "types.h"
 
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */

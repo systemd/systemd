@@ -6,6 +6,7 @@
 #include <linux/if_macsec.h>
 #include <netinet/in.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "fileio.h"
 #include "hashmap.h"
