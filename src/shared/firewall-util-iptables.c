@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "dlfcn-util.h"
 #include "firewall-util.h"
 #include "firewall-util-private.h"

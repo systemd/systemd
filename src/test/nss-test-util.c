@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "log.h"
 #include "nss-test-util.h"
 #include "string-util.h"

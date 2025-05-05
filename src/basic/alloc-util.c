@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "macro.h"
+#include "memory-util.h"
 
 void* memdup(const void *p, size_t l) {
         void *ret;
@@ -130,4 +131,45 @@ void* greedy_realloc_append(
 
 void *expand_to_usable(void *ptr, size_t newsize _unused_) {
         return ptr;
+}
+
+size_t malloc_sizeof_safe(void **xp) {
+        if (_unlikely_(!xp || !*xp))
+                return 0;
+
+        size_t sz = malloc_usable_size(*xp);
+        *xp = expand_to_usable(*xp, sz);
+        /* GCC doesn't see the _returns_nonnull_ when built with ubsan, so yet another hint to make it doubly
+         * clear that expand_to_usable won't return NULL.
+         * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79265 */
+        if (!*xp)
+                assert_not_reached();
+        return sz;
+}
+
+void free_many(void **p, size_t n) {
+        assert(p || n == 0);
+
+        FOREACH_ARRAY(i, p, n)
+                *i = mfree(*i);
+}
+
+void *realloc0(void *p, size_t new_size) {
+        size_t old_size;
+        void *q;
+
+        /* Like realloc(), but initializes anything appended to zero */
+
+        old_size = MALLOC_SIZEOF_SAFE(p);
+
+        q = realloc(p, new_size);
+        if (!q)
+                return NULL;
+
+        new_size = MALLOC_SIZEOF_SAFE(q); /* Update with actually allocated space */
+
+        if (new_size > old_size)
+                memset((uint8_t*) q + old_size, 0, new_size - old_size);
+
+        return q;
 }

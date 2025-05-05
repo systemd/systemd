@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

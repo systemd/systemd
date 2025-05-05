@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "audit-util.h"
 #include "build.h"
 #include "chase.h"
