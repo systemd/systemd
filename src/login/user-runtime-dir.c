@@ -14,6 +14,7 @@
 #include "fs-util.h"
 #include "label-util.h"
 #include "limits-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"

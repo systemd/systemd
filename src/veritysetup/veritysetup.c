@@ -7,6 +7,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "cryptsetup-util.h"
 #include "fileio.h"
 #include "fstab-util.h"

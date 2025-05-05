@@ -15,6 +15,7 @@
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "constants.h"
 #include "daemon-util.h"
 #include "device-private.h"
