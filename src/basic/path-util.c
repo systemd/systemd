@@ -610,7 +610,7 @@ char* path_extend_internal(char **x, ...) {
         }
         va_end(ap);
 
-        nx = realloc(x ? *x : NULL, GREEDY_ALLOC_ROUND_UP(sz+1));
+        nx = realloc(x ? *x : NULL, greedy_alloc_round_up(sz+1));
         if (!nx)
                 return NULL;
         if (x)

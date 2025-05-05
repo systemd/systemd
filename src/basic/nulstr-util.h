@@ -5,6 +5,7 @@
 #include <macro.h>
 #include <string.h>
 
+#include "assert-util.h"
 #include "types.h"
 
 #define NULSTR_FOREACH(i, l)                                    \
