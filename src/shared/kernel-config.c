@@ -2,6 +2,7 @@
 
 #include <errno.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "kernel-config.h"
 #include "macro.h"
