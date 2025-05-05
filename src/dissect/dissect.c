@@ -27,6 +27,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "libarchive-util.h"

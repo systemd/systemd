@@ -6,8 +6,11 @@
 #include "sd-event.h"
 #include "sd-varlink.h"
 
-#include "hashmap.h"
 #include "list.h"
+#include "memory-util.h"
+#include "time-util.h"
+
+typedef struct Hashmap Hashmap;
 
 typedef enum VarlinkState {
         /* Client side states */

@@ -7,7 +7,6 @@
 
 #include "ether-addr-util.h"
 #include "in-addr-util.h"
-#include "ordered-set.h"
 #include "socket-util.h"
 
 #define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
