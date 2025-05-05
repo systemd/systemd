@@ -4,6 +4,7 @@
 
 #include "sd-network.h"
 
+#include "alloc-util.h"
 #include "bond-util.h"
 #include "bridge-util.h"
 #include "bus-error.h"
