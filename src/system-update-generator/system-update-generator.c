@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fs-util.h"
 #include "generator.h"
 #include "initrd-util.h"

@@ -2,6 +2,7 @@
 
 #include "sd-path.h"
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "env-file.h"
