@@ -9,6 +9,7 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "bitfield.h"
 #include "blockdev-util.h"
