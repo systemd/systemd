@@ -6,13 +6,16 @@
 #include "netlink-util.h"
 #include "siphash24.h"
 
+#include "devlink-match-dev.h"
+
 typedef enum DevlinkMatchBit {
-        DEVLINK_MATCH_BIT_TEMP,
+        DEVLINK_MATCH_BIT_DEV = 1 << 0,
 } DevlinkMatchBit;
 
 typedef uint32_t DevlinkMatchSet;
 
 typedef struct DevlinkMatch {
+        DevlinkMatchDev dev;
 } DevlinkMatch;
 
 struct Manager;
