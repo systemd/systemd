@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <errno.h>
+#include <limits.h>
+
 #include "alloc-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
