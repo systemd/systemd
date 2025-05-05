@@ -4,6 +4,7 @@
 #include <libcryptsetup.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
 #include "hexdecoct.h"
