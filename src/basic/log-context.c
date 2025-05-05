@@ -2,6 +2,7 @@
 
 #include <threads.h>
 
+#include "alloc-util.h"
 #include "env-util.h"
 #include "iovec-util.h"
 #include "log.h"
