@@ -4,6 +4,7 @@
 
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "fileio.h"
 #include "journalctl.h"
