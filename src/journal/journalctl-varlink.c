@@ -2,6 +2,7 @@
 
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"

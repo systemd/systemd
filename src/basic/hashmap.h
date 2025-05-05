@@ -4,7 +4,7 @@
 #include <limits.h>
 
 #include "hash-funcs.h"
-#include "macro.h"
+#include "memory-util.h"
 #include "types.h"
 
 /*
