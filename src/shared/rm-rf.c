@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
@@ -516,4 +517,34 @@ int rm_rf_child(int fd, const char *name, RemoveFlags flags) {
                 return -EINVAL;
 
         return rm_rf_inner_child(fd, name, -1, flags, NULL, true);
+}
+
+const char* rm_rf_safe(const char *p) {
+        PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        return NULL;
+}
+
+char* rm_rf_physical_and_free(char *p) {
+        PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        return mfree(p);
+}
+
+char* rm_rf_subvolume_and_free(char *p) {
+        PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        return mfree(p);
 }
