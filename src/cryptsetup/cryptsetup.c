@@ -26,6 +26,7 @@
 #include "efi-loader.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "fstab-util.h"

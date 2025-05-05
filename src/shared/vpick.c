@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "bitfield.h"
 #include "chase.h"
