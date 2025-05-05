@@ -6,6 +6,7 @@
 
 #include "sd-login.h"
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hostname-setup.h"

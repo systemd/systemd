@@ -27,6 +27,7 @@
 #include "devnum-util.h"
 #include "env-util.h"
 #include "errno-list.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

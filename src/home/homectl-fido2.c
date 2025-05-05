@@ -19,6 +19,7 @@
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 #if HAVE_LIBFIDO2

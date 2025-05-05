@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
+
 #include "alloc-util.h"
 #include "escape.h"
 #include "string-util.h"

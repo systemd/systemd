@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "format-util.h"
 #include "install.h"
 #include "install-printf.h"

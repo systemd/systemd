@@ -2,6 +2,7 @@
 
 #include "log.h"
 #include "main-func.h"
+#include "string-util.h"
 #include "strv.h"
 
 /*

@@ -9,6 +9,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "format-util.h"
 #include "geneve-util.h"
 #include "glyph-util.h"
