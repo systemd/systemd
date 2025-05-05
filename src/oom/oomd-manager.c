@@ -3,6 +3,7 @@
 #include "sd-daemon.h"
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
