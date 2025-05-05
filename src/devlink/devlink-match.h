@@ -3,14 +3,16 @@
 
 #include "siphash24.h"
 
+#include "devlink-match-dev.h"
+
 typedef enum DevlinkMatchBitPosition {
-        DEVLINK_MATCH_BIT_POSITION_TEMP,
+        DEVLINK_MATCH_BIT_POSITION_DEV,
         _DEVLINK_MATCH_BIT_POSITION_MAX,
         _DEVLINK_MATCH_BIT_POSITION_INVALID = -1,
 } DevlinkMatchBitPosition;
 
 typedef enum DevlinkMatchBit {
-        DEVLINK_MATCH_BIT_TEMP,
+        DEVLINK_MATCH_BIT_DEV = 1 << 0,
 } DevlinkMatchBit;
 
 const char* devlink_match_bit_to_string(DevlinkMatchBit bit);
@@ -18,6 +20,7 @@ const char* devlink_match_bit_to_string(DevlinkMatchBit bit);
 typedef uint32_t DevlinkMatchSet;
 
 typedef struct DevlinkMatch {
+        DevlinkMatchDev dev;
 } DevlinkMatch;
 
 struct Manager;
