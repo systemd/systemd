@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "daemon-util.h"
 #include "log.h"
