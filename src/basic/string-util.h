@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+#include <sys/types.h>
 
 #include "macro.h"
 #include "string-util-fundamental.h"

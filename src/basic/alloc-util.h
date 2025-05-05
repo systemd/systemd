@@ -90,6 +90,8 @@ static inline void *memdup_suffix0_multiply(const void *p, size_t need, size_t s
         return memdup_suffix0(p, size * need);
 }
 
+size_t greedy_alloc_round_up(size_t l);
+
 void* greedy_realloc(void **p, size_t need, size_t size);
 void* greedy_realloc0(void **p, size_t need, size_t size);
 void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_from, size_t size);
