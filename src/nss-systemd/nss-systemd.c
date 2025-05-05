@@ -5,6 +5,7 @@
 #include <string.h>
 #include <threads.h>
 
+#include "alloc-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"

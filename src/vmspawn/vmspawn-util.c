@@ -6,6 +6,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "conf-files.h"
 #include "errno-util.h"
