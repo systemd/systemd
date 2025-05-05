@@ -1,11 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+int device_unref_and_replace(sd_device *a, sd_device *b) {
+        return unref_and_replace_full(a, b, sd_device_ref, sd_device_unref);
+}
 
 int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
