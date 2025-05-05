@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <limits.h>
 #include <syslog.h>
 
 #include "sd-id128.h"

@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "device-enumerator-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "libudev-device-internal.h"
 #include "libudev-list-internal.h"
 
