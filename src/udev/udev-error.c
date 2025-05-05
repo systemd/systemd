@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <stdlib.h>
+
 #include "device-private.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "signal-util.h"
 #include "udev-error.h"
 
