@@ -33,9 +33,8 @@ static int property_get_dhcp_client_state(
         return sd_bus_message_append(reply, "s", dhcp_state_to_string(dhcp_client_get_state(c)));
 }
 
-static int dhcp_client_emit_changed(Link *link, const char *property, ...) {
+static int dhcp_client_emit_changed(Link *link, char **properties) {
         _cleanup_free_ char *path = NULL;
-        char **l;
 
         assert(link);
 
@@ -46,19 +45,17 @@ static int dhcp_client_emit_changed(Link *link, const char *property, ...) {
         if (!path)
                 return log_oom();
 
-        l = strv_from_stdarg_alloca(property);
-
         return sd_bus_emit_properties_changed_strv(
                         link->manager->bus,
                         path,
                         "org.freedesktop.network1.DHCPv4Client",
-                        l);
+                        properties);
 }
 
 int dhcp_client_callback_bus(sd_dhcp_client *c, int event, void *userdata) {
         Link *l = ASSERT_PTR(userdata);
 
-        return dhcp_client_emit_changed(l, "State", NULL);
+        return dhcp_client_emit_changed(l, STRV_MAKE("State"));
 }
 
 static const sd_bus_vtable dhcp_client_vtable[] = {

@@ -902,14 +902,6 @@ int link_send_changed_strv(Link *link, char **properties) {
                         properties);
 }
 
-int link_send_changed(Link *link, const char *property, ...) {
-        char **properties;
-
-        properties = strv_from_stdarg_alloca(property);
-
-        return link_send_changed_strv(link, properties);
-}
-
 const BusObjectImplementation link_object = {
         "/org/freedesktop/network1/link",
         "org.freedesktop.network1.Link",
