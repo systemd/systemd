@@ -5,6 +5,7 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "build.h"
 #include "device-util.h"
