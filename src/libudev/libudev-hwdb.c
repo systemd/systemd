@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "assert-util.h"
+#include "errno-util.h"
 #include "hwdb-util.h"
 #include "libudev-list-internal.h"
 #include "log.h"

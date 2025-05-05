@@ -277,7 +277,7 @@ int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates) {
         if (p >= SIZE_MAX - q)
                 return -ENOMEM;
 
-        char **t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
+        char **t = reallocarray(*a, greedy_alloc_round_up(p + q + 1), sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -329,7 +329,7 @@ int strv_extend_strv_consume(char ***a, char **b, bool filter_duplicates) {
         if (p >= SIZE_MAX - q)
                 return -ENOMEM;
 
-        char **t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
+        char **t = reallocarray(*a, greedy_alloc_round_up(p + q + 1), sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -602,7 +602,7 @@ int strv_push_with_size(char ***l, size_t *n, char *value) {
         if (size > SIZE_MAX-2)
                 return -ENOMEM;
 
-        char **c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(size + 2), sizeof(char*));
+        char **c = reallocarray(*l, greedy_alloc_round_up(size + 2), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -629,7 +629,7 @@ int strv_push_pair(char ***l, char *a, char *b) {
                 return -ENOMEM;
 
         /* increase and check for overflow */
-        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(n + !!a + !!b + 1), sizeof(char*));
+        c = reallocarray(*l, greedy_alloc_round_up(n + !!a + !!b + 1), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -660,7 +660,7 @@ int strv_insert(char ***l, size_t position, char *value) {
                 return -ENOMEM;
         m = n + 2;
 
-        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(m), sizeof(char*));
+        c = reallocarray(*l, greedy_alloc_round_up(m), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -760,7 +760,7 @@ int strv_extend_many_internal(char ***l, const char *value, ...) {
         if (m > SIZE_MAX-1)
                 return -ENOMEM;
 
-        char **c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(m+1), sizeof(char*));
+        char **c = reallocarray(*l, greedy_alloc_round_up(m+1), sizeof(char*));
         if (!c)
                 return -ENOMEM;
         *l = c;
@@ -1030,7 +1030,7 @@ int strv_extend_n(char ***l, const char *value, size_t n) {
         if (n >= SIZE_MAX - k)
                 return -ENOMEM;
 
-        nl = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(k + n + 1), sizeof(char *));
+        nl = reallocarray(*l, greedy_alloc_round_up(k + n + 1), sizeof(char *));
         if (!nl)
                 return -ENOMEM;
 

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <errno.h>
+
 #include "alloc-util.h"
 #include "capsule-util.h"
 #include "path-util.h"
