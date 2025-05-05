@@ -11,6 +11,7 @@
 #include "bus-locator.h"
 #include "bus-wait-for-jobs.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"

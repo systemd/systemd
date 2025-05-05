@@ -10,6 +10,7 @@
 #include "env-util.h"
 #include "exit-status.h"
 #include "fstab-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
 #include "mount-setup.h"

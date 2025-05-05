@@ -11,6 +11,7 @@
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "id128-util.h"
 #include "log.h"
 #include "macro.h"
@@ -19,6 +20,7 @@
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-util.h"
 #include "utf8.h"
 

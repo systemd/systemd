@@ -11,6 +11,7 @@
 #include "macro.h"
 
 typedef struct BPFProgram BPFProgram;
+typedef struct Set Set;
 
 /* This encapsulates three different concepts: the loaded BPF program, the BPF code, and the attachment to a
  * cgroup. Typically our BPF programs go through all three stages: we build the code, we load it, and finally

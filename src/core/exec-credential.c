@@ -20,6 +20,7 @@
 #include "recurse-dir.h"
 #include "rm-rf.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc) {
         if (!sc)

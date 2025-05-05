@@ -16,6 +16,8 @@
 #include "main-func.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
+#include "strv.h"
 #include "udev-util.h"
 #include "verbs.h"
 

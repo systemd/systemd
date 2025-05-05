@@ -3,6 +3,8 @@
 
 #include "journal-file.h"
 
+typedef struct Set Set;
+
 int journal_file_set_offline(JournalFile *f, bool wait);
 bool journal_file_is_offlining(JournalFile *f);
 void journal_file_write_final_tag(JournalFile *f);

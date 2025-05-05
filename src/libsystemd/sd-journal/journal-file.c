@@ -14,6 +14,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chattr-util.h"
 #include "compress.h"
 #include "env-util.h"
@@ -30,6 +31,7 @@
 #include "lookup3.h"
 #include "memory-util.h"
 #include "missing_fs.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"

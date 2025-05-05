@@ -3,6 +3,7 @@
 #include <fnmatch.h>
 #include <linux/bpf_insn.h>
 
+#include "alloc-util.h"
 #include "bpf-devices.h"
 #include "bpf-program.h"
 #include "devnum-util.h"

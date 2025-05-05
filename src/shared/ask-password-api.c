@@ -38,6 +38,7 @@
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"
+#include "parse-util.h"
 #include "path-lookup.h"
 #include "plymouth-util.h"
 #include "process-util.h"

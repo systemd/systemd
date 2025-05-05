@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chase.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -29,6 +30,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"

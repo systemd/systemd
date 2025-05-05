@@ -20,8 +20,10 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "libudev-device-internal.h"
 #include "libudev-list-internal.h"
 #include "parse-util.h"

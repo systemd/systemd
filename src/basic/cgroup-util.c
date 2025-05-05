@@ -12,10 +12,12 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "capsule-util.h"
 #include "cgroup-util.h"
 #include "constants.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"

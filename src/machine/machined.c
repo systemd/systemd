@@ -11,6 +11,7 @@
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "cgroup-util.h"
 #include "common-signal.h"
 #include "daemon-util.h"

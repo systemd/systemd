@@ -8,7 +8,9 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -20,6 +22,13 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+
+bool is_path(const char *p) {
+        if (!p) /* A NULL pointer is definitely not a path */
+                return false;
+
+        return strchr(p, '/');
+}
 
 int path_split_and_make_absolute(const char *p, char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
@@ -344,6 +353,10 @@ char** path_strv_resolve_uniq(char **l, const char *root) {
         return strv_uniq(l);
 }
 
+char* skip_leading_slash(const char *p) {
+        return skip_leading_chars(p, "/");
+}
+
 char* path_simplify_full(char *path, PathSimplifyFlags flags) {
         bool add_slash = false, keep_trailing_slash, absolute, beginning = true;
         char *f = path;
@@ -403,6 +416,22 @@ char* path_simplify_full(char *path, PathSimplifyFlags flags) {
 
         *f = '\0';
         return path;
+}
+
+int path_simplify_alloc(const char *path, char **ret) {
+        assert(ret);
+
+        if (!path) {
+                *ret = NULL;
+                return 0;
+        }
+
+        char *t = strdup(path);
+        if (!t)
+                return -ENOMEM;
+
+        *ret = path_simplify(t);
+        return 0;
 }
 
 char* path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) {
@@ -582,7 +611,7 @@ char* path_extend_internal(char **x, ...) {
         }
         va_end(ap);
 
-        nx = realloc(x ? *x : NULL, GREEDY_ALLOC_ROUND_UP(sz+1));
+        nx = realloc(x ? *x : NULL, greedy_alloc_round_up(sz+1));
         if (!nx)
                 return NULL;
         if (x)
@@ -1358,6 +1387,10 @@ bool empty_or_root(const char *path) {
                 return true;
 
         return path_equal(path, "/");
+}
+
+const char* empty_to_root(const char *path) {
+        return isempty(path) ? "/" : path;
 }
 
 bool path_strv_contains(char * const *l, const char *path) {

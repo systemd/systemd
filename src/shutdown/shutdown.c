@@ -30,6 +30,7 @@
 #include "detach-swap.h"
 #include "errno-util.h"
 #include "exec-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "getopt-defs.h"

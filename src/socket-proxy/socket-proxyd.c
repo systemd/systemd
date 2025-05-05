@@ -14,6 +14,7 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "build.h"
 #include "daemon-util.h"
 #include "errno-util.h"

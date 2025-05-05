@@ -6,7 +6,7 @@
 #include <stddef.h>
 
 #include "hash-funcs.h"
-#include "macro.h"
+#include "memory-util.h"
 
 /*
  * A hash table implementation. As a minor optimization a NULL hashmap object
@@ -38,7 +38,7 @@ typedef struct IteratedCache IteratedCache;   /* Caches the iterated order of on
 /* Ideally the Iterator would be an opaque struct, but it is instantiated
  * by hashmap users, so the definition has to be here. Do not use its fields
  * directly. */
-typedef struct {
+typedef struct Iterator {
         const void *next_key; /* expected value of that entry's key pointer */
         unsigned idx;         /* index of an entry to be iterated next */
 #if ENABLE_DEBUG_HASHMAP
@@ -73,20 +73,8 @@ typedef struct {
                 (Hashmap*)(h), \
                 (void)0)
 
-#if ENABLE_DEBUG_HASHMAP
-# define HASHMAP_DEBUG_PARAMS , const char *func, const char *file, int line
-# define HASHMAP_DEBUG_SRC_ARGS   , __func__, PROJECT_FILE, __LINE__
-# define HASHMAP_DEBUG_PASS_ARGS   , func, file, line
-#else
-# define HASHMAP_DEBUG_PARAMS
-# define HASHMAP_DEBUG_SRC_ARGS
-# define HASHMAP_DEBUG_PASS_ARGS
-#endif
-
-Hashmap* _hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
-OrderedHashmap* _ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
-#define hashmap_new(ops) _hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
-#define ordered_hashmap_new(ops) _ordered_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
+Hashmap* hashmap_new(const struct hash_ops *hash_ops);
+OrderedHashmap* ordered_hashmap_new(const struct hash_ops *hash_ops);
 
 #define hashmap_free_and_replace(a, b)                          \
         free_and_replace_full(a, b, hashmap_free)
@@ -104,25 +92,21 @@ static inline OrderedHashmap* ordered_hashmap_free(OrderedHashmap *h) {
 IteratedCache* iterated_cache_free(IteratedCache *cache);
 int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries);
 
-HashmapBase* _hashmap_copy(HashmapBase *h  HASHMAP_DEBUG_PARAMS);
-#define hashmap_copy(h) ((Hashmap*) _hashmap_copy(HASHMAP_BASE(h)  HASHMAP_DEBUG_SRC_ARGS))
-#define ordered_hashmap_copy(h) ((OrderedHashmap*) _hashmap_copy(HASHMAP_BASE(h)  HASHMAP_DEBUG_SRC_ARGS))
+HashmapBase* _hashmap_copy(HashmapBase *h);
+static inline Hashmap* hashmap_copy(Hashmap *h) {
+        return (Hashmap*) _hashmap_copy(HASHMAP_BASE(h));
+}
+static inline OrderedHashmap* ordered_hashmap_copy(OrderedHashmap *h) {
+        return (OrderedHashmap*) _hashmap_copy(HASHMAP_BASE(h));
+}
 
-int _hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
-int _hashmap_ensure_put(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS);
-int _ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
-int _hashmap_ensure_replace(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS);
+int hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops);
+int hashmap_ensure_put(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value);
+int ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops);
+int hashmap_ensure_replace(Hashmap **h, const struct hash_ops *hash_ops, const void *key, void *value);
 
-#define hashmap_ensure_allocated(h, ops) _hashmap_ensure_allocated(h, ops  HASHMAP_DEBUG_SRC_ARGS)
-#define hashmap_ensure_put(s, ops, key, value) _hashmap_ensure_put(s, ops, key, value  HASHMAP_DEBUG_SRC_ARGS)
-#define ordered_hashmap_ensure_allocated(h, ops) _ordered_hashmap_ensure_allocated(h, ops  HASHMAP_DEBUG_SRC_ARGS)
-#define hashmap_ensure_replace(s, ops, key, value) _hashmap_ensure_replace(s, ops, key, value  HASHMAP_DEBUG_SRC_ARGS)
-
-int _ordered_hashmap_ensure_put(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS);
-#define ordered_hashmap_ensure_put(s, ops, key, value) _ordered_hashmap_ensure_put(s, ops, key, value  HASHMAP_DEBUG_SRC_ARGS)
-
-int _ordered_hashmap_ensure_replace(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS);
-#define ordered_hashmap_ensure_replace(s, ops, key, value) _ordered_hashmap_ensure_replace(s, ops, key, value  HASHMAP_DEBUG_SRC_ARGS)
+int ordered_hashmap_ensure_put(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value);
+int ordered_hashmap_ensure_replace(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value);
 
 IteratedCache* _hashmap_iterated_cache_new(HashmapBase *h);
 static inline IteratedCache* hashmap_iterated_cache_new(Hashmap *h) {
@@ -137,9 +121,10 @@ static inline int ordered_hashmap_put(OrderedHashmap *h, const void *key, void *
         return hashmap_put(PLAIN_HASHMAP(h), key, value);
 }
 
-int _hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const char *k, const char *v  HASHMAP_DEBUG_PARAMS);
-#define hashmap_put_strdup_full(h, hash_ops, k, v) _hashmap_put_strdup_full(h, hash_ops, k, v  HASHMAP_DEBUG_SRC_ARGS)
-#define hashmap_put_strdup(h, k, v) hashmap_put_strdup_full(h, &string_hash_ops_free_free, k, v)
+int hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const char *k, const char *v);
+static inline int hashmap_put_strdup(Hashmap **h, const char *k, const char *v) {
+        return hashmap_put_strdup_full(h, &string_hash_ops_free_free, k, v);
+}
 
 int hashmap_update(Hashmap *h, const void *key, void *value);
 static inline int ordered_hashmap_update(OrderedHashmap *h, const void *key, void *value) {

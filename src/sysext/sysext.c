@@ -11,6 +11,7 @@
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "bus-error.h"

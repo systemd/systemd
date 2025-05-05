@@ -45,6 +45,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

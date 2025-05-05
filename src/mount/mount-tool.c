@@ -5,6 +5,7 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 
+#include "argv-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
