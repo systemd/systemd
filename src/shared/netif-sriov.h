@@ -8,7 +8,8 @@
 
 #include "conf-parser.h"
 #include "ether-addr-util.h"
-#include "hashmap.h"
+
+typedef struct OrderedHashmap OrderedHashmap;
 
 typedef enum SRIOVAttribute {
         SR_IOV_VF_MAC,

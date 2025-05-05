@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
 #include "json-util.h"

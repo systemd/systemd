@@ -7,7 +7,6 @@
 #  include <valgrind/valgrind.h>
 #endif
 
-#include "hashmap.h"
 #include "signal-util.h"
 #include "static-destruct.h"
 
@@ -70,24 +69,7 @@ static inline int exit_failure_if_nonzero(int result) {
 #define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(impl)                \
         _DEFINE_MAIN_FUNCTION(noop_intro, forward_impl, exit_failure_if_nonzero, exit_failure_if_nonzero, (ForwardRunFunction) impl)
 
-static inline int raise_or_exit_status(int ret) {
-        if (ret < 0)
-                return EXIT_FAILURE;
-        if (ret == 0)
-                return EXIT_SUCCESS;
-        if (!SIGNAL_VALID(ret))
-                return EXIT_FAILURE;
-
-#if HAVE_VALGRIND_VALGRIND_H
-        /* If raise() below succeeds, the destructor cleanup_pools() in hashmap.c will never called. */
-        if (RUNNING_ON_VALGRIND)
-                hashmap_trim_pools();
-#endif
-
-        (void) raise(ret);
-        /* exit with failure if raise() does not immediately abort the program. */
-        return EXIT_FAILURE;
-}
+int raise_or_exit_status(int ret);
 
 /* Negative return values from impl are mapped to EXIT_FAILURE, zero is mapped to EXIT_SUCCESS,
  * and raise if a positive signal is returned from impl. */

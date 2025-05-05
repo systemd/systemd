@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "id128-util.h"
 #include "local-addresses.h"
 #include "loop-util.h"

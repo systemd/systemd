@@ -13,6 +13,7 @@
 #include "json-util.h"
 #include "math-util.h"
 #include "ordered-set.h"
+#include "set.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

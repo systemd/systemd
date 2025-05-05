@@ -7,7 +7,6 @@
 #include <stdint.h>
 
 #include "dns-def.h"
-#include "hashmap.h"
 #include "in-addr-util.h"
 
 typedef enum DNSLabelFlags {

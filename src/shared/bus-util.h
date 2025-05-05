@@ -14,7 +14,6 @@
 #include "macro.h"
 #include "pidref.h"
 #include "runtime-scope.h"
-#include "set.h"
 #include "string-util.h"
 #include "time-util.h"
 
