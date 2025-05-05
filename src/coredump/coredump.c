@@ -1560,9 +1560,20 @@ static int receive_ucred(int transport_fd, struct ucred *ret_ucred) {
         return 0;
 }
 
-static int can_forward_coredump(pid_t pid) {
+static int can_forward_coredump(Context *context, pid_t pid) {
         _cleanup_free_ char *cgroup = NULL, *path = NULL, *unit = NULL;
         int r;
+
+        assert(context);
+
+        /* We don't use %F/pidfd to pin down the crashed process yet. We need to avoid a situation where the
+         * attacker crashes a SUID process or a root daemon and quickly replaces it with a namespaced process
+         * and we forward the initial part of the coredump to the attacker, inside the namespace.
+         *
+         * TODO: relax this check when %F is implemented and used.
+         */
+        if (context->dumpable != 1)
+                return false;
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
         if (r < 0)
@@ -1607,7 +1618,7 @@ static int forward_coredump_to_container(Context *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to get namespace leader: %m");
 
-        r = can_forward_coredump(leader_pid);
+        r = can_forward_coredump(context, leader_pid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to check if coredump can be forwarded: %m");
         if (r == 0)
