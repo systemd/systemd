@@ -222,19 +222,6 @@ static inline size_t malloc_sizeof_safe(void **xp) {
                 MALLOC_SIZEOF_SAFE(x)/sizeof((x)[0]),                   \
                 VOID_0))
 
-/* These are like strdupa()/strndupa(), but honour ALLOCA_MAX */
-#define strdupa_safe(s)                                                 \
-        ({                                                              \
-                const char *_t = (s);                                   \
-                (char*) memdupa_suffix0(_t, strlen(_t));                \
-        })
-
-#define strndupa_safe(s, n)                                             \
-        ({                                                              \
-                const char *_t = (s);                                   \
-                (char*) memdupa_suffix0(_t, strnlen(_t, n));            \
-        })
-
 /* Free every element of the array. */
 static inline void free_many(void **p, size_t n) {
         assert(p || n == 0);
