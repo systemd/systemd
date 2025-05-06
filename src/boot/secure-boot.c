@@ -69,7 +69,7 @@ static EFI_STATUS set_custom_mode(bool enable) {
                                attr, sizeof(mode), &mode);
 }
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, bool poweroff) {
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, secure_boot_enroll_action action) {
         assert(root_dir);
         assert(path);
 
@@ -191,7 +191,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
          */
 
         uint64_t dummy_key;
-        if (poweroff) {
+        if (action == ENROLL_ACTION_SHUTDOWN) {
                 printf("Custom Secure Boot keys successfully enrolled, powering of the system now!\n");
                 console_key_read(&dummy_key , 2 * 1000 * 1000); /* wait a bit so user can see the message */
                 RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
@@ -305,4 +305,10 @@ static const char *secure_boot_enroll_table[_SECURE_BOOT_ENROLL_MAX] = {
         [ENROLL_FORCE]   = "force"
 };
 
+static const char *secure_boot_enroll_action_table[_SECURE_BOOT_ENROLL_ACTION_MAX] = {
+        [ENROLL_ACTION_REBOOT]   = "reboot",
+        [ENROLL_ACTION_SHUTDOWN] = "shutdown"
+};
+
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll, secure_boot_enroll);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll_action, secure_boot_enroll_action);
