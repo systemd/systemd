@@ -676,18 +676,6 @@ static int event_build_dependencies(Event *event) {
         return 0;
 }
 
-static int event_is_blocked(Event *event) {
-        int r;
-
-        assert(event);
-
-        r = event_build_dependencies(event);
-        if (r < 0)
-                return r;
-
-        return !set_isempty(event->blocker_events);
-}
-
 static bool manager_can_process_event(Manager *manager) {
         static bool children_max_reached_logged = false;
 
@@ -742,16 +730,15 @@ static int event_queue_start(Manager *manager) {
                 if (event->state != EVENT_QUEUED)
                         continue;
 
-                /* do not start event if parent or child event is still running or queued */
-                r = event_is_blocked(event);
-                if (r > 0)
-                        continue;
+                r = event_build_dependencies(event);
                 if (r < 0)
                         log_device_warning_errno(event->dev, r,
-                                                 "Failed to check dependencies for event (SEQNUM=%"PRIu64", ACTION=%s), "
-                                                 "assuming there is no blocking event, ignoring: %m",
-                                                 event->seqnum,
-                                                 strna(device_action_to_string(event->action)));
+                                                 "Failed to check dependencies for event (SEQNUM=%"PRIu64", ACTION=%s), ignoring: %m",
+                                                 event->seqnum, strna(device_action_to_string(event->action)));
+
+                /* do not start event if parent or child event is still running or queued */
+                if (!set_isempty(event->blocker_events))
+                        continue;
 
                 r = event_run(event);
                 if (r < 0)
