@@ -361,13 +361,6 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open $BOOT partition '%s': %m", *p);
                 }
 
-                if (faccessat(fd, skip_leading_slash(path), F_OK, 0) >= 0) {
-                        puts("indeterminate");
-                        return 0;
-                }
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to check if '%s' exists: %m", path);
-
                 if (faccessat(fd, skip_leading_slash(good), F_OK, 0) >= 0) {
                         puts("good");
                         return 0;
@@ -382,6 +375,13 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 }
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to check if '%s' exists: %m", bad);
+
+                if (faccessat(fd, skip_leading_slash(path), F_OK, 0) >= 0) {
+                        puts("indeterminate");
+                        return 0;
+                }
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '%s' exists: %m", path);
 
                 /* We didn't find any of the three? If so, let's try the next directory, before we give up. */
         }
