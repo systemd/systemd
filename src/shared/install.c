@@ -1782,9 +1782,9 @@ static int install_info_add_auto(
         assert(name_or_path);
 
         if (path_is_absolute(name_or_path)) {
-                const char *pp;
-
-                pp = prefix_roota(lp->root_dir, name_or_path);
+                _cleanup_free_ char *pp = path_join(lp->root_dir, name_or_path);
+                if (!pp)
+                        return -ENOMEM;
 
                 return install_info_add(ctx, NULL, pp, lp->root_dir, /* auxiliary= */ false, ret);
         } else
