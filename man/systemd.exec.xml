@@ -2216,28 +2216,36 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <citerefentry project='man-pages'><refentrytitle>address_families</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for all possible options. When <literal>none</literal> is specified, then all address
         families will be denied. When prefixed with <literal>~</literal> the listed address
-        families will be applied as deny list, otherwise as allow list. Note that this restricts access
-        to the
-        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        families will be applied as deny list, otherwise as allow list.</para>
+
+        <para>By default, no restrictions apply, all address families are accessible to processes. If
+        assigned the empty string, any previous address family restriction changes are undone. This setting
+        does not affect commands prefixed with <literal>+</literal>.</para>
+
+        <para>Use this option to limit exposure of processes to remote access, in particular via exotic and
+        sensitive network protocols, such as <constant>AF_PACKET</constant>. Note that in most cases, the
+        local <constant>AF_UNIX</constant> address family should be included in the configured allow list as
+        it is frequently used for local communication, including for
+        <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        logging.</para>
+
+        <para>Note that this restricts access to the <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         system call only. Sockets passed into the process by other means (for example, by using socket
         activation with socket units, see
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
         are unaffected. Also, sockets created with <function>socketpair()</function> (which creates connected
-        AF_UNIX sockets only) are unaffected. Note that this option has no effect on 32-bit x86, s390, s390x,
-        mips, mips-le, ppc, ppc-le, ppc64, ppc64-le and is ignored (but works correctly on other ABIs,
-        including x86-64). Note that on systems supporting multiple ABIs (such as x86/x86-64) it is
-        recommended to turn off alternative ABIs for services, so that they cannot be used to circumvent the
-        restrictions of this option. Specifically, it is recommended to combine this option with
-        <varname>SystemCallArchitectures=native</varname> or similar. By default, no restrictions apply, all
-        address families are accessible to processes. If assigned the empty string, any previous address family
-        restriction changes are undone. This setting does not affect commands prefixed with <literal>+</literal>.</para>
+        AF_UNIX sockets) or the
+        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        functions, are not affected. Thus, it is recommended to combined this setting with
+        <varname>SystemCallFilter=@service</varname>, to only allow a limited subset of system calls.</para>
 
-        <para>Use this option to limit exposure of processes to remote access, in particular via exotic and sensitive
-        network protocols, such as <constant>AF_PACKET</constant>. Note that in most cases, the local
-        <constant>AF_UNIX</constant> address family should be included in the configured allow list as it is frequently
-        used for local communication, including for
-        <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        logging.</para>
+        <para>Note that this option is limited to some ABIs, in particular x86-64, but currently has no
+        effect on 32-bit x86, s390, s390x, mips, mips-le, ppc, ppc-le, ppc64, or ppc64-le, and is ignored. On
+        systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off alternative ABIs
+        for services, so that they cannot be used to circumvent the restrictions of this option.
+        Specifically, it is recommended to combine this option with
+        <varname>SystemCallArchitectures=native</varname> or similar. </para>
 
         <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
