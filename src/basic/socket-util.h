@@ -197,6 +197,7 @@ int receive_many_fds(int transport_fd, int **ret_fds_array, size_t *ret_n_fds_ar
 ssize_t next_datagram_size_fd(int fd);
 
 int flush_accept(int fd);
+ssize_t flush_mqueue(int fd);
 
 #define CMSG_FOREACH(cmsg, mh)                                          \
         for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
