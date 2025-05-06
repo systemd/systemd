@@ -69,6 +69,13 @@ typedef struct CoffFileHeader {
 #define OPTHDR32_MAGIC 0x10B /* PE32  OptionalHeader */
 #define OPTHDR64_MAGIC 0x20B /* PE32+ OptionalHeader */
 
+typedef struct PeImageDataDirectory {
+        uint32_t VirtualAddress;
+        uint32_t Size;
+} _packed_ PeImageDataDirectory;
+
+#define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
+
 typedef struct PeOptionalHeader {
         uint16_t Magic;
         uint8_t  LinkerMajor;
@@ -99,7 +106,28 @@ typedef struct PeOptionalHeader {
         uint32_t CheckSum;
         uint16_t Subsystem;
         uint16_t DllCharacteristics;
-        /* fields with different sizes for 32/64 omitted */
+        union {
+                struct {
+                        uint64_t SizeOfStackReserve64;
+                        uint64_t SizeOfStackCommit64;
+                        uint64_t SizeOfHeapReserve64;
+                        uint64_t SizeOfHeapCommit64;
+                        uint32_t LoaderFlags64;
+                        uint32_t NumberOfRvaAndSizes64;
+
+                        PeImageDataDirectory DataDirectory64[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
+                };
+                struct {
+                        uint32_t SizeOfStackReserve32;
+                        uint32_t SizeOfStackCommit32;
+                        uint32_t SizeOfHeapReserve32;
+                        uint32_t SizeOfHeapCommit32;
+                        uint32_t LoaderFlags32;
+                        uint32_t NumberOfRvaAndSizes32;
+
+                        PeImageDataDirectory DataDirectory32[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
+                };
+        };
 } _packed_ PeOptionalHeader;
 
 typedef struct PeFileHeader {
@@ -429,7 +457,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t *ret_size_in_memory) {
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_address, uint32_t *ret_compat_address, uint64_t *ret_image_base, size_t *ret_size_in_memory) {
         assert(base);
         assert(ret_compat_address);
 
@@ -441,17 +469,36 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t
         if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
+        uint64_t image_base;
+        if (pe->OptionalHeader.Magic == OPTHDR32_MAGIC)
+                image_base = pe->OptionalHeader.ImageBase32;
+        else
+                image_base = pe->OptionalHeader.ImageBase64;
+
+        const PeImageDataDirectory *data_directory;
+        if (pe->OptionalHeader.Magic == OPTHDR32_MAGIC)
+                data_directory = pe->OptionalHeader.DataDirectory32;
+        else
+                data_directory = pe->OptionalHeader.DataDirectory64;
+
+        if (data_directory[5].Size != 0)
+                return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains base relocations, which we do not support.");
+
         /* When allocating we need to also consider the virtual/uninitialized data sections, so parse it out
          * of the SizeOfImage field in the PE header and return it */
-        if (ret_size_in_memory)
-                *ret_size_in_memory = pe->OptionalHeader.SizeOfImage;
+        size_t size_in_memory = pe->OptionalHeader.SizeOfImage;
 
         /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
         if (pe->OptionalHeader.MajorImageVersion < 1)
                 return EFI_UNSUPPORTED;
 
         if (pe->FileHeader.Machine == TARGET_MACHINE_TYPE) {
-                *ret_compat_address = 0;
+                if (ret_size_in_memory)
+                        *ret_size_in_memory = size_in_memory;
+                if (ret_address)
+                        *ret_address = pe->OptionalHeader.AddressOfEntryPoint;
+                if (ret_image_base)
+                        *ret_image_base = image_base;
                 return EFI_SUCCESS;
         }
 
@@ -460,7 +507,18 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t
                 /* Image type not supported and no compat entry found. */
                 return EFI_UNSUPPORTED;
 
-        *ret_compat_address = compat_address;
+        if (ret_size_in_memory)
+                *ret_size_in_memory = size_in_memory;
+
+        if (ret_compat_address)
+                *ret_compat_address = compat_address;
+
+        if (ret_image_base)
+                *ret_image_base = image_base;
+
+        if (ret_address)
+                *ret_address = UINT32_MAX;
+
         return EFI_SUCCESS;
 }
 
