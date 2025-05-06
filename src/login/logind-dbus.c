@@ -2106,7 +2106,7 @@ static int delay_shutdown_or_sleep(
                         m->event, &m->inhibit_timeout_source,
                         CLOCK_MONOTONIC, m->inhibit_delay_max, /* accuracy = */ 0,
                         manager_inhibit_timeout_handler, m,
-                        /* priority = */ 0, "inhibit-timeout", /* force = */ true);
+                        /* priority = */ 0, "inhibit-timeout", /* force_reset = */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset timer event source for inhibit timeout: %m");
 
