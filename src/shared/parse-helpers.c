@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/socket.h>
+
 #include "af-list.h"
 #include "extract-word.h"
 #include "ip-protocol-list.h"
