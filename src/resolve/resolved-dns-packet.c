@@ -2364,7 +2364,7 @@ int dns_packet_read_rr(
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_name(p, &rr->naptr.replacement, /* allow_compressed= */ false, NULL);
+                r = dns_packet_read_name(p, &rr->naptr.replacement, /* allow_compression= */ false, NULL);
                 break;
 
         case DNS_TYPE_OPT: /* we only care about the header of OPT for now. */
