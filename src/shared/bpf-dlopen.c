@@ -48,6 +48,9 @@ DLSYM_PROTOTYPE(ring_buffer__epoll_fd) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__free) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__new) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__poll) = NULL;
+#if HAVE_BPF_TOKEN_CREATE
+DLSYM_PROTOTYPE(bpf_token_create) = NULL;
+#endif
 
 /* new symbols available from libbpf 0.7.0 */
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
@@ -164,6 +167,9 @@ int dlopen_bpf(void) {
                         DLSYM_ARG_FORCE(bpf_program__attach_lsm),
 #endif
                         DLSYM_ARG(bpf_program__name),
+#if HAVE_BPF_TOKEN_CREATE
+                        DLSYM_ARG(bpf_token_create),
+#endif
                         DLSYM_ARG(libbpf_get_error),
                         DLSYM_ARG(libbpf_set_print),
                         DLSYM_ARG(ring_buffer__epoll_fd),
