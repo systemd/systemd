@@ -2,6 +2,7 @@
 
 #include <elf.h>
 #include <link.h>
+#include <stdlib.h>
 #include <sys/auxv.h>
 
 #include "build-path.h"
