@@ -2,7 +2,6 @@
 #pragma once
 
 #include <inttypes.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "assert-util.h"
@@ -16,7 +15,7 @@
  * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks
  *
  * Note that we use the GNU variant of strerror_r() here. */
-#define STRERROR(errnum) strerror_r(abs(errnum), (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
+#define STRERROR(errnum) strerror_r(ABS(errnum), (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
 
 /* A helper to print an error message or message for functions that return 0 on EOF.
  * Note that we can't use ({ … }) to define a temporary variable, so errnum is
@@ -41,7 +40,7 @@ static inline void _reset_errno_(int *saved_errno) {
 
 #define LOCAL_ERRNO(value)                      \
         PROTECT_ERRNO;                          \
-        errno = abs(value)
+        errno = ABS(value)
 
 static inline int negative_errno(void) {
         /* This helper should be used to shut up gcc if you know 'errno' is
@@ -93,15 +92,14 @@ static inline int errno_or_else(int fallback) {
         if (errno > 0)
                 return -errno;
 
-        return -abs(fallback);
+        return -ABS(fallback);
 }
 
-/* abs(3) says: Trying to take the absolute value of the most negative integer is not defined. */
 #define _DEFINE_ABS_WRAPPER(name)                         \
         static inline bool ERRNO_IS_##name(intmax_t r) {  \
                 if (r == INTMAX_MIN)                      \
                         return false;                     \
-                return ERRNO_IS_NEG_##name(-imaxabs(r));  \
+                return ERRNO_IS_NEG_##name(-ABS(r));      \
         }
 
 assert_cc(INT_MAX <= INTMAX_MAX);

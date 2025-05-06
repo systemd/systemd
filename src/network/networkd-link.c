@@ -61,6 +61,7 @@
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
+#include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"

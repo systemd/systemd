@@ -30,6 +30,7 @@
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "ordered-set.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "ratelimit.h"

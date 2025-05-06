@@ -20,6 +20,7 @@
 #include "build.h"
 #include "bus-internal.h"
 #include "bus-locator.h"
+#include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "capability-util.h"
 #include "chase.h"

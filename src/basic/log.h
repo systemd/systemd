@@ -33,9 +33,9 @@ typedef enum LogTarget{
 #define LOG_NULL (LOG_EMERG - 1)
 assert_cc(LOG_NULL == -1);
 
-#define SYNTHETIC_ERRNO(num)                (abs(num) | (1 << 30))
+#define SYNTHETIC_ERRNO(num)                (ABS(num) | (1 << 30))
 #define IS_SYNTHETIC_ERRNO(val)             (((val) >> 30) == 1)
-#define ERRNO_VALUE(val)                    (abs(val) & ~(1 << 30))
+#define ERRNO_VALUE(val)                    (ABS(val) & ~(1 << 30))
 
 /* The callback function to be invoked when syntax warnings are seen
  * in the unit files. */

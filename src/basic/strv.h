@@ -262,10 +262,10 @@ void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value);
 static inline void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value) {
         string_strv_hashmap_remove(PLAIN_HASHMAP(h), key, value);
 }
-int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS);
-int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS);
-#define string_strv_hashmap_put(h, k, v) _string_strv_hashmap_put(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
-#define string_strv_ordered_hashmap_put(h, k, v) _string_strv_ordered_hashmap_put(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
+int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value);
+int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value);
+#define string_strv_hashmap_put(h, k, v) _string_strv_hashmap_put(h, k, v)
+#define string_strv_ordered_hashmap_put(h, k, v) _string_strv_ordered_hashmap_put(h, k, v)
 
 int strv_rebreak_lines(char **l, size_t width, char ***ret);
 

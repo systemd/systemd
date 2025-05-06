@@ -15,6 +15,7 @@
 #include "sd-netlink.h"
 #include "sd-varlink.h"
 
+#include "argv-util.h"
 #include "bus-polkit.h"
 #include "env-util.h"
 #include "fd-util.h"
