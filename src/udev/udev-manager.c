@@ -38,13 +38,14 @@
 #include "udev-watch.h"
 #include "udev-worker.h"
 
-#define EVENT_RETRY_INTERVAL_USEC (200 * USEC_PER_MSEC)
-#define EVENT_RETRY_TIMEOUT_USEC  (3 * USEC_PER_MINUTE)
+#define EVENT_REQUEUE_INTERVAL_USEC (200 * USEC_PER_MSEC)
+#define EVENT_REQUEUE_TIMEOUT_USEC  (3 * USEC_PER_MINUTE)
 
 typedef enum EventState {
         EVENT_UNDEF,
         EVENT_QUEUED,
         EVENT_RUNNING,
+        EVENT_LOCKED,
 } EventState;
 
 typedef struct Event {
@@ -56,19 +57,21 @@ typedef struct Event {
 
         sd_device_action_t action;
         uint64_t seqnum;
-        uint64_t blocker_seqnum;
         const char *id;
         const char *devpath;
         const char *devpath_old;
         const char *devnode;
 
         /* Used when the device is locked by another program. */
-        usec_t retry_again_next_usec;
-        usec_t retry_again_timeout_usec;
-        sd_event_source *retry_event_source;
+        usec_t requeue_next_usec;
+        usec_t requeue_timeout_usec;
+        unsigned locked_event_prioq_index;
+        char *whole_disk;
+        LIST_FIELDS(Event, same_disk);
 
-        sd_event_source *timeout_warning_event;
-        sd_event_source *timeout_event;
+        bool dependencies_built;
+        Set *blocker_events;
+        Set *blocking_events;
 
         LIST_FIELDS(Event, event);
 } Event;
@@ -84,29 +87,81 @@ typedef struct Worker {
         Manager *manager;
         PidRef pidref;
         sd_event_source *child_event_source;
+        sd_event_source *timeout_warning_event_source;
+        sd_event_source *timeout_kill_event_source;
         union sockaddr_union address;
         WorkerState state;
         Event *event;
 } Worker;
 
+static void event_clear_dependencies(Event *event) {
+        assert(event);
+
+        Event *e;
+        while ((e = set_steal_first(event->blocker_events)))
+                set_remove(e->blocking_events, event);
+        event->blocker_events = set_free(event->blocker_events);
+
+        while ((e = set_steal_first(event->blocking_events)))
+                set_remove(e->blocker_events, event);
+        event->blocking_events = set_free(event->blocking_events);
+
+        event->dependencies_built = false;
+}
+
+static void event_requeue(Event *event) {
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(event)->manager);
+
+        if (event->state != EVENT_LOCKED)
+                return;
+
+        assert(event->whole_disk);
+
+        if (event->same_disk_prev)
+                /* If this is not the first event, then simply remove this event. */
+                event->same_disk_prev->same_disk_next = event->same_disk_next;
+        else if (event->same_disk_next)
+                /* If this is the first event, replace with the next event. */
+                assert_se(hashmap_replace(manager->locked_events_by_disk, event->same_disk_next->whole_disk, event->same_disk_next) >= 0);
+        else
+                /* Otherwise, remove the entry. */
+                assert_se(hashmap_remove(manager->locked_events_by_disk, event->whole_disk) == event);
+
+        if (event->same_disk_next)
+                event->same_disk_next->same_disk_prev = event->same_disk_prev;
+
+        event->same_disk_prev = event->same_disk_next = NULL;
+
+        event->whole_disk = mfree(event->whole_disk);
+
+        assert_se(prioq_remove(manager->locked_events_by_time, event, &event->locked_event_prioq_index) > 0);
+
+        event->state = EVENT_QUEUED;
+}
+
 static Event* event_free(Event *event) {
         if (!event)
                 return NULL;
 
-        assert(event->manager);
+        if (event->manager) {
+                event_requeue(event);
 
-        LIST_REMOVE(event, event->manager->events, event);
-        sd_device_unref(event->dev);
-
-        sd_event_source_unref(event->retry_event_source);
-        sd_event_source_unref(event->timeout_warning_event);
-        sd_event_source_unref(event->timeout_event);
+                if (event->manager->last_event == event)
+                        event->manager->last_event = event->event_prev;
+                LIST_REMOVE(event, event->manager->events, event);
+        }
 
         if (event->worker)
                 event->worker->event = NULL;
 
+        event_clear_dependencies(event);
+
+        sd_device_unref(event->dev);
+
         return mfree(event);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Event*, event_free);
 
 static Worker* worker_free(Worker *worker) {
         if (!worker)
@@ -116,6 +171,8 @@ static Worker* worker_free(Worker *worker) {
                 hashmap_remove(worker->manager->workers, &worker->pidref);
 
         sd_event_source_disable_unref(worker->child_event_source);
+        sd_event_source_unref(worker->timeout_warning_event_source);
+        sd_event_source_unref(worker->timeout_kill_event_source);
         pidref_done(&worker->pidref);
         event_free(worker->event);
 
@@ -143,6 +200,10 @@ Manager* manager_free(Manager *manager) {
         hashmap_free(manager->workers);
         while (manager->events)
                 event_free(manager->events);
+
+        prioq_free(manager->locked_events_by_time);
+        hashmap_free(manager->locked_events_by_disk);
+        sd_event_source_unref(manager->requeue_locked_events_timer_event_source);
 
         safe_close(manager->inotify_fd);
 
@@ -254,6 +315,8 @@ void manager_exit(Manager *manager) {
         /* Kill all workers with SIGTERM, and disable unnecessary timer event source. */
         manager_kill_workers(manager, SIGTERM);
         manager->kill_workers_event = sd_event_source_disable_unref(manager->kill_workers_event);
+
+        (void) event_source_disable(manager->requeue_locked_events_timer_event_source);
 }
 
 void notify_ready(Manager *manager) {
@@ -413,36 +476,33 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         return 0;
 }
 
-static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        Event *event = ASSERT_PTR(userdata);
+static int on_worker_timeout_kill(sd_event_source *s, uint64_t usec, void *userdata) {
+        Worker *worker = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(worker->manager);
+        Event *event = ASSERT_PTR(worker->event);
 
-        assert(event->manager);
-        assert(event->worker);
+        (void) pidref_kill_and_sigcont(&worker->pidref, manager->config.timeout_signal);
+        worker->state = WORKER_KILLED;
 
-        (void) pidref_kill_and_sigcont(&event->worker->pidref, event->manager->config.timeout_signal);
-        event->worker->state = WORKER_KILLED;
-
-        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed.", event->worker->pidref.pid, event->seqnum);
-
-        return 1;
+        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed.", worker->pidref.pid, event->seqnum);
+        return 0;
 }
 
-static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
-        Event *event = ASSERT_PTR(userdata);
+static int on_worker_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
+        Worker *worker = ASSERT_PTR(userdata);
+        Event *event = ASSERT_PTR(worker->event);
 
-        assert(event->worker);
-
-        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time.", event->worker->pidref.pid, event->seqnum);
-
-        return 1;
+        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time.", worker->pidref.pid, event->seqnum);
+        return 0;
 }
 
 static void worker_attach_event(Worker *worker, Event *event) {
         Manager *manager = ASSERT_PTR(ASSERT_PTR(worker)->manager);
-        sd_event *e = ASSERT_PTR(manager->event);
 
         assert(event);
+        assert(event->state == EVENT_QUEUED);
         assert(!event->worker);
+        assert(IN_SET(worker->state, WORKER_UNDEF, WORKER_IDLE));
         assert(!worker->event);
 
         worker->state = WORKER_RUNNING;
@@ -451,27 +511,44 @@ static void worker_attach_event(Worker *worker, Event *event) {
         event->worker = worker;
 
         (void) event_reset_time_relative(
-                        e,
-                        &event->timeout_warning_event,
-                        CLOCK_MONOTONIC,
+                        manager->event,
+                        &worker->timeout_warning_event_source,
+                        CLOCK_BOOTTIME,
                         udev_warn_timeout(manager->config.timeout_usec),
                         USEC_PER_SEC,
-                        on_event_timeout_warning,
-                        event,
+                        on_worker_timeout_warning,
+                        worker,
                         EVENT_PRIORITY_WORKER_TIMER,
-                        "event-timeout-warn",
+                        "worker-timeout-warn",
                         /* force_reset = */ true);
 
         (void) event_reset_time_relative(
-                        e,
-                        &event->timeout_event, CLOCK_MONOTONIC,
+                        manager->event,
+                        &worker->timeout_kill_event_source,
+                        CLOCK_BOOTTIME,
                         manager_kill_worker_timeout(manager),
                         USEC_PER_SEC,
-                        on_event_timeout,
-                        event,
+                        on_worker_timeout_kill,
+                        worker,
                         EVENT_PRIORITY_WORKER_TIMER,
-                        "event-timeout-kill",
+                        "worker-timeout-kill",
                         /* force_reset = */ true);
+}
+
+static Event* worker_detach_event(Worker *worker) {
+        assert(worker);
+
+        Event *event = TAKE_PTR(worker->event);
+        if (event)
+                event->worker = NULL;
+
+        if (worker->state != WORKER_KILLED)
+                worker->state = WORKER_IDLE;
+
+        (void) event_source_disable(worker->timeout_warning_event_source);
+        (void) event_source_disable(worker->timeout_kill_event_source);
+
+        return event;
 }
 
 static int worker_spawn(Manager *manager, Event *event) {
@@ -532,19 +609,12 @@ static int worker_spawn(Manager *manager, Event *event) {
 }
 
 static int event_run(Event *event) {
-        static bool log_children_max_reached = true;
-        Manager *manager;
-        Worker *worker;
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(event)->manager);
         int r;
-
-        assert(event);
-        assert(event->manager);
 
         log_device_uevent(event->dev, "Device ready for processing");
 
-        (void) event_source_disable(event->retry_event_source);
-
-        manager = event->manager;
+        Worker *worker;
         HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state != WORKER_IDLE)
                         continue;
@@ -558,28 +628,16 @@ static int event_run(Event *event) {
                         continue;
                 }
                 worker_attach_event(worker, event);
-                return 1; /* event is now processing. */
+                return 0;
         }
-
-        if (hashmap_size(manager->workers) >= manager->config.children_max) {
-                /* Avoid spamming the debug logs if the limit is already reached and
-                 * many events still need to be processed */
-                if (log_children_max_reached && manager->config.children_max > 1) {
-                        log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
-                        log_children_max_reached = false;
-                }
-                return 0; /* no free worker */
-        }
-
-        /* Re-enable the debug message for the next batch of events */
-        log_children_max_reached = true;
 
         /* start new worker and pass initial device */
+        assert(hashmap_size(manager->workers) < manager->config.children_max);
         r = worker_spawn(manager, event);
         if (r < 0)
                 return r;
 
-        return 1; /* event is now processing. */
+        return 0;
 }
 
 bool devpath_conflict(const char *a, const char *b) {
@@ -595,85 +653,82 @@ bool devpath_conflict(const char *a, const char *b) {
         return *a == '/' || *b == '/' || *a == *b;
 }
 
-static int event_is_blocked(Event *event) {
-        Event *loop_event = NULL;
+static int event_build_dependencies(Event *event) {
         int r;
+
+        assert(event);
 
         /* lookup event for identical, parent, child device */
 
+        if (event->dependencies_built)
+                return 0;
+
+        LIST_FOREACH_BACKWARDS(event, e, event->event_prev)
+                if (streq_ptr(event->id, e->id) ||
+                    devpath_conflict(event->devpath, e->devpath) ||
+                    devpath_conflict(event->devpath, e->devpath_old) ||
+                    devpath_conflict(event->devpath_old, e->devpath) ||
+                    (event->devnode && streq_ptr(event->devnode, e->devnode))) {
+
+                        r = set_ensure_put(&event->blocker_events, NULL, e);
+                        if (r < 0)
+                                return r;
+
+                        r = set_ensure_put(&e->blocking_events, NULL, event);
+                        if (r < 0)
+                                return r;
+
+                        log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
+                                         event->seqnum, e->seqnum);
+                }
+
+        event->dependencies_built = true;
+        return 0;
+}
+
+static int event_is_blocked(Event *event) {
+        int r;
+
         assert(event);
-        assert(event->manager);
-        assert(event->blocker_seqnum <= event->seqnum);
 
-        if (event->retry_again_next_usec > 0) {
-                usec_t now_usec;
+        r = event_build_dependencies(event);
+        if (r < 0)
+                return r;
 
-                r = sd_event_now(event->manager->event, CLOCK_BOOTTIME, &now_usec);
-                if (r < 0)
-                        return r;
+        return !set_isempty(event->blocker_events);
+}
 
-                if (event->retry_again_next_usec > now_usec)
-                        return true;
+static bool manager_can_process_event(Manager *manager) {
+        static bool children_max_reached_logged = false;
+
+        assert(manager);
+
+        /* Check if there is a free room for processing an event. */
+
+        if (manager->stop_exec_queue)
+                return false; /* processing events manually stopped */
+
+        if (hashmap_size(manager->workers) < manager->config.children_max)
+                goto yes_we_can; /* new worker can be spawned */
+
+        Worker *worker;
+        HASHMAP_FOREACH(worker, manager->workers)
+                if (worker->state == WORKER_IDLE)
+                        goto yes_we_can; /* found an idle worker */
+
+        /* Avoid spamming the debug logs if the limit is already reached and
+         * many events still need to be processed */
+        if (!children_max_reached_logged) {
+                log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
+                children_max_reached_logged = true;
         }
 
-        if (event->blocker_seqnum == event->seqnum)
-                /* we have checked previously and no blocker found */
-                return false;
-
-        LIST_FOREACH(event, e, event->manager->events) {
-                loop_event = e;
-
-                /* we already found a later event, earlier cannot block us, no need to check again */
-                if (loop_event->seqnum < event->blocker_seqnum)
-                        continue;
-
-                /* event we checked earlier still exists, no need to check again */
-                if (loop_event->seqnum == event->blocker_seqnum)
-                        return true;
-
-                /* found ourself, no later event can block us */
-                if (loop_event->seqnum >= event->seqnum)
-                        goto no_blocker;
-
-                /* found event we have not checked */
-                break;
-        }
-
-        assert(loop_event);
-        assert(loop_event->seqnum > event->blocker_seqnum &&
-               loop_event->seqnum < event->seqnum);
-
-        /* check if queue contains events we depend on */
-        LIST_FOREACH(event, e, loop_event) {
-                loop_event = e;
-
-                /* found ourself, no later event can block us */
-                if (loop_event->seqnum >= event->seqnum)
-                        goto no_blocker;
-
-                if (streq_ptr(loop_event->id, event->id))
-                        break;
-
-                if (devpath_conflict(event->devpath, loop_event->devpath) ||
-                    devpath_conflict(event->devpath, loop_event->devpath_old) ||
-                    devpath_conflict(event->devpath_old, loop_event->devpath))
-                        break;
-
-                if (event->devnode && streq_ptr(event->devnode, loop_event->devnode))
-                        break;
-        }
-
-        assert(loop_event);
-
-        log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
-                         event->seqnum, loop_event->seqnum);
-
-        event->blocker_seqnum = loop_event->seqnum;
-        return true;
-
-no_blocker:
-        event->blocker_seqnum = event->seqnum;
         return false;
+
+yes_we_can:
+        /* Re-enable the debug message for the next batch of events */
+        children_max_reached_logged = false;
+        return true;
 }
 
 static int event_queue_start(Manager *manager) {
@@ -682,7 +737,7 @@ static int event_queue_start(Manager *manager) {
         assert(manager);
         assert(!manager->exit);
 
-        if (!manager->events || manager->stop_exec_queue)
+        if (!manager->events || !manager_can_process_event(manager))
                 return 0;
 
         r = event_source_disable(manager->kill_workers_event);
@@ -707,33 +762,94 @@ static int event_queue_start(Manager *manager) {
                                                  strna(device_action_to_string(event->action)));
 
                 r = event_run(event);
-                if (r <= 0) /* 0 means there are no idle workers. Let's escape from the loop. */
+                if (r < 0)
                         return r;
         }
 
         return 0;
 }
 
-static int on_event_retry(sd_event_source *s, uint64_t usec, void *userdata) {
-        /* This does nothing. The on_post() callback will start the event if there exists an idle worker. */
+static int on_requeue_locked_events(sd_event_source *s, uint64_t usec, void *userdata) {
+        /* This does nothing. The on_post() callback will requeue locked events. */
         return 1;
 }
 
-static void event_requeue(Event *event) {
+static int manager_requeue_locked_events_by_time(Manager *manager) {
+        usec_t now_usec;
+        int r;
+
+        assert(manager);
+
+        r = sd_event_now(manager->event, CLOCK_BOOTTIME, &now_usec);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                Event *event = prioq_peek(manager->locked_events_by_time);
+                if (!event)
+                        return event_source_disable(manager->requeue_locked_events_timer_event_source);
+
+                if (event->requeue_next_usec > now_usec)
+                        return event_reset_time(
+                                        manager->event,
+                                        &manager->requeue_locked_events_timer_event_source,
+                                        CLOCK_BOOTTIME,
+                                        event->requeue_next_usec,
+                                        USEC_PER_SEC,
+                                        on_requeue_locked_events,
+                                        /* userdata = */ NULL,
+                                        EVENT_PRIORITY_REQUEUE_EVENT,
+                                        "requeue-locked-events",
+                                        /* force_reset = */ true);
+
+                event_requeue(event);
+        }
+}
+
+int manager_requeue_locked_events_by_device(Manager *manager, sd_device *dev) {
+        int r;
+
+        /* When a new event for a block device is queued or we get an inotify event, assume that the
+         * device is not locked anymore. The assumption may not be true, but that should not cause any
+         * issues, as in that case events will be requeued soon. */
+
+        if (hashmap_isempty(manager->locked_events_by_disk))
+                return 0;
+
+        const char *devname;
+        r = udev_get_whole_disk(dev, NULL, &devname);
+        if (r <= 0)
+                return r;
+
+        Event *first = hashmap_remove(manager->locked_events_by_disk, devname);
+        if (!first)
+                return 0;
+
+        Event *event;
+        while ((event = LIST_POP(same_disk, first))) {
+                assert_se(prioq_remove(manager->locked_events_by_time, event, &event->locked_event_prioq_index) > 0);
+                event->whole_disk = mfree(event->whole_disk);
+                event->state = EVENT_QUEUED;
+        }
+
+        return 0;
+}
+
+static int locked_event_compare(const Event *x, const Event *y) {
+        return CMP(x->requeue_next_usec, y->requeue_next_usec);
+}
+
+static void event_enter_locked(Event *event, const char *whole_disk) {
         usec_t now_usec;
         int r;
 
         assert(event);
-        assert(event->manager);
-        assert(event->manager->event);
 
+        Manager *manager = ASSERT_PTR(event->manager);
         sd_device *dev = ASSERT_PTR(event->dev);
 
-        event->timeout_warning_event = sd_event_source_disable_unref(event->timeout_warning_event);
-        event->timeout_event = sd_event_source_disable_unref(event->timeout_event);
-
         /* add a short delay to suppress busy loop */
-        r = sd_event_now(event->manager->event, CLOCK_BOOTTIME, &now_usec);
+        r = sd_event_now(manager->event, CLOCK_BOOTTIME, &now_usec);
         if (r < 0) {
                 log_device_warning_errno(
                                 dev, r,
@@ -742,92 +858,79 @@ static void event_requeue(Event *event) {
                 goto fail;
         }
 
-        if (event->retry_again_timeout_usec > 0 && event->retry_again_timeout_usec <= now_usec) {
+        if (event->requeue_timeout_usec > 0 && event->requeue_timeout_usec <= now_usec) {
                 r = log_device_warning_errno(
                                 dev, SYNTHETIC_ERRNO(ETIMEDOUT),
                                 "The underlying block device is locked by a process more than %s, skipping event (SEQNUM=%"PRIu64", ACTION=%s).",
-                                FORMAT_TIMESPAN(EVENT_RETRY_TIMEOUT_USEC, USEC_PER_MINUTE),
+                                FORMAT_TIMESPAN(EVENT_REQUEUE_TIMEOUT_USEC, USEC_PER_MINUTE),
                                 event->seqnum, strna(device_action_to_string(event->action)));
                 goto fail;
         }
 
-        event->retry_again_next_usec = usec_add(now_usec, EVENT_RETRY_INTERVAL_USEC);
-        if (event->retry_again_timeout_usec == 0)
-                event->retry_again_timeout_usec = usec_add(now_usec, EVENT_RETRY_TIMEOUT_USEC);
+        event->requeue_next_usec = usec_add(now_usec, EVENT_REQUEUE_INTERVAL_USEC);
+        if (event->requeue_timeout_usec == 0)
+                event->requeue_timeout_usec = usec_add(now_usec, EVENT_REQUEUE_TIMEOUT_USEC);
 
-        r = event_reset_time_relative(
-                        event->manager->event,
-                        &event->retry_event_source,
-                        CLOCK_MONOTONIC,
-                        EVENT_RETRY_INTERVAL_USEC,
-                        /* accuracy = */ 0,
-                        on_event_retry,
-                        /* userdata = */ NULL,
-                        EVENT_PRIORITY_RETRY_EVENT,
-                        "retry-event",
-                        /* force_reset = */ true);
-        if (r < 0) {
+        if (isempty(whole_disk)) {
                 log_device_warning_errno(
-                                dev, r,
-                                "Failed to reset timer event source for retrying event, skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
+                                dev, SYNTHETIC_ERRNO(EBADMSG),
+                                "Unexpected notify message received, skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
                                 event->seqnum, strna(device_action_to_string(event->action)));
                 goto fail;
         }
 
-        if (event->worker)
-                event->worker->event = NULL;
-        event->worker = NULL;
+        _cleanup_free_ char *whole_disk_copy = strdup(whole_disk);
+        if (!whole_disk_copy) {
+                log_oom();
+                goto fail;
+        }
 
-        event->state = EVENT_QUEUED;
+        r = prioq_ensure_allocated(&manager->locked_events_by_time, (compare_func_t) locked_event_compare);
+        if (r < 0) {
+                log_oom();
+                goto fail;
+        }
+
+        r = hashmap_ensure_allocated(&manager->locked_events_by_disk, &path_hash_ops);
+        if (r < 0) {
+                log_oom();
+                goto fail;
+        }
+
+        r = prioq_put(manager->locked_events_by_time, event, &event->locked_event_prioq_index);
+        if (r < 0) {
+                log_oom();
+                goto fail;
+        }
+
+        Event *first = hashmap_get(manager->locked_events_by_disk, whole_disk_copy);
+        LIST_PREPEND(same_disk, first, event);
+
+        r = hashmap_replace(manager->locked_events_by_disk, whole_disk_copy, first);
+        if (r < 0) {
+                LIST_REMOVE(same_disk, first, event);
+                assert_se(prioq_remove(manager->locked_events_by_time, event, &event->locked_event_prioq_index) > 0);
+                log_oom();
+                goto fail;
+        }
+
+        event->whole_disk = TAKE_PTR(whole_disk_copy);
+        event->state = EVENT_LOCKED;
         return;
 
 fail:
         (void) device_add_errno(dev, r);
-        r = device_monitor_send(event->manager->monitor, NULL, dev);
+        r = device_monitor_send(manager->monitor, NULL, dev);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to broadcast event to libudev listeners, ignoring: %m");
 
         event_free(event);
 }
 
-int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev) {
-        const char *devname;
-        int r;
-
-        /* When a new event for a block device is queued or we get an inotify event, assume that the
-         * device is not locked anymore. The assumption may not be true, but that should not cause any
-         * issues, as in that case events will be requeued soon. */
-
-        r = udev_get_whole_disk(dev, NULL, &devname);
-        if (r <= 0)
-                return r;
-
-        LIST_FOREACH(event, event, manager->events) {
-                const char *event_devname;
-
-                if (event->state != EVENT_QUEUED)
-                        continue;
-
-                if (event->retry_again_next_usec == 0)
-                        continue;
-
-                if (udev_get_whole_disk(event->dev, NULL, &event_devname) <= 0)
-                        continue;
-
-                if (!streq(devname, event_devname))
-                        continue;
-
-                event->retry_again_next_usec = 0;
-        }
-
-        return 0;
-}
-
 static int event_queue_insert(Manager *manager, sd_device *dev) {
         const char *devpath, *devpath_old = NULL, *id = NULL, *devnode = NULL;
         sd_device_action_t action;
         uint64_t seqnum;
-        Event *event;
         int r;
 
         assert(manager);
@@ -858,12 +961,11 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        event = new(Event, 1);
+        _cleanup_(event_freep) Event *event = new(Event, 1);
         if (!event)
                 return -ENOMEM;
 
         *event = (Event) {
-                .manager = manager,
                 .dev = sd_device_ref(dev),
                 .seqnum = seqnum,
                 .action = action,
@@ -872,9 +974,28 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .devpath_old = devpath_old,
                 .devnode = devnode,
                 .state = EVENT_QUEUED,
+                .locked_event_prioq_index = PRIOQ_IDX_NULL,
         };
 
-        LIST_APPEND(event, manager->events, event);
+        Event *prev = NULL;
+        LIST_FOREACH_BACKWARDS(event, i, manager->last_event) {
+                if (i->seqnum < event->seqnum) {
+                        prev = i;
+                        break;
+                }
+                if (i->seqnum == event->seqnum)
+                        return log_device_warning_errno(dev, SYNTHETIC_ERRNO(EALREADY), "The event (SEQNUM=%"PRIu64") has been already queued.", event->seqnum);
+        }
+
+        LIST_INSERT_AFTER(event, manager->events, prev, event);
+        if (prev == manager->last_event)
+                manager->last_event = event;
+        else
+                log_device_debug(dev, "Unordered event is received (last queued event seqnum=%"PRIu64", newly received event seqnum=%"PRIu64"), reordering.",
+                                 manager->last_event->seqnum, event->seqnum);
+
+        event->manager = manager;
+        TAKE_PTR(event);
         log_device_uevent(dev, "Device is queued");
 
         if (!manager->queue_file_created) {
@@ -1001,8 +1122,7 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
                 return 1;
         }
 
-        (void) event_queue_assume_block_device_unlocked(manager, dev);
-
+        (void) manager_requeue_locked_events_by_device(manager, dev);
         return 1;
 }
 
@@ -1123,15 +1243,13 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
-        if (strv_contains(l, "TRY_AGAIN=1"))
-                /* Worker cannot lock the device. Requeue the event. */
-                event_requeue(worker->event);
-        else
-                event_free(worker->event);
+        Event *event = worker_detach_event(worker);
 
-        /* Update the state of the worker. */
-        if (worker->state != WORKER_KILLED)
-                worker->state = WORKER_IDLE;
+        if (strv_contains(l, "TRY_AGAIN=1"))
+                /* Worker cannot lock the device. */
+                event_enter_locked(event, strv_find_startswith(l, "WHOLE_DISK="));
+        else
+                event_free(event);
 
         return 0;
 }
@@ -1216,6 +1334,8 @@ static int on_post(sd_event_source *s, void *userdata) {
                 return on_post_exit(manager);
 
         if (manager->events) {
+                (void) manager_requeue_locked_events_by_time(manager);
+
                 /* Try to process pending events if idle workers exist. Why is this necessary?
                  * When a worker finished an event and became idle, even if there was a pending event,
                  * the corresponding device might have been locked and the processing of the event
