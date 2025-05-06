@@ -2435,7 +2435,7 @@ static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int unit_file_preset_without_mode(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char * const *files, InstallChange **changes, size_t *n_changes) {
-        return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
+        return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, /* dry_run = */ false, changes, n_changes);
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2483,12 +2483,80 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset(m->runtime_scope, flags, NULL, l, preset_mode, &changes, &n_changes);
+        r = unit_file_preset(m->runtime_scope, flags, NULL, l, preset_mode, /* dry_run = */ false, &changes, &n_changes);
         manager_unit_files_changed(m, changes, n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
         return reply_install_changes_and_free(m, message, r, changes, n_changes, error);
+}
+
+static int method_preset_unit_files_with_mode_and_flags_generic(sd_bus_message *message, void *userdata, sd_bus_error *error, bool preset_all ) {
+        _cleanup_strv_free_ char **l = NULL;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        Manager *m = ASSERT_PTR(userdata);
+        UnitFilePresetMode preset_mode;
+        UnitFileFlags flags;
+        uint64_t raw_flags;
+        const char *mode;
+        int r;
+
+        assert(message);
+
+        r = mac_selinux_access_check(message, "enable", error);
+        if (r < 0)
+                return r;
+
+        if (!preset_all) {
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_read(message, "s", &mode);
+        if (r < 0)
+                return r;
+
+        if (isempty(mode))
+                preset_mode = UNIT_FILE_PRESET_FULL;
+        else {
+                preset_mode = unit_file_preset_mode_from_string(mode);
+                if (preset_mode < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid preset mode '%s'", mode);
+        }
+
+        r = sd_bus_message_read(message, "t", &raw_flags);
+        if (r < 0)
+                return r;
+
+        if ((raw_flags & ~_UNIT_FILE_FLAGS_MASK_PUBLIC) != 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags specified");
+        flags = raw_flags;
+
+        r = bus_verify_manage_unit_files_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        if (preset_all)
+                r = unit_file_preset_all(m->runtime_scope, flags, NULL, preset_mode, FLAGS_SET(flags, UNIT_FILE_DRY_RUN), &changes, &n_changes);
+        else
+                r = unit_file_preset(m->runtime_scope, flags, NULL, l, preset_mode, FLAGS_SET(flags, UNIT_FILE_DRY_RUN), &changes, &n_changes);
+        manager_unit_files_changed(m, changes, n_changes);
+        if (r < 0)
+                return install_error(error, r, changes, n_changes);
+
+        return reply_install_changes_and_free(m, message, r, changes, n_changes, error);
+}
+
+static int method_preset_unit_files_with_mode_and_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_preset_unit_files_with_mode_and_flags_generic(message, userdata, error, /* preset_all = */ false);
+}
+
+static int method_preset_all_unit_files_with_mode_and_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_preset_unit_files_with_mode_and_flags_generic(message, userdata, error, /* preset_all = */ true);
 }
 
 static int method_disable_unit_files_generic(
@@ -2654,7 +2722,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset_all(m->runtime_scope, flags, NULL, preset_mode, &changes, &n_changes);
+        r = unit_file_preset_all(m->runtime_scope, flags, NULL, preset_mode, /* dry_run = */ false, &changes, &n_changes);
         manager_unit_files_changed(m, changes, n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
@@ -3337,6 +3405,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_RESULT("b", carries_install_info, "a(sss)", changes),
                                 method_preset_unit_files_with_mode,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("PresetUnitFilesWithFlags",
+                                SD_BUS_ARGS("as", files, "s", mode, "t", flags),
+                                SD_BUS_RESULT("b", carries_install_info, "a(sss)", changes),
+                                method_preset_unit_files_with_mode_and_flags,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("MaskUnitFiles",
                                 SD_BUS_ARGS("as", files, "b", runtime, "b", force),
                                 SD_BUS_RESULT("a(sss)", changes),
@@ -3366,6 +3439,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", mode, "b", runtime, "b", force),
                                 SD_BUS_RESULT("a(sss)", changes),
                                 method_preset_all_unit_files,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("PresetAllUnitFilesWithFlags",
+                                SD_BUS_ARGS("s", mode, "t", flags),
+                                SD_BUS_RESULT("a(sss)", changes),
+                                method_preset_all_unit_files_with_mode_and_flags,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("AddDependencyUnitFiles",
                                 SD_BUS_ARGS("as", files, "s", target, "s", type, "b", runtime, "b", force),
