@@ -4170,7 +4170,7 @@ PresetAction unit_get_unit_file_preset(Unit *u) {
                                 u->manager->runtime_scope,
                                 /* root_dir= */ NULL,
                                 bn,
-                                /* cache= */ NULL));
+                                /* cached= */ NULL));
 }
 
 Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target) {
@@ -6349,7 +6349,7 @@ void unit_freezer_complete(Unit *u, FreezerState kernel_state) {
                                          freezer_state_to_string(u->freezer_state));
 
         /* If the cgroup's final state is against what's requested by us, report as canceled. */
-        bus_unit_send_pending_freezer_message(u, /* canceled = */ !expected);
+        bus_unit_send_pending_freezer_message(u, /* cancelled = */ !expected);
 }
 
 int unit_freezer_action(Unit *u, FreezerAction action) {
