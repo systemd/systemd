@@ -1344,6 +1344,7 @@ manpages = [
  ['systemd', '1', ['init'], ''],
  ['systemd.automount', '5', [], ''],
  ['systemd.device', '5', [], ''],
+ ['systemd.devlink', '5', [], 'ENABLE_DEVLINKD'],
  ['systemd.dns-delegate', '5', [], 'ENABLE_RESOLVE'],
  ['systemd.dnssd', '5', [], 'ENABLE_RESOLVE'],
  ['systemd.environment-generator', '7', [], 'ENABLE_ENVIRONMENT_D'],
