@@ -7,13 +7,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* This header unconditionally defines MAX() so include it here already so
- * it won't override our own definition of MAX() that we define later in this
- * file. */
-#if !SD_BOOT
-#include <sys/param.h>
-#endif
-
 /* Temporarily disable some warnings */
 #define DISABLE_WARNING_DEPRECATED_DECLARATIONS                         \
         _Pragma("GCC diagnostic push");                                 \

@@ -5,7 +5,6 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
-#include <sys/param.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 
