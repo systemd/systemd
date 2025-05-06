@@ -4170,7 +4170,7 @@ PresetAction unit_get_unit_file_preset(Unit *u) {
                                 u->manager->runtime_scope,
                                 /* root_dir= */ NULL,
                                 bn,
-                                /* cache= */ NULL));
+                                /* cached= */ NULL));
 }
 
 Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target) {

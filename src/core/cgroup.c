@@ -3056,7 +3056,7 @@ int unit_check_oomd_kill(Unit *u) {
                                 LOG_UNIT_INVOCATION_ID(u),
                                 LOG_UNIT_MESSAGE(u, "systemd-oomd killed some process(es) in this unit."));
 
-        unit_notify_cgroup_oom(u, /* ManagedOOM= */ true);
+        unit_notify_cgroup_oom(u, /* managed_oom= */ true);
 
         return 1;
 }
@@ -3098,7 +3098,7 @@ int unit_check_oom(Unit *u) {
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
 
-        unit_notify_cgroup_oom(u, /* ManagedOOM= */ false);
+        unit_notify_cgroup_oom(u, /* managed_oom= */ false);
 
         return 1;
 }
