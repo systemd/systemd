@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "macro.h"
 #include "string-util-fundamental.h"
 
