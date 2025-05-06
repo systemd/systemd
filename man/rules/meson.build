@@ -1227,6 +1227,7 @@ manpages = [
  ['systemd.net-naming-scheme', '7', [], ''],
  ['systemd.netdev', '5', [], 'ENABLE_NETWORKD'],
  ['systemd.network', '5', [], 'ENABLE_NETWORKD'],
+ ['systemd.devlink', '5', [], 'ENABLE_DEVLINKD'],
  ['systemd.nspawn', '5', [], 'ENABLE_NSPAWN'],
  ['systemd.offline-updates', '7', [], ''],
  ['systemd.path', '5', [], ''],
