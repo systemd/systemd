@@ -66,9 +66,6 @@ typedef struct Event {
         usec_t retry_again_timeout_usec;
         sd_event_source *retry_event_source;
 
-        sd_event_source *timeout_warning_event;
-        sd_event_source *timeout_event;
-
         bool dependencies_built;
         Set *blocker_events;
         Set *blocking_events;
@@ -87,6 +84,8 @@ typedef struct Worker {
         Manager *manager;
         PidRef pidref;
         sd_event_source *child_event_source;
+        sd_event_source *timeout_warning_event_source;
+        sd_event_source *timeout_kill_event_source;
         union sockaddr_union address;
         WorkerState state;
         Event *event;
@@ -125,8 +124,6 @@ static Event* event_free(Event *event) {
         sd_device_unref(event->dev);
 
         sd_event_source_unref(event->retry_event_source);
-        sd_event_source_unref(event->timeout_warning_event);
-        sd_event_source_unref(event->timeout_event);
 
         return mfree(event);
 }
@@ -141,6 +138,8 @@ static Worker* worker_free(Worker *worker) {
                 hashmap_remove(worker->manager->workers, &worker->pidref);
 
         sd_event_source_disable_unref(worker->child_event_source);
+        sd_event_source_unref(worker->timeout_warning_event_source);
+        sd_event_source_unref(worker->timeout_kill_event_source);
         pidref_done(&worker->pidref);
         event_free(worker->event);
 
@@ -438,36 +437,33 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         return 0;
 }
 
-static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        Event *event = ASSERT_PTR(userdata);
+static int on_worker_timeout_kill(sd_event_source *s, uint64_t usec, void *userdata) {
+        Worker *worker = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(worker->manager);
+        Event *event = ASSERT_PTR(worker->event);
 
-        assert(event->manager);
-        assert(event->worker);
+        (void) pidref_kill_and_sigcont(&worker->pidref, manager->config.timeout_signal);
+        worker->state = WORKER_KILLED;
 
-        (void) pidref_kill_and_sigcont(&event->worker->pidref, event->manager->config.timeout_signal);
-        event->worker->state = WORKER_KILLED;
-
-        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed.", event->worker->pidref.pid, event->seqnum);
-
-        return 1;
+        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed.", worker->pidref.pid, event->seqnum);
+        return 0;
 }
 
-static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
-        Event *event = ASSERT_PTR(userdata);
+static int on_worker_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
+        Worker *worker = ASSERT_PTR(userdata);
+        Event *event = ASSERT_PTR(worker->event);
 
-        assert(event->worker);
-
-        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time.", event->worker->pidref.pid, event->seqnum);
-
-        return 1;
+        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time.", worker->pidref.pid, event->seqnum);
+        return 0;
 }
 
 static void worker_attach_event(Worker *worker, Event *event) {
         Manager *manager = ASSERT_PTR(ASSERT_PTR(worker)->manager);
-        sd_event *e = ASSERT_PTR(manager->event);
 
         assert(event);
+        assert(event->state == EVENT_QUEUED);
         assert(!event->worker);
+        assert(IN_SET(worker->state, WORKER_UNDEF, WORKER_IDLE));
         assert(!worker->event);
 
         worker->state = WORKER_RUNNING;
@@ -476,27 +472,44 @@ static void worker_attach_event(Worker *worker, Event *event) {
         event->worker = worker;
 
         (void) event_reset_time_relative(
-                        e,
-                        &event->timeout_warning_event,
-                        CLOCK_MONOTONIC,
+                        manager->event,
+                        &worker->timeout_warning_event_source,
+                        CLOCK_BOOTTIME,
                         udev_warn_timeout(manager->config.timeout_usec),
                         USEC_PER_SEC,
-                        on_event_timeout_warning,
-                        event,
+                        on_worker_timeout_warning,
+                        worker,
                         EVENT_PRIORITY_WORKER_TIMER,
-                        "event-timeout-warn",
+                        "worker-timeout-warn",
                         /* force_reset = */ true);
 
         (void) event_reset_time_relative(
-                        e,
-                        &event->timeout_event, CLOCK_MONOTONIC,
+                        manager->event,
+                        &worker->timeout_kill_event_source,
+                        CLOCK_BOOTTIME,
                         manager_kill_worker_timeout(manager),
                         USEC_PER_SEC,
-                        on_event_timeout,
-                        event,
+                        on_worker_timeout_kill,
+                        worker,
                         EVENT_PRIORITY_WORKER_TIMER,
-                        "event-timeout-kill",
+                        "worker-timeout-kill",
                         /* force_reset = */ true);
+}
+
+static Event* worker_detach_event(Worker *worker) {
+        assert(worker);
+
+        Event *event = TAKE_PTR(worker->event);
+        if (event)
+                event->worker = NULL;
+
+        if (worker->state != WORKER_KILLED)
+                worker->state = WORKER_IDLE;
+
+        (void) event_source_disable(worker->timeout_warning_event_source);
+        (void) event_source_disable(worker->timeout_kill_event_source);
+
+        return event;
 }
 
 static int worker_spawn(Manager *manager, Event *event) {
@@ -749,9 +762,6 @@ static void event_requeue(Event *event) {
 
         sd_device *dev = ASSERT_PTR(event->dev);
 
-        event->timeout_warning_event = sd_event_source_disable_unref(event->timeout_warning_event);
-        event->timeout_event = sd_event_source_disable_unref(event->timeout_event);
-
         /* add a short delay to suppress busy loop */
         r = sd_event_now(event->manager->event, CLOCK_BOOTTIME, &now_usec);
         if (r < 0) {
@@ -793,10 +803,6 @@ static void event_requeue(Event *event) {
                                 event->seqnum, strna(device_action_to_string(event->action)));
                 goto fail;
         }
-
-        if (event->worker)
-                event->worker->event = NULL;
-        event->worker = NULL;
 
         event->state = EVENT_QUEUED;
         return;
@@ -1159,15 +1165,13 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
+        Event *event = worker_detach_event(worker);
+
         if (strv_contains(l, "TRY_AGAIN=1"))
                 /* Worker cannot lock the device. Requeue the event. */
-                event_requeue(worker->event);
+                event_requeue(event);
         else
-                event_free(worker->event);
-
-        /* Update the state of the worker. */
-        if (worker->state != WORKER_KILLED)
-                worker->state = WORKER_IDLE;
+                event_free(event);
 
         return 0;
 }
