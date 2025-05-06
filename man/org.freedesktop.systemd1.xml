@@ -250,6 +250,11 @@ node /org/freedesktop/systemd1 {
                               in  b force,
                               out b carries_install_info,
                               out a(sss) changes);
+      PresetUnitFilesWithFlags(in  as files,
+                               in  s mode,
+                               in  t flags,
+                               out b carries_install_info,
+                               out a(sss) changes);
       MaskUnitFiles(in  as files,
                     in  b runtime,
                     in  b force,
@@ -267,6 +272,9 @@ node /org/freedesktop/systemd1 {
                          in  b runtime,
                          in  b force,
                          out a(sss) changes);
+      PresetAllUnitFilesWithFlags(in  s mode,
+                                  in  t flags,
+                                  out a(sss) changes);
       AddDependencyUnitFiles(in  as files,
                              in  s target,
                              in  s type,
@@ -957,6 +965,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="PresetUnitFilesWithMode()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="PresetUnitFilesWithFlags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="MaskUnitFiles()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="UnmaskUnitFiles()"/>
@@ -968,6 +978,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetDefaultTarget()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="PresetAllUnitFiles()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="PresetAllUnitFilesWithFlags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AddDependencyUnitFiles()"/>
 
@@ -1544,6 +1556,7 @@ node /org/freedesktop/systemd1 {
 #define SD_SYSTEMD_UNIT_RUNTIME  (UINT64_C(1) &lt;&lt; 0)
 #define SD_SYSTEMD_UNIT_FORCE    (UINT64_C(1) &lt;&lt; 1)
 #define SD_SYSTEMD_UNIT_PORTABLE (UINT64_C(1) &lt;&lt; 2)
+#define SD_SYSTEMD_UNIT_DRY_RUN  (UINT64_C(1) &lt;&lt; 3)
 </programlisting>
 
       <para><varname>SD_SYSTEMD_UNIT_RUNTIME</varname> will enable or disable the unit for runtime only,
@@ -1567,6 +1580,16 @@ node /org/freedesktop/systemd1 {
       according to the preset policy. See
       <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
       information.</para>
+
+      <para><function>PresetUnitFilesWithFlags()</function> enables/disables one or more unit files
+      according to the preset policy. Compared to <function>PresetUnitFiles()</function> it doesn't take boolean
+      arguments to change its behavior instead it takes extra argument which can be a combination of flags
+      accepted by <function>EnableUnitFilesWithFlags()</function>.See
+      <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
+      information.</para>
+
+      <para><function>PresetAllUnitFilesWithFlags()</function> enables/disables all unit files and also accepts
+      flags for future extensibility.</para>
 
       <para>Similarly, <function>MaskUnitFiles()</function> masks unit files and
       <function>UnmaskUnitFiles()</function> unmasks them again.</para>
@@ -12373,8 +12396,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ShutdownStartTimestampMonotonic</varname>, and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
       <para><varname>DefaultRestrictSUIDSGID</varname>,
-      <function>RemoveSubgroupFromUnit()</function>, and
-      <function>KillUnitSubgroup()</function> were added in version 258.</para>
+      <function>RemoveSubgroupFromUnit()</function>,
+      <function>KillUnitSubgroup()</function>,
+      <function>PresetUnitFilesWithFlags()</function>, and
+      <function>PresetAllUnitFilesWithFlags()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
