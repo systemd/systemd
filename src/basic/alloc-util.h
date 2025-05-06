@@ -4,7 +4,6 @@
 #include <alloca.h>
 #include <malloc.h>
 #include <stddef.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "assert-util.h"
