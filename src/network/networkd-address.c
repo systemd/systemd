@@ -1472,17 +1472,18 @@ int link_drop_static_addresses(Link *link) {
         return r;
 }
 
-int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+int address_configure_handler_internal(sd_netlink_message *m, Link *link, Address *address) {
         int r;
 
-        assert(rtnl);
         assert(m);
         assert(link);
-        assert(error_msg);
+        assert(address);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, error_msg);
+                log_link_message_warning_errno(link, m, r, "Failed to set %s address %s",
+                                               network_config_source_to_string(address->source),
+                                               IN_ADDR_TO_STRING(address->family, &address->in_addr));
                 link_enter_failed(link);
                 return 0;
         }
@@ -1725,8 +1726,9 @@ static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Failed to set static address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 

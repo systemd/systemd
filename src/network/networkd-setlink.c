@@ -56,10 +56,9 @@ static int set_link_handler_internal(
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
-                const char *error_msg;
-
-                error_msg = strjoina("Failed to set ", request_type_to_string(req->type), ignore ? ", ignoring" : "");
-                log_link_message_warning_errno(link, m, r, error_msg);
+                log_link_message_warning_errno(link, m, r, "Failed to set %s%s",
+                                               request_type_to_string(req->type),
+                                               ignore ? ", ignoring" : "");
 
                 if (!ignore)
                         link_enter_failed(link);
@@ -1073,9 +1072,7 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         if (r == -ENETDOWN && up && link_up_dsa_slave(link) > 0)
                 log_link_message_debug_errno(link, m, r, "Could not bring up dsa slave, retrying again after dsa master becomes up");
         else if (r < 0)
-                log_link_message_warning_errno(link, m, r, up ?
-                                               "Could not bring up interface, ignoring" :
-                                               "Could not bring down interface, ignoring");
+                log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up ? "up" : "down");
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
@@ -1277,7 +1274,7 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
         return 0;
 }
 
-static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *msg) {
+static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool up) {
         int r;
 
         assert(m);
@@ -1291,7 +1288,7 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_message_warning_errno(link, m, r, msg);
+                log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up ? "up" : "down");
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
@@ -1304,11 +1301,11 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 }
 
 static int link_up_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_now_handler(rtnl, m, link, "Could not bring up interface, ignoring");
+        return link_up_or_down_now_handler(rtnl, m, link, /* up = */ true);
 }
 
 static int link_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_now_handler(rtnl, m, link, "Could not bring down interface, ignoring");
+        return link_up_or_down_now_handler(rtnl, m, link, /* up = */ false);
 }
 
 int link_up_or_down_now(Link *link, bool up) {

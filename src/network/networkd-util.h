@@ -153,15 +153,34 @@ sd_dhcp_lease_server_type_t dhcp_lease_server_type_from_string(const char *s) _p
 
 bool link_should_mark_config(Link *link, bool only_static, NetworkConfigSource source, uint8_t protocol);
 
-int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);
-#define log_link_message_error_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_ERR, err, msg)
-#define log_link_message_warning_errno(link, m, err, msg) log_link_message_full_errno(link, m, LOG_WARNING, err, msg)
-#define log_link_message_notice_errno(link, m, err, msg)  log_link_message_full_errno(link, m, LOG_NOTICE, err, msg)
-#define log_link_message_info_errno(link, m, err, msg)    log_link_message_full_errno(link, m, LOG_INFO, err, msg)
-#define log_link_message_debug_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_DEBUG, err, msg)
-#define log_message_full_errno(m, level, err, msg)        log_link_message_full_errno(NULL, m, level, err, msg)
-#define log_message_error_errno(m, err, msg)              log_message_full_errno(m, LOG_ERR, err, msg)
-#define log_message_warning_errno(m, err, msg)            log_message_full_errno(m, LOG_WARNING, err, msg)
-#define log_message_notice_errno(m, err, msg)             log_message_full_errno(m, LOG_NOTICE, err, msg)
-#define log_message_info_errno(m, err, msg)               log_message_full_errno(m, LOG_INFO, err, msg)
-#define log_message_debug_errno(m, err, msg)              log_message_full_errno(m, LOG_DEBUG, err, msg)
+#define _log_link_message_full_errno(link, link_u, message, error_msg, level, level_u, error, error_u, format, ...) \
+        ({                                                              \
+                Link *link_u = (link);                                  \
+                int level_u = (level);                                  \
+                int error_u = (error);                                  \
+                                                                        \
+                const char *error_msg = NULL;                           \
+                if (message)                                            \
+                        (void) sd_netlink_message_read_string(message, NLMSGERR_ATTR_MSG, &error_msg); \
+                                                                        \
+                error_msg ?                                             \
+                        log_link_full_errno(link_u, level_u, error_u, format ": %s%s %m", ##__VA_ARGS__, \
+                                            error_msg, endswith(error_msg, ".") ? "" : ".") : \
+                        log_link_full_errno(link_u, level_u, error_u, format ": %m", ##__VA_ARGS__); \
+        })
+
+
+#define log_link_message_full_errno(link, message, level, error, format, ...) \
+        _log_link_message_full_errno(link, UNIQ_T(lnk, UNIQ), message, UNIQ_T(emsg, UNIQ), level, UNIQ_T(lvl, UNIQ), error, UNIQ_T(err, UNIQ), format, ##__VA_ARGS__)
+
+#define log_link_message_error_errno(link, m, err, fmt, ...)   log_link_message_full_errno(link, m, LOG_ERR, err, fmt, ##__VA_ARGS__)
+#define log_link_message_warning_errno(link, m, err, fmt, ...) log_link_message_full_errno(link, m, LOG_WARNING, err, fmt, ##__VA_ARGS__)
+#define log_link_message_notice_errno(link, m, err, fmt, ...)  log_link_message_full_errno(link, m, LOG_NOTICE, err, fmt, ##__VA_ARGS__)
+#define log_link_message_info_errno(link, m, err, fmt, ...)    log_link_message_full_errno(link, m, LOG_INFO, err, fmt, ##__VA_ARGS__)
+#define log_link_message_debug_errno(link, m, err, fmt, ...)   log_link_message_full_errno(link, m, LOG_DEBUG, err, fmt, ##__VA_ARGS__)
+#define log_message_full_errno(m, level, err, fmt, ...)        log_link_message_full_errno(NULL, m, level, err, fmt, ##__VA_ARGS__)
+#define log_message_error_errno(m, err, fmt, ...)              log_message_full_errno(m, LOG_ERR, err, fmt, ##__VA_ARGS__)
+#define log_message_warning_errno(m, err, fmt, ...)            log_message_full_errno(m, LOG_WARNING, err, fmt, ##__VA_ARGS__)
+#define log_message_notice_errno(m, err, fmt, ...)             log_message_full_errno(m, LOG_NOTICE, err, fmt, ##__VA_ARGS__)
+#define log_message_info_errno(m, err, fmt, ...)               log_message_full_errno(m, LOG_INFO, err, fmt, ##__VA_ARGS__)
+#define log_message_debug_errno(m, err, fmt, ...)              log_message_full_errno(m, LOG_DEBUG, err, fmt, ##__VA_ARGS__)

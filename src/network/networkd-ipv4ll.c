@@ -80,8 +80,9 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
 
         assert(link);
         assert(!link->ipv4ll_address_configured);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set ipv4ll address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 

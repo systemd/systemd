@@ -370,8 +370,9 @@ static int ndisc_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         int r;
 
         assert(link);
+        assert(nexthop);
 
-        r = nexthop_configure_handler_internal(m, link, "Could not set NDisc route");
+        r = nexthop_configure_handler_internal(m, link, nexthop);
         if (r <= 0)
                 return r;
 
@@ -441,8 +442,9 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
 
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Could not set NDisc route");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
@@ -670,8 +672,9 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set NDisc address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 

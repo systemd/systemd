@@ -76,7 +76,7 @@ static inline int link_drop_static_nexthops(Link *link) {
 }
 void link_forget_nexthops(Link *link);
 
-int nexthop_configure_handler_internal(sd_netlink_message *m, Link *link, const char *error_msg);
+int nexthop_configure_handler_internal(sd_netlink_message *m, Link *link, NextHop *nexthop);
 int link_request_nexthop(
                 Link *link,
                 const NextHop *nexthop,

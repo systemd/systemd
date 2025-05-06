@@ -271,8 +271,9 @@ static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Failed to add prefix route for DHCP delegated subnet prefix");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
@@ -328,8 +329,9 @@ static int dhcp_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCP-PD address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 
@@ -698,8 +700,9 @@ static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Failed to set unreachable route for DHCPv4 delegated prefix");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
@@ -715,8 +718,9 @@ static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Failed to set unreachable route for DHCPv6 delegated prefix");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
