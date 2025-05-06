@@ -234,7 +234,7 @@ void manager_exit(Manager *manager) {
 
         manager->exit = true;
 
-        (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING_MESSAGE);
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
 
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
@@ -261,7 +261,7 @@ void notify_ready(Manager *manager) {
 
         assert(manager);
 
-        r = sd_notifyf(/* unset= */ false,
+        r = sd_notifyf(/* unset_environment= */ false,
                        "READY=1\n"
                        "STATUS=Processing with %u children at max", manager->config.children_max);
         if (r < 0)

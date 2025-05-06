@@ -19,6 +19,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "pager.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"

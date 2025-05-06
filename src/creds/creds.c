@@ -23,6 +23,8 @@
 #include "missing_magic.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "parse-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "stat-util.h"

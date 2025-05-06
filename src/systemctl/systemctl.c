@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 
+#include "argv-util.h"
 #include "build.h"
 #include "bus-util.h"
 #include "capsule-util.h"
@@ -17,6 +18,7 @@
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"

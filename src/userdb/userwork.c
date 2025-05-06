@@ -6,7 +6,9 @@
 #include "sd-daemon.h"
 #include "sd-varlink.h"
 
+#include "argv-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "group-record.h"
 #include "io-util.h"
