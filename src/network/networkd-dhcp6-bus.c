@@ -32,9 +32,8 @@ static int property_get_dhcp6_client_state(
         return sd_bus_message_append(reply, "s", dhcp6_state_to_string(dhcp6_client_get_state(c)));
 }
 
-static int dhcp6_client_emit_changed(Link *link, const char *property, ...) {
+static int dhcp6_client_emit_changed_strv(Link *link, char **properties) {
         _cleanup_free_ char *path = NULL;
-        char **l;
 
         assert(link);
 
@@ -45,19 +44,17 @@ static int dhcp6_client_emit_changed(Link *link, const char *property, ...) {
         if (!path)
                 return log_oom();
 
-        l = strv_from_stdarg_alloca(property);
-
         return sd_bus_emit_properties_changed_strv(
                         link->manager->bus,
                         path,
                         "org.freedesktop.network1.DHCPv6Client",
-                        l);
+                        properties);
 }
 
 void dhcp6_client_callback_bus(sd_dhcp6_client *c, int event, void *userdata) {
         Link *l = ASSERT_PTR(userdata);
 
-        dhcp6_client_emit_changed(l, "State", NULL);
+        dhcp6_client_emit_changed_strv(l, STRV_MAKE("State"));
 }
 
 static const sd_bus_vtable dhcp6_client_vtable[] = {
