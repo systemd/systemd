@@ -2188,8 +2188,12 @@ static void flush_ports(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                (void) flush_accept(p->fd);
-                (void) flush_fd(p->fd);
+                if (p->type == SOCKET_MQUEUE) {
+                        (void) flush_mqueue(p->fd);
+                } else {
+                        (void) flush_accept(p->fd);
+                        (void) flush_fd(p->fd);
+                }
         }
 }
 
