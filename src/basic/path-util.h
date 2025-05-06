@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <alloca.h>
 #include <stdbool.h>
 #include <stddef.h>
 
 #include "macro.h"
-#include "stat-util.h"
-#include "string-util.h"
-#include "strv.h"
 #include "time-util.h"
 
 #define PATH_SPLIT_BIN(x) x "sbin:" x "bin"
@@ -32,12 +28,7 @@ static inline const char* default_user_PATH(void) {
 #endif
 }
 
-static inline bool is_path(const char *p) {
-        if (!p) /* A NULL pointer is definitely not a path */
-                return false;
-
-        return strchr(p, '/');
-}
+bool is_path(const char *p) _pure_;
 
 static inline bool path_is_absolute(const char *p) {
         if (!p) /* A NULL pointer is definitely not an absolute path */
@@ -76,9 +67,7 @@ char* path_extend_internal(char **x, ...);
 #define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)
 #define path_join(...) path_extend_internal(NULL, __VA_ARGS__, POINTER_MAX)
 
-static inline char* skip_leading_slash(const char *p) {
-        return skip_leading_chars(p, "/");
-}
+char* skip_leading_slash(const char *p) _pure_;
 
 typedef enum PathSimplifyFlags {
         PATH_SIMPLIFY_KEEP_TRAILING_SLASH = 1 << 0,
@@ -89,21 +78,7 @@ static inline char* path_simplify(char *path) {
         return path_simplify_full(path, 0);
 }
 
-static inline int path_simplify_alloc(const char *path, char **ret) {
-        assert(ret);
-
-        if (!path) {
-                *ret = NULL;
-                return 0;
-        }
-
-        char *t = strdup(path);
-        if (!t)
-                return -ENOMEM;
-
-        *ret = path_simplify(t);
-        return 0;
-}
+int path_simplify_alloc(const char *path, char **ret);
 
 /* Note: the search terminates on the first NULL item. */
 #define PATH_IN_SET(p, ...) path_strv_contains(STRV_MAKE(__VA_ARGS__), p)
@@ -195,9 +170,7 @@ static inline const char* skip_dev_prefix(const char *p) {
 }
 
 bool empty_or_root(const char *path);
-static inline const char* empty_to_root(const char *path) {
-        return isempty(path) ? "/" : path;
-}
+const char* empty_to_root(const char *path) _pure_;
 
 bool path_strv_contains(char * const *l, const char *path);
 bool prefixed_path_strv_contains(char * const *l, const char *path);

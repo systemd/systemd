@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "env-file.h"
 #include "env-file-label.h"
 #include "env-util.h"

@@ -1,17 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fnmatch.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 
-#include "alloc-util.h"
-#include "extract-word.h"
 #include "hashmap.h"
-#include "macro.h"
-#include "string-util.h"
+#include "memory-util.h"
+
+typedef enum ExtractFlags ExtractFlags;
 
 char* strv_find(char * const *l, const char *name) _pure_;
 char* strv_find_case(char * const *l, const char *name) _pure_;
@@ -113,27 +111,13 @@ static inline bool strv_isempty(char * const *l) {
 }
 
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags);
-static inline char** strv_split(const char *s, const char *separators) {
-        char **ret;
-
-        if (strv_split_full(&ret, s, separators, EXTRACT_RETAIN_ESCAPE) < 0)
-                return NULL;
-
-        return ret;
-}
+char** strv_split(const char *s, const char *separators);
 
 int strv_split_and_extend_full(char ***t, const char *s, const char *separators, bool filter_duplicates, ExtractFlags flags);
-#define strv_split_and_extend(t, s, sep, dup) strv_split_and_extend_full(t, s, sep, dup, 0)
+int strv_split_and_extend(char ***t, const char *s, const char *separators, bool filter_duplicates);
 
 int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags);
-static inline char** strv_split_newlines(const char *s) {
-        char **ret;
-
-        if (strv_split_newlines_full(&ret, s, 0) < 0)
-                return NULL;
-
-        return ret;
-}
+char** strv_split_newlines(const char *s);
 
 /* Given a string containing white-space separated tuples of words themselves separated by ':',
  * returns a vector of strings. If the second element in a tuple is missing, the corresponding
@@ -226,8 +210,7 @@ int strv_extend_assignment(char ***l, const char *lhs, const char *rhs);
 
 int fputstrv(FILE *f, char * const *l, const char *separator, bool *space);
 
-#define strv_free_and_replace(a, b)             \
-        free_and_replace_full(a, b, strv_free)
+int strv_free_and_replace(char **a, char **b);
 
 void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value);
 static inline void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value) {

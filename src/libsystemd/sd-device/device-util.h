@@ -7,13 +7,10 @@
 
 #include "sd-device.h"
 
-#include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
-#include "strv.h"
 
-#define device_unref_and_replace(a, b)                                  \
-        unref_and_replace_full(a, b, sd_device_ref, sd_device_unref)
+int device_unref_and_replace(sd_device *a, sd_device *b);
 
 #define FOREACH_DEVICE_PROPERTY(device, key, value)                     \
         for (const char *value, *key = sd_device_get_property_first(device, &value); \
@@ -107,22 +104,4 @@ char** device_make_log_fields(sd_device *device);
 bool device_in_subsystem(sd_device *device, const char *subsystem);
 bool device_is_devtype(sd_device *device, const char *devtype);
 
-static inline bool device_property_can_set(const char *property) {
-        return property &&
-                !STR_IN_SET(property,
-                            /* basic properties set by kernel, only in netlink event */
-                            "ACTION", "SEQNUM", "SYNTH_UUID",
-                            /* basic properties set by kernel, both in netlink event and uevent file */
-                            "DEVPATH", "DEVPATH_OLD", "SUBSYSTEM", "DEVTYPE", "DRIVER", "MODALIAS",
-                            /* device node */
-                            "DEVNAME", "DEVMODE", "DEVUID", "DEVGID", "MAJOR", "MINOR",
-                            /* block device */
-                            "DISKSEQ", "PARTN",
-                            /* network interface (INTERFACE_OLD is set by udevd) */
-                            "IFINDEX", "INTERFACE", "INTERFACE_OLD",
-                            /* basic properties set by udevd */
-                            "DEVLINKS", "TAGS", "CURRENT_TAGS", "USEC_INITIALIZED", "UDEV_DATABASE_VERSION") &&
-                /* Similar to SYNTH_UUID, but set based on KEY=VALUE arguments passed by userspace.
-                 * See kernel's f36776fafbaa0094390dd4e7e3e29805e0b82730 (v4.13) */
-                !startswith(property, "SYNTH_ARG_");
-}
+bool device_property_can_set(const char *property);

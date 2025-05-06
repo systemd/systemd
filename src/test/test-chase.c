@@ -15,6 +15,7 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 static const char *arg_test_dir = NULL;
 

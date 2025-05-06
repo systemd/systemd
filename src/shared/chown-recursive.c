@@ -6,6 +6,7 @@
 
 #include "chown-recursive.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
