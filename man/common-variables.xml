@@ -96,17 +96,22 @@
 
     <varlistentry id='pager'>
       <term><varname>$SYSTEMD_PAGER</varname></term>
+      <term><varname>$PAGER</varname></term>
 
-      <listitem><para>Pager to use when <option>--no-pager</option> is not given; overrides
-      <varname>$PAGER</varname>. If neither <varname>$SYSTEMD_PAGER</varname> nor <varname>$PAGER</varname> are set, a
-      set of well-known pager implementations are tried in turn, including
-      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
-      <citerefentry project='man-pages'><refentrytitle>more</refentrytitle><manvolnum>1</manvolnum></citerefentry>, until one is found. If
-      no pager implementation is discovered no pager is invoked. Setting this environment variable to an empty string
-      or the value <literal>cat</literal> is equivalent to passing <option>--no-pager</option>.</para>
+      <listitem><para>Pager to use when <option>--no-pager</option> is not given.
+      <varname>$SYSTEMD_PAGER</varname> is used if set; otherwise <varname>$PAGER</varname> is used.
+      If neither <varname>$SYSTEMD_PAGER</varname> nor <varname>$PAGER</varname> are set, a set of well-known
+      pager implementations is tried in turn, including
+      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      and
+      <citerefentry project='man-pages'><refentrytitle>more</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      until one is found. If no pager implementation is discovered, no pager is invoked. Setting those
+      environment variables to an empty string or the value <literal>cat</literal> is equivalent to passing
+      <option>--no-pager</option>.</para>
 
       <para>Note: if <varname>$SYSTEMD_PAGERSECURE</varname> is not set, <varname>$SYSTEMD_PAGER</varname>
-      (as well as <varname>$PAGER</varname>) will be silently ignored.</para></listitem>
+      and <varname>$PAGER</varname> can only be used to disable the pager (with <literal>cat</literal> or
+      <literal></literal>), and are otherwise ignored.</para></listitem>
     </varlistentry>
 
     <varlistentry id='less'>
@@ -205,8 +210,8 @@
       implement "secure mode" will not be used at all.</para>
 
       <para>Note that if the <varname>$SYSTEMD_PAGER</varname> or <varname>$PAGER</varname> variables are to
-      be honoured, <varname>$SYSTEMD_PAGERSECURE</varname> must be set too.</para>
-      </listitem>
+      be honoured, other than to disable the pager, <varname>$SYSTEMD_PAGERSECURE</varname> must be set
+      too.</para></listitem>
     </varlistentry>
 
     <varlistentry id='colors'>
