@@ -1679,7 +1679,7 @@ static void config_select_default_entry(Config *config) {
         assert(config);
 
         i = config_find_entry(config, config->entry_oneshot);
-        if (i != IDX_INVALID || config->entries[i]->tries_left != 0) {
+        if (i != IDX_INVALID) {
                 config->idx_default = i;
                 return;
         }
@@ -1696,7 +1696,7 @@ static void config_select_default_entry(Config *config) {
                 i = config->use_saved_entry_efivar ? IDX_INVALID : config_find_entry(config, config->entry_saved);
         else
                 i = config_find_entry(config, config->entry_default_config);
-        if (i != IDX_INVALID || config->entries[i]->tries_left != 0) {
+        if (i != IDX_INVALID) {
                 config->idx_default = i;
                 return;
         }
