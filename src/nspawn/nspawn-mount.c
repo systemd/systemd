@@ -1091,19 +1091,21 @@ static int setup_volatile_state(const char *directory) {
 
 static int setup_volatile_state_after_remount_idmap(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
         _cleanup_free_ char *buf = NULL;
-        const char *p, *options;
         int r;
 
         assert(directory);
 
         /* Then, after remount_idmap(), overmount /var/ with a tmpfs. */
 
-        p = prefix_roota(directory, "/var");
+        _cleanup_free_ char *p = path_join(directory, "/var");
+        if (!p)
+                return log_oom();
+
         r = mkdir(p, 0755);
         if (r < 0 && errno != EEXIST)
                 return log_error_errno(errno, "Failed to create %s: %m", directory);
 
-        options = "mode=0755" TMPFS_LIMITS_VOLATILE_STATE;
+        const char *options = "mode=0755" TMPFS_LIMITS_VOLATILE_STATE;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 return log_oom();
@@ -1116,8 +1118,7 @@ static int setup_volatile_state_after_remount_idmap(const char *directory, uid_t
 static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
         bool tmpfs_mounted = false, bind_mounted = false;
         _cleanup_(rmdir_and_freep) char *template = NULL;
-        _cleanup_free_ char *buf = NULL, *bindir = NULL;
-        const char *f, *t, *options;
+        _cleanup_free_ char *buf = NULL, *bindir = NULL, *f = NULL, *t = NULL;
         struct stat st;
         int r;
 
@@ -1148,7 +1149,7 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
-        options = "mode=0755" TMPFS_LIMITS_ROOTFS;
+        const char *options = "mode=0755" TMPFS_LIMITS_ROOTFS;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 goto fail;
@@ -1161,8 +1162,17 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
 
         tmpfs_mounted = true;
 
-        f = prefix_roota(directory, "/usr");
-        t = prefix_roota(template, "/usr");
+        f = path_join(directory, "/usr");
+        if (!f) {
+                r = log_oom();
+                goto fail;
+        }
+
+        t = path_join(template, "/usr");
+        if (!t) {
+                r = log_oom();
+                goto fail;
+        }
 
         r = mkdir(t, 0755);
         if (r < 0 && errno != EEXIST) {
