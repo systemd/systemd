@@ -13,6 +13,7 @@
 #include "resolved-manager.h"
 #include "specifier.h"
 #include "strv.h"
+#include "utf8.h"
 
 #define DNSSD_SERVICE_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/dnssd"))
 
