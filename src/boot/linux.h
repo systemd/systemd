@@ -6,6 +6,7 @@
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,
+                EFI_HANDLE loaded_image,
                 const char16_t *cmdline,
                 const struct iovec *kernel,
                 const struct iovec *initrd);
