@@ -30,8 +30,31 @@ struct ShimLock {
         EFI_STATUS __sysv_abi__ (*read_header) (void *data, uint32_t datasize, void *context);
 };
 
+typedef struct {
+        EFI_STATUS (EFIAPI *LoadImage)(
+                bool BootPolicy,
+                EFI_HANDLE ParentImageHandle,
+                EFI_DEVICE_PATH *DevicePath,
+                void *SourceBuffer,
+                size_t SourceSize,
+                EFI_HANDLE *ImageHandle);
+        EFI_STATUS (EFIAPI *StartImage)(
+                EFI_HANDLE ImageHandle,
+                size_t *ExitDataSize,
+                char16_t **ExitData);
+        EFI_STATUS (EFIAPI *Exit)(
+                EFI_HANDLE ImageHandle,
+                EFI_STATUS ExitStatus,
+                size_t ExitDataSize,
+                char16_t *ExitData);
+        EFI_STATUS (EFIAPI *UnloadImage)(EFI_HANDLE ImageHandle);
+} ShimImageLoader;
+
 #define SHIM_LOCK_GUID \
         { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
+
+#define SHIM_IMAGE_LOADER_GUID \
+        { 0x1f492041, 0xfadb, 0x4e59, { 0x9e, 0x57, 0x7c, 0xaf, 0xe7, 0x3a, 0x55, 0xab } }
 
 bool shim_loaded(void) {
         struct ShimLock *shim_lock;
@@ -90,6 +113,18 @@ EFI_STATUS shim_load_image(
         assert(device_path);
         assert(ret_image);
 
+        /* Same as shim_start_image(), if the new shim protocol is available, use it, so that we do not need
+         * to override the security protocol, and UKIs with unsigned kernels can be loaded too */
+        ShimImageLoader *shim_image_loader;
+        if (BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) == EFI_SUCCESS)
+                return shim_image_loader->LoadImage(
+                                /* BootPolicy= */ boot_policy,
+                                parent,
+                                (EFI_DEVICE_PATH *) device_path,
+                                /* SourceBuffer= */ NULL,
+                                /* SourceSize= */ 0,
+                                ret_image);
+
         bool have_shim = shim_loaded();
 
         if (have_shim)
@@ -106,6 +141,52 @@ EFI_STATUS shim_load_image(
                 uninstall_security_override();
 
         return ret;
+}
+
+EFI_STATUS shim_start_image(EFI_HANDLE image) {
+        ShimImageLoader *shim_image_loader;
+
+        assert(image);
+
+        /* If the new shim with the loader protocol is available, use it so that in case a UKI with an
+         * unsigned kernel is loaded, it can cache the sections and verify it later when sd-stub loads
+         * it again. Otherwise fallback to the boot services protocol. */
+
+        if (BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) == EFI_SUCCESS)
+                return shim_image_loader->StartImage(image, NULL, NULL);
+
+        return BS->StartImage(image, NULL, NULL);
+}
+
+EFI_STATUS shim_load_kernel(
+                EFI_HANDLE parent,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const void *source,
+                size_t len,
+                EFI_HANDLE *ret_image) {
+
+        ShimImageLoader *shim_image_loader;
+
+        assert(parent);
+        assert(loaded_image);
+        assert(source);
+        assert(ret_image);
+
+        if (BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) != EFI_SUCCESS)
+                return EFI_UNSUPPORTED;
+
+        /* If we are running after shim and the new loader protocol is available, then we don't need to
+         * override the security protocol (which is only part of the PI spec, not the UEFI spec, so it's not
+         * guaranteed to be available), as shim natively supports loading the inner unsigned kernel as long
+         * as it's part of a signed UKI that was previously loaded with LoadImage(). */
+
+        return shim_image_loader->LoadImage(
+                        /* BootPolicy= */ false,
+                        loaded_image,
+                        /* EFI_DEVICE_PATH= */ NULL,
+                        (void *) source,
+                        len,
+                        ret_image);
 }
 
 void shim_retain_protocol(void) {
