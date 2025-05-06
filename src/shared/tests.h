@@ -40,7 +40,7 @@ static inline void log_set_assert_return_is_criticalp(bool *p) {
 #define ASSERT_RETURN_EXPECTED_SE(expr) ASSERT_RETURN_EXPECTED(assert_se(expr));
 
 static inline bool manager_errno_skip_test(int r) {
-        return IN_SET(abs(r),
+        return IN_SET(ABS(r),
                       EPERM,
                       EACCES,
                       EADDRINUSE,
