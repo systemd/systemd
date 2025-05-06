@@ -16,6 +16,10 @@
 #include <termios.h>
 #include <unistd.h>
 
+#if HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
+
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-id128.h"

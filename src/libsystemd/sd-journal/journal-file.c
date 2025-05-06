@@ -30,6 +30,7 @@
 #include "lookup3.h"
 #include "memory-util.h"
 #include "missing_fs.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"

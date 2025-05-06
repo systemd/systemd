@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"

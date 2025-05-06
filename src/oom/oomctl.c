@@ -9,6 +9,7 @@
 #include "bus-message-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "pager.h"
 #include "pretty-print.h"
 #include "terminal-util.h"
 #include "verbs.h"

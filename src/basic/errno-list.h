@@ -2,8 +2,9 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stdlib.h>
 #include <string.h>
+
+#include "macro.h"
 
 /*
  * MAX_ERRNO is defined as 4095 in linux/err.h
@@ -16,7 +17,7 @@ static inline const char* errno_to_name(int id) {
         if (id == 0) /* To stay in line with our own impl */
                 return NULL;
 
-        return strerrorname_np(abs(id));
+        return strerrorname_np(ABS(id));
 }
 #else
 const char* errno_to_name(int id);

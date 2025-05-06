@@ -149,7 +149,7 @@ int journal_add_matchf(sd_journal *j, const char *format, ...) _printf_(2, 3);
 /* All errors that we might encounter while extracting a field that are not real errors,
  * but only mean that the field is too large or we don't support the compression. */
 static inline bool JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(int r) {
-        return IN_SET(abs(r),
+        return IN_SET(ABS(r),
                       ENOBUFS,          /* Field or decompressed field too large */
                       E2BIG,            /* Field too large for pointer width */
                       EPROTONOSUPPORT); /* Unsupported compression */

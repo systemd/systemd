@@ -28,6 +28,7 @@
 #include "missing_magic.h"
 #include "missing_mman.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "quota-util.h"

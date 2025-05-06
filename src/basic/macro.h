@@ -105,7 +105,7 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
 
 #define return_with_errno(r, err)                     \
         do {                                          \
-                errno = abs(err);                     \
+                errno = ABS(err);                     \
                 return r;                             \
         } while (false)
 

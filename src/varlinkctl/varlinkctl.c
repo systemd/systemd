@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "sd-daemon.h"
 #include "sd-varlink.h"
 
 #include "build.h"

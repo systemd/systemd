@@ -16,6 +16,7 @@
 #include "main-func.h"
 #include "memstream-util.h"
 #include "openssl-util.h"
+#include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pe-binary.h"

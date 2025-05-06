@@ -10,5 +10,5 @@ int plymouth_send_raw(const void *raw, size_t size, int flags);
 int plymouth_send_msg(const char *text, bool pause_spinner);
 
 static inline bool ERRNO_IS_NO_PLYMOUTH(int r) {
-        return IN_SET(abs(r), EAGAIN, ENOENT) || ERRNO_IS_DISCONNECT(r);
+        return IN_SET(ABS(r), EAGAIN, ENOENT) || ERRNO_IS_DISCONNECT(r);
 }

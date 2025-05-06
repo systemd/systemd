@@ -15,6 +15,7 @@
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "parse-helpers.h"
+#include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
