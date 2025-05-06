@@ -660,7 +660,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         manager_set_defaults(m);
         manager_parse_config_file(m);
 
-        (void) sd_notify(/* unset= */ false, NOTIFY_READY_MESSAGE);
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
         return 0;
 }
 

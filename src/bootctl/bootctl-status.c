@@ -94,7 +94,7 @@ static int status_entries(
                                 boot_config_default_entry(config),
                                 /* show_as_default= */ false,
                                 /* show_as_selected= */ false,
-                                /* show_discovered= */ false);
+                                /* show_reported= */ false);
                 if (r > 0)
                         /* < 0 is already logged by the function itself, let's just emit an extra warning if
                            the default entry is broken */
