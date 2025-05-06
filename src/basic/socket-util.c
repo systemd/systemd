@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <mqueue.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/ip.h>
@@ -1317,6 +1318,58 @@ int flush_accept(int fd) {
 
                 safe_close(cfd);
         }
+}
+
+int flush_mqueue(int fd) {
+        struct mq_attr attr;
+        unsigned int pri;
+        int count = 0;
+        char *buf;
+        int r = 0;
+
+        /* Similar to flush_fd() but flushes all messages from a POSIX message queue. */
+
+        if (mq_getattr(fd, &attr) < 0)
+                return -errno;
+
+        /* Buffer must be at least as large as mq_msgsize. */
+        buf = malloc(attr.mq_msgsize);
+        if (!buf)
+                return -errno;
+
+        for (;;) {
+                ssize_t l;
+
+                r = fd_wait_for_event(fd, POLLIN, 0);
+                if (r < 0) {
+                        if (r == -EINTR)
+                                continue;
+
+                        break;
+                }
+                if (r == 0) {
+                        r = (int) count;
+                        break;
+                }
+
+                l = mq_receive(fd, buf, attr.mq_msgsize, &pri);
+                if (l < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        if (errno == EAGAIN)
+                                r = (int) count;
+                        else
+                                r = -errno;
+
+                        break;
+                }
+
+                count += (int) l;
+        }
+        free(buf);
+
+        return r;
 }
 
 struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length) {
