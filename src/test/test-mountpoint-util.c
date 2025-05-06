@@ -14,6 +14,7 @@
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"

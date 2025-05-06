@@ -10,6 +10,7 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "blockdev-util.h"
 #include "capability-util.h"
 #include "chattr-util.h"
@@ -18,6 +19,7 @@
 #include "creds-util.h"
 #include "efi-api.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"

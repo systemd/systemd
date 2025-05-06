@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bootspec.h"
 #include "bootspec-fundamental.h"
 #include "chase.h"

@@ -13,6 +13,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"

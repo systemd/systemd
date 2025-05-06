@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "generator.h"

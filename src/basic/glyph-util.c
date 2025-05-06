@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "env-util.h"
 #include "glyph-util.h"
 #include "locale-util.h"
