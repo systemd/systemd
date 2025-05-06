@@ -47,7 +47,7 @@
 static sd_device *device_skip_virtio(sd_device *dev) {
         /* there can only ever be one virtio bus per parent device, so we can
          * safely ignore any virtio buses. see
-         * http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html */
+         * https://lore.kernel.org/virtualization/CAPXgP137A=CdmggtVPUZXbnpTbU9Tewq-sOjg9T8ohYktct1kQ@mail.gmail.com/ */
         while (dev) {
                 if (!device_in_subsystem(dev, "virtio"))
                         break;
@@ -379,7 +379,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
          * here and just check for the existence of the slot directory. As this directory has to exist, we're
          * emitting a debug message for the unlikely case it's not found. Note that the domain part doesn't
          * belong to the slot name here because there's a 1-to-1 relationship between PCI function and its
-         * hotplug slot. See https://docs.kernel.org/s390/pci.html for more details. */
+         * hotplug slot. See https://docs.kernel.org/arch/s390/pci.html for more details. */
 
         assert(dev);
         assert(slots_dirfd >= 0);
