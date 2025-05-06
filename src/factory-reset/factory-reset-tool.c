@@ -305,7 +305,7 @@ static int vl_method_get_factory_reset_mode(sd_varlink *link, sd_json_variant *p
 
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, /* table= */ NULL, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -321,7 +321,7 @@ static int vl_method_can_request_factory_reset(sd_varlink *link, sd_json_variant
 
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, /* table= */ NULL, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 

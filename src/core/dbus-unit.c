@@ -1771,7 +1771,7 @@ void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
         bus_unit_send_change_signal(u);
 }
 
-int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
+int bus_unit_send_pending_freezer_message(Unit *u, bool canceled) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
@@ -1780,7 +1780,7 @@ int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
         if (!u->pending_freezer_invocation)
                 return 0;
 
-        if (cancelled)
+        if (canceled)
                 r = sd_bus_message_new_method_error(
                                 u->pending_freezer_invocation,
                                 &reply,
