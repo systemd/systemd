@@ -172,8 +172,6 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 }
 
 static int worker_process_device(UdevWorker *worker, sd_device *dev) {
-        _cleanup_(udev_event_unrefp) UdevEvent *udev_event = NULL;
-        _cleanup_close_ int fd_lock = -EBADF;
         int r;
 
         assert(worker);
@@ -181,16 +179,12 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
 
         log_device_uevent(dev, "Processing device");
 
-        udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
-        if (!udev_event)
-                return -ENOMEM;
-        udev_event->trace = worker->config.trace;
-
         /* If this is a block device and the device is locked currently via the BSD advisory locks,
          * someone else is using it exclusively. We don't run our udev rules now to not interfere.
          * Instead of processing the event, we requeue the event and will try again after a delay.
          *
          * The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING */
+        _cleanup_close_ int fd_lock = -EBADF;
         r = worker_lock_whole_disk(dev, &fd_lock);
         if (r == -EAGAIN) {
                 log_device_debug(dev, "Block device is currently locked, requeuing the event.");
@@ -213,6 +207,11 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         r = udev_watch_end(worker, dev);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
+
+        _cleanup_(udev_event_unrefp) UdevEvent *udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
+        if (!udev_event)
+                return -ENOMEM;
+        udev_event->trace = worker->config.trace;
 
         /* apply rules, create node, symlinks */
         r = udev_event_execute_rules(udev_event, worker->rules);
