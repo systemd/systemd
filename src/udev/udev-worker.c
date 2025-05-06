@@ -85,12 +85,13 @@ irrelevant:
         return 0;
 }
 
-static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
+static int worker_lock_whole_disk(UdevWorker *worker, sd_device *dev, int *ret_fd) {
         _cleanup_close_ int fd = -EBADF;
         sd_device *dev_whole_disk;
-        const char *val;
+        const char *whole_disk;
         int r;
 
+        assert(worker);
         assert(dev);
         assert(ret_fd);
 
@@ -105,7 +106,7 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 goto nolock;
 
-        r = udev_get_whole_disk(dev, &dev_whole_disk, &val);
+        r = udev_get_whole_disk(dev, &dev_whole_disk, &whole_disk);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -115,17 +116,29 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
 
-                log_device_debug_errno(dev, fd, "Failed to open '%s'%s: %m", val, ignore ? ", ignoring" : "");
+                log_device_debug_errno(dev, fd, "Failed to open '%s'%s: %m", whole_disk, ignore ? ", ignoring" : "");
                 if (!ignore)
                         return fd;
 
                 goto nolock;
         }
 
-        if (flock(fd, LOCK_SH|LOCK_NB) < 0)
-                return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", val);
+        if (flock(fd, LOCK_SH|LOCK_NB) < 0) {
+                if (errno != EAGAIN)
+                        return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", whole_disk);
 
-        log_device_debug(dev, "Successfully took flock(LOCK_SH) for %s, it will be released after the event has been processed.", val);
+                log_device_debug_errno(dev, errno, "Block device %s is currently locked, requeuing the event.", whole_disk);
+
+                r = sd_notifyf(/* unset_environment = */ false, "TRY_AGAIN=1\nWHOLE_DISK=%s", whole_disk);
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to send notification message to manager process: %m");
+                        (void) sd_event_exit(worker->event, r);
+                }
+
+                return -EAGAIN;
+        }
+
+        log_device_debug(dev, "Successfully took flock(LOCK_SH) for %s, it will be released after the event has been processed.", whole_disk);
         *ret_fd = TAKE_FD(fd);
         return 1;
 
@@ -172,8 +185,6 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 }
 
 static int worker_process_device(UdevWorker *worker, sd_device *dev) {
-        _cleanup_(udev_event_unrefp) UdevEvent *udev_event = NULL;
-        _cleanup_close_ int fd_lock = -EBADF;
         int r;
 
         assert(worker);
@@ -181,28 +192,15 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
 
         log_device_uevent(dev, "Processing device");
 
-        udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
-        if (!udev_event)
-                return -ENOMEM;
-        udev_event->trace = worker->config.trace;
-
         /* If this is a block device and the device is locked currently via the BSD advisory locks,
          * someone else is using it exclusively. We don't run our udev rules now to not interfere.
          * Instead of processing the event, we requeue the event and will try again after a delay.
          *
          * The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING */
-        r = worker_lock_whole_disk(dev, &fd_lock);
-        if (r == -EAGAIN) {
-                log_device_debug(dev, "Block device is currently locked, requeuing the event.");
-
-                r = sd_notify(/* unset_environment = */ false, "TRY_AGAIN=1");
-                if (r < 0) {
-                        log_device_warning_errno(dev, r, "Failed to send notification message to manager process: %m");
-                        (void) sd_event_exit(worker->event, r);
-                }
-
+        _cleanup_close_ int fd_lock = -EBADF;
+        r = worker_lock_whole_disk(worker, dev, &fd_lock);
+        if (r == -EAGAIN)
                 return 0;
-        }
         if (r < 0)
                 return r;
 
@@ -213,6 +211,11 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         r = udev_watch_end(worker, dev);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
+
+        _cleanup_(udev_event_unrefp) UdevEvent *udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
+        if (!udev_event)
+                return -ENOMEM;
+        udev_event->trace = worker->config.trace;
 
         /* apply rules, create node, symlinks */
         r = udev_event_execute_rules(udev_event, worker->rules);
