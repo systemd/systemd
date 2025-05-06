@@ -326,30 +326,30 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         if (config->entry_oneshot)
                 printf("    default (one-shot): %ls\n", config->entry_oneshot);
         if (config->entry_saved)
-                printf("           saved entry: %ls\n", config->entry_saved);
-        printf("                  editor: %ls\n", yes_no(config->editor));
-        printf("            auto-entries: %ls\n", yes_no(config->auto_entries));
-        printf("           auto-firmware: %ls\n", yes_no(config->auto_firmware));
-        printf("           auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
-        printf("             auto-reboot: %ls\n", yes_no(config->auto_reboot));
-        printf("                    beep: %ls\n", yes_no(config->beep));
-        printf("    reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
+                printf("             saved entry: %ls\n", config->entry_saved);
+        printf("                   editor: %ls\n", yes_no(config->editor));
+        printf("             auto-entries: %ls\n", yes_no(config->auto_entries));
+        printf("            auto-firmware: %ls\n", yes_no(config->auto_firmware));
+        printf("            auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
+        printf("              auto-reboot: %ls\n", yes_no(config->auto_reboot));
+        printf("                     beep: %ls\n", yes_no(config->beep));
+        printf("     reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
         printf("          reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
         printf("       secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
         printf("secure-boot-enroll-action: %s\n",  secure_boot_enroll_action_to_string(config->secure_boot_enroll_action));
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
-                printf(" console-mode (config): auto\n");
+                printf("    console-mode (config): auto\n");
                 break;
         case CONSOLE_MODE_KEEP:
-                printf(" console-mode (config): keep\n");
+                printf("    console-mode (config): keep\n");
                 break;
         case CONSOLE_MODE_FIRMWARE_MAX:
-                printf(" console-mode (config): max\n");
+                printf("    console-mode (config): max\n");
                 break;
         default:
-                printf(" console-mode (config): %" PRIi64 "\n", config->console_mode);
+                printf("    console-mode (config): %" PRIi64 "\n", config->console_mode);
         }
 
         /* EFI var console mode is always a concrete value or unset. */
