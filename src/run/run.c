@@ -924,8 +924,11 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case 'D':
-                        /* Root will be manually suppressed later. */
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_working_directory);
+                        if (streq(optarg, "~"))
+                                r = free_and_strdup_warn(&arg_working_directory, optarg);
+                        else
+                                /* Root will be manually suppressed later. */
+                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_working_directory);
                         if (r < 0)
                                 return r;
 
