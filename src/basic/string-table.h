@@ -8,14 +8,12 @@
 
 #include "macro.h"
 
-const char* string_table_lookup_to_string(const char * const *table, size_t len, ssize_t i);
+const char* string_table_lookup_to_string(const char * const *table, size_t len, ssize_t i) _const_;
 
-ssize_t string_table_lookup_from_string(const char * const *table, size_t len, const char *key);
-
-ssize_t string_table_lookup_from_string_with_boolean(const char * const *table, size_t len, const char *key, ssize_t yes);
+ssize_t string_table_lookup_from_string(const char * const *table, size_t len, const char *key) _pure_;
+ssize_t string_table_lookup_from_string_with_boolean(const char * const *table, size_t len, const char *key, ssize_t yes) _pure_;
 
 int string_table_lookup_to_string_fallback(const char * const *table, size_t len, ssize_t i, size_t max, char **ret);
-
 ssize_t string_table_lookup_from_string_fallback(const char * const *table, size_t len, const char *s, size_t max);
 
 /* For basic lookup tables with strictly enumerated entries */
