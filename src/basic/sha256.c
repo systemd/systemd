@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "hexdecoct.h"
 #include "macro.h"
 #include "sha256.h"

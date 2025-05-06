@@ -2,6 +2,7 @@
 
 #include <elf.h>
 
+#include "alloc-util.h"
 #include "coredump-util.h"
 #include "extract-word.h"
 #include "fileio.h"
