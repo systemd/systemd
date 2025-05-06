@@ -94,8 +94,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 for (;;) {
                         printf("\rEnrolling in %2u s, press any key to abort.", timeout_sec);
 
-                        uint64_t key;
-                        err = console_key_read(&key, 1000 * 1000);
+                        err = console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 1000 * 1000);
                         if (err == EFI_NOT_READY)
                                 continue;
                         if (err == EFI_TIMEOUT) {
