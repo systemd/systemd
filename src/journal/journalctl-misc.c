@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -11,6 +12,7 @@
 #include "journalctl-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "strv.h"
 #include "syslog-util.h"
 
 int action_print_header(void) {

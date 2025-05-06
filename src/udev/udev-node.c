@@ -9,6 +9,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -23,6 +24,7 @@
 #include "smack-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-node.h"
 #include "user-util.h"
 

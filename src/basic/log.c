@@ -21,6 +21,7 @@
 #include "argv-util.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"

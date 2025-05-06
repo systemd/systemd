@@ -30,6 +30,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"

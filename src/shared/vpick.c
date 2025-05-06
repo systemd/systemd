@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 
 #include "architecture.h"
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "chase.h"
 #include "fd-util.h"
@@ -11,6 +12,8 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
+#include "string-util.h"
+#include "strv.h"
 #include "vpick.h"
 
 void pick_result_done(PickResult *p) {

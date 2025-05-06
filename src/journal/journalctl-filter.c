@@ -2,6 +2,7 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "devnum-util.h"
 #include "fileio.h"
@@ -14,6 +15,7 @@
 #include "logs-show.h"
 #include "missing_sched.h"
 #include "path-util.h"
+#include "strv.h"
 #include "unit-name.h"
 
 static int add_invocation(sd_journal *j) {

@@ -9,6 +9,7 @@
 #include "conf-parser.h"
 #include "dirent-util.h"
 #include "event-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "gpt.h"

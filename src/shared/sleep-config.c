@@ -8,6 +8,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hibernate-util.h"
