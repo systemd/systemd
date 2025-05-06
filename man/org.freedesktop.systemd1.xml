@@ -250,6 +250,11 @@ node /org/freedesktop/systemd1 {
                               in  b force,
                               out b carries_install_info,
                               out a(sss) changes);
+      PresetUnitFilesWithFlags(in  as files,
+                               in  s mode,
+                               in  t flags,
+                               out b carries_install_info,
+                               out a(sss) changes);
       MaskUnitFiles(in  as files,
                     in  b runtime,
                     in  b force,
@@ -267,6 +272,9 @@ node /org/freedesktop/systemd1 {
                          in  b runtime,
                          in  b force,
                          out a(sss) changes);
+      PresetAllUnitFilesWithFlags(in  s mode,
+                                  in  t flags,
+                                  out a(sss) changes);
       AddDependencyUnitFiles(in  as files,
                              in  s target,
                              in  s type,
@@ -957,6 +965,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="PresetUnitFilesWithMode()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="PresetUnitFilesWithFlags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="MaskUnitFiles()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="UnmaskUnitFiles()"/>
@@ -968,6 +978,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetDefaultTarget()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="PresetAllUnitFiles()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="PresetAllUnitFilesWithFlags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AddDependencyUnitFiles()"/>
 
