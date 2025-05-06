@@ -964,6 +964,7 @@ manpages = [
  ['systemd-debug-generator', '8', [], ''],
  ['systemd-delta', '1', [], ''],
  ['systemd-detect-virt', '1', [], ''],
+ ['systemd-devlinkd.service', '8', ['systemd-devlinkd'], 'ENABLE_DEVLINKD'],
  ['systemd-dissect', '1', ['mount.ddi'], 'HAVE_BLKID'],
  ['systemd-environment-d-generator',
   '8',
