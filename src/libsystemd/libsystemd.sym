@@ -619,6 +619,7 @@ global:
         sd_device_has_tag;
         sd_device_get_property_value;
         sd_device_get_sysattr_value;
+        sd_device_get_sysattr_value_with_size;
 
         sd_device_set_sysattr_value;
 
