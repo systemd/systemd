@@ -78,6 +78,7 @@ testcase_multiple_features() {
     -p Delegate=true \
     -p DelegateSubgroup=task \
     -p DelegateNamespaces=yes \
+    -p MountAPIVFS=yes \
     -p BindPaths="$bind_mount_arg" \
     /usr/lib/systemd/systemd multi-user.target
 
