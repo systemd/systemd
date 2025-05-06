@@ -176,12 +176,11 @@
                 UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
-#define ABS(a) __ABS(UNIQ, (a))
-#define __ABS(aq, a)                                    \
-({                                                      \
-        const typeof(a) UNIQ_T(A, aq) = (a);            \
-        UNIQ_T(A, aq) < 0 ? -UNIQ_T(A, aq) : UNIQ_T(A, aq); \
-})
+#ifdef __clang__
+#  define ABS(a) __builtin_llabs(a)
+#else
+#  define ABS(a) __builtin_imaxabs(a)
+#endif
 
 #define IS_UNSIGNED_INTEGER_TYPE(type) \
         (__builtin_types_compatible_p(typeof(type), unsigned char) ||   \

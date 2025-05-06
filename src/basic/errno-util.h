@@ -95,6 +95,7 @@ static inline int errno_or_else(int fallback) {
         return -ABS(fallback);
 }
 
+/* abs(3) says: Trying to take the absolute value of the most negative integer is not defined. */
 #define _DEFINE_ABS_WRAPPER(name)                         \
         static inline bool ERRNO_IS_##name(intmax_t r) {  \
                 if (r == INTMAX_MIN)                      \
