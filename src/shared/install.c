@@ -556,6 +556,7 @@ static int create_symlink(
                 const char *old_path,
                 const char *new_path,
                 bool force,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -569,6 +570,27 @@ static int create_symlink(
         rp = skip_root(lp->root_dir, old_path);
         if (rp)
                 old_path = rp;
+
+        if (dry_run) {
+                if (is_symlink(new_path) > 0) {
+                        r = readlink_malloc(new_path, &dest);
+                        if (r == -EINVAL)
+                                return install_changes_add(changes, n_changes, r, new_path, NULL);
+                        else if (r < 0)
+                                return r;
+
+                        if (chroot_unit_symlinks_equivalent(lp, new_path, dest, old_path))
+                                return 1;
+
+                        if (force) {
+                                r = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, new_path, NULL);
+                                if (r < 0)
+                                        return r;
+                                return install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+                        }
+                }
+                return install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+        }
 
         /* Actually create a symlink, and remember that we did. This function is
          * smart enough to check if there's already a valid symlink in place.
@@ -1946,6 +1968,7 @@ static int install_info_symlink_alias(
                 const LookupPaths *lp,
                 const char *config_path,
                 bool force,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -1995,7 +2018,7 @@ static int install_info_symlink_alias(
                 }
                 broken = r == 0; /* symlink target does not exist? */
 
-                r = create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, changes, n_changes);
+                r = create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, dry_run, changes, n_changes);
                 if (r != 0 && ret >= 0)
                         ret = r;
         }
@@ -2011,6 +2034,7 @@ static int install_info_symlink_wants(
                 const char *config_path,
                 char **list,
                 const char *suffix,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2090,7 +2114,7 @@ static int install_info_symlink_wants(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink(lp, info->path, path, /* force = */ true, changes, n_changes);
+                q = create_symlink(lp, info->path, path, /* force = */ true, dry_run, changes, n_changes);
                 if (q != 0 && r >= 0)
                         r = q;
 
@@ -2109,6 +2133,7 @@ static int install_info_symlink_link(
                 const LookupPaths *lp,
                 const char *config_path,
                 bool force,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2130,7 +2155,7 @@ static int install_info_symlink_link(
         if (!path)
                 return -ENOMEM;
 
-        return create_symlink(lp, info->path, path, force, changes, n_changes);
+        return create_symlink(lp, info->path, path, force, dry_run, changes, n_changes);
 }
 
 static int install_info_apply(
@@ -2139,6 +2164,7 @@ static int install_info_apply(
                 InstallInfo *info,
                 const LookupPaths *lp,
                 const char *config_path,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2153,24 +2179,24 @@ static int install_info_apply(
 
         bool force = file_flags & UNIT_FILE_FORCE;
 
-        r = install_info_symlink_link(info, lp, config_path, force, changes, n_changes);
+        r = install_info_symlink_link(info, lp, config_path, force, dry_run, changes, n_changes);
         /* Do not count links to the unit file towards the "carries_install_info" count */
         if (r < 0)
                 /* If linking of the file failed, do not try to create other symlinks,
                  * because they might would pointing to a non-existent or wrong unit. */
                 return r;
 
-        r = install_info_symlink_alias(scope, info, lp, config_path, force, changes, n_changes);
+        r = install_info_symlink_alias(scope, info, lp, config_path, force, dry_run, changes, n_changes);
 
-        q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->wanted_by, ".wants/", changes, n_changes);
+        q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->wanted_by, ".wants/", dry_run, changes, n_changes);
         if (q != 0 && r >= 0)
                 r = q;
 
-        q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->required_by, ".requires/", changes, n_changes);
+        q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->required_by, ".requires/", dry_run, changes, n_changes);
         if (q != 0 && r >= 0)
                 r = q;
 
-        q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->upheld_by, ".upholds/", changes, n_changes);
+        q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->upheld_by, ".upholds/", dry_run, changes, n_changes);
         if (q != 0 && r >= 0)
                 r = q;
 
@@ -2183,6 +2209,7 @@ static int install_context_apply(
                 UnitFileFlags file_flags,
                 const char *config_path,
                 SearchFlags flags,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2236,7 +2263,7 @@ static int install_context_apply(
                 if (i->install_mode != INSTALL_MODE_REGULAR)
                         continue;
 
-                q = install_info_apply(ctx->scope, file_flags, i, lp, config_path, changes, n_changes);
+                q = install_info_apply(ctx->scope, file_flags, i, lp, config_path, dry_run, changes, n_changes);
                 if (r >= 0) {
                         if (q < 0)
                                 r = q;
@@ -2357,7 +2384,7 @@ int unit_file_mask(
                 if (!path)
                         return -ENOMEM;
 
-                RET_GATHER(r, create_symlink(&lp, "/dev/null", path, flags & UNIT_FILE_FORCE, changes, n_changes));
+                RET_GATHER(r, create_symlink(&lp, "/dev/null", path, FLAGS_SET(flags, UNIT_FILE_FORCE), /* dry_run = */ false, changes, n_changes));
         }
 
         return r;
@@ -2556,7 +2583,7 @@ int unit_file_link(
                 if (!new_path)
                         return -ENOMEM;
 
-                RET_GATHER(r, create_symlink(&lp, path, new_path, FLAGS_SET(flags, UNIT_FILE_FORCE), changes, n_changes));
+                RET_GATHER(r, create_symlink(&lp, path, new_path, FLAGS_SET(flags, UNIT_FILE_FORCE), /* dry_run = */ false, changes, n_changes));
         }
 
         return r;
@@ -2805,7 +2832,7 @@ int unit_file_add_dependency(
         }
 
         return install_context_apply(&ctx, &lp, file_flags, config_path,
-                                     SEARCH_FOLLOW_CONFIG_SYMLINKS, changes, n_changes);
+                                     SEARCH_FOLLOW_CONFIG_SYMLINKS, /* dry_run = */ false, changes, n_changes);
 }
 
 static int do_unit_file_enable(
@@ -2837,7 +2864,7 @@ static int do_unit_file_enable(
            installation data at all. */
 
         return install_context_apply(&ctx, lp, flags, config_path,
-                                     SEARCH_LOAD, changes, n_changes);
+                                     SEARCH_LOAD, /* dry_run = */ false, changes, n_changes);
 }
 
 int unit_file_enable(
@@ -3063,7 +3090,7 @@ int unit_file_set_default(
                 return r;
 
         new_path = strjoina(lp.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
-        return create_symlink(&lp, info->path, new_path, flags & UNIT_FILE_FORCE, changes, n_changes);
+        return create_symlink(&lp, info->path, new_path, FLAGS_SET(flags, UNIT_FILE_FORCE), /* dry_run = */ false, changes, n_changes);
 }
 
 int unit_file_get_default(
@@ -3534,6 +3561,7 @@ static int execute_preset(
                 const char *config_path,
                 char * const *files,
                 UnitFilePresetMode mode,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -3551,7 +3579,7 @@ static int execute_preset(
                 if (r < 0)
                         return r;
 
-                r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, false, changes, n_changes);
+                r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, dry_run, changes, n_changes);
         } else
                 r = 0;
 
@@ -3562,7 +3590,7 @@ static int execute_preset(
                 q = install_context_apply(plus, lp,
                                           file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE,
                                           config_path,
-                                          SEARCH_LOAD, changes, n_changes);
+                                          SEARCH_LOAD, dry_run, changes, n_changes);
                 if (r >= 0) {
                         if (q < 0)
                                 r = q;
@@ -3633,6 +3661,7 @@ int unit_file_preset(
                 const char *root_dir,
                 char * const *names,
                 UnitFilePresetMode mode,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -3664,7 +3693,7 @@ int unit_file_preset(
                         return r;
         }
 
-        return execute_preset(file_flags, &plus, &minus, &lp, config_path, names, mode, changes, n_changes);
+        return execute_preset(file_flags, &plus, &minus, &lp, config_path, names, mode, dry_run, changes, n_changes);
 }
 
 int unit_file_preset_all(
@@ -3672,6 +3701,7 @@ int unit_file_preset_all(
                 UnitFileFlags file_flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -3737,7 +3767,7 @@ int unit_file_preset_all(
                 }
         }
 
-        return execute_preset(file_flags, &plus, &minus, &lp, config_path, NULL, mode, changes, n_changes);
+        return execute_preset(file_flags, &plus, &minus, &lp, config_path, NULL, mode, dry_run, changes, n_changes);
 }
 
 static UnitFileList* unit_file_list_free(UnitFileList *f) {
