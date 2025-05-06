@@ -690,7 +690,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         manager_flush_caches(m, LOG_INFO);
         manager_verify_all(m);
 
-        (void) sd_notify(/* unset= */ false, NOTIFY_READY_MESSAGE);
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
         return 0;
 }
 

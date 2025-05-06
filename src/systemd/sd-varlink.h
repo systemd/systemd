@@ -183,7 +183,7 @@ int sd_varlink_get_current_method(sd_varlink *v, const char **ret);
 int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **ret);
 
 /* Parsing incoming data via json_dispatch() and generate a nice error on parse errors */
-int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field table[], void *userdata);
+int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field dispatch_table[], void *userdata);
 
 /* Write outgoing fds into the socket (to be associated with the next enqueued message) */
 int sd_varlink_push_fd(sd_varlink *v, int fd);

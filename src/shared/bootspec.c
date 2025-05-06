@@ -1999,7 +1999,7 @@ int show_boot_entries(const BootConfig *config, sd_json_format_flags_t json_form
                                         config->entries + n,
                                         /* show_as_default= */  n == (size_t) config->default_entry,
                                         /* show_as_selected= */ n == (size_t) config->selected_entry,
-                                        /* show_discovered= */  true);
+                                        /* show_reported= */  true);
                         if (r < 0)
                                 return r;
 
