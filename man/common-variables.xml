@@ -205,9 +205,16 @@
       enabled if the effective UID is not the same as the owner of the login session, see
       <citerefentry project='man-pages'><refentrytitle>geteuid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
       and
-      <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-      In this case, <varname>SYSTEMD_PAGERSECURE=1</varname> will be set and pagers which are not known to
-      implement "secure mode" will not be used at all.</para>
+      <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      or when running under
+      <citerefentry><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry> or similar
+      tools (<varname>$SUDO_UID</varname> is set <footnote>
+      <para>It is recommended for other tools to set and check <varname>$SUDO_UID</varname> as appropriate,
+      treating it is a common interface.</para></footnote>). In those cases,
+      <varname>SYSTEMD_PAGERSECURE=1</varname> will be set and pagers which are not known to implement
+      "secure mode" will not be used at all. Note that this autodetection only covers the most common
+      mechanisms to elevate privileges and is intended as convenience. It is recommended to explicitly set
+      <varname>$SYSTEMD_PAGERSECURE</varname> or disable the pager.</para>
 
       <para>Note that if the <varname>$SYSTEMD_PAGER</varname> or <varname>$PAGER</varname> variables are to
       be honoured, other than to disable the pager, <varname>$SYSTEMD_PAGERSECURE</varname> must be set
