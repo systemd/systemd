@@ -200,3 +200,47 @@ int devlink_match_common_index_duplicate_func(DevlinkMatch *dst, const DevlinkMa
         devlink_match_common_index_copy_func(dst, src);
         return 0;
 }
+
+void devlink_match_common_name_free(DevlinkMatch *match) {
+        DevlinkMatchCommon *common = &match->common;
+
+        common->name = mfree(common->name);
+}
+
+bool devlink_match_common_name_check(const DevlinkMatch *match) {
+        const DevlinkMatchCommon *common = &match->common;
+
+        if (!common->name) {
+                log_debug("Match name not configured.");
+                return false;
+        }
+        return true;
+}
+
+void devlink_match_common_name_log_prefix(char **buf, int *len, const DevlinkMatch *match) {
+        const DevlinkMatchCommon *common = &match->common;
+
+        BUFFER_APPEND(*buf, *len, "name %s", common->name);
+}
+
+void devlink_match_common_name_hash_func(const DevlinkMatch *match, struct siphash *state) {
+        const DevlinkMatchCommon *common = &match->common;
+
+        assert(common->name);
+
+        string_hash_func(common->name, state);
+}
+
+int devlink_match_common_name_compare_func(const DevlinkMatch *x, const DevlinkMatch *y) {
+        const DevlinkMatchCommon *xcommon = &x->common;
+        const DevlinkMatchCommon *ycommon = &y->common;
+
+        return strcmp(xcommon->name, ycommon->name);
+}
+
+void devlink_match_common_name_copy_func(DevlinkMatch *dst, const DevlinkMatch *src) {
+        DevlinkMatchCommon *dstcommon = &dst->common;
+        const DevlinkMatchCommon *srccommon = &src->common;
+
+        dstcommon->name = srccommon->name;
+}
