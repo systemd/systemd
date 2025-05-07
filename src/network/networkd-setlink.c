@@ -154,7 +154,7 @@ static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message
                  * operstate is not down. See, eth_prepare_mac_addr_change() in net/ethernet/eth.c
                  * of kernel. */
 
-                log_link_message_debug_errno(link, m, r, "Failed to set MAC address, retrying again: %m");
+                log_link_message_debug_errno(link, m, r, "Failed to set MAC address, retrying again");
 
                 r = link_request_to_set_mac(link, /* allow_retry = */ false);
                 if (r < 0)
