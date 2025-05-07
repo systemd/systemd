@@ -843,7 +843,7 @@ int ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *
         return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_ORDERED);
 }
 
-int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops) {
+int set_ensure_allocated(Set **s, const struct hash_ops *hash_ops) {
         return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET);
 }
 
@@ -1285,7 +1285,7 @@ int set_put(Set *s, const void *key) {
 int set_ensure_put(Set **s, const struct hash_ops *hash_ops, const void *key) {
         int r;
 
-        r = _set_ensure_allocated(s, hash_ops);
+        r = set_ensure_allocated(s, hash_ops);
         if (r < 0)
                 return r;
 
@@ -1883,7 +1883,7 @@ int set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *p
         assert(s);
         assert(p);
 
-        r = _set_ensure_allocated(s, hash_ops);
+        r = set_ensure_allocated(s, hash_ops);
         if (r < 0)
                 return r;
 
