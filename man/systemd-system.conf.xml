@@ -122,6 +122,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AllowedCPUs=</varname></term>
+
+        <listitem><para>
+        Sets the CPUs to be used in the cpuset controller in the unified hierarchy. This is only applied to the
+        top level slices/scopes if <varname>AllowedCPUs=</varname> is not otherwise specified for these units.
+        Takes a list of CPU indices or ranges separated by either whitespace or commas. CPU ranges are specified
+        by the lower and upper CPU indices separated by a dash. This option may be specified more than once, in
+        which case the specified CPU masks are merged. If the empty string is assigned, the mask is reset,
+        all assignments prior to this will have no effect.</para>
+
+        <para>Individual services may specify their own CPU mask with
+        <varname>AllowedCPUs=</varname> setting in unit files, see
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        It should be noted that the CPUs allowed for processes in a child will be restricted by the CPU mask of
+        the parent, even if the child allows other CPUs.</para>
+        <para>This setting is supported only with the unified control group hierarchy.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DefaultTimerAccuracySec=</varname></term>
 
         <listitem><para>Sets the default accuracy of timer units. This
