@@ -229,6 +229,11 @@ _unused_ static void test_compress_stream(const char *compression,
 #endif
 
 #if HAVE_LZ4
+extern DLSYM_PROTOTYPE(LZ4_compress_default);
+extern DLSYM_PROTOTYPE(LZ4_decompress_safe);
+extern DLSYM_PROTOTYPE(LZ4_decompress_safe_partial);
+extern DLSYM_PROTOTYPE(LZ4_versionNumber);
+
 static void test_lz4_decompress_partial(void) {
         char buf[20000], buf2[100];
         size_t buf_size = sizeof(buf), compressed;
