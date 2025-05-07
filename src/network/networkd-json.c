@@ -7,6 +7,7 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "ip-protocol-list.h"
 #include "json-util.h"
 #include "netif-util.h"

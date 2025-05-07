@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/types.h>
-#include <sys/uio.h>
-
+#include "forward.h"
 #include "iovec-util-fundamental.h"
-#include "macro.h"
 
 extern const struct iovec iovec_nul_byte; /* Points to a single NUL byte */
 extern const struct iovec iovec_empty;    /* Points to an empty, but valid (i.e. non-NULL) pointer */

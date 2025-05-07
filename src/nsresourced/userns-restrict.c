@@ -18,6 +18,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "string-util.h"
 
 #define USERNS_MAX (16U*1024U)
 #define MOUNTS_MAX 4096U

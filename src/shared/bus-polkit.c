@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "assert-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-polkit.h"

@@ -7,9 +7,11 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"

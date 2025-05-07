@@ -14,10 +14,12 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bus-polkit.h"
 #include "clock-util.h"
 #include "common-signal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"

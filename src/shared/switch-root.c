@@ -21,6 +21,7 @@
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

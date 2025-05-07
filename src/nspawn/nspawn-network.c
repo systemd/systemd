@@ -4,6 +4,7 @@
 #include <linux/nl80211.h>
 #include <linux/veth.h>
 #include <net/if.h>
+#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/mount.h>
 

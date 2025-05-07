@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "assert-util.h"
 #include "conf-parser.h"
 #include "log.h"
 #include "oomd-conf.h"
 #include "oomd-manager.h"
+#include "parse-util.h"
+#include "string-util.h"
+#include "time-util.h"
 
 static int config_parse_duration(
                 const char *unit,

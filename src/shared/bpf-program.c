@@ -9,6 +9,7 @@
 #include "bpf-program.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "memory-util.h"
 #include "missing_syscall.h"

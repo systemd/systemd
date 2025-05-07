@@ -5,8 +5,7 @@
 
 #include "device-private.h"
 #include "hashmap.h"
-#include "set.h"
-#include "time-util.h"
+#include "forward.h"
 
 #define LATEST_UDEV_DATABASE_VERSION 1
 

@@ -9,6 +9,7 @@
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "sd-netlink.h"
@@ -25,6 +26,7 @@
 #include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #define NFT_SYSTEMD_DNAT_MAP_NAME "map_port_ipport"

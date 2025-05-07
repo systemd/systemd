@@ -8,6 +8,7 @@
 #include "bus-locator.h"
 #include "bus-message-util.h"
 #include "format-table.h"
+#include "glyph-util.h"
 #include "locale-util.h"
 #include "path-util.h"
 #include "set.h"

@@ -8,6 +8,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "async.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -18,6 +19,7 @@
 #include "path-util.h"
 #include "set.h"
 #include "stat-util.h"
+#include "string-util.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)

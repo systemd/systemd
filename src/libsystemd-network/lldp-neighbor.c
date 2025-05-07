@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
 #include "json-util.h"
 #include "lldp-neighbor.h"
 #include "memory-util.h"
 #include "missing_network.h"
+#include "prioq.h"
+#include "siphash24.h"
 #include "unaligned.h"
 
 static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash *state) {

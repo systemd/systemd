@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 
-#include "macro.h"
+#include "forward.h"
 
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;

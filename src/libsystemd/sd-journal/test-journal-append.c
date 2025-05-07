@@ -18,6 +18,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int journal_append_message(JournalFile *mj, const char *message) {

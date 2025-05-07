@@ -5,6 +5,7 @@
 #include <resolv.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "resolved-dns-answer.h"

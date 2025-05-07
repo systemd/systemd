@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "errno-util.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -17,6 +18,7 @@
 #include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
 

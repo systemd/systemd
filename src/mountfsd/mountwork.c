@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/loop.h>
+#include <poll.h>
 #include <sys/mount.h>
 
 #include "sd-daemon.h"

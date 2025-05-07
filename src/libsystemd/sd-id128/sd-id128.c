@@ -2,12 +2,14 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <threads.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "chase.h"
 #include "fd-util.h"
 #include "hexdecoct.h"

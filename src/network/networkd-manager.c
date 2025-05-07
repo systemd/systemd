@@ -61,6 +61,7 @@
 #include "selinux-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tclass.h"

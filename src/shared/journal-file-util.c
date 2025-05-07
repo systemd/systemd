@@ -3,6 +3,8 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "chattr-util.h"
 #include "copy.h"
@@ -16,6 +18,7 @@
 #include "random-util.h"
 #include "set.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "sync-util.h"
 
 #define PAYLOAD_BUFFER_SIZE (16U * 1024U)

@@ -11,11 +11,13 @@
 #include "sd-dhcp6-client.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "device-util.h"
 #include "dhcp-duid-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
@@ -24,6 +26,7 @@
 #include "random-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "web-util.h"
 

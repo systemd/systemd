@@ -14,6 +14,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "chattr-util.h"
 #include "compress.h"
 #include "env-util.h"
@@ -41,7 +42,9 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "siphash24.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
 

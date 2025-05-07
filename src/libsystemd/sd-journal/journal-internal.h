@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
+#include <stdlib.h>
 
-#include "sd-id128.h"
 #include "sd-journal.h"
 
-#include "hashmap.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "list.h"
-#include "prioq.h"
+#include "forward.h"
 
 #define JOURNAL_FILES_MAX 7168u
 

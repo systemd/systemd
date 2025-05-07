@@ -9,6 +9,7 @@
 #include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
+#include "string-util.h"
 
 typedef struct GenericNetlinkFamily {
         sd_netlink *genl;

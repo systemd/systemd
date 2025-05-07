@@ -2,6 +2,8 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "fd-util.h"
@@ -13,6 +15,7 @@
 #include "namespace-util.h"
 #include "process-util.h"
 #include "sha256.h"
+#include "siphash24.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

@@ -4,6 +4,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -15,6 +16,8 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "userns-registry.h"

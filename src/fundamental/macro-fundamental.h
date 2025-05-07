@@ -1,18 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <limits.h>
 #include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-/* This header unconditionally defines MAX() so include it here already so
- * it won't override our own definition of MAX() that we define later in this
- * file. */
-#if !SD_BOOT
-#include <sys/param.h>
-#endif
+#include "forward-fundamental.h"
 
 /* Temporarily disable some warnings */
 #define DISABLE_WARNING_DEPRECATED_DECLARATIONS                         \
@@ -47,10 +41,6 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
 
-#define DISABLE_WARNING_ADDRESS                                         \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Waddress\"")
-
 #define DISABLE_WARNING_STRINGOP_TRUNCATION                             \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
@@ -77,54 +67,6 @@
         _Pragma("GCC diagnostic push")
 #endif
 
-#define REENABLE_WARNING                                                \
-        _Pragma("GCC diagnostic pop")
-
-#define _align_(x) __attribute__((__aligned__(x)))
-#define _alignas_(x) __attribute__((__aligned__(alignof(x))))
-#define _alignptr_ __attribute__((__aligned__(sizeof(void *))))
-#define _cleanup_(x) __attribute__((__cleanup__(x)))
-#define _const_ __attribute__((__const__))
-#define _deprecated_ __attribute__((__deprecated__))
-#define _destructor_ __attribute__((__destructor__))
-#define _hidden_ __attribute__((__visibility__("hidden")))
-#define _likely_(x) (__builtin_expect(!!(x), 1))
-#define _malloc_ __attribute__((__malloc__))
-#define _noinline_ __attribute__((noinline))
-#define _noreturn_ _Noreturn
-#define _packed_ __attribute__((__packed__))
-#define _printf_(a, b) __attribute__((__format__(printf, a, b)))
-#define _public_ __attribute__((__visibility__("default")))
-#define _pure_ __attribute__((__pure__))
-#define _retain_ __attribute__((__retain__))
-#define _returns_nonnull_ __attribute__((__returns_nonnull__))
-#define _section_(x) __attribute__((__section__(x)))
-#define _sentinel_ __attribute__((__sentinel__))
-#define _unlikely_(x) (__builtin_expect(!!(x), 0))
-#define _unused_ __attribute__((__unused__))
-#define _used_ __attribute__((__used__))
-#define _warn_unused_result_ __attribute__((__warn_unused_result__))
-#define _weak_ __attribute__((__weak__))
-#define _weakref_(x) __attribute__((__weakref__(#x)))
-
-#ifdef __clang__
-#  define _alloc_(...)
-#else
-#  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
-#endif
-
-#if defined(__clang__) && __clang_major__ < 10
-#  define _fallthrough_
-#else
-#  define _fallthrough_ __attribute__((__fallthrough__))
-#endif
-
-#if __GNUC__ >= 15
-#  define _nonnull_if_nonzero_(p, n) __attribute__((nonnull_if_nonzero(p, n)))
-#else
-#  define _nonnull_if_nonzero_(p, n)
-#endif
-
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
 
@@ -144,14 +86,6 @@
                 sizeof(x)/sizeof((x)[0]),                               \
                 VOID_0))
 
-#define XCONCATENATE(x, y) x ## y
-#define CONCATENATE(x, y) XCONCATENATE(x, y)
-
-#define assert_cc(expr) _Static_assert(expr, #expr)
-
-#define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
-#define UNIQ __COUNTER__
-
 /* Note that this works differently from pthread_once(): this macro does
  * not synchronize code execution, i.e. code that is run conditionalized
  * on this macro will run concurrently to all other code conditionalized
@@ -166,22 +100,6 @@
 #define U64_KB UINT64_C(1024)
 #define U64_MB (UINT64_C(1024) * U64_KB)
 #define U64_GB (UINT64_C(1024) * U64_MB)
-
-#undef MAX
-#define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
-#define __MAX(aq, a, bq, b)                             \
-        ({                                              \
-                const typeof(a) UNIQ_T(A, aq) = (a);    \
-                const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
-        })
-
-#ifdef __clang__
-#  define ABS(a) __builtin_llabs(a)
-#else
-#  define ABS(a) __builtin_imaxabs(a)
-#endif
-assert_cc(sizeof(intmax_t) <= sizeof(long long));
 
 #define IS_UNSIGNED_INTEGER_TYPE(type) \
         (__builtin_types_compatible_p(typeof(type), unsigned char) ||   \
@@ -222,15 +140,6 @@ assert_cc(sizeof(intmax_t) <= sizeof(long long));
         ({                                              \
                 const typeof(x) _d = MAX3(x, y, z);     \
                 MAX(_d, a);                             \
-        })
-
-#undef MIN
-#define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
-#define __MIN(aq, a, bq, b)                             \
-        ({                                              \
-                const typeof(a) UNIQ_T(A, aq) = (a);    \
-                const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
 /* evaluates to (void) if _A or _B are not constant or of different types */
@@ -397,48 +306,11 @@ assert_cc(sizeof(intmax_t) <= sizeof(long long));
 #define TAKE_STRUCT_TYPE(s, type) TAKE_GENERIC(s, type, {})
 #define TAKE_STRUCT(s) TAKE_STRUCT_TYPE(s, typeof(s))
 
-/*
- * STRLEN - return the length of a string literal, minus the trailing NUL byte.
- *          Contrary to strlen(), this is a constant expression.
- * @x: a string literal.
- */
-#define STRLEN(x) (sizeof(""x"") - sizeof(typeof(x[0])))
-
 #define mfree(memory)                           \
         ({                                      \
                 free(memory);                   \
                 (typeof(memory)) NULL;          \
         })
-
-#define UPDATE_FLAG(orig, flag, b)                      \
-        ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
-#define SET_FLAG(v, flag, b) \
-        (v) = UPDATE_FLAG(v, flag, b)
-#define FLAGS_SET(v, flags) \
-        ((~(v) & (flags)) == 0)
-
-typedef struct {
-        int _empty[0];
-} dummy_t;
-
-assert_cc(sizeof(dummy_t) == 0);
-
-/* Restriction/bug (see below) was fixed in GCC 15 and clang 19. */
-#if __GNUC__ >= 15 || (defined(__clang__) && __clang_major__ >= 19)
-#define DECLARE_FLEX_ARRAY(type, name) type name[]
-#else
-/* Declare a flexible array usable in a union.
- * This is essentially a work-around for a pointless constraint in C99
- * and might go away in some future version of the standard.
- *
- * See https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=3080ea5553cc909b000d1f1d964a9041962f2c5b
- */
-#define DECLARE_FLEX_ARRAY(type, name)                 \
-        struct {                                       \
-                dummy_t __empty__ ## name;             \
-                type name[];                           \
-        }
-#endif
 
 /* Declares an ELF read-only string section that does not occupy memory at runtime. */
 #define DECLARE_NOALLOC_SECTION(name, text)   \
@@ -470,6 +342,3 @@ assert_cc(sizeof(dummy_t) == 0);
 
 #define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
 #define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
-
-assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
-#define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])

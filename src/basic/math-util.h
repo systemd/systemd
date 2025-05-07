@@ -3,8 +3,6 @@
 
 #include <math.h>
 
-#include "macro.h"
-
 /* On some optimization level, iszero(x) is converted to (x == 0.0), and emits warning -Wfloat-equal.
  * The argument must be a floating point, i.e. one of float, double, or long double. */
 #define iszero_safe(x) (fpclassify(x) == FP_ZERO)

@@ -6,17 +6,21 @@ endif
 
 subdir('bpf/userns_restrict')
 
+userns_library = static_library(
+        'userns-registry',
+        files('userns-restrict.c',
+              'userns-registry.c'),
+        include_directories : includes,
+        dependencies : userspace,
+        build_by_default : false)
+
 systemd_nsresourcework_sources = files(
         'nsresourcework.c',
-        'userns-restrict.c',
-        'userns-registry.c',
 )
 
 systemd_nsresourced_sources = files(
         'nsresourced-manager.c',
         'nsresourced.c',
-        'userns-restrict.c',
-        'userns-registry.c',
 )
 
 userns_restrict_include = include_directories('.')
@@ -27,9 +31,10 @@ if conf.get('HAVE_VMLINUX_H') == 1
 
         executables += [
                 test_template + {
-                        'sources' : files('test-userns-restrict.c', 'userns-restrict.c') + userns_restrict_skel_h,
+                        'sources' : files('test-userns-restrict.c') + userns_restrict_skel_h,
                         'conditions' : ['HAVE_VMLINUX_H'],
                         'include_directories' : [ includes, userns_restrict_include ],
+                        'link_with' : [test_template['link_with'], userns_library],
                 },
         ]
 endif
@@ -40,12 +45,14 @@ executables += [
                 'sources' : systemd_nsresourcework_sources,
                 'dependencies' : threads,
                 'include_directories' : [ includes, userns_restrict_include ],
+                'link_with' : [libexec_template['link_with'], userns_library],
         },
         libexec_template + {
                 'name' : 'systemd-nsresourced',
                 'sources' : systemd_nsresourced_sources,
                 'dependencies' : threads,
                 'include_directories' : [ includes, userns_restrict_include ],
+                'link_with' : [libexec_template['link_with'], userns_library],
         },
 ]
 

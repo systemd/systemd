@@ -9,14 +9,11 @@
 #include "alloc-util.h"
 #include "env-util.h"
 #include "errno-util.h"
-#include "escape.h"
 #include "extract-word.h"
 #include "log.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -26,6 +23,12 @@
 #define VALID_BASH_ENV_NAME_CHARS               \
         DIGITS LETTERS                          \
         "_"
+
+size_t sc_arg_max(void) {
+        long l = sysconf(_SC_ARG_MAX);
+        assert(l > 0);
+        return (size_t) l;
+}
 
 static bool env_name_is_valid_n(const char *e, size_t n) {
 

@@ -10,6 +10,7 @@
 
 #include "sd-netlink.h"
 
+#include "assert-util.h"
 #include "format-util.h"
 #include "log.h"
 #include "netlink-internal.h"

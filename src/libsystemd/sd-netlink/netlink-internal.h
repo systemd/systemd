@@ -5,6 +5,7 @@
 
 #include "sd-netlink.h"
 
+#include "assert-util.h"
 #include "list.h"
 #include "netlink-types.h"
 #include "ordered-set.h"

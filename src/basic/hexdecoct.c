@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
-#include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #include "alloc-util.h"
 #include "hexdecoct.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "string-util.h"
 

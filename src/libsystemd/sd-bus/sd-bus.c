@@ -2,6 +2,7 @@
 
 #include <endian.h>
 #include <netdb.h>
+#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -15,8 +16,10 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bus-container.h"
 #include "bus-control.h"
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-kernel.h"
 #include "bus-label.h"
@@ -44,7 +47,9 @@
 #include "origin-id.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "prioq.h"
 #include "process-util.h"
+#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

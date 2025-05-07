@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "assert-util.h"
 #include "label-util.h"
 #include "macro.h"
 

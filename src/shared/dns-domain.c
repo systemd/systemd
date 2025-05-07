@@ -16,6 +16,7 @@
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"

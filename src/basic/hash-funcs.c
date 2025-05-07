@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <string.h>
+#include <sys/sysmacros.h>
 
 #include "hash-funcs.h"
 #include "path-util.h"
+#include "siphash24.h"
 #include "strv.h"
 
 void string_hash_func(const char *p, struct siphash *state) {

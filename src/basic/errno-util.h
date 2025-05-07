@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <string.h>
-
-#include "assert-util.h"
+#include "forward.h"
 #include "macro.h"
 
 /* strerror(3) says that glibc uses a maximum length of 1024 bytes. */
@@ -42,12 +39,20 @@ static inline void _reset_errno_(int *saved_errno) {
         PROTECT_ERRNO;                          \
         errno = ABS(value)
 
+#define return_with_errno(r, err)                     \
+        do {                                          \
+                errno = ABS(err);                     \
+                return r;                             \
+        } while (false)
+
 static inline int negative_errno(void) {
         /* This helper should be used to shut up gcc if you know 'errno' is
          * negative. Instead of "return -errno;", use "return negative_errno();"
          * It will suppress bogus gcc warnings in case it assumes 'errno' might
          * be 0 and thus the caller's error-handling might not be triggered. */
-        assert_return(errno > 0, -EINVAL);
+        if (errno <= 0)
+                return -EINVAL;
+
         return -errno;
 }
 
@@ -102,8 +107,6 @@ static inline int errno_or_else(int fallback) {
                         return false;                     \
                 return ERRNO_IS_NEG_##name(-ABS(r));      \
         }
-
-assert_cc(INT_MAX <= INTMAX_MAX);
 
 /* For send()/recv() or read()/write(). */
 static inline bool ERRNO_IS_NEG_TRANSIENT(intmax_t r) {

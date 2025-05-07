@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <limits.h>
+
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
@@ -27,6 +29,7 @@
 #include "secure-boot.h"
 #include "shim.h"
 #include "smbios.h"
+#include "strv-fundamental.h"
 #include "ticks.h"
 #include "tpm2-pcr.h"
 #include "uki.h"

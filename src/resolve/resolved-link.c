@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "env-file.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

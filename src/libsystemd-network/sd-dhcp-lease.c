@@ -13,6 +13,7 @@
 #include "sd-dhcp-lease.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-option.h"
 #include "dns-domain.h"

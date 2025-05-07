@@ -7,6 +7,7 @@
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -15,6 +16,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
 #include "bus-label.h"
@@ -29,10 +31,12 @@
 #include "memfd-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "time-util.h"
 #include "uid-classification.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {

@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "assert-util.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "home-util.h"
 #include "homed-conf.h"
+#include "string-util.h"
 
 int manager_parse_config_file(Manager *m) {
 

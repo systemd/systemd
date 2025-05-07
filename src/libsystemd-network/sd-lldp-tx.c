@@ -9,6 +9,7 @@
 #include "sd-lldp-tx.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hostname-setup.h"

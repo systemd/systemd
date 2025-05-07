@@ -5,6 +5,7 @@
 
 #include "sd-login.h"
 
+#include "assert-util.h"
 #include "device-util.h"
 #include "devnode-acl.h"
 #include "errno-util.h"

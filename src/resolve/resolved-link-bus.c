@@ -5,6 +5,7 @@
 #include <sys/capability.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-message-util.h"
@@ -24,6 +25,7 @@
 #include "resolved-resolv-conf.h"
 #include "socket-netlink.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 

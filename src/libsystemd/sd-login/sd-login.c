@@ -8,6 +8,7 @@
 #include "sd-login.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "env-file.h"
@@ -24,6 +25,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"

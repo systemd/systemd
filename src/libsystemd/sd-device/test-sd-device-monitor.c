@@ -16,6 +16,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "virt.h"
 
 static void prepare_loopback(sd_device **ret) {

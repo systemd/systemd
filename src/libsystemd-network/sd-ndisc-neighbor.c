@@ -5,6 +5,7 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "in-addr-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-neighbor-internal.h"

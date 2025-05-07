@@ -10,6 +10,7 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -25,6 +26,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 

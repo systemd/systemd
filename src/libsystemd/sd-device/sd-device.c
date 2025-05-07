@@ -8,6 +8,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "chase.h"
 #include "device-internal.h"
 #include "device-private.h"
@@ -15,6 +16,7 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -28,10 +30,12 @@
 #include "path-util.h"
 #include "set.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 #include "user-util.h"
 
 int device_new_aux(sd_device **ret) {

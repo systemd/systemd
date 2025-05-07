@@ -4,6 +4,7 @@
 #include <fnmatch.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "architecture.h"
 #include "conf-files.h"
 #include "conf-parser.h"
@@ -30,6 +31,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
 #include "sysctl-util.h"

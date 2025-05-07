@@ -8,6 +8,7 @@
 #include "escape.h"
 #include "exec-credential.h"
 #include "execute-serialize.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"

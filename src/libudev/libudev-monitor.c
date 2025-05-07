@@ -6,9 +6,11 @@
 #include "libudev.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "io-util.h"
 #include "libudev-device-internal.h"
 #include "string-util.h"

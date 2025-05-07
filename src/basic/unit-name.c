@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -9,17 +8,15 @@
 
 #include "alloc-util.h"
 #include "glob-util.h"
-#include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "memory-util.h"
 #include "path-util.h"
-#include "random-util.h"
 #include "sparse-endian.h"
 #include "special.h"
-#include "stdio-util.h"
+#include "siphash24.h"
 #include "string-util.h"
-#include "strv.h"
+#include "unit-def.h"
 #include "unit-name.h"
 
 /* Characters valid in a unit name. */

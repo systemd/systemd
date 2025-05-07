@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "assert-util.h"
 #include "build.h"
 #include "device-nodes.h"
 #include "fd-util.h"

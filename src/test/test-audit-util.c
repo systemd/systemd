@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "audit-util.h"
+#include "pidref.h"
 #include "tests.h"
 
 TEST(audit_loginuid_from_pid) {

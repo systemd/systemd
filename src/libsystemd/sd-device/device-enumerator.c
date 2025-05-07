@@ -7,11 +7,13 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "device-enumerator-private.h"
 #include "device-filter.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "path-util.h"
 #include "set.h"
 #include "sort-util.h"
 #include "string-util.h"

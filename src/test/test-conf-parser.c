@@ -11,6 +11,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 

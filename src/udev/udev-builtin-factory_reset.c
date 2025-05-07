@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "assert-util.h"
 #include "device-util.h"
 #include "factory-reset.h"
+#include "string-util.h"
 #include "udev-builtin.h"
 
 /* Sometimes it is relevant in udev rules to know whether factory reset is currently in effect or not. Report

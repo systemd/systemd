@@ -4,6 +4,8 @@
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  */
 
+#include <stdlib.h>
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "daemon-util.h"

@@ -4,6 +4,7 @@
 
 #include "sd-bus.h"
 
+#include "assert-util.h"
 #include "bus-internal.h"
 #include "bus-type.h"
 #include "log.h"

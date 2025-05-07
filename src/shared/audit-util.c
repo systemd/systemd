@@ -6,94 +6,16 @@
 #include <stdio.h>
 #include <sys/socket.h>
 
-#include "alloc-util.h"
+#if HAVE_AUDIT
+#  include <libaudit.h>
+#endif
+
 #include "audit-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "iovec-util.h"
-#include "macro.h"
-#include "parse-util.h"
-#include "process-util.h"
+#include "log.h"
 #include "socket-util.h"
-#include "stat-util.h"
-#include "user-util.h"
-#include "virt.h"
-
-static int audit_read_field(const PidRef *pid, const char *field, char **ret) {
-        int r;
-
-        assert(field);
-        assert(ret);
-
-        if (!pidref_is_set(pid))
-                return -ESRCH;
-
-        /* Auditing is currently not virtualized for containers. Let's hence not use the audit session ID or
-         * login UID for now, it will be leaked in from the host */
-        if (detect_container() > 0)
-                return -ENODATA;
-
-        const char *p = procfs_file_alloca(pid->pid, field);
-
-        _cleanup_free_ char *s = NULL;
-        bool enoent = false;
-        r = read_full_virtual_file(p, &s, /* ret_size= */ NULL);
-        if (r == -ENOENT) {
-                if (proc_mounted() == 0)
-                        return -ENOSYS;
-                enoent = true;
-        } else if (r < 0)
-                return r;
-
-        r = pidref_verify(pid);
-        if (r < 0)
-                return r;
-
-        if (enoent) /* We got ENOENT, but /proc/ was mounted and the PID still valid? In that case it appears
-                     * auditing is not supported by the kernel. */
-                return -ENODATA;
-
-        delete_trailing_chars(s, NEWLINE);
-
-        *ret = TAKE_PTR(s);
-        return 0;
-}
-
-int audit_session_from_pid(const PidRef *pid, uint32_t *ret_id) {
-        _cleanup_free_ char *s = NULL;
-        int r;
-
-        r = audit_read_field(pid, "sessionid", &s);
-        if (r < 0)
-                return r;
-
-        uint32_t u;
-        r = safe_atou32(s, &u);
-        if (r < 0)
-                return r;
-
-        if (!audit_session_is_valid(u))
-                return -ENODATA;
-
-        if (ret_id)
-                *ret_id = u;
-
-        return 0;
-}
-
-int audit_loginuid_from_pid(const PidRef *pid, uid_t *ret_uid) {
-        _cleanup_free_ char *s = NULL;
-        int r;
-
-        r = audit_read_field(pid, "loginuid", &s);
-        if (r < 0)
-                return r;
-
-        if (streq(s, "4294967295")) /* loginuid as 4294967295 means not part of any session. */
-                return -ENODATA;
-
-        return parse_uid(s, ret_uid);
-}
 
 static int try_audit_request(int fd) {
         struct iovec iov;
@@ -166,4 +88,27 @@ bool use_audit(void) {
         }
 
         return cached_use;
+}
+
+int close_audit_fd(int fd) {
+#if HAVE_AUDIT
+        if (fd >= 0)
+                audit_close(fd);
+#else
+        assert(fd < 0);
+#endif
+        return -EBADF;
+}
+
+int open_audit_fd_or_warn(void) {
+        int fd = -EBADF;
+
+#if HAVE_AUDIT
+        /* If the kernel lacks netlink or audit support, don't worry about it. */
+        fd = audit_open();
+        if (fd < 0)
+                return log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING,
+                                      errno, "Failed to connect to audit log, ignoring: %m");
+#endif
+        return fd;
 }

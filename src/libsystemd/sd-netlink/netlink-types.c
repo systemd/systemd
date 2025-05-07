@@ -5,6 +5,7 @@
 #include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-types-internal.h"
+#include "string-util.h"
 
 static const NLAPolicy empty_policies[1] = {
         /* fake array to avoid .types==NULL, which denotes invalid type-systems */

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <libintl.h>
 #include <security/pam_ext.h>
 #include <security/pam_misc.h>
 #include <security/pam_modules.h>

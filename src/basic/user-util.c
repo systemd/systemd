@@ -22,11 +22,9 @@
 #include "format-util.h"
 #include "lock-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -157,6 +155,10 @@ bool is_nologin_shell(const char *shell) {
                            "/usr/bin/false",
                            "/bin/true",
                            "/usr/bin/true");
+}
+
+bool shell_is_placeholder(const char *shell) {
+        return isempty(shell) || is_nologin_shell(shell);
 }
 
 const char* default_root_shell_at(int rfd) {
@@ -691,6 +693,10 @@ int take_etc_passwd_lock(const char *root) {
                 return log_debug_errno(r, "Locking %s failed: %m", path);
 
         return TAKE_FD(fd);
+}
+
+bool userns_supported(void) {
+        return access("/proc/self/uid_map", F_OK) >= 0;
 }
 
 bool valid_user_group_name(const char *u, ValidUserFlags flags) {

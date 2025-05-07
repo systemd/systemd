@@ -10,6 +10,7 @@
 #include "bus-creds.h"
 #include "bus-protocol.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "time-util.h"
 
 struct bus_container {

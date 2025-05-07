@@ -29,7 +29,6 @@
 #include "log.h"
 #include "log-context.h"
 #include "macro.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"

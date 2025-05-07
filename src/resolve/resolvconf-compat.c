@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <net/if.h>
+#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "build.h"

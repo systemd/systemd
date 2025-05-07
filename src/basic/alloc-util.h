@@ -3,20 +3,14 @@
 
 #include <alloca.h>
 #include <malloc.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
 
-#include "assert-util.h"
-#include "macro.h"
+#include "constants.h"
+#include "forward.h"
 #include "memory-util.h"
 
 #if HAS_FEATURE_MEMORY_SANITIZER
 #  include <sanitizer/msan_interface.h>
 #endif
-
-typedef void (*free_func_t)(void *p);
-typedef void* (*mfree_func_t)(void *p);
 
 /* If for some reason more than 4M are allocated on the stack, let's abort immediately. It's better than
  * proceeding and smashing the stack limits. Note that by default RLIMIT_STACK is 8M on Linux. */
@@ -53,29 +47,8 @@ typedef void* (*mfree_func_t)(void *p);
 
 #define malloc0(n) (calloc(1, (n) ?: 1))
 
-#define free_and_replace_full(a, b, free_func)  \
-        ({                                      \
-                typeof(a)* _a = &(a);           \
-                typeof(b)* _b = &(b);           \
-                free_func(*_a);                 \
-                *_a = *_b;                      \
-                *_b = NULL;                     \
-                0;                              \
-        })
-
 #define free_and_replace(a, b)                  \
         free_and_replace_full(a, b, free)
-
-/* This is similar to free_and_replace_full(), but NULL is not assigned to 'b', and its reference counter is
- * increased. */
-#define unref_and_replace_full(a, b, ref_func, unref_func)      \
-        ({                                       \
-                typeof(a)* _a = &(a);            \
-                typeof(b) _b = ref_func(b);      \
-                unref_func(*_a);                 \
-                *_a = _b;                        \
-                0;                               \
-        })
 
 void* memdup(const void *p, size_t l) _alloc_(2);
 void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, since we return a buffer one byte larger than the specified size */
@@ -135,6 +108,29 @@ static inline void *memdup_suffix0_multiply(const void *p, size_t need, size_t s
                 return NULL;
 
         return memdup_suffix0(p, size * need);
+}
+
+static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
+        size_t m;
+
+        /* Round up allocation sizes a bit to some reasonable, likely larger value. This is supposed to be
+         * used for cases which are likely called in an allocation loop of some form, i.e. that repetitively
+         * grow stuff, for example strv_extend() and suchlike.
+         *
+         * Note the difference to GREEDY_REALLOC() here, as this helper operates on a single size value only,
+         * and rounds up to next multiple of 2, needing no further counter.
+         *
+         * Note the benefits of direct ALIGN_POWER2() usage: type-safety for size_t, sane handling for very
+         * small (i.e. <= 2) and safe handling for very large (i.e. > SSIZE_MAX) values. */
+
+        if (l <= 2)
+                return 2; /* Never allocate less than 2 of something.  */
+
+        m = ALIGN_POWER2(l);
+        if (m == 0) /* overflow? */
+                return l;
+
+        return m;
 }
 
 void* greedy_realloc(void **p, size_t need, size_t size);

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/file.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -21,6 +22,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"

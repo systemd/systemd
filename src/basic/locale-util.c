@@ -10,12 +10,10 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-#include "constants.h"
 #include "dirent-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "hashmap.h"
 #include "locale-util.h"
 #include "log.h"
 #include "path-util.h"

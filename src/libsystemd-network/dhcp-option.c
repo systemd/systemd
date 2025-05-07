@@ -8,12 +8,14 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "dhcp-option.h"
 #include "dhcp-server-internal.h"
 #include "dns-domain.h"
 #include "hostname-util.h"
 #include "memory-util.h"
 #include "ordered-set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 

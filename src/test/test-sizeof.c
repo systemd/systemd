@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <limits.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +14,7 @@
 #include <float.h>
 
 #include "assert-util.h"
+#include "macro.h"
 #include "time-util.h"
 
 /* Print information about various types. Useful when diagnosing

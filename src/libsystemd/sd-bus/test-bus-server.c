@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "log.h"
 #include "macro.h"

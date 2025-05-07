@@ -5,6 +5,7 @@
 #include "sd-radv.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "in-addr-util.h"
 #include "ndisc-option.h"
 #include "ndisc-router-solicit-internal.h"

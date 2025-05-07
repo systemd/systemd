@@ -6,10 +6,12 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
 #include "install.h"
+#include "log.h"
 #include "missing_socket.h"
 #include "parse-util.h"
 #include "path-util.h"

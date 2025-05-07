@@ -1,13 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <fcntl.h>
 
+#include "sd-event.h"
+
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "event-source.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "string-util.h"
+#include "time-util.h"
 
 #define SI_FLAG_FORWARD  (INT32_C(1) << 30)
 #define SI_FLAG_POSITIVE (INT32_C(1) << 29)

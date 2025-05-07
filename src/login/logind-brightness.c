@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "bus-message-util.h"
 #include "bus-util.h"
 #include "device-util.h"
