@@ -141,6 +141,7 @@ typedef struct {
         bool reboot_for_bitlocker;
         RebootOnError reboot_on_error;
         secure_boot_enroll secure_boot_enroll;
+        secure_boot_enroll_action secure_boot_enroll_action;
         bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
@@ -325,34 +326,35 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         if (config->entry_oneshot)
                 printf("    default (one-shot): %ls\n", config->entry_oneshot);
         if (config->entry_saved)
-                printf("           saved entry: %ls\n", config->entry_saved);
-        printf("                editor: %ls\n", yes_no(config->editor));
-        printf("          auto-entries: %ls\n", yes_no(config->auto_entries));
-        printf("         auto-firmware: %ls\n", yes_no(config->auto_firmware));
-        printf("         auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
-        printf("           auto-reboot: %ls\n", yes_no(config->auto_reboot));
-        printf("                  beep: %ls\n", yes_no(config->beep));
-        printf("  reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
-        printf("       reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
-        printf("    secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
+                printf("             saved entry: %ls\n", config->entry_saved);
+        printf("                   editor: %ls\n", yes_no(config->editor));
+        printf("             auto-entries: %ls\n", yes_no(config->auto_entries));
+        printf("            auto-firmware: %ls\n", yes_no(config->auto_firmware));
+        printf("            auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
+        printf("              auto-reboot: %ls\n", yes_no(config->auto_reboot));
+        printf("                     beep: %ls\n", yes_no(config->beep));
+        printf("     reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
+        printf("          reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
+        printf("       secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
+        printf("secure-boot-enroll-action: %s\n",  secure_boot_enroll_action_to_string(config->secure_boot_enroll_action));
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
-                printf(" console-mode (config): auto\n");
+                printf("    console-mode (config): auto\n");
                 break;
         case CONSOLE_MODE_KEEP:
-                printf(" console-mode (config): keep\n");
+                printf("    console-mode (config): keep\n");
                 break;
         case CONSOLE_MODE_FIRMWARE_MAX:
-                printf(" console-mode (config): max\n");
+                printf("    console-mode (config): max\n");
                 break;
         default:
-                printf(" console-mode (config): %" PRIi64 "\n", config->console_mode);
+                printf("    console-mode (config): %" PRIi64 "\n", config->console_mode);
         }
 
         /* EFI var console mode is always a concrete value or unset. */
         if (config->console_mode_efivar != CONSOLE_MODE_KEEP)
-                printf("console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
+                printf("   console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
 
         if (!ps_continue())
                 return;
@@ -1080,7 +1082,14 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else
                                 log_error("Error parsing 'secure-boot-enroll' config option, ignoring: %s",
                                           value);
-
+                } else if (streq8(key, "secure-boot-enroll-action")) {
+                        if (streq8(value, "reboot"))
+                                config->secure_boot_enroll_action = ENROLL_ACTION_REBOOT;
+                        else if (streq8(value, "shutdown"))
+                                config->secure_boot_enroll_action = ENROLL_ACTION_SHUTDOWN;
+                        else
+                                log_error("Error parsing 'secure-boot-enroll-action' config option, ignoring: %s",
+                                          value);
                 } else if (streq8(key, "console-mode")) {
                         if (streq8(value, "auto"))
                                 config->console_mode = CONSOLE_MODE_AUTO;
@@ -1436,6 +1445,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_firmware = true,
                 .reboot_on_error = REBOOT_AUTO,
                 .secure_boot_enroll = ENROLL_IF_SAFE,
+                .secure_boot_enroll_action = ENROLL_ACTION_REBOOT,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
@@ -2723,7 +2733,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
 static EFI_STATUS call_secure_boot_enroll(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
         assert(entry);
 
-        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true);
+        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true, /* action= */ ENROLL_ACTION_REBOOT);
 }
 
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
@@ -2774,7 +2784,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                     strcaseeq16(dirent->FileName, u"auto"))
                         /* If we auto enroll successfully this call does not return.
                          * If it fails we still want to add other potential entries to the menu. */
-                        secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE);
+                        secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE, config->secure_boot_enroll_action);
         }
 
         return EFI_SUCCESS;
