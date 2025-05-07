@@ -329,7 +329,6 @@ void manager_revert(Manager *manager) {
 static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         _cleanup_(worker_freep) Worker *worker = ASSERT_PTR(userdata);
         sd_device *dev = worker->event ? ASSERT_PTR(worker->event->dev) : NULL;
-        int r;
 
         assert(si);
 
@@ -362,14 +361,7 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
                 assert_not_reached();
         }
 
-        /* delete state from disk */
-        device_delete_db(dev);
-        device_tag_index(dev, NULL, false);
-
-        r = device_monitor_send(worker->manager->monitor, NULL, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to broadcast event to libudev listeners, ignoring: %m");
-
+        (void) device_broadcast_on_error(dev, worker->manager->monitor);
         return 0;
 }
 
