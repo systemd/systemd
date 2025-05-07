@@ -17,6 +17,7 @@
 #include "process-util.h"
 #include "set.h"
 #include "static-destruct.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "udevadm.h"
@@ -27,6 +28,7 @@ typedef enum {
         SCAN_TYPE_DEVICES,
         SCAN_TYPE_SUBSYSTEMS,
         SCAN_TYPE_ALL,
+        _SCAN_TYPE_MAX
 } ScanType;
 
 static bool arg_verbose = false;
@@ -63,6 +65,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_subsystem_nomatch, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_sysname_match, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tag_match, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_prioritized_subsystems, strv_freep);
+
+static const char *scan_type_table[_SCAN_TYPE_MAX] = {
+        [SCAN_TYPE_DEVICES]    = "devices",
+        [SCAN_TYPE_SUBSYSTEMS] = "subsystems",
+        [SCAN_TYPE_ALL]        = "all",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(scan_type, ScanType);
 
 static int exec_list(
                 sd_device_enumerator *e,
@@ -407,13 +417,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 't':
-                        if (streq(optarg, "devices"))
-                                arg_scan_type = SCAN_TYPE_DEVICES;
-                        else if (streq(optarg, "subsystems"))
-                                arg_scan_type = SCAN_TYPE_SUBSYSTEMS;
-                        else if (streq(optarg, "all"))
-                                arg_scan_type = SCAN_TYPE_ALL;
-                        else
+                        arg_scan_type = scan_type_from_string(optarg);
+                        if (arg_scan_type < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
 
