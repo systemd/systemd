@@ -100,7 +100,7 @@ static int list_dependencies_one(
         if (r < 0)
                 return log_oom();
 
-        r = unit_get_dependencies(bus, name, &deps);
+        r = unit_get_dependencies_systemctl(bus, name, &deps);
         if (r < 0)
                 return r;
 
