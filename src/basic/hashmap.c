@@ -824,8 +824,10 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
 
         assert(h);
 
-        if (*h)
+        if (*h) {
+                assert((*h)->hash_ops == (hash_ops ?: &trivial_hash_ops));
                 return 0;
+        }
 
         q = hashmap_base_new(hash_ops, type);
         if (!q)
