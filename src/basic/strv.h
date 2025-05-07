@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "hashmap.h"
 #include "memory-util.h"
+#include "strv-fundamental.h"
 
 typedef enum ExtractFlags ExtractFlags;
 
