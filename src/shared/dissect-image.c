@@ -667,7 +667,7 @@ static int compare_arch(Architecture a, Architecture b) {
         return 0;
 }
 
-static bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const char *name) {
+static bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const char *label) {
         assert(d < _PARTITION_DESIGNATOR_MAX);
 
         if (d < 0) /* For unspecified designators we have no filter expression */
@@ -676,7 +676,7 @@ static bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, 
         if (!filter || !filter->pattern[d])
                 return true;
 
-        return fnmatch(filter->pattern[d], strempty(name),  FNM_NOESCAPE) == 0;
+        return fnmatch(filter->pattern[d], strempty(label),  FNM_NOESCAPE) == 0;
 }
 
 static int dissect_image(
