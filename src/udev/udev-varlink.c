@@ -136,6 +136,14 @@ static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *pa
 
         log_debug("Received %s()", method);
         manager->stop_exec_queue = streq(method, "io.systemd.Udev.StopExecQueue");
+
+        /* In case that processing queued events will be stopped for a while, regardless if there exist
+         * queued events, enable the kill workers timer here unless it is already enabled. Note, it is not
+         * necessary to disable the timer when processing is restarted, as it will be anyway disabled in
+         * on_post() -> event_queue_start(). */
+        if (manager->stop_exec_queue)
+                (void) manager_reset_kill_workers_timer(manager);
+
         return sd_varlink_reply(link, NULL);
 }
 
