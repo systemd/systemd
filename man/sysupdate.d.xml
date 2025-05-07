@@ -652,11 +652,15 @@
         <listitem><para>Specifies a file system path where to look for already installed versions or place
         newly downloaded versions of this configured resource. If <varname>Type=</varname> is set to
         <constant>partition</constant>, expects a path to a (whole) block device node, or the special string
-        <literal>auto</literal> in which case the block device which contains the root file system of the
-        currently booted system is automatically determined and used. If <varname>Type=</varname> is set to
-        <constant>regular-file</constant>, <constant>directory</constant> or <constant>subvolume</constant>,
-        must refer to a path in the local file system referencing the directory to find or place the version
-        files or directories under.</para>
+        <literal>auto</literal> in which case the block device is automatically determined as follows: If
+        <filename>/run/systemd/volatile-root</filename> exists and points to a block device (indicating that the
+        root mount has been replaced by a volatile filesystem), that block device is used. Otherwise, the block
+        device which contains the <filename>/usr</filename> file system is used. This logic ensures proper operation
+        both in environments where the root filesystem has been replaced by a volatile filesystem (such as overlayfs)
+        and in environments where the root filesystem is a tmpfs with the OS placed exclusively in <filename>/usr</filename>.
+        Note that this automatic detection may fail when systemd-sysext extensions are active (which causes /usr to be
+        an overlayfs) and the root filesystem is not volatile, as neither detection method will yield a usable block
+        device. In such cases, explicitly specify the block device path instead of using <literal>auto</literal>.</para>
 
         <para>Note that this mechanism cannot be used to create or remove partitions, in case
         <varname>Type=</varname> is set to <constant>partition</constant>. Partitions must exist already, and
