@@ -406,6 +406,30 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Couldn't determine boot state.");
 }
 
+static int rename_in_dir_idempotent(int fd, const char *from, const char *to) {
+        int r;
+
+        assert(fd >= 0);
+        assert(from);
+        assert(to);
+
+        /* A wrapper around rename_noreplace() which executes no operation if the source and target are the
+         * same. */
+
+        if (streq(from, to)) {
+                if (faccessat(fd, from, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
+                        return -errno;
+
+                return 0;
+        }
+
+         r = rename_noreplace(fd, from, fd, to);
+         if (r < 0)
+                 return r;
+
+         return 1;
+}
+
 static int verb_set(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         const char *target, *source1, *source2;
@@ -457,12 +481,12 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open $BOOT partition '%s': %m", *p);
 
-                r = rename_noreplace(fd, skip_leading_slash(source1), fd, skip_leading_slash(target));
+                r = rename_in_dir_idempotent(fd, skip_leading_slash(source1), skip_leading_slash(target));
                 if (r == -EEXIST)
                         goto exists;
                 if (r == -ENOENT) {
 
-                        r = rename_noreplace(fd, skip_leading_slash(source2), fd, skip_leading_slash(target));
+                        r = rename_in_dir_idempotent(fd, skip_leading_slash(source2), skip_leading_slash(target));
                         if (r == -EEXIST)
                                 goto exists;
                         if (r == -ENOENT) {
@@ -479,11 +503,16 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source2, target);
 
-                        log_debug("Successfully renamed '%s' to '%s'.", source2, target);
+                        if (r > 0)
+                                log_debug("Successfully renamed '%s' to '%s'.", source2, target);
+                        else
+                                log_debug("Not renaming, as '%s' already matches target name.", source2);
                 } else if (r < 0)
                         return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source1, target);
-                else
+                else if (r > 0)
                         log_debug("Successfully renamed '%s' to '%s'.", source1, target);
+                else
+                        log_debug("Not renaming, as '%s' already matches target name.", source1);
 
                 /* First, fsync() the directory these files are located in */
                 r = fsync_parent_at(fd, skip_leading_slash(target));
