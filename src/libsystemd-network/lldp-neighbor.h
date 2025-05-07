@@ -84,7 +84,7 @@ static inline void* LLDP_NEIGHBOR_TLV_DATA(const sd_lldp_neighbor *n) {
 
 extern const struct hash_ops lldp_neighbor_hash_ops;
 int lldp_neighbor_id_compare_func(const LLDPNeighborID *x, const LLDPNeighborID *y);
-int lldp_neighbor_prioq_compare_func(const void *a, const void *b);
+int lldp_neighbor_prioq_compare_func(const sd_lldp_neighbor *x, const sd_lldp_neighbor *y);
 
 sd_lldp_neighbor *lldp_neighbor_unlink(sd_lldp_neighbor *n);
 sd_lldp_neighbor *lldp_neighbor_new(size_t raw_size);
