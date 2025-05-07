@@ -12,6 +12,8 @@ static const char* const devlink_match_bit_position_table[_DEVLINK_MATCH_BIT_POS
         [DEVLINK_MATCH_BIT_POSITION_COMMON_INDEX] = "Index",
         [DEVLINK_MATCH_BIT_POSITION_PORT_SPLIT] = "Split",
         [DEVLINK_MATCH_BIT_POSITION_PORT_IFNAME] = "NetdevName",
+        [DEVLINK_MATCH_BIT_POSITION_PARAM_NAME] = "Name",
+        [DEVLINK_MATCH_BIT_POSITION_HEALTH_REPORTER_NAME] = "Name",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(devlink_match_bit_position, DevlinkMatchBitPosition);
@@ -250,4 +252,77 @@ void devlink_match_common_index_copy_func(DevlinkMatch *dst, const DevlinkMatch 
 int devlink_match_common_index_duplicate_func(DevlinkMatch *dst, const DevlinkMatch *src) {
         devlink_match_common_index_copy_func(dst, src);
         return 0;
+}
+
+/* Name match helpers, shared by the param and health reporter name matches. Each
+ * match kind stores its name in its own field and provides thin wrappers around these. */
+
+void devlink_match_name_free(char **name) {
+        assert(name);
+
+        *name = mfree(*name);
+}
+
+bool devlink_match_name_check(const char *name) {
+        if (!name) {
+                log_debug("Match name not configured.");
+                return false;
+        }
+        return true;
+}
+
+void devlink_match_name_log_prefix(char **buf, int *len, const char *name) {
+        assert(buf);
+        assert(len);
+
+        BUFFER_APPEND(*buf, *len, "name %s", name);
+}
+
+void devlink_match_name_hash_func(const char *name, struct siphash *state) {
+        assert(name);
+
+        string_hash_func(name, state);
+}
+
+int devlink_match_name_compare_func(const char *x, const char *y) {
+        assert(x);
+        assert(y);
+
+        return strcmp(x, y);
+}
+
+void devlink_match_name_copy_func(char **dst, char *src) {
+        assert(dst);
+
+        *dst = src;
+}
+
+int devlink_match_name_duplicate_func(char **dst, const char *src) {
+        assert(dst);
+        assert(src);
+
+        *dst = strdup(src);
+        if (!*dst)
+                return -ENOMEM;
+        return 0;
+}
+
+int config_parse_devlink_match_name(CONFIG_PARSER_ARGUMENTS) {
+        DevlinkKey *key = ASSERT_PTR(data);
+        char **name;
+
+        switch (key->kind) {
+        case DEVLINK_KIND_PARAM:
+                name = &key->match.param.name;
+                break;
+        case DEVLINK_KIND_HEALTH_REPORTER:
+                name = &key->match.health_reporter.name;
+                break;
+        default:
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Name= is not applicable for this object kind, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, rvalue, name, userdata);
 }
