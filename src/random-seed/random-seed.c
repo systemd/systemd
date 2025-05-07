@@ -72,7 +72,7 @@ static CreditEntropy may_credit(int seed_fd) {
         }
 
         /* Determine if the file is marked as creditable */
-        r = getxattr_at_bool(seed_fd, /* path= */ NULL, "user.random-seed-creditable", /* flags= */ 0);
+        r = getxattr_at_bool(seed_fd, /* path= */ NULL, "user.random-seed-creditable", /* at_flags= */ 0);
         if (r < 0) {
                 if (ERRNO_IS_XATTR_ABSENT(r))
                         log_debug_errno(r, "Seed file is not marked as creditable, not crediting.");

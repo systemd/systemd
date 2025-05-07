@@ -700,7 +700,7 @@ int cg_get_xattr_bool(const char *path, const char *name) {
         if (r < 0)
                 return r;
 
-        return getxattr_at_bool(AT_FDCWD, fs, name, /* flags= */ 0);
+        return getxattr_at_bool(AT_FDCWD, fs, name, /* at_flags= */ 0);
 }
 
 int cg_remove_xattr(const char *path, const char *name) {
@@ -2175,11 +2175,11 @@ int cg_is_delegated_fd(int fd) {
 
         assert(fd >= 0);
 
-        r = getxattr_at_bool(fd, /* path= */ NULL, "trusted.delegate", /* flags= */ 0);
+        r = getxattr_at_bool(fd, /* path= */ NULL, "trusted.delegate", /* at_flags= */ 0);
         if (!ERRNO_IS_NEG_XATTR_ABSENT(r))
                 return r;
 
-        r = getxattr_at_bool(fd, /* path= */ NULL, "user.delegate", /* flags= */ 0);
+        r = getxattr_at_bool(fd, /* path= */ NULL, "user.delegate", /* at_flags= */ 0);
         return ERRNO_IS_NEG_XATTR_ABSENT(r) ? false : r;
 }
 
