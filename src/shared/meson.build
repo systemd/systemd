@@ -106,6 +106,7 @@ shared_sources = files(
         'killall.c',
         'label-util.c',
         'libarchive-util.c',
+        'libaudit-util.c',
         'libcrypt-util.c',
         'libfido2-util.c',
         'libmount-util.c',
@@ -332,6 +333,7 @@ libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
                   libacl,
+                  libaudit,
                   libblkid,
                   libcap,
                   libcrypt,
