@@ -477,7 +477,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 }
 
                                 if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
-                                        r = chase(p, /* root= */ NULL, /* flags= */ 0, &arg_mount_what, /* ret_fd= */ NULL);
+                                        r = chase(p, /* root= */ NULL, /* chase_flags= */ 0, &arg_mount_what, /* ret_fd= */ NULL);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to chase path '%s': %m", p);
                                 } else {

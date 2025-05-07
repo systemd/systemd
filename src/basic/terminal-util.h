@@ -163,7 +163,7 @@ int openpt_allocate(int flags, char **ret_peer);
 int openpt_allocate_in_namespace(const PidRef *pidref, int flags, char **ret_peer);
 
 int vt_restore(int fd);
-int vt_release(int fd, bool restore_vt);
+int vt_release(int fd, bool restore);
 
 void get_log_colors(int priority, const char **on, const char **off, const char **highlight);
 
