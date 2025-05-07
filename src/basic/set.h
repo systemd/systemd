@@ -16,8 +16,7 @@ static inline Set* set_free(Set *s) {
 
 #define set_copy(s) ((Set*) _hashmap_copy(HASHMAP_BASE(s)))
 
-int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops);
-#define set_ensure_allocated(h, ops) _set_ensure_allocated(h, ops)
+int set_ensure_allocated(Set **s, const struct hash_ops *hash_ops);
 
 int set_put(Set *s, const void *key);
 /* no set_update */
@@ -103,7 +102,7 @@ int set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *p
 #define set_put_strndup(s, p, n) set_put_strndup_full(s, &string_hash_ops_free, p, n)
 #define set_put_strdup(s, p) set_put_strndup(s, p, SIZE_MAX)
 
-int set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l );
+int set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l);
 #define set_put_strdupv(s, l) set_put_strdupv_full(s, &string_hash_ops_free, l)
 
 int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags flags);
