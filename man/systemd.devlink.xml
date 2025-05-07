@@ -85,6 +85,11 @@
           <entry>Match keys</entry>
         </row></thead>
         <tbody>
+          <row><entry><varname>dev</varname></entry>
+          <entry>A main devlink object representing the device on a bus (e. g. PCI).</entry>
+          <entry><simplelist type="vert">
+            <member><literal>Handle</literal></member>
+          </simplelist></entry></row>
         </tbody>
       </tgroup>
     </table>
@@ -108,11 +113,53 @@
         <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>The devlink handle. This setting is compulsory.
+          The format is <literal>BUS_NAME/DEV_NAME</literal>,
+          for example <literal>pci/0000:01:00.0</literal></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[Dev] Section Options</title>
+
+    <para>The [Dev] section only applies for
+    devlink objects of kind <literal>dev</literal>, and accepts the
+    following key:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>EswitchMode=</varname></term>
+        <listitem>
+          <para>The E-Switch mode to use. The supported options are
+          <literal>legacy</literal>, and
+          <literal>switchdev</literal>.
+          </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
   <refsect1>
     <title>Examples</title>
+    <example>
+      <title>/etc/systemd/devlinkd/10-eswitch-mode.devlink</title>
+
+      <programlisting>[Match]
+Kind=dev
+Handle=pci/0000:01:00.0
+
+[Dev]
+EswitchMode=switchdev</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
