@@ -1250,11 +1250,10 @@ static int parse_argv(int argc, char *argv[]) {
         r = strv_extend_strv(&arg_devices, argv + optind, /* filter_duplicates= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to build argument list: %m");
-        bool has_positional_args = r > 0;
 
-        if (IN_SET(arg_action_type, ACTION_DEVICE_ID_FILE, ACTION_CLEANUP_DB) && has_positional_args)
+        if (IN_SET(arg_action_type, ACTION_DEVICE_ID_FILE, ACTION_CLEANUP_DB) && !strv_isempty(arg_devices))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Positional arguments are not allowed with -d/--device-id-of-file and -c/--cleanup-db.");
+                                       "Devices are not allowed with -d/--device-id-of-file and -c/--cleanup-db.");
 
         if (!IN_SET(arg_action_type, ACTION_DEVICE_ID_FILE, ACTION_CLEANUP_DB, ACTION_EXPORT, ACTION_TREE) &&
             strv_isempty(arg_devices))
