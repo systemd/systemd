@@ -123,10 +123,10 @@ TEST(set_put_strdupv) {
 TEST(set_ensure_allocated) {
         _cleanup_set_free_ Set *m = NULL;
 
-        assert_se(set_ensure_allocated(&m, &string_hash_ops) == 1);
-        assert_se(set_ensure_allocated(&m, &string_hash_ops) == 0);
-        assert_se(set_ensure_allocated(&m, NULL) == 0);
-        assert_se(set_isempty(m));
+        ASSERT_OK_POSITIVE(set_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_OK_ZERO(set_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_SIGNAL(set_ensure_allocated(&m, NULL), SIGABRT);
+        ASSERT_TRUE(set_isempty(m));
 }
 
 TEST(set_copy) {
