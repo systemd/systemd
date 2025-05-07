@@ -169,7 +169,7 @@ int prioq_put(Prioq *q, void *data, unsigned *idx) {
         return 0;
 }
 
-int prioq_ensure_put(Prioq **q, compare_func_t compare_func, void *data, unsigned *idx) {
+int _prioq_ensure_put(Prioq **q, compare_func_t compare_func, void *data, unsigned *idx) {
         int r;
 
         r = prioq_ensure_allocated(q, compare_func);
