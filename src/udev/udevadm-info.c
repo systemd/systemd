@@ -883,25 +883,6 @@ static int print_tree(sd_device* below) {
         return 0;
 }
 
-static int ensure_device_enumerator(sd_device_enumerator **e) {
-        int r;
-
-        assert(e);
-
-        if (*e)
-                return 0;
-
-        r = sd_device_enumerator_new(e);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create device enumerator: %m");
-
-        r = sd_device_enumerator_allow_uninitialized(*e);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allow uninitialized devices: %m");
-
-        return 0;
-}
-
 static int parse_key_value_argument(const char *s, char **key, char **value) {
         _cleanup_free_ char *k = NULL, *v = NULL;
         int r;
@@ -1333,9 +1314,13 @@ int info_main(int argc, char *argv[], void *userdata) {
         if (arg_action_type == ACTION_EXPORT) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
 
-                r = ensure_device_enumerator(&e);
+                r = sd_device_enumerator_new(&e);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to create device enumerator: %m");
+
+                r = sd_device_enumerator_allow_uninitialized(e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allow uninitialized devices: %m");
 
                 r = setup_matches(e);
                 if (r < 0)
