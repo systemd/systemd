@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 

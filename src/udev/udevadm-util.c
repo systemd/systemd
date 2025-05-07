@@ -12,6 +12,7 @@
 #include "log.h"
 #include "path-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "udev-ctrl.h"
 #include "udev-rules.h"
 #include "udev-varlink.h"

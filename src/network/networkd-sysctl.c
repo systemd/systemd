@@ -7,6 +7,7 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "event-util.h"
 #include "fd-util.h"

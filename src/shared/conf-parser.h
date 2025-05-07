@@ -8,11 +8,9 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
-#include "alloc-util.h"
 #include "hashmap.h"
 #include "log.h"
-#include "macro.h"
-#include "time-util.h"
+#include "memory-util.h"
 
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */
 

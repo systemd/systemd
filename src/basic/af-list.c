@@ -6,6 +6,7 @@
 
 #include "af-list.h"
 #include "macro.h"
+#include "string-util.h"
 
 static const struct af_name* lookup_af(register const char *str, register GPERF_LEN_TYPE len);
 
@@ -21,6 +22,20 @@ const char* af_to_name(int id) {
                 return NULL;
 
         return af_names[id];
+}
+
+const char* af_to_name_short(int id) {
+        const char *f;
+
+        if (id == AF_UNSPEC)
+                return "*";
+
+        f = af_to_name(id);
+        if (!f)
+                return "unknown";
+
+        assert(startswith(f, "AF_"));
+        return f + 3;
 }
 
 int af_from_name(const char *name) {
