@@ -42,7 +42,7 @@
     <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
     or
     <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-    files in conjuction with <filename>.network</filename> files when working with physical and virtual
+    files in conjunction with <filename>.network</filename> files when working with physical and virtual
     network devices respectively.</para>
 
     <para>The <filename>.network</filename> files are read from the files located in the system network
