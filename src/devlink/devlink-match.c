@@ -9,6 +9,7 @@
 
 static const char* const devlink_match_bit_position_table[_DEVLINK_MATCH_BIT_POSITION_MAX] = {
         [DEVLINK_MATCH_BIT_POSITION_DEV] = "Handle",
+        [DEVLINK_MATCH_BIT_POSITION_COMMON_INDEX] = "Index",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(devlink_match_bit_position, DevlinkMatchBitPosition);
@@ -162,5 +163,68 @@ int devlink_match_genl_append(
                 if (r < 0)
                         return r;
         }
+        return 0;
+}
+
+/* Common config parse helpers. */
+
+int config_parse_devlink_index(CONFIG_PARSER_ARGUMENTS) {
+        DevlinkMatchCommon *common = data;
+        int r;
+
+        r = config_parse_uint32(unit, filename, line, section, section_line, lvalue, ltype,
+                                rvalue, &common->index, userdata);
+        if (r < 0)
+                return r;
+        common->index_valid = true;
+        return 0;
+}
+
+/* Common match callbacks. */
+
+bool devlink_match_common_index_check(const DevlinkMatch *match, bool explicit) {
+        const DevlinkMatchCommon *common = &match->common;
+
+        if (!common->index_valid) {
+                log_debug("Match index not configured.");
+                return false;
+        }
+        return true;
+}
+
+void devlink_match_common_index_log_prefix(char **buf, int *len, const DevlinkMatch *match) {
+        const DevlinkMatchCommon *common = &match->common;
+
+        BUFFER_APPEND(*buf, *len, "common_index %u", common->index);
+}
+
+void devlink_match_common_index_hash_func(const DevlinkMatch *match, struct siphash *state) {
+        const DevlinkMatchCommon *common = &match->common;
+
+        siphash24_compress_typesafe(common->index, state);
+}
+
+int devlink_match_common_index_compare_func(const DevlinkMatch *x, const DevlinkMatch *y) {
+        const DevlinkMatchCommon *xcommon = &x->common;
+        const DevlinkMatchCommon *ycommon = &y->common;
+
+        assert(xcommon->index_valid);
+        assert(ycommon->index_valid);
+
+        return CMP(xcommon->index, ycommon->index);
+}
+
+void devlink_match_common_index_copy_func(DevlinkMatch *dst, const DevlinkMatch *src) {
+        DevlinkMatchCommon *dstcommon = &dst->common;
+        const DevlinkMatchCommon *srccommon = &src->common;
+
+        assert(srccommon->index_valid);
+
+        dstcommon->index = srccommon->index;
+        dstcommon->index_valid = srccommon->index_valid;
+}
+
+int devlink_match_common_index_duplicate_func(DevlinkMatch *dst, const DevlinkMatch *src) {
+        devlink_match_common_index_copy_func(dst, src);
         return 0;
 }
