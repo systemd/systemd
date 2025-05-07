@@ -9,7 +9,7 @@ set -o pipefail
 # Coverage test for udevadm
 
 # shellcheck disable=SC2317
-cleanup_17_10() {
+cleanup() {
     set +e
 
     losetup -d "$loopdev"
@@ -19,9 +19,9 @@ cleanup_17_10() {
 }
 
 # Set up some test devices
-trap cleanup_17_10 EXIT
+trap cleanup EXIT
 
-netdev=dummy17.10
+netdev=hoge
 ip link add $netdev type dummy
 
 blk="$(mktemp)"
