@@ -233,7 +233,10 @@ void *find_configuration_table(const EFI_GUID *guid);
 char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define be16toh(x) __builtin_bswap16(x)
 #  define be32toh(x) __builtin_bswap32(x)
+#  define le16toh(x) (x)
+#  define le32toh(x) (x)
 #else
 #  error "Unexpected byte order in EFI mode?"
 #endif
