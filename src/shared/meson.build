@@ -7,6 +7,7 @@ shared_sources = files(
         'ask-password-agent.c',
         'ask-password-api.c',
         'async.c',
+        'audit-util.c',
         'barrier.c',
         'base-filesystem.c',
         'battery-util.c',
@@ -332,6 +333,7 @@ libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
                   libacl,
+                  libaudit,
                   libblkid,
                   libcap,
                   libcrypt,

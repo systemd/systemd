@@ -2,6 +2,10 @@
 
 #include <getopt.h>
 
+#if HAVE_AUDIT
+#  include <libaudit.h>
+#endif
+
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "build.h"

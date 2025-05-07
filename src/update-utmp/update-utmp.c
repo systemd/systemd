@@ -5,6 +5,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if HAVE_AUDIT
+#  include <libaudit.h>
+#endif
+
 #include "sd-bus.h"
 
 #include "alloc-util.h"
