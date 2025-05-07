@@ -19,6 +19,7 @@
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-util.h"
 #include "utf8.h"
 

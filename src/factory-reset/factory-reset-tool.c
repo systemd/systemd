@@ -5,10 +5,12 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "build.h"
 #include "device-util.h"
 #include "efivars.h"
+#include "errno-util.h"
 #include "factory-reset.h"
 #include "fs-util.h"
 #include "json-util.h"

@@ -29,6 +29,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"

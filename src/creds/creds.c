@@ -29,6 +29,7 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"

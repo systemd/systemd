@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "hexdecoct.h"
 #include "missing_network.h"

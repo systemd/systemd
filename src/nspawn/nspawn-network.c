@@ -15,6 +15,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "lock-util.h"

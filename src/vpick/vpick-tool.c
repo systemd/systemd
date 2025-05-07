@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "format-table.h"

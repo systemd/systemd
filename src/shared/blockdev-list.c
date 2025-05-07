@@ -7,6 +7,7 @@
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "macro.h"
+#include "strv.h"
 #include "terminal-util.h"
 
 int blockdev_list(BlockDevListFlags flags) {

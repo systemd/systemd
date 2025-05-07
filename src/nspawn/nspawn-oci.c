@@ -4,6 +4,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "cap-list.h"
 #include "cpu-set-util.h"
