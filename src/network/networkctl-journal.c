@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "ansi-color.h"
 #include "journal-internal.h"
 #include "log.h"
 #include "logs-show.h"
