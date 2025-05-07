@@ -9,7 +9,9 @@
 #include <unistd.h>
 
 #if HAVE_LZ4
+#include <lz4.h>
 #include <lz4hc.h>
+#include <lz4frame.h>
 #endif
 
 #if HAVE_XZ
@@ -47,8 +49,9 @@ static DLSYM_PROTOTYPE(LZ4F_decompress) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeCompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeDecompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_isError) = NULL;
+static DLSYM_PROTOTYPE(LZ4_compress_HC) = NULL;
+/* These are used in test-compress.c so we don't make thems static. */
 DLSYM_PROTOTYPE(LZ4_compress_default) = NULL;
-DLSYM_PROTOTYPE(LZ4_compress_HC) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe_partial) = NULL;
 DLSYM_PROTOTYPE(LZ4_versionNumber) = NULL;
