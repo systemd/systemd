@@ -11,6 +11,23 @@
 #include "assert-fundamental.h"
 #include "macro-fundamental.h"
 
+/* What is interpreted as whitespace? */
+#define WHITESPACE          " \t\n\r"
+#define NEWLINE             "\n\r"
+#define QUOTES              "\"\'"
+#define COMMENTS            "#;"
+#define GLOB_CHARS          "*?["
+#define DIGITS              "0123456789"
+#define LOWERCASE_LETTERS   "abcdefghijklmnopqrstuvwxyz"
+#define UPPERCASE_LETTERS   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+#define LETTERS             LOWERCASE_LETTERS UPPERCASE_LETTERS
+#define ALPHANUMERICAL      LETTERS DIGITS
+#define HEXDIGITS           DIGITS "abcdefABCDEF"
+#define LOWERCASE_HEXDIGITS DIGITS "abcdef"
+#define URI_RESERVED        ":/?#[]@!$&'()*+;="         /* [RFC3986] */
+#define URI_UNRESERVED      ALPHANUMERICAL "-._~"       /* [RFC3986] */
+#define URI_VALID           URI_RESERVED URI_UNRESERVED /* [RFC3986] */
+
 #if SD_BOOT
 #  define strlen strlen16
 #  define strcmp strcmp16
