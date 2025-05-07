@@ -2010,6 +2010,7 @@ catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
+objects_by_name = {}
 fuzzer_exes = []
 generated_sources = [version_h, vmlinux_h_dependency]
 
@@ -2436,7 +2437,8 @@ foreach dict : executables
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions',
-                           'type', 'suite', 'timeout', 'parallel']
+                           'type', 'suite', 'timeout', 'parallel',
+                           'objects', 'extract']
                         continue
                 endif
 
@@ -2445,6 +2447,17 @@ foreach dict : executables
 
         foreach key, val : executable_additional_kwargs
                 kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
+
+        foreach val : dict.get('objects', [])
+                obj = objects_by_name[val]
+                kwargs += {
+                        'objects' : obj['objects'],
+                        'include_directories' : [
+                                kwargs.get('include_directories', []),
+                                obj['include_directories'],
+                        ],
+                }
         endforeach
 
         if is_test
@@ -2466,6 +2479,15 @@ foreach dict : executables
         )
 
         executables_by_name += { name : exe }
+
+        if dict.has_key('extract')
+                objects_by_name += {
+                        name : {
+                                'objects' : exe.extract_objects(dict['extract']),
+                                'include_directories' : fs.parent(dict['extract'][0]),
+                        }
+                }
+        endif
 
         if dict.get('build_by_default', true)
                 if dict.get('dbus', false)
