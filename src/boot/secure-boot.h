@@ -12,10 +12,16 @@ typedef enum {
         _SECURE_BOOT_ENROLL_MAX,
 } secure_boot_enroll;
 
+typedef enum {
+        ENROLL_ACTION_REBOOT,   /* Reboot the system after enrollment */
+        ENROLL_ACTION_SHUTDOWN, /* Shutdown the system after enrollment */
+        _SECURE_BOOT_ENROLL_ACTION_MAX,
+} secure_boot_enroll_action;
+
 bool secure_boot_enabled(void);
 SecureBootMode secure_boot_mode(void);
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force);
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, secure_boot_enroll_action action);
 
 typedef bool (*security_validator_t)(
                 const void *ctx,
@@ -27,3 +33,4 @@ void install_security_override(security_validator_t validator, const void *valid
 void uninstall_security_override(void);
 
 const char* secure_boot_enroll_to_string(secure_boot_enroll e) _const_;
+const char* secure_boot_enroll_action_to_string(secure_boot_enroll_action e) _const_;
