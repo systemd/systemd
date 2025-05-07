@@ -4,6 +4,7 @@ basic_sources = files(
         'MurmurHash2.c',
         'af-list.c',
         'alloc-util.c',
+        'ansi-color.c',
         'architecture.c',
         'argv-util.c',
         'arphrd-util.c',
