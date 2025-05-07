@@ -8,7 +8,7 @@ basic_sources = files(
         'argv-util.c',
         'arphrd-util.c',
         'assert-util.c',
-        'audit-util.c',
+        'audit.c',
         'btrfs.c',
         'build.c',
         'build-path.c',
