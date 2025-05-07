@@ -44,7 +44,7 @@ int switch_root(const char *new_root,
                 { "/sys",             MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
                 { "/proc",            MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Similar */
                 { "/run",             MS_BIND,         MS_BIND|MS_REC }, /* Recursive except on soft reboot, see above */
-                { "/run/credentials", MS_BIND|MS_REC,  0 /* skip! */  }, /* Credential mounts should survive */
+                { "/run/credentials", MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Credential mounts should survive */
                 { "/run/host",        MS_BIND|MS_REC,  0 /* skip! */  }, /* Host supplied hierarchy should also survive */
         };
 
