@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_RESOLVE') != 1
+        subdir_done()
+endif
+
 systemd_resolved_sources = files(
+        'resolved.c',
+)
+systemd_resolved_extract_sources = files(
         'dns-type.c',
         'resolved-bus.c',
         'resolved-conf.c',
@@ -84,26 +91,15 @@ resolved_dnssd_gperf_c = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c]
-systemd_resolved_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c]
+systemd_resolved_extract_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c]
 
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
-        systemd_resolved_sources += files(
+        systemd_resolved_extract_sources += files(
                 'resolved-dnstls.c',
         )
 endif
 
-resolved_core = static_library(
-        'systemd-resolved-core',
-        systemd_resolved_sources,
-        include_directories : includes,
-        dependencies : userspace,
-        build_by_default : false)
-
 resolve_common_template = {
-        'link_with' : [
-                libshared,
-                resolved_core,
-        ],
         'dependencies' : [
                 libopenssl,
                 libm,
@@ -111,20 +107,20 @@ resolve_common_template = {
         ],
 }
 
-resolve_test_template = test_template + resolve_common_template
-resolve_fuzz_template = fuzz_template + resolve_common_template
+resolve_test_template = test_template + resolve_common_template + {'objects' : ['systemd-resolved']}
+resolve_fuzz_template = fuzz_template + resolve_common_template + {'objects' : ['systemd-resolved']}
 
 executables += [
         libexec_template + resolve_common_template + {
                 'name' : 'systemd-resolved',
                 'dbus' : true,
-                'conditions' : ['ENABLE_RESOLVE'],
-                'sources' : files('resolved.c'),
+                'sources' : [systemd_resolved_sources, systemd_resolved_extract_sources],
+                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
+                'extract' : systemd_resolved_extract_sources,
         },
         executable_template + resolve_common_template + {
                 'name' : 'resolvectl',
                 'public' : true,
-                'conditions' : ['ENABLE_RESOLVE'],
                 'sources' : files(
                         'resolvconf-compat.c',
                         'resolvectl.c',
@@ -132,6 +128,7 @@ executables += [
                 'dependencies' : resolve_common_template['dependencies'] + [
                         libidn,
                 ],
+                'objects' : ['systemd-resolved'],
         },
         resolve_test_template + {
                 'sources' : files('test-resolve-tables.c'),
@@ -140,10 +137,7 @@ executables += [
                 'sources' : files('test-dns-answer.c'),
         },
         resolve_test_template + {
-                'sources' : files(
-                        'test-dns-cache.c',
-                        'resolved-dns-cache.c'
-                ),
+                'sources' : files('test-dns-cache.c'),
         },
         resolve_test_template + {
                 'sources' : files('test-dns-packet.c'),
@@ -161,10 +155,7 @@ executables += [
                 'sources' : files('test-dns-question.c'),
         },
         resolve_test_template + {
-                'sources' : files(
-                        'test-resolved-etc-hosts.c',
-                        'resolved-etc-hosts.c',
-                ),
+                'sources' : files('test-resolved-etc-hosts.c'),
         },
         resolve_test_template + {
                 'sources' : files('test-resolved-packet.c'),
@@ -203,40 +194,35 @@ executables += [
                 'sources' : files('fuzz-dns-packet.c'),
         },
         resolve_fuzz_template + {
-                'sources' : files(
-                        'fuzz-etc-hosts.c',
-                        'resolved-etc-hosts.c',
-                ),
+                'sources' : files('fuzz-etc-hosts.c'),
         },
         resolve_fuzz_template + {
                 'sources' : files('fuzz-resource-record.c'),
         },
 ]
 
-if conf.get('ENABLE_RESOLVE') == 1
-        install_data('org.freedesktop.resolve1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.resolve1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.resolve1.policy',
-                     install_dir : polkitpolicydir)
-        install_data('resolv.conf',
-                     install_dir : libexecdir)
+install_data('org.freedesktop.resolve1.conf',
+             install_dir : dbuspolicydir)
+install_data('org.freedesktop.resolve1.service',
+             install_dir : dbussystemservicedir)
+install_data('org.freedesktop.resolve1.policy',
+             install_dir : polkitpolicydir)
+install_data('resolv.conf',
+                install_dir : libexecdir)
 
-        install_symlink('resolvconf',
-                        pointing_to : sbin_to_bin + 'resolvectl',
-                        install_dir : sbindir)
+install_symlink('resolvconf',
+                pointing_to : sbin_to_bin + 'resolvectl',
+                install_dir : sbindir)
 
-        # symlink for backwards compatibility after rename
-        install_symlink('systemd-resolve',
-                        pointing_to : 'resolvectl',
-                        install_dir : bindir)
-endif
+# symlink for backwards compatibility after rename
+install_symlink('systemd-resolve',
+                pointing_to : 'resolvectl',
+                install_dir : bindir)
 
 custom_target(
         'resolved.conf',
         input : 'resolved.conf.in',
         output : 'resolved.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : conf.get('ENABLE_RESOLVE') == 1 and install_sysconfdir_samples,
+        install : install_sysconfdir_samples,
         install_dir : pkgconfigfiledir)
