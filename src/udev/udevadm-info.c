@@ -51,6 +51,8 @@ typedef enum QueryType {
         QUERY_SYMLINK,
         QUERY_PROPERTY,
         QUERY_ALL,
+        _QUERY_TYPE_MAX,
+        _QUERY_TYPE_INVALID = -EINVAL,
 } QueryType;
 
 static char **arg_properties = NULL;
@@ -91,6 +93,16 @@ STATIC_DESTRUCTOR_REGISTER(arg_tag_match, strv_freep);
 
 /* Put a limit on --tree descent level to not exhaust our stack */
 #define TREE_DEPTH_MAX 64
+
+static const char *query_type_table[_QUERY_TYPE_MAX] = {
+        [QUERY_NAME]     = "name",
+        [QUERY_PATH]     = "path",
+        [QUERY_SYMLINK]  = "symlink",
+        [QUERY_PROPERTY] = "property",
+        [QUERY_ALL]      = "all",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(query_type, QueryType);
 
 static bool skip_attribute(const char *name) {
         assert(name);
@@ -1091,19 +1103,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case 'q':
-                        arg_action_type = ACTION_QUERY;
-                        if (streq(optarg, "property") || streq(optarg, "env"))
-                                arg_query = QUERY_PROPERTY;
-                        else if (streq(optarg, "name"))
-                                arg_query = QUERY_NAME;
-                        else if (streq(optarg, "symlink"))
-                                arg_query = QUERY_SYMLINK;
-                        else if (streq(optarg, "path"))
-                                arg_query = QUERY_PATH;
-                        else if (streq(optarg, "all"))
-                                arg_query = QUERY_ALL;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "unknown query type");
+                        arg_query = query_type_from_string(optarg);
+                        if (arg_query < 0) {
+                                if (streq(optarg, "env")) /* deprecated */
+                                        arg_query = QUERY_PROPERTY;
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "unknown query type");
+                        }
                         break;
 
                 case 'r':
