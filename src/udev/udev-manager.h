@@ -93,6 +93,7 @@ void manager_exit(Manager *manager);
 void notify_ready(Manager *manager);
 
 void manager_kill_workers(Manager *manager, int signo);
+int manager_reset_kill_workers_timer(Manager *manager);
 
 bool devpath_conflict(const char *a, const char *b);
 
