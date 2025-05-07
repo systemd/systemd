@@ -12,6 +12,8 @@ typedef enum DevlinkMatchBitPosition {
         DEVLINK_MATCH_BIT_POSITION_COMMON_INDEX,
         DEVLINK_MATCH_BIT_POSITION_PORT_SPLIT,
         DEVLINK_MATCH_BIT_POSITION_PORT_IFNAME,
+        DEVLINK_MATCH_BIT_POSITION_PARAM_NAME,
+        DEVLINK_MATCH_BIT_POSITION_HEALTH_REPORTER_NAME,
         _DEVLINK_MATCH_BIT_POSITION_MAX,
         _DEVLINK_MATCH_BIT_POSITION_INVALID = -1,
 } DevlinkMatchBitPosition;
@@ -21,6 +23,8 @@ typedef enum DevlinkMatchBit {
         DEVLINK_MATCH_BIT_COMMON_INDEX = 1 << DEVLINK_MATCH_BIT_POSITION_COMMON_INDEX,
         DEVLINK_MATCH_BIT_PORT_SPLIT = 1 << DEVLINK_MATCH_BIT_POSITION_PORT_SPLIT,
         DEVLINK_MATCH_BIT_PORT_IFNAME = 1 << DEVLINK_MATCH_BIT_POSITION_PORT_IFNAME,
+        DEVLINK_MATCH_BIT_PARAM_NAME = 1 << DEVLINK_MATCH_BIT_POSITION_PARAM_NAME,
+        DEVLINK_MATCH_BIT_HEALTH_REPORTER_NAME = 1 << DEVLINK_MATCH_BIT_POSITION_HEALTH_REPORTER_NAME,
 } DevlinkMatchBit;
 
 const char* devlink_match_bit_to_string(DevlinkMatchBit bit);
@@ -32,10 +36,20 @@ typedef struct DevlinkMatchCommon {
         bool index_valid;
 } DevlinkMatchCommon;
 
+typedef struct DevlinkMatchParam {
+        char *name;
+} DevlinkMatchParam;
+
+typedef struct DevlinkMatchHealthReporter {
+        char *name;
+} DevlinkMatchHealthReporter;
+
 typedef struct DevlinkMatch {
         DevlinkMatchCommon common;
         DevlinkMatchDev dev;
         DevlinkMatchPort port;
+        DevlinkMatchParam param;
+        DevlinkMatchHealthReporter health_reporter;
 } DevlinkMatch;
 
 struct Manager;
@@ -111,3 +125,12 @@ void devlink_match_common_index_hash_func(const DevlinkMatch *match, struct siph
 int devlink_match_common_index_compare_func(const DevlinkMatch *x, const DevlinkMatch *y);
 void devlink_match_common_index_copy_func(DevlinkMatch *dst, const DevlinkMatch *src);
 int devlink_match_common_index_duplicate_func(DevlinkMatch *dst, const DevlinkMatch *src);
+void devlink_match_name_free(char **name);
+bool devlink_match_name_check(const char *name);
+void devlink_match_name_log_prefix(char **buf, int *len, const char *name);
+void devlink_match_name_hash_func(const char *name, struct siphash *state);
+int devlink_match_name_compare_func(const char *x, const char *y);
+void devlink_match_name_copy_func(char **dst, char *src);
+int devlink_match_name_duplicate_func(char **dst, const char *src);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_devlink_match_name);
