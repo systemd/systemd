@@ -37,9 +37,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         sd_lldp_neighbor,
         lldp_neighbor_unlink);
 
-int lldp_neighbor_prioq_compare_func(const void *a, const void *b) {
-        const sd_lldp_neighbor *x = a, *y = b;
-
+int lldp_neighbor_prioq_compare_func(const sd_lldp_neighbor *x, const sd_lldp_neighbor *y) {
         assert(x);
         assert(y);
 
