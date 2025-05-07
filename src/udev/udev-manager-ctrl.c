@@ -29,6 +29,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         case UDEV_CTRL_STOP_EXEC_QUEUE:
                 log_debug("Received udev control message (STOP_EXEC_QUEUE)");
                 manager->stop_exec_queue = true;
+                (void) manager_reset_kill_workers_timer(manager);
                 break;
         case UDEV_CTRL_START_EXEC_QUEUE:
                 log_debug("Received udev control message (START_EXEC_QUEUE)");
