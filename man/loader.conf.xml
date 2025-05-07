@@ -393,6 +393,7 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
 
           <para>This option is only relevant if <literal>secure-boot-enroll</literal> is enabled.</para>
         </listitem>
+        <xi:include href="version-info.xml" xpointer="v258"/>
       </varlistentry>
 
       <varlistentry>
