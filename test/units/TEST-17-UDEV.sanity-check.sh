@@ -55,8 +55,18 @@ udevadm control -l notice
 udevadm control --log-level info
 udevadm control --log-level debug
 (! udevadm control -l hello)
-udevadm control -s
-udevadm control -S
+
+# Check if processing queued events has been stopped.
+udevadm control --stop-exec-queue
+ip link add foobar type dummy
+(! udevadm info --wait-for-initialization=3 /sys/class/net/foobar)
+(! udevadm settle --timeout=0)
+# Check if processing queued events has been restarted.
+udevadm control --start-exec-queue
+udevadm settle --timeout=30
+udevadm info --wait-for-initialization=0 /sys/class/net/foobar
+ip link del foobar
+
 udevadm control -R
 udevadm control -p HELLO=world
 udevadm control -m 42
