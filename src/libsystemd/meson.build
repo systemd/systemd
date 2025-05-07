@@ -223,6 +223,7 @@ simple_tests += files(
         'sd-journal/test-journal-stream.c',
         'sd-journal/test-journal.c',
         'sd-login/test-login.c',
+        'sd-login/test-sd-login.c',
         'sd-netlink/test-netlink.c',
 )
 

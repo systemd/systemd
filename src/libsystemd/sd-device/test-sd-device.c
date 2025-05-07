@@ -488,8 +488,6 @@ TEST(sd_device_enumerator_add_match_parent) {
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
         exclude_problematic_devices(e);
 
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "memory", false));
-
         if (!slow_tests_enabled())
                 ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
 
