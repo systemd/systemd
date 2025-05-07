@@ -17,8 +17,7 @@ udevadm_sources = files(
         'udevadm.c',
         'udevd.c',
 )
-
-libudevd_core_sources = files(
+udevadm_extract_sources = files(
         'net/link-config.c',
         'udev-builtin.c',
         'udev-builtin-btrfs.c',
@@ -49,15 +48,15 @@ libudevd_core_sources = files(
 )
 
 if conf.get('HAVE_KMOD') == 1
-        libudevd_core_sources += files('udev-builtin-kmod.c')
+        udevadm_extract_sources += files('udev-builtin-kmod.c')
 endif
 
 if conf.get('HAVE_BLKID') == 1
-        libudevd_core_sources += files('udev-builtin-blkid.c')
+        udevadm_extract_sources += files('udev-builtin-blkid.c')
 endif
 
 if conf.get('HAVE_ACL') == 1
-        libudevd_core_sources += files('udev-builtin-uaccess.c')
+        udevadm_extract_sources += files('udev-builtin-uaccess.c')
 endif
 
 ############################################################
@@ -104,6 +103,7 @@ link_config_gperf_c = custom_target(
         output : 'link-config-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
+udevadm_extract_sources += link_config_gperf_c
 generated_sources += link_config_gperf_c
 
 ############################################################
@@ -118,18 +118,6 @@ else
 endif
 
 ############################################################
-
-libudevd_core = static_library(
-        'udev-core',
-        libudevd_core_sources,
-        link_config_gperf_c,
-        keyboard_keys_from_name_h,
-        include_directories : includes + include_directories('net'),
-        link_with : udev_link_with,
-        dependencies : [libblkid,
-                        libkmod_cflags,
-                        userspace],
-        build_by_default : false)
 
 udev_dependencies = [
         libacl,
@@ -147,12 +135,10 @@ udev_plugin_template = executable_template + {
 }
 
 udev_common_template = {
-        'link_with' : [
-                libshared,
-                libudevd_core,
-        ],
+        'objects' : ['udevadm'],
         'dependencies' : [
                 libacl,
+                libblkid,
                 threads,
         ],
 }
@@ -163,11 +149,19 @@ udev_binaries_dict = [
         executable_template + {
                 'name' : 'udevadm',
                 'public' : true,
-                'sources' : udevadm_sources,
-                'link_with' : [libudevd_core],
+                'sources' : [
+                        udevadm_sources,
+                        udevadm_extract_sources,
+                        keyboard_keys_from_name_h,
+                ],
+                'include_directories' : [
+                        libexec_template['include_directories'],
+                        include_directories('.', 'net'),
+                ],
                 'dependencies' : udev_dependencies,
                 'install_rpath' : udev_rpath,
                 'install_tag' : 'udev',
+                'extract' : udevadm_extract_sources,
         },
         udev_plugin_template + {
                 'name' : 'ata_id',
@@ -188,6 +182,7 @@ udev_binaries_dict = [
                         'fido_id/fido_id.c',
                         'fido_id/fido_id_desc.c',
                 ),
+                'extract' : files('fido_id/fido_id_desc.c'),
         },
         udev_plugin_template + {
                 'name' : 'iocost',
@@ -221,15 +216,12 @@ endforeach
 executables += udev_binaries_dict
 executables += [
         test_template + {
-                'sources' : files(
-                        'fido_id/test-fido-id-desc.c',
-                        'fido_id/fido_id_desc.c',
-                ),
+                'sources' : files('fido_id/test-fido-id-desc.c'),
+                'objects' : ['fido_id'],
                 'suite' : 'udev',
         },
         udev_test_template + {
                 'sources' : files('net/test-link-config-tables.c'),
-                'include_directories' : includes + include_directories('.'),
                 'suite' : 'udev',
         },
         udev_test_template + {
@@ -258,14 +250,11 @@ executables += [
                 'sources' : files('test-udev-spawn.c'),
         },
         fuzz_template + {
-                'sources' : files(
-                        'fido_id/fuzz-fido-id-desc.c',
-                        'fido_id/fido_id_desc.c',
-                ),
+                'sources' : files('fido_id/fuzz-fido-id-desc.c'),
+                'objects' : ['fido_id'],
         },
         udev_fuzz_template + {
                 'sources' : files('net/fuzz-link-parser.c'),
-                'include_directories' : includes + include_directories('.'),
         },
         udev_fuzz_template + {
                 'sources' : files('fuzz-udev-rule-parse-value.c'),
