@@ -58,8 +58,10 @@ Prioq* prioq_free(Prioq *q) {
 int prioq_ensure_allocated(Prioq **q, compare_func_t compare_func) {
         assert(q);
 
-        if (*q)
+        if (*q) {
+                assert((*q)->compare_func == compare_func);
                 return 0;
+        }
 
         *q = prioq_new(compare_func);
         if (!*q)
