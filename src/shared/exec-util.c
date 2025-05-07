@@ -618,6 +618,10 @@ int _fork_agent(const char *name, char * const *argv, const int except[], size_t
 
         /* Count arguments */
         execv(argv[0], argv);
-        log_error_errno(errno, "Failed to execute %s: %m", argv[0]);
+
+        /* Let's treat missing agent binary as a graceful issue (in order to support splitting out the Polkit
+         * or password agents into separate, optional distro packages), and not complain loudly. */
+        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                       "Failed to execute %s: %m", argv[0]);
         _exit(EXIT_FAILURE);
 }
