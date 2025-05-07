@@ -14,6 +14,7 @@
 #include "creds-util.h"
 #include "efi-loader.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"

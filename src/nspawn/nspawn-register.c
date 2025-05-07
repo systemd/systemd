@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"

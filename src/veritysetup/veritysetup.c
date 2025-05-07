@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "argv-util.h"
 #include "cryptsetup-util.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"

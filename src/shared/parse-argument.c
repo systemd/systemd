@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "format-table.h"
 #include "log.h"
 #include "parse-argument.h"

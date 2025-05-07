@@ -8,6 +8,8 @@
 
 #include "alloc-util.h"
 #include "env-file.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "inotify-util.h"
