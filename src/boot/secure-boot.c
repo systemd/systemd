@@ -191,7 +191,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
          */
 
         if (action == ENROLL_ACTION_SHUTDOWN) {
-                printf("Custom Secure Boot keys successfully enrolled, powering of the system now!\n");
+                printf("Custom Secure Boot keys successfully enrolled, powering off the system now!\n");
                 console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 2 * 1000 * 1000); /* wait a bit so user can see the message */
                 RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         } else {

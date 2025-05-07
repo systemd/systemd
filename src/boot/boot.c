@@ -354,7 +354,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 
         /* EFI var console mode is always a concrete value or unset. */
         if (config->console_mode_efivar != CONSOLE_MODE_KEEP)
-                printf("console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
+                printf("   console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
 
         if (!ps_continue())
                 return;
