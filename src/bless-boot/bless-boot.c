@@ -215,11 +215,9 @@ static int acquire_boot_count_path(
                 uint64_t *ret_done,
                 char **ret_suffix) {
 
-        _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL;
-        const char *last, *e;
-        uint64_t left, done;
         int r;
 
+        _cleanup_free_ char *path = NULL;
         r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("LoaderBootCountPath"), &path);
         if (r == -ENOENT)
                 return -EUNATCH; /* in this case, let the caller print a message */
@@ -236,23 +234,32 @@ static int acquire_boot_count_path(
                                        "Path read from LoaderBootCountPath is not absolute, refusing: %s",
                                        path);
 
-        last = last_path_component(path);
-        e = strrchr(last, '+');
+        _cleanup_free_ char *last = NULL;
+        r = path_extract_filename(path, &last);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from LoaderBootCountPath '%s': %m", path);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "LoaderBootCountPath '%s' refers to directory path, refusing.", path);
+
+        const char *e = strrchr(last, '+');
         if (!e)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Path read from LoaderBootCountPath does not contain a counter, refusing: %s",
                                        path);
 
+        _cleanup_free_ char *prefix = NULL;
         if (ret_prefix) {
                 prefix = strndup(path, e - path);
                 if (!prefix)
                         return log_oom();
         }
 
+        uint64_t left, done;
         r = parse_counter(path, &e, &left, &done);
         if (r < 0)
                 return r;
 
+        _cleanup_free_ char *suffix = NULL;
         if (ret_suffix) {
                 suffix = strdup(e);
                 if (!suffix)
