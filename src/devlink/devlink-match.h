@@ -21,6 +21,7 @@ typedef uint32_t DevlinkMatchSet;
 typedef struct DevlinkMatchCommon {
         uint32_t index;
         bool index_valid;
+        char *name;
 } DevlinkMatchCommon;
 
 typedef struct DevlinkMatch {
@@ -86,3 +87,9 @@ void devlink_match_common_index_hash_func(const DevlinkMatch *match, struct siph
 int devlink_match_common_index_compare_func(const DevlinkMatch *x, const DevlinkMatch *y);
 void devlink_match_common_index_copy_func(DevlinkMatch *dst, const DevlinkMatch *src);
 int devlink_match_common_index_duplicate_func(DevlinkMatch *dst, const DevlinkMatch *src);
+void devlink_match_common_name_free(DevlinkMatch *match);
+bool devlink_match_common_name_check(const DevlinkMatch *match);
+void devlink_match_common_name_log_prefix(char **buf, int *len, const DevlinkMatch *match);
+void devlink_match_common_name_hash_func(const DevlinkMatch *match, struct siphash *state);
+int devlink_match_common_name_compare_func(const DevlinkMatch *x, const DevlinkMatch *y);
+void devlink_match_common_name_copy_func(DevlinkMatch *dst, const DevlinkMatch *src);
