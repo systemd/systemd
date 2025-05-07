@@ -372,7 +372,14 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 }
 
                 if (faccessat(fd, skip_leading_slash(path), F_OK, 0) >= 0) {
-                        puts("indeterminate");
+                        /* If the item we booted with still exists under its name, it means we have not
+                         * change the current boot's marking so far. This may have two reasons: because we
+                         * simply didn't do that yet but still plan to, or because the left tries counter is
+                         * already at zero, hence we cannot further decrease it to mark it even
+                         * "worse"... Here we check the current counter to detect the latter case and return
+                         * "dirty", since the item is already marked bad from a previous boot, but otherwise
+                         * report "indeterminate" since we just didn't make a decision yet. */
+                        puts(left == 0 ? "dirty" : "indeterminate");
                         return 0;
                 }
                 if (errno != ENOENT)
@@ -402,10 +409,10 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 static int verb_set(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         const char *target, *source1, *source2;
-        uint64_t done;
+        uint64_t left, done;
         int r;
 
-        r = acquire_boot_count_path(&path, &prefix, NULL, &done, &suffix);
+        r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
         if (r == -EUNATCH) /* acquire_boot_count_path() won't log on its own for this specific error */
                 return log_error_errno(r, "Not booted with boot counting in effect.");
         if (r < 0)
@@ -434,6 +441,10 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 source2 = good;     /* Maybe this boot was previously marked as 'good'? */
         } else {
                 assert(streq(argv[0], "indeterminate"));
+
+                if (left == 0)
+                        return log_error_errno(r, "Current boot entry was already marked bad in a previous boot, cannot reset to indeterminate.");
+
                 target = path;
                 source1 = good;
                 source2 = bad;
