@@ -121,12 +121,14 @@ char *arg_profile = NULL;
 bool arg_legend = true;
 bool arg_table = false;
 ImagePolicy *arg_image_policy = NULL;
+char *arg_drm_device_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_security_policy, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_drm_device_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
@@ -287,6 +289,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
                "  -m --mask                  Parse parameter as numeric capability mask\n"
+               "     --drm-device=PATH       Use this DRM device sysfs path to get EDID\n"
+
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -333,6 +337,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TLDR,
                 ARG_SCALE_FACTOR_SVG,
                 ARG_DETAILED_SVG,
+                ARG_DRM_DEVICE_PATH,
         };
 
         static const struct option options[] = {
@@ -371,6 +376,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "mask",             no_argument,       NULL, 'm'                  },
                 { "scale-svg",        required_argument, NULL, ARG_SCALE_FACTOR_SVG },
                 { "detailed",         no_argument,       NULL, ARG_DETAILED_SVG     },
+                { "drm-device",       required_argument, NULL, ARG_DRM_DEVICE_PATH  },
                 {}
         };
 
@@ -580,6 +586,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_detailed_svg = true;
                         break;
 
+                case ARG_DRM_DEVICE_PATH:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_drm_device_path);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -637,6 +649,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_capability != CAPABILITY_LITERAL && !streq_ptr(argv[optind], "capability"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --mask is only supported for capability.");
+
+        if (arg_drm_device_path && !streq_ptr(argv[optind], "chid"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --drm-device is only supported for chid right now.");
 
         return 1; /* work to do */
 }

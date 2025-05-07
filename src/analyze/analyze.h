@@ -51,6 +51,7 @@ extern char *arg_profile;
 extern bool arg_legend;
 extern bool arg_table;
 extern ImagePolicy *arg_image_policy;
+extern char *arg_drm_device_path;
 
 int acquire_bus(sd_bus **bus, bool *use_full_bus);
 
