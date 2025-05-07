@@ -53,4 +53,4 @@ EFI_STATUS pe_memory_locate_sections(
                 const char *const section_names[],
                 PeSectionVector sections[]);
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t *ret_size_in_memory);
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_address, uint32_t *ret_compat_address, uint64_t *ret_image_base, size_t *ret_size_in_memory);

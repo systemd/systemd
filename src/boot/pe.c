@@ -429,7 +429,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t *ret_size_in_memory) {
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_address, uint32_t *ret_compat_address, uint64_t *ret_image_base, size_t *ret_size_in_memory) {
         assert(base);
         assert(ret_compat_address);
 
@@ -441,6 +441,13 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t
         if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
+        if (ret_image_base) {
+                if (pe->OptionalHeader.Magic == OPTHDR32_MAGIC)
+                        *ret_image_base = pe->OptionalHeader.ImageBase32;
+                else
+                        *ret_image_base = pe->OptionalHeader.ImageBase64;
+        }
+
         /* When allocating we need to also consider the virtual/uninitialized data sections, so parse it out
          * of the SizeOfImage field in the PE header and return it */
         if (ret_size_in_memory)
@@ -451,9 +458,13 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t
                 return EFI_UNSUPPORTED;
 
         if (pe->FileHeader.Machine == TARGET_MACHINE_TYPE) {
-                *ret_compat_address = 0;
+                if (ret_address)
+                        *ret_address = pe->OptionalHeader.AddressOfEntryPoint;
                 return EFI_SUCCESS;
         }
+
+        if (ret_address)
+                *ret_address = UINT32_MAX;
 
         uint32_t compat_address = get_compatibility_entry_address(dos, pe);
         if (compat_address == 0)
