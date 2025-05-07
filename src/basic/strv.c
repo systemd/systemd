@@ -405,6 +405,15 @@ int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
         return n;
 }
 
+char** strv_split_newlines(const char *s) {
+        char **ret;
+
+        if (strv_split_newlines_full(&ret, s, 0) < 0)
+                return NULL;
+
+        return ret;
+}
+
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {
         _cleanup_strv_free_ char **l = NULL;
         size_t n = 0;
@@ -440,6 +449,15 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
         return (int) n;
 }
 
+char** strv_split(const char *s, const char *separators) {
+        char **ret;
+
+        if (strv_split_full(&ret, s, separators, EXTRACT_RETAIN_ESCAPE) < 0)
+                return NULL;
+
+        return ret;
+}
+
 int strv_split_and_extend_full(char ***t, const char *s, const char *separators, bool filter_duplicates, ExtractFlags flags) {
         char **l;
         int r;
@@ -456,6 +474,10 @@ int strv_split_and_extend_full(char ***t, const char *s, const char *separators,
                 return r;
 
         return (int) strv_length(*t);
+}
+
+int strv_split_and_extend(char ***t, const char *s, const char *separators, bool filter_duplicates) {
+        return strv_split_and_extend_full(t, s, separators, filter_duplicates, 0);
 }
 
 int strv_split_colon_pairs(char ***t, const char *s) {
@@ -1064,6 +1086,10 @@ int fputstrv(FILE *f, char * const *l, const char *separator, bool *space) {
         }
 
         return 0;
+}
+
+int strv_free_and_replace(char **a, char **b) {
+        return free_and_replace_full(a, b, strv_free);
 }
 
 void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value) {

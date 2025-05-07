@@ -9,6 +9,7 @@
 #include "device-util.h"
 #include "devnode-acl.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"

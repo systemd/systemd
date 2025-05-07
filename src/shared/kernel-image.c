@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"

@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "build.h"
 #include "copy.h"

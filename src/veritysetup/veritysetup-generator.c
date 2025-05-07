@@ -20,6 +20,7 @@
 #include "proc-cmdline.h"
 #include "specifier.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit-name.h"
 
 static const char *arg_dest = NULL;

@@ -4,6 +4,7 @@
 
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "conf-files.h"
 #include "dirent-util.h"

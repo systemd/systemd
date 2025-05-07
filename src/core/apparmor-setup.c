@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "apparmor-setup.h"
 #include "apparmor-util.h"
 #include "errno-util.h"

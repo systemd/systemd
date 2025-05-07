@@ -3,9 +3,11 @@
 #include <getopt.h>
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "extract-word.h"
 #include "string-util.h"
 #include "strv.h"
 #include "udev-builtin.h"
