@@ -133,6 +133,18 @@ static void test_sd_device_one(sd_device *d) {
                         ASSERT_ERROR(r, ENOENT);
         }
 
+        if (streq(subsystem, "drm")) {
+                const char *edid_content;
+                size_t edid_size;
+
+                r = sd_device_get_sysattr_value_with_size(d, "edid", &edid_content, &edid_size);
+                if (r < 0)
+                        ASSERT_ERROR(r, ENOENT);
+
+                /* 0 if no monitor is connected, at least 128 if monitor present */
+                ASSERT_TRUE(edid_size == 0 || edid_size >= 128);
+        }
+
         is_block = streq_ptr(subsystem, "block");
 
         r = sd_device_get_devname(d, &devname);
