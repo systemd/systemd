@@ -75,7 +75,6 @@ static char **arg_subsystem_nomatch = NULL;
 static char **arg_sysname_match = NULL;
 static char **arg_tag_match = NULL;
 static int arg_initialized_match = -1;
-static bool has_positional_args = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_devices, strv_freep);
@@ -1030,9 +1029,9 @@ static int setup_matches(sd_device_enumerator *e) {
 }
 
 static int check_args(void) {
-        if (IN_SET(arg_action_type, ACTION_DEVICE_ID_FILE, ACTION_CLEANUP_DB) && has_positional_args)
+        if (IN_SET(arg_action_type, ACTION_DEVICE_ID_FILE, ACTION_CLEANUP_DB))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                "Positional arguments are not allowed with -d/--device-id-of-file and -c/--cleanup-db.");
+                                "Devices are not allowed with -d/--device-id-of-file and -c/--cleanup-db.");
 
         if (!IN_SET(arg_action_type, ACTION_DEVICE_ID_FILE, ACTION_TREE, ACTION_CLEANUP_DB) && strv_isempty(arg_devices))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1304,7 +1303,6 @@ static int parse_argv(int argc, char *argv[]) {
         r = strv_extend_strv(&arg_devices, argv + optind, /* filter_duplicates= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to build argument list: %m");
-        has_positional_args = r > 0;
 
         return check_args();
 }
