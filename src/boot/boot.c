@@ -29,6 +29,7 @@
 #include "secure-boot.h"
 #include "shim.h"
 #include "smbios.h"
+#include "strv-fundamental.h"
 #include "ticks.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
