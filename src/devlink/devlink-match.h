@@ -11,6 +11,7 @@ typedef enum DevlinkMatchBitPosition {
         DEVLINK_MATCH_BIT_POSITION_COMMON_INDEX,
         DEVLINK_MATCH_BIT_POSITION_PORT_SPLIT,
         DEVLINK_MATCH_BIT_POSITION_PORT_IFNAME,
+        DEVLINK_MATCH_BIT_POSITION_COMMON_NAME,
         _DEVLINK_MATCH_BIT_POSITION_MAX,
         _DEVLINK_MATCH_BIT_POSITION_INVALID = -1,
 } DevlinkMatchBitPosition;
@@ -20,6 +21,7 @@ typedef enum DevlinkMatchBit {
         DEVLINK_MATCH_BIT_COMMON_INDEX = 1 << DEVLINK_MATCH_BIT_POSITION_COMMON_INDEX,
         DEVLINK_MATCH_BIT_PORT_SPLIT = 1 << DEVLINK_MATCH_BIT_POSITION_PORT_SPLIT,
         DEVLINK_MATCH_BIT_PORT_IFNAME = 1 << DEVLINK_MATCH_BIT_POSITION_PORT_IFNAME,
+        DEVLINK_MATCH_BIT_COMMON_NAME = 1 << DEVLINK_MATCH_BIT_POSITION_COMMON_NAME,
 } DevlinkMatchBit;
 
 const char* devlink_match_bit_to_string(DevlinkMatchBit bit);
@@ -29,6 +31,7 @@ typedef uint32_t DevlinkMatchSet;
 typedef struct DevlinkMatchCommon {
         uint32_t index;
         bool index_valid;
+        char *name;
 } DevlinkMatchCommon;
 
 typedef struct DevlinkMatch {
@@ -110,3 +113,9 @@ void devlink_match_common_index_hash_func(const DevlinkMatch *match, struct siph
 int devlink_match_common_index_compare_func(const DevlinkMatch *x, const DevlinkMatch *y);
 void devlink_match_common_index_copy_func(DevlinkMatch *dst, const DevlinkMatch *src);
 int devlink_match_common_index_duplicate_func(DevlinkMatch *dst, const DevlinkMatch *src);
+void devlink_match_common_name_free(DevlinkMatch *match);
+bool devlink_match_common_name_check(const DevlinkMatch *match, bool explicit);
+void devlink_match_common_name_log_prefix(char **buf, int *len, const DevlinkMatch *match);
+void devlink_match_common_name_hash_func(const DevlinkMatch *match, struct siphash *state);
+int devlink_match_common_name_compare_func(const DevlinkMatch *x, const DevlinkMatch *y);
+void devlink_match_common_name_copy_func(DevlinkMatch *dst, const DevlinkMatch *src);
