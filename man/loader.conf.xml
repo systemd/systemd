@@ -374,6 +374,29 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
       </varlistentry>
 
       <varlistentry>
+        <term>secure-boot-enroll-action</term>
+        <listitem>
+          <para>Specifies the action to take after the automatic enrollment of secure boot keys is completed.</para>
+          <variablelist>
+            <varlistentry>
+              <term>reboot</term>
+              <listitem>
+                <para>Reboot the system after enrollment. This is the default.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>shutdown</term>
+              <listitem>
+                <para>Shut down the system after enrollment.</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+          <para>This option is only relevant if <literal>secure-boot-enroll</literal> is enabled.</para>
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>reboot-for-bitlocker</term>
 
         <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
