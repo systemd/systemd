@@ -247,8 +247,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
 
 # Alienware/Dell reserves these keys; safe to apply on all their devices
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*:*
+ KEYBOARD_KEY_68=!prog3                                 # Fn+f1 Performance mode toggle
  KEYBOARD_KEY_81=touchpad_toggle                        # Touchpad toggle
  KEYBOARD_KEY_8a=ejectcd
+ KEYBOARD_KEY_92=macro1                                 # Fn+f2
+ KEYBOARD_KEY_93=macro2                                 # Fn+f3
+ KEYBOARD_KEY_94=macro3                                 # Fn+f4
+ KEYBOARD_KEY_95=macro4                                 # Fn+f5
+ KEYBOARD_KEY_96=macro5                                 # Fn+f6
  KEYBOARD_KEY_bf=!prog1                                 # graphics amplifier, cable plug-in event
  KEYBOARD_KEY_c1=!prog2                                 # graphics amplifier, undock-button event
  KEYBOARD_KEY_c2=!power                                 # graphics amplifier, surprise undock event
