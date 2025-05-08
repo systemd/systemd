@@ -63,14 +63,6 @@ testcase_multiple_features() {
     helper_proc=$(mktemp -d /tmp/helper-proc-XXXX)
     mount -t proc proc "$helper_proc"
 
-    cleanup() {
-        # OR prevents exit if the command fails during cleanup
-        umount -l "$helper_proc" || true
-        rmdir  "$helper_proc"
-    }
-
-    trap cleanup EXIT
-
     systemd-run \
     --unit "$FILE_WR_SERVICE" \
     --wait \
@@ -99,6 +91,10 @@ testcase_multiple_features() {
 
 at_exit() {
     set +e
+
+    umount -l "$helper_proc"
+    rmdir  "$helper_proc"
+
     # Remove any test files
     rm -rf "$CONTAINER_ROOT_DIR" "$HOST_MOUNT_DIR"
 
