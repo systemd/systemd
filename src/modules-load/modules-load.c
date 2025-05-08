@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
+#include <pthread.h>
 #include <sys/stat.h>
 
 #include "alloc-util.h"
@@ -41,12 +42,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent) {
+static void *worker_thread(void *arg) {
+        int sock_fd = PTR_TO_FD(arg);
+        char buffer[NAME_MAX + 1];
+        ssize_t bytes_received;
+        _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        int r = module_setup_context(&ctx);
+        if (r < 0)
+                log_error_errno(r, "Failed to initialize libkmod context: %m");
+
+        while ((bytes_received = recv(sock_fd, buffer, sizeof(buffer), 0)) > 0) {
+                buffer[bytes_received] = '\0';
+                r = module_load_and_warn(ctx, buffer, true);
+        }
+
+        return NULL;
+}
+
+static int apply_file(const int *sockets, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *pp = NULL;
         int r;
 
-        assert(ctx);
         assert(path);
 
         r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f, &pp);
@@ -73,10 +90,8 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (strchr(COMMENTS, *line))
                         continue;
 
-                k = module_load_and_warn(ctx, line, true);
-                if (k == -ENOENT)
-                        continue;
-                RET_GATHER(r, k);
+                if (send(sockets[0], line, strlen(line), 0) < 0)
+                        log_error_errno(errno, "send");
         }
 
         return r;
@@ -137,7 +152,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
         int r, k;
 
         r = parse_argv(argc, argv);
@@ -152,33 +166,42 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        r = module_setup_context(&ctx);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize libkmod context: %m");
+        _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
+        long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
+        if (ncpus < 0)
+                log_warning_errno(r, "Failed to get number of cpus");
+
+        long max_tasks = MAX(MIN(ncpus / 2, 10), 2);
+        _cleanup_free_ pthread_t *threads = malloc(sizeof(pthread_t) * max_tasks);
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, seq) == -1)
+                log_error_errno(errno, "socketpair");
+
+        // Create worker threads
+        for (int i = 0; i < max_tasks; ++i)
+                if (pthread_create(&threads[i], NULL, worker_thread, &seq[1]) != 0)
+                        log_error_errno(errno, "pthread_create");
 
         r = 0;
-
         if (argc > optind) {
                 for (int i = optind; i < argc; i++)
-                        RET_GATHER(r, apply_file(ctx, argv[i], false));
-
+                        RET_GATHER(r, apply_file(seq, argv[i], false));
         } else {
                 _cleanup_strv_free_ char **files = NULL;
-
-                STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                        k = module_load_and_warn(ctx, *i, true);
-                        if (k == -ENOENT)
-                                continue;
-                        RET_GATHER(r, k);
-                }
+                STRV_FOREACH(i, arg_proc_cmdline_modules)
+                        if (send(seq[0], *i, strlen(*i), 0) < 0)
+                                log_error_errno(errno, "send");
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
                 if (k < 0)
                         return log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
 
                 STRV_FOREACH(fn, files)
-                        RET_GATHER(r, apply_file(ctx, *fn, true));
+                        RET_GATHER(r, apply_file(seq, *fn, true));
         }
+
+        // Wait for all threads to finish
+        for (int i = 0; i < max_tasks; ++i)
+                pthread_join(threads[i], NULL);
 
         return r;
 }
