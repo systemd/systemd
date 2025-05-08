@@ -100,6 +100,15 @@
             <member><literal>NetdevName</literal></member>
           </simplelist></entry></row>
         </tbody>
+        <tbody>
+          <row><entry><varname>param</varname></entry>
+          <entry>An object representing param, could be either dev param or port param.</entry>
+          <entry><simplelist type="vert">
+            <member><literal>Handle</literal> and <literal>Name</literal></member>
+            <member><literal>Handle</literal>, <literal>Index</literal>, <literal>Split</literal> and <literal>Name</literal></member>
+            <member><literal>NetdevName</literal> and <literal>Name</literal></member>
+          </simplelist></entry></row>
+        </tbody>
       </tgroup>
     </table>
   </refsect1>
@@ -158,6 +167,14 @@
         <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Name=</varname></term>
+        <listitem>
+          <para>Name of an object to identify it (e. g. param).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -206,6 +223,27 @@
   </refsect1>
 
   <refsect1>
+    <title>[Param] Section Options</title>
+
+    <para>The [Param] section only applies for
+    devlink objects of kind <literal>param</literal>, and accepts the
+    following key:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Value=</varname></term>
+        <listitem>
+          <para>Instructs the param value to be set. The format depends on the param type. In case
+          the param <literal>cmode</literal> is <literal>driverinit</literal>, devlink reload
+          it invoked after new param value is set.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
     <example>
       <title>/etc/systemd/devlinkd/10-eswitch-mode.devlink</title>
@@ -237,6 +275,25 @@ NetdevName=enp0s1np1
 
 [Port]
 SplitCount=4</programlisting>
+    </example>
+    <example>
+      <title>/etc/systemd/devlinkd/10-param-rehash-interval.devlink</title>
+
+      <programlisting>[Match]
+Kind=param
+Handle=pci/0000:01:00.0
+Name=acl_region_rehash_interval</programlisting>
+    </example>
+    <example>
+      <title>/etc/systemd/devlinkd/10-param-port-keep-link-up.devlink</title>
+
+      <programlisting>[Match]
+Kind=param
+NetdevName=enp0s1np1
+Name=keep_link_up
+
+[Param]
+Value=false</programlisting>
     </example>
   </refsect1>
 
