@@ -383,7 +383,7 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:bvn*:bvr*:bd*:svncube:pni1-T
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*:*
- KEYBOARD_KEY_68=prog2                                  # G-Mode (Dell-specific)
+ KEYBOARD_KEY_68=!prog2                                 # G-Mode (Dell-specific)
  KEYBOARD_KEY_81=playpause                              # Play/Pause
  KEYBOARD_KEY_82=stopcd                                 # Stop
  KEYBOARD_KEY_83=previoussong                           # Previous song
