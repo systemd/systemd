@@ -59,6 +59,18 @@ testcase_multiple_features() {
     # The internal directory will be created by systemd-run
     mkdir -p "$HOST_MOUNT_DIR"
 
+    # intentionally declared globally so it's valid if cleanup runs at exit
+    helper_proc=$(mktemp -d /tmp/helper-proc-XXXX)
+    mount -t proc proc "$helper_proc"
+
+    cleanup() {
+        # OR prevents exit if the command fails during cleanup
+        umount -l "$helper_proc" || true
+        rmdir  "$helper_proc"
+    }
+
+    trap cleanup EXIT
+
     systemd-run \
     --unit "$FILE_WR_SERVICE" \
     --wait \
