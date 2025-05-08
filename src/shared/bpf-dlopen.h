@@ -40,6 +40,9 @@ extern DLSYM_PROTOTYPE(ring_buffer__epoll_fd);
 extern DLSYM_PROTOTYPE(ring_buffer__free);
 extern DLSYM_PROTOTYPE(ring_buffer__new);
 extern DLSYM_PROTOTYPE(ring_buffer__poll);
+#if HAVE_BPF_TOKEN_CREATE
+extern DLSYM_PROTOTYPE(bpf_token_create);
+#endif
 
 /* libbpf sometimes returns error codes that make sense only in the kernel, like 524 for EOPNOTSUPP. Use
  * this helper instead of libbpf_get_error() to ensure some of the known ones are translated into errnos
