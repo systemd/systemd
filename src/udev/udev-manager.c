@@ -201,7 +201,7 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
         return 0;
 }
 
-static int manager_reset_kill_workers_timer(Manager *manager) {
+int manager_reset_kill_workers_timer(Manager *manager) {
         int r;
 
         assert(manager);
