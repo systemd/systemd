@@ -91,8 +91,6 @@
           <entry><simplelist type="vert">
             <member><literal>Handle</literal></member>
           </simplelist></entry></row>
-        </tbody>
-        <tbody>
           <row><entry><varname>port</varname></entry>
           <entry>An object representing port, could be physical port, or for example an E-Switch link to VF.</entry>
           <entry><simplelist type="vert">
@@ -100,10 +98,15 @@
             <member><literal>Handle</literal> and <literal>Index</literal></member>
             <member><literal>NetdevName</literal></member>
           </simplelist></entry></row>
-        </tbody>
-        <tbody>
           <row><entry><varname>param</varname></entry>
           <entry>An object representing param, could be either dev param or port param.</entry>
+          <entry><simplelist type="vert">
+            <member><literal>Handle</literal> and <literal>Name</literal></member>
+            <member><literal>Handle</literal>, <literal>Index</literal>, <literal>Split</literal> and <literal>Name</literal></member>
+            <member><literal>NetdevName</literal> and <literal>Name</literal></member>
+          </simplelist></entry></row>
+          <row><entry><varname>health_reporter</varname></entry>
+          <entry>An object representing health reporter, could be either dev health reporter or port health reporter.</entry>
           <entry><simplelist type="vert">
             <member><literal>Handle</literal> and <literal>Name</literal></member>
             <member><literal>Handle</literal>, <literal>Index</literal>, <literal>Split</literal> and <literal>Name</literal></member>
@@ -245,6 +248,47 @@
   </refsect1>
 
   <refsect1>
+    <title>[HealthReporter] Section Options</title>
+
+    <para>The [HealthReporter] section only applies for
+    devlink objects of kind <literal>health_reporter</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>GracePeriod=</varname></term>
+        <listitem>
+          <para>Time interval between consecutive auto recoveries in milliseconds.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>AutoRecover=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, devlink should execute automatic
+          recover on error.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>AutoDump=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, devlink should execute automatic
+          dump on error.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
     <example>
       <title>/etc/systemd/devlink/10-eswitch-mode.devlink</title>
@@ -295,6 +339,19 @@ Name=keep_link_up
 
 [Param]
 Value=false</programlisting>
+    </example>
+    <example>
+      <title>/etc/systemd/devlink/10-health-fw-fatal.devlink</title>
+
+      <programlisting>[Match]
+Kind=health_reporter
+Handle=pci/0000:01:00.0
+Name=fw_fatal
+
+[HealthReporter]
+GracePeriod=40000
+AutoRecover=false
+AutoDump=false</programlisting>
     </example>
   </refsect1>
 
