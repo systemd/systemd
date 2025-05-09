@@ -111,7 +111,8 @@ libcore_static = static_library(
         libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
-        include_directories : includes,
+        include_directories : [includes, include_directories('.')],
+        implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
         dependencies : [libacl,
                         libaudit,
@@ -129,6 +130,7 @@ libcore_static = static_library(
 libcore = shared_library(
         libcore_name,
         c_args : ['-fvisibility=default'],
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_depends : libshared_sym_path,
