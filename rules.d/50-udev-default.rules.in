@@ -32,6 +32,8 @@ SUBSYSTEM=="pci|usb|platform", IMPORT{builtin}="path_id"
 SUBSYSTEM=="net", IMPORT{builtin}="net_driver"
 
 SUBSYSTEM=="ptp", GROUP="clock", MODE="0660"
+# for kernel 6.15 and later, PTP chardev readonly access is safe to be exposed to unprivileged users
+SUBSYSTEM=="ptp", SYSCTL{kernel.osrelease}=="6.1[5-9]*|6.[2-9][0-9]*|[7-9].*|[1-9][0-9].*", MODE="0664"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK+="ptp_kvm"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK+="ptp_hyperv"
 
