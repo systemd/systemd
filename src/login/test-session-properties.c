@@ -17,6 +17,7 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 static const char *arg_tty = NULL;
 

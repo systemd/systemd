@@ -9,6 +9,7 @@
 
 #include "btrfs.h"
 #include "copy.h"
+#include "stat-util.h"
 #include "time-util.h"
 
 typedef struct BtrfsSubvolInfo {

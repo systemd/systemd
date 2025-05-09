@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/oom.h>
+#include <sys/stat.h>
 
 #include "sd-json.h"
 

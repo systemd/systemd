@@ -2,11 +2,13 @@
 
 #include "alloc-util.h"
 #include "dhcp-server-lease-internal.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "mkdir.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 
 static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease) {

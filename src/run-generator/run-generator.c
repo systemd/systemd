@@ -8,6 +8,7 @@
 #include "fileio.h"
 #include "generator.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "proc-cmdline.h"
 #include "special.h"

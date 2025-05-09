@@ -5,6 +5,7 @@
 #include <linux/nsfs.h>
 #include <linux/veth.h>
 #include <net/if.h>
+#include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -34,6 +35,7 @@
 #include "netlink-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "strv.h"

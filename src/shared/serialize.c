@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"

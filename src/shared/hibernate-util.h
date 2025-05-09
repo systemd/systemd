@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "assert-util.h"
 
 /* represents values for /sys/power/resume & /sys/power/resume_offset and the corresponding path */
 typedef struct HibernationDevice {

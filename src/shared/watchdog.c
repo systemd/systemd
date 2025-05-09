@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <linux/watchdog.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <syslog.h>
 #include <unistd.h>
 

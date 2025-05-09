@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "assert-util.h"
 #include "unit-dependency-atom.h"
 
 static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {

@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "device-private.h"
 #include "dhcp-client-internal.h"
+#include "errno-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "network-internal.h"

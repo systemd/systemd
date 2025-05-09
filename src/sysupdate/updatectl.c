@@ -20,6 +20,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "os-util.h"

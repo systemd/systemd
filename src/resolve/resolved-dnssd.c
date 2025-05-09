@@ -5,6 +5,7 @@
 #include "conf-parser.h"
 #include "constants.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "hexdecoct.h"
 #include "path-util.h"
 #include "resolved-conf.h"

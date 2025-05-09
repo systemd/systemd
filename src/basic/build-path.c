@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <elf.h>
+#include <fcntl.h>
 #include <link.h>
 #include <stdlib.h>
 #include <sys/auxv.h>
 
 #include "build-path.h"
-#include "errno-list.h"
-#include "errno-util.h"
-#include "fd-util.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "unistd.h"

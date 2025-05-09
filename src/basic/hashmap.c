@@ -1,29 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fnmatch.h>
 #include <pthread.h>
-#include <stdint.h>
-#include <stdlib.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
 #endif
 
 #include "alloc-util.h"
-#include "fileio.h"
+#include "extract-word.h"
 #include "hashmap.h"
 #include "log.h"
 #include "logarithm.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "mempool.h"
-#include "missing_syscall.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "set.h"
 #include "siphash24.h"
 #include "sort-util.h"
-#include "string-util.h"
 #include "strv.h"
 
 #if ENABLE_DEBUG_HASHMAP

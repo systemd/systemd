@@ -32,6 +32,7 @@
 #include "set.h"
 #include "sfb.h"
 #include "sfq.h"
+#include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tbf.h"

@@ -4,7 +4,7 @@
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
-#include "hashmap.h"
+#include "forward.h"
 #include "user-util.h"
 
 typedef enum PolkitFlags {

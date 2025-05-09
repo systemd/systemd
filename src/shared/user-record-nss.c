@@ -5,6 +5,7 @@
 #include "format-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-nss.h"
 #include "user-util.h"

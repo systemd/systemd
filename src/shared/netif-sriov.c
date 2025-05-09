@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "device-util.h"
 #include "netif-sriov.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "set.h"
+#include "siphash24.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"

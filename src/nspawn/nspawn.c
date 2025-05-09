@@ -15,6 +15,7 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
+#include "siphash24.h"
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -48,6 +49,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"

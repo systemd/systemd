@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "bitmap.h"
-#include "hashmap.h"
 #include "macro.h"
 
 /* This defines pretty names for the LSB 'start' verb exit codes. Note that they shouldn't be confused with

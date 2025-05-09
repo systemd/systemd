@@ -15,6 +15,7 @@
 #include "filesystems.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "home-util.h"
 #include "homework.h"
 #include "homework-blob.h"

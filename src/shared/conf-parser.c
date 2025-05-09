@@ -40,6 +40,7 @@
 #include "rlimit-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -877,6 +878,22 @@ int _hashmap_by_section_find_unused_line(
 
         *ret = n + 1;
         return 0;
+}
+
+int hashmap_by_section_find_unused_line(
+        Hashmap *entries_by_section,
+        const char *filename,
+        unsigned *ret) {
+
+        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
+}
+
+int ordered_hashmap_by_section_find_unused_line(
+        OrderedHashmap *entries_by_section,
+        const char *filename,
+        unsigned *ret) {
+
+        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \

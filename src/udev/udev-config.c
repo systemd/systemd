@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "conf-parser.h"

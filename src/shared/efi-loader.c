@@ -9,6 +9,7 @@
 #include "path-util.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tpm2-pcr.h"
 #include "utf8.h"
 

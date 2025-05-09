@@ -4,6 +4,7 @@
 #include "fd-util.h"
 #include "home-util.h"
 #include "homed-bus.h"
+#include "macro.h"
 #include "stat-util.h"
 #include "strv.h"
 

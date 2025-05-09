@@ -2,6 +2,8 @@
 
 #include <errno.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -11,12 +13,14 @@
 #include "device-private.h"
 #include "log.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "udev-ctrl.h"
 #include "udev-rules.h"
 #include "udev-varlink.h"
 #include "udevadm-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "varlink-util.h"
 

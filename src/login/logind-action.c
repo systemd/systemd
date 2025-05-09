@@ -10,6 +10,7 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "format-util.h"
 #include "logind.h"
 #include "logind-action.h"

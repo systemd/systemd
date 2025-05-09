@@ -28,6 +28,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "user-util.h"
 
 static int vconsole_reload(sd_bus *bus) {

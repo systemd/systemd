@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "assert-util.h"
 #include "bus-locator.h"
 #include "macro.h"
 

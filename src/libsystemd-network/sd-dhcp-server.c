@@ -16,6 +16,7 @@
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"

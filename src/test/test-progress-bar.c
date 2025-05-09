@@ -3,6 +3,7 @@
 #include "pretty-print.h"
 #include "random-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 #define PROGRESS_PREFIX "test:"
 

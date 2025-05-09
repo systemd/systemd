@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
 

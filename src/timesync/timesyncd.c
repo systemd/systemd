@@ -11,6 +11,7 @@
 #include "capability-util.h"
 #include "clock-util.h"
 #include "daemon-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "main-func.h"

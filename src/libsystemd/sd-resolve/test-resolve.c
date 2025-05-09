@@ -5,6 +5,7 @@
 #include <net/if_arp.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "sd-resolve.h"
 

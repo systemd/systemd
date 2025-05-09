@@ -24,6 +24,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"

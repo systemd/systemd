@@ -24,6 +24,7 @@
 #include "reboot-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "udev-util.h"
 
 /* Note that any write is delayed until exit and the rfkill state will not be

@@ -10,6 +10,7 @@
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 

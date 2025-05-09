@@ -16,6 +16,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 static char *arg_root = NULL;

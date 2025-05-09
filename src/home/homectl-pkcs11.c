@@ -9,6 +9,7 @@
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 int identity_add_token_pin(sd_json_variant **v, const char *pin) {
