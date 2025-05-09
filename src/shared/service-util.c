@@ -8,7 +8,6 @@
 #include "log.h"
 #include "pretty-print.h"
 #include "service-util.h"
-#include "terminal-util.h"
 
 static int help(const char *program_path, const char *service, const char *description, bool bus_introspect) {
         _cleanup_free_ char *link = NULL;

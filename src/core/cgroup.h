@@ -1,18 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-event.h"
-
-#include "bpf-program.h"
-#include "bpf-restrict-fs.h"
 #include "cgroup-util.h"
+#include "core-forward.h"
 #include "cpu-set-util.h"
 #include "firewall-util.h"
 #include "list.h"
-#include "pidref.h"
-#include "time-util.h"
 
 typedef struct CGroupTasksMax {
         /* If scale == 0, just use value; otherwise, value / scale.

@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <stdlib.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
-#include "bootspec.h"
 #include "build.h"
 #include "devnum-util.h"
-#include "efi-api.h"
-#include "efi-loader.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "find-esp.h"
@@ -18,9 +15,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
-#include "terminal-util.h"
 #include "verbs.h"
 #include "virt.h"
 

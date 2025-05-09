@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "homework.h"
-#include "user-record.h"
+#include "forward.h"
+
+typedef struct HomeSetup HomeSetup;
+typedef struct PasswordCache PasswordCache;
 
 int home_setup_fscrypt(UserRecord *h, HomeSetup *setup, const PasswordCache *cache);
 

@@ -3,18 +3,17 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <linux/if_packet.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
 #include "fd-util.h"
+#include "macro.h"
 #include "socket-util.h"
 
 int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *local_address) {

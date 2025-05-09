@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "format-util.h"
@@ -10,10 +11,13 @@
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
+#include "log.h"
 #include "main-func.h"
 #include "process-util.h"
 #include "sigbus.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 
 static int run(int argc, char *argv[]) {
         _cleanup_(server_freep) Server *s = NULL;
