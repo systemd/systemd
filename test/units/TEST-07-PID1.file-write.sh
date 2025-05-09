@@ -23,7 +23,7 @@ OUTPUT_CONTENTS='Test service is running'
 # Make test service that writes to a file
 internal_writer() {
     # Create a test service that will run in the internal systemd
-    local container_systemd_dir="${CONTAINER_ROOT_DIR}/usr/lib/systemd/system"
+    local container_systemd_dir="${CONTAINER_ROOT_DIR}/etc/systemd/system"
     local service_output="${INTERNAL_MOUNT_DIR}/${OUTPUT_FILE}"
     local internal_test_service="${container_systemd_dir}/test-service.service"
 
@@ -65,21 +65,24 @@ testcase_multiple_features() {
     mkdir -p "$CONTAINER_ROOT_DIR"/{usr,var,run}
 
     # Bind mount /usr
+    # Trade this out for   -p BindReadOnlyPaths=/usr \
     mount --bind /usr "$CONTAINER_ROOT_DIR"/usr
 
     internal_writer
+
+    mount -o remount,bind,ro "$CONTAINER_ROOT_DIR/usr"
 
     # hack copy machine id into container
     mkdir -p "$CONTAINER_ROOT_DIR"/etc
 
     # Firstboot failing without this
     cp /etc/machine-id "$CONTAINER_ROOT_DIR"/etc/machine-id
+    # -p MountAPIVFS=yes \
 
     systemd-run \
     --unit "$FILE_WR_SERVICE" \
     --wait \
     -p RootDirectory="$CONTAINER_ROOT_DIR" \
-    -p MountAPIVFS=yes \
     -p PrivatePIDs=yes \
     -p PrivateUsersEx=full \
     -p ProtectHostnameEx=private \
