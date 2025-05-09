@@ -131,10 +131,11 @@ int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);
 int message_new_full(
                 sd_netlink *nl,
                 uint16_t nlmsg_type,
+                uint16_t nlmsg_flags,
                 const NLAPolicySet *policy_set,
                 size_t header_size,
                 sd_netlink_message **ret);
-int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
+int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type, uint16_t flags);
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
 
 static inline uint32_t message_get_serial(sd_netlink_message *m) {
