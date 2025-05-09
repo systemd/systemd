@@ -2,7 +2,8 @@
 #pragma once
 
 #include "constants.h"
-#include "macro-fundamental.h"
+#include "forward.h"
+#include "macro-fundamental.h" // IWYU pragma: export
 
 /* Note: on GCC "no_sanitize_address" is a function attribute only, on llvm it may also be applied to global
  * variables. We define a specific macro which knows this. Note that on GCC we don't need this decorator so much, since
@@ -30,24 +31,6 @@ static inline uint64_t u64_multiply_safe(uint64_t a, uint64_t b) {
                 return 0; /* overflow */
 
         return a * b;
-}
-
-/* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
-static inline unsigned long ALIGN_POWER2(unsigned long u) {
-
-        /* Avoid subtraction overflow */
-        if (u == 0)
-                return 0;
-
-        /* clz(0) is undefined */
-        if (u == 1)
-                return 1;
-
-        /* left-shift overflow is undefined */
-        if (__builtin_clzl(u - 1UL) < 1)
-                return 0;
-
-        return 1UL << (sizeof(u) * 8 - __builtin_clzl(u - 1UL));
 }
 
 /*
@@ -94,15 +77,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
  * prefix and trailing NUL suffix. */
 #define HEXADECIMAL_STR_MAX(type) (2 + sizeof(type) * 2 + 1)
 
-/* Returns the number of chars needed to format variables of the specified type as a decimal string. Adds in
- * extra space for a negative '-' prefix for signed types. Includes space for the trailing NUL. */
-#define DECIMAL_STR_MAX(type)                                           \
-        ((size_t) IS_SIGNED_INTEGER_TYPE(type) + 1U +                   \
-            (sizeof(type) <= 1 ? 3U :                                   \
-             sizeof(type) <= 2 ? 5U :                                   \
-             sizeof(type) <= 4 ? 10U :                                  \
-             sizeof(type) <= 8 ? (IS_SIGNED_INTEGER_TYPE(type) ? 19U : 20U) : sizeof(int[-2*(sizeof(type) > 8)])))
-
 /* Returns the number of chars needed to format the specified integer value. It's hence more specific than
  * DECIMAL_STR_MAX() which answers the same question for all possible values of the specified type. Does
  * *not* include space for a trailing NUL. (If you wonder why we special case _x_ == 0 here: it's to trick
@@ -128,13 +102,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 (y) = (_t);                        \
         } while (false)
 
-#define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
-#define STRV_MAKE_EMPTY ((char*[1]) { NULL })
-#define STRV_MAKE_CONST(...) ((const char* const*) ((const char*[]) { __VA_ARGS__, NULL }))
-
-/* Pointers range from NULL to POINTER_MAX */
-#define POINTER_MAX ((void*) UINTPTR_MAX)
-
 /* A macro to force copying of a variable from memory. This is useful whenever we want to read something from
  * memory and want to make sure the compiler won't optimize away the destination variable for us. It's not
  * supposed to be a full CPU memory barrier, i.e. CPU is still allowed to reorder the reads, but it is not
@@ -147,17 +114,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 asm volatile ("" : : : "memory");                       \
                 _copy;                                                  \
         })
-
-#define saturate_add(x, y, limit)                                       \
-        ({                                                              \
-                typeof(limit) _x = (x);                                 \
-                typeof(limit) _y = (y);                                 \
-                _x > (limit) || _y >= (limit) - _x ? (limit) : _x + _y; \
-        })
-
-static inline size_t size_add(size_t x, size_t y) {
-        return saturate_add(x, y, SIZE_MAX);
-}
 
 /* A little helper for subtracting 1 off a pointer in a safe UB-free way. This is intended to be used for
  * loops that count down from a high pointer until some base. A naive loop would implement this like this:

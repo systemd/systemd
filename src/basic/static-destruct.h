@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include <errno.h>
-
+#include "forward.h"
 #include "macro.h"
 #include "memory-util.h"
 

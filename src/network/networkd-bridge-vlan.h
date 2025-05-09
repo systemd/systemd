@@ -5,12 +5,7 @@
   Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
+#include "forward.h"
 #include "vlan-util.h"
 
 #define BRIDGE_VLAN_BITMAP_MAX 4096

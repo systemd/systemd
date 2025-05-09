@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
 
+#include "forward.h"
 #include "sysupdate-partition.h"
 #include "sysupdate-resource.h"
 

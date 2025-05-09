@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "efi.h"
-#include "macro-fundamental.h"
+#include "forward.h"
 
 size_t strnlen8(const char *s, size_t n);
 size_t strnlen16(const char16_t *s, size_t n);

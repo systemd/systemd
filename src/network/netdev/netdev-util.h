@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "in-addr-util.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef struct Link Link;
 

@@ -3,8 +3,11 @@
 #include <linux/if_addrlabel.h>
 #include <net/if.h>
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
-#include "netlink-util.h"
+#include "conf-parser.h"
+#include "hashmap.h"
 #include "networkd-address-label.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

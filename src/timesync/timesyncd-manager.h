@@ -3,12 +3,8 @@
 
 #include <sys/timex.h>
 
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-network.h"
-#include "sd-resolve.h"
+#include "forward.h"
 
-#include "hashmap.h"
 #include "list.h"
 #include "ratelimit.h"
 #include "time-util.h"
