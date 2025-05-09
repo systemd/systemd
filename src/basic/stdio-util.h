@@ -2,11 +2,9 @@
 #pragma once
 
 #include <printf.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <sys/types.h>
 
-#include "assert-util.h"
+#include "forward.h"
 #include "macro.h"
 
 _printf_(3, 4)

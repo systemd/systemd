@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
+#include "forward.h"
 #include "specifier.h"
 
 /* Forward declare this type so that Transfers can point at it */

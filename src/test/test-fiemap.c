@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <inttypes.h>
 #include <linux/fiemap.h>
-#include <stdio.h>
-#include <sys/types.h>
 #include <unistd.h>
 
-#include "errno-util.h"
 #include "fd-util.h"
 #include "hibernate-util.h"
 #include "log.h"

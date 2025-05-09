@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-unit-files.h"
+#include "hashmap.h"
 #include "path-lookup.h"
 #include "strv.h"
 

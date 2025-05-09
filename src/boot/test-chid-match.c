@@ -7,6 +7,7 @@
 #include "edid.h"
 #include "efi-string.h"
 #include "smbios.h"
+#include "string-util.h"
 #include "tests.h"
 
 extern uint8_t hwids_section_data[];

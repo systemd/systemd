@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 #include "alloc-util.h"
 #include "async.h"
@@ -12,21 +14,22 @@
 #include "dbus-manager.h"
 #include "dbus-service.h"
 #include "dbus-util.h"
+#include "dissect-image.h"
 #include "exec-credential.h"
 #include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "fileio.h"
+#include "glyph-util.h"
 #include "locale-util.h"
+#include "manager.h"
 #include "missing_fcntl.h"
+#include "mount-util.h"
 #include "open-file.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "selinux-access.h"
 #include "service.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, service_type, ServiceType);

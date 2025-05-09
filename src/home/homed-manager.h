@@ -3,13 +3,10 @@
 
 #include <openssl/evp.h>
 
-#include "sd-bus.h"
-#include "sd-device.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
+#include "forward.h"
+#include "user-record.h"
 
-#include "hashmap.h"
-#include "homed-home.h"
+typedef struct Home Home;
 
 /* The LUKS free disk space rebalancing logic goes through this state machine */
 typedef enum RebalanceState {

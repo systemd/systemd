@@ -4,6 +4,7 @@
 
 #include "firewall-util.h"
 #include "firewall-util-private.h"
+#include "in-addr-util.h"
 #include "log.h"
 #include "random-util.h"
 #include "socket-util.h"

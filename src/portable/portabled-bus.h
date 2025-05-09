@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
+#include "forward.h"
+#include "sd-bus-vtable.h"
 
 typedef struct PortableChange PortableChange;
 

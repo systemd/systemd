@@ -1,15 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-device.h"
-#include "sd-event.h"
-#include "sd-netlink.h"
-
-#include "errno-list.h"
-#include "hashmap.h"
-#include "time-util.h"
+#include "forward.h"
 #include "udev-config.h"
 
 #define DEFAULT_WORKER_TIMEOUT_USEC (3 * USEC_PER_MINUTE)

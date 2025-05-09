@@ -5,7 +5,6 @@
 #include "analyze-smbios11.h"
 #include "escape.h"
 #include "smbios11.h"
-#include "virt.h"
 
 int verb_smbios11(int argc, char *argv[], void *userdata) {
         unsigned n = 0;

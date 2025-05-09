@@ -2,7 +2,10 @@
 
 #include "analyze.h"
 #include "analyze-architectures.h"
+#include "architecture.h"
 #include "format-table.h"
+#include "string-util.h"
+#include "strv.h"
 
 static int add_arch(Table *t, Architecture a) {
         const char *c, *color;

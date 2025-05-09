@@ -7,7 +7,9 @@
 #include "bootctl-util.h"
 #include "errno-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "sync-util.h"
 
 int sync_everything(void) {

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <errno.h>
 #include <net/if_arp.h>
 #include <netinet/in.h>
 #include <resolv.h>
@@ -10,7 +9,6 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
-#include "macro.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "tests.h"

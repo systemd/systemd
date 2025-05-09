@@ -6,14 +6,15 @@
 
 #include "crash-handler.h"
 #include "exit-status.h"
-#include "macro.h"
+#include "format-util.h"
+#include "log.h"
 #include "main.h"
-#include "missing_syscall.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
 #include "signal-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "terminal-util.h"
 #include "virt.h"
 

@@ -3,7 +3,6 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <netinet/in.h>
 
 #include "sd-dhcp6-client.h"
@@ -16,6 +15,8 @@
 #include "escape.h"
 #include "memory-util.h"
 #include "network-common.h"
+#include "ordered-set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
 
