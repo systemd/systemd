@@ -51,6 +51,7 @@
 #include "path-util.h"
 #include "pidfd-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
 #include "signal-util.h"

@@ -18,6 +18,7 @@
 #include "parse-util.h"
 #include "pidfd-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "uid-range.h"

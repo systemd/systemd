@@ -21,6 +21,7 @@
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"

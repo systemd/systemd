@@ -14,6 +14,10 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
+int procfs_file_get_field(pid_t pid, const char *name, const char *key, char **ret) {
+        return get_proc_field(procfs_file_alloca(pid, name), key, ret);
+}
+
 int procfs_get_pid_max(uint64_t *ret) {
         _cleanup_free_ char *value = NULL;
         int r;

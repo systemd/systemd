@@ -13,6 +13,7 @@
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "uid-range.h"

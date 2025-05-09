@@ -54,6 +54,7 @@
 #include "osc-context.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "psi-util.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"

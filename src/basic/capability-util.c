@@ -19,6 +19,7 @@
 #include "logarithm.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "procfs-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"

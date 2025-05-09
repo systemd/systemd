@@ -20,6 +20,7 @@
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "smack-util.h"
 #include "stdio-util.h"
 #include "string-table.h"

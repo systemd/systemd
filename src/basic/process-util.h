@@ -19,25 +19,6 @@
 #include "pidref.h"
 #include "time-util.h"
 
-#define procfs_file_alloca(pid, field)                                  \
-        ({                                                              \
-                pid_t _pid_ = (pid);                                    \
-                const char *_field_ = (field);                          \
-                char *_r_;                                              \
-                if (_pid_ == 0)                                         \
-                        _r_ = strjoina("/proc/self/", _field_);         \
-                else {                                                  \
-                        assert(_pid_ > 0);                              \
-                        _r_ = newa(char, STRLEN("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + strlen(_field_) + 1); \
-                        sprintf(_r_, "/proc/" PID_FMT "/%s", _pid_, _field_); \
-                }                                                       \
-                (const char*) _r_;                                      \
-        })
-
-static inline int procfs_file_get_field(pid_t pid, const char *name, const char *key, char **ret) {
-        return get_proc_field(procfs_file_alloca(pid, name), key, ret);
-}
-
 typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
         PROCESS_CMDLINE_USE_LOCALE    = 1 << 1,

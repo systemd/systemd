@@ -19,6 +19,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"

@@ -5,6 +5,7 @@
 #include "fileio.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "stat-util.h"
 #include "user-util.h"
 #include "virt.h"

@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "rlimit-util.h"
 #include "string-table.h"
 #include "strv.h"

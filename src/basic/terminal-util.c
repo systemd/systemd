@@ -43,6 +43,7 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
