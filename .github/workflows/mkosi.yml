@@ -61,7 +61,6 @@ jobs:
             cflags: "-O2 -D_FORTIFY_SOURCE=3"
             relabel: no
             vm: 1
-            skip: TEST-21-DFUZZER
           - distro: debian
             release: testing
             sanitizers: ""
@@ -69,7 +68,6 @@ jobs:
             cflags: "-Og"
             relabel: no
             vm: 0
-            skip: TEST-21-DFUZZER
           - distro: ubuntu
             release: noble
             sanitizers: ""
@@ -77,7 +75,6 @@ jobs:
             cflags: "-Og"
             relabel: no
             vm: 0
-            skip: TEST-21-DFUZZER
           - distro: fedora
             release: "42"
             sanitizers: address,undefined
@@ -92,7 +89,6 @@ jobs:
             cflags: "-Og"
             relabel: yes
             vm: 0
-            skip: TEST-21-DFUZZER
           - distro: opensuse
             release: tumbleweed
             sanitizers: ""
@@ -100,7 +96,6 @@ jobs:
             cflags: "-Og"
             relabel: no
             vm: 0
-            skip: TEST-21-DFUZZER
           - distro: centos
             release: "9"
             sanitizers: ""
@@ -108,7 +103,6 @@ jobs:
             cflags: "-Og"
             relabel: yes
             vm: 0
-            skip: TEST-21-DFUZZER
           - distro: centos
             release: "10"
             sanitizers: ""
@@ -116,7 +110,6 @@ jobs:
             cflags: "-Og"
             relabel: yes
             vm: 0
-            skip: TEST-21-DFUZZER
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -228,7 +221,6 @@ jobs:
           sudo --preserve-env mkosi sandbox -- \
             env \
             TEST_PREFER_QEMU=${{ matrix.vm }} \
-            TEST_SKIP=${{ matrix.skip }} \
             meson test \
             -C build \
             --no-rebuild \
