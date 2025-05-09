@@ -10,7 +10,6 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
-#include "bitfield.h"
 #include "daemon-util.h"
 #include "fd-util.h"
 #include "networkd-link.h"
@@ -175,11 +174,11 @@ static int netdev_create_tuntap(NetDev *netdev) {
                         return log_netdev_error_errno(netdev, errno, "TUNSETQUEUE failed: %m");
         }
 
-        if (t->uid != 0)
+        if (uid_is_valid(t->uid))
                 if (ioctl(fd, TUNSETOWNER, t->uid) < 0)
                         return log_netdev_error_errno(netdev, errno, "TUNSETOWNER failed: %m");
 
-        if (t->gid != 0)
+        if (gid_is_valid(t->gid))
                 if (ioctl(fd, TUNSETGROUP, t->gid) < 0)
                         return log_netdev_error_errno(netdev, errno, "TUNSETGROUP failed: %m");
 
@@ -209,6 +208,13 @@ static void tuntap_done(NetDev *netdev) {
         t->group_name = mfree(t->group_name);
 }
 
+static void tuntap_init(NetDev *netdev) {
+        TunTap *t = TUNTAP(netdev);
+
+        t->uid = UID_INVALID;
+        t->gid = GID_INVALID;
+}
+
 static int tuntap_verify(NetDev *netdev, const char *filename) {
         TunTap *t = TUNTAP(netdev);
         int r;
@@ -229,11 +235,8 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
 
         if (t->user_name) {
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-                UserDBMatch match = USERDB_MATCH_NULL;
 
-                match.disposition_mask = INDEX_TO_MASK(uint64_t, USER_SYSTEM);
-
-                r = userdb_by_name(t->user_name, &match, USERDB_PARSE_NUMERIC, &ur);
+                r = userdb_by_name(t->user_name, &USERDB_MATCH_ROOT_AND_SYSTEM, USERDB_PARSE_NUMERIC, &ur);
                 if (r == -ENOEXEC)
                         log_netdev_warning_errno(netdev, r, "User %s is not a system user, ignoring.", t->user_name);
                 else if (r < 0)
@@ -244,11 +247,8 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
 
         if (t->group_name) {
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-                UserDBMatch match = USERDB_MATCH_NULL;
 
-                match.disposition_mask = INDEX_TO_MASK(uint64_t, USER_SYSTEM);
-
-                r = groupdb_by_name(t->group_name, &match, USERDB_PARSE_NUMERIC, &gr);
+                r = groupdb_by_name(t->group_name, &USERDB_MATCH_ROOT_AND_SYSTEM, USERDB_PARSE_NUMERIC, &gr);
                 if (r == -ENOEXEC)
                         log_netdev_warning_errno(netdev, r, "Group %s is not a system group, ignoring.", t->group_name);
                 else if (r < 0)
@@ -263,6 +263,7 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
 const NetDevVTable tun_vtable = {
         .object_size = sizeof(TunTap),
         .sections = NETDEV_COMMON_SECTIONS "Tun\0",
+        .init = tuntap_init,
         .config_verify = tuntap_verify,
         .drop = tuntap_drop,
         .done = tuntap_done,
@@ -274,6 +275,7 @@ const NetDevVTable tun_vtable = {
 const NetDevVTable tap_vtable = {
         .object_size = sizeof(TunTap),
         .sections = NETDEV_COMMON_SECTIONS "Tap\0",
+        .init = tuntap_init,
         .config_verify = tuntap_verify,
         .drop = tuntap_drop,
         .done = tuntap_done,
