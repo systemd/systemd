@@ -360,6 +360,7 @@ libshared_static = static_library(
         libshared_name,
         shared_sources,
         include_directories : includes,
+        implicit_include_directories : false,
         dependencies : [libshared_deps,
                         userspace],
         c_args : ['-fvisibility=default'],
@@ -368,6 +369,7 @@ libshared_static = static_library(
 libshared = shared_library(
         libshared_name,
         include_directories : includes,
+        implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
@@ -386,6 +388,7 @@ libshared_fdisk = static_library(
         'shared-fdisk',
         shared_fdisk_sources,
         include_directories : includes,
+        implicit_include_directories : false,
         dependencies : [libfdisk,
                         userspace],
         c_args : ['-fvisibility=default'],
