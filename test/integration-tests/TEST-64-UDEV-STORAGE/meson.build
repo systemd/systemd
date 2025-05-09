@@ -146,6 +146,7 @@ udev_storage_tests += udev_storage_test_template + {
         'name' : 'simultaneous_events',
         'cmdline' : cmdline,
         'qemu-args' : qemu_args,
+        'priority' : 10,
 }
 
 cmdline = []
@@ -256,7 +257,7 @@ foreach testcase : udev_storage_tests
                                 },
                         },
                         'mkosi-args' : integration_test_template['mkosi-args'] + cmdline,
-                        'priority' : 10,
+                        'priority' : testcase.get('priority', 0),
                         'vm' : true,
                         # Suppress ASan error
                         # 'multipathd[1820]: ==1820==ERROR: AddressSanitizer: Joining already joined thread, aborting.'
