@@ -210,6 +210,10 @@ testcase_vc_keymap() {
 
     for i in $(localectl list-keymaps); do
         # set VC keymap
+
+        # Skip lv keymap and friends, otherwise the sanitizer detects heap-buffer-overflow in libxkbcommon.
+        [[ "$i" =~ ^lv ]] && continue
+
         assert_rc 0 localectl set-keymap "$i"
         output=$(localectl)
 
