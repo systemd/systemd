@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/un.h>
 
+#include "alloc-util.h"
 #include "journald-server.h"
 #include "log.h"
 #include "path-util.h"

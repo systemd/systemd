@@ -4,6 +4,7 @@
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "dissect-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"

@@ -2,6 +2,8 @@
 
 #include <sys/mount.h>
 
+#include "sd-journal.h"
+
 #include "af-list.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -23,6 +25,7 @@
 #include "journal-file.h"
 #include "list.h"
 #include "locale-util.h"
+#include "logs-show.h"
 #include "memory-util.h"
 #include "numa-util.h"
 #include "open-file.h"
@@ -30,10 +33,12 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "sort-util.h"
 #include "special.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "systemctl.h"
 #include "systemctl-list-machines.h"
 #include "systemctl-list-units.h"

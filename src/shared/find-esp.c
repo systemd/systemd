@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/magic.h>
+#include <stdlib.h>
 #include <sys/vfs.h>
 
 #include "sd-device.h"
@@ -16,7 +17,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "find-esp.h"
-#include "gpt.h"
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"

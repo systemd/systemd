@@ -2,8 +2,8 @@
 #pragma once
 
 #include "ask-password-api.h"
+#include "forward.h"
 #include "iovec-util.h"
-#include "memory-util.h"
 #include "sha256.h"
 
 typedef enum CertificateSourceType {

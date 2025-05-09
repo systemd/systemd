@@ -5,7 +5,6 @@
   Author: Auke Kok <auke-jan.h.kok@intel.com>
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
@@ -17,12 +16,9 @@
 #include "fileio.h"
 #include "label.h"
 #include "log.h"
-#include "macro.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "procfs-util.h"
 #include "smack-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "xattr-util.h"
 

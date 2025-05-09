@@ -10,6 +10,7 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 
 DNSServer* dns_server_free(DNSServer *s) {

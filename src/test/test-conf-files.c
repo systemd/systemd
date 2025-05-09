@@ -5,6 +5,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"

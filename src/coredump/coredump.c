@@ -9,6 +9,7 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-json.h"
@@ -27,10 +28,12 @@
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
 #include "elf-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "journal-importer.h"
 #include "journal-send.h"
@@ -45,6 +48,7 @@
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "signal-util.h"

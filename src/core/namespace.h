@@ -11,8 +11,10 @@ typedef struct TemporaryFileSystem TemporaryFileSystem;
 typedef struct MountImage MountImage;
 
 #include <stdbool.h>
+#include <unistd.h>
 
 #include "dissect-image.h"
+#include "errno-util.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "namespace-util.h"

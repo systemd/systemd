@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "pidref.h"
 
 #define TEST_CAPABILITY_C
 

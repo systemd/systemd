@@ -2,6 +2,7 @@
 
 #include "log.h"
 #include "tests.h"
+#include "string-util.h"
 #include "udev-node.h"
 
 static void test_udev_node_escape_path_one(const char *path, const char *expected) {

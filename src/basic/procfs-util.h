@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
 #include "alloc-util.h"
+#include "format-util.h"
+#include "forward.h"
 #include "string-util.h"
-#include "time-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \

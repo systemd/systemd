@@ -12,6 +12,7 @@
 #include "networkd-route-nexthop.h"
 #include "networkd-route-util.h"
 #include "parse-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 
 void route_detach_from_nexthop(Route *route) {

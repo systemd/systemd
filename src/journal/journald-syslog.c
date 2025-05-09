@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <sys/epoll.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-messages.h"

@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
@@ -9,9 +10,11 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "initrd-util.h"

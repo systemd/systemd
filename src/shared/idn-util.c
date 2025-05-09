@@ -7,7 +7,6 @@
 #  include <stringprep.h>
 #endif
 
-#include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "idn-util.h"
 #include "log.h"

@@ -11,14 +11,10 @@
 #include "sd-radv.h"
 
 #include "alloc-util.h"
-#include "dns-domain.h"
-#include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
-#include "iovec-util.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "ndisc-router-solicit-internal.h"
 #include "network-common.h"
@@ -26,8 +22,6 @@
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "strv.h"
-#include "unaligned.h"
 
 int sd_radv_new(sd_radv **ret) {
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;

@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>

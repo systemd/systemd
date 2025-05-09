@@ -5,6 +5,7 @@
 
 #include "dhcp6-client-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"

@@ -3,6 +3,7 @@
 #include <netdb.h>
 #include <nss.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #include "sd-bus.h"
 #include "sd-login.h"

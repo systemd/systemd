@@ -20,6 +20,7 @@
 #include "networkd-setlink.h"
 #include "networkd-sriov.h"
 #include "networkd-wiphy.h"
+#include "socket-util.h"
 
 static int get_link_default_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return link_getlink_handler_internal(rtnl, m, link, "Failed to sync link information");

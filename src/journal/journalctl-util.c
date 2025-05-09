@@ -13,6 +13,7 @@
 #include "logs-show.h"
 #include "nulstr-util.h"
 #include "rlimit-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"

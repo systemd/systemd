@@ -13,6 +13,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
 #include "macro.h"

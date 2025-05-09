@@ -3,6 +3,8 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-add-dependency.h"
 #include "systemctl-daemon-reload.h"

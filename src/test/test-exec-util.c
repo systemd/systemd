@@ -20,6 +20,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int here = 0, here2 = 0, here3 = 0;
