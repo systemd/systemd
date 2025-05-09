@@ -46,7 +46,7 @@ EOF
     systemctl --root="$CONTAINER_ROOT_DIR" enable test-service.service
 }
 
-helper_proc=$(mktemp -d /tmp/helper-proc-XXXX)
+# helper_proc=$(mktemp -d /tmp/helper-proc-XXXX)
 
 testcase_multiple_features() {
     local bind_mount_arg="${HOST_MOUNT_DIR}:${INTERNAL_MOUNT_DIR}"
@@ -56,32 +56,23 @@ testcase_multiple_features() {
     # The internal directory will be created by systemd-run
     mkdir -p "$HOST_MOUNT_DIR"
 
-    mount -t proc proc "$helper_proc"
+    # mount -t proc proc "$helper_proc"
 
     mkdir -p "$CONTAINER_ROOT_DIR"
 
     # Mount tmpfs
     mount -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
-    mkdir -p "$CONTAINER_ROOT_DIR"/{usr,var,run}
-
-    # Bind mount /usr
-    # Trade this out for   -p BindReadOnlyPaths=/usr \
-    mount --bind /usr "$CONTAINER_ROOT_DIR"/usr
 
     internal_writer
 
+    mkdir -p "$CONTAINER_ROOT_DIR"/usr
+    mount --bind /usr "$CONTAINER_ROOT_DIR"/usr
     mount -o remount,bind,ro "$CONTAINER_ROOT_DIR/usr"
-
-    # hack copy machine id into container
-    mkdir -p "$CONTAINER_ROOT_DIR"/etc
-
-    # Firstboot failing without this
-    cp /etc/machine-id "$CONTAINER_ROOT_DIR"/etc/machine-id
-    # -p MountAPIVFS=yes \
 
     systemd-run \
     --unit "$FILE_WR_SERVICE" \
     --wait \
+    -p BindReadOnlyPaths=/etc/machine-id \
     -p RootDirectory="$CONTAINER_ROOT_DIR" \
     -p PrivatePIDs=yes \
     -p PrivateUsersEx=full \
@@ -108,8 +99,8 @@ testcase_multiple_features() {
 at_exit() {
     set +e
 
-    umount "$helper_proc"
-    rmdir  "$helper_proc"
+    # umount "$helper_proc"
+    # rmdir  "$helper_proc"
 
     umount -l "$CONTAINER_ROOT_DIR/usr"
     umount -l "$CONTAINER_ROOT_DIR"
