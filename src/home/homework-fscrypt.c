@@ -3,10 +3,13 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/xattr.h>
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "hexdecoct.h"
 #include "homework-fscrypt.h"
 #include "homework-mount.h"
@@ -26,6 +29,7 @@
 #include "random-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"

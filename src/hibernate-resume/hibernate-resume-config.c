@@ -7,6 +7,7 @@
 #include "efivars.h"
 #include "fstab-util.h"
 #include "hibernate-resume-config.h"
+#include "log.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"

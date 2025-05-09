@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -12,6 +13,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "systemctl.h"
 #include "systemctl-sysv-compat.h"

@@ -6,6 +6,7 @@
 #include "sd-daemon.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "argv-util.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -14,7 +15,9 @@
 #include "io-util.h"
 #include "json-util.h"
 #include "main-func.h"
+#include "pidref.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "user-record.h"

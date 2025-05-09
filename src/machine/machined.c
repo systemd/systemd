@@ -17,6 +17,7 @@
 #include "daemon-util.h"
 #include "dirent-util.h"
 #include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hostname-util.h"

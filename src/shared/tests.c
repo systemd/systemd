@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <signal.h>
-#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
@@ -21,7 +19,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"

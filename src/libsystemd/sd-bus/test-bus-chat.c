@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <pthread.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -18,6 +17,7 @@
 #include "macro.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 static int match_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Match triggered! destination=%s interface=%s member=%s",

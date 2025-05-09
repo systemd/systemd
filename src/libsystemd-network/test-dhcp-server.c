@@ -10,6 +10,8 @@
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "hashmap.h"
+#include "siphash24.h"
 #include "tests.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {

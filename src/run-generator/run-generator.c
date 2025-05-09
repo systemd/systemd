@@ -8,10 +8,12 @@
 #include "fileio.h"
 #include "generator.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "strv.h"
 
 static const char *arg_dest = NULL;

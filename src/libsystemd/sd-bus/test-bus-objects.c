@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <pthread.h>
-#include <stdlib.h>
 
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "bus-dump.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "log.h"

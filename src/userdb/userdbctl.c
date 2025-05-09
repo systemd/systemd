@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bitfield.h"
@@ -9,11 +11,13 @@
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir-label.h"
@@ -23,6 +27,7 @@
 #include "pretty-print.h"
 #include "recurse-dir.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "uid-classification.h"

@@ -1,23 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
-#include "cgroup-util.h"
 #include "clean-ipc.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "label-util.h"
 #include "limits-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
@@ -26,9 +25,7 @@
 #include "logind-user-dbus.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "percent-util.h"
-#include "rm-rf.h"
 #include "serialize.h"
 #include "special.h"
 #include "stdio-util.h"
@@ -37,6 +34,7 @@
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "unit-name.h"
+#include "user-record.h"
 #include "user-util.h"
 
 int user_new(Manager *m, UserRecord *ur, User **ret) {

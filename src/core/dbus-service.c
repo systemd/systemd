@@ -17,6 +17,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "glyph-util.h"
 #include "locale-util.h"
 #include "missing_fcntl.h"
 #include "open-file.h"

@@ -8,23 +8,15 @@
 #include "bus-label.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
-#include "copy.h"
 #include "discover-image.h"
-#include "dissect-image.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "fs-util.h"
 #include "image-dbus.h"
 #include "io-util.h"
-#include "loop-util.h"
 #include "machined.h"
-#include "mount-util.h"
 #include "operation.h"
 #include "os-util.h"
 #include "process-util.h"
-#include "raw-clone.h"
 #include "strv.h"
-#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 

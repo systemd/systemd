@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "journald-server.h"
@@ -11,6 +12,7 @@
 #include "log.h"
 #include "macro.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "socket-util.h"
 #include "sparse-endian.h"
 

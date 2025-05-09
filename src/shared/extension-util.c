@@ -7,6 +7,7 @@
 #include "extension-util.h"
 #include "log.h"
 #include "os-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 int extension_release_validate(

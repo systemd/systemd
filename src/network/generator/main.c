@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "build.h"
@@ -9,12 +10,14 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "generator.h"
+#include "log.h"
 #include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "network-generator.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "string-util.h"
 
 #define NETWORK_UNIT_DIRECTORY "/run/systemd/network/"
 

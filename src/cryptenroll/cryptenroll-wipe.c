@@ -2,10 +2,12 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "cryptenroll.h"
 #include "cryptenroll-wipe.h"
 #include "json-util.h"
 #include "log.h"
+#include "macro.h"
 #include "memory-util.h"
 #include "parse-util.h"
 #include "set.h"

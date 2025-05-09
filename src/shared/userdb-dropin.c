@@ -6,9 +6,9 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "group-record.h"
-#include "log.h"
 #include "path-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "user-util.h"
 #include "userdb-dropin.h"
 

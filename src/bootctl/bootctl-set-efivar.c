@@ -9,6 +9,7 @@
 #include "efi-loader.h"
 #include "efivars.h"
 #include "stdio-util.h"
+#include "time-util.h"
 #include "utf8.h"
 #include "virt.h"
 

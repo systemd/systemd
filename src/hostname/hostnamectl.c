@@ -19,6 +19,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
+#include "errno-util.h"
 #include "format-table.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -28,7 +29,9 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static bool arg_ask_password = true;

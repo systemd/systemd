@@ -10,7 +10,6 @@
 #include "errno-list.h"
 #include "errno-util.h"
 #include "parse-util.h"
-#include "set.h"
 #include "string-util.h"
 
 #if HAVE_SECCOMP

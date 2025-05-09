@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <grp.h>
 #include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
+#include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include "stat-util.h"
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
@@ -54,6 +57,7 @@
 #include "osc-context.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "psi-util.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"

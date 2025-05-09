@@ -2,6 +2,7 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-is-enabled.h"
 #include "systemctl-sysv-compat.h"

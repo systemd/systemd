@@ -14,6 +14,7 @@
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 

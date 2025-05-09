@@ -3,6 +3,7 @@
 #include "sd-daemon.h"
 
 #include "dns-type.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"
@@ -12,6 +13,7 @@
 #include "resolved-manager.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
+#include "string-util.h"
 
 /* Taken from resolved-dns-stub.c */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)

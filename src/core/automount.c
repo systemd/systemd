@@ -16,6 +16,7 @@
 #include "bus-util.h"
 #include "dbus-automount.h"
 #include "dbus-unit.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fstab-util.h"

@@ -12,6 +12,7 @@
 #include "path-util.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
+#include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"

@@ -11,6 +11,7 @@
 #include "random-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 typedef int (compress_t)(const void *src, uint64_t src_size, void *dst,
                          size_t dst_alloc_size, size_t *dst_size, int level);

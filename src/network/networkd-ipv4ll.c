@@ -3,6 +3,7 @@
 #include <linux/if.h>
 #include <netinet/in.h>
 
+#include "errno-util.h"
 #include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv4acd.h"

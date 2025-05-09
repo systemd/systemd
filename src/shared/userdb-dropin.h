@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "constants.h"
-#include "group-record.h"
-#include "user-record.h"
+#include "forward.h"
 #include "userdb.h"
 
 /* This could be put together with CONF_PATHS_NULSTR, with the exception of the /run/host/ part in the

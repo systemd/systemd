@@ -3,25 +3,21 @@
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
 #endif
-#include <errno.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "dirent-util.h"
 #include "env-util.h"
-#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
 #include "namespace-util.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "process-util.h"
-#include "stat-util.h"
+#include "procfs-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

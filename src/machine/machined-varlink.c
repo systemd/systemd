@@ -4,6 +4,7 @@
 
 #include "bus-polkit.h"
 #include "discover-image.h"
+#include "errno-util.h"
 #include "format-util.h"
 #include "hostname-util.h"
 #include "image-varlink.h"

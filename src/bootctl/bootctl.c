@@ -16,6 +16,7 @@
 #include "devnum-util.h"
 #include "dissect-image.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "escape.h"
 #include "find-esp.h"
 #include "main-func.h"

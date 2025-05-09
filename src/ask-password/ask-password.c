@@ -12,6 +12,7 @@
 #include "build.h"
 #include "bus-polkit.h"
 #include "constants.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
 #include "macro.h"
@@ -19,8 +20,10 @@
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "varlink-io.systemd.AskPassword.h"
 #include "varlink-util.h"
 

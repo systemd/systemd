@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptenroll-fido2.h"
 #include "cryptsetup-fido2.h"
@@ -12,6 +13,7 @@
 #include "memory-util.h"
 #include "pretty-print.h"
 #include "random-util.h"
+#include "string-util.h"
 
 int load_volume_key_fido2(
                 struct crypt_device *cd,

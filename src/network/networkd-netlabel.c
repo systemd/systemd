@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "escape.h"
+#include "missing_network.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-link.h"

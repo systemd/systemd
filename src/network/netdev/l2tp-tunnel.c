@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "hashmap.h"
 #include "l2tp-tunnel.h"
 #include "netlink-util.h"

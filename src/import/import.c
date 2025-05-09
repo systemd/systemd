@@ -133,7 +133,7 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int import_tar(int argc, char *argv[], void *userdata) {
@@ -202,7 +202,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int import_raw(int argc, char *argv[], void *userdata) {

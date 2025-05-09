@@ -2,8 +2,8 @@
 
 #include "alloc-util.h"
 #include "dns-resolver-internal.h"
-#include "log.h"
-#include "macro.h"
+#include "errno-util.h"
+#include "siphash24.h"
 #include "socket-netlink.h"
 #include "stdio-util.h"
 #include "string-table.h"

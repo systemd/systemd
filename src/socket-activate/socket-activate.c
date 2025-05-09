@@ -15,6 +15,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"

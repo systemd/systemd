@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "confidential-virt.h"
@@ -30,6 +31,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
 #include "sysctl-util.h"

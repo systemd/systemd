@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -13,9 +12,9 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-table.h"
-#include "format-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "pager.h"
@@ -23,6 +22,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"

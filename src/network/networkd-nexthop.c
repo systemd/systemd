@@ -6,6 +6,8 @@
 #include <net/if.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

@@ -3,6 +3,7 @@
 
 #include "device-enumerator-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

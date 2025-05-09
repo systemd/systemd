@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "conf-parser.h"
@@ -14,6 +15,7 @@
 #include "proc-cmdline.h"
 #include "serialize.h"
 #include "signal-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "udev-config.h"
 #include "udev-manager.h"

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
 
 #if HAVE_AUDIT
 #  include <libaudit.h>
@@ -15,6 +16,8 @@
 #include "creds-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -38,6 +41,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "tmpfile-util-label.h"
 #include "uid-classification.h"
 #include "uid-range.h"

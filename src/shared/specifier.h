@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "string-util.h"
+#include "forward.h"
 
 typedef int (*SpecifierCallback)(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 
@@ -98,9 +98,7 @@ int specifier_var_tmp_dir(char specifier, const void *data, const char *root, co
         { 'T', specifier_tmp_dir,          NULL }, \
         { 'V', specifier_var_tmp_dir,      NULL }
 
-static inline char* specifier_escape(const char *string) {
-        return strreplace(string, "%", "%%");
-}
+char* specifier_escape(const char *string);
 
 int specifier_escape_strv(char **l, char ***ret);
 

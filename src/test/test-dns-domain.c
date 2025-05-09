@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "in-addr-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "tests.h"

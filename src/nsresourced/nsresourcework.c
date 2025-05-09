@@ -5,6 +5,7 @@
 #include <linux/nsfs.h>
 #include <linux/veth.h>
 #include <net/if.h>
+#include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -18,10 +19,14 @@
 #include "argv-util.h"
 #include "bus-polkit.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "group-record.h"
+#include "hashmap.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "lock-util.h"
@@ -32,10 +37,13 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "netlink-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "uid-classification.h"

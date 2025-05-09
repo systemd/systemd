@@ -3,6 +3,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "systemctl.h"
 #include "systemctl-service-watchdogs.h"
 #include "systemctl-util.h"

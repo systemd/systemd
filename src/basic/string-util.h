@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
 #include <string.h>
-#include <sys/types.h>
 
 #include "alloc-util.h"
+#include "forward.h"
 #include "macro.h"
 #include "string-util-fundamental.h"
 

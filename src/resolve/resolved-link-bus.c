@@ -24,6 +24,7 @@
 #include "resolved-resolv-conf.h"
 #include "socket-netlink.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 

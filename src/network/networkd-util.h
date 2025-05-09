@@ -10,6 +10,7 @@
 #include "macro.h"
 #include "network-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef struct Link Link;
 

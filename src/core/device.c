@@ -12,6 +12,7 @@
 #include "device.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "extract-word.h"
 #include "log.h"
 #include "manager.h"
 #include "parse-util.h"

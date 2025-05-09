@@ -6,11 +6,10 @@
 #include "sd-bus.h"
 
 #include "bus-dump.h"
-#include "bus-util.h"
 #include "fd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "socket-util.h"
-#include "sort-util.h"
 #include "tests.h"
 #include "user-util.h"
 

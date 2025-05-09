@@ -6,9 +6,6 @@
 #include "errno-util.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "parse-util.h"
-#include "stat-util.h"
-#include "string-util.h"
 
 static int saved_in_initrd = -1;
 

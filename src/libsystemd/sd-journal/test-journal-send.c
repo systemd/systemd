@@ -8,8 +8,6 @@
 
 #include "fileio.h"
 #include "journal-send.h"
-#include "macro.h"
-#include "memory-util.h"
 #include "tests.h"
 
 TEST(journal_print) {

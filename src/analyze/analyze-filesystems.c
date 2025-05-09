@@ -5,6 +5,7 @@
 #include "analyze-filesystems.h"
 #include "fileio.h"
 #include "filesystems.h"
+#include "nulstr-util.h"
 #include "set.h"
 #include "strv.h"
 #include "terminal-util.h"

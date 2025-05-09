@@ -3,8 +3,6 @@
 
 #include <stdbool.h>
 
-#include "assert-util.h"
-
 int _nss_systemd_block(bool b);
 bool _nss_systemd_is_blocked(void);
 

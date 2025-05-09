@@ -6,6 +6,7 @@
 #include "creds-util.h"
 #include "discover-image.h"
 #include "efivars.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"

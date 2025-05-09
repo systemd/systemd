@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/timex.h>
 #include <sys/types.h>
@@ -25,6 +26,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -38,9 +40,11 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "service-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"

@@ -4,6 +4,7 @@
 #include "analyze.h"
 #include "analyze-srk.h"
 #include "fileio.h"
+#include "terminal-util.h"
 #include "tpm2-util.h"
 
 int verb_srk(int argc, char *argv[], void *userdata) {

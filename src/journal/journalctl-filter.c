@@ -15,6 +15,8 @@
 #include "logs-show.h"
 #include "missing_sched.h"
 #include "path-util.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 

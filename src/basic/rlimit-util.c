@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -9,9 +7,9 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "log.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "rlimit-util.h"
 #include "string-table.h"
 #include "strv.h"

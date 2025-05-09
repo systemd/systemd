@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "special.h"

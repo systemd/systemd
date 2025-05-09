@@ -56,7 +56,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int export_tar(int argc, char *argv[], void *userdata) {
@@ -129,7 +129,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int export_raw(int argc, char *argv[], void *userdata) {

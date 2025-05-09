@@ -3,6 +3,7 @@
 #include <fnmatch.h>
 
 #include "compare-operator.h"
+#include "macro.h"
 #include "string-util.h"
 
 CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags flags) {

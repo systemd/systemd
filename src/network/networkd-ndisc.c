@@ -10,6 +10,7 @@
 
 #include "sd-ndisc.h"
 
+#include "errno-util.h"
 #include "event-util.h"
 #include "missing_network.h"
 #include "ndisc-router-internal.h"
@@ -23,6 +24,7 @@
 #include "networkd-route.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"

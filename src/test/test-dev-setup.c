@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "capability-util.h"
 #include "dev-setup.h"
 #include "fs-util.h"

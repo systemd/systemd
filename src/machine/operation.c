@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "machine.h"
 #include "machined.h"

@@ -8,7 +8,9 @@
 
 #include "bus-polkit.h"
 #include "copy.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "machine.h"

@@ -4,6 +4,7 @@
 
 #if HAVE_QRENCODE
 #include <qrencode.h>
+#include <stdio.h>
 
 #include "ansi-color.h"
 #include "dlfcn-util.h"

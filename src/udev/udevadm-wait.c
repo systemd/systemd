@@ -18,7 +18,9 @@
 #include "path-util.h"
 #include "static-destruct.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "udev-util.h"
 #include "udevadm.h"
 

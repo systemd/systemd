@@ -15,6 +15,7 @@
 #include "daemon-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"

@@ -20,6 +20,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 

@@ -10,6 +10,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "strv.h"

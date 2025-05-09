@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <stdbool.h>
 
 #include "sd-bus.h"
 
@@ -20,12 +19,10 @@
 #include "pager.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
-#include "proc-cmdline.h"
-#include "set.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "verbs.h"
-#include "virt.h"
 
 /* Enough time for locale-gen to finish server-side (in case it is in use) */
 #define LOCALE_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)

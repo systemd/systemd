@@ -5,6 +5,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "home-util.h"
 #include "homework.h"
 #include "homework-blob.h"
@@ -15,9 +16,11 @@
 #include "recurse-dir.h"
 #include "rm-rf.h"
 #include "sha256.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
+#include "user-util.h"
 #include "utf8.h"
 
 static int copy_one_blob(

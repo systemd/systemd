@@ -12,6 +12,7 @@
 #include "networkctl-status-system.h"
 #include "networkctl-util.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 static int ifindex_str_compare_func(char * const *a, char * const *b) {

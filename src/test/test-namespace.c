@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sched.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sysexits.h>
@@ -11,6 +12,7 @@
 #include "namespace.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "uid-range.h"

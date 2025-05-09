@@ -1,12 +1,9 @@
 #ifndef SD_DNS_RESOLVER_H
 #define SD_DNS_RESOLVER_H
 
-#include <errno.h>
-#include <netinet/in.h>
-#include <stddef.h>
-#include <stdint.h>
-
 #include "_sd-common.h"
+
+#include "forward.h"
 
 _SD_BEGIN_DECLARATIONS;
 

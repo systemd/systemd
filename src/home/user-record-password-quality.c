@@ -7,6 +7,7 @@
 #include "libcrypt-util.h"
 #include "log.h"
 #include "password-quality-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-password-quality.h"
 #include "user-record-util.h"

@@ -2,13 +2,8 @@
 #pragma once
 
 #include <linux/bpf.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/syscall.h>
 
-#include "fdset.h"
-#include "list.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef struct BPFProgram BPFProgram;
 

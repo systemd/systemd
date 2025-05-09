@@ -9,6 +9,7 @@
 #include "networkctl.h"
 #include "networkctl-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "varlink-util.h"
 

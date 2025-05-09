@@ -15,6 +15,7 @@
 #include "creds-util.h"
 #include "dns-domain.h"
 #include "event-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"

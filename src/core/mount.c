@@ -18,6 +18,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
+#include "glyph-util.h"
 #include "initrd-util.h"
 #include "libmount-util.h"
 #include "log.h"

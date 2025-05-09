@@ -6,7 +6,10 @@
 #include <net/if.h>
 
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "parse-util.h"
+#include "siphash24.h"
+#include "string-util.h"
 #include "vlan.h"
 #include "vlan-util.h"
 

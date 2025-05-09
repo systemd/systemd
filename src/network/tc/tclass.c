@@ -16,6 +16,7 @@
 #include "parse-util.h"
 #include "qfq.h"
 #include "set.h"
+#include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tc-util.h"

@@ -14,6 +14,7 @@
 #include "bus-wait-for-jobs.h"
 #include "conf-files.h"
 #include "edit-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "log.h"
 #include "mkdir-label.h"
@@ -27,9 +28,12 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "virt.h"
 
 typedef enum ReloadFlags {

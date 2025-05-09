@@ -1,18 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "constants.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "log.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
+
+int procfs_file_get_field(pid_t pid, const char *name, const char *key, char **ret) {
+        return get_proc_field(procfs_file_alloca(pid, name), key, ret);
+}
 
 int procfs_get_pid_max(uint64_t *ret) {
         _cleanup_free_ char *value = NULL;

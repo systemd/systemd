@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdio.h>
-
-#include "sd-bus.h"
-
+#include "forward.h"
 #include "memstream-util.h"
-#include "ordered-set.h"
 
 struct introspect {
         MemStream m;

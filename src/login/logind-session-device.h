@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "list.h"
-#include "memory-util.h"
 
 typedef struct Device Device;
 typedef struct Session Session;

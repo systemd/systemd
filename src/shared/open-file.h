@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
+#include "forward.h"
 #include "list.h"
-#include "macro.h"
-#include "memory-util.h"
 
 typedef enum OpenFileFlag {
         OPENFILE_READ_ONLY = 1 << 0,
@@ -33,9 +30,7 @@ int open_file_to_string(const OpenFile *of, char **ret);
 OpenFile* open_file_free(OpenFile *of);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OpenFile*, open_file_free);
 
-static inline void open_file_free_many(OpenFile **head) {
-        LIST_CLEAR(open_files, *ASSERT_PTR(head), open_file_free);
-}
+void open_file_free_many(OpenFile **head);
 
 const char* open_file_flags_to_string(OpenFileFlag t) _const_;
 OpenFileFlag open_file_flags_from_string(const char *t) _pure_;

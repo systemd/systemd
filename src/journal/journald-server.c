@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/sockios.h>
+#include <sys/stat.h>
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif

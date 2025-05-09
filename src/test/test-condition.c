@@ -17,6 +17,7 @@
 #include "confidential-virt.h"
 #include "cpu-set-util.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fileio.h"

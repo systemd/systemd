@@ -15,6 +15,7 @@
 #include "nss-util.h"
 #include "pthread-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-nss.h"
 #include "user-util.h"

@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "initrd-util.h"
 #include "macro.h"
 #include "manager.h"

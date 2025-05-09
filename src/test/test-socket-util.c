@@ -18,6 +18,7 @@
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"

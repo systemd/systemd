@@ -2,11 +2,10 @@
 #pragma once
 
 #include "sd-dhcp-server-lease.h"
-#include "sd-json.h"
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-server-internal.h"
-#include "time-util.h"
+#include "forward.h"
 
 typedef struct sd_dhcp_server_lease {
         unsigned n_ref;

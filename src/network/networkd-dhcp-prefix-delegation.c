@@ -3,6 +3,7 @@
 #include <linux/ipv6_route.h>
 
 #include "dhcp6-lease-internal.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "in-addr-prefix-util.h"
 #include "networkd-address.h"

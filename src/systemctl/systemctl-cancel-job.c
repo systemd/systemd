@@ -2,7 +2,9 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "errno-util.h"
 #include "parse-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-cancel-job.h"
 #include "systemctl-trivial-method.h"

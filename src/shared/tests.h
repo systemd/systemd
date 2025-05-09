@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include <stdlib.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 
@@ -10,6 +10,7 @@
 #include "argv-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
+#include "forward.h"
 #include "log.h"
 #include "macro.h"
 #include "process-util.h"
@@ -17,6 +18,7 @@
 #include "signal-util.h"
 #include "static-destruct.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 static inline void log_set_assert_return_is_criticalp(bool *p) {

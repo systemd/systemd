@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
 #include "ask-password-api.h"
 #include "cryptsetup-util.h"
 #include "libfido2-util.h"
 #include "log.h"
-#include "time-util.h"
 
 #if HAVE_LIBFIDO2
 

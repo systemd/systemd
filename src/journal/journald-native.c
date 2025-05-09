@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "journal-importer.h"

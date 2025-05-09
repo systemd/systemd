@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -13,6 +14,7 @@
 #include "main-func.h"
 #include "process-util.h"
 #include "sigbus.h"
+#include "string-util.h"
 #include "terminal-util.h"
 
 static int run(int argc, char *argv[]) {

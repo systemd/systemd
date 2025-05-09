@@ -2,10 +2,7 @@
 
 #pragma once
 
-#include <stddef.h>
-#include <stdio.h>
-#include <sys/types.h>
-
+#include "forward.h"
 #include "macro.h"
 
 const char* string_table_lookup_to_string(const char * const *table, size_t len, ssize_t i) _const_;

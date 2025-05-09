@@ -5,6 +5,7 @@
 
 #include "log.h"
 #include "tests.h"
+#include "time-util.h"
 #include "watchdog.h"
 
 int main(int argc, char *argv[]) {

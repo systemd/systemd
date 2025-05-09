@@ -23,6 +23,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 

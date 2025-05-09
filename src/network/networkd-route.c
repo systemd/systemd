@@ -5,6 +5,7 @@
 #include <linux/nexthop.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"

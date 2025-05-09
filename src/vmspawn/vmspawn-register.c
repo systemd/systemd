@@ -9,6 +9,7 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "errno-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "macro.h"

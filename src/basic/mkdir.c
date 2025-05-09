@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdbool.h>
-#include <string.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "btrfs.h"
@@ -12,11 +10,11 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "stat-util.h"
-#include "stdio-util.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "user-util.h"
 
 int mkdirat_safe_internal(
@@ -270,4 +268,8 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
                 return -errno;
 
         return 1;
+}
+
+int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
+        return mkdir_p_root_full(root, p, uid, gid, m, USEC_INFINITY, NULL);
 }

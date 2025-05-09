@@ -2,6 +2,7 @@
 
 #include <fnmatch.h>
 #include <linux/bpf_insn.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "bpf-devices.h"

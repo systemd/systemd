@@ -2,6 +2,7 @@
 
 #include <limits.h>
 
+#include "assert-fundamental.h"
 #include "efi-string.h"
 
 #if SD_BOOT

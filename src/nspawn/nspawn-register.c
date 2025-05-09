@@ -10,9 +10,11 @@
 #include "bus-wait-for-jobs.h"
 #include "nspawn-register.h"
 #include "nspawn-settings.h"
+#include "pidref.h"
 #include "special.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "unit-name.h"
 
 static int append_machine_properties(
                 sd_bus_message *m,

@@ -8,6 +8,7 @@
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "resolved-def.h"
 #include "resolved-dns-answer.h"
 #include "sparse-endian.h"

@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
 
-#include "macro.h"
-#include "unit-def.h"
+typedef enum UnitType UnitType;
 
 #define UNIT_NAME_MAX 256
 

@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 
 #include "netlink-util.h"
+#include "string-util.h"
 #include "veth.h"
 
 static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {

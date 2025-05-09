@@ -2,6 +2,8 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "errno-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-set-property.h"
 #include "systemctl-util.h"

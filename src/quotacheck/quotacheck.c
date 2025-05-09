@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"

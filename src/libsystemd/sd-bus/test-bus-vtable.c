@@ -13,6 +13,7 @@
 #include "sd-bus-vtable.h"
 
 #ifndef __cplusplus
+#  include "alloc-util.h"
 #  include "bus-objects.h"
 #  include "log.h"
 #endif

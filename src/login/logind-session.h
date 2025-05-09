@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
-#include "hashmap.h"
+#include "forward.h"
 #include "list.h"
 #include "pidref.h"
-#include "string-util.h"
 #include "time-util.h"
+#include "string-util.h"
 
 typedef struct Manager Manager;
 typedef struct Seat Seat;

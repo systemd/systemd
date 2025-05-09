@@ -5,16 +5,16 @@
 #include <linux/input.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/types.h>
 
-#include "sd-daemon.h"
+#include "sd-bus.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
-#include "bus-util.h"
 #include "daemon-util.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "logind.h"
 #include "logind-device.h"
 #include "logind-seat.h"
@@ -22,7 +22,6 @@
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
 #include "missing_drm.h"
-#include "parse-util.h"
 
 enum SessionDeviceNotifications {
         SESSION_DEVICE_RESUME,

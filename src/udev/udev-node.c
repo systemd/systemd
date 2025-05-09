@@ -21,6 +21,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "siphash24.h"
 #include "smack-util.h"
 #include "stat-util.h"
 #include "string-util.h"

@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
+#include "install.h"
 #include "locale-util.h"
 #include "main-func.h"
 #include "os-util.h"

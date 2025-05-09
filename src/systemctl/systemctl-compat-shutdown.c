@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "pretty-print.h"
 #include "reboot-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-compat-shutdown.h"
 #include "systemctl-logind.h"

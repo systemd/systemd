@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
 #include "sd-dns-resolver.h"
 
-#include "list.h"
-#include "macro.h"
+#include "forward.h"
 #include "socket-netlink.h"
 
 /* https://www.iana.org/assignments/dns-svcb/dns-svcb.xhtml#dns-svcparamkeys */

@@ -31,6 +31,7 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "virt.h"
 

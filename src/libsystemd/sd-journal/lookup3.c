@@ -2,6 +2,7 @@
 /* Slightly modified by Lennart Poettering, to avoid name clashes, and
  * unexport a few functions. */
 
+#include "constants.h"
 #include "lookup3.h"
 
 #if HAVE_VALGRIND_VALGRIND_H

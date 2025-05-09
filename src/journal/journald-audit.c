@@ -12,6 +12,7 @@
 #include "journald-audit.h"
 #include "journald-server.h"
 #include "missing_audit.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 typedef struct MapField {

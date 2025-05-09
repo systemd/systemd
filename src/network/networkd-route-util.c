@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "bitfield.h"
+#include "extract-word.h"
 #include "logarithm.h"
 #include "networkd-address.h"
 #include "networkd-link.h"

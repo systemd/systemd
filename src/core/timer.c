@@ -15,6 +15,7 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "serialize.h"
+#include "siphash24.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"

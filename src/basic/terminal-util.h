@@ -1,17 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <syslog.h>
-#include <termios.h>
-#include <unistd.h>
-
-#include "macro.h"
-#include "pidref.h"
-#include "time-util.h"
+#include "forward.h"
 
 /* Erase characters until the end of the line */
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
@@ -79,10 +69,7 @@ int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeou
 int release_terminal(void);
 
 int terminal_new_session(void);
-static inline void terminal_detach_session(void) {
-        (void) setsid();
-        (void) release_terminal();
-}
+void terminal_detach_session(void);
 
 int terminal_vhangup_fd(int fd);
 int terminal_vhangup(const char *tty);

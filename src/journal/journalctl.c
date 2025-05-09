@@ -5,6 +5,7 @@
 #include "sd-journal.h"
 
 #include "build.h"
+#include "extract-word.h"
 #include "glob-util.h"
 #include "id128-print.h"
 #include "image-policy.h"
@@ -23,6 +24,7 @@
 #include "pretty-print.h"
 #include "static-destruct.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "syslog-util.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)

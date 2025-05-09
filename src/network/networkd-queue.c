@@ -5,6 +5,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
+#include "siphash24.h"
 #include "string-table.h"
 
 #define REPLY_CALLBACK_COUNT_THRESHOLD 128

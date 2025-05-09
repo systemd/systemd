@@ -7,15 +7,17 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "path-lookup.h"
 #include "set.h"
+#include "siphash24.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unit-file.h"
 
 int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation) {

@@ -2,6 +2,8 @@
 
 #include <getopt.h>
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "ether-addr-util.h"
@@ -14,7 +16,7 @@
 #include "netlink-util.h"
 #include "network-common.h"
 #include "parse-util.h"
-#include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 
