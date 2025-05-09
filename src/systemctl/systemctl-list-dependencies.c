@@ -2,9 +2,12 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "glyph-util.h"
 #include "locale-util.h"
 #include "sort-util.h"
 #include "special.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-list-dependencies.h"
 #include "systemctl-util.h"

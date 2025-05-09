@@ -9,6 +9,7 @@
 #include "dhcp-option.h"
 #include "dhcp6-internal.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "hexdecoct.h"
 #include "in-addr-prefix-util.h"
 #include "networkd-dhcp-common.h"

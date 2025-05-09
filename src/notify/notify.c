@@ -22,6 +22,7 @@
 #include "main-func.h"
 #include "notify-recv.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"

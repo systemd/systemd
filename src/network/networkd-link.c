@@ -20,6 +20,7 @@
 #include "device-util.h"
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "ethtool-util.h"
 #include "event-util.h"
 #include "fd-util.h"

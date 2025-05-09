@@ -7,9 +7,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "env-util.h"
 #include "exit-status.h"
+#include "format-util.h"
 #include "fstab-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
 #include "mount-setup.h"

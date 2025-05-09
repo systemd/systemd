@@ -8,6 +8,7 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 int main(int argc, char *argv[]) {
         nsec_t nsec;

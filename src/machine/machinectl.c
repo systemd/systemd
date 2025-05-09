@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "ask-password-agent.h"
@@ -33,6 +34,7 @@
 #include "edit-util.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
 #include "hostname-util.h"
@@ -61,8 +63,10 @@
 #include "sort-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "verbs.h"
 #include "web-util.h"

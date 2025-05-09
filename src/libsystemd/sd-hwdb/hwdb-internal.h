@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
 #include <sys/stat.h>
 
-#include "constants.h"
+#include "forward.h"
 #include "hashmap.h"
 #include "sparse-endian.h"
 

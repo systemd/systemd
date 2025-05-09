@@ -39,6 +39,7 @@
 #include "format-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "io-util.h"
 #include "ioprio-util.h"
 #include "lock-util.h"

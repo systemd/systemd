@@ -15,10 +15,13 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "path-lookup.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "siphash24.h"
+#include "stat-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 

@@ -9,12 +9,16 @@
 #include "bpf-program.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
+#include "log.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "string-table.h"
 
 static const char *const bpf_cgroup_attach_type_table[__MAX_BPF_ATTACH_TYPE] = {

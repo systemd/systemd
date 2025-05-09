@@ -9,6 +9,7 @@
 #include "bridge-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "format-util.h"
@@ -28,7 +29,9 @@
 #include "networkctl-status-system.h"
 #include "networkctl-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "udev-util.h"
 
 static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const LinkInfo *link) {

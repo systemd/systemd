@@ -6,6 +6,8 @@
 
 #include "crash-handler.h"
 #include "exit-status.h"
+#include "format-util.h"
+#include "log.h"
 #include "macro.h"
 #include "main.h"
 #include "missing_syscall.h"
@@ -14,6 +16,7 @@
 #include "rlimit-util.h"
 #include "signal-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "terminal-util.h"
 #include "virt.h"
 

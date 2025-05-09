@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
 #include "sd-daemon.h"
 #include "sd-event.h"
 
@@ -9,6 +10,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
@@ -28,6 +30,8 @@
 #include "ratelimit.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 struct TarImport {

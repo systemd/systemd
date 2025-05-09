@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "home-util.h"

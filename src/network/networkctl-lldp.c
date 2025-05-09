@@ -8,6 +8,7 @@
 #include "networkctl-lldp.h"
 #include "networkctl-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "varlink-util.h"

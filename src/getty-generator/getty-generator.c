@@ -18,6 +18,7 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"

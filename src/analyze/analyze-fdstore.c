@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/sysmacros.h>
+
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-fdstore.h"

@@ -13,6 +13,7 @@
 #include "macro.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"

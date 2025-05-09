@@ -18,6 +18,8 @@
 #include "ratelimit.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 #define COPY_BUFFER_SIZE (16*1024)

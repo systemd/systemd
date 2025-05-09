@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "efi-loader.h"
+#include "efivars.h"
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"

@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <poll.h>
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "time-util.h"
 
 static const char *arg_bus_path = DEFAULT_SYSTEM_BUS_ADDRESS;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;

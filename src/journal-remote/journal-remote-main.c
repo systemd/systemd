@@ -5,11 +5,14 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fileio.h"
 #include "journal-compression-util.h"
 #include "journal-remote.h"
@@ -29,6 +32,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
