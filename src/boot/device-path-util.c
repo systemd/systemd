@@ -157,7 +157,11 @@ EFI_DEVICE_PATH *device_path_replace_node(
          * node. If new_node is provided, it is appended at the end of the new path. */
 
         assert(path);
-        assert(node);
+
+        if (!node) {
+                for (node = path; !device_path_is_end(node); node = device_path_next_node(node))
+                        ;
+        }
 
         size_t len = (uint8_t *) node - (uint8_t *) path;
         EFI_DEVICE_PATH *ret = xmalloc(len + (new_node ? new_node->Length : 0) + sizeof(EFI_DEVICE_PATH));
