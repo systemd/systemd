@@ -17,8 +17,8 @@
 #include "chid.h"
 #include "chid-fundamental.h"
 #include "edid.h"
-#include "efi.h"
-#include "sha1-fundamental.h"
+#include "efi-string.h"
+#include "log.h"
 #include "smbios.h"
 #include "util.h"
 

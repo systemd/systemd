@@ -1,28 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <inttypes.h>
 #include <sys/file.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "chase.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "random-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
 #include "xattr-util.h"
 
 TEST(copy_file) {

@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "errno-util.h"
 #include "link-config.h"
 #include "log.h"
-#include "string-util.h"
-#include "strv.h"
+#include "netif-naming-scheme.h"
 #include "udev-builtin.h"
 
 static LinkConfigContext *ctx = NULL;

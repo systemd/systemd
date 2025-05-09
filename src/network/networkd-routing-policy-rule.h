@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
 #include <linux/fib_rules.h>
-#include <stdbool.h>
 
-#include "conf-parser.h"
+#include "forward.h"
 #include "in-addr-prefix-util.h"
 #include "networkd-util.h"
 

@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "env-util.h"
 #include "escape.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-set-environment.h"
 #include "systemctl-util.h"

@@ -1,17 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <errno.h>
 #include <linux/net_namespace.h>
 #include <net/if.h>
 #include <string.h>
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
-#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "log.h"
-#include "memory-util.h"
 #include "namespace-util.h"
 #include "netlink-util.h"
 #include "parse-util.h"

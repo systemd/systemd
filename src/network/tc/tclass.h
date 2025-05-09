@@ -2,7 +2,7 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "conf-parser.h"
+#include "forward.h"
 #include "networkd-util.h"
 
 typedef struct Link Link;

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
+#include "forward.h"
+#include "macro.h"
 #include "missing_keyctl.h"
 
 /* Like TAKE_PTR() but for key_serial_t, resetting them to -1 */

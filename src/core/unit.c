@@ -2,10 +2,12 @@
 
 #include <errno.h>
 #include <fnmatch.h>
+#include <linux/capability.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-id128.h"
 #include "sd-messages.h"
 
@@ -13,15 +15,14 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "bpf-firewall.h"
-#include "bpf-foreign.h"
-#include "bpf-socket-bind.h"
+#include "bpf-restrict-fs.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "chase.h"
-#include "dbus.h"
+#include "condition.h"
 #include "dbus-unit.h"
 #include "dropin.h"
 #include "dynamic-user.h"
@@ -32,6 +33,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "id128-util.h"
 #include "install.h"
 #include "iovec-util.h"
@@ -42,6 +44,8 @@
 #include "logarithm.h"
 #include "macro.h"
 #include "mkdir-label.h"
+#include "manager.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -49,22 +53,20 @@
 #include "serialize.h"
 #include "set.h"
 #include "signal-util.h"
+#include "siphash24.h"
 #include "sparse-endian.h"
 #include "special.h"
 #include "specifier.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "unit.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "varlink.h"
-#include "virt.h"
 #if BPF_FRAMEWORK
 #include "bpf-link.h"
 #endif
@@ -6069,6 +6071,24 @@ int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *error) {
         return 0;
 }
 
+int unit_get_log_level_max(const Unit *u) {
+        if (u) {
+                if (u->debug_invocation)
+                        return LOG_DEBUG;
+
+                ExecContext *ec = unit_get_exec_context(u);
+                if (ec && ec->log_level_max >= 0)
+                        return ec->log_level_max;
+        }
+
+        return log_get_max_level();
+}
+
+bool unit_log_level_test(const Unit *u, int level) {
+        assert(u);
+        return LOG_PRI(level) <= unit_get_log_level_max(u);
+}
+
 void unit_log_success(Unit *u) {
         assert(u);
 
@@ -6604,6 +6624,10 @@ int unit_get_transitive_dependency_set(Unit *u, UnitDependencyAtom atom, Set **r
 
         *ret = TAKE_PTR(units);
         return 0;
+}
+
+Hashmap* unit_get_dependencies(Unit *u, UnitDependency d) {
+        return hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(d));
 }
 
 int unit_arm_timer(

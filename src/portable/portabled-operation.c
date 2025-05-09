@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "portabled.h"
 #include "portabled-operation.h"

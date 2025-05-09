@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "analyze.h"
 #include "analyze-log-control.h"
+#include "bus-util.h"
+#include "macro.h"
+#include "runtime-scope.h"
 #include "verb-log-control.h"
 
 int verb_log_control(int argc, char *argv[], void *userdata) {
