@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-device.h"
+
 #include "list.h"
 #include "memory-util.h"
 #include "string-util.h"
@@ -18,6 +20,8 @@ struct Seat {
         char *state_file;
 
         LIST_HEAD(Device, devices);
+
+        Set *uevents;
 
         Session *active;
         Session *pending_switch;
@@ -39,7 +43,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Seat*, seat_free);
 int seat_save(Seat *s);
 int seat_load(Seat *s);
 
-int seat_apply_acls(Seat *s, Session *old_active);
+int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev);
+
 int seat_set_active(Seat *s, Session *session);
 int seat_switch_to(Seat *s, unsigned num);
 int seat_switch_to_next(Seat *s);
