@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <inttypes.h>
+
 #include "percent-util.h"
 #include "tests.h"
-#include "time-util.h"
 
 TEST(parse_percent) {
         assert_se(parse_percent("") == -EINVAL);

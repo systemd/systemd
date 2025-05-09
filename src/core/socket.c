@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/sctp.h>
 #include <mqueue.h>
@@ -10,26 +9,30 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
-#include "bpf-firewall.h"
+#include "bpf-program.h"
 #include "bus-error.h"
-#include "bus-util.h"
-#include "chase.h"
-#include "constants.h"
 #include "copy.h"
 #include "dbus-socket.h"
 #include "dbus-unit.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "format-util.h"
+#include "fs-util.h"
+#include "glyph-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "ip-protocol-list.h"
-#include "label-util.h"
 #include "log.h"
 #include "manager.h"
 #include "mkdir-label.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
@@ -38,7 +41,8 @@
 #include "selinux-util.h"
 #include "serialize.h"
 #include "service.h"
-#include "signal-util.h"
+#include "set.h"
+#include "siphash24.h"
 #include "smack-util.h"
 #include "socket.h"
 #include "socket-netlink.h"

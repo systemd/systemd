@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
+#include "forward.h"
 #include "fou-tunnel.h"
-#include "in-addr-util.h"
 #include "netdev.h"
-#include "netdev-util.h"
 #include "networkd-link.h"
 
 typedef enum Ip6TnlMode {

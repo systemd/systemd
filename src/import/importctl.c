@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <locale.h>
 
 #include "sd-bus.h"
 
@@ -12,12 +13,9 @@
 #include "discover-image.h"
 #include "fd-util.h"
 #include "format-table.h"
-#include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"
-#include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "main-func.h"
 #include "os-util.h"
 #include "pager.h"
@@ -26,9 +24,8 @@
 #include "path-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
-#include "signal-util.h"
-#include "sort-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "verbs.h"
 #include "web-util.h"
 

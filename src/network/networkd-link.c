@@ -9,34 +9,34 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-dhcp-client.h"
+#include "sd-dhcp-server.h"
+#include "sd-dhcp6-client.h"
+#include "sd-ipv4ll.h"
+#include "sd-lldp-rx.h"
+#include "sd-ndisc.h"
+#include "sd-netlink.h"
+#include "sd-radv.h"
+
 #include "alloc-util.h"
 #include "arphrd-util.h"
-#include "batadv.h"
 #include "bitfield.h"
-#include "bond.h"
-#include "bridge.h"
-#include "bus-util.h"
-#include "device-private.h"
 #include "device-util.h"
-#include "dhcp-lease-internal.h"
-#include "env-file.h"
+#include "errno-util.h"
 #include "ethtool-util.h"
 #include "event-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "format-ifname.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "logarithm.h"
-#include "missing_network.h"
+#include "netif-util.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-address-label.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-bridge-vlan.h"
-#include "networkd-can.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
@@ -61,16 +61,14 @@
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "tc.h"
-#include "tuntap.h"
 #include "udev-util.h"
-#include "vrf.h"
 
 void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret) {
         assert(link);
@@ -2096,6 +2094,11 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 if (link_get_master(link, &master) >= 0)
                         link_update_operstate(master, true);
         }
+}
+
+bool link_has_carrier(Link *link) {
+        assert(link);
+        return netif_has_carrier(link->kernel_operstate, link->flags);
 }
 
 #define FLAG_STRING(string, flag, old, new)                      \

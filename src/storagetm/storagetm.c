@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
 #include <sys/file.h>
+
+#include "sd-netlink.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -12,24 +15,24 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "id128-util.h"
 #include "local-addresses.h"
-#include "loop-util.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
 #include "os-util.h"
-#include "parse-argument.h"
 #include "path-util.h"
 #include "plymouth-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
+#include "siphash24.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "udev-util.h"
 
 static char **arg_devices = NULL;

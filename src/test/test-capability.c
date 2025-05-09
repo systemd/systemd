@@ -3,10 +3,12 @@
 #include <linux/prctl.h>
 #include <netinet/in.h>
 #include <pwd.h>
+#include <stdlib.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "pidref.h"
 
 #define TEST_CAPABILITY_C
 
@@ -15,10 +17,8 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 static uid_t test_uid = -1;

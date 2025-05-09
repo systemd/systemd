@@ -2,7 +2,7 @@
 #pragma once
 
 #include "constants.h"
-#include "macro-fundamental.h"
+#include "macro-fundamental.h" // IWYU pragma: export
 
 /* Note: on GCC "no_sanitize_address" is a function attribute only, on llvm it may also be applied to global
  * variables. We define a specific macro which knows this. Note that on GCC we don't need this decorator so much, since
@@ -30,24 +30,6 @@ static inline uint64_t u64_multiply_safe(uint64_t a, uint64_t b) {
                 return 0; /* overflow */
 
         return a * b;
-}
-
-/* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
-static inline unsigned long ALIGN_POWER2(unsigned long u) {
-
-        /* Avoid subtraction overflow */
-        if (u == 0)
-                return 0;
-
-        /* clz(0) is undefined */
-        if (u == 1)
-                return 1;
-
-        /* left-shift overflow is undefined */
-        if (__builtin_clzl(u - 1UL) < 1)
-                return 0;
-
-        return 1UL << (sizeof(u) * 8 - __builtin_clzl(u - 1UL));
 }
 
 /*
@@ -97,11 +79,11 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 /* Returns the number of chars needed to format variables of the specified type as a decimal string. Adds in
  * extra space for a negative '-' prefix for signed types. Includes space for the trailing NUL. */
 #define DECIMAL_STR_MAX(type)                                           \
-        ((size_t) IS_SIGNED_INTEGER_TYPE(type) + 1U +                   \
-            (sizeof(type) <= 1 ? 3U :                                   \
-             sizeof(type) <= 2 ? 5U :                                   \
-             sizeof(type) <= 4 ? 10U :                                  \
-             sizeof(type) <= 8 ? (IS_SIGNED_INTEGER_TYPE(type) ? 19U : 20U) : sizeof(int[-2*(sizeof(type) > 8)])))
+ ((size_t) IS_SIGNED_INTEGER_TYPE(type) + 1U +                   \
+     (sizeof(type) <= 1 ? 3U :                                   \
+      sizeof(type) <= 2 ? 5U :                                   \
+      sizeof(type) <= 4 ? 10U :                                  \
+      sizeof(type) <= 8 ? (IS_SIGNED_INTEGER_TYPE(type) ? 19U : 20U) : sizeof(int[-2*(sizeof(type) > 8)])))
 
 /* Returns the number of chars needed to format the specified integer value. It's hence more specific than
  * DECIMAL_STR_MAX() which answers the same question for all possible values of the specified type. Does
@@ -183,3 +165,21 @@ static inline size_t size_add(size_t x, size_t y) {
         for (typeof(entry) _va_sentinel_[1] = {}, _entries_[] = { __VA_ARGS__ __VA_OPT__(,) _va_sentinel_[0] }, *_current_ = _entries_; \
              ((long)(_current_ - _entries_) < (long)(ELEMENTSOF(_entries_) - 1)) && ({ entry = *_current_; true; }); \
              _current_++)
+
+/* Argument list for parsers of specific configuration settings. */
+#define CONFIG_PARSER_ARGUMENTS                 \
+        const char *unit,                       \
+        const char *filename,                   \
+        unsigned line,                          \
+        const char *section,                    \
+        unsigned section_line,                  \
+        const char *lvalue,                     \
+        int ltype,                              \
+        const char *rvalue,                     \
+        void *data,                             \
+        void *userdata
+
+/* A macro declaring a function prototype, following the typedef above, simply because it's so cumbersomely long
+ * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
+ * prototypes on the same screen…) */
+#define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)

@@ -1,22 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
-#include <errno.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "env-file.h"
 #include "errno-util.h"
-#include "fd-util.h"
-#include "id128-util.h"
+#include "hashmap.h"
 #include "log.h"
-#include "macro.h"
-#include "parse-util.h"
 #include "path-util.h"
-#include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"

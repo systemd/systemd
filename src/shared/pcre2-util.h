@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hash-funcs.h"
-#include "macro.h"
+#include "forward.h"
 
 #if HAVE_PCRE2
 

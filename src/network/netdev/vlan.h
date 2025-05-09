@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct VLan VLan;
-
+#include "forward.h"
 #include "netdev.h"
-#include "set.h"
 
-struct VLan {
+typedef struct VLan {
         NetDev meta;
 
         uint16_t id;
@@ -19,7 +17,7 @@ struct VLan {
 
         Set *egress_qos_maps;
         Set *ingress_qos_maps;
-};
+} VLan;
 
 DEFINE_NETDEV_CAST(VLAN, VLan);
 extern const NetDevVTable vlan_vtable;
