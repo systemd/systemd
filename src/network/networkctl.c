@@ -19,6 +19,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "verbs.h"
 
 PagerFlags arg_pager_flags = 0;

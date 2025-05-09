@@ -16,6 +16,7 @@
 #include "escape.h"
 #include "memory-util.h"
 #include "network-common.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
 

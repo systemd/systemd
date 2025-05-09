@@ -11,6 +11,7 @@
 #include "dns-domain.h"
 #include "network-common.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
 

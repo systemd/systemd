@@ -13,6 +13,7 @@
 #include "netif-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
+#include "string-util.h"
 #include "strv.h"
 
 #define SHORTEN_IFNAME_HASH_KEY SD_ID128_MAKE(e1,90,a4,04,a8,ef,4b,51,8c,cc,c3,3a,9f,11,fc,a2)

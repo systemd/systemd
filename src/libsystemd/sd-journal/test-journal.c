@@ -11,6 +11,7 @@
 #include "log.h"
 #include "rm-rf.h"
 #include "tests.h"
+#include "time-util.h"
 
 static bool arg_keep = false;
 

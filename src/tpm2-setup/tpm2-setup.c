@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
@@ -16,6 +17,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"

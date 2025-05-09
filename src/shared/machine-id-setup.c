@@ -12,6 +12,7 @@
 #include "chase.h"
 #include "creds-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "id128-util.h"
 #include "initrd-util.h"
 #include "io-util.h"

@@ -2,6 +2,7 @@
 
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
@@ -9,6 +10,7 @@
 #include "journalctl-util.h"
 #include "journalctl-varlink.h"
 #include "log.h"
+#include "string-util.h"
 #include "varlink-util.h"
 
 static int varlink_connect_journal(sd_varlink **ret) {

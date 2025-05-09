@@ -11,6 +11,7 @@
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "id128-util.h"
 #include "log.h"
 #include "macro.h"

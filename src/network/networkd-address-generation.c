@@ -11,6 +11,7 @@
 #include "networkd-address-generation.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 #define DAD_CONFLICTS_IDGEN_RETRIES_RFC7217 3

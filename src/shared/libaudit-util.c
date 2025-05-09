@@ -10,6 +10,7 @@
 #  include <libaudit.h>
 #endif
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "libaudit-util.h"

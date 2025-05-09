@@ -5,6 +5,7 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "unaligned.h"
 #include "utf8.h"
 

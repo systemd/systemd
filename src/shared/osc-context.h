@@ -3,7 +3,6 @@
 
 #include "sd-id128.h"
 
-#include "assert-util.h"
 #include "macro.h"
 
 int osc_context_open_boot(char **ret_seq);

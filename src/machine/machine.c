@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <sched.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -11,7 +11,6 @@
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
-#include "bus-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"

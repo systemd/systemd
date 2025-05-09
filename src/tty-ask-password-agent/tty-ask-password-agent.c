@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/prctl.h>
@@ -24,6 +25,7 @@
 #include "daemon-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"

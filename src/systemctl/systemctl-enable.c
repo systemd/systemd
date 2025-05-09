@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "glyph-util.h"
 #include "path-util.h"
 #include "systemctl.h"
 #include "systemctl-daemon-reload.h"

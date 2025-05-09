@@ -12,6 +12,7 @@
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "verbs.h"

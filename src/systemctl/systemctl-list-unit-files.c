@@ -6,6 +6,7 @@
 #include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "hashmap.h"
 #include "sort-util.h"
 #include "systemctl.h"
 #include "systemctl-list-unit-files.h"

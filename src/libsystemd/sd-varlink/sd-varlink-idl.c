@@ -4,10 +4,12 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "extract-word.h"
 #include "json-util.h"
 #include "log.h"
 #include "memstream-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"

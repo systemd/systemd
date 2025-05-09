@@ -2,7 +2,6 @@
 
 #include <math.h>
 
-#include "assert-util.h"
 #include "color-util.h"
 #include "macro.h"
 

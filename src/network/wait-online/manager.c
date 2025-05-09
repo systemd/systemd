@@ -14,6 +14,7 @@
 #include "link.h"
 #include "manager.h"
 #include "netlink-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 
