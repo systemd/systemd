@@ -2007,6 +2007,7 @@ catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
+objects_by_name = {}
 fuzzer_exes = []
 generated_sources = [version_h, vmlinux_h_dependency]
 
@@ -2433,7 +2434,8 @@ foreach dict : executables
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions',
-                           'type', 'suite', 'timeout', 'parallel']
+                           'type', 'suite', 'timeout', 'parallel',
+                           'objects', 'extract']
                         continue
                 endif
 
@@ -2442,6 +2444,17 @@ foreach dict : executables
 
         foreach key, val : executable_additional_kwargs
                 kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
+
+        foreach val : dict.get('objects', [])
+                obj = objects_by_name[val]
+                kwargs += {
+                        'objects' : obj['objects'],
+                        'include_directories' : [
+                                kwargs.get('include_directories', []),
+                                obj['include_directories'],
+                        ],
+                }
         endforeach
 
         if is_test
@@ -2463,6 +2476,15 @@ foreach dict : executables
         )
 
         executables_by_name += { name : exe }
+
+        if dict.has_key('extract')
+                objects_by_name += {
+                        name : {
+                                'objects' : exe.extract_objects(dict['extract']),
+                                'include_directories' : fs.parent(dict['extract'][0]),
+                        }
+                }
+        endif
 
         if dict.get('build_by_default', true)
                 if dict.get('dbus', false)
@@ -2768,6 +2790,10 @@ foreach tuple : fuzz_sanitizers
         if cc.has_link_argument('-fsanitize=@0@'.format(sanitizer))
                 foreach fuzzer, fuzz_ins : fuzz_regression_tests
                         name = '@0@:@1@'.format(fuzzer, sanitizer)
+                        if not executables_by_name.has_key(fuzzer)
+                                message('Not compiling @0@ because fuzzer @1@ was not built'.format(name, fuzzer))
+                                continue
+                        endif
                         if want_tests == 'false'
                                 message('Not compiling @0@ because tests is set to false'.format(name))
                                 continue
