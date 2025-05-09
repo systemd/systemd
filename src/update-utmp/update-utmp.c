@@ -5,14 +5,18 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if HAVE_AUDIT
+#  include <libaudit.h>
+#endif
+
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "audit-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "format-util.h"
+#include "libaudit-util.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
