@@ -46,7 +46,7 @@ EOF
     systemctl --root="$CONTAINER_ROOT_DIR" enable test-service.service
 }
 
-# helper_proc=$(mktemp -d /tmp/helper-proc-XXXX)
+HELPER_PROC=$(mktemp -d /tmp/helper-proc-XXXX)
 
 testcase_multiple_features() {
     local bind_mount_arg="${HOST_MOUNT_DIR}:${INTERNAL_MOUNT_DIR}"
@@ -56,19 +56,21 @@ testcase_multiple_features() {
     # The internal directory will be created by systemd-run
     mkdir -p "$HOST_MOUNT_DIR"
 
-    # mount -t proc proc "$helper_proc"
+    mount -t proc proc "$HELPER_PROC"
 
+    # Create a tmpfs for the container root
     mkdir -p "$CONTAINER_ROOT_DIR"
-
-    # Mount tmpfs
     mount -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
 
+    # Configure test service that writes to a file in the container
     internal_writer
 
+    # Bind mount /usr into the container read-only
     mkdir -p "$CONTAINER_ROOT_DIR"/usr
     mount --bind /usr "$CONTAINER_ROOT_DIR"/usr
     mount -o remount,bind,ro "$CONTAINER_ROOT_DIR/usr"
 
+    SYSTEMD_LOG_LEVEL=debug \
     systemd-run \
     --unit "$FILE_WR_SERVICE" \
     --wait \
@@ -99,8 +101,8 @@ testcase_multiple_features() {
 at_exit() {
     set +e
 
-    # umount "$helper_proc"
-    # rmdir  "$helper_proc"
+    umount "$HELPER_PROC"
+    rmdir  "$HELPER_PROC"
 
     umount -l "$CONTAINER_ROOT_DIR/usr"
     umount -l "$CONTAINER_ROOT_DIR"
