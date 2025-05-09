@@ -2064,6 +2064,7 @@ libsystemd = shared_library(
         'systemd',
         version : libsystemd_version,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
@@ -2084,6 +2085,7 @@ install_libsystemd_static = static_library(
         basic_sources,
         fundamental_sources,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
         install_tag: 'libsystemd',
@@ -2114,6 +2116,7 @@ libudev = shared_library(
         'udev',
         version : libudev_version,
         include_directories : includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static, libshared_static],
@@ -2133,6 +2136,7 @@ install_libudev_static = static_library(
         libsystemd_sources,
         libudev_sources,
         include_directories : includes,
+        implicit_include_directories : false,
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
         install_tag: 'libudev',
@@ -2473,6 +2477,7 @@ foreach dict : executables
         exe = executable(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         executables_by_name += { name : exe }
@@ -2601,6 +2606,7 @@ foreach dict : modules
         lib = shared_library(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         if is_nss

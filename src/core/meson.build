@@ -129,6 +129,7 @@ libcore_static = static_library(
 libcore = shared_library(
         libcore_name,
         c_args : ['-fvisibility=default'],
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_depends : libshared_sym_path,
