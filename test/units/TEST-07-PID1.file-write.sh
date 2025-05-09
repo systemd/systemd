@@ -49,12 +49,8 @@ EOF
 helper_proc=$(mktemp -d /tmp/helper-proc-XXXX)
 
 testcase_multiple_features() {
-    # local squashed_container_image=/usr/share/minimal_2.raw
     local bind_mount_arg="${HOST_MOUNT_DIR}:${INTERNAL_MOUNT_DIR}"
     local host_output="${HOST_MOUNT_DIR}/${OUTPUT_FILE}"
-
-    # unsquashfs -no-xattrs -d "$CONTAINER_ROOT_DIR" "$squashed_container_image"
-
 
     # We'll bind mount this directory to the container
     # The internal directory will be created by systemd-run
