@@ -59,6 +59,17 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         return 0;
 }
 
+int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
+        /* Move data into iovw or free on error */
+        int r;
+
+        r = iovw_put(iovw, data, len);
+        if (r < 0)
+                free(data);
+
+        return r;
+}
+
 int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {
         _cleanup_free_ char *x = NULL;
         int r;

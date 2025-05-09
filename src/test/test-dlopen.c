@@ -3,7 +3,6 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 
-#include "assert-util.h"
 #include "macro.h"
 
 int main(int argc, char **argv) {

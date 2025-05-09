@@ -6,6 +6,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bitfield.h"
+#include "errno-util.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "logarithm.h"

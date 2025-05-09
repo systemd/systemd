@@ -14,6 +14,7 @@
 #include "netlink-types.h"
 #include "netlink-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 #define GET_CONTAINER(m, i) ((struct rtattr*)((uint8_t*)(m)->hdr + (m)->containers[i].offset))

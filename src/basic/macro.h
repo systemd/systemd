@@ -1,15 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <assert.h>
-#include <errno.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/param.h>
-#include <sys/sysmacros.h>
-#include <sys/types.h>
-
 #include "constants.h"
+#include "forward.h"
 #include "macro-fundamental.h"
 
 /* Note: on GCC "no_sanitize_address" is a function attribute only, on llvm it may also be applied to global
@@ -33,61 +26,11 @@
 /* test harness */
 #define EXIT_TEST_SKIP 77
 
-/* builtins */
-#if __SIZEOF_INT__ == 4
-#define BUILTIN_FFS_U32(x) __builtin_ffs(x);
-#elif __SIZEOF_LONG__ == 4
-#define BUILTIN_FFS_U32(x) __builtin_ffsl(x);
-#else
-#error "neither int nor long are four bytes long?!?"
-#endif
-
 static inline uint64_t u64_multiply_safe(uint64_t a, uint64_t b) {
         if (_unlikely_(a != 0 && b > (UINT64_MAX / a)))
                 return 0; /* overflow */
 
         return a * b;
-}
-
-/* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
-static inline unsigned long ALIGN_POWER2(unsigned long u) {
-
-        /* Avoid subtraction overflow */
-        if (u == 0)
-                return 0;
-
-        /* clz(0) is undefined */
-        if (u == 1)
-                return 1;
-
-        /* left-shift overflow is undefined */
-        if (__builtin_clzl(u - 1UL) < 1)
-                return 0;
-
-        return 1UL << (sizeof(u) * 8 - __builtin_clzl(u - 1UL));
-}
-
-static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
-        size_t m;
-
-        /* Round up allocation sizes a bit to some reasonable, likely larger value. This is supposed to be
-         * used for cases which are likely called in an allocation loop of some form, i.e. that repetitively
-         * grow stuff, for example strv_extend() and suchlike.
-         *
-         * Note the difference to GREEDY_REALLOC() here, as this helper operates on a single size value only,
-         * and rounds up to next multiple of 2, needing no further counter.
-         *
-         * Note the benefits of direct ALIGN_POWER2() usage: type-safety for size_t, sane handling for very
-         * small (i.e. <= 2) and safe handling for very large (i.e. > SSIZE_MAX) values. */
-
-        if (l <= 2)
-                return 2; /* Never allocate less than 2 of something.  */
-
-        m = ALIGN_POWER2(l);
-        if (m == 0) /* overflow? */
-                return l;
-
-        return m;
 }
 
 /*
@@ -102,12 +45,6 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
                 const typeof( ((type*)0)->member ) *UNIQ_T(A, uniq) = (ptr); \
                 (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type, member) ); \
         })
-
-#define return_with_errno(r, err)                     \
-        do {                                          \
-                errno = ABS(err);                     \
-                return r;                             \
-        } while (false)
 
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define INT_TO_PTR(u) ((void *) ((intptr_t) (u)))
@@ -140,15 +77,6 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
  * prefix and trailing NUL suffix. */
 #define HEXADECIMAL_STR_MAX(type) (2 + sizeof(type) * 2 + 1)
 
-/* Returns the number of chars needed to format variables of the specified type as a decimal string. Adds in
- * extra space for a negative '-' prefix for signed types. Includes space for the trailing NUL. */
-#define DECIMAL_STR_MAX(type)                                           \
-        ((size_t) IS_SIGNED_INTEGER_TYPE(type) + 1U +                   \
-            (sizeof(type) <= 1 ? 3U :                                   \
-             sizeof(type) <= 2 ? 5U :                                   \
-             sizeof(type) <= 4 ? 10U :                                  \
-             sizeof(type) <= 8 ? (IS_SIGNED_INTEGER_TYPE(type) ? 19U : 20U) : sizeof(int[-2*(sizeof(type) > 8)])))
-
 /* Returns the number of chars needed to format the specified integer value. It's hence more specific than
  * DECIMAL_STR_MAX() which answers the same question for all possible values of the specified type. Does
  * *not* include space for a trailing NUL. (If you wonder why we special case _x_ == 0 here: it's to trick
@@ -174,13 +102,6 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
                 (y) = (_t);                        \
         } while (false)
 
-#define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
-#define STRV_MAKE_EMPTY ((char*[1]) { NULL })
-#define STRV_MAKE_CONST(...) ((const char* const*) ((const char*[]) { __VA_ARGS__, NULL }))
-
-/* Pointers range from NULL to POINTER_MAX */
-#define POINTER_MAX ((void*) UINTPTR_MAX)
-
 /* A macro to force copying of a variable from memory. This is useful whenever we want to read something from
  * memory and want to make sure the compiler won't optimize away the destination variable for us. It's not
  * supposed to be a full CPU memory barrier, i.e. CPU is still allowed to reorder the reads, but it is not
@@ -193,17 +114,6 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
                 asm volatile ("" : : : "memory");                       \
                 _copy;                                                  \
         })
-
-#define saturate_add(x, y, limit)                                       \
-        ({                                                              \
-                typeof(limit) _x = (x);                                 \
-                typeof(limit) _y = (y);                                 \
-                _x > (limit) || _y >= (limit) - _x ? (limit) : _x + _y; \
-        })
-
-static inline size_t size_add(size_t x, size_t y) {
-        return saturate_add(x, y, SIZE_MAX);
-}
 
 /* A little helper for subtracting 1 off a pointer in a safe UB-free way. This is intended to be used for
  * loops that count down from a high pointer until some base. A naive loop would implement this like this:

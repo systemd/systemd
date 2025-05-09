@@ -2,14 +2,14 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hash-funcs.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "missing_wait.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
-#include "signal-util.h"
+#include "siphash24.h"
 
 int pidref_acquire_pidfd_id(PidRef *pidref) {
         int r;

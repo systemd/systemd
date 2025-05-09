@@ -8,6 +8,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "netlink-internal.h"

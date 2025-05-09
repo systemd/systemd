@@ -16,6 +16,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "hostname-util.h"
 #include "locale-util.h"
 #include "log.h"
@@ -28,6 +29,7 @@
 #include "sort-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "xattr-util.h"
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bitmap.h"
+#include "hashmap.h"
 #include "tests.h"
 
 int main(int argc, const char *argv[]) {

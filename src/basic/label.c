@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stddef.h>
-
 #include "label.h"
-#include "macro.h"
 
 static const LabelOps *label_ops = NULL;
 

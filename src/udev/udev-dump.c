@@ -9,6 +9,7 @@
 #include "fs-util.h"
 #include "json-util.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "udev-builtin.h"
 #include "udev-dump.h"

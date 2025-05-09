@@ -3,7 +3,9 @@
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "journal-compression-util.h"
+#include "macro.h"
 #include "parse-util.h"
+#include "string-util.h"
 
 static int compression_config_put(OrderedHashmap **configs, Compression c, int level) {
         assert(configs);

@@ -4,6 +4,7 @@
 #include "cap-list.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
+#include "extract-word.h"
 #include "hostname-util.h"
 #include "namespace-util.h"
 #include "nspawn-network.h"

@@ -14,6 +14,7 @@
 #include "log.h"
 #include "network-internal.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 size_t serialize_in_addrs(FILE *f,

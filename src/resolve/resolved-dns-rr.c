@@ -13,6 +13,7 @@
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
+#include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

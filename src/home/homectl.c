@@ -50,6 +50,7 @@
 #include "recurse-dir.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "terminal-util.h"
 #include "uid-classification.h"
 #include "user-record.h"

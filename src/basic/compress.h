@@ -1,17 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <unistd.h>
-
-#if HAVE_LZ4
-#include <lz4.h>
-#include <lz4frame.h>
-#endif
-
-#include "dlfcn-util.h"
+#include "forward.h"
 
 typedef enum Compression {
         COMPRESSION_NONE,
@@ -73,11 +63,6 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_zstd(int fdf, int fdt, uint64_t max_size);
 
 #if HAVE_LZ4
-extern DLSYM_PROTOTYPE(LZ4_compress_default);
-extern DLSYM_PROTOTYPE(LZ4_decompress_safe);
-extern DLSYM_PROTOTYPE(LZ4_decompress_safe_partial);
-extern DLSYM_PROTOTYPE(LZ4_versionNumber);
-
 int dlopen_lz4(void);
 #endif
 

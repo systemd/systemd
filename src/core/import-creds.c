@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/mount.h>
 
 #include "confidential-virt.h"
@@ -13,6 +14,7 @@
 #include "import-creds.h"
 #include "initrd-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -21,6 +23,8 @@
 #include "proc-cmdline.h"
 #include "recurse-dir.h"
 #include "smbios11.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "virt.h"
 

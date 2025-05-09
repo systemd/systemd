@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "assert-fundamental.h"
 #include "resolved-manager.h"
 #include "resolved-socket-graveyard.h"
 

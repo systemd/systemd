@@ -2,14 +2,14 @@
 
 #include <inttypes.h>
 #include <malloc.h>
-#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #if HAVE_LZ4
+#include <lz4.h>
 #include <lz4hc.h>
+#include <lz4frame.h>
 #endif
 
 #if HAVE_XZ
@@ -24,12 +24,10 @@
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "compress.h"
-#include "fd-util.h"
+#include "dlfcn-util.h"
 #include "fileio.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
-#include "sparse-endian.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "unaligned.h"
@@ -47,8 +45,9 @@ static DLSYM_PROTOTYPE(LZ4F_decompress) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeCompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeDecompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_isError) = NULL;
+static DLSYM_PROTOTYPE(LZ4_compress_HC) = NULL;
+/* These are used in test-compress.c so we don't make them static. */
 DLSYM_PROTOTYPE(LZ4_compress_default) = NULL;
-DLSYM_PROTOTYPE(LZ4_compress_HC) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe_partial) = NULL;
 DLSYM_PROTOTYPE(LZ4_versionNumber) = NULL;

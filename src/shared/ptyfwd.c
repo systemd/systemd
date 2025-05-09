@@ -27,6 +27,7 @@
 #include "macro.h"
 #include "ptyfwd.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"

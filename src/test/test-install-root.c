@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "install.h"
 #include "mkdir.h"
 #include "rm-rf.h"

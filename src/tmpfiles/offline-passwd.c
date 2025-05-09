@@ -6,6 +6,7 @@
 #include "log.h"
 #include "offline-passwd.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 

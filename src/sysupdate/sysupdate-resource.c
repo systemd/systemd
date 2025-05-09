@@ -23,6 +23,7 @@
 #include "missing_magic.h"
 #include "process-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysupdate.h"

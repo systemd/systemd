@@ -13,9 +13,8 @@
 #include "log.h"
 #include "mmap-cache.h"
 #include "rm-rf.h"
-#include "strv.h"
-#include "terminal-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 #define N_ENTRIES 6000
 #define RANDOM_RANGE 77

@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#include "assert-util.h"
 #include "macro.h"
 
 bool fstab_enabled_full(int enabled);

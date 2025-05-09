@@ -27,6 +27,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;

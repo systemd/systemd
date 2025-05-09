@@ -17,6 +17,7 @@
 #include "device-util.h"
 #include "escape.h"
 #include "ethtool-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "link-config.h"
