@@ -2,7 +2,11 @@
 
 #include "varlink-io.systemd.Journal.h"
 
-static SD_VARLINK_DEFINE_METHOD(Synchronize);
+static SD_VARLINK_DEFINE_METHOD(
+                Synchronize,
+                SD_VARLINK_FIELD_COMMENT("Controls whether to offline the journal files as part of the synchronization operation."),
+                SD_VARLINK_DEFINE_INPUT(offline, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD(Rotate);
 static SD_VARLINK_DEFINE_METHOD(FlushToVar);
 static SD_VARLINK_DEFINE_METHOD(RelinquishVar);

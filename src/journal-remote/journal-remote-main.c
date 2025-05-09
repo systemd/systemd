@@ -98,10 +98,11 @@ static MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
         if (!d)
                 return NULL;
 
+        d->io_event = sd_event_source_unref(d->io_event);
+        d->timer_event = sd_event_source_unref(d->timer_event);
+
         if (d->daemon)
                 MHD_stop_daemon(d->daemon);
-        sd_event_source_unref(d->io_event);
-        sd_event_source_unref(d->timer_event);
 
         return mfree(d);
 }

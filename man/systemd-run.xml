@@ -395,6 +395,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--verbose</option></term>
+
+        <listitem>
+          <para>Display unit log output while running.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--on-active=</option></term>
         <term><option>--on-boot=</option></term>
         <term><option>--on-startup=</option></term>

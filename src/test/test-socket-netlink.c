@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/eventfd.h>
+
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "missing_network.h"
 #include "socket-netlink.h"
 #include "string-util.h"
@@ -379,6 +382,35 @@ TEST(netns_get_nsid) {
                 log_info("Our network namespace has no NSID assigned.");
         else
                 log_info("Our NSID is %" PRIu32, u);
+}
+
+TEST(af_unix_get_qlen) {
+
+        _cleanup_close_ int unix_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK(socket_autobind(unix_fd, /* ret_name= */ NULL));
+        ASSERT_OK_ERRNO(listen(unix_fd, 123));
+
+        uint32_t q;
+        ASSERT_OK(af_unix_get_qlen(unix_fd, &q));
+        ASSERT_EQ(q, 0U);
+
+        _cleanup_close_ int conn_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0));
+        union sockaddr_union sa;
+        socklen_t salen = sizeof(sa);
+        ASSERT_OK_ERRNO(getsockname(unix_fd, &sa.sa, &salen));
+        ASSERT_OK(connect(conn_fd, &sa.sa, salen));
+
+        ASSERT_OK(af_unix_get_qlen(unix_fd, &q));
+        ASSERT_EQ(q, 1U);
+
+        _cleanup_close_ int conn2_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0));
+        ASSERT_OK(connect(conn2_fd, &sa.sa, salen));
+
+        ASSERT_OK(af_unix_get_qlen(unix_fd, &q));
+        ASSERT_EQ(q, 2U);
+
+        _cleanup_close_ int efd = ASSERT_FD(eventfd(0, EFD_CLOEXEC));
+        ASSERT_ERROR(af_unix_get_qlen(efd, &q), ENOTSOCK);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
