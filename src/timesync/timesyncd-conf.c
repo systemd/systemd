@@ -31,6 +31,19 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
                 if (r == 0)
                         break;
 
+                char *open_sq = strrchr(word, '['), *close_sq = strrchr(word, ']');
+                char *first_co = strchr(word, ':'), *last_co = strrchr(word, ':');
+                if (!close_sq && first_co && last_co && strlen(first_co) == strlen(last_co)) { /* if word has exactly one ':' */
+                        log_error("Invalid address specification in %s, systemd-timesyncd does not support port numbers other than IETF RFC standard", word);
+                        continue;
+                } else if (close_sq && strlen(close_sq) == strlen(last_co)+1) { /* else if ']:' is a substring */
+                        log_error("Invalid [IP::v:6]:port address in %s, systemd-timesyncd does not support port numbers other than IETF RFC standard", word);
+                        continue;
+                } else if (open_sq && close_sq && strlen(word) == strlen(open_sq) && strlen(close_sq) == 1) { /* else if first char is '[' and last is ']', the underlying GNU inet_pton chokes on it */
+                        log_error("Invalid [IP::v:6] rendering of your server address, ignoring %s", word);
+                        continue;
+                }
+
                 r = dns_name_is_valid_or_address(word);
                 if (r < 0)
                         return log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", word);
