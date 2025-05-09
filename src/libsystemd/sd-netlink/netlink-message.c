@@ -44,6 +44,7 @@ int message_new_empty(sd_netlink *nl, sd_netlink_message **ret) {
 int message_new_full(
                 sd_netlink *nl,
                 uint16_t nlmsg_type,
+                uint16_t nlmsg_flags,
                 const NLAPolicySet *policy_set,
                 size_t header_size,
                 sd_netlink_message **ret) {
@@ -69,7 +70,7 @@ int message_new_full(
         if (!m->hdr)
                 return -ENOMEM;
 
-        m->hdr->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+        m->hdr->nlmsg_flags = nlmsg_flags;
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = nlmsg_type;
 
@@ -77,7 +78,7 @@ int message_new_full(
         return 0;
 }
 
-int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t nlmsg_type) {
+int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t nlmsg_type, uint16_t nlmsg_flags) {
         const NLAPolicySet *policy_set;
         size_t size;
         int r;
@@ -85,11 +86,11 @@ int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t nlmsg_type) {
         assert_return(nl, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = netlink_get_policy_set_and_header_size(nl, nlmsg_type, &policy_set, &size);
+        r = netlink_get_policy_set_and_header_size(nl, nlmsg_type, nlmsg_flags, &policy_set, &size);
         if (r < 0)
                 return r;
 
-        return message_new_full(nl, nlmsg_type, policy_set, size, ret);
+        return message_new_full(nl, nlmsg_type, nlmsg_flags, policy_set, size, ret);
 }
 
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret) {
@@ -98,7 +99,7 @@ int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_n
 
         assert(error <= 0);
 
-        r = message_new(nl, ret, NLMSG_ERROR);
+        r = message_new(nl, ret, NLMSG_ERROR, 0);
         if (r < 0)
                 return r;
 
@@ -1328,8 +1329,12 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl) {
 
         assert(m->hdr);
 
-        r = netlink_get_policy_set_and_header_size(nl, m->hdr->nlmsg_type,
-                                                   &m->containers[0].policy_set, &size);
+        r = netlink_get_policy_set_and_header_size(
+                        nl,
+                        m->hdr->nlmsg_type,
+                        m->hdr->nlmsg_flags,
+                        &m->containers[0].policy_set,
+                        &size);
         if (r < 0)
                 return r;
 
