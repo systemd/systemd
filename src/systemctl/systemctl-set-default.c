@@ -4,6 +4,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "proc-cmdline.h"
+#include "string-util.h"
 #include "systemctl.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-set-default.h"

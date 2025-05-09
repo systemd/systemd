@@ -1,17 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-json.h"
-
 #include "bitfield.h"
-#include "io-util.h"
-#include "macro.h"
+#include "forward.h"
 #include "openssl-util.h"
-#include "ordered-set.h"
-#include "sha256.h"
-#include "tpm2-pcr.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN     = 1 << 0,

@@ -4,6 +4,8 @@
 #include <selinux/selinux.h>
 #endif
 
+#include <sys/stat.h>
+
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
@@ -19,6 +21,7 @@
 #include "journald-server.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "string-util.h"

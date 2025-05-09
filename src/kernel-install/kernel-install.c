@@ -2,7 +2,9 @@
 
 #include <getopt.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #include "argv-util.h"
 #include "boot-entry.h"

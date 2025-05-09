@@ -7,6 +7,7 @@
 #include "condition.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
+#include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "hashmap.h"
 #include "list.h"

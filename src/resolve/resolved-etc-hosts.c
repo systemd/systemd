@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"

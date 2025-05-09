@@ -27,6 +27,7 @@
 #include "process-util.h"
 #include "reboot-util.h"
 #include "special.h"
+#include "time-util.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))

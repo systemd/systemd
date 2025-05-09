@@ -2,7 +2,10 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "argv-util.h"
@@ -14,6 +17,7 @@
 #include "creds-util.h"
 #include "efi-loader.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"

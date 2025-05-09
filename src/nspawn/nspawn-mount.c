@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "chase.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"

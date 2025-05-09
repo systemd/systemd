@@ -19,8 +19,8 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "missing_magic.h"
 #include "parse-util.h"
+#include "path-util.h"
 
 static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
         struct stat st;

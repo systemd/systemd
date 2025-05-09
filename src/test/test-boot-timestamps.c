@@ -9,6 +9,7 @@
 #include "errno-util.h"
 #include "log.h"
 #include "tests.h"
+#include "time-util.h"
 
 static int test_acpi_fpdt(void) {
         usec_t loader_start, loader_exit;

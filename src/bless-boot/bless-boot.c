@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bootspec.h"
@@ -18,6 +19,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
 #include "terminal-util.h"

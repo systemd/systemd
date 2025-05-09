@@ -4,6 +4,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "syslog-util.h"
 #include "systemctl.h"
 #include "systemctl-log-setting.h"

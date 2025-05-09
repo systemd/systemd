@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
 #include "log.h"
 #include "userns-restrict.h"
 
@@ -18,6 +19,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "string-util.h"
 
 #define USERNS_MAX (16U*1024U)
 #define MOUNTS_MAX 4096U

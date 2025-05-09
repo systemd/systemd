@@ -19,6 +19,8 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "devnum-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "firewall-util.h"

@@ -8,9 +8,8 @@
 #include "env-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
-#include "parse-util.h"
 #include "random-util.h"
-#include "sha256.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 static int get_pin(

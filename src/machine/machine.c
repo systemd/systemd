@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <sched.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -11,7 +11,6 @@
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
-#include "bus-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -21,6 +20,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "log.h"
 #include "machine.h"
 #include "machine-dbus.h"
 #include "machined.h"
@@ -37,6 +37,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "uid-range.h"
