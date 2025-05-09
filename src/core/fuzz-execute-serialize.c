@@ -43,6 +43,7 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         };
 
         exec_context_init(&exec_context);
+        exec_context->private_var_tmp = PRIVATE_TMP_DISCONNECTED;
         cgroup_context_init(&cgroup_context);
 
         (void) exec_deserialize_invocation(f, fdset, &exec_context, &command, &params, &runtime, &cgroup_context);
