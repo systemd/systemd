@@ -492,11 +492,10 @@ int decompress_blob_zstd(
         };
 
         size_t k = sym_ZSTD_decompressStream(dctx, &output, &input);
-        if (sym_ZSTD_isError(k)) {
-                log_debug("ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
-                return zstd_ret_to_errno(k);
-        }
-        assert(output.pos >= size);
+        if (sym_ZSTD_isError(k))
+                return log_debug_errno(zstd_ret_to_errno(k), "ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
+        if (output.pos < size)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "ZSTD decoded less data than indicated, probably corrupted stream.");
 
         *dst_size = size;
         return 0;
