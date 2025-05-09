@@ -1960,14 +1960,7 @@ endif
 
 conf.set_quoted('VERSION_TAG', version_tag)
 
-vcs_tag = get_option('vcs-tag')
-version_h = custom_target('version',
-        build_always_stale : vcs_tag,
-        input : 'src/version/version.h.in',
-        output : 'version.h',
-        capture : true,
-        command : ['tools/vcs-tag.sh', '@INPUT@', get_option('mode'), vcs_tag ? '1' : '0'],
-)
+subdir('src/version')
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
@@ -2021,19 +2014,17 @@ dbus_programs = []
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
 
-build_dir_include = include_directories('.')
-
 basic_includes = [
         include_directories(
                 'src/basic',
                 'src/fundamental',
                 'src/systemd',
-                '.',
         ),
         include_directories(
                 'src/basic/include',
                 is_system : true,
         ),
+        version_include,
 ]
 
 libsystemd_includes = [basic_includes, include_directories(
@@ -2064,6 +2055,7 @@ libsystemd = shared_library(
         'systemd',
         version : libsystemd_version,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
@@ -2084,6 +2076,7 @@ install_libsystemd_static = static_library(
         basic_sources,
         fundamental_sources,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
         install_tag: 'libsystemd',
@@ -2114,6 +2107,7 @@ libudev = shared_library(
         'udev',
         version : libudev_version,
         include_directories : includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static, libshared_static],
@@ -2133,6 +2127,7 @@ install_libudev_static = static_library(
         libsystemd_sources,
         libudev_sources,
         include_directories : includes,
+        implicit_include_directories : false,
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
         install_tag: 'libudev',
@@ -2473,6 +2468,7 @@ foreach dict : executables
         exe = executable(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         executables_by_name += { name : exe }
@@ -2601,6 +2597,7 @@ foreach dict : modules
         lib = shared_library(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         if is_nss
