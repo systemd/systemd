@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "time-util.h"
+#include "forward.h"
 
 typedef struct DnsAnswer DnsAnswer;
 typedef struct DnsResourceKey DnsResourceKey;

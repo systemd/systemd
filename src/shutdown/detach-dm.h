@@ -5,6 +5,6 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include <stdbool.h>
+#include "forward.h"
 
 int dm_detach_all(bool *changed, bool last_try);

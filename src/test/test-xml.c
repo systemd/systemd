@@ -3,7 +3,6 @@
 #include <stdarg.h>
 
 #include "alloc-util.h"
-#include "string-util.h"
 #include "tests.h"
 #include "xml.h"
 

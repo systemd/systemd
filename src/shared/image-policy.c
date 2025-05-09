@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "image-policy.h"
+#include "log.h"
 #include "logarithm.h"
 #include "sort-util.h"
 #include "string-util.h"
@@ -772,6 +773,10 @@ int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePoli
                 *ret = TAKE_PTR(p);
 
         return 0;
+}
+
+ImagePolicy* image_policy_free(ImagePolicy *p) {
+        return mfree(p);
 }
 
 int image_policy_ignore_designators(const ImagePolicy *p, const PartitionDesignator table[], size_t n_table, ImagePolicy **ret) {

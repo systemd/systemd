@@ -8,9 +8,8 @@
 #endif
 
 #include <openssl/ssl.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/uio.h>
+
+#include "forward.h"
 
 typedef struct DnsServer DnsServer;
 typedef struct DnsStream DnsStream;

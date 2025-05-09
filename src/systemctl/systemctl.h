@@ -9,6 +9,7 @@
 #include "install.h"
 #include "output-mode.h"
 #include "pager.h"
+#include "time-util.h"
 
 enum action {
         ACTION_SYSTEMCTL,

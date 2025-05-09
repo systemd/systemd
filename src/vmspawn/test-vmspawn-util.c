@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
-
 #include "alloc-util.h"
 #include "string-util.h"
 #include "tests.h"

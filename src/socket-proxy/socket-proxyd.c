@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <netdb.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -22,12 +20,12 @@
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "pretty-print.h"
 #include "resolve-private.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 #define BUFFER_SIZE (256 * 1024)
 

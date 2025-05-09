@@ -6,9 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "macro.h"
 #include "pretty-print.h"
-#include "strv.h"
 #include "tests.h"
 
 #define CYLON_WIDTH 6

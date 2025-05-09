@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
 #include "ether-addr-util.h"
+#include "forward.h"
 #include "in-addr-util.h"
 #include "networkd-util.h"
 

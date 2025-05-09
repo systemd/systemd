@@ -50,6 +50,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "generator-setup.h"
 #include "hashmap.h"
 #include "initrd-util.h"

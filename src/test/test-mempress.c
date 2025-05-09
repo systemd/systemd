@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -11,6 +12,8 @@
 #include "bus-locator.h"
 #include "bus-wait-for-jobs.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "hashmap.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -18,6 +21,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "unit-def.h"
 

@@ -32,6 +32,7 @@
 #include "dbus-timer.h"
 #include "dbus-unit.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "process-util.h"

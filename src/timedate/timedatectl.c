@@ -3,7 +3,6 @@
 #include <getopt.h>
 #include <locale.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stdlib.h>
 
 #include "sd-bus.h"
@@ -25,8 +24,10 @@
 #include "pretty-print.h"
 #include "sparse-endian.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;

@@ -5,7 +5,6 @@
 #  include <openssl/evp.h>
 #  include <openssl/x509.h>
 #endif
-#include <stdbool.h>
 
 #if HAVE_P11KIT
 #  include <p11-kit/p11-kit.h>
@@ -14,9 +13,7 @@
 
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
-#include "log.h"
-#include "memory-util.h"
-#include "time-util.h"
+#include "forward.h"
 
 bool pkcs11_uri_valid(const char *uri);
 

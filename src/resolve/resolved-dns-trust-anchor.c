@@ -6,6 +6,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"

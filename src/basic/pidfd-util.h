@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
-#include <sys/types.h>
-
+#include "forward.h"
 #include "missing_pidfd.h"
 #include "missing_syscall.h"
 

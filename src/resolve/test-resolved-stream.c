@@ -18,7 +18,6 @@
 
 #include "fd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -31,6 +30,7 @@
 #include "resolved-manager.h"
 #include "sparse-endian.h"
 #include "tests.h"
+#include "time-util.h"
 
 static union sockaddr_union server_address;
 

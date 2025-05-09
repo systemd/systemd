@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dhcp-lease.h"
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
-#include "hashmap.h"
-#include "log.h"
+#include "forward.h"
 #include "macro.h"
 #include "network-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef struct Link Link;
 

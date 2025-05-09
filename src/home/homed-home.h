@@ -7,6 +7,7 @@
 #include "ordered-set.h"
 #include "pidref.h"
 #include "stat-util.h"
+#include "strv.h"
 #include "user-record.h"
 
 typedef struct Manager Manager;

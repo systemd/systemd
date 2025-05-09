@@ -3,12 +3,9 @@
 
 #include <netinet/in.h>
 
-#include "conf-parser.h"
 #include "dhcp-duid-internal.h"
-#include "dns-resolver-internal.h"
+#include "forward.h"
 #include "in-addr-util.h"
-#include "set.h"
-#include "time-util.h"
 
 /* Special values for *_uplink_index. */
 #define UPLINK_INDEX_AUTO  0 /* uplink will be selected automatically */

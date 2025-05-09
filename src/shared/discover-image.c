@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/loop.h>
 #include <linux/magic.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-json.h"
 #include "sd-path.h"
 
 #include "alloc-util.h"
@@ -34,8 +33,6 @@
 #include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
-#include "macro.h"
-#include "missing_fs.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "os-util.h"
@@ -46,7 +43,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "utf8.h"
 #include "vpick.h"
 #include "xattr-util.h"
 

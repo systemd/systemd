@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
+#include "forward.h"
 #include "gpt.h"
-#include "hashmap.h"
 #include "macro.h"
 
 typedef struct Resource Resource;

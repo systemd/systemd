@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hashmap.h"
+#include "forward.h"
 
 typedef struct DnsAnswer DnsAnswer;
 typedef struct DnsResourceKey DnsResourceKey;

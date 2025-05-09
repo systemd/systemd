@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fnmatch.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "env-util.h"
@@ -12,9 +9,9 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "gunicode.h"
+#include "hashmap.h"
 #include "log.h"
 #include "memory-util.h"
-#include "nulstr-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1103,6 +1100,10 @@ void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value) 
 
         _unused_ _cleanup_free_ char *key_free = NULL;
         strv_free(hashmap_remove2(h, key, (void**) &key_free));
+}
+
+void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value) {
+        string_strv_hashmap_remove(PLAIN_HASHMAP(h), key, value);
 }
 
 static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const char *value) {

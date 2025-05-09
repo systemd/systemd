@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "fuzz.h"
+#include "macro.h"
 #include "udev-rules.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {

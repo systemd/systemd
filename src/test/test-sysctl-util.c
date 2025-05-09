@@ -5,7 +5,6 @@
 #include "sd-id128.h"
 
 #include "errno-util.h"
-#include "hostname-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tests.h"

@@ -5,9 +5,8 @@
 #include "sd-json.h"
 
 #include "dhcp-duid-internal.h"
+#include "forward.h"
 #include "macro.h"
-#include "siphash24.h"
-#include "sparse-endian.h"
 
 /* RFC 2132 section 9.14: its minimum length is 2.
  * Note, its maximum is not mentioend in the RFC. Hence, 255. */

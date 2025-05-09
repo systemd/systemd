@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-
+#include "forward.h"
 #include "list.h"
-#include "macro.h"
-#include "memory-util.h"
 
 /*
  * The log context allows attaching extra metadata to log messages written to the journal via log.h. We keep

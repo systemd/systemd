@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
-#include "sd-bus.h"
-#include "sd-event.h"
-
+#include "forward.h"
 #include "list.h"
 
 typedef struct Manager Manager;

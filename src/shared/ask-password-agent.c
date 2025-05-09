@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <signal.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "ask-password-agent.h"
 #include "exec-util.h"
 #include "log.h"
+#include "macro.h"
 #include "process-util.h"
 
 static pid_t agent_pid = 0;

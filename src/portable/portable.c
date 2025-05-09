@@ -2,6 +2,7 @@
 
 #include <linux/loop.h>
 
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "bus-common-errors.h"
@@ -9,7 +10,6 @@
 #include "bus-locator.h"
 #include "chase.h"
 #include "conf-files.h"
-#include "constants.h"
 #include "copy.h"
 #include "data-fd-util.h"
 #include "dirent-util.h"
@@ -17,19 +17,20 @@
 #include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
-#include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "install.h"
 #include "iovec-util.h"
-#include "locale-util.h"
 #include "log-context.h"
+#include "log.h"
 #include "loop-util.h"
 #include "mkdir.h"
-#include "nulstr-util.h"
 #include "os-util.h"
 #include "path-lookup.h"
 #include "portable.h"
@@ -44,7 +45,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
+#include "unit-name.h"
 #include "vpick.h"
 
 /* Markers used in the first line of our 20-portable.conf unit file drop-in to determine, that a) the unit file was

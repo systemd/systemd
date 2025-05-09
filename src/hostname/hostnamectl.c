@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <linux/vm_sockets.h>
 #include <locale.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "sd-bus.h"
@@ -12,13 +10,13 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
-#include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
+#include "errno-util.h"
 #include "format-table.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -27,8 +25,8 @@
 #include "parse-argument.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
-#include "socket-util.h"
-#include "terminal-util.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static bool arg_ask_password = true;

@@ -2,15 +2,12 @@
 
 #include <fcntl.h>
 #include <linux/btrfs.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "missing_fs.h"
 #include "string-util.h"
-#include "strxcpyx.h"
 #include "udev-builtin.h"
 
 static int builtin_btrfs(UdevEvent *event, int argc, char *argv[]) {

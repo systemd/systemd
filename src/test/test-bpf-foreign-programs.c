@@ -6,7 +6,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "bpf-foreign.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "process-util.h"

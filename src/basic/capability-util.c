@@ -17,7 +17,6 @@
 #include "fileio.h"
 #include "log.h"
 #include "logarithm.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "process-util.h"

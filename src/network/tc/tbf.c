@@ -2,15 +2,13 @@
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
-#include <math.h>
 
-#include "alloc-util.h"
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
-#include "netem.h"
-#include "netlink-util.h"
-#include "networkd-manager.h"
+#include "log-link.h"
+#include "networkd-link.h"
 #include "parse-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tbf.h"
 #include "tc-util.h"

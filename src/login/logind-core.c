@@ -3,21 +3,21 @@
 #include <fcntl.h>
 #include <linux/vt.h>
 #include <sys/ioctl.h>
-#include <sys/types.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
 #include "battery-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "bus-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "device-util.h"
 #include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "limits-util.h"
 #include "logind.h"
 #include "logind-button.h"
@@ -27,7 +27,6 @@
 #include "logind-user.h"
 #include "logind-utmp.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "strv.h"

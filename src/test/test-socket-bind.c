@@ -7,7 +7,6 @@
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "service.h"
-#include "strv.h"
 #include "tests.h"
 #include "unit.h"
 #include "virt.h"

@@ -2,14 +2,14 @@
 
 #include <linux/pkt_sched.h>
 
-#include "alloc-util.h"
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
 #include "htb.h"
-#include "netlink-util.h"
+#include "log-link.h"
 #include "networkd-link.h"
 #include "parse-util.h"
 #include "qdisc.h"
-#include "string-util.h"
 #include "tc-util.h"
 
 #define HTB_DEFAULT_RATE_TO_QUANTUM  10

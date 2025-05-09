@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stddef.h>
-#include <string.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
 
-#include "alloc-util.h"
 #include "build.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -17,6 +14,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "time-util.h"
 
 static const char *arg_bus_path = DEFAULT_SYSTEM_BUS_ADDRESS;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;

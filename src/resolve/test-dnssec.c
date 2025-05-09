@@ -11,6 +11,7 @@
 #include "resolved-dns-rr.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(dnssec_verify_dns_key) {
         static const uint8_t ds1_fprint[] = {

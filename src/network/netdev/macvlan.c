@@ -4,6 +4,8 @@
 #include <net/if.h>
 #include <netinet/in.h>
 
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
 #include "macvlan.h"
 #include "macvlan-util.h"

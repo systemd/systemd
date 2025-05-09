@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "securebits-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "unit-file.h"
 
 static const char * const string_bits[] = {
         "keep-caps",

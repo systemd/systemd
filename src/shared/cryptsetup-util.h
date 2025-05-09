@@ -3,11 +3,7 @@
 
 #include "sd-json.h"
 
-#include "alloc-util.h"
 #include "dlfcn-util.h"
-#include "macro.h"
-#include "string-util.h"
-#include "strv.h"
 
 #if HAVE_LIBCRYPTSETUP
 #include <libcryptsetup.h>
@@ -116,7 +112,4 @@ int dlopen_cryptsetup(void);
 
 int cryptsetup_get_keyslot_from_token(sd_json_variant *v);
 
-static inline const char* mangle_none(const char *s) {
-        /* A helper that turns cryptsetup/integritysetup/veritysetup "options" strings into NULL if they are effectively empty */
-        return isempty(s) || STR_IN_SET(s, "-", "none") ? NULL : s;
-}
+const char* mangle_none(const char *s);

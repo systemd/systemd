@@ -1,21 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <stdio.h>
-
 #include "conf-parser.h"
 #include "firewall-util.h"
-#include "hash-funcs.h"
+#include "forward.h"
 #include "in-addr-util.h"
-#include "network-util.h"
-#include "networkd-address-generation.h"
-#include "networkd-link.h"
 #include "networkd-util.h"
-#include "time-util.h"
 
 typedef struct Address Address;
+typedef struct IPv6Token IPv6Token;
+typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Request Request;

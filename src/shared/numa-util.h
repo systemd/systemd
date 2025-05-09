@@ -2,6 +2,7 @@
 #pragma once
 
 #include "cpu-set-util.h"
+#include "forward.h"
 #include "missing_syscall.h"
 
 static inline bool mpol_is_valid(int t) {

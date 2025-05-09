@@ -3,6 +3,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "sd-event.h"
+
 #include "daemon-util.h"
 #include "log.h"
 #include "main-func.h"

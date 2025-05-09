@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cgroup.h"
-#include "log.h"
 #include "tests.h"
 
 TEST(group_cpu_adjust_period) {

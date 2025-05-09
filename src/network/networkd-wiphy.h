@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
-#include "sd-device.h"
-#include "sd-netlink.h"
-
-#include "macro.h"
+#include "forward.h"
 
 typedef struct Link Link;
 typedef struct Manager Manager;

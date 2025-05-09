@@ -1,27 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <math.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <resolv.h>
-#include <stdlib.h>
 #include <sys/timerfd.h>
 #include <sys/timex.h>
-#include <sys/types.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-messages.h"
+#include "sd-network.h"
 
 #include "alloc-util.h"
-#include "bus-polkit.h"
 #include "clock-util.h"
 #include "common-signal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "list.h"
 #include "log.h"
 #include "logarithm.h"
@@ -36,7 +36,6 @@
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
-#include "user-util.h"
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */

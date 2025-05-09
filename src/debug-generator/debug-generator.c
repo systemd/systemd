@@ -10,6 +10,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "generator.h"
 #include "initrd-util.h"
 #include "parse-util.h"

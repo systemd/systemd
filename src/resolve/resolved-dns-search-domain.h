@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-json.h"
-
+#include "forward.h"
 #include "list.h"
-#include "macro.h"
-#include "memory-util.h"
 
 typedef struct DnsSearchDomain DnsSearchDomain;
 typedef struct Link Link;

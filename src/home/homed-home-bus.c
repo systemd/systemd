@@ -13,6 +13,7 @@
 #include "homed-home-bus.h"
 #include "homed-manager.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-util.h"

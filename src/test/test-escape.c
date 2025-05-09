@@ -2,7 +2,6 @@
 
 #include "alloc-util.h"
 #include "escape.h"
-#include "macro.h"
 #include "tests.h"
 
 TEST(cescape) {

@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
+#include "forward.h"
 #include "sysupdate-update-set-flags.h"
 
 typedef struct Instance Instance;

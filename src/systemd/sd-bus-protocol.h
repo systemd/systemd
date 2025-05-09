@@ -115,13 +115,13 @@ typedef struct sd_bus_slot sd_bus_slot;
 typedef struct sd_bus_creds sd_bus_creds;
 typedef struct sd_bus_track sd_bus_track;
 
-typedef struct {
+typedef struct sd_bus_error {
         const char *name;
         const char *message;
         int _need_free;
 } sd_bus_error;
 
-typedef struct {
+typedef struct sd_bus_error_map {
         const char *name;
         int code;
 } sd_bus_error_map;

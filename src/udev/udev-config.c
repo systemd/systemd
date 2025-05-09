@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "conf-parser.h"
@@ -8,13 +9,16 @@
 #include "daemon-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "limits-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "serialize.h"
 #include "signal-util.h"
+#include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "udev-config.h"
 #include "udev-manager.h"
 #include "udev-rules.h"

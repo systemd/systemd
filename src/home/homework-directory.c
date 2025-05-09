@@ -3,6 +3,7 @@
 #include <sys/mount.h>
 
 #include "btrfs-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "homework-blob.h"
 #include "homework-directory.h"
@@ -13,6 +14,7 @@
 #include "mount-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"

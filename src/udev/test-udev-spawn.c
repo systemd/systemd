@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-device.h"
+
+#include "alloc-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "udev-event.h"

@@ -6,11 +6,11 @@
 
 #include "event-util.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "notify-recv.h"
-#include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
-#include "socket-util.h"
 #include "tests.h"
 
 typedef struct Context {

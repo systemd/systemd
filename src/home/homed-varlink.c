@@ -5,6 +5,7 @@
 #include "homed-varlink.h"
 #include "json-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record.h"
 #include "user-record-util.h"

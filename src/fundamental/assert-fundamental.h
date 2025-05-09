@@ -5,7 +5,7 @@
 #  include <assert.h>
 #endif
 
-#include "macro-fundamental.h"
+#include "forward-fundamental.h"
 
 #if SD_BOOT
         _noreturn_ void efi_assert(const char *expr, const char *file, unsigned line, const char *function);

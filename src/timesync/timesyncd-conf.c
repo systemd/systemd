@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "constants.h"
+#include "conf-parser.h"
 #include "dns-domain.h"
 #include "extract-word.h"
+#include "log.h"
 #include "string-util.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"

@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "alloc-util.h"
 #include "extract-word.h"
-#include "log.h"
 #include "namespace-util.h"
 #include "nsflags.h"
 #include "string-util.h"

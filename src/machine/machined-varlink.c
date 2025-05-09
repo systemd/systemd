@@ -1,20 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/vm_sockets.h>
+
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
 #include "discover-image.h"
+#include "errno-util.h"
 #include "format-util.h"
-#include "hostname-util.h"
+#include "hashmap.h"
 #include "image-varlink.h"
 #include "json-util.h"
+#include "local-addresses.h"
 #include "machine.h"
 #include "machine-varlink.h"
 #include "machined.h"
 #include "machined-varlink.h"
-#include "mkdir.h"
-#include "process-util.h"
-#include "socket-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"

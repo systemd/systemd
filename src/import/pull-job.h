@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <curl/curl.h>
 #include <sys/stat.h>
 
-#include "curl-util.h"
+#include "forward.h"
 #include "import-compress.h"
 #include "openssl-util.h"
 
+typedef struct CurlGlue CurlGlue;
 typedef struct PullJob PullJob;
 
 typedef void (*PullJobFinished)(PullJob *job);

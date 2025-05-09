@@ -13,6 +13,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "utf8.h"
 
 #if ENABLE_EFI

@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <macro.h>
-#include <stdbool.h>
 #include <string.h>
 
-#include "assert-util.h"
-#include "set.h"
+#include "forward.h"
 
 #define NULSTR_FOREACH(i, l)                                    \
         for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

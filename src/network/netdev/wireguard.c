@@ -9,13 +9,15 @@
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 
+#include "sd-netlink.h"
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "creds-util.h"
 #include "dns-domain.h"
 #include "event-util.h"
-#include "fd-util.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "memory-util.h"
@@ -28,9 +30,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
-#include "resolve-private.h"
 #include "string-util.h"
-#include "strv.h"
 #include "wireguard.h"
 
 static void wireguard_resolve_endpoints(NetDev *netdev);

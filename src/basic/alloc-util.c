@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
-#include <stdint.h>
-#include <string.h>
-
 #include "alloc-util.h"
-#include "macro.h"
 
 void* memdup(const void *p, size_t l) {
         void *ret;

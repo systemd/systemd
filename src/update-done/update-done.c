@@ -2,7 +2,6 @@
 
 #include <getopt.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -10,12 +9,12 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "label-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
-#include "path-util.h"
 #include "pretty-print.h"
-#include "selinux-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 static char *arg_root = NULL;

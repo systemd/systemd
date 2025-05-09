@@ -5,11 +5,10 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <inttypes.h>
 #include <linux/neighbour.h>
+#include <net/ethernet.h>
 
-#include "conf-parser.h"
-#include "ether-addr-util.h"
+#include "forward.h"
 #include "in-addr-util.h"
 
 typedef struct Link Link;

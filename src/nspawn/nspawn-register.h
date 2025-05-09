@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
-#include "sd-id128.h"
-
-#include "nspawn-mount.h"
+#include "forward.h"
 #include "nspawn-settings.h"
 
 typedef enum RegisterMachineFlags {

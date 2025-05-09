@@ -5,6 +5,8 @@
  *  Copyright © 2000, 2005 Red Hat, Inc.
  */
 
+#include <stdlib.h>
+
 #include "gunicode.h"
 #include "macro.h"
 

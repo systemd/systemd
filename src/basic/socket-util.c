@@ -2,7 +2,8 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <limits.h>
+#include <fcntl.h>
+#include <inttypes.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <mqueue.h>
@@ -10,10 +11,7 @@
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <poll.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -21,22 +19,23 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-ifname.h"
+#include "format-util.h"
+#include "in-addr-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "sparse-endian.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "user-util.h"
-#include "utf8.h"
 
 #if ENABLE_IDN
 #  define IDN_FLAGS NI_IDN

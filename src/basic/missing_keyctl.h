@@ -2,9 +2,9 @@
 #pragma once
 
 #include <inttypes.h>
-#include <linux/keyctl.h>
+#include <linux/keyctl.h> // IWYU pragma: export
 
-#include "macro.h"
+#include "forward.h"
 
 /* From linux/key.h */
 #ifndef KEY_POS_VIEW

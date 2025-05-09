@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dlfcn-util.h"
+#include "hash-funcs.h"
 #include "log.h"
+#include "macro.h"
 #include "pcre2-util.h"
 
 #if HAVE_PCRE2

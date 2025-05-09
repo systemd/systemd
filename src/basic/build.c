@@ -9,7 +9,6 @@
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "version.h"
 
 const char* const systemd_features =

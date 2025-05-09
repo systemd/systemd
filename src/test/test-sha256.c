@@ -2,7 +2,6 @@
 
 #include "hexdecoct.h"
 #include "sha256.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void sha256_process_string(const char *key, struct sha256_ctx *ctx) {

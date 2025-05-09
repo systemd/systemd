@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/can/netlink.h>
-
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
+#include "forward.h"
 
 typedef struct Link Link;
 

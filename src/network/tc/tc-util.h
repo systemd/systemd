@@ -4,7 +4,7 @@
 
 #include <linux/pkt_sched.h>
 
-#include "time-util.h"
+#include "forward.h"
 
 int tc_init(double *ret_ticks_in_usec, uint32_t *ret_hz);
 int tc_time_to_tick(usec_t t, uint32_t *ret);

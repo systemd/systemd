@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
+#include "forward.h"
 #include "ordered-set.h"
 
 typedef struct DnsResourceKey DnsResourceKey;

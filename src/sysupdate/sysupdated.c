@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <sys/stat.h>
+
 #include "sd-bus.h"
 #include "sd-json.h"
 
@@ -19,20 +22,22 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
-#include "mkdir-label.h"
 #include "notify-recv.h"
 #include "os-util.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "sysupdate-util.h"
+#include "time-util.h"
 #include "utf8.h"
 
 #define FEATURES_DROPIN_NAME "systemd-sysupdate-enabled"

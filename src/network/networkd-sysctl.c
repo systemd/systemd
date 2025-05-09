@@ -7,8 +7,10 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "conf-parser.h"
 #include "alloc-util.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -22,6 +24,7 @@
 #include "path-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "sysctl-util.h"
 
 #if HAVE_VMLINUX_H

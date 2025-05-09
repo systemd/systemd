@@ -5,14 +5,13 @@
 
 #include <linux/if_bridge.h>
 #include <netinet/in.h>
-#include <stdbool.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "conf-parser.h"
 #include "netlink-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-link.h"
-#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "parse-util.h"
 #include "vlan-util.h"

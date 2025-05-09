@@ -3,12 +3,10 @@
 
 #include <sys/stat.h>
 
-#include "sd-netlink.h"
-
+#include "forward.h"
 #include "in-addr-util.h"
 #include "list.h"
 #include "network-util.h"
-#include "ratelimit.h"
 #include "resolve-util.h"
 
 typedef struct DnsResourceRecord DnsResourceRecord;

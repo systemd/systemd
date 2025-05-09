@@ -2,16 +2,21 @@
 
 #include <net/if.h>
 
+#include "sd-json.h"
+
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "format-ifname.h"
+#include "log.h"
+#include "prioq.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /* Never cache more than 4K entries. RFC 1536, Section 5 suggests to
  * leave DNS caches unbounded, but that's crazy. */

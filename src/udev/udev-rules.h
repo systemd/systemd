@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "alloc-util.h"
-#include "hashmap.h"
-#include "time-util.h"
+#include "forward.h"
 #include "udev-def.h"
 
 typedef struct UdevRuleFile UdevRuleFile;

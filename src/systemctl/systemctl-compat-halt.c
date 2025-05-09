@@ -15,7 +15,6 @@
 #include "systemctl-logind.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
-#include "terminal-util.h"
 #include "utmp-wtmp.h"
 
 static int halt_help(void) {

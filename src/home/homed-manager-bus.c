@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <grp.h>
 #include <linux/capability.h>
+#include <pwd.h>
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -16,6 +18,8 @@
 #include "log.h"
 #include "openssl-util.h"
 #include "path-util.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"

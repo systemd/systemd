@@ -1,23 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "log.h"
-#include "userns-restrict.h"
+#include <sys/stat.h>
 
 #if HAVE_VMLINUX_H
 
+#include <inttypes.h>
 #include <sched.h>
 #include <sys/mount.h>
 
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "fd-util.h"
-#include "fs-util.h"
+#include "log.h"
 #include "lsm-util.h"
 #include "mkdir.h"
-#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "string-util.h"
+#include "userns-restrict.h"
 
 #define USERNS_MAX (16U*1024U)
 #define MOUNTS_MAX 4096U

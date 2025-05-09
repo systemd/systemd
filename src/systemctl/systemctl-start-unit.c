@@ -10,13 +10,12 @@
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "bus-wait-for-units.h"
-#include "macro.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
-#include "terminal-util.h"
 
 static const struct {
         const char *verb;      /* systemctl verb */

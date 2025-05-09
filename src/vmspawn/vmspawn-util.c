@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/vhost.h>
+#include <linux/vm_sockets.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -10,20 +11,14 @@
 #include "architecture.h"
 #include "conf-files.h"
 #include "errno-util.h"
-#include "escape.h"
 #include "fd-util.h"
-#include "fileio.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
-#include "macro.h"
-#include "memory-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "random-util.h"
-#include "recurse-dir.h"
 #include "siphash24.h"
-#include "socket-util.h"
-#include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "list.h"
+#include "forward.h"
 #include "resolved-conf.h"
 
 typedef struct DnssdService DnssdService;

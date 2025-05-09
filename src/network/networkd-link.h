@@ -1,34 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <endian.h>
 #include <linux/nl80211.h>
 
-#include "sd-bus.h"
-#include "sd-device.h"
-#include "sd-dhcp-client.h"
-#include "sd-dhcp-server.h"
-#include "sd-dhcp6-client.h"
-#include "sd-ipv4acd.h"
-#include "sd-ipv4ll.h"
-#include "sd-lldp-rx.h"
-#include "sd-lldp-tx.h"
-#include "sd-ndisc.h"
-#include "sd-netlink.h"
-#include "sd-radv.h"
-
 #include "ether-addr-util.h"
-#include "log-link.h"
-#include "netdev.h"
+#include "forward.h"
+#include "netdev-util.h"
 #include "netif-util.h"
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-ipv6ll.h"
-#include "networkd-util.h"
-#include "ordered-set.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
-#include "set.h"
 
 typedef enum LinkState {
         LINK_STATE_PENDING,     /* udev has not initialized the link */

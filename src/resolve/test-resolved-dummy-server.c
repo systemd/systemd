@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 
 #include "dns-type.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"
@@ -12,6 +14,8 @@
 #include "resolved-manager.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
+#include "string-util.h"
+#include "time-util.h"
 
 /* Taken from resolved-dns-stub.c */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)

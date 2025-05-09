@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-netlink.h"
-
-#include "alloc-util.h"
-#include "hash-funcs.h"
+#include "forward.h"
 #include "netif-sriov.h"
 
 typedef struct Link Link;

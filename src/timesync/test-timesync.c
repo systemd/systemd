@@ -2,8 +2,6 @@
 
 /* Some unit tests for the helper functions in timesyncd. */
 
-#include "log.h"
-#include "macro.h"
 #include "tests.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"

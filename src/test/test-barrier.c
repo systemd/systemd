@@ -9,7 +9,6 @@
  * increase it at the slightly cost of lengthen test-duration on other machines.
  */
 
-#include <stdio.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>

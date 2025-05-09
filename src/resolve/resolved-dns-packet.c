@@ -10,9 +10,11 @@
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
 #include "set.h"
+#include "siphash24.h"
 #include "stdio-util.h"
 #include "string-table.h"
-#include "strv.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "unaligned.h"
 #include "utf8.h"
 

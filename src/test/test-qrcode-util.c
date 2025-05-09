@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "locale-util.h"
 #include "main-func.h"
 #include "qrcode-util.h"
 #include "tests.h"

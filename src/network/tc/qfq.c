@@ -2,11 +2,11 @@
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
+#include "sd-netlink.h"
 
 #include "parse-util.h"
 #include "qdisc.h"
 #include "qfq.h"
-#include "string-util.h"
 
 #define QFQ_MAX_WEIGHT       (1 << 10)
 #define QFQ_MIN_MAX_PACKET   512

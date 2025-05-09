@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
 #include "dns-def.h"
-#include "list.h"
+#include "forward.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-zone.h"
-#include "socket-util.h"
 
 typedef struct DnsQuery DnsQuery;
 typedef struct DnsQueryCandidate DnsQueryCandidate;

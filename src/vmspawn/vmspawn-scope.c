@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-
 #include "sd-bus.h"
 
 #include "bus-error.h"
@@ -11,13 +9,11 @@
 #include "bus-wait-for-jobs.h"
 #include "escape.h"
 #include "log.h"
-#include "macro.h"
-#include "process-util.h"
+#include "pidref.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "unit-def.h"
-#include "unit-name.h"
 #include "vmspawn-scope.h"
 
 int start_transient_scope(sd_bus *bus, const char *machine_name, bool allow_pidfd, char **ret_scope) {

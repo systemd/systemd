@@ -3,10 +3,8 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include <errno.h>
 #include <getopt.h>
 #include <linux/reboot.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
@@ -30,13 +28,16 @@
 #include "detach-swap.h"
 #include "errno-util.h"
 #include "exec-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "getopt-defs.h"
 #include "initrd-util.h"
 #include "killall.h"
 #include "log.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
@@ -46,6 +47,7 @@
 #include "switch-root.h"
 #include "sysctl-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "umount.h"
 #include "virt.h"
 #include "watchdog.h"

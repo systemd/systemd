@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
 #include "alloc-util.h"
 #include "cgroup-util.h"
-#include "fd-util.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
@@ -12,6 +13,7 @@
 #include "logind-user.h"
 #include "logind-varlink.h"
 #include "terminal-util.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Login.h"
 #include "varlink-io.systemd.service.h"

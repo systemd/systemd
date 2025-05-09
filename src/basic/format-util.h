@@ -2,10 +2,10 @@
 #pragma once
 
 #include <inttypes.h>
-#include <stdbool.h>
 
 #include "cgroup-util.h"
-#include "macro.h"
+#include "forward.h"
+#include "stdio-util.h"
 
 assert_cc(sizeof(pid_t) == sizeof(int32_t));
 #define PID_PRI PRIi32

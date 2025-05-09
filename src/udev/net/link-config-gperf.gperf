@@ -5,6 +5,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
 #include <stddef.h>
+#include "condition.h"
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "link-config.h"

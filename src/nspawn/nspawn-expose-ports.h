@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
-#include "sd-event.h"
-#include "sd-netlink.h"
-
 #include "firewall-util.h"
-#include "in-addr-util.h"
+#include "forward.h"
 #include "list.h"
 
 typedef struct ExposePort {

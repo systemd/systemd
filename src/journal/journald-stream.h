@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "fdset.h"
+#include "forward.h"
 
 typedef struct Server Server;
 typedef struct StdoutStream StdoutStream;

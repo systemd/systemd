@@ -7,8 +7,6 @@
 #include "alloc-util.h"
 #include "journal-importer.h"
 #include "log.h"
-#include "path-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void assert_iovec_entry(const struct iovec *iovec, const char* content) {

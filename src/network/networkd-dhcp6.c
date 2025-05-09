@@ -3,11 +3,13 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
+#include <linux/if_addr.h>
+
 #include "dhcp6-client-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp6.h"

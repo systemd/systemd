@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "alloc-util.h"
-#include "macro.h"
-#include "siphash24.h"
-
-typedef void (*hash_func_t)(const void *p, struct siphash *state);
-typedef int (*compare_func_t)(const void *a, const void *b);
+#include "forward.h"
 
 struct hash_ops {
         hash_func_t hash;

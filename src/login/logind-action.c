@@ -2,15 +2,17 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
-#include "bus-util.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "logind.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
@@ -19,7 +21,6 @@
 #include "process-util.h"
 #include "special.h"
 #include "string-table.h"
-#include "terminal-util.h"
 #include "user-util.h"
 
 static const HandleActionData handle_action_data_table[_HANDLE_ACTION_MAX] = {

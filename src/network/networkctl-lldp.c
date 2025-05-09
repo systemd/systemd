@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "format-table.h"
 #include "json-util.h"
 #include "log.h"
 #include "networkctl.h"
@@ -8,6 +9,7 @@
 #include "networkctl-lldp.h"
 #include "networkctl-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "varlink-util.h"

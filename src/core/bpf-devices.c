@@ -2,6 +2,7 @@
 
 #include <fnmatch.h>
 #include <linux/bpf_insn.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "bpf-devices.h"
@@ -9,11 +10,11 @@
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "missing_bpf.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 
 #define PASS_JUMP_OFF 4096

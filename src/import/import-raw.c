@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "btrfs-util.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "hostname-util.h"
 #include "import-common.h"
 #include "import-compress.h"
 #include "import-raw.h"
@@ -17,15 +17,13 @@
 #include "install-file.h"
 #include "io-util.h"
 #include "log.h"
-#include "machine-pool.h"
-#include "missing_fs.h"
 #include "mkdir-label.h"
-#include "path-util.h"
 #include "pretty-print.h"
 #include "qcow2-util.h"
 #include "ratelimit.h"
-#include "rm-rf.h"
 #include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 struct RawImport {

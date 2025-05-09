@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "resolved-manager.h"
+typedef struct Manager Manager;
 
 #define LLMNR_PORT 5355
 

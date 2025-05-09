@@ -3,7 +3,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "tests.h"

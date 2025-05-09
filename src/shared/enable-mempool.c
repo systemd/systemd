@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
-
 #include "env-util.h"
 #include "mempool.h"
 #include "process-util.h"

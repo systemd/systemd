@@ -1,17 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-id128.h"
 
 #include "architecture.h"
 #include "env-util.h"
+#include "forward.h"
 #include "gpt.h"
 #include "list.h"
 #include "loop-util.h"
-#include "macro.h"
-#include "os-util.h"
 #include "strv.h"
 
 typedef struct DissectedImage DissectedImage;

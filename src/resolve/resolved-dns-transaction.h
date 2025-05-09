@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
-#include "in-addr-util.h"
-#include "list.h"
+#include "forward.h"
 #include "resolved-def.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-server.h"
-#include "set.h"
 
 typedef struct DnsAnswer DnsAnswer;
 typedef struct DnsPacket DnsPacket;

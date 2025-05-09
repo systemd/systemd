@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <inttypes.h>
-#include <limits.h>
-
+#include "forward.h"
 #include "macro.h"
 
 int parse_percent_unbounded(const char *p);

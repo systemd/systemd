@@ -9,27 +9,18 @@
 #include <valgrind/memcheck.h>
 #endif
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#include "sd-id128.h"
-
 #include "alloc-util.h"
 #include "blkid-util.h"
-#include "blockdev-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
-#include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "gpt.h"
-#include "initrd-util.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"

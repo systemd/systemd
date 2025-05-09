@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "homed-manager.h"
+#include "forward.h"
+
+typedef struct Manager Manager;
 
 int manager_parse_config_file(Manager *m);
 

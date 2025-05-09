@@ -19,7 +19,6 @@
 #include "fd-util.h"
 #include "list.h"
 #include "shutdown.h"
-#include "string-util.h"
 
 typedef struct RaidDevice {
         char *path;

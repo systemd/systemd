@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "env-file.h"
@@ -10,8 +11,10 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "locale-setup.h"
+#include "log.h"
 #include "proc-cmdline.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 void locale_context_clear(LocaleContext *c) {

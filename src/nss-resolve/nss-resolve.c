@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <netdb.h>
 #include <nss.h>
 #include <pthread.h>
-#include <stdlib.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
@@ -15,12 +12,12 @@
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "json-util.h"
-#include "macro.h"
 #include "nss-util.h"
 #include "resolved-def.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 
 static sd_json_dispatch_flags_t json_dispatch_flags = SD_JSON_ALLOW_EXTENSIONS;
 

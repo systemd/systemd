@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
-#include "device-enumerator-private.h"
+#include "sd-netlink.h"
+
 #include "device-util.h"
-#include "fd-util.h"
+#include "errno-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"

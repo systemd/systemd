@@ -3,6 +3,9 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <sys/capability.h>
+#include <sys/stat.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -18,8 +21,6 @@
 #include "networkd-manager-bus.h"
 #include "networkd-network-bus.h"
 #include "path-util.h"
-#include "strv.h"
-#include "user-util.h"
 
 static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;

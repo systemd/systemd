@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
 #include "ether-addr-util.h"
-#include "hash-funcs.h"
+#include "forward.h"
 #include "list.h"
 #include "log-link.h"
 #include "netdev-util.h"
-#include "time-util.h"
 
 /* Special hardware address value to suppress generating persistent hardware address for the netdev. */
 #define HW_ADDR_NONE ((struct hw_addr_data) { .length = 1, })

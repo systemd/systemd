@@ -7,6 +7,7 @@
 #include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "set.h"
+#include "siphash24.h"
 #include "stat-util.h"
 
 typedef struct BPFForeignKey BPFForeignKey;

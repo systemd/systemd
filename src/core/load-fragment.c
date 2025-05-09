@@ -32,6 +32,7 @@
 #include "escape.h"
 #include "exec-credential.h"
 #include "execute.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "firewall-util.h"

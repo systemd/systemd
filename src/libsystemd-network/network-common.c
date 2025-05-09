@@ -2,6 +2,7 @@
 
 #include "env-util.h"
 #include "format-ifname.h"
+#include "macro.h"
 #include "network-common.h"
 #include "socket-util.h"
 #include "unaligned.h"

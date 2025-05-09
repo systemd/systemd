@@ -8,7 +8,9 @@
 #include "bootctl-set-efivar.h"
 #include "efi-loader.h"
 #include "efivars.h"
+#include "log.h"
 #include "stdio-util.h"
+#include "time-util.h"
 #include "utf8.h"
 #include "virt.h"
 

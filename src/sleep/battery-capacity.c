@@ -5,15 +5,14 @@
 #include "alloc-util.h"
 #include "battery-capacity.h"
 #include "battery-util.h"
-#include "device-private.h"
 #include "device-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "hexdecoct.h"
 #include "id128-util.h"
 #include "parse-util.h"
 #include "siphash24.h"
+#include "string-util.h"
 
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)

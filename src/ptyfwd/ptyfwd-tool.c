@@ -9,11 +9,14 @@
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 static bool arg_quiet = false;
 static bool arg_read_only = false;

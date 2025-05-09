@@ -3,18 +3,14 @@
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
 #endif
-#include <errno.h>
 #include <fcntl.h>
-#include <stdlib.h>
+#include <inttypes.h>
 #include <threads.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
 #include "confidential-virt.h"
 #include "confidential-virt-fundamental.h"
-#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "log.h"
 #include "string-table.h"
 #include "string-util.h"

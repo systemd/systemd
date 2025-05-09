@@ -16,7 +16,6 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "bus-locator.h"
-#include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -34,6 +33,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 

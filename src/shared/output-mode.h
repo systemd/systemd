@@ -3,6 +3,7 @@
 
 #include "sd-json.h"
 
+#include "forward.h"
 #include "macro.h"
 
 typedef enum OutputMode {

@@ -5,8 +5,6 @@
 #include "alloc-util.h"
 #include "format-table.h"
 #include "json-util.h"
-#include "string-util.h"
-#include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
 #include "time-util.h"

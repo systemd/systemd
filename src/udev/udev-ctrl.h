@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "sd-event.h"
-
+#include "forward.h"
 #include "macro.h"
-#include "memory-util.h"
-#include "time-util.h"
 
 typedef struct UdevCtrl UdevCtrl;
 

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <stdlib.h>
-
 #include "device-private.h"
 #include "errno-list.h"
 #include "errno-util.h"
@@ -16,7 +14,7 @@ int device_add_errno(sd_device *dev, int error) {
         if (error == 0)
                 return 0;
 
-        error = abs(error);
+        error = ABS(error);
 
         r = device_add_property(dev, "UDEV_WORKER_FAILED", "1");
         RET_GATHER(r, device_add_propertyf(dev, "UDEV_WORKER_ERRNO", "%i", error));

@@ -3,9 +3,7 @@
 #include <stdio.h>
 
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fuzz.h"
-#include "tests.h"
 #include "tmpfile-util.h"
 #include "udev-rules.h"
 

@@ -3,7 +3,6 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <stdio.h>
@@ -24,7 +23,6 @@
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "random-util.h"
 #include "tests.h"
 
 static struct hw_addr_data hw_addr = {

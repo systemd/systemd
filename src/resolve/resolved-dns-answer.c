@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <inttypes.h>
 #include <stdio.h>
 
 #include "alloc-util.h"
@@ -9,6 +10,7 @@
 #include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-rr.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 static DnsAnswerItem *dns_answer_item_free(DnsAnswerItem *item) {

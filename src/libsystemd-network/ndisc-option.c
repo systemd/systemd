@@ -14,6 +14,8 @@
 #include "missing_network.h"
 #include "ndisc-option.h"
 #include "network-common.h"
+#include "siphash24.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
 

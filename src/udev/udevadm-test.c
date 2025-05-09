@@ -8,7 +8,9 @@
 #include <stdio.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "log.h"
 #include "parse-argument.h"

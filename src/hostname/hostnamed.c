@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-json.h"
 
@@ -22,25 +21,26 @@
 #include "env-file.h"
 #include "env-file-label.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "json-util.h"
+#include "label-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "selinux-util.h"
 #include "service-util.h"
-#include "signal-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
-#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
+#include "time-util.h"
 #include "utf8.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.service.h"

@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 
-#include "macro.h"
 #include "replace-var.h"
 #include "string-util.h"
 #include "tests.h"

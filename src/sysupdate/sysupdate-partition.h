@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
 
 #include "fdisk-util.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef struct PartitionInfo PartitionInfo;
 

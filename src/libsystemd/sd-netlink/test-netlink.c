@@ -13,16 +13,14 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "ether-addr-util.h"
-#include "macro.h"
+#include "missing_network.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
-#include "socket-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(message_newlink_bridge) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
