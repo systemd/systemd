@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hashmap.h"
-#include "homed-operation.h"
-#include "list.h"
-#include "ordered-set.h"
+#include "forward.h"
+#include "macro.h"
 #include "pidref.h"
 #include "stat-util.h"
-#include "user-record.h"
 
 typedef struct Manager Manager;
+typedef struct Operation Operation;
 
 typedef enum HomeState {
         HOME_UNFIXATED,               /* home exists, but local record does not */

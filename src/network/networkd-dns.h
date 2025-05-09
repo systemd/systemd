@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "macro.h"
+#include "forward.h"
 #include "networkd-util.h"
 
 typedef struct Link Link;

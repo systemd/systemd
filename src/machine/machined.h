@@ -1,17 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
 #include "bus-object.h"
-#include "hashmap.h"
+#include "forward.h"
 #include "list.h"
-#include "local-addresses.h"
-#include "pidref.h"
 #include "runtime-scope.h"
 
 typedef struct Image Image;

@@ -2,6 +2,7 @@
 
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "assert-util.h"
 #include "errno-util.h"

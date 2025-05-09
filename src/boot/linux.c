@@ -10,6 +10,7 @@
 
 #include "initrd.h"
 #include "linux.h"
+#include "log.h"
 #include "pe.h"
 #include "proto/device-path.h"
 #include "proto/loaded-image.h"

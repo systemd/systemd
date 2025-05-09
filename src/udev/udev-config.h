@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "time-util.h"
+#include "forward.h"
 #include "udev-def.h"
 
 extern bool arg_daemonize;

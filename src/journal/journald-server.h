@@ -1,23 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "sd-event.h"
-#include "sd-varlink.h"
-
 #include "common-signal.h"
-#include "conf-parser.h"
-#include "hashmap.h"
+#include "forward.h"
 #include "journal-file.h"
-#include "journald-context.h"
-#include "journald-stream.h"
 #include "list.h"
-#include "prioq.h"
 #include "ratelimit.h"
 #include "socket-util.h"
-#include "time-util.h"
+
+typedef struct ClientContext ClientContext;
+typedef struct StdoutStream StdoutStream;
 
 typedef enum Storage {
         STORAGE_AUTO,
