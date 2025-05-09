@@ -2007,6 +2007,7 @@ catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
+objects_by_name = {}
 fuzzer_exes = []
 generated_sources = [version_h, vmlinux_h_dependency]
 
@@ -2063,6 +2064,7 @@ libsystemd = shared_library(
         'systemd',
         version : libsystemd_version,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
@@ -2083,6 +2085,7 @@ install_libsystemd_static = static_library(
         basic_sources,
         fundamental_sources,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
         install_tag: 'libsystemd',
@@ -2113,6 +2116,7 @@ libudev = shared_library(
         'udev',
         version : libudev_version,
         include_directories : includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static, libshared_static],
@@ -2132,6 +2136,7 @@ install_libudev_static = static_library(
         libsystemd_sources,
         libudev_sources,
         include_directories : includes,
+        implicit_include_directories : false,
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
         install_tag: 'libudev',
@@ -2433,7 +2438,8 @@ foreach dict : executables
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions',
-                           'type', 'suite', 'timeout', 'parallel']
+                           'type', 'suite', 'timeout', 'parallel',
+                           'objects', 'extract']
                         continue
                 endif
 
@@ -2442,6 +2448,17 @@ foreach dict : executables
 
         foreach key, val : executable_additional_kwargs
                 kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
+
+        foreach val : dict.get('objects', [])
+                obj = objects_by_name[val]
+                kwargs += {
+                        'objects' : obj['objects'],
+                        'include_directories' : [
+                                kwargs.get('include_directories', []),
+                                obj['include_directories'],
+                        ],
+                }
         endforeach
 
         if is_test
@@ -2460,9 +2477,19 @@ foreach dict : executables
         exe = executable(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         executables_by_name += { name : exe }
+
+        if dict.has_key('extract')
+                objects_by_name += {
+                        name : {
+                                'objects' : exe.extract_objects(dict['extract']),
+                                'include_directories' : fs.parent(dict['extract'][0]),
+                        }
+                }
+        endif
 
         if dict.get('build_by_default', true)
                 if dict.get('dbus', false)
@@ -2579,6 +2606,7 @@ foreach dict : modules
         lib = shared_library(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         if is_nss
@@ -2768,6 +2796,10 @@ foreach tuple : fuzz_sanitizers
         if cc.has_link_argument('-fsanitize=@0@'.format(sanitizer))
                 foreach fuzzer, fuzz_ins : fuzz_regression_tests
                         name = '@0@:@1@'.format(fuzzer, sanitizer)
+                        if not executables_by_name.has_key(fuzzer)
+                                message('Not compiling @0@ because fuzzer @1@ was not built'.format(name, fuzzer))
+                                continue
+                        endif
                         if want_tests == 'false'
                                 message('Not compiling @0@ because tests is set to false'.format(name))
                                 continue
