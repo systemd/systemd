@@ -837,22 +837,22 @@ int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags
         return 0;
 }
 
-int chase_and_stat(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat) {
+int chase_and_stat(const char *path, const char *root, ChaseFlags flags, char **ret_path, struct stat *ret_stat) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
         assert(path);
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+        assert(!(flags & (CHASE_NONEXISTENT|CHASE_STEP)));
         assert(ret_stat);
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+            (flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
                 return RET_NERRNO(fstatat(AT_FDCWD, path, ret_stat,
-                                          FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
+                                          FLAGS_SET(flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
 
-        r = chase(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
+        r = chase(path, root, flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
