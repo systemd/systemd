@@ -4,7 +4,6 @@
 #include <alloca.h>
 #include <malloc.h>
 #include <stddef.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "assert-util.h"
@@ -135,6 +134,29 @@ static inline void *memdup_suffix0_multiply(const void *p, size_t need, size_t s
                 return NULL;
 
         return memdup_suffix0(p, size * need);
+}
+
+static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
+        size_t m;
+
+        /* Round up allocation sizes a bit to some reasonable, likely larger value. This is supposed to be
+         * used for cases which are likely called in an allocation loop of some form, i.e. that repetitively
+         * grow stuff, for example strv_extend() and suchlike.
+         *
+         * Note the difference to GREEDY_REALLOC() here, as this helper operates on a single size value only,
+         * and rounds up to next multiple of 2, needing no further counter.
+         *
+         * Note the benefits of direct ALIGN_POWER2() usage: type-safety for size_t, sane handling for very
+         * small (i.e. <= 2) and safe handling for very large (i.e. > SSIZE_MAX) values. */
+
+        if (l <= 2)
+                return 2; /* Never allocate less than 2 of something.  */
+
+        m = ALIGN_POWER2(l);
+        if (m == 0) /* overflow? */
+                return l;
+
+        return m;
 }
 
 void* greedy_realloc(void **p, size_t need, size_t size);

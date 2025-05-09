@@ -7,7 +7,7 @@
 #if HAVE_AUDIT
 #  include <stdbool.h>
 
-#  include "audit-util.h"
+#  include "libaudit-util.h"
 #  include "capability-util.h"
 
 static bool initialized = false;
