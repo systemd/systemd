@@ -30,9 +30,25 @@ mkdir -p "$WORK_DIR/mnt/foo/bar"
 systemd-mount --tmpfs "$WORK_DIR/mnt/foo"
 test ! -d "$WORK_DIR/mnt/foo/bar"
 touch "$WORK_DIR/mnt/foo/baz"
+systemd-mount --remount=append --options="size=10240k" "$WORK_DIR/mnt/foo"
+assert_in "size=10240k" "$(systemctl show "$WORK_DIR/mnt/foo" -P Options)"
+assert_in "size=10240k" "$(findmnt -no FS-OPTIONS "$WORK_DIR/mnt/foo")"
+systemd-mount --remount=replace --options="ro" "$WORK_DIR/mnt/foo"
+assert_in "ro" "$(systemctl show "$WORK_DIR/mnt/foo" -P Options)"
+assert_in "ro" "$(findmnt -no FS-OPTIONS "$WORK_DIR/mnt/foo")"
 systemd-umount "$WORK_DIR/mnt/foo"
 test -d "$WORK_DIR/mnt/foo/bar"
 test ! -e "$WORK_DIR/mnt/foo/baz"
+
+# Remount should work for unmanaged mounts too
+mkdir -p "$WORK_DIR/mnt/unmanaged"
+mount -t tmpfs tmpfs "$WORK_DIR/mnt/unmanaged"
+timeout 30 bash -c "until systemctl -q is-active '$WORK_DIR/mnt/unmanaged'; do sleep 1; done"
+assert_in "rw" "$(findmnt -no OPTIONS "$WORK_DIR/mnt/unmanaged")"
+systemd-mount --remount --options="ro" "$WORK_DIR/mnt/unmanaged"
+assert_in "ro" "$(findmnt -no OPTIONS "$WORK_DIR/mnt/unmanaged")"
+(! touch "$WORK_DIR/mnt/unmanaged/bogus")
+umount "$WORK_DIR/mnt/unmanaged"
 
 # overlay
 systemd-mount --type=overlay --options="lowerdir=/etc,upperdir=$WORK_DIR/upper,workdir=$WORK_DIR/work" /etc "$WORK_DIR/overlay"
