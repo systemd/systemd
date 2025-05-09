@@ -3,16 +3,8 @@
 
 #include <sys/stat.h>
 
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-netlink.h"
-#include "sd-network.h"
-#include "sd-varlink.h"
-
 #include "common-signal.h"
-#include "hashmap.h"
-#include "list.h"
-#include "ordered-set.h"
+#include "forward.h"
 #include "resolve-util.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-stream.h"

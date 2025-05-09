@@ -6,12 +6,9 @@
 #include "cryptsetup-fido2.h"
 #include "env-util.h"
 #include "fido2-util.h"
-#include "fileio.h"
-#include "hexdecoct.h"
 #include "iovec-util.h"
 #include "libfido2-util.h"
-#include "parse-util.h"
-#include "random-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 int acquire_fido2_key(

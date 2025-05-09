@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
 #include <net/ethernet.h>
 
-#include "conf-parser.h"
+#include "forward.h"
 #include "in-addr-util.h"
 
 typedef struct Link Link;

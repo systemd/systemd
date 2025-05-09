@@ -2,10 +2,9 @@
 
 #pragma once
 
-#include <inttypes.h>
+#include <netinet/in.h>
 
-#include "conf-parser.h"
-#include "in-addr-util.h"
+#include "forward.h"
 
 typedef struct Network Network;
 typedef struct ConfigSection ConfigSection;

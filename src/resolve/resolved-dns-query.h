@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-varlink.h"
-
-#include "in-addr-util.h"
+#include "forward.h"
 #include "list.h"
-#include "resolved-def.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-transaction.h"
-#include "set.h"
 
 typedef struct DnsAnswer DnsAnswer;
 typedef struct DnsPacket DnsPacket;

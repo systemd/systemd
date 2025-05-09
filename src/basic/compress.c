@@ -2,10 +2,8 @@
 
 #include <inttypes.h>
 #include <malloc.h>
-#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #if HAVE_LZ4
@@ -26,12 +24,10 @@
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "compress.h"
-#include "fd-util.h"
+#include "dlfcn-util.h"
 #include "fileio.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
-#include "sparse-endian.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "unaligned.h"

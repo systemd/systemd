@@ -4,6 +4,7 @@
 
 #include "libmount-util.h"
 #include "log.h"
+#include "macro.h"
 
 int libmount_parse_full(
                 const char *path,

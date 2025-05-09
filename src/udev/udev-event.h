@@ -5,17 +5,9 @@
  * Copyright © 2003 Greg Kroah-Hartman <greg@kroah.com>
  */
 
-#include <stdbool.h>
-#include <stddef.h>
-
-#include "sd-device.h"
-#include "sd-netlink.h"
-
-#include "hashmap.h"
+#include "forward.h"
 #include "macro.h"
-#include "time-util.h"
 #include "udev-def.h"
-#include "user-util.h"
 
 typedef struct UdevRules UdevRules;
 typedef struct UdevWorker UdevWorker;
