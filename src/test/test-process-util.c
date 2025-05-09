@@ -8,22 +8,21 @@
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "pidref.h"
+#include "time-util.h"
 #if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
 
 #include "alloc-util.h"
 #include "architecture.h"
-#include "dirent-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "ioprio-util.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"
 #include "namespace-util.h"

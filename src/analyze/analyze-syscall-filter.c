@@ -9,7 +9,6 @@
 #include "seccomp-util.h"
 #include "set.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 #if HAVE_SECCOMP
 

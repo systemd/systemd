@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-lldp-rx.h"
 
 #include "fd-util.h"

@@ -8,6 +8,7 @@
 #include "bpf-devices.h"
 #include "bpf-program.h"
 #include "cgroup-setup.h"
+#include "cgroup.h"
 #include "errno-list.h"
 #include "fd-util.h"
 #include "fs-util.h"

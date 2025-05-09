@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "all-units.h"
 #include "alloc-util.h"
@@ -11,10 +9,8 @@
 #include "macro.h"
 #include "manager.h"
 #include "mkdir.h"
-#include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
-#include "strv.h"
 #include "tests.h"
 #include "unit.h"
 

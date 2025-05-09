@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 #include "sd-daemon.h"
 #include "sd-varlink.h"
@@ -10,17 +12,18 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
-#include "io-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
 #include "pager.h"
 #include "parse-argument.h"
-#include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "varlink-idl-util.h"
 #include "varlink-util.h"
 #include "verbs.h"

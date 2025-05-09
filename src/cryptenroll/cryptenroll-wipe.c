@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-json.h"
-
+#include "alloc-util.h"
 #include "cryptenroll.h"
 #include "cryptenroll-wipe.h"
+#include "cryptsetup-util.h"
 #include "json-util.h"
 #include "log.h"
-#include "memory-util.h"
+#include "macro.h"
 #include "parse-util.h"
 #include "set.h"
 #include "sort-util.h"

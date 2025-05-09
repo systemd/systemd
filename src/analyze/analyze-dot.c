@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-dot.h"
@@ -7,6 +9,8 @@
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "glob-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 
 static int graph_one_property(

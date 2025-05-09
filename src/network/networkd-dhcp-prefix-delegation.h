@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-dhcp-lease.h"
-#include "sd-dhcp6-lease.h"
-
-#include "conf-parser.h"
+#include "forward.h"
 
 typedef struct Address Address;
 typedef struct Link Link;

@@ -5,6 +5,7 @@
 
 #include "fd-util.h"
 #include "lldp-network.h"
+#include "macro.h"
 #include "missing_network.h"
 #include "socket-util.h"
 

@@ -6,7 +6,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "hexdecoct.h"
-#include "terminal-util.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 static int get_pcr_alg(const char **ret) {

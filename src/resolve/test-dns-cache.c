@@ -2,11 +2,11 @@
 
 #include <sys/socket.h>
 
+#include "sd-json.h"
+
 #include "dns-type.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
-#include "log.h"
 #include "resolve-util.h"
 #include "resolved-def.h"
 #include "resolved-dns-answer.h"
@@ -15,6 +15,7 @@
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static DnsCache new_cache(void) {

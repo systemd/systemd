@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <limits.h>
-#include <stdbool.h>
-#include <stddef.h>
-
+#include "forward.h"
 #include "hash-funcs.h"
-#include "macro.h"
+#include "iterator.h"
 
 /*
  * A hash table implementation. As a minor optimization a NULL hashmap object
@@ -20,37 +17,6 @@
  */
 
 #define HASH_KEY_SIZE 16
-
-typedef void* (*hashmap_destroy_t)(void *p);
-
-/* The base type for all hashmap and set types. Many functions in the implementation take (HashmapBase*)
- * parameters and are run-time polymorphic, though the API is not meant to be polymorphic (do not call
- * underscore-prefixed functions directly). */
-typedef struct HashmapBase HashmapBase;
-
-/* Specific hashmap/set types */
-typedef struct Hashmap Hashmap;               /* Maps keys to values */
-typedef struct OrderedHashmap OrderedHashmap; /* Like Hashmap, but also remembers entry insertion order */
-typedef struct Set Set;                       /* Stores just keys */
-
-typedef struct IteratedCache IteratedCache;   /* Caches the iterated order of one of the above */
-
-/* Ideally the Iterator would be an opaque struct, but it is instantiated
- * by hashmap users, so the definition has to be here. Do not use its fields
- * directly. */
-typedef struct {
-        const void *next_key; /* expected value of that entry's key pointer */
-        unsigned idx;         /* index of an entry to be iterated next */
-#if ENABLE_DEBUG_HASHMAP
-        unsigned put_count;   /* hashmap's put_count recorded at start of iteration */
-        unsigned rem_count;   /* hashmap's rem_count in previous iteration */
-        unsigned prev_idx;    /* idx in previous iteration */
-#endif
-} Iterator;
-
-#define _IDX_ITERATOR_FIRST (UINT_MAX - 1)
-#define ITERATOR_FIRST ((Iterator) { .idx = _IDX_ITERATOR_FIRST, .next_key = NULL })
-#define ITERATOR_IS_FIRST(i) ((i).idx == _IDX_ITERATOR_FIRST)
 
 /* Macros for type checking */
 #define PTR_COMPATIBLE_WITH_HASHMAP_BASE(h) \
