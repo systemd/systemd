@@ -471,6 +471,14 @@ def main() -> None:
             """
         )
 
+    if os.getenv('TEST_RUN_DFUZZER'):
+        dropin += textwrap.dedent(
+            f"""
+            [Service]
+            Environment=TEST_RUN_DFUZZER={os.environ['TEST_RUN_DFUZZER']}
+            """
+        )
+
     if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
         if statfs(Path('/tmp')) != 'tmpfs' and statfs(Path('/dev/shm')) == 'tmpfs':
             tmp = Path('/dev/shm')
