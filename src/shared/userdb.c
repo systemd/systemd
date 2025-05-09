@@ -742,6 +742,31 @@ static int synthetic_foreign_user_build(uid_t foreign_uid, UserRecord **ret) {
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign")));
 }
 
+static int synthetic_numeric_user_build(uid_t uid, UserRecord **ret) {
+        assert(ret);
+
+        if (uid == 0) /* This should be handled by synthetic_root_user_build() */
+                return -ESRCH;
+
+        if (!uid_is_system(uid))
+                return -ESRCH;
+
+        _cleanup_free_ char *un = NULL;
+        if (asprintf(&un, "unknown-" UID_FMT, uid) < 0)
+                return -ENOMEM;
+
+        _cleanup_free_ char *rn = NULL;
+        if (asprintf(&rn, "Unknown System UID " UID_FMT, uid) < 0)
+                return -ENOMEM;
+
+        return user_record_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("userName", un),
+                        SD_JSON_BUILD_PAIR_STRING("realName", rn),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", uid),
+                        SD_JSON_BUILD_PAIR_STRING("disposition", "system"));
+}
+
 static int user_name_foreign_extract_uid(const char *name, uid_t *ret_uid) {
         int r;
 
@@ -962,6 +987,9 @@ static int userdb_by_uid_fallbacks(
 
         if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_FOREIGN) && uid_is_foreign(uid))
                 return synthetic_foreign_user_build(uid - FOREIGN_UID_BASE, ret);
+
+        if (FLAGS_SET(flags, USERDB_SYNTHESIZE_NUMERIC))
+                return synthetic_numeric_user_build(uid, ret);
 
         return -ESRCH;
 }
@@ -1232,6 +1260,31 @@ static int synthetic_foreign_group_build(gid_t foreign_gid, GroupRecord **ret) {
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign")));
 }
 
+static int synthetic_numeric_group_build(gid_t gid, GroupRecord **ret) {
+        assert(ret);
+
+        if (gid == 0) /* This should be handled by synthetic_root_group_build() */
+                return -ESRCH;
+
+        if (!gid_is_system(gid))
+                return -ESRCH;
+
+        _cleanup_free_ char *gn = NULL;
+        if (asprintf(&gn, "unknown-" GID_FMT, gid) < 0)
+                return -ENOMEM;
+
+        _cleanup_free_ char *d = NULL;
+        if (asprintf(&d, "Unknown System GID " UID_FMT, gid) < 0)
+                return -ENOMEM;
+
+        return group_record_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("groupName", gn),
+                        SD_JSON_BUILD_PAIR_STRING("description", d),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", gid),
+                        SD_JSON_BUILD_PAIR_STRING("disposition", "system"));
+}
+
 static int query_append_gid_match(sd_json_variant **query, const UserDBMatch *match) {
         int r;
 
@@ -1386,6 +1439,9 @@ static int groupdb_by_gid_fallbacks(
 
         if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_FOREIGN) && gid_is_foreign(gid))
                 return synthetic_foreign_group_build(gid - FOREIGN_UID_BASE, ret);
+
+        if (FLAGS_SET(flags, USERDB_SYNTHESIZE_NUMERIC))
+                return synthetic_numeric_group_build(gid, ret);
 
         return -ESRCH;
 }
