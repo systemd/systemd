@@ -16,6 +16,7 @@
 #include "networkd-queue.h"
 #include "networkd-util.h"
 #include "parse-util.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "vlan-util.h"
 #include "vxlan.h"

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <stdlib.h>
+
 #include "sd-event.h"
 
 #include "build-path.h"
@@ -9,7 +11,9 @@
 #include "exec-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"

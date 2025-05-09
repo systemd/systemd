@@ -2,6 +2,7 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-reset-failed.h"
 #include "systemctl-trivial-method.h"

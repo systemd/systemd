@@ -8,6 +8,7 @@
 #include <sys/prctl.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+#include "id128-util.h"
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
 #endif

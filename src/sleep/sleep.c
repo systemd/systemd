@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <poll.h>
+#include <stdlib.h>
 #include <sys/timerfd.h>
 #include <sys/types.h>
 #include <sys/utsname.h>

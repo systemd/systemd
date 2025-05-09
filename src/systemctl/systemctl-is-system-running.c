@@ -7,6 +7,8 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-is-system-running.h"
 #include "systemctl-util.h"

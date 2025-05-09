@@ -4,6 +4,8 @@
 #include <getopt.h>
 #include <locale.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -20,9 +22,12 @@
 #include "compress.h"
 #include "constants.h"
 #include "dissect-image.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "image-policy.h"
@@ -45,6 +50,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "verbs.h"

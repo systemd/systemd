@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
 #include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-install.h"
@@ -10,7 +11,9 @@
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi-fundamental.h"
+#include "efivars.h"
 #include "env-file.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -23,7 +26,10 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "utf8.h"

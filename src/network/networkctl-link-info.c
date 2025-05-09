@@ -13,6 +13,8 @@
 #include "networkctl-link-info.h"
 #include "networkctl-util.h"
 #include "sort-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
 #include "wifi-util.h"

@@ -2,8 +2,8 @@
 #pragma once
 
 #include "conf-parser.h"
-#include "dissect-image.h"
-#include "errno-list.h"
+#include "forward.h"
+#include "gpt.h"
 
 typedef enum PartitionPolicyFlags {
         /* Not all policy flags really make sense on all partition types, see comments. But even if they

@@ -17,6 +17,8 @@
 #include "dissect-image.h"
 #include "dropin.h"
 #include "efi-loader.h"
+#include "efivars.h"
+#include "errno-util.h"
 #include "factory-reset.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -36,6 +38,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "virt.h"
 

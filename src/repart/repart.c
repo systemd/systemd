@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "time-util.h"
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
 #endif
@@ -33,6 +34,7 @@
 #include "dirent-util.h"
 #include "efivars.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "factory-reset.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
@@ -69,6 +71,7 @@
 #include "random-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "stdio-util.h"

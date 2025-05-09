@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -8,6 +9,7 @@
 #include "chase.h"
 #include "conf-parser.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -20,6 +22,7 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"

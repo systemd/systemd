@@ -22,6 +22,7 @@
 #include "bus-util.h"
 #include "dns-domain.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "format-ifname.h"
 #include "format-table.h"

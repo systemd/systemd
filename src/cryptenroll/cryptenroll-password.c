@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptenroll-password.h"
 #include "env-util.h"
@@ -9,6 +10,7 @@
 #include "log.h"
 #include "memory-util.h"
 #include "password-quality-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 int load_volume_key_password(

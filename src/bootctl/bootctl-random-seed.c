@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
 #include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-random-seed.h"
 #include "bootctl-util.h"
 #include "efi-api.h"
+#include "efivars.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "find-esp.h"

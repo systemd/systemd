@@ -18,6 +18,7 @@
 #include "icmp6-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
+#include "memory-util.h"
 #include "network-common.h"
 #include "socket-util.h"
 

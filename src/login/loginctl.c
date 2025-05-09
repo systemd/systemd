@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <locale.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -17,24 +17,22 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "log.h"
 #include "logs-show.h"
-#include "macro.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "rlimit-util.h"
-#include "signal-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysfs-show.h"
 #include "terminal-util.h"
-#include "unit-name.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "verbs.h"
 

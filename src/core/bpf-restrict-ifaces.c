@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
+
 #include "bpf-restrict-ifaces.h"
 #include "fd-util.h"
 #include "netlink-util.h"

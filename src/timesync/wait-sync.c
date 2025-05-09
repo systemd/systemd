@@ -16,6 +16,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "inotify-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "signal-util.h"
 #include "time-util.h"

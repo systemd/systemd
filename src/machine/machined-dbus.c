@@ -33,6 +33,7 @@
 #include "process-util.h"
 #include "stdio-util.h"
 #include "strv.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
 

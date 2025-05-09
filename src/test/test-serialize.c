@@ -6,6 +6,7 @@
 #include "fs-util.h"
 #include "log.h"
 #include "serialize.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"

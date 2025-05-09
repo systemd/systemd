@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "networkd-manager.h"
 #include "networkd-wiphy.h"
 #include "parse-util.h"

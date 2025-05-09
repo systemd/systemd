@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
 #include "conf-parser.h"
+#include "forward.h"
 #include "list.h"
-#include "user-record.h"
+#include "time-util.h"
 
 typedef struct Manager Manager;
 typedef struct Session Session;

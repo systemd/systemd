@@ -3,6 +3,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "specifier.h"
 #include "stat-util.h"

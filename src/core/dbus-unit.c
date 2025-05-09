@@ -17,6 +17,7 @@
 #include "dbus-unit.h"
 #include "dbus-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "install.h"
 #include "locale-util.h"
 #include "log.h"

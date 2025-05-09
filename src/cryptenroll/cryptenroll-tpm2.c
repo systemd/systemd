@@ -15,6 +15,7 @@
 #include "memory-util.h"
 #include "random-util.h"
 #include "sha256.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 static int search_policy_hash(

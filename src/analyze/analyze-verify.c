@@ -5,6 +5,7 @@
 #include "analyze-verify.h"
 #include "analyze-verify-util.h"
 #include "copy.h"
+#include "extract-word.h"
 #include "rm-rf.h"
 #include "tmpfile-util.h"
 
