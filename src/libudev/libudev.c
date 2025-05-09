@@ -9,6 +9,7 @@
 #include "libudev.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "string-util.h"

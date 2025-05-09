@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "assert-util.h"
 #include "set.h"
 
 #define NULSTR_FOREACH(i, l)                                    \

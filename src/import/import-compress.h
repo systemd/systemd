@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
+
 #if HAVE_BZIP2
 #include <bzlib.h>
 #endif

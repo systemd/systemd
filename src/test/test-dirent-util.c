@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 #include "alloc-util.h"
 #include "dirent-util.h"

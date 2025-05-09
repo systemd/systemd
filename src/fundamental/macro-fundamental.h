@@ -1,18 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <limits.h>
 #include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
-/* This header unconditionally defines MAX() so include it here already so
- * it won't override our own definition of MAX() that we define later in this
- * file. */
-#if !SD_BOOT
-#include <sys/param.h>
-#endif
 
 /* Temporarily disable some warnings */
 #define DISABLE_WARNING_DEPRECATED_DECLARATIONS                         \
