@@ -2,12 +2,8 @@
 #pragma once
 
 #include <curl/curl.h>
-#include <sys/types.h>
 
-#include "sd-event.h"
-
-#include "hashmap.h"
-#include "time-util.h"
+#include "forward.h"
 
 typedef struct CurlGlue CurlGlue;
 
