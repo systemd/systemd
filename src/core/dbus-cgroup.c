@@ -635,18 +635,13 @@ static int bus_cgroup_set_transient_property(
 
                         unit_write_setting(u, flags, name, buf);
 
-                        if (*filters) {
-                                r = bpf_firewall_supported();
-                                if (r < 0)
-                                        return r;
-                                if (r != BPF_FIREWALL_SUPPORTED_WITH_MULTI) {
-                                        static bool warned = false;
+                        if (*filters && bpf_program_supported() <= 0) {
+                                static bool warned = false;
 
-                                        log_full(warned ? LOG_DEBUG : LOG_WARNING,
-                                                 "Transient unit %s configures an IP firewall with BPF, but the local system does not support BPF/cgroup firewalling with multiple filters.\n"
-                                                 "Starting this unit will fail! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
-                                        warned = true;
-                                }
+                                log_full(warned ? LOG_DEBUG : LOG_WARNING,
+                                         "Transient unit %s configures an IP firewall with BPF, but the local system does not support BPF/cgroup firewalling with multiple filters.\n"
+                                         "Starting this unit will fail! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
+                                warned = true;
                         }
                 }
 

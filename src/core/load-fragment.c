@@ -5712,15 +5712,12 @@ int config_parse_ip_filter_bpf_progs(
         if (r < 0)
                 return log_oom();
 
-        r = bpf_firewall_supported();
-        if (r < 0)
-                return r;
-        if (r != BPF_FIREWALL_SUPPORTED_WITH_MULTI) {
+        if (bpf_program_supported() <= 0) {
                 static bool warned = false;
 
-                log_full(warned ? LOG_DEBUG : LOG_WARNING,
-                         "File %s:%u configures an IP firewall with BPF programs (%s=%s), but the local system does not support BPF/cgroup based firewalling with multiple filters.\n"
-                         "Starting this unit will fail! (This warning is only shown for the first loaded unit using IP firewalling.)", filename, line, lvalue, rvalue);
+                log_syntax(unit, warned ? LOG_DEBUG : LOG_WARNING, filename, line, 0,
+                           "Configures an IP firewall with BPF programs (%s=%s), but the local system does not support BPF/cgroup based firewalling with multiple filters. "
+                           "Starting this unit will fail! (This warning is only shown for the first loaded unit using IP firewalling.)", lvalue, rvalue);
 
                 warned = true;
         }

@@ -1477,9 +1477,7 @@ static int socket_address_listen_do(
                 log_unit_error_errno(u, error, fmt, strna(_t));  \
         })
 
-static int fork_needed(const SocketAddress *address, Socket *s) {
-        int r;
-
+static bool fork_needed(const SocketAddress *address, Socket *s) {
         assert(address);
         assert(s);
 
@@ -1493,13 +1491,9 @@ static int fork_needed(const SocketAddress *address, Socket *s) {
                         if (nft_set->source == NFT_SET_SOURCE_CGROUP)
                                 return true;
 
-        if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6)) {
-                r = bpf_firewall_supported();
-                if (r < 0)
-                        return r;
-                if (r != BPF_FIREWALL_UNSUPPORTED) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
-                        return true;
-        }
+        if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6) &&
+            bpf_program_supported() > 0) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
+                return true;
 
         return exec_needs_network_namespace(&s->exec_context);
 }
@@ -1521,10 +1515,7 @@ static int socket_address_listen_in_cgroup(
          * the socket is actually properly attached to the unit's cgroup for the purpose of BPF filtering and
          * such. */
 
-        r = fork_needed(address, s);
-        if (r < 0)
-                return r;
-        if (r == 0) {
+        if (!fork_needed(address, s)) {
                 /* Shortcut things... */
                 fd = socket_address_listen_do(s, address, label);
                 if (fd < 0)
@@ -3030,10 +3021,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         if (!IN_SET(p->address.sockaddr.sa.sa_family, AF_INET, AF_INET6))
                 goto shortcut;
 
-        r = bpf_firewall_supported();
-        if (r < 0)
-                return r;
-        if (r == BPF_FIREWALL_UNSUPPORTED)
+        if (bpf_program_supported() <= 0)
                 goto shortcut;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
