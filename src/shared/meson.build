@@ -235,10 +235,6 @@ syscall_list_h = custom_target(
 
 generated_sources += syscall_list_h
 
-if conf.get('HAVE_ACL') == 1
-        shared_sources += files('devnode-acl.c')
-endif
-
 if conf.get('ENABLE_UTMP') == 1
         shared_sources += files('utmp-wtmp.c')
 endif
