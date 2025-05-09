@@ -307,6 +307,7 @@ libefi_sources = files(
         'secure-boot.c',
         'shim.c',
         'smbios.c',
+        'sysfail.c',
         'ticks.c',
         'url-discovery.c',
         'util.c',
