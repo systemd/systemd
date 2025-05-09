@@ -1119,7 +1119,7 @@ int resolve_dev_console(char **ret) {
          * is a sign for container setups). */
 
         _cleanup_free_ char *chased = NULL;
-        r = chase("/dev/console", /* root= */ NULL, /* chase_flags= */ 0,  &chased, /* ret_fd= */ NULL);
+        r = chase("/dev/console", /* root= */ NULL, /* flags= */ 0,  &chased, /* ret_fd= */ NULL);
         if (r < 0)
                 return r;
         if (!path_equal(chased, "/dev/console")) {

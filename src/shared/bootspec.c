@@ -1558,7 +1558,7 @@ int boot_config_load_auto(
 int boot_config_augment_from_loader(
                 BootConfig *config,
                 char **found_by_loader,
-                bool only_auto) {
+                bool auto_only) {
 
         static const BootEntryAddons no_addons = (BootEntryAddons) {};
         static const char *const title_table[] = {
@@ -1588,7 +1588,7 @@ int boot_config_augment_from_loader(
                         continue;
                 }
 
-                if (only_auto && !startswith(*i, "auto-"))
+                if (auto_only && !startswith(*i, "auto-"))
                         continue;
 
                 c = strdup(*i);

@@ -34,7 +34,7 @@ typedef struct AskPasswordRequest {
 
 int ask_password_tty(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
 int ask_password_plymouth(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
-int ask_password_agent(const AskPasswordRequest *req, AskPasswordFlags flag, char ***ret);
-int ask_password_auto(const AskPasswordRequest *req, AskPasswordFlags flag, char ***ret);
+int ask_password_agent(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
+int ask_password_auto(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
 
 int acquire_user_ask_password_directory(char **ret);

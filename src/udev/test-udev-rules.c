@@ -35,61 +35,61 @@ TEST(udev_rule_parse_value) {
          * parsed: valid operand
          * use the following command to help generate textual C strings:
          * python3 -c 'import json; print(json.dumps(input()))' */
-        test_udev_rule_parse_value_one("\"valid operand\"", "valid operand", /* case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("\"valid operand\"", "valid operand", /* expected_case_insensitive = */ false, 0);
         /* input: "va'l\'id\"op\"erand"
          * parsed: va'l\'id"op"erand */
-        test_udev_rule_parse_value_one("\"va'l\\'id\\\"op\\\"erand\"", "va'l\\'id\"op\"erand", /* case_insensitive = */ false, 0);
-        test_udev_rule_parse_value_one("no quotes", NULL, /* case_insensitive = */ false, -EINVAL);
-        test_udev_rule_parse_value_one("\"\\\\a\\b\\x\\y\"", "\\\\a\\b\\x\\y", /* case_insensitive = */ false, 0);
-        test_udev_rule_parse_value_one("\"reject\0nul\"", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("\"va'l\\'id\\\"op\\\"erand\"", "va'l\\'id\"op\"erand", /* expected_case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("no quotes", NULL, /* expected_case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("\"\\\\a\\b\\x\\y\"", "\\\\a\\b\\x\\y", /* expected_case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("\"reject\0nul\"", NULL, /* expected_case_insensitive = */ false, -EINVAL);
         /* input: e"" */
-        test_udev_rule_parse_value_one("e\"\"", "", /* case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("e\"\"", "", /* expected_case_insensitive = */ false, 0);
         /* input: e"1234" */
-        test_udev_rule_parse_value_one("e\"1234\"", "1234", /* case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("e\"1234\"", "1234", /* expected_case_insensitive = */ false, 0);
         /* input: e"\"" */
-        test_udev_rule_parse_value_one("e\"\\\"\"", "\"", /* case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("e\"\\\"\"", "\"", /* expected_case_insensitive = */ false, 0);
         /* input: e"\ */
-        test_udev_rule_parse_value_one("e\"\\", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("e\"\\", NULL, /* expected_case_insensitive = */ false, -EINVAL);
         /* input: e"\" */
-        test_udev_rule_parse_value_one("e\"\\\"", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("e\"\\\"", NULL, /* expected_case_insensitive = */ false, -EINVAL);
         /* input: e"\\" */
-        test_udev_rule_parse_value_one("e\"\\\\\"", "\\", /* case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("e\"\\\\\"", "\\", /* expected_case_insensitive = */ false, 0);
         /* input: e"\\\" */
-        test_udev_rule_parse_value_one("e\"\\\\\\\"", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("e\"\\\\\\\"", NULL, /* expected_case_insensitive = */ false, -EINVAL);
         /* input: e"\\\"" */
-        test_udev_rule_parse_value_one("e\"\\\\\\\"\"", "\\\"", /* case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("e\"\\\\\\\"\"", "\\\"", /* expected_case_insensitive = */ false, 0);
         /* input: e"\\\\" */
-        test_udev_rule_parse_value_one("e\"\\\\\\\\\"", "\\\\", /* case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("e\"\\\\\\\\\"", "\\\\", /* expected_case_insensitive = */ false, 0);
         /* input: e"operand with newline\n" */
-        test_udev_rule_parse_value_one("e\"operand with newline\\n\"", "operand with newline\n", /* case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("e\"operand with newline\\n\"", "operand with newline\n", /* expected_case_insensitive = */ false, 0);
         /* input: e"single\rcharacter\t\aescape\bsequence" */
         test_udev_rule_parse_value_one(
-                "e\"single\\rcharacter\\t\\aescape\\bsequence\"", "single\rcharacter\t\aescape\bsequence", /* case_insensitive = */ false, 0);
+                "e\"single\\rcharacter\\t\\aescape\\bsequence\"", "single\rcharacter\t\aescape\bsequence", /* expected_case_insensitive = */ false, 0);
         /* input: e"reject\invalid escape sequence" */
-        test_udev_rule_parse_value_one("e\"reject\\invalid escape sequence", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("e\"reject\\invalid escape sequence", NULL, /* expected_case_insensitive = */ false, -EINVAL);
         /* input: e"\ */
-        test_udev_rule_parse_value_one("e\"\\", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("e\"\\", NULL, /* expected_case_insensitive = */ false, -EINVAL);
         /* input: "s\u1d1c\u1d04\u029c \u1d1c\u0274\u026a\u1d04\u1d0f\u1d05\u1d07 \U0001d568\U0001d560\U0001d568" */
         test_udev_rule_parse_value_one(
                 "e\"s\\u1d1c\\u1d04\\u029c \\u1d1c\\u0274\\u026a\\u1d04\\u1d0f\\u1d05\\u1d07 \\U0001d568\\U0001d560\\U0001d568\"",
                 "s\xe1\xb4\x9c\xe1\xb4\x84\xca\x9c \xe1\xb4\x9c\xc9\xb4\xc9\xaa\xe1\xb4\x84\xe1\xb4\x8f\xe1\xb4\x85\xe1\xb4\x87 \xf0\x9d\x95\xa8\xf0\x9d\x95\xa0\xf0\x9d\x95\xa8",
-                /* case_insensitive = */ false, 0);
+                /* expected_case_insensitive = */ false, 0);
         /* input: i"ABCD1234" */
-        test_udev_rule_parse_value_one("i\"ABCD1234\"", "ABCD1234", /* case_insensitive = */ true, 0);
+        test_udev_rule_parse_value_one("i\"ABCD1234\"", "ABCD1234", /* expected_case_insensitive = */ true, 0);
         /* input: i"ABCD1234" */
-        test_udev_rule_parse_value_one("e\"ABCD1234\"", "ABCD1234", /* case_insensitive = */ false, 0);
+        test_udev_rule_parse_value_one("e\"ABCD1234\"", "ABCD1234", /* expected_case_insensitive = */ false, 0);
         /* input: ei"\\"ABCD1234 */
-        test_udev_rule_parse_value_one("ei\"\\\\ABCD1234\"", "\\ABCD1234", /* case_insensitive = */ true, 0);
+        test_udev_rule_parse_value_one("ei\"\\\\ABCD1234\"", "\\ABCD1234", /* expected_case_insensitive = */ true, 0);
         /* input: ie"\\"ABCD1234 */
-        test_udev_rule_parse_value_one("ie\"\\\\ABCD1234\"", "\\ABCD1234", /* case_insensitive = */ true, 0);
+        test_udev_rule_parse_value_one("ie\"\\\\ABCD1234\"", "\\ABCD1234", /* expected_case_insensitive = */ true, 0);
         /* input: i */
-        test_udev_rule_parse_value_one("i", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("i", NULL, /* expected_case_insensitive = */ false, -EINVAL);
         /* input: ee"" */
-        test_udev_rule_parse_value_one("ee\"\"", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("ee\"\"", NULL, /* expected_case_insensitive = */ false, -EINVAL);
         /* input: iei"" */
-        test_udev_rule_parse_value_one("iei\"\"", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("iei\"\"", NULL, /* expected_case_insensitive = */ false, -EINVAL);
         /* input: a"" */
-        test_udev_rule_parse_value_one("a\"\"", NULL, /* case_insensitive = */ false, -EINVAL);
+        test_udev_rule_parse_value_one("a\"\"", NULL, /* expected_case_insensitive = */ false, -EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

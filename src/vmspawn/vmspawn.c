@@ -2337,7 +2337,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         const char *e = secure_getenv("SYSTEMD_VMSPAWN_QEMU_EXTRA");
         if (e) {
                 r = strv_split_and_extend_full(&cmdline, e,
-                                               /* separator = */ NULL, /* filter_duplicates = */ false,
+                                               /* separators = */ NULL, /* filter_duplicates = */ false,
                                                EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse $SYSTEMD_VMSPAWN_QEMU_EXTRA: %m");

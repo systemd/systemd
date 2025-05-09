@@ -1758,7 +1758,7 @@ static int pick_up_credential_one(
                         AT_FDCWD, target_path,
                         /* open_flags= */ 0,
                         0644,
-                        /* flags= */ 0);
+                        /* copy_flags= */ 0);
         if (r < 0)
                 return log_warning_errno(r, "Failed to copy credential %s → file %s: %m",
                                          credential_name, target_path);

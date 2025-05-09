@@ -1437,7 +1437,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
         } else {
                 /* Otherwise, stop DHCP client and friends unconditionally, and drop all dynamic
                  * configurations like DHCP address and routes. */
-                r = link_stop_engines(link, /* may_keep_dhcp = */ false);
+                r = link_stop_engines(link, /* may_keep_dynamic = */ false);
                 if (r < 0)
                         return r;
 
