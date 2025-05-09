@@ -168,6 +168,7 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(r);
 
+        ASSERT_OK(unit_patch_contexts(u));
         ASSERT_OK(unit_start(u, NULL));
 
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
@@ -193,6 +194,7 @@ int main(int argc, char *argv[]) {
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
+        ASSERT_OK(unit_patch_contexts(u));
         ASSERT_OK(unit_start(u, NULL));
 
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
