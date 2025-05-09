@@ -1183,14 +1183,51 @@ static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int fl
 }
 #endif
 
+static int cg_subgroup_attach(
+                const ExecContext *context,
+                const CGroupContext *cgroup_context,
+                const ExecParameters *params,
+                const char *prefix) {
+
+        _cleanup_free_ char *subgroup = NULL;
+        int r;
+
+        assert(context);
+        assert(cgroup_context);
+        assert(params);
+
+        r = exec_params_get_cgroup_path(params, cgroup_context, prefix, &subgroup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire cgroup path: %m");
+        /* No subgroup required? Then there's nothing to do. */
+        if (r == 0)
+                return 0;
+
+        r = cg_attach(subgroup, 0);
+        if (r == -EUCLEAN)
+                return log_error_errno(r,
+                                "Failed to attach process " PID_FMT " to cgroup '%s', "
+                                "because the cgroup or one of its parents or "
+                                "siblings is in the threaded mode.",
+                                getpid_cached(), subgroup);
+        if (r < 0)
+                return log_error_errno(r,
+                                "Failed to attach process " PID_FMT " to cgroup %s: %m",
+                                getpid_cached(), subgroup);
+
+        return 0;
+}
+
 static int setup_pam(
                 const ExecContext *context,
+                const CGroupContext *cgroup_context,
                 ExecParameters *params,
                 const char *user,
                 uid_t uid,
                 gid_t gid,
                 char ***env, /* updated on success */
                 const int fds[], size_t n_fds,
+                bool needs_sandboxing,
                 int exec_fd) {
 
 #if HAVE_PAM
@@ -1295,6 +1332,15 @@ static int setup_pam(
                 goto fail;
         if (r == 0) {
                 int ret = EXIT_PAM;
+
+                if (needs_sandboxing && exec_needs_cgroup_namespace(context, params) && params->cgroup_path) {
+                        /* Move PAM process into subgroup immediately if the main process hasn't been moved
+                         * into the subgroup yet (when cgroup namespacing is enabled) and a subgroup is
+                         * configured. */
+                        r = cg_subgroup_attach(context, cgroup_context, params, params->cgroup_path);
+                        if (r < 0)
+                                return r;
+                }
 
                 /* The child's job is to reset the PAM session on termination */
                 barrier_set_role(&barrier, BARRIER_CHILD);
@@ -3436,7 +3482,7 @@ static int apply_mount_namespace(
 
         /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
          * service will need to write to it in order to start the notifications. */
-        if (exec_is_cgroup_mount_read_only(context) && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
+        if (exec_is_cgroup_mount_read_only(context, params) && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
                 read_write_paths_cleanup = strv_copy(context->read_write_paths);
                 if (!read_write_paths_cleanup)
                         return -ENOMEM;
@@ -3579,7 +3625,7 @@ static int apply_mount_namespace(
                  * sandbox inside the mount namespace. */
                 .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && root_dir,
 
-                .protect_control_groups = needs_sandboxing ? exec_get_protect_control_groups(context) : PROTECT_CONTROL_GROUPS_NO,
+                .protect_control_groups = needs_sandboxing ? exec_get_protect_control_groups(context, params) : PROTECT_CONTROL_GROUPS_NO,
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
@@ -3587,7 +3633,7 @@ static int apply_mount_namespace(
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
-                .private_pids = needs_sandboxing && exec_needs_pid_namespace(context) ? context->private_pids : PRIVATE_PIDS_NO,
+                .private_pids = needs_sandboxing && exec_needs_pid_namespace(context, params) ? context->private_pids : PRIVATE_PIDS_NO,
                 .private_tmp = needs_sandboxing ? context->private_tmp : PRIVATE_TMP_NO,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
@@ -4147,7 +4193,7 @@ static void log_command_line(
                    LOG_EXEC_INVOCATION_ID(params));
 }
 
-static bool exec_context_needs_cap_sys_admin(const ExecContext *context) {
+static bool exec_context_needs_cap_sys_admin(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
         return context->private_users != PRIVATE_USERS_NO ||
@@ -4166,11 +4212,11 @@ static bool exec_context_needs_cap_sys_admin(const ExecContext *context) {
                !strv_isempty(context->extension_directories) ||
                context->protect_system != PROTECT_SYSTEM_NO ||
                context->protect_home != PROTECT_HOME_NO ||
-               exec_needs_pid_namespace(context) ||
+               exec_needs_pid_namespace(context, params) ||
                context->protect_kernel_tunables ||
                context->protect_kernel_modules ||
                context->protect_kernel_logs ||
-               exec_needs_cgroup_mount(context) ||
+               exec_needs_cgroup_mount(context, params) ||
                context->protect_clock ||
                context->protect_hostname != PROTECT_HOSTNAME_NO ||
                !strv_isempty(context->read_write_paths) ||
@@ -4211,7 +4257,7 @@ static bool exec_namespace_is_delegated(
         /* If we need unprivileged private users, we've already unshared a user namespace by the time we call
          * setup_delegated_namespaces() for the first time so let's make sure we do all other namespace
          * unsharing in the first call to setup_delegated_namespaces() by returning false here. */
-        if (!have_cap_sys_admin && exec_context_needs_cap_sys_admin(context))
+        if (!have_cap_sys_admin && exec_context_needs_cap_sys_admin(context, params))
                 return false;
 
         if (context->delegate_namespaces == NAMESPACE_FLAGS_INITIAL)
@@ -4302,7 +4348,7 @@ static int setup_delegated_namespaces(
                         log_warning("PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
         }
 
-        if (needs_sandboxing && exec_needs_cgroup_namespace(context) &&
+        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params) &&
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWCGROUP) == delegate) {
                 if (unshare(CLONE_NEWCGROUP) < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
@@ -4314,7 +4360,7 @@ static int setup_delegated_namespaces(
 
         /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
          * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
-        if (needs_sandboxing && exec_needs_pid_namespace(context) &&
+        if (needs_sandboxing && exec_needs_pid_namespace(context, params) &&
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWPID) == delegate) {
                 if (params->pidref_transport_fd < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
@@ -4867,28 +4913,44 @@ int exec_invoke(
         if (socket_fd >= 0)
                 (void) fd_nonblock(socket_fd, false);
 
+        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted
+         * from it. */
+        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
+
         /* Journald will try to look-up our cgroup in order to populate _SYSTEMD_CGROUP and _SYSTEMD_UNIT fields.
          * Hence we need to migrate to the target cgroup from init.scope before connecting to journald */
         if (params->cgroup_path) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *subcgroup = NULL;
 
-                r = exec_params_get_cgroup_path(params, cgroup_context, &p);
+                r = exec_params_get_cgroup_path(params, cgroup_context, params->cgroup_path, &subcgroup);
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
                         return log_error_errno(r, "Failed to acquire cgroup path: %m");
                 }
+                if (r > 0) {
+                        /* If there is a subcgroup required, let's make sure to create it now. */
+                        r = cg_create(subcgroup);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create subcgroup '%s': %m", subcgroup);
+                }
 
-                r = cg_attach(p, 0);
+                /* If we need a cgroup namespace, we cannot yet move the service to its configured subgroup,
+                 * as unsharing the cgroup namespace later on makes the current cgroup the root of the
+                 * namespace and we want the root of the namespace to be the main service cgroup and not the
+                 * subgroup. */
+                const char *cgtarget = needs_sandboxing && exec_needs_cgroup_namespace(context, params) ? params->cgroup_path : subcgroup;
+
+                r = cg_attach(cgtarget, 0);
                 if (r == -EUCLEAN) {
                         *exit_status = EXIT_CGROUP;
                         return log_error_errno(r,
                                                "Failed to attach process to cgroup '%s', "
                                                "because the cgroup or one of its parents or "
-                                               "siblings is in the threaded mode.", p);
+                                               "siblings is in the threaded mode.", cgtarget);
                 }
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
-                        return log_error_errno(r, "Failed to attach to cgroup %s: %m", p);
+                        return log_error_errno(r, "Failed to attach to cgroup %s: %m", cgtarget);
                 }
         }
 
@@ -5084,10 +5146,6 @@ int exec_invoke(
                 }
         }
 
-        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted
-         * from it. */
-        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
-
         if (params->cgroup_path) {
                 /* If delegation is enabled we'll pass ownership of the cgroup to the user of the new process. On cgroup v1
                  * this is only about systemd's own hierarchy, i.e. not the controller hierarchies, simply because that's not
@@ -5103,7 +5161,7 @@ int exec_invoke(
                                 return log_error_errno(r, "Failed to adjust control group access: %m");
                         }
 
-                        r = exec_params_get_cgroup_path(params, cgroup_context, &p);
+                        r = exec_params_get_cgroup_path(params, cgroup_context, params->cgroup_path, &p);
                         if (r < 0) {
                                 *exit_status = EXIT_CGROUP;
                                 return log_error_errno(r, "Failed to acquire cgroup path: %m");
@@ -5135,7 +5193,7 @@ int exec_invoke(
                                  * to the cgroup namespace to environment variables and mounts. If chown/chmod fails, we should not pass memory
                                  * pressure path environment variable or read-write mount to the unit. This is why we check if
                                  * memory_pressure_path != NULL in the conditional below. */
-                                if (memory_pressure_path && needs_sandboxing && exec_needs_cgroup_namespace(context)) {
+                                if (memory_pressure_path && needs_sandboxing && exec_needs_cgroup_namespace(context, params)) {
                                         memory_pressure_path = mfree(memory_pressure_path);
                                         r = cg_get_path("memory", "", "memory.pressure", &memory_pressure_path);
                                         if (r < 0) {
@@ -5278,7 +5336,8 @@ int exec_invoke(
                  * wins here. (See above.) */
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
-                r = setup_pam(context, params, username, uid, gid, &accum_env, params->fds, n_fds, params->exec_fd);
+                r = setup_pam(context, cgroup_context, params, username, uid, gid, &accum_env,
+                              params->fds, n_fds, needs_sandboxing, params->exec_fd);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_error_errno(r, "Failed to set up PAM session: %m");
@@ -5302,7 +5361,7 @@ int exec_invoke(
                 }
         }
 
-        if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context)) {
+        if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
@@ -5402,6 +5461,17 @@ int exec_invoke(
                         exit_status);
         if (r < 0)
                 return r;
+
+        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params) && params->cgroup_path) {
+                /* Move ourselves into the subcgroup now *after* we've unshared the cgroup namespace, which
+                 * ensures the root of the cgroup namespace is the top level service cgroup and not the
+                 * subcgroup. Adjust the prefix accordingly since we're in a cgroup namespace now. */
+                r = cg_subgroup_attach(context, cgroup_context, params, /* prefix= */ NULL);
+                if (r < 0) {
+                        *exit_status = EXIT_CGROUP;
+                        return r;
+                }
+        }
 
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */
