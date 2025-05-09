@@ -252,12 +252,10 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
 
 static void server_add_acls(JournalFile *f, uid_t uid) {
         assert(f);
+        assert(uid > 0);
 
 #if HAVE_ACL
         int r;
-
-        if (uid_for_system_journal(uid))
-                return;
 
         r = fd_add_uid_acl_permission(f->fd, uid, ACL_READ);
         if (r < 0)
@@ -383,7 +381,6 @@ static int server_system_journal_open(
                                 &s->system_storage.metrics,
                                 &s->system_journal);
                 if (r >= 0) {
-                        server_add_acls(s->system_journal, 0);
                         (void) cache_space_refresh(s, &s->system_storage);
                         patch_min_use(&s->system_storage);
                 } else {
@@ -450,7 +447,6 @@ static int server_system_journal_open(
                 }
 
                 if (s->runtime_journal) {
-                        server_add_acls(s->runtime_journal, 0);
                         (void) cache_space_refresh(s, &s->runtime_storage);
                         patch_min_use(&s->runtime_storage);
                         server_drop_flushed_flag(s);
@@ -465,7 +461,7 @@ static int server_find_user_journal(Server *s, uid_t uid, JournalFile **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
 
-        assert(!uid_for_system_journal(uid));
+        assert(uid > 0);
 
         f = ordered_hashmap_get(s->user_journals, UID_TO_PTR(uid));
         if (f)
@@ -532,7 +528,7 @@ static JournalFile* server_find_journal(Server *s, uid_t uid) {
         if (!IN_SET(s->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
                 return NULL;
 
-        if (!uid_for_system_journal(uid)) {
+        if (uid > 0) {
                 JournalFile *f = NULL;
 
                 r = server_find_user_journal(s, uid, &f);
@@ -575,7 +571,8 @@ static int server_do_rotate(
                                                          "Failed to create new %s journal: %m", name);
         }
 
-        server_add_acls(*f, uid);
+        if (uid > 0)
+                server_add_acls(*f, uid);
         return r;
 }
 
@@ -1076,6 +1073,29 @@ static void server_write_to_journal(
                 iovec[n++] = IOVEC_MAKE_STRING(k);                              \
         }
 
+static uid_t server_find_journal_uid(Server *s, const ClientContext *c) {
+        uid_t journal_uid;
+
+        assert(s);
+        assert(c);
+
+        if (s->split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
+                /* Split up strictly by (non-root) UID */
+                journal_uid = c->uid;
+        else if (s->split_mode == SPLIT_LOGIN && c && c->uid > 0 && uid_is_valid(c->owner_uid))
+                /* Split up by login UIDs.  We do this only if the realuid is not root, in order not to
+                 * accidentally leak privileged information to the user that is logged by a privileged
+                 * process that is part of an unprivileged session. */
+                journal_uid = c->owner_uid;
+        else
+                journal_uid = 0;
+
+        if (uid_for_system_journal(journal_uid))
+                journal_uid = 0;
+
+        return journal_uid;
+}
+
 static void server_dispatch_message_real(
                 Server *s,
                 struct iovec *iovec, size_t n, size_t m,
@@ -1086,7 +1106,6 @@ static void server_dispatch_message_real(
 
         char source_time[STRLEN("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
         _unused_ _cleanup_free_ char *cmdline1 = NULL, *cmdline2 = NULL;
-        uid_t journal_uid;
         ClientContext *o;
 
         assert(s);
@@ -1186,18 +1205,8 @@ static void server_dispatch_message_real(
         iovec[n++] = in_initrd() ? IOVEC_MAKE_STRING("_RUNTIME_SCOPE=initrd") : IOVEC_MAKE_STRING("_RUNTIME_SCOPE=system");
         assert(n <= m);
 
-        if (s->split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
-                /* Split up strictly by (non-root) UID */
-                journal_uid = c->uid;
-        else if (s->split_mode == SPLIT_LOGIN && c && c->uid > 0 && uid_is_valid(c->owner_uid))
-                /* Split up by login UIDs.  We do this only if the
-                 * realuid is not root, in order not to accidentally
-                 * leak privileged information to the user that is
-                 * logged by a privileged process that is part of an
-                 * unprivileged session. */
-                journal_uid = c->owner_uid;
-        else
-                journal_uid = 0;
+        uid_t journal_uid;
+        journal_uid = server_find_journal_uid(s, c);
 
         /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do
          * not use the source time, and not even the time the event was originally seen, but instead simply
