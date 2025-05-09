@@ -21,7 +21,11 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-/* https://www.iana.org/assignments/bootp-dhcp-parameters/bootp-dhcp-parameters.xhtml#options */
+/* https://www.iana.org/assignments/bootp-dhcp-parameters/bootp-dhcp-parameters.xhtml#options
+ *
+ * When adding a new option, please update the option classification in dhcp-option.c function
+ * `dhcp_option_can_merge` relative to their RFC3396 behavior.
+ */
 enum {
         SD_DHCP_OPTION_PAD                            = 0,   /* [RFC2132] */
         SD_DHCP_OPTION_SUBNET_MASK                    = 1,   /* [RFC2132] */
