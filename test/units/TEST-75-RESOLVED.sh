@@ -1301,6 +1301,47 @@ testcase_15_wait_online_dns() {
     journalctl -b -u "$unit" --grep="dns0: link is configured by networkd and online." > /dev/null
 }
 
+testcase_delegate() {
+    # Before we install the delegation file the DNS name should be directly resolveable via our DNS server
+    run resolvectl query delegation.excercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
+
+    mkdir -p /run/systemd/dns-delegate.d/
+    cat >/run/systemd/dns-delegate.d/testcase.dns-delegate <<EOF
+[Delegate]
+DNS=192.168.77.78
+Domains=excercise.test
+EOF
+    systemctl reload systemd-resolved
+    resolvectl status
+
+    # Now that we installed the delegation the resolution should fail, because nothing is listening on that IP address
+    (! resolvectl query delegation.excercise.test)
+
+    # Now make that IP address connectible
+    ip link add delegate0 type dummy
+    ip addr add 192.168.77.78 dev delegate0
+
+    # This should work now
+    run resolvectl query delegation.excercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
+
+    ip link del delegate0
+
+    # Let's restart here, as a way to ensure the rtnetlink delete is definitely processed.
+    systemctl restart systemd-resolved
+
+    # Should no longer work
+    (! resolvectl query delegation.excercise.test)
+
+    rm /run/systemd/dns-delegate.d/testcase.dns-delegate
+    systemctl reload systemd-resolved
+
+    # Should work again without delegation in the mix
+    run resolvectl query delegation.excercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
