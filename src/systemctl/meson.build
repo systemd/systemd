@@ -53,6 +53,7 @@ executables += [
                 'public' : true,
                 'sources' : systemctl_sources,
                 'link_with' : systemctl_link_with,
+                'include_directories' : core_includes,
                 'dependencies' : [
                         libcap,
                         liblz4_cflags,
@@ -69,6 +70,7 @@ executables += [
                         systemctl_sources,
                 ],
                 'link_with' : systemctl_link_with,
+                'include_directories' : core_includes,
                 'c_args' : ['-DFUZZ_SYSTEMCTL_PARSE_ARGV'],
         },
 ]
