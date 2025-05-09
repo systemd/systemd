@@ -46,27 +46,44 @@ EOF
     systemctl --root="$CONTAINER_ROOT_DIR" enable test-service.service
 }
 
+helper_proc=$(mktemp -d /tmp/helper-proc-XXXX)
+
 testcase_multiple_features() {
-    local squashed_container_image=/usr/share/minimal_2.raw
+    # local squashed_container_image=/usr/share/minimal_2.raw
     local bind_mount_arg="${HOST_MOUNT_DIR}:${INTERNAL_MOUNT_DIR}"
     local host_output="${HOST_MOUNT_DIR}/${OUTPUT_FILE}"
 
-    unsquashfs -no-xattrs -d "$CONTAINER_ROOT_DIR" "$squashed_container_image"
+    # unsquashfs -no-xattrs -d "$CONTAINER_ROOT_DIR" "$squashed_container_image"
 
-    internal_writer
 
     # We'll bind mount this directory to the container
     # The internal directory will be created by systemd-run
     mkdir -p "$HOST_MOUNT_DIR"
 
-    # intentionally declared globally so it's valid if cleanup runs at exit
-    helper_proc=$(mktemp -d /tmp/helper-proc-XXXX)
     mount -t proc proc "$helper_proc"
+
+    mkdir -p "$CONTAINER_ROOT_DIR"
+
+    # Mount tmpfs
+    mount -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
+    mkdir -p "$CONTAINER_ROOT_DIR"/{usr,var,run}
+
+    # Bind mount /usr
+    mount --bind /usr "$CONTAINER_ROOT_DIR"/usr
+
+    internal_writer
+
+    # hack copy machine id into container
+    mkdir -p "$CONTAINER_ROOT_DIR"/etc
+
+    # Firstboot failing without this
+    cp /etc/machine-id "$CONTAINER_ROOT_DIR"/etc/machine-id
 
     systemd-run \
     --unit "$FILE_WR_SERVICE" \
     --wait \
     -p RootDirectory="$CONTAINER_ROOT_DIR" \
+    -p MountAPIVFS=yes \
     -p PrivatePIDs=yes \
     -p PrivateUsersEx=full \
     -p ProtectHostnameEx=private \
@@ -92,8 +109,11 @@ testcase_multiple_features() {
 at_exit() {
     set +e
 
-    umount -l "$helper_proc"
+    umount "$helper_proc"
     rmdir  "$helper_proc"
+
+    umount -l "$CONTAINER_ROOT_DIR/usr"
+    umount -l "$CONTAINER_ROOT_DIR"
 
     # Remove any test files
     rm -rf "$CONTAINER_ROOT_DIR" "$HOST_MOUNT_DIR"
