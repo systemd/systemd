@@ -12,7 +12,6 @@
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf-util.h"
 #include "bpf/socket_bind/socket-bind-api.bpf.h"
 #include "bpf/socket_bind/socket-bind-skel.h"
 
@@ -127,13 +126,8 @@ int bpf_socket_bind_supported(void) {
         _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
         int r;
 
-        if (!cgroup_bpf_supported())
+        if (dlopen_bpf_full(LOG_WARNING) < 0)
                 return false;
-
-        if (!compat_libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*opts=*/NULL)) {
-                log_debug("bpf-socket-bind: BPF program type cgroup_sock_addr is not supported");
-                return false;
-        }
 
         r = prepare_socket_bind_bpf(/*unit=*/NULL, /*allow_rules=*/NULL, /*deny_rules=*/NULL, &obj);
         if (r < 0) {
