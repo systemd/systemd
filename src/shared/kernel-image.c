@@ -10,6 +10,7 @@
 #include "parse-util.h"
 #include "pe-binary.h"
 #include "string-table.h"
+#include "string-util.h"
 
 #define PE_SECTION_READ_MAX (16U*1024U)
 

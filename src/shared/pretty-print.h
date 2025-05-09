@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdio.h>
 #include <string.h>
 
 #include "ansi-color.h"
-#include "assert-util.h"
 #include "glyph-util.h"
 #include "terminal-util.h"
 

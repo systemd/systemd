@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "networkd-network.h"
 #include "networkd-ntp.h"
 #include "parse-util.h"

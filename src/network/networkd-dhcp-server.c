@@ -8,6 +8,8 @@
 
 #include "dhcp-protocol.h"
 #include "dhcp-server-lease-internal.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "network-common.h"

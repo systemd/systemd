@@ -30,6 +30,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "initrd-util.h"
 #include "install.h"
 #include "locale-util.h"

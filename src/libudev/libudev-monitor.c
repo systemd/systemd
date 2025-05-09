@@ -9,6 +9,7 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "io-util.h"
 #include "libudev-device-internal.h"
 #include "string-util.h"

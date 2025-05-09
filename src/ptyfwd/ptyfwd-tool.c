@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"

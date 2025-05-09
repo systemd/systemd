@@ -6,6 +6,7 @@
 
 #include "ether-addr-util.h"
 #include "socket-util.h"
+#include "sparse-endian.h"
 
 int dhcp_network_bind_raw_socket(
                 int ifindex,

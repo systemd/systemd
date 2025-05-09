@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <poll.h>
+
 #include "cgroup-util.h"
 #include "common-signal.h"
 #include "daemon-util.h"
@@ -18,6 +20,7 @@
 #include "notify-recv.h"
 #include "process-util.h"
 #include "selinux-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"

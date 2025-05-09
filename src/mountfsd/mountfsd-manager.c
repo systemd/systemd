@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <stdlib.h>
 #include <sys/wait.h>
 
 #include "sd-daemon.h"
@@ -17,6 +19,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "time-util.h"
 #include "umask-util.h"
 
 #define LISTEN_TIMEOUT_USEC (25 * USEC_PER_SEC)

@@ -27,6 +27,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "umount.h"
 #include "user-util.h"
 #include "virt.h"

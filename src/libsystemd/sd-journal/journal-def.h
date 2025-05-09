@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "macro.h"
+#include "forward.h"
 #include "sparse-endian.h"
 
 /*

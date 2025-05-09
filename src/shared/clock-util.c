@@ -11,6 +11,7 @@
 #include "fileio.h"
 #include "macro.h"
 #include "string-util.h"
+#include "time-util.h"
 
 int clock_is_localtime(const char *adjtime_path) {
         int r;

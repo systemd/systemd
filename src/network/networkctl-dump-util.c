@@ -7,6 +7,7 @@
 #include "log.h"
 #include "networkctl-dump-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 int dump_list(Table *table, const char *key, char * const *l) {

@@ -20,6 +20,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"

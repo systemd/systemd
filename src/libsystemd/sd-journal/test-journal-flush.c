@@ -12,7 +12,6 @@
 #include "journal-file-util.h"
 #include "journal-internal.h"
 #include "logs-show.h"
-#include "macro.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"

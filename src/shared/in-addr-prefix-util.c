@@ -4,6 +4,7 @@
 #include "extract-word.h"
 #include "hostname-util.h"
 #include "in-addr-prefix-util.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 /* 0.0.0.0/0 */

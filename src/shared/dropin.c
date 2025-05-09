@@ -19,8 +19,10 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit-def.h"
 #include "unit-name.h"
 
 int drop_in_file(

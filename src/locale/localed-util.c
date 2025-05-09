@@ -14,6 +14,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "kbd-util.h"
 #include "localed-util.h"
 #include "log.h"

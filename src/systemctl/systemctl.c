@@ -11,6 +11,7 @@
 #include "bus-util.h"
 #include "capsule-util.h"
 #include "dissect-image.h"
+#include "extract-word.h"
 #include "install.h"
 #include "logs-show.h"
 #include "main-func.h"

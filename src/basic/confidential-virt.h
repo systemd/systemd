@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "errno-list.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef enum ConfidentialVirtualization {
         CONFIDENTIAL_VIRTUALIZATION_NONE = 0,

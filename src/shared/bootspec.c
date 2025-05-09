@@ -13,6 +13,7 @@
 #include "efi-loader.h"
 #include "env-file.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"

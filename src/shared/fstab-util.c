@@ -11,6 +11,7 @@
 #include "fstab-util.h"
 #include "initrd-util.h"
 #include "libmount-util.h"
+#include "log.h"
 #include "macro.h"
 #include "nulstr-util.h"
 #include "parse-util.h"

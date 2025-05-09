@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include "extract-word.h"
+
+#if HAVE_AUDIT
+#  include <libaudit.h>
+#endif
 
 #include "alloc-util.h"
-#include "audit-util.h"
 #include "build.h"
 #include "chase.h"
 #include "conf-files.h"
@@ -18,6 +22,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "image-policy.h"
+#include "libaudit-util.h"
 #include "libcrypt-util.h"
 #include "main-func.h"
 #include "memory-util.h"

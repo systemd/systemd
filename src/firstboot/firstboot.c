@@ -44,6 +44,7 @@
 #include "proc-cmdline.h"
 #include "random-util.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"

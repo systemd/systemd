@@ -49,6 +49,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"

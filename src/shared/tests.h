@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 

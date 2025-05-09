@@ -18,6 +18,7 @@
 #include "architecture.h"
 #include "bootspec.h"
 #include "build.h"
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-util.h"

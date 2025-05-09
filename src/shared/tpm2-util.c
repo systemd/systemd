@@ -31,6 +31,7 @@
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "sha256.h"
+#include "siphash24.h"
 #include "sort-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"

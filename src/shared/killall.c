@@ -18,6 +18,7 @@
 #include "killall.h"
 #include "log.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "set.h"
 #include "stdio-util.h"
