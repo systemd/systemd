@@ -106,8 +106,17 @@ static int fstab_is_same_node(const char *what_fstab, const char *path) {
         if (path_equal(node, path))
                 return true;
 
-        if (is_device_path(path) && is_device_path(node))
+        if (is_device_path(path) && is_device_path(node)) {
+                /* If the original path to compare with is unavailable, return recognizable error. It's very likely
+                 * that udev hasn't created any devnode symlinks just yet, i.e. we cannot do reasonable comparison.
+                 *
+                 * NB: this is specifically not about the paths listed in fstab, because they OTOH can
+                 * realistically be or sometimes even expected to be missing, think: nofail mounts. */
+                if (access(path, F_OK) < 0)
+                        return -ENOTRECOVERABLE;
+
                 return devnode_same(node, path);
+        }
 
         return false;
 }
