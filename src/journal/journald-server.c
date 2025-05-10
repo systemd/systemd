@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
+#include "chattr-util.h"
 #include "conf-parser.h"
 #include "creds-util.h"
 #include "daemon-util.h"
@@ -368,8 +369,18 @@ static int server_system_journal_open(
                  *
                  * If in persistent mode: create /var/log/journal and the machine path */
 
-                if (s->storage == STORAGE_PERSISTENT)
-                        (void) mkdir_parents(s->system_storage.path, 0755);
+                if (s->storage == STORAGE_PERSISTENT) {
+                        _cleanup_free_ char *parent = NULL;
+
+                        r = path_extract_directory(s->system_storage.path, &parent);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to extract parent directory from %s, ignoring: %m",
+                                                  s->system_storage.path);
+                        else {
+                                (void) mkdir_p(parent, 0755);
+                                (void) chattr_path(parent, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+                        }
+                }
 
                 (void) mkdir(s->system_storage.path, 0755);
 
