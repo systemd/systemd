@@ -57,13 +57,17 @@
       <varlistentry>
         <term><option>status</option></term>
 
-        <listitem><para>The current status of the boot loader entry file or unified kernel image file is shown. This
-        outputs one of <literal>good</literal>, <literal>bad</literal>, <literal>indeterminate</literal>,
-        <literal>clean</literal>, depending on the state and previous invocations of the command. The string
-        <literal>indeterminate</literal> is shown initially after boot, before it has been marked as "good" or
-        "bad". The string <literal>good</literal> is shown after the boot was marked as "good" with the
-        <option>good</option> command below, and "bad" conversely after the <option>bad</option> command was
-        invoked. The string <literal>clean</literal> is returned when boot counting is currently not in effect.</para>
+        <listitem><para>The current status of the boot loader entry file or unified kernel image file is
+        shown. This outputs one of <literal>good</literal>, <literal>bad</literal>,
+        <literal>indeterminate</literal>, <literal>clean</literal>, <literal>dirty</literal>, depending on
+        the state and previous invocations of the command. The string <literal>indeterminate</literal> is
+        shown initially after boot, before it has been marked as "good" or "bad". The string
+        <literal>good</literal> is shown after the boot was marked as "good" with the <option>good</option>
+        command below, and "bad" conversely after the <option>bad</option> command was invoked. The string
+        <literal>clean</literal> is returned when boot counting is currently not in effect (which includes
+        the case where the current entry was already marked as persistently good). The string
+        <literal>dirty</literal> is returned when the system is booted up with a known-bad kernel (i.e. one
+        where the tries left counter has previously reached zero already).</para>
 
         <para>This command is implied if no command argument is specified.</para>
 
@@ -96,9 +100,13 @@
       <varlistentry>
         <term><option>indeterminate</option></term>
 
-        <listitem><para>This command undoes any marking of the current boot loader entry file or unified kernel image
-        file as good or bad. This is implemented by renaming the boot loader entry file or unified kernel image file
-        back to the path encoded in the <varname>LoaderBootCountPath</varname> EFI variable.</para>
+        <listitem><para>This command undoes any marking of the current boot loader entry file or unified
+        kernel image file as good or bad. This is implemented by renaming the boot loader entry file or
+        unified kernel image file back to the path encoded in the <varname>LoaderBootCountPath</varname> EFI
+        variable. Note that operation will fail if the current kernel is not booted with boot counting
+        enabled (i.e. if the EFI variable is not set). If the boot counter already reached zero tries left on
+        a previous boot this operation will fail too: once an entry is marked <option>bad</option> it can
+        only be reset to <option>good</option> again, but not to <option>indeterminate</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
