@@ -117,8 +117,8 @@
 #  define _nonnull_if_nonzero_(p, n)
 #endif
 
-#define XSTRINGIFY(x) #x
-#define STRINGIFY(x) XSTRINGIFY(x)
+#define XSTRINGIFY(...) #__VA_ARGS__
+#define STRINGIFY(...) XSTRINGIFY(__VA_ARGS__)
 
 /* C23 changed char8_t from char to unsigned char, hence we cannot pass u8 literals to e.g. fputs() without
  * casting. Let's introduce our own way to declare UTF-8 literals, which casts u8 literals to const char*. */
