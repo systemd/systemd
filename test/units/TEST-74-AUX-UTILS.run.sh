@@ -256,10 +256,20 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
         # Validate that we actually went properly through PAM (XDG_SESSION_TYPE is set by pam_systemd)
         assert_eq "$(run0 ${tu:+"--user=$tu"} bash -c 'echo $XDG_SESSION_TYPE')" "unspecified"
 
+        # Test spawning via shell
+        assert_eq "$(run0 ${tu:+"--user=$tu"} --setenv=SHLVL=10 printenv SHLVL)" "10"
+        if [[ ! -v ASAN_OPTIONS ]]; then
+            assert_eq "$(run0 ${tu:+"--user=$tu"} --setenv=SHLVL=10 --via-shell echo \$SHLVL)" "11"
+        fi
+
         if [[ -n "$tu" ]]; then
             # Validate that $SHELL is set to login shell of target user when cmdline is supplied (not invoking shell)
             TARGET_LOGIN_SHELL="$(getent passwd "$tu" | cut -d: -f7)"
             assert_eq "$(run0 --user="$tu" printenv SHELL)" "$TARGET_LOGIN_SHELL"
+            # ... or when the command is chained by login shell
+            if [[ ! -v ASAN_OPTIONS ]]; then
+                assert_eq "$(run0 --user="$tu" -i printenv SHELL)" "$TARGET_LOGIN_SHELL"
+            fi
         fi
     done
     # Let's chain a couple of run0 calls together, for fun

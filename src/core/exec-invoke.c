@@ -4572,12 +4572,11 @@ int exec_invoke(
                 const CGroupContext *cgroup_context,
                 int *exit_status) {
 
-        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL, **replaced_argv = NULL;
+        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL;
         int r;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *own_user = NULL;
         const char *pwent_home = NULL, *shell = NULL;
-        char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
@@ -4807,7 +4806,7 @@ int exec_invoke(
 
                 if (context->user)
                         u = context->user;
-                else if (context->pam_name) {
+                else if (context->pam_name || FLAGS_SET(command->flags, EXEC_COMMAND_VIA_SHELL)) {
                         /* If PAM is enabled but no user name is explicitly selected, then use our own one. */
                         own_user = getusername_malloc();
                         if (!own_user) {
@@ -5406,17 +5405,26 @@ int exec_invoke(
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */
 
+        const char *path = command->path;
+
+        if (FLAGS_SET(command->flags, EXEC_COMMAND_VIA_SHELL)) {
+                if (shell_is_placeholder(shell)) {
+                        log_debug("Shell prefixing requested for user without default shell, using /bin/sh: %s",
+                                  strna(username));
+                        assert(streq(path, _PATH_BSHELL));
+                } else
+                        path = shell;
+        }
+
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -EBADF;
-        r = find_executable_full(command->path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
+        r = find_executable_full(path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
         if (r < 0) {
                 *exit_status = EXIT_EXEC;
                 log_struct_errno(LOG_NOTICE, r,
                                  LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED_STR),
-                                 LOG_EXEC_MESSAGE(params,
-                                                  "Unable to locate executable '%s': %m",
-                                                  command->path),
-                                 LOG_ITEM("EXECUTABLE=%s", command->path));
+                                 LOG_EXEC_MESSAGE(params, "Unable to locate executable '%s': %m", path),
+                                 LOG_ITEM("EXECUTABLE=%s", path));
                 /* If the error will be ignored by manager, tune down the log level here. Missing executable
                  * is very much expected in this case. */
                 return r != -ENOMEM && FLAGS_SET(command->flags, EXEC_COMMAND_IGNORE_FAILURE) ? 1 : r;
@@ -5827,10 +5835,13 @@ int exec_invoke(
                 strv_free_and_replace(accum_env, ee);
         }
 
-        if (!FLAGS_SET(command->flags, EXEC_COMMAND_NO_ENV_EXPAND)) {
+        _cleanup_strv_free_ char **replaced_argv = NULL, **argv_via_shell = NULL;
+        char **final_argv = FLAGS_SET(command->flags, EXEC_COMMAND_VIA_SHELL) ? strv_skip(command->argv, 1) : command->argv;
+
+        if (final_argv && !FLAGS_SET(command->flags, EXEC_COMMAND_NO_ENV_EXPAND)) {
                 _cleanup_strv_free_ char **unset_variables = NULL, **bad_variables = NULL;
 
-                r = replace_env_argv(command->argv, accum_env, &replaced_argv, &unset_variables, &bad_variables);
+                r = replace_env_argv(final_argv, accum_env, &replaced_argv, &unset_variables, &bad_variables);
                 if (r < 0) {
                         *exit_status = EXIT_MEMORY;
                         return log_error_errno(r, "Failed to replace environment variables: %m");
@@ -5846,8 +5857,33 @@ int exec_invoke(
                         _cleanup_free_ char *jb = strv_join(bad_variables, ", ");
                         log_warning("Invalid environment variable name evaluates to an empty string: %s", strna(jb));
                 }
-        } else
-                final_argv = command->argv;
+        }
+
+        if (FLAGS_SET(command->flags, EXEC_COMMAND_VIA_SHELL)) {
+                r = strv_extendf(&argv_via_shell, "%s%s", command->argv[0][0] == '-' ? "-" : "", path);
+                if (r < 0) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+
+                if (!strv_isempty(final_argv)) {
+                        _cleanup_free_ char *cmdline_joined = NULL;
+
+                        cmdline_joined = strv_join(final_argv, " ");
+                        if (!cmdline_joined) {
+                                *exit_status = EXIT_MEMORY;
+                                return log_oom();
+                        }
+
+                        r = strv_extend_many(&argv_via_shell, "-c", cmdline_joined);
+                        if (r < 0) {
+                                *exit_status = EXIT_MEMORY;
+                                return log_oom();
+                        }
+                }
+
+                final_argv = argv_via_shell;
+        }
 
         log_command_line(context, params, "Executing", executable, final_argv);
 
