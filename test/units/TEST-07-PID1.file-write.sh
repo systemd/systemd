@@ -25,6 +25,20 @@ OUTPUT_CONTENTS='Test service is running'
 
 # This is a dummy procfs mount
 HELPER_PROC=$(mktemp -d -t helper-proc-XXXX)
+make_mounts() {
+    # Host bind mount for the output file. Systemd will make the container's version.
+    mkdir -p "$HOST_MOUNT_DIR"
+
+    # Dummy procfs mount
+    # TODO: explain why this is needed
+    mount -t proc proc "$HELPER_PROC"
+
+    # Container root tmpfs mount
+    mount --mkdir -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
+    # Container's /usr will be a read-only bind mount of the host's /usr
+    mount --mkdir --bind /usr "${CONTAINER_ROOT_DIR}/usr"
+    mount -o remount,bind,ro "${CONTAINER_ROOT_DIR}/usr"
+}
 
 # Make test service that writes to a file
 config_container_service() {
@@ -51,29 +65,16 @@ EOF
     # NOTE: This warns with "test-service.service is added as a dependency to a non-existent unit multi-user.target."
     systemctl --root="$CONTAINER_ROOT_DIR" enable test-service.service
 }
-make_mounts() {
-    # Host bind mount for the output file. Systemd will make the container's version.
-    mkdir -p "$HOST_MOUNT_DIR"
 
-    # Dummy procfs mount
-    # TODO: explain why this is needed
-    mount -t proc proc "$HELPER_PROC"
 
-    # Container root tmpfs mount
-    mount --mkdir -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
-    # Container's /usr will be a read-only bind mount of the host's /usr
-    mount --mkdir --bind /usr "${CONTAINER_ROOT_DIR}/usr"
-    mount -o remount,bind,ro "${CONTAINER_ROOT_DIR}/usr"
-}
-testcase_multiple_features() {
+testcase_container_file_write() {
 
     make_mounts
 
     config_container_service
 
-    local bind_mount_arg="${HOST_MOUNT_DIR}:${CONTAINER_MOUNT_DIR}"
-    local host_output="${HOST_MOUNT_DIR}/${OUTPUT_FILE}"
     # Run the container as a transient unit and wait for it to finish
+    local bind_mount_arg="${HOST_MOUNT_DIR}:${CONTAINER_MOUNT_DIR}"
     systemd-run \
     --unit "$FILE_WR_SERVICE" \
     --wait \
@@ -97,6 +98,7 @@ testcase_multiple_features() {
     -p BindPaths="$bind_mount_arg" \
     /usr/lib/systemd/systemd multi-user.target
 
+    local host_output="${HOST_MOUNT_DIR}/${OUTPUT_FILE}"
     # If our service ran, we should be able to read its output here
     assert_eq "$(cat "${host_output}")" "$OUTPUT_CONTENTS"
 }
