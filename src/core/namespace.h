@@ -199,6 +199,7 @@ struct NamespaceParameters {
         ProtectProc protect_proc;
         ProcSubset proc_subset;
         PrivateTmp private_tmp;
+        PrivateTmp private_var_tmp;
         PrivatePIDs private_pids;
 };
 

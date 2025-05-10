@@ -37,7 +37,6 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
                 return log_error_errno(r, "Failed to parse ExecStart");
 
         SERVICE(u)->type = SERVICE_ONESHOT;
-        u->load_state = UNIT_LOADED;
 
         r = unit_start(u, NULL);
         if (r < 0)

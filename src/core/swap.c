@@ -406,8 +406,6 @@ static int swap_setup_unit(
                 s->what = strdup(what);
                 if (!s->what)
                         return log_oom();
-
-                unit_add_to_load_queue(u);
         }
 
         SwapParameters *p = &s->parameters_proc_swaps;
@@ -418,12 +416,14 @@ static int swap_setup_unit(
                         return log_oom();
         }
 
-        /* The unit is definitely around now, mark it as loaded if it was previously referenced but
-         * could not be loaded. After all we can load it now, from the data in /proc/swaps. */
+        /* The unit is definitely around now. When we previously fail to load the unit, let's reload the unit
+         * by resetting the load state and load error, and adding the unit to the load queue. */
         if (UNIT_IS_LOAD_ERROR(u->load_state)) {
-                u->load_state = UNIT_LOADED;
+                u->load_state = UNIT_STUB;
                 u->load_error = 0;
         }
+
+        unit_add_to_load_queue(u);
 
         if (set_flags) {
                 s->is_active = true;

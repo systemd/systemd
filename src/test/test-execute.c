@@ -491,6 +491,20 @@ static void test_exec_privatetmp(Manager *m) {
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
                 test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
                 test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+                FOREACH_STRING(s,
+                               "exec-privatetmp-disconnected.service",
+                               "exec-privatetmp-disconnected-defaultdependencies-no.service",
+                               "exec-privatetmp-disconnected-requires-mounts-for-var.service",
+                               "exec-privatetmp-disconnected-wants-mounts-for-var.service",
+                               "exec-privatetmp-disconnected-after-and-requires-for-var.service",
+                               "exec-privatetmp-disconnected-after-and-wants-for-var.service") {
+                        (void) unlink("/tmp/test-exec_privatetmp_disconnected");
+                        (void) unlink("/var/tmp/test-exec_privatetmp_disconnected");
+                        test(m, s, can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+                        ASSERT_FAIL(access("/tmp/test-exec_privatetmp_disconnected", F_OK));
+                        ASSERT_FAIL(access("/var/tmp/test-exec_privatetmp_disconnected", F_OK));
+                }
         }
 
         test(m, "exec-privatetmp-no.service", 0, CLD_EXITED);
