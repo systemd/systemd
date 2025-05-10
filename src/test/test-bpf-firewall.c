@@ -137,7 +137,6 @@ int main(int argc, char *argv[]) {
         assert_se(!SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->command_next);
 
         SERVICE(u)->type = SERVICE_ONESHOT;
-        u->load_state = UNIT_LOADED;
 
         unit_dump(u, stdout, NULL);
 
@@ -191,7 +190,6 @@ int main(int argc, char *argv[]) {
         assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "-/bin/ping -c 1 127.0.0.1 -W 5", SERVICE(u)->exec_command, u) == 0);
 
         SERVICE(u)->type = SERVICE_ONESHOT;
-        u->load_state = UNIT_LOADED;
 
         ASSERT_OK(unit_start(u, NULL));
 
