@@ -74,7 +74,6 @@ static int test_socket_bind(
                 return log_error_errno(r, "Failed to parse ExecStart");
 
         SERVICE(u)->type = SERVICE_ONESHOT;
-        u->load_state = UNIT_LOADED;
 
         r = unit_start(u, NULL);
         if (r < 0)

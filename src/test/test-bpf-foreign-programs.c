@@ -244,7 +244,6 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
                 return log_error_errno(r, "Failed to parse ExecStart");
 
         SERVICE(u)->type = SERVICE_ONESHOT;
-        u->load_state = UNIT_LOADED;
 
         r = unit_start(u, NULL);
         if (r < 0)

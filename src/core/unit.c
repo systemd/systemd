@@ -1890,8 +1890,13 @@ int unit_start(Unit *u, ActivationDetails *details) {
                 return -EAGAIN;
 
         /* Units that aren't loaded cannot be started */
-        if (u->load_state != UNIT_LOADED)
-                return -EINVAL;
+        if (u->load_state != UNIT_LOADED) {
+                if (MANAGER_IS_TEST_RUN(u->manager)) {
+                        assert(u->load_state == UNIT_STUB);
+                        u->load_state = UNIT_LOADED;
+                } else
+                        return -EINVAL;
+        }
 
         /* Refuse starting scope units more than once */
         if (UNIT_VTABLE(u)->once_only && dual_timestamp_is_set(&u->inactive_enter_timestamp))
