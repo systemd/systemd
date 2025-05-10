@@ -279,9 +279,12 @@ int main(int argc, char *argv[]) {
         if (detect_container() > 0)
                 return log_tests_skipped("test-bpf fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
+        if (getuid() != 0)
+                return log_tests_skipped("not running as root");
+
         r = bpf_program_supported();
         if (r < 0)
-                return log_tests_skipped_errno(r, "not running as root");
+                return log_tests_skipped_errno(r, "BPF programs not supported");
 
         ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
