@@ -1795,10 +1795,6 @@ static int mount_setup_new_unit(
          * attributes the deps to. */
         mnt->from_proc_self_mountinfo = true;
 
-        r = mount_add_non_exec_dependencies(mnt);
-        if (r < 0)
-                return r;
-
         /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything
          * else is loaded in now. */
         unit_add_to_load_queue(u);
@@ -1864,9 +1860,9 @@ static int mount_setup_existing_unit(
                 flags |= MOUNT_PROC_JUST_CHANGED;
         }
 
-        if (FLAGS_SET(flags, MOUNT_PROC_JUST_CHANGED)) {
-                /* If things changed, then make sure that all deps are regenerated. Let's
-                 * first remove all automatic deps, and then add in the new ones. */
+        if (FLAGS_SET(flags, MOUNT_PROC_JUST_CHANGED) && u->load_state == UNIT_LOADED) {
+                /* If things changed, and we have successfully loaded the unit, then make sure that all deps
+                 * are regenerated. Let's first remove all automatic deps, and then add in the new ones. */
                 r = mount_add_non_exec_dependencies(m);
                 if (r < 0)
                         return r;
