@@ -1855,9 +1855,11 @@ static int mount_setup_existing_unit(
 
         if (UNIT_IS_LOAD_ERROR(u->load_state)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
-                 * /proc/self/mountinfo we should reconsider it this, hence set it to UNIT_LOADED. */
-                u->load_state = UNIT_LOADED;
+                 * /proc/self/mountinfo we should reconsider that. Hence, let's reset the load state and load
+                 * error, and add the unit to load queue. */
+                u->load_state = UNIT_STUB;
                 u->load_error = 0;
+                unit_add_to_load_queue(u);
 
                 flags |= MOUNT_PROC_JUST_CHANGED;
         }
