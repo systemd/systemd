@@ -39,7 +39,7 @@ int pidref_acquire_pidfd_id(PidRef *pidref) {
         return 0;
 }
 
-bool pidref_equal(PidRef *a, PidRef *b) {
+bool pidref_equal_full(PidRef *a, PidRef *b, bool strict) {
 
         /* If this is the very same structure, it definitely refers to the same process */
         if (a == b)
@@ -59,7 +59,10 @@ bool pidref_equal(PidRef *a, PidRef *b) {
                 if (!pidref_is_remote(b))
                         return false;
 
-                /* If both are remote, compare fd IDs if we have both, otherwise don't bother, and cut things short */
+                /* If both are remote, compare fd IDs if we have both, otherwise don't bother, and cut things short.
+                 *
+                 * NB: remote pidrefs we don't apply "strict" to, since we lack peer/boot information anyways
+                 * and they're for metadata only, i.e. shall never be used for any authentication purposes. */
                 if (a->fd_id == 0 || b->fd_id == 0)
                         return true;
         } else {
@@ -77,7 +80,7 @@ bool pidref_equal(PidRef *a, PidRef *b) {
                  * that we ignore all errors here, not only EOPNOTSUPP, as fstat() might fail due to
                  * many reasons. */
                 if (pidref_acquire_pidfd_id(a) < 0 || pidref_acquire_pidfd_id(b) < 0)
-                        return true;
+                        return !strict;
         }
 
         return a->fd_id == b->fd_id;

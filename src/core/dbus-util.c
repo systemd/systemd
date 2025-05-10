@@ -156,6 +156,7 @@ int bus_verify_manage_units_async_impl(
                 const char *id,
                 const char *verb,
                 const char *polkit_message,
+                bool transient_owner,
                 sd_bus_message *call,
                 sd_bus_error *error) {
 
@@ -185,10 +186,13 @@ int bus_verify_manage_units_async_impl(
         assert(n_details < ELEMENTSOF(details));
         details[n_details] = NULL;
 
-        return bus_verify_polkit_async(
+        return bus_verify_polkit_async_full(
                         call,
-                        "org.freedesktop.systemd1.manage-units",
+                        transient_owner ? "org.freedesktop.systemd1.manage-owned-transient-units" :
+                                          "org.freedesktop.systemd1.manage-units",
                         n_details > 0 ? details : NULL,
+                        /* good_user = */ UID_INVALID,
+                        transient_owner ? POLKIT_DEFAULT_ALLOW : 0,
                         &manager->polkit_registry,
                         error);
 }

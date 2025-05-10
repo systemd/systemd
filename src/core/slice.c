@@ -24,7 +24,6 @@ static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
 static void slice_init(Unit *u) {
         Slice *s = ASSERT_PTR(SLICE(u));
 
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         u->ignore_on_isolate = true;
