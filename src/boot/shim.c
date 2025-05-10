@@ -135,3 +135,21 @@ void shim_retain_protocol(void) {
          * Requires Shim 15.8. */
         (void) efivar_set_raw(MAKE_GUID_PTR(SHIM_LOCK), u"ShimRetainProtocol", &value, sizeof(value), 0);
 }
+
+typedef struct SHIM_IMAGE_LOADER {
+        void* LoadImage;
+        void* StartImage;
+        void* Exit;
+        void* UnloadImage;
+} SHIM_IMAGE_LOADER;
+
+#define SHIM_IMAGE_LOADER_GUID \
+        { 0x1f492041, 0xfadb, 0x4e59, {0x9e, 0x57, 0x7c, 0xaf, 0xe7, 0x3a, 0x55, 0xab } }
+
+bool shim_load_image_is_shim(void) {
+        EFI_STATUS err;
+        SHIM_IMAGE_LOADER *shim_image_loader;
+
+        err = BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader);
+        return err == EFI_SUCCESS && shim_image_loader->LoadImage == BS->LoadImage;
+}
