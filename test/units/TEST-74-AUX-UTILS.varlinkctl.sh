@@ -166,3 +166,14 @@ varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{
 varlinkctl --exec call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' -- jq > /tmp/describe2.json
 cmp /tmp/describe1.json /tmp/describe2.json
 rm /tmp/describe1.json /tmp/describe2.json
+
+# test io.systemd.Manager
+varlinkctl info /run/systemd/io.systemd.Manager
+varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+
+# test io.systemd.Manager in user manager
+systemctl start user@4711
+varlinkctl info /run/user/4711/systemd/io.systemd.Manager
+varlinkctl introspect /run/user/4711/systemd/io.systemd.Manager
+varlinkctl call /run/user/4711/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'

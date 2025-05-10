@@ -59,6 +59,7 @@ void log_settle_target(void);
 int log_set_max_level(int level);
 int log_set_max_level_from_string(const char *e);
 int log_get_max_level(void) _pure_;
+int log_get_target_max_level(LogTarget target);
 int log_max_levels_to_string(int level, char **ret);
 
 void log_set_facility(int facility);
