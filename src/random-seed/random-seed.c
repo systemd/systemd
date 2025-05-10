@@ -5,6 +5,7 @@
 #include <getopt.h>
 #include <linux/random.h>
 #include <sys/ioctl.h>
+#include <sys/random.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 #include <unistd.h>
@@ -19,7 +20,6 @@
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "missing_random.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "parse-util.h"
