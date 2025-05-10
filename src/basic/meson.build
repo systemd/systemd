@@ -290,6 +290,7 @@ libbasic_static = static_library(
         basic_sources,
         fundamental_sources,
         include_directories : basic_includes,
+        implicit_include_directories : false,
         dependencies : [libcap,
                         libdl,
                         libgcrypt_cflags,
