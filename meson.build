@@ -1960,14 +1960,7 @@ endif
 
 conf.set_quoted('VERSION_TAG', version_tag)
 
-vcs_tag = get_option('vcs-tag')
-version_h = custom_target('version',
-        build_always_stale : vcs_tag,
-        input : 'src/version/version.h.in',
-        output : 'version.h',
-        capture : true,
-        command : ['tools/vcs-tag.sh', '@INPUT@', get_option('mode'), vcs_tag ? '1' : '0'],
-)
+subdir('src/version')
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
@@ -2007,6 +2000,7 @@ catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
+objects_by_name = {}
 fuzzer_exes = []
 generated_sources = [version_h, vmlinux_h_dependency]
 
@@ -2020,19 +2014,17 @@ dbus_programs = []
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
 
-build_dir_include = include_directories('.')
-
 basic_includes = [
         include_directories(
                 'src/basic',
                 'src/fundamental',
                 'src/systemd',
-                '.',
         ),
         include_directories(
                 'src/basic/include',
                 is_system : true,
         ),
+        version_include,
 ]
 
 libsystemd_includes = [basic_includes, include_directories(
@@ -2063,6 +2055,7 @@ libsystemd = shared_library(
         'systemd',
         version : libsystemd_version,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
@@ -2077,33 +2070,32 @@ libsystemd = shared_library(
         install_tag: 'libsystemd',
         install_dir : libdir)
 
-install_libsystemd_static = static_library(
-        'systemd',
-        libsystemd_sources,
-        basic_sources,
-        fundamental_sources,
-        include_directories : libsystemd_includes,
-        build_by_default : static_libsystemd != 'false',
-        install : static_libsystemd != 'false',
-        install_tag: 'libsystemd',
-        install_dir : libdir,
-        pic : static_libsystemd_pic,
-        dependencies : [libblkid,
-                        libcap,
-                        libdl,
-                        libgcrypt_cflags,
-                        liblz4_cflags,
-                        libm,
-                        libmount,
-                        libopenssl,
-                        librt,
-                        libxz_cflags,
-                        libzstd_cflags,
-                        threads,
-                        userspace],
-        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
-
 if static_libsystemd != 'false'
+        install_libsystemd_static = static_library(
+                'systemd',
+                libsystemd_sources,
+                basic_sources,
+                fundamental_sources,
+                include_directories : libsystemd_includes,
+                implicit_include_directories : false,
+                install_tag: 'libsystemd',
+                install_dir : libdir,
+                pic : static_libsystemd_pic,
+                dependencies : [libblkid,
+                                libcap,
+                                libdl,
+                                libgcrypt_cflags,
+                                liblz4_cflags,
+                                libm,
+                                libmount,
+                                libopenssl,
+                                librt,
+                                libxz_cflags,
+                                libzstd_cflags,
+                                threads,
+                                userspace],
+                c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
+
         alias_target('libsystemd', libsystemd, install_libsystemd_static)
 else
         alias_target('libsystemd', libsystemd)
@@ -2113,6 +2105,7 @@ libudev = shared_library(
         'udev',
         version : libudev_version,
         include_directories : includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static, libshared_static],
@@ -2124,26 +2117,25 @@ libudev = shared_library(
         install_tag: 'libudev',
         install_dir : libdir)
 
-install_libudev_static = static_library(
-        'udev',
-        basic_sources,
-        fundamental_sources,
-        shared_sources,
-        libsystemd_sources,
-        libudev_sources,
-        include_directories : includes,
-        build_by_default : static_libudev != 'false',
-        install : static_libudev != 'false',
-        install_tag: 'libudev',
-        install_dir : libdir,
-        link_depends : libudev_sym,
-        dependencies : [libmount,
-                        libshared_deps,
-                        userspace],
-        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
-        pic : static_libudev_pic)
-
 if static_libudev != 'false'
+        install_libudev_static = static_library(
+                'udev',
+                basic_sources,
+                fundamental_sources,
+                shared_sources,
+                libsystemd_sources,
+                libudev_sources,
+                include_directories : includes,
+                implicit_include_directories : false,
+                install_tag: 'libudev',
+                install_dir : libdir,
+                link_depends : libudev_sym,
+                dependencies : [libmount,
+                                libshared_deps,
+                                userspace],
+                c_args : static_libudev_pic ? [] : ['-fno-PIC'],
+                pic : static_libudev_pic)
+
         alias_target('libudev', libudev, install_libudev_static)
 else
         alias_target('libudev', libudev)
@@ -2433,7 +2425,8 @@ foreach dict : executables
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions',
-                           'type', 'suite', 'timeout', 'parallel']
+                           'type', 'suite', 'timeout', 'parallel',
+                           'objects', 'extract']
                         continue
                 endif
 
@@ -2442,6 +2435,17 @@ foreach dict : executables
 
         foreach key, val : executable_additional_kwargs
                 kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
+
+        foreach val : dict.get('objects', [])
+                obj = objects_by_name[val]
+                kwargs += {
+                        'objects' : obj['objects'],
+                        'include_directories' : [
+                                kwargs.get('include_directories', []),
+                                obj['include_directories'],
+                        ],
+                }
         endforeach
 
         if is_test
@@ -2460,9 +2464,19 @@ foreach dict : executables
         exe = executable(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         executables_by_name += { name : exe }
+
+        if dict.has_key('extract')
+                objects_by_name += {
+                        name : {
+                                'objects' : exe.extract_objects(dict['extract']),
+                                'include_directories' : fs.parent(dict['extract'][0]),
+                        }
+                }
+        endif
 
         if dict.get('build_by_default', true)
                 if dict.get('dbus', false)
@@ -2579,6 +2593,7 @@ foreach dict : modules
         lib = shared_library(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         if is_nss
@@ -2768,6 +2783,10 @@ foreach tuple : fuzz_sanitizers
         if cc.has_link_argument('-fsanitize=@0@'.format(sanitizer))
                 foreach fuzzer, fuzz_ins : fuzz_regression_tests
                         name = '@0@:@1@'.format(fuzzer, sanitizer)
+                        if not executables_by_name.has_key(fuzzer)
+                                message('Not compiling @0@ because fuzzer @1@ was not built'.format(name, fuzzer))
+                                continue
+                        endif
                         if want_tests == 'false'
                                 message('Not compiling @0@ because tests is set to false'.format(name))
                                 continue
