@@ -9,25 +9,28 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-TEST_ID=TEST-07-PID1-file-write
-CONTAINER_ROOT_DIR="/tmp/${TEST_ID}-root"
 
-# Monunt points:
-# Host
-HOST_MOUNT_DIR=/tmp/test-dir
-# Container
-INTERNAL_MOUNT_DIR="/${TEST_ID}"
+TEST_ID=TEST-07-PID1-file-write
+CONTAINER_ROOT_DIR=$(mktemp -d -t "${TEST_ID}-root-XXXX")
+
+# Mount points:
+HOST_MOUNT_DIR=$(mktemp -d -t test-dir-XXXX)
+CONTAINER_MOUNT_DIR="/${TEST_ID}"
 
 # Internal service config and output
 FILE_WR_SERVICE="${TEST_ID}.service"
-OUTPUT_FILE=test-service-output
+OUTPUT_FILE=$(mktemp test-service-output-XXXX)
 OUTPUT_CONTENTS='Test service is running'
 
+
+# This is a dummy procfs mount
+HELPER_PROC=$(mktemp -d -t helper-proc-XXXX)
+
 # Make test service that writes to a file
-internal_writer() {
-    # Create a test service that will run in the internal systemd
+config_container_service() {
+    # Create a test-service unit file that will run via the container's systemd
     local container_systemd_dir="${CONTAINER_ROOT_DIR}/etc/systemd/system"
-    local service_output="${INTERNAL_MOUNT_DIR}/${OUTPUT_FILE}"
+    local service_output="${CONTAINER_MOUNT_DIR}/${OUTPUT_FILE}"
     local internal_test_service="${container_systemd_dir}/test-service.service"
 
     mkdir -p "$container_systemd_dir"
@@ -45,39 +48,32 @@ TimeoutStopSec=15s
 [Install]
 WantedBy=multi-user.target
 EOF
-
+    # NOTE: This warns with "test-service.service is added as a dependency to a non-existent unit multi-user.target."
     systemctl --root="$CONTAINER_ROOT_DIR" enable test-service.service
 }
-
-HELPER_PROC=$(mktemp -d /tmp/helper-proc-XXX)
-
-testcase_multiple_features() {
-    local bind_mount_arg="${HOST_MOUNT_DIR}:${INTERNAL_MOUNT_DIR}"
-    local host_output="${HOST_MOUNT_DIR}/${OUTPUT_FILE}"
-
-    # We'll bind mount this directory to the container
-    # The internal directory will be created by systemd-run
+make_mounts() {
+    # Host bind mount for the output file. Systemd will make the container's version.
     mkdir -p "$HOST_MOUNT_DIR"
 
+    # Dummy procfs mount
+    # TODO: explain why this is needed
     mount -t proc proc "$HELPER_PROC"
 
-    mkdir -p "$CONTAINER_ROOT_DIR"
+    # Container root tmpfs mount
+    mount --mkdir -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
+    # Container's /usr will be a read-only bind mount of the host's /usr
+    mount --mkdir --bind /usr "${CONTAINER_ROOT_DIR}/usr"
+    mount -o remount,bind,ro "${CONTAINER_ROOT_DIR}/usr"
+}
+testcase_multiple_features() {
 
-    # Mount tmpfs
-    mount -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
+    make_mounts
 
-    # Bind mount /usr
+    config_container_service
 
-    internal_writer
-
-    # hack copy machine id into container
-    mkdir -p "$CONTAINER_ROOT_DIR"/etc
-
-    # Use /usr as a bind mount to avoid using a standalone image
-    mkdir -p "$CONTAINER_ROOT_DIR"/usr
-    mount --bind /usr "$CONTAINER_ROOT_DIR"/usr
-    mount -o remount,bind,ro "$CONTAINER_ROOT_DIR/usr"
-
+    local bind_mount_arg="${HOST_MOUNT_DIR}:${CONTAINER_MOUNT_DIR}"
+    local host_output="${HOST_MOUNT_DIR}/${OUTPUT_FILE}"
+    # Run the container as a transient unit and wait for it to finish
     systemd-run \
     --unit "$FILE_WR_SERVICE" \
     --wait \
