@@ -42,12 +42,14 @@ make_mounts() {
     mount -t proc proc "$HELPER_PROC"
 
     # Container root tmpfs mount
-    mount --mkdir -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
+    mkdir -p "$CONTAINER_ROOT_DIR"
+    mount -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
 
     # Container's /usr will be a read-only bind mount of the host's /usr
     # Tried using -p BindReadOnlyPaths=/usr instead of this, but that didn't work.
     # Debugging that got hairy, so I'm going with this for now.
-    mount --mkdir --bind /usr "${CONTAINER_ROOT_DIR}/usr"
+    mkdir -p "${CONTAINER_ROOT_DIR}/usr"
+    mount --bind /usr "${CONTAINER_ROOT_DIR}/usr"
     mount -o remount,bind,ro "${CONTAINER_ROOT_DIR}/usr"
 }
 
