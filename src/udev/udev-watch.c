@@ -266,7 +266,7 @@ static int manager_process_inotify(Manager *manager, const struct inotify_event 
 
         log_device_debug(dev, "Received inotify event of watch handle %i.", e->wd);
 
-        (void) event_queue_assume_block_device_unlocked(manager, dev);
+        (void) manager_requeue_locked_events_by_device(manager, dev);
         (void) synthesize_change(manager, dev);
         return 0;
 }
