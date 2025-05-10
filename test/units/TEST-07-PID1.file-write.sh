@@ -12,18 +12,21 @@ set -o pipefail
 TEST_ID=TEST-07-PID1-file-write
 CONTAINER_ROOT_DIR="/tmp/${TEST_ID}-root"
 
+# Monunt points:
+# Host
 HOST_MOUNT_DIR=/tmp/test-dir
+# Container
 INTERNAL_MOUNT_DIR="/${TEST_ID}"
 
+# Internal service config and output
 FILE_WR_SERVICE="${TEST_ID}.service"
 OUTPUT_FILE=test-service-output
-
 OUTPUT_CONTENTS='Test service is running'
 
 # Make test service that writes to a file
 internal_writer() {
     # Create a test service that will run in the internal systemd
-    local container_systemd_dir="${CONTAINER_ROOT_DIR}/usr/lib/systemd/system"
+    local container_systemd_dir="${CONTAINER_ROOT_DIR}/etc/systemd/system"
     local service_output="${INTERNAL_MOUNT_DIR}/${OUTPUT_FILE}"
     local internal_test_service="${container_systemd_dir}/test-service.service"
 
@@ -46,7 +49,7 @@ EOF
     systemctl --root="$CONTAINER_ROOT_DIR" enable test-service.service
 }
 
-helper_proc=$(mktemp -d /tmp/helper-proc-XXXX)
+HELPER_PROC=$(mktemp -d /tmp/helper-proc-XXX)
 
 testcase_multiple_features() {
     local bind_mount_arg="${HOST_MOUNT_DIR}:${INTERNAL_MOUNT_DIR}"
@@ -56,30 +59,30 @@ testcase_multiple_features() {
     # The internal directory will be created by systemd-run
     mkdir -p "$HOST_MOUNT_DIR"
 
-    mount -t proc proc "$helper_proc"
+    mount -t proc proc "$HELPER_PROC"
 
     mkdir -p "$CONTAINER_ROOT_DIR"
 
     # Mount tmpfs
     mount -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
-    mkdir -p "$CONTAINER_ROOT_DIR"/{usr,var,run}
 
     # Bind mount /usr
-    mount --bind /usr "$CONTAINER_ROOT_DIR"/usr
 
     internal_writer
 
     # hack copy machine id into container
     mkdir -p "$CONTAINER_ROOT_DIR"/etc
 
-    # Firstboot failing without this
-    cp /etc/machine-id "$CONTAINER_ROOT_DIR"/etc/machine-id
+    # Use /usr as a bind mount to avoid using a standalone image
+    mkdir -p "$CONTAINER_ROOT_DIR"/usr
+    mount --bind /usr "$CONTAINER_ROOT_DIR"/usr
+    mount -o remount,bind,ro "$CONTAINER_ROOT_DIR/usr"
 
     systemd-run \
     --unit "$FILE_WR_SERVICE" \
     --wait \
+    -p BindReadOnlyPaths=/etc/machine-id \
     -p RootDirectory="$CONTAINER_ROOT_DIR" \
-    -p MountAPIVFS=yes \
     -p PrivatePIDs=yes \
     -p PrivateUsersEx=full \
     -p ProtectHostnameEx=private \
@@ -98,15 +101,15 @@ testcase_multiple_features() {
     -p BindPaths="$bind_mount_arg" \
     /usr/lib/systemd/systemd multi-user.target
 
-    # If our service ran, we should be able to read it's output here
-    assert_eq "$(cat ${host_output})" "$OUTPUT_CONTENTS"
+    # If our service ran, we should be able to read its output here
+    assert_eq "$(cat "${host_output}")" "$OUTPUT_CONTENTS"
 }
 
 at_exit() {
     set +e
 
-    umount "$helper_proc"
-    rmdir  "$helper_proc"
+    umount "$HELPER_PROC"
+    rmdir  "$HELPER_PROC"
 
     umount -l "$CONTAINER_ROOT_DIR/usr"
     umount -l "$CONTAINER_ROOT_DIR"
