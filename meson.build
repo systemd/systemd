@@ -2070,34 +2070,32 @@ libsystemd = shared_library(
         install_tag: 'libsystemd',
         install_dir : libdir)
 
-install_libsystemd_static = static_library(
-        'systemd',
-        libsystemd_sources,
-        basic_sources,
-        fundamental_sources,
-        include_directories : libsystemd_includes,
-        implicit_include_directories : false,
-        build_by_default : static_libsystemd != 'false',
-        install : static_libsystemd != 'false',
-        install_tag: 'libsystemd',
-        install_dir : libdir,
-        pic : static_libsystemd_pic,
-        dependencies : [libblkid,
-                        libcap,
-                        libdl,
-                        libgcrypt_cflags,
-                        liblz4_cflags,
-                        libm,
-                        libmount,
-                        libopenssl,
-                        librt,
-                        libxz_cflags,
-                        libzstd_cflags,
-                        threads,
-                        userspace],
-        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
-
 if static_libsystemd != 'false'
+        install_libsystemd_static = static_library(
+                'systemd',
+                libsystemd_sources,
+                basic_sources,
+                fundamental_sources,
+                include_directories : libsystemd_includes,
+                implicit_include_directories : false,
+                install_tag: 'libsystemd',
+                install_dir : libdir,
+                pic : static_libsystemd_pic,
+                dependencies : [libblkid,
+                                libcap,
+                                libdl,
+                                libgcrypt_cflags,
+                                liblz4_cflags,
+                                libm,
+                                libmount,
+                                libopenssl,
+                                librt,
+                                libxz_cflags,
+                                libzstd_cflags,
+                                threads,
+                                userspace],
+                c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
+
         alias_target('libsystemd', libsystemd, install_libsystemd_static)
 else
         alias_target('libsystemd', libsystemd)
@@ -2119,27 +2117,25 @@ libudev = shared_library(
         install_tag: 'libudev',
         install_dir : libdir)
 
-install_libudev_static = static_library(
-        'udev',
-        basic_sources,
-        fundamental_sources,
-        shared_sources,
-        libsystemd_sources,
-        libudev_sources,
-        include_directories : includes,
-        implicit_include_directories : false,
-        build_by_default : static_libudev != 'false',
-        install : static_libudev != 'false',
-        install_tag: 'libudev',
-        install_dir : libdir,
-        link_depends : libudev_sym,
-        dependencies : [libmount,
-                        libshared_deps,
-                        userspace],
-        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
-        pic : static_libudev_pic)
-
 if static_libudev != 'false'
+        install_libudev_static = static_library(
+                'udev',
+                basic_sources,
+                fundamental_sources,
+                shared_sources,
+                libsystemd_sources,
+                libudev_sources,
+                include_directories : includes,
+                implicit_include_directories : false,
+                install_tag: 'libudev',
+                install_dir : libdir,
+                link_depends : libudev_sym,
+                dependencies : [libmount,
+                                libshared_deps,
+                                userspace],
+                c_args : static_libudev_pic ? [] : ['-fno-PIC'],
+                pic : static_libudev_pic)
+
         alias_target('libudev', libudev, install_libudev_static)
 else
         alias_target('libudev', libudev)
