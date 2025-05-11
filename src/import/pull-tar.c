@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <curl/curl.h>
+#include <dirent.h>
 #include <sys/prctl.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "copy.h"
 #include "curl-util.h"
 #include "errno-util.h"
-#include "fd-util.h"
 #include "fs-util.h"
-#include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "install-file.h"
@@ -26,10 +26,7 @@
 #include "pull-tar.h"
 #include "rm-rf.h"
 #include "string-util.h"
-#include "strv.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
-#include "utf8.h"
 #include "web-util.h"
 
 typedef enum TarProgress {

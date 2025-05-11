@@ -462,29 +462,11 @@ executables += [
                 'suite' : 'libsystemd',
         },
         test_template + {
-                'name' : 'test-libsystemd-static-sym',
-                'sources' : test_libsystemd_sym_c,
-                'link_with' : install_libsystemd_static,
-                'build_by_default' : want_tests != 'false' and static_libsystemd != 'false',
-                'install' : install_tests and static_libsystemd != 'false',
-                'suite' : 'libsystemd',
-        },
-        test_template + {
                 'name' : 'test-libudev-sym',
                 'sources' : test_libudev_sym_c,
                 'include_directories' : libudev_includes,
                 'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
                 'link_with' : libudev,
-                'suite' : 'libudev',
-        },
-        test_template + {
-                'name' : 'test-libudev-static-sym',
-                'sources' : test_libudev_sym_c,
-                'include_directories' : libudev_includes,
-                'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
-                'link_with' : install_libudev_static,
-                'build_by_default' : want_tests != 'false' and static_libudev != 'false',
-                'install' : install_tests and static_libudev != 'false',
                 'suite' : 'libudev',
         },
 
@@ -627,3 +609,31 @@ executables += [
                 ],
         },
 ]
+
+if static_libsystemd != 'false'
+        executables += [
+                test_template + {
+                        'name' : 'test-libsystemd-static-sym',
+                        'sources' : test_libsystemd_sym_c,
+                        'link_with' : install_libsystemd_static,
+                        'build_by_default' : want_tests != 'false',
+                        'install' : install_tests,
+                        'suite' : 'libsystemd',
+                },
+        ]
+endif
+
+if static_libudev != 'false'
+        executables += [
+                test_template + {
+                        'name' : 'test-libudev-static-sym',
+                        'sources' : test_libudev_sym_c,
+                        'include_directories' : libudev_includes,
+                        'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
+                        'link_with' : install_libudev_static,
+                        'build_by_default' : want_tests != 'false',
+                        'install' : install_tests,
+                        'suite' : 'libudev',
+                },
+        ]
+endif

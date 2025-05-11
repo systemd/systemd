@@ -3,7 +3,7 @@
 #include "bpf-dlopen.h"
 #include "dlfcn-util.h"
 #include "log.h"
-#include "strv.h"
+#include "macro.h"
 
 #if HAVE_LIBBPF
 

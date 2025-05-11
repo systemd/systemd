@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -12,19 +13,22 @@
 #include "dbus-unit.h"
 #include "device.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fstab-util.h"
+#include "glyph-util.h"
 #include "manager.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "swap.h"
 #include "unit.h"
 #include "unit-name.h"

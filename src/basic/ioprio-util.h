@@ -3,6 +3,7 @@
 
 #include <linux/ioprio.h>
 
+#include "forward.h"
 #include "macro.h"
 
 static inline int ioprio_prio_class(int value) {

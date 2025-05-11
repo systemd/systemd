@@ -2,11 +2,13 @@
 
 #include <net/if_arp.h>
 
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "json-util.h"
 #include "resolved-bus.h"
@@ -24,6 +26,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /* The amount of time to wait before retrying with a full feature set */
 #define DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC (6 * USEC_PER_HOUR)

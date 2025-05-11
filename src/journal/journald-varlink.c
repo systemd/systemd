@@ -2,6 +2,7 @@
 
 #include "journald-server.h"
 #include "journald-varlink.h"
+#include "log.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
