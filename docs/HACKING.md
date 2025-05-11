@@ -190,13 +190,18 @@ See [Testing systemd using sanitizers](/TESTING_WITH_SANITIZERS) for more inform
 
 ## Fuzzers
 
-systemd includes fuzzers in `src/fuzz/` that use libFuzzer and are automatically run by [OSS-Fuzz](https://github.com/google/oss-fuzz) with sanitizers.
-To add a fuzz target, create a new `src/fuzz/fuzz-foo.c` file with a `LLVMFuzzerTestOneInput` function and add it to the list in `src/fuzz/meson.build`.
+systemd includes fuzzers in `src/fuzz/` that use libFuzzer and are automatically
+run by [OSS-Fuzz](https://github.com/google/oss-fuzz) with sanitizers. To add a
+fuzz target, create a new `src/fuzz/fuzz-foo.c` file with a
+`LLVMFuzzerTestOneInput` function and add it to the list in
+`src/fuzz/meson.build`.
 
-Whenever possible, a seed corpus and a dictionary should also be added with new fuzz targets.
-The dictionary should be named `src/fuzz/fuzz-foo.dict` and the seed corpus should be built and exported as `$OUT/fuzz-foo_seed_corpus.zip` in `tools/oss-fuzz.sh`.
+Whenever possible, a seed corpus and a dictionary should also be added with new
+fuzz targets. The dictionary should be named `src/fuzz/fuzz-foo.dict` and the
+seed corpus should be built and exported as `$OUT/fuzz-foo_seed_corpus.zip` in
+`tools/oss-fuzz.sh`.
 
-The fuzzers can be built locally if you have libFuzzer installed by running `tools/oss-fuzz.sh`, or by running:
+The fuzzers can be built locally by running `tools/oss-fuzz.sh`, or by running:
 
 ```sh
 CC=clang CXX=clang++ \
@@ -205,15 +210,16 @@ meson setup build-libfuzz -Dllvm-fuzz=true -Db_sanitize=address,undefined -Db_lu
 ninja -C build-libfuzz fuzzers
 ```
 
-Each fuzzer then can be then run manually together with a directory containing the initial corpus:
+Each fuzzer then can be then run manually together with a directory containing
+the initial corpus:
 
 ```
 export UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
 build-libfuzz/fuzz-varlink-idl test/fuzz/fuzz-varlink-idl/
 ```
 
-Note: the `halt_on_error=1` UBSan option is especially important,
-otherwise the fuzzer won't crash when undefined behavior is triggered.
+Note: the `halt_on_error=1` UBSan option is especially important, otherwise the
+fuzzer won't crash when undefined behavior is triggered.
 
 You should also confirm that the fuzzers can be built and run using
 [the OSS-Fuzz toolchain](https://google.github.io/oss-fuzz/advanced-topics/reproducing/#building-using-docker):
@@ -241,8 +247,9 @@ done
 ./infra/helper.py coverage --no-corpus-download systemd
 ```
 
-If you find a bug that impacts the security of systemd,
-please follow the guidance in [CONTRIBUTING.md](/CONTRIBUTING) on how to report a security vulnerability.
+If you find a bug that impacts the security of systemd, please follow the
+guidance in [CONTRIBUTING.md](/CONTRIBUTING) on how to report a security
+vulnerability.
 
 For more details on building fuzzers and integrating with OSS-Fuzz, visit:
 
