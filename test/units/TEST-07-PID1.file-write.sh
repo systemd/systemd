@@ -146,17 +146,9 @@ file_write_cleanup() {
     CLEANUP_DONE=1
     set +e
 
-    echo "${TO_UMOUNT[@]}"
-    echo "${TO_RM[@]}"
-
     # Remove all the mounts and directories we created
-    # umount "${CONTAINER_ROOT_DIR}/usr" "${CONTAINER_ROOT_DIR}" "${HELPER_PROC}"
-    # rm -rf "${CONTAINER_ROOT_DIR}" "${HELPER_PROC}" "${HOST_MOUNT_DIR}"
     umount "${TO_UMOUNT[@]}"
     rm -rf "${TO_RM[@]}"
-
-    # Note: We could clear TO_UMOUNT and TO_RM here, but they are empty in the
-    # parent context.
 
 }
 
