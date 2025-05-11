@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
+#include <sched.h>
 #include <stddef.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
@@ -18,7 +19,6 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "env-util.h"
-#include "errno-list.h"
 #include "log.h"
 #include "macro.h"
 #include "namespace-util.h"

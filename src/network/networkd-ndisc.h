@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
+#include <netinet/in.h>
+
 #include "dns-resolver-internal.h"
-#include "time-util.h"
+#include "forward.h"
+#include "memory-util.h"
 
 typedef struct Address Address;
 typedef struct Link Link;

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
+#include "forward.h"
 #include "pidref.h"
 #include "time-util.h"
 

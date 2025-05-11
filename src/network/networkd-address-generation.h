@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "hashmap.h"
-#include "in-addr-util.h"
+#include "forward.h"
 
 typedef struct Address Address;
 typedef struct IPv6Token IPv6Token;

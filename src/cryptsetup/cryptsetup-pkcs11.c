@@ -11,19 +11,12 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-pkcs11.h"
-#include "escape.h"
-#include "fd-util.h"
+#include "cryptsetup-util.h"
 #include "fileio.h"
-#include "format-util.h"
-#include "hexdecoct.h"
 #include "iovec-util.h"
 #include "macro.h"
-#include "memory-util.h"
-#include "parse-util.h"
 #include "pkcs11-util.h"
 #include "random-util.h"
-#include "stat-util.h"
-#include "strv.h"
 
 int decrypt_pkcs11_key(
                 const char *volume_name,

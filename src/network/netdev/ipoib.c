@@ -3,6 +3,9 @@
 #include <linux/if_arp.h>
 #include <linux/if_link.h>
 
+#include "sd-netlink.h"
+
+#include "conf-parser.h"
 #include "ipoib.h"
 #include "networkd-network.h"
 #include "parse-util.h"

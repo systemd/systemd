@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-event.h"
-
-#include "memory-util.h"
+#include "forward.h"
 
 typedef struct PTYForward PTYForward;
 

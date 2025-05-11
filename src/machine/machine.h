@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
 #include "sd-id128.h"
 
 #include "copy.h"
+#include "forward.h"
 #include "list.h"
 #include "pidref.h"
 #include "time-util.h"
