@@ -2,7 +2,6 @@
 
 #include "percent-util.h"
 #include "tests.h"
-#include "time-util.h"
 
 TEST(parse_percent) {
         assert_se(parse_percent("") == -EINVAL);

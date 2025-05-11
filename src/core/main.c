@@ -8,6 +8,10 @@
 #include <sys/prctl.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+#include "coredump-util.h"
+#include "id128-util.h"
+#include "set.h"
+#include "unit-name.h"
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
 #endif
@@ -22,10 +26,8 @@
 #include "argv-util.h"
 #include "build.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
-#include "cgroup-util.h"
 #include "chase.h"
 #include "clock-util.h"
 #include "clock-warp.h"
@@ -39,16 +41,13 @@
 #include "dbus-manager.h"
 #include "dev-setup.h"
 #include "efi-random.h"
-#include "efivars.h"
 #include "emergency-action.h"
 #include "env-util.h"
 #include "escape.h"
-#include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "getopt-defs.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
@@ -80,7 +79,6 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "psi-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"

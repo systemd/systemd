@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
+#include <netinet/in.h>
 
-#include "conf-parser.h"
-#include "in-addr-util.h"
-#include "networkd-util.h"
+#include "forward.h"
 
 typedef struct Link Link;
 typedef struct Manager Manager;

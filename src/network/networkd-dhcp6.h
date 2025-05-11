@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef enum DHCP6ClientStartMode {
         DHCP6_CLIENT_START_MODE_NO,

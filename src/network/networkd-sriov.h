@@ -2,7 +2,7 @@
  * Copyright © 2020 VMware, Inc. */
 #pragma once
 
-#include "netif-sriov.h"
+#include "forward.h"
 
 typedef struct Link Link;
 

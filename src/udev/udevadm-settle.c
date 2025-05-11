@@ -15,6 +15,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "udev-util.h"

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
 #include "logind-inhibit.h"
 #include "sleep-config.h"
 
