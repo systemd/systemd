@@ -450,6 +450,18 @@ static int network_append_json(Network *network, sd_json_variant **v) {
                                                   activation_policy_to_string(network->activation_policy)));
 }
 
+static int netdev_append_json(NetDev *netdev, sd_json_variant **v) {
+        assert(v);
+
+        if (!netdev)
+                return 0;
+
+        return sd_json_variant_merge_objectbo(
+                        v,
+                        SD_JSON_BUILD_PAIR_STRING("NetDevFile", netdev->filename),
+                        SD_JSON_BUILD_PAIR_STRV("NetDevFileDropins", netdev->dropins));
+}
+
 static int device_append_json(sd_device *device, sd_json_variant **v) {
         _cleanup_strv_free_ char **link_dropins = NULL;
         const char *link = NULL, *path = NULL, *vendor = NULL, *model = NULL, *joined;
@@ -1445,6 +1457,10 @@ int link_build_json(Link *link, sd_json_variant **ret) {
                 return r;
 
         r = network_append_json(link->network, &v);
+        if (r < 0)
+                return r;
+
+        r = netdev_append_json(link->netdev, &v);
         if (r < 0)
                 return r;
 
