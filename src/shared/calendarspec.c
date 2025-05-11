@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
 #include <limits.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -12,8 +9,6 @@
 #include "alloc-util.h"
 #include "calendarspec.h"
 #include "errno-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "log.h"
 #include "macro.h"
 #include "memstream-util.h"

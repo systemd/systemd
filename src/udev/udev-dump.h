@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdio.h>
-
-#include "sd-json.h"
+#include "forward.h"
 
 typedef struct UdevEvent UdevEvent;
 

@@ -32,7 +32,7 @@ meson_args=("-Db_lundef=false")
 if [ -z "$FUZZING_ENGINE" ]; then
     meson_args+=("-Dllvm-fuzz=true")
 else
-    meson_args+=("-Doss-fuzz=true" "--auto-features=disabled")
+    meson_args+=("-Doss-fuzz=true" "--auto-features=disabled" "-Dnspawn=enabled" "-Dresolve=true")
 
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \

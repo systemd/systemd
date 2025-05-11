@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -11,8 +10,6 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"

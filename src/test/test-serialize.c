@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "log.h"
 #include "serialize.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"

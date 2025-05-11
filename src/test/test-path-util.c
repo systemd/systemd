@@ -6,7 +6,6 @@
 #include "alloc-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"

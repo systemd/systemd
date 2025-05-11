@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "hexdecoct.h"
 #include "path-util.h"
 #include "resolved-conf.h"
@@ -13,6 +16,7 @@
 #include "resolved-dnssd.h"
 #include "resolved-manager.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 

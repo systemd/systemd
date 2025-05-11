@@ -6,6 +6,7 @@
 
 #include "bus-polkit.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "lldp-rx-internal.h"
 #include "network-util.h"

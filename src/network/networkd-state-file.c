@@ -2,10 +2,13 @@
 
 #include <linux/if.h>
 #include <netinet/in.h>
+#include <sys/stat.h>
+
+#include "sd-dhcp6-lease.h"
 
 #include "alloc-util.h"
-#include "dns-domain.h"
 #include "dns-resolver-internal.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -20,6 +23,7 @@
 #include "networkd-state-file.h"
 #include "ordered-set.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 

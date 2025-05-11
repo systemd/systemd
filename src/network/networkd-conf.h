@@ -5,7 +5,7 @@
   Copyright © 2014 Vinay Kulkarni <kulkarniv@vmware.com>
 ***/
 
-#include "conf-parser.h"
+#include "forward.h"
 
 typedef struct Manager Manager;
 

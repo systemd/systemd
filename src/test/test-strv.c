@@ -3,7 +3,6 @@
 #include <fnmatch.h>
 
 #include "alloc-util.h"
-#include "escape.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"

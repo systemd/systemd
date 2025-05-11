@@ -2,6 +2,7 @@
 
 #include <fnmatch.h>
 
+#include "alloc-util.h"
 #include "efi-string.h"
 #include "fileio.h"
 #include "tests.h"

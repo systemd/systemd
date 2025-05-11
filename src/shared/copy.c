@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <linux/btrfs.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -14,7 +15,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "btrfs-util.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
@@ -22,23 +22,20 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "io-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "macro.h"
-#include "missing_fs.h"
-#include "missing_syscall.h"
-#include "mkdir-label.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "stat-util.h"
+#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "sync-util.h"
-#include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"

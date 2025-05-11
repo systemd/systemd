@@ -9,6 +9,7 @@
 #include "format-table.h"
 #include "os-util.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-def.h"
 #include "version.h"

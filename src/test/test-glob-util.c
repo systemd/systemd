@@ -8,7 +8,6 @@
 #include "dirent-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
-#include "macro.h"
 #include "rm-rf.h"
 #include "tests.h"
 #include "tmpfile-util.h"

@@ -5,13 +5,11 @@
 #include "analyze-critical-chain.h"
 #include "analyze-time-data.h"
 #include "bus-error.h"
-#include "copy.h"
-#include "path-util.h"
+#include "hashmap.h"
 #include "sort-util.h"
 #include "special.h"
 #include "static-destruct.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static Hashmap *unit_times_hashmap = NULL;
 STATIC_DESTRUCTOR_REGISTER(unit_times_hashmap, hashmap_freep);

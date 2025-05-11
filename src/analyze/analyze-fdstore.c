@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/sysmacros.h>
+
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-fdstore.h"
@@ -7,6 +9,8 @@
 #include "bus-locator.h"
 #include "fd-util.h"
 #include "format-table.h"
+#include "strv.h"
+#include "unit-name.h"
 
 static int dump_fdstore(sd_bus *bus, const char *arg) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/bpf.h>
 #include <linux/bpf_insn.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "bpf-foreign.h"
+#include "bpf-program.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "process-util.h"

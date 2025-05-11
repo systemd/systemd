@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
+#include "forward.h"
 #include "list.h"
-#include "ordered-set.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dnstls.h"
 #include "socket-util.h"
+#include "time-util.h"
 
 typedef struct DnsPacket DnsPacket;
 typedef struct DnsServer DnsServer;

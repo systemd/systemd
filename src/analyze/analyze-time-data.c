@@ -7,8 +7,8 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
-#include "memory-util.h"
 #include "special.h"
+#include "string-util.h"
 #include "strv.h"
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
