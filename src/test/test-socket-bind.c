@@ -3,6 +3,7 @@
 #include "bpf-socket-bind.h"
 #include "load-fragment.h"
 #include "manager.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"

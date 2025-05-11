@@ -7,6 +7,8 @@
 #include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/shm.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>

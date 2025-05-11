@@ -6,11 +6,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "label-util.h"
+#include "log.h"
 #include "ordered-set.h"
 #include "path-util.h"
 #include "resolved-conf.h"

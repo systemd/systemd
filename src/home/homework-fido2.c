@@ -8,6 +8,7 @@
 #include "log.h"
 #include "memory-util.h"
 #include "strv.h"
+#include "user-record.h"
 
 int fido2_use_token(
                 UserRecord *h,

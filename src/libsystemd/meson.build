@@ -14,26 +14,7 @@ sd_journal_sources = files(
         'sd-journal/sd-journal.c',
 )
 
-audit_type_includes = [config_h,
-                       missing_audit_h,
-                       'linux/audit.h']
-if conf.get('HAVE_AUDIT') == 1
-        audit_type_includes += 'libaudit.h'
-endif
-
-generate_audit_type_list = find_program('sd-journal/generate-audit_type-list.sh')
-audit_type_list_txt = custom_target(
-        'audit_type-list.txt',
-        output : 'audit_type-list.txt',
-        command : [generate_audit_type_list, cpp] + audit_type_includes,
-        capture : true)
-
-audit_type_to_name = custom_target(
-        'audit_type-to-name.h',
-        input : ['sd-journal/audit_type-to-name.awk', audit_type_list_txt],
-        output : 'audit_type-to-name.h',
-        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
-        capture : true)
+subdir('sd-journal')
 
 generated_sources += audit_type_to_name
 sd_journal_sources += audit_type_to_name
@@ -160,6 +141,7 @@ libsystemd_static = static_library(
         'systemd_static',
         libsystemd_sources,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         c_args : libsystemd_c_args,
         link_with : [libbasic_static],
         dependencies : [threads,

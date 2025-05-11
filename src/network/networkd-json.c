@@ -2,11 +2,12 @@
 
 #include <linux/nexthop.h>
 
+#include "sd-dhcp-client.h"
+
 #include "dhcp-lease-internal.h"
 #include "dhcp-server-lease-internal.h"
-#include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
-#include "dns-domain.h"
+#include "extract-word.h"
 #include "ip-protocol-list.h"
 #include "json-util.h"
 #include "netif-util.h"
@@ -22,10 +23,10 @@
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
-#include "sort-util.h"
+#include "ordered-set.h"
+#include "set.h"
 #include "strv.h"
 #include "udev-util.h"
-#include "user-util.h"
 #include "wifi-util.h"
 
 static int address_append_json(Address *address, bool serializing, sd_json_variant **array) {
