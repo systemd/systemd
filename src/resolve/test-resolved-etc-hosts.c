@@ -7,9 +7,10 @@
 
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "resolved-etc-hosts.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"

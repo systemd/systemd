@@ -12,10 +12,8 @@
 #include "json-util.h"
 #include "memfd-util.h"
 #include "rm-rf.h"
-#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
 #include "varlink-util.h"
 
 /* Let's pick some high value, that is higher than the largest listen() backlog, but leaves enough room below

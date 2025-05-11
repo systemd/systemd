@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
 
 #include "sd-event.h"
 
@@ -32,7 +31,6 @@
 #include "static-destruct.h"
 #include "sysctl-util.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"

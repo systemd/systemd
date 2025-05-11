@@ -5,9 +5,10 @@
 #include "analyze-filesystems.h"
 #include "fileio.h"
 #include "filesystems.h"
+#include "nulstr-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static int load_available_kernel_filesystems(Set **ret) {
         _cleanup_set_free_ Set *filesystems = NULL;

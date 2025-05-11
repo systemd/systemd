@@ -1,30 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "sd-bus.h"
-#include "sd-device.h"
 #include "sd-event.h"
-#include "sd-varlink.h"
 
 #include "cgroup.h"
-#include "cgroup-util.h"
 #include "common-signal.h"
-#include "emergency-action.h"
 #include "execute.h"
-#include "fdset.h"
-#include "hashmap.h"
-#include "job.h"
-#include "list.h"
-#include "path-lookup.h"
-#include "prioq.h"
-#include "ratelimit.h"
+#include "forward.h"
+#include "log.h"
 #include "show-status.h"
-#include "transaction.h"
 #include "unit.h"
-#include "unit-name.h"
 
 struct libmnt_monitor;
 
@@ -548,15 +533,14 @@ int manager_add_job_full(
                 Set *affected_jobs,
                 sd_bus_error *error,
                 Job **ret);
-static inline int manager_add_job(
+int manager_add_job(
                 Manager *m,
                 JobType type,
                 Unit *unit,
                 JobMode mode,
                 sd_bus_error *error,
-                Job **ret) {
-        return manager_add_job_full(m, type, unit, mode, 0, NULL, error, ret);
-}
+                Job **ret);
+
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret);
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret);
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e);

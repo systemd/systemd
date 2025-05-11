@@ -1,23 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <sched.h>
 #include <signal.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/resource.h>
-#include <sys/types.h>
 
-#include "alloc-util.h"
-#include "assert-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "macro.h"
-#include "pidref.h"
-#include "time-util.h"
+#include "forward.h"
+#include "string-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \
@@ -67,9 +56,7 @@ int get_process_umask(pid_t pid, mode_t *ret);
 
 int container_get_leader(const char *machine, pid_t *pid);
 
-static inline bool SIGINFO_CODE_IS_DEAD(int code) {
-        return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
-}
+bool SIGINFO_CODE_IS_DEAD(int code);
 
 int wait_for_terminate(pid_t pid, siginfo_t *ret);
 
@@ -147,17 +134,10 @@ void valgrind_summary_hack(void);
 
 int pid_compare_func(const pid_t *a, const pid_t *b);
 
-static inline bool nice_is_valid(int n) {
-        return n >= PRIO_MIN && n < PRIO_MAX;
-}
+bool nice_is_valid(int n);
 
-static inline bool sched_policy_is_valid(int i) {
-        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
-}
-
-static inline bool sched_priority_is_valid(int i) {
-        return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
-}
+bool sched_policy_is_valid(int i);
+bool sched_priority_is_valid(int i);
 
 #define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */
 

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -11,21 +10,18 @@
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "conf-parser.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "install.h"
 #include "install-printf.h"
 #include "load-fragment.h"
-#include "macro.h"
-#include "memory-util.h"
+#include "manager.h"
 #include "open-file.h"
 #include "pcre2-util.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"

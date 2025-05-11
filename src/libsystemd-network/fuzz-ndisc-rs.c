@@ -7,14 +7,13 @@
 #include "sd-ndisc.h"
 #include "sd-radv.h"
 
-#include "alloc-util.h"
 #include "fd-util.h"
 #include "fuzz.h"
 #include "icmp6-packet.h"
 #include "icmp6-test-util.h"
-#include "ndisc-internal.h"
+#include "macro.h"
 #include "ndisc-option.h"
-#include "socket-util.h"
+#include "set.h"
 
 static void test_with_sd_ndisc(const uint8_t *data, size_t size) {
         struct ether_addr mac_addr = {

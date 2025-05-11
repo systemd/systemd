@@ -14,9 +14,8 @@
 #include "hexdecoct.h"
 #include "icmp6-packet.h"
 #include "icmp6-test-util.h"
+#include "in-addr-util.h"
 #include "ndisc-internal.h"
-#include "socket-util.h"
-#include "strv.h"
 #include "tests.h"
 
 static struct ether_addr mac_addr = {

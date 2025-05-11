@@ -8,8 +8,7 @@
 #include <security/pam_modutil.h>
 
 #include "keyring-util.h"
-#include "log.h"
-#include "macro.h"
+#include "memory-util.h"
 #include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "pam-util.h"

@@ -3,8 +3,9 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
@@ -25,6 +26,7 @@
 #include "capsule-util.h"
 #include "chase.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "event-util.h"
 #include "exec-util.h"
@@ -33,13 +35,13 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "osc-context.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -47,8 +49,10 @@
 #include "signal-util.h"
 #include "special.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "unit-def.h"
 #include "unit-name.h"

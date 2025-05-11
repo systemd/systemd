@@ -1,14 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-
 #include "alloc-util.h"
 #include "locale-util.h"
-#include "macro.h"
 #include "string-util.h"
-#include "strv.h"
 #include "tests.h"
-#include "utf8.h"
 
 TEST(string_erase) {
         char *x;

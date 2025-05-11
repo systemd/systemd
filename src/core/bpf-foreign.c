@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "bpf-foreign.h"
 #include "bpf-program.h"
 #include "cgroup.h"
-#include "memory-util.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
 #include "missing_magic.h"
-#include "mountpoint-util.h"
-#include "set.h"
+#include "siphash24.h"
 #include "stat-util.h"
+#include "unit.h"
 
 typedef struct BPFForeignKey BPFForeignKey;
 struct BPFForeignKey {
