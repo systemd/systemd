@@ -4,38 +4,49 @@
 set -Eeuo pipefail
 set -x
 
-# Must be root.  Die early instead of letting mount/systemd‑run blow up later.
+# -----------------------------------------------------------------------------
+# Test: PID-1 File-Write from Transient Unit Container
+#
+# Verifies that a minimal systemd PID 1 inside a tmpfs root can:
+#   • Bind mount a writable directory
+#   • Run a one-shot service in the container to create and
+#     write to host file in that directory
+#   • Exit cleanly with systemd-run --wait propagating status
+#
+# -----------------------------------------------------------------------------
+
+# Must be root.
 if (( EUID )); then
     printf 'This test must be run as root.\n' >&2
     exit 1
 fi
 
+# Helpers
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# Mounts and directories to teardown and cleanup
 TO_UMOUNT=()
 TO_RM=()
 
-readonly TEST_ID=TEST-07-PID1-file-write
-# Note: here we are only generating file names, not creating them.
-# The actual file creation is done before mounting
+# Common Config:
+TEST_ID="TEST-07-PID1-file-write"
+OUTPUT_FILE="test-service-output"
+OUTPUT_CONTENTS='Test service is running'
+readonly TEST_ID OUTPUT_FILE OUTPUT_CONTENTS
+
+# Host FS Directories
+# mktemp helps avoid name collision; using dry-run mode
 CONTAINER_ROOT_DIR=$(mktemp -u -d --tmpdir "${TEST_ID}-root-XXXX")
-readonly CONTAINER_ROOT_DIR
-
-# Mount points for host and container
 HOST_MOUNT_DIR=$(mktemp -u -d --tmpdir test-dir-XXXX)
-readonly HOST_MOUNT_DIR
-readonly CONTAINER_MOUNT_DIR="/${TEST_ID}"
+readonly CONTAINER_ROOT_DIR HOST_MOUNT_DIR
 
-# Internal service config and output
-readonly OUTPUT_FILE=test-service-output
-readonly OUTPUT_CONTENTS='Test service is running'
+# Container FS Directories
+CONTAINER_MOUNT_DIR="/${TEST_ID}"
+readonly CONTAINER_MOUNT_DIR
 
-# This is a dummy procfs mount
-HELPER_PROC=$(mktemp -u -d --tmpdir helper-proc-XXXX)
-readonly HELPER_PROC
 make_mounts() {
     # Host bind mount for the output file. Systemd will make the container's version.
     mkdir -p "$HOST_MOUNT_DIR"
@@ -43,11 +54,13 @@ make_mounts() {
 
     # Dummy procfs mount
     # TODO: explain why this is needed
-    mkdir -p "$HELPER_PROC"
-    TO_RM+=("$HELPER_PROC")
 
-    mount -t proc proc "$HELPER_PROC"
-    TO_UMOUNT+=("$HELPER_PROC")
+    # This is a dummy procfs mount
+    local -r helper_proc=$(mktemp -d --tmpdir helper-proc-XXXX)
+    TO_RM+=("$helper_proc")
+
+    mount -t proc proc "$helper_proc"
+    TO_UMOUNT+=("$helper_proc")
 
     # Container root tmpfs mount
     mkdir -p "$CONTAINER_ROOT_DIR"
@@ -62,7 +75,8 @@ make_mounts() {
 
     mount --bind /usr "${CONTAINER_ROOT_DIR}/usr"
     mount -o remount,bind,ro "${CONTAINER_ROOT_DIR}/usr"
-    # Sloppy push to front so it's removed before the root.
+    # Make sure /root/usr is unmounted before /root.
+    # Don't add to TO_RM because it will be removed when /root is.
     TO_UMOUNT=( "${CONTAINER_ROOT_DIR}/usr" "${TO_UMOUNT[@]}" )
 
 }
