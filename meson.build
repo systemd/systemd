@@ -347,6 +347,12 @@ want_slow_tests = want_tests != 'false' and get_option('slow-tests')
 want_fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
 install_tests = want_tests != 'false' and get_option('install-tests')
 
+if get_option('b_sanitize') == 'none'
+        sanitizers = ''
+else
+        sanitizers = ',@0@'.format(get_option('b_sanitize'))
+endif
+
 if add_languages('cpp', native : false, required : fuzzer_build)
         #  Used only for tests
         cxx = meson.get_compiler('cpp')
@@ -356,13 +362,10 @@ else
 endif
 
 if want_libfuzzer
-        fuzzing_engine = meson.get_compiler('cpp').find_library('Fuzzer', required : false)
-        if fuzzing_engine.found()
-                userspace_c_args += '-fsanitize-coverage=trace-pc-guard,trace-cmp'
-        elif cc.has_argument('-fsanitize=fuzzer-no-link')
-                userspace_c_args += '-fsanitize=fuzzer-no-link'
+        if cc.has_argument('-fsanitize=fuzzer-no-link')
+                userspace_c_args += f'-fsanitize=fuzzer-no-link@sanitizers@'
         else
-                error('Looks like neither libFuzzer nor -fsanitize=fuzzer-no-link is supported')
+                error('Looks like -fsanitize=fuzzer-no-link is not supported')
         endif
 elif want_ossfuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
@@ -1960,14 +1963,7 @@ endif
 
 conf.set_quoted('VERSION_TAG', version_tag)
 
-vcs_tag = get_option('vcs-tag')
-version_h = custom_target('version',
-        build_always_stale : vcs_tag,
-        input : 'src/version/version.h.in',
-        output : 'version.h',
-        capture : true,
-        command : ['tools/vcs-tag.sh', '@INPUT@', get_option('mode'), vcs_tag ? '1' : '0'],
-)
+subdir('src/version')
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
@@ -2007,6 +2003,7 @@ catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
+objects_by_name = {}
 fuzzer_exes = []
 generated_sources = [version_h, vmlinux_h_dependency]
 
@@ -2020,19 +2017,17 @@ dbus_programs = []
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
 
-build_dir_include = include_directories('.')
-
 basic_includes = [
         include_directories(
                 'src/basic',
                 'src/fundamental',
                 'src/systemd',
-                '.',
         ),
         include_directories(
                 'src/basic/include',
                 is_system : true,
         ),
+        version_include,
 ]
 
 libsystemd_includes = [basic_includes, include_directories(
@@ -2063,6 +2058,7 @@ libsystemd = shared_library(
         'systemd',
         version : libsystemd_version,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
@@ -2077,33 +2073,33 @@ libsystemd = shared_library(
         install_tag: 'libsystemd',
         install_dir : libdir)
 
-install_libsystemd_static = static_library(
-        'systemd',
-        libsystemd_sources,
-        basic_sources,
-        fundamental_sources,
-        include_directories : libsystemd_includes,
-        build_by_default : static_libsystemd != 'false',
-        install : static_libsystemd != 'false',
-        install_tag: 'libsystemd',
-        install_dir : libdir,
-        pic : static_libsystemd_pic,
-        dependencies : [libblkid,
-                        libcap,
-                        libdl,
-                        libgcrypt_cflags,
-                        liblz4_cflags,
-                        libm,
-                        libmount,
-                        libopenssl,
-                        librt,
-                        libxz_cflags,
-                        libzstd_cflags,
-                        threads,
-                        userspace],
-        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
-
 if static_libsystemd != 'false'
+        install_libsystemd_static = static_library(
+                'systemd',
+                libsystemd_sources,
+                basic_sources,
+                fundamental_sources,
+                include_directories : libsystemd_includes,
+                implicit_include_directories : false,
+                install : true,
+                install_tag: 'libsystemd',
+                install_dir : libdir,
+                pic : static_libsystemd_pic,
+                dependencies : [libblkid,
+                                libcap,
+                                libdl,
+                                libgcrypt_cflags,
+                                liblz4_cflags,
+                                libm,
+                                libmount,
+                                libopenssl,
+                                librt,
+                                libxz_cflags,
+                                libzstd_cflags,
+                                threads,
+                                userspace],
+                c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
+
         alias_target('libsystemd', libsystemd, install_libsystemd_static)
 else
         alias_target('libsystemd', libsystemd)
@@ -2113,6 +2109,7 @@ libudev = shared_library(
         'udev',
         version : libudev_version,
         include_directories : includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static, libshared_static],
@@ -2124,26 +2121,26 @@ libudev = shared_library(
         install_tag: 'libudev',
         install_dir : libdir)
 
-install_libudev_static = static_library(
-        'udev',
-        basic_sources,
-        fundamental_sources,
-        shared_sources,
-        libsystemd_sources,
-        libudev_sources,
-        include_directories : includes,
-        build_by_default : static_libudev != 'false',
-        install : static_libudev != 'false',
-        install_tag: 'libudev',
-        install_dir : libdir,
-        link_depends : libudev_sym,
-        dependencies : [libmount,
-                        libshared_deps,
-                        userspace],
-        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
-        pic : static_libudev_pic)
-
 if static_libudev != 'false'
+        install_libudev_static = static_library(
+                'udev',
+                basic_sources,
+                fundamental_sources,
+                shared_sources,
+                libsystemd_sources,
+                libudev_sources,
+                include_directories : includes,
+                implicit_include_directories : false,
+                install : true,
+                install_tag: 'libudev',
+                install_dir : libdir,
+                link_depends : libudev_sym,
+                dependencies : [libmount,
+                                libshared_deps,
+                                userspace],
+                c_args : static_libudev_pic ? [] : ['-fno-PIC'],
+                pic : static_libudev_pic)
+
         alias_target('libudev', libudev, install_libudev_static)
 else
         alias_target('libudev', libudev)
@@ -2207,13 +2204,13 @@ fuzz_template = executable_template + {
         'install' : false,
 }
 
-if want_ossfuzz or (want_libfuzzer and fuzzing_engine.found())
+if want_ossfuzz
         fuzz_additional_kwargs = {
                 'dependencies' : fuzzing_engine,
         }
-elif want_libfuzzer and not fuzzing_engine.found()
+elif want_libfuzzer
         fuzz_additional_kwargs = {
-                'link_args' : ['-fsanitize=fuzzer'],
+                'link_args' : [f'-fsanitize=fuzzer@sanitizers@'],
         }
 else
         fuzz_additional_kwargs = {
@@ -2433,7 +2430,8 @@ foreach dict : executables
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions',
-                           'type', 'suite', 'timeout', 'parallel']
+                           'type', 'suite', 'timeout', 'parallel',
+                           'objects', 'extract']
                         continue
                 endif
 
@@ -2442,6 +2440,17 @@ foreach dict : executables
 
         foreach key, val : executable_additional_kwargs
                 kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
+
+        foreach val : dict.get('objects', [])
+                obj = objects_by_name[val]
+                kwargs += {
+                        'objects' : obj['objects'],
+                        'include_directories' : [
+                                kwargs.get('include_directories', []),
+                                obj['include_directories'],
+                        ],
+                }
         endforeach
 
         if is_test
@@ -2460,9 +2469,19 @@ foreach dict : executables
         exe = executable(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         executables_by_name += { name : exe }
+
+        if dict.has_key('extract')
+                objects_by_name += {
+                        name : {
+                                'objects' : exe.extract_objects(dict['extract']),
+                                'include_directories' : fs.parent(dict['extract'][0]),
+                        }
+                }
+        endif
 
         if dict.get('build_by_default', true)
                 if dict.get('dbus', false)
@@ -2499,9 +2518,7 @@ foreach dict : executables
         if is_fuzz
                 fuzzer_exes += exe
 
-                if want_tests != 'false'
-                        # Run the fuzz regression tests without any sanitizers enabled.
-                        # Additional invocations with sanitizers may get added below.
+                if want_tests != 'false' and want_fuzz_tests
                         fuzz_ins = fuzz_regression_tests.get(name, {})
                         foreach directive : fuzz_ins.get('directives', [])
                                 tt = '@0@_@1@'.format(name, fs.name(directive.full_path()))
@@ -2513,6 +2530,8 @@ foreach dict : executables
                                      exe,
                                      suite : 'fuzz',
                                      args : directive.full_path(),
+                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
+                                     timeout : 60,
                                      depends : directive)
                         endforeach
                         foreach file : fuzz_ins.get('files', [])
@@ -2524,6 +2543,8 @@ foreach dict : executables
                                 test(tt,
                                      exe,
                                      suite : 'fuzz',
+                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
+                                     timeout : 60,
                                      args : file)
                         endforeach
                 endif
@@ -2579,6 +2600,7 @@ foreach dict : modules
         lib = shared_library(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         if is_nss
@@ -2757,52 +2779,6 @@ foreach exec : public_programs
                      args : [exec.full_path(),
                              project_major_version],
                      depends: exec)
-        endif
-endforeach
-
-# Enable tests for all supported sanitizers
-foreach tuple : fuzz_sanitizers
-        sanitizer = tuple[0]
-        build = tuple[1]
-
-        if cc.has_link_argument('-fsanitize=@0@'.format(sanitizer))
-                foreach fuzzer, fuzz_ins : fuzz_regression_tests
-                        name = '@0@:@1@'.format(fuzzer, sanitizer)
-                        if want_tests == 'false'
-                                message('Not compiling @0@ because tests is set to false'.format(name))
-                                continue
-                        endif
-                        if not want_fuzz_tests
-                                message('Not compiling @0@ because fuzz-tests is set to false'.format(name))
-                                continue
-                        endif
-                        exe = custom_target(
-                                name,
-                                output : name,
-                                depends : build,
-                                command : [ln, '-fs',
-                                           build.full_path() / fuzzer,
-                                           '@OUTPUT@'],
-                                build_by_default : true)
-
-                        foreach directive : fuzz_ins.get('directives', [])
-                                test('@0@_@1@_@2@'.format(fuzzer, fs.name(directive.full_path()), sanitizer),
-                                     env,
-                                     suite : 'fuzz+san',
-                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
-                                     timeout : 60,
-                                     args : [exe.full_path(), directive.full_path()],
-                                     depends : directive)
-                        endforeach
-                        foreach file : fuzz_ins.get('files', [])
-                                test('@0@_@1@_@2@'.format(fuzzer, fs.name(file), sanitizer),
-                                     env,
-                                     suite : 'fuzz+san',
-                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
-                                     timeout : 60,
-                                     args : [exe.full_path(), file])
-                        endforeach
-                endforeach
         endif
 endforeach
 
