@@ -63,7 +63,7 @@ make_mounts() {
     mount --bind /usr "${CONTAINER_ROOT_DIR}/usr"
     mount -o remount,bind,ro "${CONTAINER_ROOT_DIR}/usr"
     # Sloppy push to front so it's removed before the root.
-    TO_UMOUNT=( "${CONTAINER_ROOT_DIR}/usr" "${TO_UMOUNT[@]}" })
+    TO_UMOUNT=( "${CONTAINER_ROOT_DIR}/usr" "${TO_UMOUNT[@]}" )
 
 }
 
@@ -74,6 +74,9 @@ config_container_service() {
     local -r internal_test_service="${container_systemd_dir}/test-service.service"
 
     mkdir -p "$container_systemd_dir"
+    # Generate a phony machine-id for the container
+    uuidgen -r | tr -d '-' | tr '[:upper:]' '[:lower:]' > "${CONTAINER_ROOT_DIR}/etc/machine-id"
+
     cat <<EOF >"$internal_test_service"
 [Unit]
 Description=Test Service for Internal Systemd
@@ -107,10 +110,11 @@ testcase_container_file_write() {
     # Run the container as a transient unit and wait for it to finish
     local -r bind_mount_arg="${HOST_MOUNT_DIR}:${CONTAINER_MOUNT_DIR}"
     local -r file_wr_service="${TEST_ID}.service"
+
+    # SYSTEMD_LOG_LEVEL=debug SYSTEMD_LOG_TARGET=console \
     systemd-run \
     --unit "$file_wr_service" \
     --wait \
-    -p BindReadOnlyPaths=/etc/machine-id \
     -p RootDirectory="$CONTAINER_ROOT_DIR" \
     -p PrivatePIDs=yes \
     -p PrivateUsersEx=full \
