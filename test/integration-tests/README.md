@@ -497,8 +497,7 @@ fuzz targets. The dictionary should be named `src/fuzz/fuzz-foo.dict` and the
 seed corpus should be built and exported as `$OUT/fuzz-foo_seed_corpus.zip` in
 `tools/oss-fuzz.sh`.
 
-The fuzzers can be built locally if you have libFuzzer installed by running
-`tools/oss-fuzz.sh`, or by running:
+The fuzzers can be built locally by running `tools/oss-fuzz.sh`, or by running:
 
 ```sh
 CC=clang CXX=clang++ \
