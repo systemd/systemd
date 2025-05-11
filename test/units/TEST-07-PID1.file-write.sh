@@ -15,14 +15,17 @@ fi
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-# Cleanup on exit
-trap at_exit EXIT ERR INT TERM
+TO_UMOUNT=()
+TO_RM=()
 
 readonly TEST_ID=TEST-07-PID1-file-write
-CONTAINER_ROOT_DIR=$(mktemp -d --tmpdir "${TEST_ID}-root-XXXX")
+# Note: here we are only generating file names, not creating them.
+# The actual file creation is done before mounting
+CONTAINER_ROOT_DIR=$(mktemp -u -d --tmpdir "${TEST_ID}-root-XXXX")
+readonly CONTAINER_ROOT_DIR
 
 # Mount points for host and container
-HOST_MOUNT_DIR=$(mktemp -d --tmpdir test-dir-XXXX)
+HOST_MOUNT_DIR=$(mktemp -u -d --tmpdir test-dir-XXXX)
 readonly HOST_MOUNT_DIR
 readonly CONTAINER_MOUNT_DIR="/${TEST_ID}"
 
@@ -31,26 +34,37 @@ readonly OUTPUT_FILE=test-service-output
 readonly OUTPUT_CONTENTS='Test service is running'
 
 # This is a dummy procfs mount
-HELPER_PROC=$(mktemp -d --tmpdir helper-proc-XXXX)
+HELPER_PROC=$(mktemp -u -d --tmpdir helper-proc-XXXX)
 readonly HELPER_PROC
 make_mounts() {
     # Host bind mount for the output file. Systemd will make the container's version.
     mkdir -p "$HOST_MOUNT_DIR"
+    TO_RM+=("$HOST_MOUNT_DIR")
 
     # Dummy procfs mount
     # TODO: explain why this is needed
+    mkdir -p "$HELPER_PROC"
+    TO_RM+=("$HELPER_PROC")
+
     mount -t proc proc "$HELPER_PROC"
+    TO_UMOUNT+=("$HELPER_PROC")
 
     # Container root tmpfs mount
     mkdir -p "$CONTAINER_ROOT_DIR"
+    TO_RM+=("$CONTAINER_ROOT_DIR")
     mount -t tmpfs tmpfs "$CONTAINER_ROOT_DIR"
+    TO_UMOUNT+=("$CONTAINER_ROOT_DIR")
 
     # Container's /usr will be a read-only bind mount of the host's /usr
     # Tried using -p BindReadOnlyPaths=/usr instead of this, but that didn't work.
     # Debugging that got hairy, so I'm going with this for now.
     mkdir -p "${CONTAINER_ROOT_DIR}/usr"
+
     mount --bind /usr "${CONTAINER_ROOT_DIR}/usr"
     mount -o remount,bind,ro "${CONTAINER_ROOT_DIR}/usr"
+    # Sloppy push to front so it's removed before the root.
+    TO_UMOUNT=( "${CONTAINER_ROOT_DIR}/usr" "${TO_UMOUNT[@]}" })
+
 }
 
 # Create a test-service unit file that will run via the container's systemd and write the output file.
@@ -80,6 +94,11 @@ EOF
 
 # Start the container as a transient unit and wait for it to finish. Check that the output file is written
 testcase_container_file_write() {
+
+    # Cleanup on exit. Test cases seem to run in a subshell, and only a single
+    # testcase is expected in this file. So we tie cleanup to the lifetime of
+    # this subshell, not the global context, allowing for appending to TO_RM and TO_UMOUNT
+    trap file_write_cleanup EXIT ERR INT TERM
 
     make_mounts
 
@@ -117,15 +136,23 @@ testcase_container_file_write() {
 }
 
 CLEANUP_DONE=0
-at_exit() {
+file_write_cleanup() {
     # Avoid re-running this function. E.g. At both SIGINT and EXIT.
     (( CLEANUP_DONE )) && return
     CLEANUP_DONE=1
     set +e
 
+    echo "${TO_UMOUNT[@]}"
+    echo "${TO_RM[@]}"
+
     # Remove all the mounts and directories we created
-    umount "${CONTAINER_ROOT_DIR}/usr" "${CONTAINER_ROOT_DIR}" "${HELPER_PROC}"
-    rm -rf "${CONTAINER_ROOT_DIR}" "${HELPER_PROC}" "${HOST_MOUNT_DIR}"
+    # umount "${CONTAINER_ROOT_DIR}/usr" "${CONTAINER_ROOT_DIR}" "${HELPER_PROC}"
+    # rm -rf "${CONTAINER_ROOT_DIR}" "${HELPER_PROC}" "${HOST_MOUNT_DIR}"
+    umount "${TO_UMOUNT[@]}"
+    rm -rf "${TO_RM[@]}"
+
+    # Note: We could clear TO_UMOUNT and TO_RM here, but they are empty in the
+    # parent context.
 
 }
 
