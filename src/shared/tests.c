@@ -367,3 +367,93 @@ const char* ci_environment(void) {
 
         return (ans = NULL);
 }
+
+int run_test_table(const TestFunc *start, const TestFunc *end) {
+        _cleanup_strv_free_ char **tests = NULL;
+        int r = EXIT_SUCCESS;
+        bool ran = false;
+        const char *e;
+
+        if (!start)
+                return r;
+
+        e = getenv("TESTFUNCS");
+        if (e) {
+                r = strv_split_full(&tests, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse $TESTFUNCS: %m");
+        }
+
+        for (const TestFunc *t = ALIGN_PTR(start); t + 1 <= end; t = ALIGN_PTR(t + 1)) {
+
+                if (tests && !strv_contains(tests, t->name))
+                        continue;
+
+                if (t->sd_booted && sd_booted() <= 0) {
+                        log_info("/* systemd not booted, skipping %s */", t->name);
+                        if (t->has_ret && r == EXIT_SUCCESS)
+                                r = EXIT_TEST_SKIP;
+                } else {
+                        log_info("/* %s */", t->name);
+
+                        if (t->has_ret) {
+                                int r2 = t->f.int_func();
+                                if (r == EXIT_SUCCESS)
+                                        r = r2;
+                        } else
+                                t->f.void_func();
+                }
+
+                ran = true;
+        }
+
+        if (!ran)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No matching tests found.");
+
+        return r;
+}
+
+void test_prepare(int argc, char *argv[], int log_level) {
+        save_argc_argv(argc, argv);
+        test_setup_logging(log_level);
+}
+
+int assert_signal_internal(void) {
+        siginfo_t siginfo = {};
+        int r;
+
+        r = fork();
+        if (r < 0)
+                return -errno;
+
+        if (r == 0) {
+                /* Speed things up by never even attempting to generate a coredump */
+                (void) prctl(PR_SET_DUMPABLE, 0);
+                /* But still set an rlimit just in case */
+                (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(0));
+                return 0;
+        }
+
+        r = wait_for_terminate(r, &siginfo);
+        if (r < 0)
+                return r;
+
+        return siginfo.si_status;
+}
+
+
+void log_test_failed_internal(const char *file, int line, const char *format, ...) {
+        static char b1[LINE_MAX], b2[LINE_MAX];
+        va_list ap;
+
+        va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        (void) vsnprintf(b1, sizeof(b1), format, ap);
+        REENABLE_WARNING;
+        va_end(ap);
+
+        snprintf(b2, sizeof(b2), "%s:%i: Assertion failed: %s", PROJECT_FILE, __LINE__, b1);
+
+        log_dispatch_internal(LOG_ERR, 0, file, line, NULL, NULL, NULL, NULL, NULL, b2);
+        abort();
+}
