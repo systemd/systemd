@@ -342,6 +342,7 @@ int vsock_parse_cid(const char *s, unsigned *ret);
  * protocol mismatch. */
 int socket_address_parse_unix(SocketAddress *ret_address, const char *s);
 int socket_address_parse_vsock(SocketAddress *ret_address, const char *s);
+int socket_address_equal_unix(const char *a, const char *b);
 
 /* libc's SOMAXCONN is defined to 128 or 4096 (at least on glibc). But actually, the value can be much
  * larger. In our codebase we want to set it to the max usually, since nowadays socket memory is properly
