@@ -267,7 +267,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-a <replaceable>AREA</replaceable></option></term>
         <term><option>--area=<replaceable>AREA</replaceable></option></term>
 
         <listitem><para>Controls the "area" of the target account to log into. Areas are secondary home
