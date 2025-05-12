@@ -163,7 +163,7 @@ REQUIREMENTS:
 
         Required for reading credentials from SMBIOS:
           CONFIG_DMI
-          CONFIG_DMI_SYSFS
+          CONFIG_DMI_SYSFS (must be built-in, not as kmod)
 
         Required for RestrictFileSystems= in service units:
           CONFIG_BPF
