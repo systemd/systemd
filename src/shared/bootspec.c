@@ -457,6 +457,7 @@ void boot_config_free(BootConfig *config) {
         free(config->entry_oneshot);
         free(config->entry_default);
         free(config->entry_selected);
+        free(config->entry_sysfail);
 
         FOREACH_ARRAY(i, config->entries, config->n_entries)
                 boot_entry_free(i);
@@ -1436,6 +1437,12 @@ static int boot_load_efi_entry_pointers(BootConfig *config, bool skip_efivars) {
                 return log_oom();
         if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
                 log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\", ignoring: %m");
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), &config->entry_sysfail);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySysFail\", ignoring: %m");
 
         return 1;
 }
