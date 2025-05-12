@@ -635,6 +635,7 @@ void exec_context_init(ExecContext *c) {
                 .mount_apivfs = -1,
                 .bind_log_sockets = -1,
                 .memory_ksm = -1,
+                .private_var_tmp = _PRIVATE_TMP_INVALID,
                 .set_login_environment = -1,
         };
 

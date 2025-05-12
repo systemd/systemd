@@ -76,6 +76,7 @@ static int test_socket_bind(
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
+        ASSERT_OK(unit_patch_contexts(u));
         r = unit_start(u, NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed %m");

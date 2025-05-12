@@ -1735,6 +1735,12 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        /* This must be set in unit_patch_contexts() before executing a command. */
+        assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
+        r = serialize_item(f, "exec-context-private-var-tmp", private_tmp_to_string(c->private_var_tmp));
+        if (r < 0)
+                return r;
+
         r = serialize_bool_elide(f, "exec-context-private-devices", c->private_devices);
         if (r < 0)
                 return r;
@@ -2628,6 +2634,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         c->private_tmp = private_tmp_from_string(val);
                         if (c->private_tmp < 0)
                                 return c->private_tmp;
+                } else if ((val = startswith(l, "exec-context-private-var-tmp="))) {
+                        c->private_var_tmp = private_tmp_from_string(val);
+                        if (c->private_var_tmp < 0)
+                                return c->private_var_tmp;
                 } else if ((val = startswith(l, "exec-context-private-devices="))) {
                         r = parse_boolean(val);
                         if (r < 0)

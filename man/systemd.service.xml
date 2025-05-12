@@ -1397,7 +1397,7 @@
         <tbody>
           <row>
             <entry><literal>@</literal></entry>
-            <entry>If the executable path is prefixed with <literal>@</literal>, the second specified token will be passed as <constant>argv[0]</constant> to the executed process (instead of the actual filename), followed by the further arguments specified.</entry>
+            <entry>If the executable path is prefixed with <literal>@</literal>, the second specified token will be passed as <constant>argv[0]</constant> to the executed process (instead of the actual filename), followed by the further arguments specified, unless <literal>|</literal> is also specified, in which case it enables login shell semantics for the shell spawned by prefixing <literal>-</literal> to <constant>argv[0]</constant>.</entry>
           </row>
 
           <row>
@@ -1420,14 +1420,19 @@
 
             <entry>Similar to the <literal>+</literal> character discussed above this permits invoking command lines with elevated privileges. However, unlike <literal>+</literal> the <literal>!</literal> character exclusively alters the effect of <varname>User=</varname>, <varname>Group=</varname> and <varname>SupplementaryGroups=</varname>, i.e. only the stanzas that affect user and group credentials. Note that this setting may be combined with <varname>DynamicUser=</varname>, in which case a dynamic user/group pair is allocated before the command is invoked, but credential changing is left to the executed process itself.</entry>
           </row>
+
+          <row>
+            <entry><literal>|</literal></entry>
+
+            <entry>If <literal>|</literal> is specified standalone as executable path, invoke the default shell of <varname>User=</varname>. If specified as a prefix, use the shell (<literal>-c</literal>) to spawn the executable. When <literal>@</literal> is used in conjunction, <constant>argv[0]</constant> of shell will be prefixed with <literal>-</literal> to enable login shell semantics.</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
 
-    <para><literal>@</literal>, <literal>-</literal>, <literal>:</literal>, and one of
-    <literal>+</literal>/<literal>!</literal>/<literal>!!</literal> may be used together and they can appear in any
-    order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used at a
-    time.</para>
+    <para><literal>@</literal>, <literal>|</literal>, <literal>-</literal>, <literal>:</literal>, and one of
+    <literal>+</literal>/<literal>!</literal> may be used together and they can appear in any order.
+    However, <literal>+</literal> and <literal>!</literal> may not be specified at the same time.</para>
 
     <para>For each command, the first argument must be either an absolute path to an executable or a simple
     file name without any slashes. If the command is not a full (absolute) path, it will be resolved to a
@@ -1490,9 +1495,9 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     includes e.g. <varname>$USER</varname>, but not
     <varname>$TERM</varname>).</para>
 
-    <para>Note that shell command lines are not directly supported. If
-    shell command lines are to be used, they need to be passed
-    explicitly to a shell implementation of some kind. Example:</para>
+    <para>Note that shell command lines are not directly supported, and <literal>|</literal> invokes the user's
+    default shell which isn't deterministic. It's recommended to specify a shell implementation explicitly
+    if portability is desired. Example:</para>
     <programlisting>ExecStart=sh -c 'dmesg | tac'</programlisting>
 
     <para>Example:</para>
