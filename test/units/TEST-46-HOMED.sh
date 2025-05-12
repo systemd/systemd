@@ -697,17 +697,17 @@ run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest ln -s
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $HOME')" = "/home/subareatest"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo x$XDG_AREA')" = "x"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $HOME')" = "/home/subareatest/Areas/furb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_AREA')" = "furb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb sh -c 'echo $HOME')" = "/home/subareatest/Areas/furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb sh -c 'echo $XDG_AREA')" = "furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/furb"
 
 PASSWORD=quux homectl update subareatest --default-area=molb
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $HOME')" = "/home/subareatest/Areas/molb"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $XDG_AREA')" = "molb"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/molb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $HOME')" = "/home/subareatest/Areas/furb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_AREA')" = "furb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb sh -c 'echo $HOME')" = "/home/subareatest/Areas/furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb sh -c 'echo $XDG_AREA')" = "furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/furb"
 
 # Install a PK rule that allows 'subareatest' user to invoke run0 without password, just for testing
 cat >/usr/share/polkit-1/rules.d/subareatest.rules <<'EOF'
@@ -720,24 +720,24 @@ polkit.addRule(function(action, subject) {
 EOF
 
 # Test "recursive" operation
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb sh -c 'echo $HOME')" = "/home/subareatest/Areas/molb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb sh -c 'echo $XDG_AREA')" = "molb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/molb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $HOME')" = "/home/subareatest/Areas/furb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_AREA')" = "furb"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=molb sh -c 'echo $HOME')" = "/home/subareatest/Areas/molb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=molb sh -c 'echo $XDG_AREA')" = "molb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=molb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/molb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=molb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb sh -c 'echo $HOME')" = "/home/subareatest/Areas/furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=molb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb sh -c 'echo $XDG_AREA')" = "furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=molb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=furb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/furb"
 
 # Test symlinked area
 mkdir -p /home/srub
 chown subareatest:subareatest /home/srub
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a srub sh -c 'echo $HOME')" = "/home/srub"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a srub sh -c 'echo $XDG_AREA')" = "srub"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a srub sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/srub"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=srub sh -c 'echo $HOME')" = "/home/srub"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=srub sh -c 'echo $XDG_AREA')" = "srub"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=srub sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/srub"
 
 # Verify that login into an area not owned by target user will be redirected to main area
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a root sh -c 'echo $HOME')" = "/home/subareatest"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a root sh -c 'echo x$XDG_AREA')" = "x"
-test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a root sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=root sh -c 'echo $HOME')" = "/home/subareatest"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=root sh -c 'echo x$XDG_AREA')" = "x"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest --area=root sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)"
 
 systemctl stop user@"$(id -u subareatest)".service
 
