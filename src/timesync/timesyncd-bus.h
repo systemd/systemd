@@ -2,6 +2,7 @@
 #pragma once
 
 #include "bus-object.h"
+#include "forward.h"
 
 typedef struct Manager Manager;
 

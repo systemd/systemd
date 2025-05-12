@@ -1,20 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-device.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
-#include "hashmap.h"
+#include "forward.h"
 #include "list.h"
-#include "macro.h"
-#include "prioq.h"
-#include "time-util.h"
 #include "udev-config.h"
-#include "udev-ctrl.h"
-#include "udev-def.h"
+#include "udev-forward.h"
 
 /* This should have a higher priority than the device monitor and inotify watch, to make device monitor and
  * inotify event source stopped as soon as possible when the signal is received. Otherwise, we may continue
@@ -42,10 +32,6 @@
 #define EVENT_PRIORITY_CONTROL        (SD_EVENT_PRIORITY_NORMAL + 2)
 /* The event is intended to trigger the post-event source, hence can be the lowest priority. */
 #define EVENT_PRIORITY_REQUEUE_EVENT  (SD_EVENT_PRIORITY_NORMAL + 3)
-
-typedef struct Event Event;
-typedef struct UdevRules UdevRules;
-typedef struct Worker Worker;
 
 typedef struct Manager {
         sd_event *event;

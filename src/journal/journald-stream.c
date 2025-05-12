@@ -2,12 +2,14 @@
 
 #include <stddef.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include "fs-util.h"
+#include "log.h"
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -18,7 +20,6 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "iovec-util.h"
 #include "journal-internal.h"
 #include "journald-client.h"
@@ -39,7 +40,6 @@
 #include "syslog-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
-#include "user-util.h"
 
 #define STDOUT_STREAMS_MAX (64*1024)
 

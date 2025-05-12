@@ -5,9 +5,7 @@
   Copyright © 2014 Vinay Kulkarni <kulkarniv@vmware.com>
 ***/
 
-#include "conf-parser.h"
-
-typedef struct Manager Manager;
+#include "networkd-forward.h"
 
 int manager_parse_config_file(Manager *m);
 

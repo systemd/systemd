@@ -5,15 +5,14 @@
 #include <linux/if_arp.h>
 #include <netinet/in.h>
 
+#include "sd-netlink.h"
+
 #include "batadv.h"
-#include "fileio.h"
+#include "conf-parser.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
-#include "string-util.h"
 
 static void batadv_init(NetDev *n) {
         BatmanAdvanced *b = BATADV(n);
