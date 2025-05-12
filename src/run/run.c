@@ -227,7 +227,7 @@ static int help_sudo_mode(void) {
                "     --shell-prompt-prefix=PREFIX Set $SHELL_PROMPT_PREFIX\n"
                "     --lightweight=BOOLEAN        Control whether to register a session with service manager\n"
                "                                  or without\n"
-               "  -a --area=AREA                  Home area to log into\n"
+               "     --area=AREA                  Home area to log into\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -829,6 +829,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_PIPE,
                 ARG_SHELL_PROMPT_PREFIX,
                 ARG_LIGHTWEIGHT,
+                ARG_AREA,
                 ARG_VIA_SHELL,
         };
 
@@ -858,7 +859,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "pipe",                no_argument,       NULL, ARG_PIPE                },
                 { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
                 { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
-                { "area",                required_argument, NULL, 'a'                     },
+                { "area",                required_argument, NULL, ARG_AREA                },
                 {},
         };
 
@@ -870,7 +871,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hVu:g:D:a:i", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hVu:g:D:i", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -976,7 +977,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case 'a':
+                case ARG_AREA:
                         /* We allow an empty --area= specification to allow logging into the primary home directory */
                         if (!isempty(optarg) && !filename_is_valid(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid area name, refusing: %s", optarg);
