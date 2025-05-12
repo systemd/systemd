@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <inttypes.h>
+
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memstream-util.h"
 #include "netif-naming-scheme.h"
 #include "network-generator.h"

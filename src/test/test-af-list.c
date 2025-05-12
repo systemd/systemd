@@ -2,8 +2,6 @@
 
 #include <sys/socket.h>
 
-#include "macro.h"
-#include "string-util.h"
 #include "tests.h"
 
 _unused_

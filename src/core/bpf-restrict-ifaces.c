@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "bpf-restrict-ifaces.h"
+#include "cgroup.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "netlink-util.h"
+#include "set.h"
 #include "unit.h"
 
 #if BPF_FRAMEWORK

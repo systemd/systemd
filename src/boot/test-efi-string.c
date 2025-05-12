@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <inttypes.h>
 
+#include "alloc-util.h"
+#include "argv-util.h"
 #include "efi-string.h"
 #include "fileio.h"
 #include "tests.h"

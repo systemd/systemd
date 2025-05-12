@@ -196,8 +196,8 @@ assert_cc(sizeof(intmax_t) <= sizeof(long long));
                 __builtin_constant_p(_A) &&                             \
                 __builtin_constant_p(_B) &&                             \
                 (__builtin_types_compatible_p(typeof(_A), typeof(_B)) || \
-                 (IS_UNSIGNED_INTEGER_TYPE(_A) && IS_UNSIGNED_INTEGER_TYPE(_B)) || \
-                 (IS_SIGNED_INTEGER_TYPE(_A) && IS_SIGNED_INTEGER_TYPE(_B))), \
+                (IS_UNSIGNED_INTEGER_TYPE(_A) && IS_UNSIGNED_INTEGER_TYPE(_B)) || \
+                (IS_SIGNED_INTEGER_TYPE(_A) && IS_SIGNED_INTEGER_TYPE(_B))), \
                 ((_A) > (_B)) ? (_A) : (_B),                            \
                 VOID_0))
 
@@ -409,6 +409,7 @@ assert_cc(sizeof(intmax_t) <= sizeof(long long));
 #define FLAGS_SET(v, flags) \
         ((~(v) & (flags)) == 0)
 
+
 typedef struct {
         int _empty[0];
 } dummy_t;
@@ -420,11 +421,11 @@ assert_cc(sizeof(dummy_t) == 0);
 #define DECLARE_FLEX_ARRAY(type, name) type name[]
 #else
 /* Declare a flexible array usable in a union.
- * This is essentially a work-around for a pointless constraint in C99
- * and might go away in some future version of the standard.
- *
- * See https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=3080ea5553cc909b000d1f1d964a9041962f2c5b
- */
+        * This is essentially a work-around for a pointless constraint in C99
+        * and might go away in some future version of the standard.
+        *
+        * See https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=3080ea5553cc909b000d1f1d964a9041962f2c5b
+        */
 #define DECLARE_FLEX_ARRAY(type, name)                 \
         struct {                                       \
                 dummy_t __empty__ ## name;             \
