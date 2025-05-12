@@ -289,10 +289,83 @@ static int killall(int sig, Set *pids, bool send_sighup) {
         return n_killed;
 }
 
+/*
+ * killall executes while all processes are suspended (with SIGSTOP).
+ * It traverses /proc to enumerate processes.
+ * Accesses to /proc may involve a storage daemon.
+ * To avoid a deadlock, storage daemons should be resumed before
+ * invoking killall.  */
+
+static bool is_storage_daemon(pid_t pid) {
+        int r;
+        const char *p;
+        _cleanup_fclose_ FILE *f = NULL;
+        char c;
+
+        if (pid <= 1)
+                return false;
+
+        r = is_kernel_thread(pid);
+        if (r != 0)
+                return false; /* also ignore processes where we can't determine this */
+
+        p = procfs_file_alloca(pid, "cmdline");
+        f = fopen(p, "re");
+        if (!f)
+                return false;
+
+        (void) fread(&c, 1, 1, f);
+        return c == '@';
+}
+
+static int get_storage_daemons(Set *pids)
+{
+        _cleanup_closedir_ DIR *dir = NULL;
+
+        if (pids == NULL)
+                return 0;
+
+        dir = opendir("/proc");
+        if (!dir)
+                return log_warning_errno(errno, "opendir(/proc) failed: %m");
+
+        FOREACH_DIRENT_ALL(de, dir, break) {
+                pid_t pid;
+                int r;
+
+                if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
+                        continue;
+
+                if (parse_pid(de->d_name, &pid) < 0)
+                        continue;
+
+                if (is_storage_daemon(pid)) {
+                        log_debug(PID_FMT " is a storage daemon.", pid);
+                        r = set_put(pids, PID_TO_PTR(pid));
+                        if (r < 0)
+                                log_oom();
+                }
+        }
+
+        return 0;
+}
+
+static void resume_storage_daemons(Set *pids)
+{
+        void *p;
+
+        SET_FOREACH(p, pids) {
+                pid_t pid = PTR_TO_PID(p);
+                log_debug("Resuming " PID_FMT ".", pid);
+                (void) kill(pid, SIGCONT);
+        }
+}
+
 int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeout) {
         int n_children_left;
         sigset_t mask, oldmask;
         _cleanup_set_free_ Set *pids = NULL;
+        _cleanup_set_free_ Set *storage_pids = NULL;
 
         /* Send the specified signal to all remaining processes, if not excluded by ignore_proc().
          * Return:
@@ -300,8 +373,11 @@ int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeo
          *    if the function needs to wait for the end of the processes (wait_for_exit).
          *  - Otherwise, the number of processes to which the specified signal was sent */
 
+        storage_pids = set_new(NULL);
         if (wait_for_exit)
                 pids = set_new(NULL);
+
+        get_storage_daemons(storage_pids);
 
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);
@@ -309,6 +385,8 @@ int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeo
 
         if (kill(-1, SIGSTOP) < 0 && errno != ESRCH)
                 log_warning_errno(errno, "kill(-1, SIGSTOP) failed: %m");
+
+        resume_storage_daemons(storage_pids);
 
         n_children_left = killall(sig, pids, send_sighup);
 
