@@ -2,6 +2,7 @@
 
 #include "log.h"
 #include "parse-util.h"
+#include "socket-util.h"
 #include "varlink-internal.h"
 #include "varlink-serialize.h"
 
@@ -83,4 +84,15 @@ int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSe
 
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
+}
+
+int varlink_server_contains_socket(sd_varlink_server *s, const char *address) {
+        assert(s);
+        assert(address);
+
+        LIST_FOREACH(sockets, ss, s->sockets)
+                if (socket_address_equal_unix(ss->address, address))
+                        return true;
+
+        return false;
 }
