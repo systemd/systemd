@@ -61,12 +61,17 @@
       paths. This is equivalent to having them listed explicitly in
       <varname>RequiresMountsFor=</varname>.</para></listitem>
 
-      <listitem><para>Similarly, units with <varname>PrivateTmp=</varname> enabled automatically get mount
-      unit dependencies for all mounts required to access <filename>/tmp/</filename> and
-      <filename>/var/tmp/</filename>. They will also gain an automatic <varname>After=</varname> dependency
-      on
+      <listitem><para>Units with <varname>PrivateTmp=yes</varname> automatically gain dependencies of type
+      <varname>Wants=</varname> and <varname>After=</varname> on all mounts required to access
+      <filename>/tmp/</filename> and <filename>/var/tmp/</filename>. They will also gain an automatic
+      <varname>After=</varname> dependency on
       <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
       </para></listitem>
+
+      <listitem><para>Units with <varname>PrivateTmp=disconnected</varname> automatically gain dependencies
+      of type <varname>Wants=</varname> and <varname>After=</varname> on the mount required to access
+      <filename>/var/</filename>, unless <varname>DefaultDependencies=no</varname> and/or
+      <varname>RootDirectory=/RootImage=</varname> are specified.</para></listitem>
 
       <listitem><para>Units whose standard output or error output is connected to <option>journal</option> or
       <option>kmsg</option> (or their combinations with console output, see below) automatically acquire
@@ -1797,27 +1802,88 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <listitem><para>Takes a boolean argument, or <literal>disconnected</literal>. If enabled, a new
         file system namespace will be set up for the executed processes, and <filename>/tmp/</filename>
         and <filename>/var/tmp/</filename> directories inside it are not shared with processes outside of
-        the namespace, plus all temporary files created by a service in these directories will be removed after
-        the service is stopped. If <literal>true</literal>, the backing storage of the private temporary directories
-        will remain on the host's <filename>/tmp/</filename> and <filename>/var/tmp/</filename> directories.
-        If <literal>disconnected</literal>, the directories will be backed by a completely new tmpfs instance,
-        meaning that the storage is fully disconnected from the host namespace. Defaults to false.</para>
+        the namespace, plus all temporary files created by a service in these directories will be removed
+        after the service is stopped. For this setting, the same restrictions regarding mount propagation
+        and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above. This
+        setting is useful to secure access to temporary files of the process, but makes sharing between
+        processes via <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible. If
+        <varname>DynamicUser=</varname> is enabled, <literal>disconnected</literal> is implied. Otherwise,
+        defaults to false.</para>
 
-        <para>This setting is useful to secure access to temporary files of the process, but makes sharing
-        between processes via <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible.
-        If not set to <literal>disconnected</literal>, it is possible to run two or more units within
-        the same private <filename>/tmp/</filename> and <filename>/var/tmp/</filename> namespace by using
-        the <varname>JoinsNamespaceOf=</varname> directive, see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting,
-        the same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see above. If set to <literal>true</literal>
-        (as opposed to <literal>disconnected</literal>), this has the side effect of adding
-        <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount units necessary
-        to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover, an
-        implicitly <varname>After=</varname> ordering on
+        <para>If <literal>true</literal>, the backing storage of the private temporary directories will
+        remain on the host's <filename>/tmp/</filename> and <filename>/var/tmp/</filename> directories. It is
+        possible to run two or more units within the same private <filename>/tmp/</filename> and
+        <filename>/var/tmp/</filename> namespace by using the <varname>JoinsNamespaceOf=</varname> directive,
+        see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. This has the side effect of adding <varname>Wants=</varname> and
+        <varname>After=</varname> dependencies on all mount units necessary to access
+        <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover, an implicit
+        <varname>After=</varname> ordering on
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is added.</para>
+
+        <para>If <literal>disconnected</literal>, the directories will be backed by a completely new tmpfs
+        instance, meaning that the storage is fully disconnected from the host namespace. The tmpfs instance
+        does not shared with other units even if the <varname>JoinsNamespaceOf=</varname> directive is used.
+        If <varname>DefaultDependencies=no</varname> is specified,
+        <varname>RequiresMountsFor=/WantsMountsFor=</varname> for <filename>/var/</filename> is not
+        specified, and <varname>RootDirectory=/RootImage=</varname> is not specified, then a new tmpfs is
+        mounted <emphasis>only</emphasis> on <filename>/tmp/</filename>, hence the host's
+        <filename>/var/tmp</filename> is still accessible from the unit. In that case,
+        <varname>$TMPDIR</varname> environment variable is set to <literal>/tmp</literal> to suggest the
+        processes in the unit to use <filename>/tmp/</filename>. This automatically adds
+        <varname>WantsMountsFor=/var/</varname> dependency, unless <varname>DefaultDependencies=no</varname>
+        and/or <varname>RootDirectory=/RootImage=</varname> are specified.</para>
+
+        <table>
+          <title>Summary for <varname>PrivateTmp=disconnected</varname></title>
+          <tgroup cols='4' align='left' colsep='1' rowsep='1'>
+            <colspec colname="other settings" />
+            <colspec colname="tmpfs instance on /var/tmp/" />
+            <colspec colname="$TMPVAR" />
+            <colspec colname="implied dependencies" />
+            <thead>
+              <row>
+                <entry>Other Settings</entry>
+                <entry>tmpfs on /var/tmp/</entry>
+                <entry>$TMPVAR</entry>
+                <entry>implied dependencies</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>(none)</entry>
+                <entry>yes</entry>
+                <entry>(unset)</entry>
+                <entry><varname>WantsMountsFor=/var/</varname></entry>
+              </row>
+              <row>
+                <entry><varname>RootDirectory=/RootImage=</varname></entry>
+                <entry>yes</entry>
+                <entry>(unset)</entry>
+                <entry>(none)</entry>
+              </row>
+              <row>
+                <entry><varname>DefaultDependency=no</varname>, <varname>RequiresMountsFor=/var/</varname></entry>
+                <entry>yes</entry>
+                <entry>(unset)</entry>
+                <entry>(none)</entry>
+              </row>
+              <row>
+                <entry><varname>DefaultDependency=no</varname>, <varname>WantsMountsFor=/var/</varname></entry>
+                <entry>yes</entry>
+                <entry>(unset)</entry>
+                <entry>(none)</entry>
+              </row>
+              <row>
+                <entry><varname>DefaultDependency=no</varname></entry>
+                <entry>no</entry>
+                <entry><varname>$TMPDIR=/tmp</varname></entry>
+                <entry>(none)</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <para>Note that the implementation of this setting might be impossible (for example if mount namespaces are not
         available), and the unit should be written in a way that does not solely rely on this setting for
@@ -3942,6 +4008,18 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>DynamicUser=</varname> (and the superuser).</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$TMPDIR</varname></term>
+
+          <listitem><para>The environment variable is set to <literal>/tmp</literal> when
+          <varname>PrivateTmp=disconnected</varname> specified with <varname>DefaultDependencies=no</varname>
+          and without <varname>RootDirectory=/RootImage=</varname> and
+          <varname>RequiresMountsFor=/WantsMountsFor=</varname> for <filename>/var/</filename>.
+          See explanation for <varname>PrivateTmp=</varname> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>
