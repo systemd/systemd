@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <unistd.h>
-
-#include "hash-funcs.h"
+#include "core-forward.h"
 
 typedef struct ExecContext ExecContext;
 typedef struct ExecParameters ExecParameters;

@@ -3,9 +3,13 @@
 #include "sd-varlink.h"
 
 #include "dynamic-user.h"
+#include "errno-util.h"
 #include "json-util.h"
 #include "manager.h"
 #include "mkdir-label.h"
+#include "path-util.h"
+#include "pidref.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit.h"
 #include "user-util.h"

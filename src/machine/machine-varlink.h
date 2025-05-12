@@ -3,7 +3,7 @@
 
 #include "sd-varlink.h"
 
-#include "pidref.h"
+#include "forward.h"
 
 typedef struct Machine Machine;
 typedef struct Manager Manager;

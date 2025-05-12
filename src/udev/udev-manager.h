@@ -1,20 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-device.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
-#include "hashmap.h"
+#include "forward.h"
 #include "list.h"
-#include "macro.h"
-#include "prioq.h"
-#include "time-util.h"
 #include "udev-config.h"
 #include "udev-ctrl.h"
-#include "udev-def.h"
 
 /* This should have a higher priority than the device monitor and inotify watch, to make device monitor and
  * inotify event source stopped as soon as possible when the signal is received. Otherwise, we may continue

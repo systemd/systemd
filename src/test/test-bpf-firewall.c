@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/bpf_insn.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "bpf-firewall.h"
@@ -10,8 +9,10 @@
 #include "load-fragment.h"
 #include "manager.h"
 #include "memory-util.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "service.h"
+#include "set.h"
 #include "tests.h"
 #include "unit-serialize.h"
 #include "virt.h"

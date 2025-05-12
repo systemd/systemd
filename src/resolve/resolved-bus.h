@@ -2,7 +2,7 @@
 #pragma once
 
 #include "bus-object.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef struct DnsServer DnsServer;
 typedef struct Manager Manager;

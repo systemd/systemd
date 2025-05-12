@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
-#include "hashmap.h"
 #include "in-addr-util.h"
+#include "forward.h"
 
 typedef struct DnsStubListenerExtra DnsStubListenerExtra;
 typedef struct Manager Manager;

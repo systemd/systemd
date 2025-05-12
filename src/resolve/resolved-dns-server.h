@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-json.h"
-
+#include "forward.h"
 #include "in-addr-util.h"
 #include "list.h"
 #include "resolve-util.h"
 #include "resolved-conf.h"
 #include "resolved-dnstls.h"
-#include "time-util.h"
 
 typedef struct DnsScope DnsScope;
 typedef struct DnsServer DnsServer;
