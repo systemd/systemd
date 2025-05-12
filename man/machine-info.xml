@@ -154,6 +154,24 @@
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>HARDWARE_SKU=</varname></term>
+
+        <listitem><para>Specifies the hardware SKU (Stock-Keeping Unit). If unspecified, the hardware
+        SKU set in DMI will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HARDWARE_VERSION=</varname></term>
+
+        <listitem><para>Specifies the hardware version. If unspecified, the hardware version set in DMI
+        will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
