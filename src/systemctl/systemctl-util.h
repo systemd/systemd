@@ -45,7 +45,7 @@ int unit_find_paths(sd_bus *bus, const char *unit_name, LookupPaths *lp, bool fo
 int unit_is_masked(sd_bus *bus, const char *unit);
 int unit_exists(LookupPaths *lp, const char *unit);
 
-int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret);
+int unit_get_dependencies_systemctl(sd_bus *bus, const char *name, char ***ret);
 
 const char* unit_type_suffix(const char *unit);
 bool output_show_unit(const UnitInfo *u, char **patterns);
