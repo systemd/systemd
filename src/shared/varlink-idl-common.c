@@ -19,3 +19,37 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(pidfdId, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Boot ID of the system the inode number belongs to"),
                 SD_VARLINK_DEFINE_FIELD(bootId, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                RateLimit,
+                SD_VARLINK_FIELD_COMMENT("The ratelimit interval"),
+                SD_VARLINK_DEFINE_FIELD(intervalUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The ratelimit burst"),
+                SD_VARLINK_DEFINE_FIELD(burst, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ResourceLimit,
+                SD_VARLINK_FIELD_COMMENT("The soft resource limit. RLIM_INFINITY is mapped to unset value"),
+                SD_VARLINK_DEFINE_FIELD(soft, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The hard resource limit. RLIM_INFINITY is mapped to unset value"),
+                SD_VARLINK_DEFINE_FIELD(hard, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ResourceLimitTable,
+                SD_VARLINK_FIELD_COMMENT("See setrlimit(2) for details"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CPU, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(FSIZE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DATA, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(STACK, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CORE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RSS, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(NOFILE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(AS, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(NPROC, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(MEMLOCK, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LOCKS, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SIGPENDING, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(MSGQUEUE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(NICE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RTPRIO, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RTTIME, ResourceLimit, SD_VARLINK_NULLABLE));
