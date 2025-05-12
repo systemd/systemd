@@ -2290,6 +2290,9 @@ static int bus_append_kill_property(sd_bus_message *m, const char *field, const 
         if (streq(field, "KillMode"))
                 return bus_append_string(m, field, eq);
 
+        if (streq(field, "ReloadSignalRequireHandler"))
+                return bus_append_parse_boolean(m, field, eq);
+
         if (STR_IN_SET(field, "SendSIGHUP",
                               "SendSIGKILL"))
                 return bus_append_parse_boolean(m, field, eq);
