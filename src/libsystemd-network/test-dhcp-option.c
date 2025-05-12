@@ -23,14 +23,14 @@ struct opt_overrides {
 
 struct option_desc {
         uint8_t sname[64];
-        int snamelen;
+        size_t snamelen;
         uint8_t file[128];
-        int filelen;
+        size_t filelen;
         uint8_t options[128];
-        int len;
+        size_t len;
         bool success;
         struct opt_overrides overrides[16];
-        int overrideslen;
+        size_t overrideslen;
         int filepos;
         int snamepos;
         int pos;
@@ -200,10 +200,10 @@ static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
         return message;
 }
 
-static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen) {
+static void test_ignore_opts(uint8_t *descoption, int *descpos, size_t *desclen) {
         assert_se(*descpos >= 0);
 
-        while (*descpos < *desclen) {
+        while ((size_t)*descpos < *desclen) {
                 switch (descoption[*descpos]) {
                 case SD_DHCP_OPTION_PAD:
                         *descpos += 1;
@@ -223,7 +223,8 @@ static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen) {
 static int test_options_cb(uint8_t code, size_t len, const void *option, void *userdata) {
         struct option_desc *desc = userdata;
         uint8_t *descoption = NULL;
-        int *desclen = NULL, *descpos = NULL;
+        size_t *desclen = NULL;
+        int *descpos = NULL;
         uint8_t optcode = 0;
         uint8_t optlen = 0;
         size_t descoption_offset;
@@ -259,10 +260,10 @@ static int test_options_cb(uint8_t code, size_t len, const void *option, void *u
                 if (*desclen)
                         test_ignore_opts(descoption, descpos, desclen);
 
-                if (*descpos < *desclen)
+                if (*descpos < 0 || (size_t)*descpos < *desclen)
                         break;
 
-                if (*descpos == *desclen)
+                if ((size_t)*descpos == *desclen)
                         *descpos = -1;
         }
 
@@ -273,7 +274,7 @@ static int test_options_cb(uint8_t code, size_t len, const void *option, void *u
         optlen = descoption[*descpos + 1];
         descoption_offset = *descpos + 2;
 
-        for (int i = 0; i < desc->overrideslen; i++)
+        for (size_t i = 0; i < desc->overrideslen; i++)
                 if (desc->overrides[i].code == optcode) {
                         optlen = desc->overrides[i].len;
                         descoption = desc->overrides[i].data;
@@ -304,13 +305,13 @@ static int test_options_cb(uint8_t code, size_t len, const void *option, void *u
 
         test_ignore_opts(descoption, descpos, desclen);
 
-        if (desc->pos != -1 && desc->pos == desc->len)
+        if (desc->pos != -1 && (size_t)desc->pos == desc->len)
                 desc->pos = -1;
 
-        if (desc->filepos != -1 && desc->filepos == desc->filelen)
+        if (desc->filepos != -1 && (size_t)desc->filepos == desc->filelen)
                 desc->filepos = -1;
 
-        if (desc->snamepos != -1 && desc->snamepos == desc->snamelen)
+        if (desc->snamepos != -1 && (size_t)desc->snamepos == desc->snamelen)
                 desc->snamepos = -1;
 
         return 0;
@@ -361,9 +362,12 @@ static void test_options(struct option_desc *desc) {
 
 static void test_option_removal(struct option_desc *desc) {
         _cleanup_free_ DHCPMessage *message = create_message(&desc->options[0], desc->len, NULL, 0, NULL, 0);
+        int r;
 
         assert_se(dhcp_option_parse(message, sizeof(DHCPMessage) + desc->len, NULL, NULL, NULL) >= 0);
-        assert_se((desc->len = dhcp_option_remove_option(message->options, desc->len, SD_DHCP_OPTION_MESSAGE_TYPE)) >= 0);
+        r = dhcp_option_remove_option(message->options, desc->len, SD_DHCP_OPTION_MESSAGE_TYPE);
+        assert_se(r >= 0);
+        desc->len = (size_t)r;
         assert_se(dhcp_option_parse(message, sizeof(DHCPMessage) + desc->len, NULL, NULL, NULL) < 0);
 }
 
