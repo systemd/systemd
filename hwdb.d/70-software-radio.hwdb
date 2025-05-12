@@ -1,0 +1,24 @@
+# This file is part of systemd.
+#
+# Database for software-defined radio devices that should be accessible to the seat owner.
+#
+# To add local entries, copy this file to
+#   /etc/udev/hwdb.d/
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger
+
+################
+# Nuand
+################
+# bladeRF 1.x
+usb:v2CF0p5246*
+ ID_SOFTWARE_RADIO=1
+
+# bladeRF 1.x (legacy)
+usb:v1D50p6066*
+ ID_SOFTWARE_RADIO=1
+
+# bladeRF 2.0 micro
+usb:v2CF0p5250*
+ ID_SOFTWARE_RADIO=1
