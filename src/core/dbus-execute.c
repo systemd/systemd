@@ -1551,7 +1551,7 @@ int bus_set_transient_exec_command(
                         path = _PATH_BSHELL;
 
                         if (strv_isempty(argv))
-                                r = strv_extend(&argv, path);
+                                r = strv_extend(&argv, "sh");
                         else
                                 r = free_and_strdup(&argv[0], argv[0][0] == '-' ? "-sh" : "sh");
                         if (r < 0)
