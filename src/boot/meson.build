@@ -15,6 +15,7 @@ libefitest = static_library(
                 basic_includes,
                 include_directories('.'),
         ],
+        implicit_include_directories : false,
         dependencies : userspace)
 
 efitest_base = {
@@ -153,9 +154,9 @@ configure_file(
 ############################################################
 
 efi_includes = [
-        build_dir_include,
         fundamental_include,
         include_directories('.'),
+        version_include,
 ]
 
 efi_c_args = [
@@ -380,6 +381,7 @@ foreach archspec : efi_archspecs
                 libefi_sources,
                 version_h,
                 include_directories : efi_includes,
+                implicit_include_directories : false,
                 c_args : archspec['c_args'],
                 gnu_symbol_visibility : 'hidden',
                 override_options : efi_override_options,
@@ -387,6 +389,7 @@ foreach archspec : efi_archspecs
 
         kwargs = {
                 'include_directories' : efi_includes,
+                'implicit_include_directories' : false,
                 'c_args' : archspec['c_args'],
                 'link_args' : archspec['link_args'],
                 'gnu_symbol_visibility' : 'hidden',
