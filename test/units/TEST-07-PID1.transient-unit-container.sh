@@ -6,22 +6,17 @@ set -x
 
 # -----------------------------------------------------------------------------
 #
-# Test: PID-1 File-Write from Transient Unit Container
+# Test: PID-1 Transient Unit Container
 #
 # Verifies that a minimal systemd PID 1 inside a tmpfs root can:
-#   • Bind mount the host's /usr read only
-#   • Bind mount a writable directory
+#   • Boot
+#   • Bind mount the host's /usr directory read-only
+#   • Bind mount a shared writable directory with the host
 #   • Run a one-shot service in the container to create and
 #     write to a host file in that directory
 #   • Exit cleanly with systemd-run --wait propagating status
 #
 # -----------------------------------------------------------------------------
-
-# Must be root.
-if (( EUID )); then
-    printf 'This test must be run as root.\n' >&2
-    exit 1
-fi
 
 # Helpers
 # shellcheck source=test/units/test-control.sh
@@ -34,7 +29,7 @@ CLEANUP_MOUNTS=()
 CLEANUP_PATHS=()
 
 # Common Config:
-TEST_NAME="TEST-07-PID1-file-write"
+TEST_NAME="TEST-07-PID1.transient-unit-container"
 OUTPUT_FILE="test-service-output"
 EXPECTED_OUTPUT="Test service is running"
 readonly TEST_NAME OUTPUT_FILE EXPECTED_OUTPUT
@@ -78,11 +73,10 @@ temporary_mount_hack() {
 }
 
 # Mount 1) a writable directory for output; 2) a dummy procfs as a workaround so
-# the container can # mount /proc; 3) a tmpfs to serve as the container's root
+# the container can mount /proc; 3) a tmpfs to serve as the container's root
 # FS; 4) the host's /usr directory read only.
 make_mounts() {
-    # Host bind mount for the output file. Systemd will make the container's
-    # version.
+    # Host bind mount for the output file. Systemd will make the container's version.
     mkdir -p "$HOST_OUT_DIR"
     CLEANUP_PATHS+=("$HOST_OUT_DIR")
 
@@ -140,7 +134,7 @@ EOF
 # The testcase. Configs cleanup trap, makes mounts, configs internal service
 # unit, kicks off container as a transient unit, waits for it to finish and
 # checks output.
-testcase_container_file_write() {
+testcase_transient_unit_container_file_write() {
 
     # Cleanup on exit. Test cases seem to run in a subshell, and only a single
     # testcase is expected in this file. So we tie cleanup to the lifetime of
@@ -170,7 +164,7 @@ testcase_container_file_write() {
     -p PrivateDevices=yes \
     -p PrivateIPC=yes \
     -p BindLogSockets=no \
-    -p "Environment=container=lxc" \
+    -p "Environment=container=transient-unit" \
     -p "CapabilityBoundingSet=~CAP_SYS_TIME CAP_SYS_BOOT CAP_AUDIT_READ" \
     -p Type=exec \
     -p Delegate=true \
