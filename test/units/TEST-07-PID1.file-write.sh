@@ -50,7 +50,7 @@ CONTAINER_MOUNT_DIR="/${TEST_NAME}"
 readonly CONTAINER_MOUNT_DIR
 
 # Mount a dummy /proc FS which will not be passed to the container. It
-# circumvents a permissions error when attempting to mount /proc within the
+# circumvents a permissions error when attempting to mount a FS within the
 # container. This seems like a systemd bug.
 temporary_mount_hack() {
     # IMPORTANT: This is modeled after a workaround in
@@ -86,7 +86,7 @@ make_mounts() {
     mkdir -p "$HOST_OUT_DIR"
     CLEANUP_PATHS+=("$HOST_OUT_DIR")
 
-    temporary_mount_hack
+    # temporary_mount_hack
 
     # Container root tmpfs mount
     mkdir -p "$CONTAINER_ROOT_FS"
@@ -158,7 +158,7 @@ testcase_container_file_write() {
     local -r bind_mount_arg="${HOST_OUT_DIR}:${CONTAINER_MOUNT_DIR}"
     local -r service_unit_name="${TEST_NAME}.service"
 
-    # SYSTEMD_LOG_LEVEL=debug SYSTEMD_LOG_TARGET=console \
+    SYSTEMD_LOG_LEVEL=debug SYSTEMD_LOG_TARGET=console \
     systemd-run \
     --unit "$service_unit_name" \
     --wait \
