@@ -14,6 +14,7 @@
 #include "polkit-agent.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 
 void main_prepare(int argc, char *argv[]) {
         assert_se(argc > 0 && !isempty(argv[0]));
