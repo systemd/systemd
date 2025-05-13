@@ -2,6 +2,7 @@
 #pragma once
 
 #include "efi-string.h"
+#include "forward.h"
 #include "proto/simple-text-io.h"
 
 #if defined __has_attribute

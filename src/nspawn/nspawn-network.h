@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <net/if.h>
-#include <stdbool.h>
-#include <sys/types.h>
+#include <linux/if.h>
 
-#include "ether-addr-util.h"
+#include "forward.h"
 
 int test_network_interfaces_initialized(char **iface_pairs);
 int resolve_network_interface_names(char **iface_pairs);

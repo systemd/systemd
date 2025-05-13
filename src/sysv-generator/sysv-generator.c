@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
@@ -9,16 +9,16 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "initrd-util.h"
 #include "install.h"
 #include "log.h"
-#include "main-func.h"
-#include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "set.h"
