@@ -314,7 +314,10 @@ int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) 
         if (n != devnum)
                 return -ENXIO;
 
-        if (device_in_subsystem(dev, "block") != !!S_ISBLK(mode))
+        r = device_in_subsystem(dev, "block");
+        if (r < 0)
+                return r;
+        if (r > 0 ? !S_ISBLK(mode) : !S_ISCHR(mode))
                 return -ENXIO;
 
         *ret = TAKE_PTR(dev);
@@ -414,8 +417,9 @@ static int device_new_from_path_join(
                 return r;
 
         /* Check if the found device really has the expected subsystem and sysname, for safety. */
-        if (!device_in_subsystem(new_device, subsystem))
-                return 0;
+        r = device_in_subsystem(new_device, subsystem);
+        if (r <= 0)
+                return r;
 
         const char *new_driver_subsystem = NULL;
         (void) sd_device_get_driver_subsystem(new_device, &new_driver_subsystem);
@@ -843,7 +847,10 @@ int device_read_uevent_file(sd_device *device) {
                                                major, strna(minor));
         }
 
-        if (device_in_subsystem(device, "drivers")) {
+        r = device_in_subsystem(device, "drivers");
+        if (r < 0)
+                log_device_debug_errno(device, r, "Failed to check if the device is a driver, ignoring: %m");
+        if (r > 0) {
                 r = device_set_drivers_subsystem(device);
                 if (r < 0)
                         log_device_debug_errno(device, r,
@@ -1245,9 +1252,14 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
 }
 
 _public_ int sd_device_get_driver_subsystem(sd_device *device, const char **ret) {
+        int r;
+
         assert_return(device, -EINVAL);
 
-        if (!device_in_subsystem(device, "drivers"))
+        r = device_in_subsystem(device, "drivers");
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -ENOENT;
 
         assert(device->driver_subsystem);
@@ -1287,10 +1299,10 @@ _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *device, cons
                 if (r < 0)
                         return r;
 
-                if (!device_in_subsystem(device, subsystem))
-                        continue;
-
-                if (devtype && !device_is_devtype(device, devtype))
+                r = device_is_subsystem_devtype(device, subsystem, devtype);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 if (ret)
@@ -1710,15 +1722,20 @@ _public_ int sd_device_get_device_id(sd_device *device, const char **ret) {
                 int ifindex, r;
 
                 if (sd_device_get_devnum(device, &devnum) >= 0) {
+                        r = device_in_subsystem(device, "block");
+                        if (r < 0)
+                                return r;
+                        char t = r > 0 ? 'b' : 'c';
+
                         /* use dev_t — b259:131072, c254:0 */
-                        if (asprintf(&id, "%c" DEVNUM_FORMAT_STR,
-                                     device_in_subsystem(device, "block") ? 'b' : 'c',
-                                     DEVNUM_FORMAT_VAL(devnum)) < 0)
+                        if (asprintf(&id, "%c" DEVNUM_FORMAT_STR, t, DEVNUM_FORMAT_VAL(devnum)) < 0)
                                 return -ENOMEM;
+
                 } else if (sd_device_get_ifindex(device, &ifindex) >= 0) {
                         /* use netdev ifindex — n3 */
                         if (asprintf(&id, "n%u", (unsigned) ifindex) < 0)
                                 return -ENOMEM;
+
                 } else {
                         _cleanup_free_ char *sysname = NULL;
 
@@ -1730,7 +1747,10 @@ _public_ int sd_device_get_device_id(sd_device *device, const char **ret) {
                         if (r == O_DIRECTORY)
                                 return -EINVAL;
 
-                        if (device_in_subsystem(device, "drivers"))
+                        r = device_in_subsystem(device, "drivers");
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
                                 /* the 'drivers' pseudo-subsystem is special, and needs the real
                                  * subsystem encoded as well */
                                 id = strjoin("+drivers:", ASSERT_PTR(device->driver_subsystem), ":", sysname);
@@ -2797,7 +2817,10 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (st.st_rdev != devnum)
                 return -ENXIO;
 
-        if (device_in_subsystem(device, "block") ? !S_ISBLK(st.st_mode) : !S_ISCHR(st.st_mode))
+        r = device_in_subsystem(device, "block");
+        if (r < 0)
+                return r;
+        if (r > 0 ? !S_ISBLK(st.st_mode) : !S_ISCHR(st.st_mode))
                 return -ENXIO;
 
         /* If flags has O_PATH, then we cannot check diskseq. Let's return earlier. */

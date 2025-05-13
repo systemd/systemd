@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "device-enumerator-private.h"
+#include "device-util.h"
 #include "glyph-util.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -47,8 +48,9 @@ static int show_sysfs_one(
                     !path_startswith(sysfs, sub))
                         return 0;
 
-                if (sd_device_get_property_value(dev_list[*i_dev], "ID_SEAT", &sn) < 0 || isempty(sn))
-                        sn = "seat0";
+                r = device_get_seat(dev_list[*i_dev], &sn);
+                if (r < 0)
+                        return r;
 
                 /* Explicitly also check for tag 'seat' here */
                 if (!streq(seat, sn) ||
@@ -75,9 +77,9 @@ static int show_sysfs_one(
                             !path_startswith(lookahead_sysfs, sysfs)) {
                                 const char *lookahead_sn;
 
-                                if (sd_device_get_property_value(dev_list[lookahead], "ID_SEAT", &lookahead_sn) < 0 ||
-                                    isempty(lookahead_sn))
-                                        lookahead_sn = "seat0";
+                                r = device_get_seat(dev_list[lookahead], &lookahead_sn);
+                                if (r < 0)
+                                        return r;
 
                                 if (streq(seat, lookahead_sn) && sd_device_has_current_tag(dev_list[lookahead], "seat") > 0)
                                         break;

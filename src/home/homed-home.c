@@ -9,6 +9,7 @@
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
+#include "device-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
@@ -3206,10 +3207,8 @@ static int home_get_image_path_seat(Home *h, char **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_device_get_property_value(d, "ID_SEAT", &seat);
-        if (r == -ENOENT) /* no property means seat0 */
-                seat = "seat0";
-        else if (r < 0)
+        r = device_get_seat(d, &seat);
+        if (r < 0)
                 return r;
 
         return strdup_to(ret, seat);

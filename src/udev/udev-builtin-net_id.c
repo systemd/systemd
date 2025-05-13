@@ -43,20 +43,29 @@
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
 
-/* skip intermediate virtio devices */
-static sd_device *device_skip_virtio(sd_device *dev) {
-        /* there can only ever be one virtio bus per parent device, so we can
-         * safely ignore any virtio buses. see
+static int device_get_parent_skip_virtio(sd_device *dev, sd_device **ret) {
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        /* This provides the parent device, but skips intermediate virtio devices. There can only ever be one
+         * virtio bus per parent device, so we can safely ignore any virtio buses. See
          * https://lore.kernel.org/virtualization/CAPXgP137A=CdmggtVPUZXbnpTbU9Tewq-sOjg9T8ohYktct1kQ@mail.gmail.com/ */
-        while (dev) {
-                if (!device_in_subsystem(dev, "virtio"))
-                        break;
 
-                if (sd_device_get_parent(dev, &dev) < 0)
-                        return NULL;
+        for (;;) {
+                r = sd_device_get_parent(dev, &dev);
+                if (r < 0)
+                        return r;
+
+                r = device_in_subsystem(dev, "virtio");
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *ret = dev;
+                        return 0;
+                }
         }
-
-        return dev;
 }
 
 static int get_matching_parent(
@@ -70,26 +79,23 @@ static int get_matching_parent(
 
         assert(dev);
 
-        r = sd_device_get_parent(dev, &parent);
+        if (skip_virtio)
+                r = device_get_parent_skip_virtio(dev, &parent);
+        else
+                r = sd_device_get_parent(dev, &parent);
         if (r < 0)
                 return r;
 
-        if (skip_virtio) {
-                /* skip virtio subsystem if present */
-                parent = device_skip_virtio(parent);
-                if (!parent)
-                        return -ENODEV;
-        }
-
         /* check if our direct parent is in an expected subsystem. */
-        STRV_FOREACH(s, parent_subsystems)
-                if (device_in_subsystem(parent, *s)) {
-                        if (ret)
-                                *ret = parent;
-                        return 0;
-                }
+        r = device_in_subsystem_strv(parent, parent_subsystems);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENODEV;
 
-        return -ENODEV;
+        if (ret)
+                *ret = parent;
+        return 0;
 }
 
 static int get_first_syspath_component(sd_device *dev, const char *prefix, char **ret) {
@@ -1284,9 +1290,9 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
         /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
         switch (iftype) {
         case ARPHRD_ETHER: {
-                if (device_is_devtype(dev, "wlan"))
+                if (device_is_devtype(dev, "wlan") > 0)
                         *ret = "wl";
-                else if (device_is_devtype(dev, "wwan"))
+                else if (device_is_devtype(dev, "wwan") > 0)
                         *ret = "ww";
                 else
                         *ret = "en";
