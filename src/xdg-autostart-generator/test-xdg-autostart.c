@@ -2,7 +2,6 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"

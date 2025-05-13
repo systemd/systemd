@@ -8,10 +8,10 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "netlink-internal.h"
-#include "netlink-types.h"
 #include "netlink-util.h"
 
 bool nfproto_is_valid(int nfproto) {
