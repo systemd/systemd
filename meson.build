@@ -33,6 +33,8 @@ conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
 conf.set('PROJECT_VERSION', project_major_version,
          description : 'Numerical project version (used where a simple number is expected)')
+conf.set_quoted('PROJECT_VERSION_STR', project_major_version,
+        description: 'Stringified project version (used where a simple string is expected)')
 conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
 relative_source_path = run_command('realpath',

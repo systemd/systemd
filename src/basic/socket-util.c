@@ -1797,6 +1797,24 @@ int socket_address_parse_unix(SocketAddress *ret_address, const char *s) {
         return 0;
 }
 
+int socket_address_equal_unix(const char *a, const char *b) {
+        SocketAddress socket_a, socket_b;
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = socket_address_parse_unix(&socket_a, a);
+        if (r < 0)
+                return r;
+
+        r = socket_address_parse_unix(&socket_b, b);
+        if (r < 0)
+                return r;
+
+        return sockaddr_equal(&socket_a.sockaddr, &socket_b.sockaddr);
+}
+
 int vsock_parse_port(const char *s, unsigned *ret) {
         int r;
 
