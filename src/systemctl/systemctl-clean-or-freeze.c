@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-wait-for-units.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-clean-or-freeze.h"
 #include "systemctl-util.h"

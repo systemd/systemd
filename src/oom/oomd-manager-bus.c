@@ -2,14 +2,13 @@
 
 #include <linux/capability.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
-#include "bus-common-errors.h"
-#include "bus-polkit.h"
 #include "fd-util.h"
 #include "memfd-util.h"
 #include "oomd-manager.h"
 #include "oomd-manager-bus.h"
-#include "user-util.h"
 
 static int bus_method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *dump = NULL;
