@@ -2,12 +2,16 @@
 
 #include <net/if_arp.h>
 
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "resolved-bus.h"
 #include "resolved-dns-cache.h"
@@ -15,7 +19,6 @@
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
-#include "resolved-dns-stub.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
@@ -24,6 +27,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /* The amount of time to wait before retrying with a full feature set */
 #define DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC (6 * USEC_PER_HOUR)

@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <signal.h>
 #include <stdio.h>
-#include <sys/epoll.h>
+#include <stdlib.h>
+#include <sys/socket.h>
 
 #include "sd-messages.h"
 
@@ -12,17 +12,19 @@
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
+#include "errno-util.h"
 #include "exec-credential.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "fstab-util.h"
+#include "glyph-util.h"
 #include "initrd-util.h"
 #include "libmount-util.h"
 #include "log.h"
 #include "manager.h"
 #include "mkdir-label.h"
+#include "mount-util.h"
 #include "mount.h"
 #include "mount-setup.h"
 #include "mountpoint-util.h"
@@ -30,6 +32,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
