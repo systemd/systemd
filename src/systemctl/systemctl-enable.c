@@ -1,15 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "glyph-util.h"
 #include "path-util.h"
+#include "string-util.h"
+#include "strv-fundamental.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-enable.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
+#include "unit-name.h"
 #include "verbs.h"
 
 static int normalize_link_paths(char **paths) {

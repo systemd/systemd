@@ -3,12 +3,11 @@
 
 #include <linux/pkt_sched.h>
 
-#include "alloc-util.h"
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
 #include "gred.h"
-#include "netlink-util.h"
 #include "parse-util.h"
-#include "string-util.h"
 
 static int generic_random_early_detection_init(QDisc *qdisc) {
         GenericRandomEarlyDetection *gred;

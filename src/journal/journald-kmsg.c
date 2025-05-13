@@ -1,20 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "iovec-util.h"
 #include "journal-internal.h"
 #include "journald-kmsg.h"
@@ -25,6 +25,7 @@
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 void server_forward_kmsg(
                 Server *s,

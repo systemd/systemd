@@ -3,7 +3,6 @@
 #include <unistd.h>
 
 #include "log.h"
-#include "macro.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"

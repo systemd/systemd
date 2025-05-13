@@ -2,14 +2,11 @@
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
+#include "sd-netlink.h"
 
-#include "alloc-util.h"
-#include "conf-parser.h"
-#include "netlink-util.h"
 #include "parse-util.h"
 #include "qdisc.h"
 #include "sfb.h"
-#include "string-util.h"
 
 static int stochastic_fair_blue_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         StochasticFairBlue *sfb;

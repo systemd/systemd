@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-id128.h"
-#include "sd-json.h"
-
-#include "boot-entry.h"
-#include "image-policy.h"
-#include "openssl-util.h"
-#include "pager.h"
+#include "forward.h"
 
 typedef enum InstallSource {
         ARG_INSTALL_SOURCE_IMAGE,
