@@ -3,6 +3,7 @@
 #include "device-path-util.h"
 #include "efi-string.h"
 #include "efivars.h"
+#include "log.h"
 #include "memory-util-fundamental.h"
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"

@@ -15,17 +15,15 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "log.h"
-#include "macro.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static char **arg_listen = NULL;
 static bool arg_accept = false;
