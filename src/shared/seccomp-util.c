@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
-#include <stddef.h>
+#include <sched.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
@@ -18,9 +17,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "env-util.h"
-#include "errno-list.h"
 #include "log.h"
-#include "macro.h"
 #include "namespace-util.h"
 #include "nsflags.h"
 #include "nulstr-util.h"

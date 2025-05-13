@@ -2,6 +2,7 @@
 
 #include "device-util.h"
 #include "factory-reset.h"
+#include "string-util.h"
 #include "udev-builtin.h"
 
 /* Sometimes it is relevant in udev rules to know whether factory reset is currently in effect or not. Report

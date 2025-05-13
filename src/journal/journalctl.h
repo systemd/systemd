@@ -1,18 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "sd-id128.h"
-#include "sd-json.h"
-
-#include "image-policy.h"
-#include "output-mode.h"
-#include "pager.h"
+#include "forward.h"
 #include "pcre2-util.h"
-#include "set.h"
-#include "time-util.h"
 
 typedef enum JournalctlAction {
         ACTION_SHOW,

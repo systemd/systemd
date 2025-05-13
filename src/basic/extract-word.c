@@ -1,18 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <syslog.h>
-
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "log.h"
-#include "macro.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"

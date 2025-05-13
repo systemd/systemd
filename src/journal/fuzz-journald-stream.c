@@ -4,6 +4,8 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "fd-util.h"
 #include "fuzz.h"
 #include "fuzz-journald.h"
