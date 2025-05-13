@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/types.h>
-
 #include "sd-json.h"
 
-#include "macro.h"
-#include "memory-util.h"
+#include "forward.h"
+#include "log.h"
 #include "pager.h"
 
 typedef enum TableDataType {

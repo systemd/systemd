@@ -1,19 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <stdbool.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-
-#include "assert-util.h"
+#include "forward.h"
 #include "label-util.h"
-#include "macro.h"
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
-
-#include "memory-util.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
 #else

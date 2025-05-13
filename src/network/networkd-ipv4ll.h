@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
+#include "networkd-forward.h"
 
 #define IPV4LL_ROUTE_METRIC 2048
-
-typedef struct Link Link;
-typedef struct Network Network;
 
 bool link_ipv4ll_enabled(Link *link);
 
