@@ -5,18 +5,15 @@
 #  include <openssl/evp.h>
 #  include <openssl/x509.h>
 #endif
-#include <stdbool.h>
 
 #if HAVE_P11KIT
-#  include <p11-kit/p11-kit.h>
-#  include <p11-kit/uri.h>
+#  include <p11-kit/p11-kit.h>  // IWYU pragma: export
+#  include <p11-kit/uri.h>      // IWYU pragma: export
 #endif
 
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
-#include "log.h"
-#include "memory-util.h"
-#include "time-util.h"
+#include "forward.h"
 
 bool pkcs11_uri_valid(const char *uri);
 

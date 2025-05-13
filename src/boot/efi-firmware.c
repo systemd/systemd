@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "efi-firmware.h"
-#include "util.h"
+#include "efi-string.h"
 
 static bool efifw_validate_header(
                 const void *blob,
