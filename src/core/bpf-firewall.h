@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
-#include "cgroup.h"
-#include "unit.h"
+#include "core-forward.h"
 
 int bpf_firewall_compile(Unit *u);
 int bpf_firewall_install(Unit *u);

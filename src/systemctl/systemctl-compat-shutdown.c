@@ -5,11 +5,10 @@
 #include "alloc-util.h"
 #include "pretty-print.h"
 #include "reboot-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-compat-shutdown.h"
-#include "systemctl-logind.h"
 #include "systemctl-sysv-compat.h"
-#include "terminal-util.h"
 
 static int shutdown_help(void) {
         _cleanup_free_ char *link = NULL;

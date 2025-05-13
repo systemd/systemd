@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -7,14 +8,12 @@
 #include "escape.h"
 #include "event-util.h"
 #include "exit-status.h"
-#include "fd-util.h"
 #include "fork-journal.h"
 #include "log.h"
 #include "notify-recv.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "strv.h"
 
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {

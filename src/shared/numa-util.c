@@ -9,7 +9,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_syscall.h"
 #include "numa-util.h"
 #include "parse-util.h"
