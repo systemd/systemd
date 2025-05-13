@@ -513,7 +513,8 @@ static int action_fork(char *const *_command) {
                                                         * more interesting, "positive" information. */
                         on_notify_socket,
                         &child,
-                        &addr_string);
+                        &addr_string,
+                        /* ret_event_source= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
