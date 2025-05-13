@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "path-lookup.h"
+#include "forward.h"
+#include "unit-file.h"
 
 typedef enum UnitFilePresetMode UnitFilePresetMode;
 typedef enum InstallChangeType InstallChangeType;
@@ -10,13 +12,6 @@ typedef enum InstallMode InstallMode;
 typedef struct InstallChange InstallChange;
 typedef struct UnitFileList UnitFileList;
 typedef struct InstallInfo InstallInfo;
-
-#include "hashmap.h"
-#include "macro.h"
-#include "path-lookup.h"
-#include "strv.h"
-#include "unit-file.h"
-#include "unit-name.h"
 
 enum UnitFilePresetMode {
         UNIT_FILE_PRESET_FULL,

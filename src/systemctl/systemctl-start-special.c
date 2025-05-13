@@ -2,6 +2,8 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "bootspec.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -10,6 +12,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "reboot-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-logind.h"
 #include "systemctl-start-special.h"
