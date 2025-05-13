@@ -5,7 +5,12 @@
 #include <linux/nexthop.h>
 #include <net/if.h>
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
+#include "conf-parser.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -14,9 +19,10 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
-#include "stdio-util.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 static void nexthop_detach_from_group_members(NextHop *nexthop) {

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
+#include "forward.h"
 
 /* Bit index (0-based) to mask of specified type. Assertion failure if index is out of range. */
 #define _INDEX_TO_MASK(type, i, uniq)                                   \
