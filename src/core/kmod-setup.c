@@ -3,13 +3,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "bus-util.h"
 #include "capability-util.h"
 #include "efi-api.h"
 #include "fileio.h"
 #include "kmod-setup.h"
 #include "log.h"
-#include "macro.h"
 #include "module-util.h"
 #include "recurse-dir.h"
 #include "string-util.h"

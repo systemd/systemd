@@ -4,20 +4,12 @@
 
 #pragma once
 
-#include <inttypes.h>
-
-#include "sd-netlink.h"
-
 #include "conf-parser.h"
-#include "hashmap.h"
+#include "forward.h"
 #include "in-addr-util.h"
+#include "networkd-forward.h"
 #include "networkd-util.h"
 
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Network Network;
-typedef struct NextHop NextHop;
-typedef struct Request Request;
 typedef int (*nexthop_netlink_handler_t)(
                 sd_netlink *rtnl,
                 sd_netlink_message *m,

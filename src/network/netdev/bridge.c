@@ -5,7 +5,10 @@
 #include <net/if.h>
 #include <netinet/in.h>
 
+#include "sd-netlink.h"
+
 #include "bridge.h"
+#include "conf-parser.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "string-table.h"

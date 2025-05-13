@@ -9,7 +9,6 @@
 
 #include "sd-netlink.h"
 
-#include "macro.h"
 #include "module-util.h"
 #include "tests.h"
 
