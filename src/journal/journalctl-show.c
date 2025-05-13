@@ -35,8 +35,8 @@ typedef struct Context {
 static void context_done(Context *c) {
         assert(c);
 
-        c->synchronize_varlink = sd_varlink_flush_close_unref(c->synchronize_varlink);
-        c->event = sd_event_unref(c->event);
+        sd_varlink_flush_close_unref(c->synchronize_varlink);
+        sd_event_unref(c->event);
         sd_journal_close(c->journal);
 }
 
