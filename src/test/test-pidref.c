@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "fd-util.h"
+#include "format-util.h"
 #include "pidref.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "stdio-util.h"
 #include "tests.h"
 

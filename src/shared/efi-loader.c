@@ -3,17 +3,19 @@
 #include "alloc-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tpm2-pcr.h"
 #include "utf8.h"
 
 #if ENABLE_EFI
-
 static int read_usec(const char *variable, usec_t *ret) {
         _cleanup_free_ char *j = NULL;
         uint64_t x = 0;
@@ -34,7 +36,16 @@ static int read_usec(const char *variable, usec_t *ret) {
         return 0;
 }
 
+static int get_device_part_uuid(const char *variable, sd_id128_t *ret) {
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
+
+        return efi_get_variable_id128(variable, ret);
+}
+#endif
+
 int efi_loader_get_boot_usec(usec_t *ret_firmware, usec_t *ret_loader) {
+#if ENABLE_EFI
         uint64_t x, y;
         int r;
 
@@ -60,24 +71,29 @@ int efi_loader_get_boot_usec(usec_t *ret_firmware, usec_t *ret_loader) {
         *ret_firmware = x;
         *ret_loader = y;
         return 0;
-}
-
-static int get_device_part_uuid(const char *variable, sd_id128_t *ret) {
-        if (!is_efi_boot())
-                return -EOPNOTSUPP;
-
-        return efi_get_variable_id128(variable, ret);
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_loader_get_device_part_uuid(sd_id128_t *ret) {
+#if ENABLE_EFI
         return get_device_part_uuid(EFI_LOADER_VARIABLE_STR("LoaderDevicePartUUID"), ret);
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_stub_get_device_part_uuid(sd_id128_t *ret) {
+#if ENABLE_EFI
         return get_device_part_uuid(EFI_LOADER_VARIABLE_STR("StubDevicePartUUID"), ret);
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_loader_get_entries(char ***ret) {
+#if ENABLE_EFI
         _cleanup_free_ char16_t *entries = NULL;
         _cleanup_strv_free_ char **l = NULL;
         size_t size;
@@ -135,9 +151,13 @@ int efi_loader_get_entries(char ***ret) {
 
         *ret = TAKE_PTR(l);
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_loader_get_features(uint64_t *ret) {
+#if ENABLE_EFI
         _cleanup_free_ void *v = NULL;
         size_t s;
         int r;
@@ -186,9 +206,13 @@ int efi_loader_get_features(uint64_t *ret) {
 
         memcpy(ret, v, sizeof(uint64_t));
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_stub_get_features(uint64_t *ret) {
+#if ENABLE_EFI
         _cleanup_free_ void *v = NULL;
         size_t s;
         int r;
@@ -234,9 +258,13 @@ int efi_stub_get_features(uint64_t *ret) {
 
         memcpy(ret, v, sizeof(uint64_t));
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_measured_uki(int log_level) {
+#if ENABLE_EFI
         _cleanup_free_ char *pcr_string = NULL;
         static int cached = -1;
         unsigned pcr_nr;
@@ -279,9 +307,13 @@ int efi_measured_uki(int log_level) {
                                       pcr_nr, TPM2_PCR_KERNEL_BOOT);
 
         return (cached = 1);
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without support for EFI");
+#endif
 }
 
 int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
+#if ENABLE_EFI
         _cleanup_free_ char *v = NULL;
         static struct stat cache_stat = {};
         struct stat new_stat;
@@ -313,9 +345,13 @@ int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
         cache_stat = new_stat;
         *ret = cache = sec * USEC_PER_SEC; /* return in μs */
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat) {
+#if ENABLE_EFI
         _cleanup_free_ char *v = NULL;
         struct stat new_stat;
         int r;
@@ -341,9 +377,13 @@ int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat
         free_and_replace(*cache, v);
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_get_variable_id128(const char *variable, sd_id128_t *ret) {
+#if ENABLE_EFI
         int r;
 
         assert(variable);
@@ -357,9 +397,10 @@ int efi_get_variable_id128(const char *variable, sd_id128_t *ret) {
                 return r;
 
         return sd_id128_from_string(p, ret);
-}
-
+#else
+        return -EOPNOTSUPP;
 #endif
+}
 
 bool efi_loader_entry_name_valid(const char *s) {
         if (!filename_is_valid(s)) /* Make sure entry names fit in filenames */
