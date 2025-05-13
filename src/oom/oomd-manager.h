@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
-#include "conf-parser.h"
+#include "forward.h"
 #include "oomd-util.h"
 
 /* Polling interval for monitoring stats */

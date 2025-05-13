@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "hostname-util.h"
 #include "networkd-dns.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
-#include "parse-util.h"
+#include "ordered-set.h"
+#include "set.h"
 #include "string-table.h"
 
 UseDomains link_get_use_domains(Link *link, NetworkConfigSource proto) {

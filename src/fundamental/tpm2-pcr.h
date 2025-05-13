@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro-fundamental.h"
-
 /* The various TPM PCRs we measure into from sd-stub and sd-boot. */
 
 enum {

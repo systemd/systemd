@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /* systemd service to wait until kernel realtime clock is synchronized */
 
-#include <errno.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/inotify.h>
 #include <sys/timerfd.h>
 #include <sys/timex.h>
@@ -16,8 +12,8 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "inotify-util.h"
+#include "log.h"
 #include "main-func.h"
-#include "signal-util.h"
 #include "time-util.h"
 
 typedef struct ClockState {
