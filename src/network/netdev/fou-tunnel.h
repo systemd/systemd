@@ -2,9 +2,9 @@
 #pragma once
 
 #include <linux/fou.h>
-#include <netinet/in.h>
 
 #include "in-addr-util.h"
+#include "forward.h"
 #include "netdev.h"
 
 typedef enum FooOverUDPEncapType {

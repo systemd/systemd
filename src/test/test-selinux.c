@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/socket.h>
 #include <sys/stat.h>
 
-#include "alloc-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "selinux-util.h"

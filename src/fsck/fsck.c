@@ -3,9 +3,7 @@
   Copyright © 2014 Holger Hans Peter Freyther
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
 #include <sys/file.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
@@ -28,10 +26,11 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
 #include "stdio-util.h"
+#include "string-util.h"
+#include "time-util.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
