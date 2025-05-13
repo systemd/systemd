@@ -889,17 +889,11 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "input", NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "graphics", NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "drm", NULL);
-        if (r < 0)
-                return r;
+        FOREACH_STRING(s, "input", "graphics", "drm") {
+                r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, s, /* devtype = */ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_device_monitor_attach_event(m->device_monitor, m->event);
         if (r < 0)
