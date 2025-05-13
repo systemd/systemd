@@ -350,8 +350,10 @@ static int on_synchronize_reply(
 
         assert(vl);
 
-        if (error_id)
+        if (error_id) {
                 log_warning("Failed to synchronize on Journal, ignoring: %s", error_id);
+                (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error_id);
+        }
 
         r = show_and_fflush(c);
         if (r < 0)
@@ -377,7 +379,7 @@ static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void
 
         r = varlink_connect_journal(&vl);
         if (r < 0) {
-                log_error_errno(r, "Failed to connect to Journal Varlink IPC interface, ignoring: %m");
+                log_error_errno(r, "Failed to connect to Journal Varlink IPC interface, skipping synchronization: %m");
                 goto finish;
         }
 
