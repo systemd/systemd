@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if conf.get('ENABLE_RESOLVE') != 1
-        subdir_done()
-endif
-
 systemd_resolved_sources = files(
         'resolved.c',
 )
@@ -12,6 +8,7 @@ systemd_resolved_extract_sources = files(
         'resolved-bus.c',
         'resolved-conf.c',
         'resolved-dns-answer.c',
+        'resolved-dns-browse-services.c',
         'resolved-dns-cache.c',
         'resolved-dns-dnssec.c',
         'resolved-dns-packet.c',
