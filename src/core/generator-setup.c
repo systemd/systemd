@@ -4,8 +4,8 @@
 
 #include "errno-util.h"
 #include "generator-setup.h"
-#include "macro.h"
 #include "mkdir-label.h"
+#include "path-lookup.h"
 #include "rm-rf.h"
 
 int lookup_paths_mkdir_generator(LookupPaths *p) {

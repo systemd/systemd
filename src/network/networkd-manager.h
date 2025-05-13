@@ -1,23 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-device.h"
-#include "sd-event.h"
-#include "sd-id128.h"
-#include "sd-netlink.h"
-#include "sd-resolve.h"
-#include "sd-varlink.h"
-
-#include "dhcp-duid-internal.h"
-#include "firewall-util.h"
-#include "hashmap.h"
-#include "networkd-link.h"
+#include "networkd-forward.h"
 #include "networkd-network.h"
-#include "networkd-sysctl.h"
-#include "ordered-set.h"
-#include "set.h"
-#include "time-util.h"
 
 typedef enum ManagerState {
         MANAGER_RUNNING,
@@ -28,7 +13,7 @@ typedef enum ManagerState {
         _MANAGER_STATE_INVALID = -EINVAL,
 } ManagerState;
 
-struct Manager {
+typedef struct Manager {
         sd_netlink *rtnl;
         /* lazy initialized */
         sd_netlink *genl;
@@ -140,7 +125,7 @@ struct Manager {
         struct bpf_link *sysctl_link;
         int cgroup_fd;
 #endif
-};
+} Manager;
 
 int manager_new(Manager **ret, bool test_mode);
 Manager* manager_free(Manager *m);

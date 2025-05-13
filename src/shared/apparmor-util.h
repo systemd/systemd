@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-
 #include "dlfcn-util.h"
+#include "forward.h"
 
 #if HAVE_APPARMOR
 #  include <sys/apparmor.h>
-
-#include "memory-util.h"
 
 extern DLSYM_PROTOTYPE(aa_change_onexec);
 extern DLSYM_PROTOTYPE(aa_change_profile);
