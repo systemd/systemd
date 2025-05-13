@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <malloc.h>
 #include <unistd.h>
 
@@ -8,10 +7,8 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "io-util.h"
 #include "journal-file.h"
 #include "journal-importer.h"
-#include "journal-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"

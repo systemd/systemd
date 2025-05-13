@@ -4,15 +4,16 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-util.h"
-#include "dbus.h"
 #include "dbus-cgroup.h"
 #include "dbus-kill.h"
 #include "dbus-manager.h"
 #include "dbus-scope.h"
-#include "dbus-unit.h"
 #include "dbus-util.h"
+#include "manager.h"
+#include "pidref.h"
 #include "scope.h"
 #include "selinux-access.h"
+#include "string-util.h"
 #include "unit.h"
 
 int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_error *error) {

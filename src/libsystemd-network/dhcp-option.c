@@ -3,8 +3,6 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <stdint.h>
 #include <stdio.h>
 
 #include "alloc-util.h"
@@ -14,6 +12,7 @@
 #include "hostname-util.h"
 #include "memory-util.h"
 #include "ordered-set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 
