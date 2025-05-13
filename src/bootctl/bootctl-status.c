@@ -420,7 +420,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
-                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL;
+                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL, *sysfail_reason = NULL;
                 uint64_t loader_features = 0, stub_features = 0;
                 int have;
 
@@ -435,6 +435,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), &current_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), &oneshot_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &default_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), &sysfail_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderSysFailReason"), &sysfail_reason);
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
@@ -484,7 +486,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                 if (loader) {
                         printf("%sCurrent Boot Loader:%s\n", ansi_underline(), ansi_normal());
-                        printf("      Product: %s%s%s\n", ansi_highlight(), loader, ansi_normal());
+                        printf("       Product: %s%s%s\n", ansi_highlight(), loader, ansi_normal());
                         for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
 
@@ -502,23 +504,28 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                                SD_ID128_FORMAT_VAL(loader_partition_uuid),
                                                SD_ID128_FORMAT_VAL(esp_uuid));
 
-                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                printf("     Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(loader_partition_uuid));
                         } else if (loader_path)
-                                printf("    Partition: n/a\n");
+                                printf("     Partition: n/a\n");
 
                         if (loader_path)
-                                printf("       Loader: %s%s\n", glyph(GLYPH_TREE_RIGHT), strna(loader_path));
+                                printf("        Loader: %s%s\n", glyph(GLYPH_TREE_RIGHT), strna(loader_path));
 
                         if (loader_url)
-                                printf(" Net Boot URL: %s\n", loader_url);
+                                printf("  Net Boot URL: %s\n", loader_url);
+
+                        if (sysfail_entry)
+                                printf("SysFail Reason: %s\n", sysfail_reason);
 
                         if (current_entry)
-                                printf("Current Entry: %s\n", current_entry);
+                                printf(" Current Entry: %s\n", current_entry);
                         if (default_entry)
-                                printf("Default Entry: %s\n", default_entry);
+                                printf(" Default Entry: %s\n", default_entry);
                         if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
-                                printf("OneShot Entry: %s\n", oneshot_entry);
+                                printf(" OneShot Entry: %s\n", oneshot_entry);
+                        if (sysfail_entry)
+                                printf(" SysFail Entry: %s\n", sysfail_entry);
 
                         printf("\n");
                 }
