@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <poll.h>
 #include <sys/inotify.h>
 #include <unistd.h>
@@ -18,15 +17,12 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "io-util.h"
-#include "log.h"
 #include "login-util.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
-#include "process-util.h"
+#include "pidref.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
