@@ -5,8 +5,9 @@
   Copyright © 2010 Maarten Lankhorst
 ***/
 
-#include "sd-device.h"
-
+#include "cgroup.h"
+#include "core-forward.h"
+#include "execute.h"
 #include "pidref.h"
 #include "unit.h"
 

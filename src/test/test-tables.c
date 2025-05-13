@@ -18,6 +18,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "manager.h"
 #include "mount.h"
 #include "netif-naming-scheme.h"
 #include "path.h"

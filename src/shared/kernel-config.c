@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "kernel-config.h"
-#include "macro.h"
 #include "path-util.h"
-#include "strv.h"
 
 int load_kernel_install_conf(
                 const char *root,

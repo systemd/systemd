@@ -4,7 +4,6 @@
 #include <net/if.h>
 
 #include "arphrd-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(arphrd) {
