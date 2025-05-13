@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdio.h>
 
-#include "assert-util.h"
 #include "hwdb-util.h"
 #include "log.h"
 #include "udevadm.h"
