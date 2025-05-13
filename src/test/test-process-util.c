@@ -3,32 +3,34 @@
 #include <fcntl.h>
 #include <linux/oom.h>
 #include <pthread.h>
+#include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "strv.h"
 #if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
 
+#include "sd-daemon.h"
+
 #include "alloc-util.h"
 #include "architecture.h"
-#include "dirent-util.h"
+#include "argv-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "ioprio-util.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_sched.h"
-#include "missing_syscall.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "rlimit-util.h"
@@ -37,6 +39,7 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "virt.h"
 
@@ -113,7 +116,8 @@ TEST(pid_get_comm) {
                 (void) parse_pid(saved_argv[1], &pid);
                 test_pid_get_comm_one(pid);
         } else {
-                TEST_REQ_RUNNING_SYSTEMD(test_pid_get_comm_one(1));
+                if (sd_booted() > 0)
+                        test_pid_get_comm_one(1);
                 test_pid_get_comm_one(getpid());
         }
 }
