@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-label.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
+#include "hashmap.h"
+#include "logind-session.h"
 #include "logind.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"

@@ -8,6 +8,7 @@
 #include "fdisk-util.h"
 #include "log.h"
 #include "parse-util.h"
+#include "string-util.h"
 
 #if HAVE_LIBFDISK
 

@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
 #include "sd-id128.h"
 
 #include "copy.h"
 #include "list.h"
+#include "machine-forward.h"
 #include "pidref.h"
 #include "time-util.h"
-
-typedef struct Machine Machine;
-typedef struct Manager Manager;
-typedef struct Operation Operation;
 
 typedef enum MachineState {
         MACHINE_OPENING,    /* Machine is being registered */

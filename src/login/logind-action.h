@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
+#include "logind-forward.h"
 #include "logind-inhibit.h"
 #include "sleep-config.h"
 
@@ -31,8 +31,6 @@ typedef enum HandleAction {
         _HANDLE_ACTION_MAX,
         _HANDLE_ACTION_INVALID = -EINVAL,
 } HandleAction;
-
-typedef struct HandleActionData HandleActionData;
 
 typedef enum HandleActionSleepMask {
         HANDLE_SLEEP_SUSPEND_MASK                = 1U << HANDLE_SUSPEND,

@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <inttypes.h>
 #include <string.h>
 
-#include "assert-util.h"
-#include "macro.h"
+#include "forward.h"
 
 /* strerror(3) says that glibc uses a maximum length of 1024 bytes. */
-#define ERRNO_BUF_LEN 1024
+#define ERRNO_BUF_LEN           1024
 
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and
@@ -54,7 +51,9 @@ static inline int negative_errno(void) {
          * negative. Instead of "return -errno;", use "return negative_errno();"
          * It will suppress bogus gcc warnings in case it assumes 'errno' might
          * be 0 and thus the caller's error-handling might not be triggered. */
-        assert_return(errno > 0, -EINVAL);
+        if (errno <= 0)
+                return -EINVAL;
+
         return -errno;
 }
 
