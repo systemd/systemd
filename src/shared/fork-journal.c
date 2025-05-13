@@ -87,7 +87,7 @@ static int on_child_notify(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int journal_fork(RuntimeScope scope, const char * const *units, PidRef *ret_pidref) {
+int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref) {
         int r;
 
         assert(scope >= 0);
@@ -97,7 +97,7 @@ int journal_fork(RuntimeScope scope, const char * const *units, PidRef *ret_pidr
         if (!is_main_thread())
                 return -EPERM;
 
-        if (strv_isempty((char**) units))
+        if (strv_isempty(units))
                 return 0;
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
