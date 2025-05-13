@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <net/if_arp.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
-#include "ether-addr-util.h"
-#include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "tests.h"
 

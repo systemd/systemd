@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/statvfs.h>
 
 #include "alloc-util.h"
@@ -18,7 +19,6 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
