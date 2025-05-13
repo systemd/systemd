@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -298,19 +299,14 @@ static int validate_device(sd_device *device) {
 
 static int read_max_brightness(sd_device *device, unsigned *ret) {
         unsigned max_brightness;
-        const char *s;
         int r;
 
         assert(device);
         assert(ret);
 
-        r = sd_device_get_sysattr_value(device, "max_brightness", &s);
+        r = device_get_sysattr_unsigned(device, "max_brightness", &max_brightness);
         if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to read 'max_brightness' attribute: %m");
-
-        r = safe_atou(s, &max_brightness);
-        if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", s);
+                return log_device_warning_errno(device, r, "Failed to read/parse 'max_brightness' attribute: %m");
 
         /* If max_brightness is 0, then there is no actual backlight device. This happens on desktops
          * with Asus mainboards that load the eeepc-wmi module. */
