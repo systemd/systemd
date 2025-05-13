@@ -3,6 +3,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "sd-event.h"
+
 #include "bus-log-control-api.h"
 #include "daemon-util.h"
 #include "homed-manager.h"

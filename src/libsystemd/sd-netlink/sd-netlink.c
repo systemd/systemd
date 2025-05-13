@@ -1,22 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/filter.h>
 #include <poll.h>
+#include <stdlib.h>
 
+#include "sd-event.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-slot.h"
 #include "netlink-util.h"
+#include "ordered-set.h"
+#include "prioq.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /* Some really high limit, to catch programming errors */
 #define REPLY_CALLBACKS_MAX UINT16_MAX

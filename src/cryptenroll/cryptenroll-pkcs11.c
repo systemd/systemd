@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "cryptenroll-pkcs11.h"
+#include "cryptsetup-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
-#include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
 
@@ -36,6 +37,7 @@ int enroll_pkcs11(
                 const struct iovec *volume_key,
                 const char *uri) {
 
+#if HAVE_P11KIT && HAVE_OPENSSL
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -112,4 +114,7 @@ int enroll_pkcs11(
 
         log_info("New PKCS#11 token enrolled as key slot %i.", keyslot);
         return keyslot;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PKCS#11 key enrollment not supported.");
+#endif
 }
