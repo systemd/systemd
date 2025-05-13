@@ -98,12 +98,6 @@ conf.set10('HAVE_SPLIT_BIN', split_bin,
 
 have_standalone_binaries = get_option('standalone-binaries')
 
-sysvinit_path = get_option('sysvinit-path')
-sysvrcnd_path = get_option('sysvrcnd-path')
-conf.set10('HAVE_SYSV_COMPAT', sysvinit_path != '' and sysvrcnd_path != '',
-           description : 'SysV init scripts and rcN.d links are supported')
-sysvrclocal_path = get_option('rc-local')
-conf.set10('HAVE_SYSV_RC_LOCAL', sysvrclocal_path != '')
 conf.set10('CREATE_LOG_DIRS', get_option('create-log-dirs'))
 
 if get_option('hibernate') and not get_option('initrd')
@@ -307,9 +301,6 @@ conf.set_quoted('SYSTEM_GENERATOR_DIR',                       systemgeneratordir
 conf.set_quoted('SYSTEM_PRESET_DIR',                          systempresetdir)
 conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
 conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
-conf.set_quoted('SYSTEM_SYSVINIT_PATH',                       sysvinit_path)
-conf.set_quoted('SYSTEM_SYSVRCND_PATH',                       sysvrcnd_path)
-conf.set_quoted('SYSTEM_SYSVRCLOCAL_PATH',                    sysvrclocal_path)
 conf.set_quoted('SYSUSERS_DIR',                               sysusersdir)
 conf.set_quoted('TMPFILES_DIR',                               tmpfilesdir)
 conf.set_quoted('USER_TMPFILES_DIR',                          usertmpfilesdir)
@@ -2303,7 +2294,6 @@ subdir('src/hostname')
 subdir('src/hwdb')
 subdir('src/id128')
 subdir('src/import')
-subdir('src/initctl')
 subdir('src/integritysetup')
 subdir('src/journal')
 subdir('src/journal-remote')
@@ -2334,7 +2324,6 @@ subdir('src/pstore')
 subdir('src/ptyfwd')
 subdir('src/quotacheck')
 subdir('src/random-seed')
-subdir('src/rc-local-generator')
 subdir('src/remount-fs')
 subdir('src/repart')
 subdir('src/reply-password')
@@ -2357,7 +2346,6 @@ subdir('src/system-update-generator')
 subdir('src/systemctl')
 subdir('src/sysupdate')
 subdir('src/sysusers')
-subdir('src/sysv-generator')
 subdir('src/storagetm')
 subdir('src/timedate')
 subdir('src/timesync')
@@ -2702,7 +2690,6 @@ subdir('test')
 
 #####################################################################
 
-subdir('docs/sysvinit')
 subdir('docs/var-log')
 subdir('hwdb.d')
 subdir('man')
@@ -2895,9 +2882,6 @@ summary({
         'sysconf directory' :               sysconfdir,
         'include directory' :               includedir,
         'lib directory' :                   libdir,
-        'SysV init scripts' :               sysvinit_path,
-        'SysV rc?.d directories' :          sysvrcnd_path,
-        'SysV rc.local script' :            sysvrclocal_path,
         'PAM modules directory' :           pamlibdir,
         'PAM configuration directory' :     pamconfdir,
         'ssh server configuration directory' : sshdconfdir,
@@ -3061,7 +3045,6 @@ foreach tuple : [
         ['man pages',              want_man],
         ['html pages',             want_html],
         ['man page indices',       want_man and have_lxml],
-        ['SysV compat'],
         ['compat-mutable-uid-boundaries'],
         ['utmp'],
         ['ldconfig'],

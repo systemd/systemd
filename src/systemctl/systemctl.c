@@ -32,9 +32,7 @@
 #include "systemctl-cancel-job.h"
 #include "systemctl-clean-or-freeze.h"
 #include "systemctl-compat-halt.h"
-#include "systemctl-compat-runlevel.h"
 #include "systemctl-compat-shutdown.h"
-#include "systemctl-compat-telinit.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-edit.h"
 #include "systemctl-enable.h"
@@ -60,7 +58,6 @@
 #include "systemctl-start-special.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-switch-root.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
 #include "systemctl-whoami.h"
@@ -1140,28 +1137,6 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
         } else if (invoked_as(argv, "shutdown")) {
                 arg_action = ACTION_POWEROFF;
                 return shutdown_parse_argv(argc, argv);
-
-        } else if (invoked_as(argv, "init")) {
-
-                /* Matches invocations as "init" as well as "telinit", which are synonymous when run
-                 * as PID != 1 on SysV.
-                 *
-                 * On SysV "telinit" was the official command to communicate with PID 1, but "init" would
-                 * redirect itself to "telinit" if called with PID != 1. We follow the same logic here still,
-                 * though we add one level of indirection, as we implement "telinit" in "systemctl". Hence,
-                 * for us if you invoke "init" you get "systemd", but it will execve() "systemctl"
-                 * immediately with argv[] unmodified if PID is != 1. If you invoke "telinit" you directly
-                 * get "systemctl". In both cases we shall do the same thing, which is why we do
-                 * invoked_as(argv, "init") here, as a quick way to match both.
-                 *
-                 * Also see redirect_telinit() in src/core/main.c. */
-
-                arg_action = _ACTION_INVALID; /* telinit_parse_argv() will figure out the actual action we'll execute */
-                return telinit_parse_argv(argc, argv);
-
-        } else if (invoked_as(argv, "runlevel")) {
-                arg_action = ACTION_RUNLEVEL;
-                return runlevel_parse_argv(argc, argv);
         }
 
         arg_action = ACTION_SYSTEMCTL;
@@ -1324,27 +1299,13 @@ static int run(int argc, char *argv[]) {
                 r = systemctl_main(argc, argv);
                 break;
 
-        /* Legacy command aliases set arg_action. They provide some fallbacks, e.g. to tell sysvinit to
-         * reboot after you have installed systemd binaries. */
+        /* Legacy command aliases (halt, poweroff, reboot, shutdown) set arg_action. */
 
         case ACTION_HALT:
         case ACTION_POWEROFF:
         case ACTION_REBOOT:
         case ACTION_KEXEC:
                 r = halt_main();
-                break;
-
-        case ACTION_RUNLEVEL2:
-        case ACTION_RUNLEVEL3:
-        case ACTION_RUNLEVEL4:
-        case ACTION_RUNLEVEL5:
-        case ACTION_RESCUE:
-                r = start_with_fallback();
-                break;
-
-        case ACTION_RELOAD:
-        case ACTION_REEXEC:
-                r = reload_with_fallback();
                 break;
 
         case ACTION_CANCEL_SHUTDOWN:
@@ -1356,10 +1317,9 @@ static int run(int argc, char *argv[]) {
                 r = logind_show_shutdown();
                 break;
 
-        case ACTION_RUNLEVEL:
-                r = runlevel_main();
-                break;
-
+        case ACTION_RESCUE:
+        case ACTION_RELOAD:
+        case ACTION_REEXEC:
         case ACTION_EXIT:
         case ACTION_SLEEP:
         case ACTION_SUSPEND:
