@@ -2,13 +2,14 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <poll.h>
 #include <stdio.h>
+#include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "errno-util.h"
 #include "io-util.h"
-#include "iovec-util.h"
-#include "string-util.h"
 #include "time-util.h"
 
 int flush_fd(int fd) {

@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <sys/file.h>
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "dissect-image.h"
-#include "fd-util.h"
+#include "errno-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "initrd-util.h"

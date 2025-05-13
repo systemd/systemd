@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "dissect-image.h"
+#include "time-util.h"
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
 #endif
@@ -11,7 +13,6 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#include "sd-device.h"
 #include "sd-id128.h"
 #include "sd-json.h"
 
@@ -33,6 +34,7 @@
 #include "dirent-util.h"
 #include "efivars.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "factory-reset.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
@@ -50,10 +52,8 @@
 #include "io-util.h"
 #include "json-util.h"
 #include "list.h"
-#include "logarithm.h"
 #include "loop-util.h"
 #include "main-func.h"
-#include "missing_fs.h"
 #include "mkdir.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
@@ -64,14 +64,13 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "sort-util.h"
 #include "specifier.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -80,7 +79,6 @@
 #include "tmpfile-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
-#include "user-util.h"
 #include "utf8.h"
 #include "xattr-util.h"
 
