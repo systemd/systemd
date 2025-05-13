@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 
 #include "sd-bus.h"
@@ -12,18 +11,15 @@
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
 #include "chase.h"
-#include "constants.h"
-#include "dirent-util.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
-#include "locale-util.h"
+#include "install.h"
 #include "main-func.h"
 #include "os-util.h"
 #include "pager.h"
-#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "polkit-agent.h"
@@ -31,7 +27,6 @@
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;

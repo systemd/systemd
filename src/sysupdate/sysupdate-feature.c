@@ -4,6 +4,7 @@
 #include "conf-parser.h"
 #include "hash-funcs.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "sysupdate.h"
 #include "sysupdate-feature.h"
 #include "web-util.h"
