@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "log.h"
 #include "parse-argument.h"

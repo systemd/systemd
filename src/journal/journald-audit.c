@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "audit-type.h"
@@ -11,8 +11,11 @@
 #include "journal-internal.h"
 #include "journald-audit.h"
 #include "journald-server.h"
+#include "log.h"
 #include "missing_audit.h"
+#include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef struct MapField {
         const char *audit_field;
