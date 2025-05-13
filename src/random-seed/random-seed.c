@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/random.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>

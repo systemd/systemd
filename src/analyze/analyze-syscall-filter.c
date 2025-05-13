@@ -3,13 +3,15 @@
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-syscall-filter.h"
+#include "ansi-color.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "nulstr-util.h"
+#include "pager.h"
 #include "seccomp-util.h"
 #include "set.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 #if HAVE_SECCOMP
 

@@ -10,6 +10,7 @@
 #include "graphics.h"
 #include "iovec-util-fundamental.h"
 #include "linux.h"
+#include "log.h"
 #include "measure.h"
 #include "memory-util-fundamental.h"
 #include "part-discovery.h"

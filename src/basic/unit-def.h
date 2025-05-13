@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
 
-#include "errno-list.h"
-#include "glyph-util.h"
-#include "macro.h"
+typedef enum Glyph Glyph;
 
 /* The enum order is used to order unit jobs in the job queue
  * when other criteria (cpu weight, nice level) are identical.
