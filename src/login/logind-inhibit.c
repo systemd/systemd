@@ -6,22 +6,25 @@
 #include <sys/types.h>
 #include <threads.h>
 #include <unistd.h>
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "env-file.h"
-#include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "io-util.h"
+#include "log.h"
+#include "logind-session.h"
 #include "logind.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "mkdir-label.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
