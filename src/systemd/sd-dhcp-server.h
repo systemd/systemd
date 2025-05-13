@@ -18,16 +18,17 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <netinet/in.h>
 
 #include "_sd-common.h"
-#include "sd-dhcp-lease.h"
-#include "sd-dhcp-option.h"
-#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
 
+__extension__ enum _SD_ENUM_TYPE_S64(sd_dhcp_lease_server_type_t);
+typedef enum sd_dhcp_lease_server_type_t sd_dhcp_lease_server_type_t;
+
+typedef struct sd_event sd_event;
+typedef struct sd_dhcp_option sd_dhcp_option;
 typedef struct sd_dhcp_server sd_dhcp_server;
 
 enum {
