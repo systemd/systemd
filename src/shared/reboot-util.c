@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <linux/reboot.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/reboot.h>
 #include <unistd.h>
 
 #if HAVE_XENCTRL

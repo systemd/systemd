@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "sd-bus.h"
+#include "forward.h"
 
 int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse);
 

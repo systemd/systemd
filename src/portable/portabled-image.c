@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "portable.h"
+#include "sd-event.h"
+
+#include "discover-image.h"
+#include "hashmap.h"
 #include "portabled.h"
 #include "portabled-image.h"
 

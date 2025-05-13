@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
+#include "forward.h"
 
 const char* af_to_name(int id) _const_;
 int af_from_name(const char *name) _pure_;

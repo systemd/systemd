@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <endian.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
 #include <security/_pam_macros.h>
@@ -10,19 +9,18 @@
 #include <security/pam_modules.h>
 #include <security/pam_modutil.h>
 #include <sys/file.h>
+#include "time-util.h"
 #if HAVE_PIDFD_OPEN
 #include <sys/pidfd.h>
 #endif
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "audit-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -36,7 +34,6 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
@@ -44,17 +41,17 @@
 #include "json-util.h"
 #include "locale-util.h"
 #include "login-util.h"
-#include "macro.h"
-#include "missing_syscall.h"
 #include "osc-context.h"
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"

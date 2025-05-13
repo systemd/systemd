@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-
 #if HAVE_BLKID
 
-#include <errno.h>
+#include "sd-id128.h"
 
 #include "blkid-util.h"
 #include "string-util.h"

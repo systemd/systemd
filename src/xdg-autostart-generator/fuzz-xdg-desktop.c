@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "alloc-util.h"
+#include <unistd.h>
+
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fuzz.h"
 #include "rm-rf.h"
-#include "string-util.h"
-#include "strv.h"
-#include "tests.h"
 #include "tmpfile-util.h"
 #include "xdg-autostart-service.h"
 

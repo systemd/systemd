@@ -1,22 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
 #include "bus-object.h"
-#include "hashmap.h"
 #include "list.h"
-#include "local-addresses.h"
-#include "pidref.h"
+#include "machine-forward.h"
 #include "runtime-scope.h"
-
-typedef struct Image Image;
-typedef struct Machine Machine;
-typedef struct Operation Operation;
 
 typedef struct Manager {
         sd_event *event;
