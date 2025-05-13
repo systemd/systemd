@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <locale.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -22,7 +23,6 @@
 #include "log.h"
 #include "memory-util.h"
 #include "mkdir.h"
-#include "path-util.h"
 #include "siphash24.h"
 #include "sort-util.h"
 #include "sparse-endian.h"
