@@ -1,43 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sched.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/capability.h>
-#include <sys/socket.h>
+#include "sd-id128.h"
 
 #include "bus-unit-util.h"
 #include "cgroup-util.h"
-#include "coredump-util.h"
+#include "core-forward.h"
 #include "cpu-set-util.h"
 #include "exec-util.h"
-#include "fdset.h"
 #include "list.h"
-#include "log.h"
 #include "log-context.h"
 #include "namespace.h"
-#include "nsflags.h"
 #include "numa-util.h"
-#include "open-file.h"
-#include "ordered-set.h"
-#include "path-util.h"
 #include "ratelimit.h"
 #include "rlimit-util.h"
-#include "runtime-scope.h"
-#include "set.h"
 #include "time-util.h"
-
-typedef struct CGroupContext CGroupContext;
-typedef struct ExecStatus ExecStatus;
-typedef struct ExecCommand ExecCommand;
-typedef struct ExecContext ExecContext;
-typedef struct ExecSharedRuntime ExecSharedRuntime;
-typedef struct DynamicCreds DynamicCreds;
-typedef struct ExecRuntime ExecRuntime;
-typedef struct ExecParameters ExecParameters;
-typedef struct Manager Manager;
-typedef struct Unit Unit;
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
 
@@ -96,23 +73,23 @@ typedef enum ExecKeyringMode {
 } ExecKeyringMode;
 
 /* Contains start and exit information about an executed command.  */
-struct ExecStatus {
+typedef struct ExecStatus {
         dual_timestamp start_timestamp;
         dual_timestamp exit_timestamp;
         dual_timestamp handoff_timestamp;
         pid_t pid;
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in siginfo_t::si_status */
-};
+} ExecStatus;
 
 /* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
-struct ExecCommand {
+typedef struct ExecCommand {
         char *path;
         char **argv;
         ExecStatus exec_status; /* Note that this is not serialized to sd-executor */
         ExecCommandFlags flags;
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
-};
+} ExecCommand;
 
 /* Encapsulates certain aspects of the runtime environment that is to be shared between multiple otherwise separate
  * invocations of commands. Specifically, this allows sharing of /tmp and /var/tmp data as well as network namespaces
@@ -388,27 +365,6 @@ struct ExecContext {
         ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
 };
 
-static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
-        assert(c);
-
-        return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
-}
-
-static inline bool exec_context_restrict_filesystems_set(const ExecContext *c) {
-        assert(c);
-
-        return c->restrict_filesystems_allow_list ||
-          !set_isempty(c->restrict_filesystems);
-}
-
-static inline bool exec_context_with_rootfs(const ExecContext *c) {
-        assert(c);
-
-        /* Checks if RootDirectory= or RootImage= are used */
-
-        return !empty_or_root(c->root_directory) || c->root_image;
-}
-
 typedef enum ExecFlags {
         EXEC_APPLY_SANDBOXING        = 1 << 0,
         EXEC_APPLY_CHROOT            = 1 << 1,
@@ -567,6 +523,10 @@ char** exec_context_get_syscall_log(const ExecContext *c);
 char** exec_context_get_address_families(const ExecContext *c);
 char** exec_context_get_restrict_filesystems(const ExecContext *c);
 
+bool exec_context_restrict_namespaces_set(const ExecContext *c);
+bool exec_context_restrict_filesystems_set(const ExecContext *c);
+bool exec_context_with_rootfs(const ExecContext *c);
+
 void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
 void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_timestamp *ts);
@@ -643,15 +603,7 @@ bool exec_is_cgroup_mount_read_only(const ExecContext *context);
 
 const char* exec_get_private_notify_socket_path(const ExecContext *context, const ExecParameters *params, bool needs_sandboxing);
 
-static inline int exec_log_level_max(const ExecContext *context, const ExecParameters *params) {
-        assert(context);
-        assert(params);
-
-        if (params->debug_invocation)
-                return LOG_DEBUG;
-
-        return context->log_level_max < 0 ? log_get_max_level() : context->log_level_max;
-}
+int exec_log_level_max(const ExecContext *context, const ExecParameters *params);
 
 /* These logging macros do the same logging as those in unit.h, but using ExecContext and ExecParameters
  * instead of the unit object, so that it can be used in the sd-executor context (where the unit object is

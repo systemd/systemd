@@ -6,6 +6,7 @@
 #include "sd-dhcp-client.h"
 #include "sd-ipv4acd.h"
 
+#include "hashmap.h"
 #include "ipvlan.h"
 #include "networkd-address.h"
 #include "networkd-dhcp4.h"

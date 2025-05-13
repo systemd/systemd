@@ -7,7 +7,8 @@
 #include <linux/ip6_tunnel.h>
 #include <netinet/in.h>
 
-#include "af-list.h"
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "hexdecoct.h"
