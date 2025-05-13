@@ -289,8 +289,9 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
                 bool master;
                 Seat *seat;
 
-                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
-                        sn = "seat0";
+                r = device_get_seat(d, &sn);
+                if (r < 0)
+                        return r;
 
                 if (!seat_name_is_valid(sn)) {
                         log_device_warning(d, "Device with invalid seat name %s found, ignoring.", sn);
@@ -352,8 +353,9 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 if (r < 0)
                         return r;
 
-                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
-                        sn = "seat0";
+                r = device_get_seat(d, &sn);
+                if (r < 0)
+                        return r;
 
                 button_set_seat(b, sn);
 
