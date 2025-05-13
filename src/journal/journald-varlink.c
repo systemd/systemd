@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
 #include "journald-server.h"
 #include "journald-varlink.h"
+#include "log.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"

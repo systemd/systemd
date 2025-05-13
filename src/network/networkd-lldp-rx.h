@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-
-typedef struct Link Link;
+#include "networkd-forward.h"
 
 typedef enum LLDPMode {
         LLDP_MODE_NO = 0,

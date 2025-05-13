@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "netif-naming-scheme.h"
-#include "string-util.h"
 #include "tests.h"
 
 #ifdef _DEFAULT_NET_NAMING_SCHEME

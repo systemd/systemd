@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stddef.h>
-#include <sys/epoll.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -13,16 +14,19 @@
 #include "journal-internal.h"
 #include "journald-client.h"
 #include "journald-console.h"
+#include "journald-context.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
 #include "journald-wall.h"
+#include "log.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "time-util.h"
 
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)

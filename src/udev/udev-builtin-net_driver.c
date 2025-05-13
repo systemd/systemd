@@ -6,8 +6,6 @@
 #include "errno-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
-#include "log.h"
-#include "string-util.h"
 #include "udev-builtin.h"
 
 static int builtin_net_driver_set_driver(UdevEvent *event, int argc, char **argv) {
