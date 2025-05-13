@@ -6,8 +6,11 @@
 #include <net/ethernet.h>
 #include <net/if.h>
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
-#include "bridge.h"
+#include "conf-parser.h"
+#include "hashmap.h"
 #include "netlink-util.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-link.h"
@@ -16,6 +19,7 @@
 #include "networkd-queue.h"
 #include "networkd-util.h"
 #include "parse-util.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "vlan-util.h"
 #include "vxlan.h"
