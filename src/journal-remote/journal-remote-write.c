@@ -3,8 +3,10 @@
 #include <libgen.h>
 
 #include "alloc-util.h"
+#include "hashmap.h"
 #include "journal-file-util.h"
 #include "journal-remote.h"
+#include "journal-vacuum.h"
 #include "log.h"
 #include "path-util.h"
 #include "stat-util.h"

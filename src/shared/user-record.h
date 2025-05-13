@@ -1,18 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
 #include "sd-json.h"
 
 #include "bitfield.h"
-#include "hashmap.h"
 #include "rlimit-util.h"
-#include "strv.h"
-#include "time-util.h"
-#include "user-util.h"
+#include "forward.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -26,7 +20,7 @@ typedef enum UserDisposition {
         _USER_DISPOSITION_INVALID = -EINVAL,
 } UserDisposition;
 
-typedef enum UserHomeStorage {
+typedef enum UserStorage {
         USER_CLASSIC,
         USER_LUKS,
         USER_DIRECTORY, /* A directory, and a .identity file in it, which USER_CLASSIC lacks */
@@ -541,22 +535,11 @@ typedef struct UserDBMatch {
                         INDEXES_TO_MASK(uint64_t, USER_INTRINSIC, USER_SYSTEM), \
                 .uid_min = 0,                                   \
                 .uid_max = UID_NOBODY - 1,                      \
-       }
+        }
 
-static inline bool userdb_match_is_set(const UserDBMatch *match) {
-        if (!match)
-                return false;
+bool userdb_match_is_set(const UserDBMatch *match);
 
-        return !strv_isempty(match->fuzzy_names) ||
-                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
-                match->uid_min > 0 ||
-                match->uid_max < UID_INVALID-1;
-}
-
-static inline void userdb_match_done(UserDBMatch *match) {
-        assert(match);
-        strv_free(match->fuzzy_names);
-}
+void userdb_match_done(UserDBMatch *match);
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 bool user_record_match(UserRecord *u, const UserDBMatch *match);

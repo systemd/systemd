@@ -3,8 +3,7 @@
 
 #include <sched.h>
 
-#include "memory-util.h"
-#include "missing_syscall.h"
+#include "forward.h"
 
 /* This wraps the libc interface with a variable to keep the allocated size. */
 typedef struct CPUSet {
