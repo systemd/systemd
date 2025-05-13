@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "efi.h"
-#include "efivars-fundamental.h"
+#include "forward.h"
 
 typedef enum {
         ENROLL_OFF,         /* no Secure Boot key enrollment whatsoever, even manual entries are not generated */

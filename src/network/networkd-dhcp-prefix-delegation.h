@@ -1,16 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-dhcp-lease.h"
-#include "sd-dhcp6-lease.h"
-
-#include "conf-parser.h"
-
-typedef struct Address Address;
-typedef struct Link Link;
-typedef struct Network Network;
+#include "networkd-forward.h"
 
 bool link_dhcp_pd_is_enabled(Link *link);
 bool dhcp_pd_is_uplink(Link *link, Link *target, bool accept_auto);

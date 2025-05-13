@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include "env-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "random-util.h"
 #include "serialize.h"
 #include "string-util.h"

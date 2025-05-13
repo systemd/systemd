@@ -5,14 +5,13 @@
 #include <net/if.h>
 #include <netinet/in.h>
 
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
 #include "fou-tunnel.h"
-#include "ip-protocol-list.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
-#include "parse-util.h"
 #include "string-table.h"
-#include "string-util.h"
 
 static const char* const fou_encap_type_table[_NETDEV_FOO_OVER_UDP_ENCAP_MAX] = {
         [NETDEV_FOO_OVER_UDP_ENCAP_DIRECT] = "FooOverUDP",
