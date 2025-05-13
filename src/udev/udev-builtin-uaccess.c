@@ -32,8 +32,9 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                 return log_device_error_errno(dev, r, "Failed to get device node: %m");
 
         const char *seat;
-        if (sd_device_get_property_value(dev, "ID_SEAT", &seat) < 0)
-                seat = "seat0";
+        r = device_get_seat(dev, &seat);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get seat: %m");
 
         uid_t uid;
         r = sd_seat_get_active(seat, /* ret_session = */ NULL, &uid);
