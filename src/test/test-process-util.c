@@ -113,7 +113,8 @@ TEST(pid_get_comm) {
                 (void) parse_pid(saved_argv[1], &pid);
                 test_pid_get_comm_one(pid);
         } else {
-                TEST_REQ_RUNNING_SYSTEMD(test_pid_get_comm_one(1));
+                if (sd_booted() > 0)
+                        test_pid_get_comm_one(1);
                 test_pid_get_comm_one(getpid());
         }
 }
