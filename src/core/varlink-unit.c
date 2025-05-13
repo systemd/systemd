@@ -2,7 +2,11 @@
 
 #include "sd-json.h"
 
+#include "bitfield.h"
+#include "condition.h"
+#include "execute.h"
 #include "json-util.h"
+#include "install.h"
 #include "manager.h"
 #include "set.h"
 #include "strv.h"
@@ -183,6 +187,115 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
         // Socket context
 }
 
+static int can_clean_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Unit *u = ASSERT_PTR(userdata);
+        ExecCleanMask mask;
+        int r;
+
+        assert(ret);
+
+        r = unit_can_clean(u, &mask);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if unit can be cleaned: %m");
+
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                if (!BIT_SET(mask, t))
+                        continue;
+
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING(exec_resource_type_to_string(t)));
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(mask, EXEC_CLEAN_FDSTORE)) {
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING("fdstore"));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int markers_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        unsigned *markers = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        BIT_FOREACH(m, *markers) {
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING(unit_marker_to_string(m)));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        const ActivationDetails *activation_details = userdata;
+        _cleanup_strv_free_ char **pairs = NULL;
+        int r;
+
+        assert(ret);
+
+        /* activation_details_append_pair() gracefully takes activation_details==NULL */
+        r = activation_details_append_pair(activation_details, &pairs);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get activation details: %m");
+
+        STRV_FOREACH_PAIR(key, value, pairs) {
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("type", *key),
+                                SD_JSON_BUILD_PAIR_STRING("name", *value));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+        Unit *f = unit_following(u);
+
+        return sd_json_buildo(
+                        ASSERT_PTR(ret),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Following", f ? f->id : NULL),
+                        SD_JSON_BUILD_PAIR_STRING("LoadState", unit_load_state_to_string(u->load_state)),
+                        SD_JSON_BUILD_PAIR_STRING("ActiveState", unit_active_state_to_string(unit_active_state(u))),
+                        SD_JSON_BUILD_PAIR_STRING("FreezerState", freezer_state_to_string(u->freezer_state)),
+                        SD_JSON_BUILD_PAIR_STRING("SubState", unit_sub_state_to_string(u)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UnitFileState", unit_file_state_to_string(unit_get_unit_file_state(u))),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("StateChangeTimestamp", &u->state_change_timestamp),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ActiveEnterTimestamp", &u->active_enter_timestamp),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ActiveExitTimestamp", &u->active_exit_timestamp),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InactiveEnterTimestamp", &u->inactive_enter_timestamp),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InactiveExitTimestamp", &u->inactive_exit_timestamp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanStart", unit_can_start_refuse_manual(u)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanStop", unit_can_stop_refuse_manual(u)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanReload", unit_can_reload(u)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanIsolate", unit_can_isolate_refuse_manual(u)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CanClean", can_clean_build_json, u),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanFreeze", unit_can_freeze(u)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanLiveMount", unit_can_live_mount(u, /* error= */ NULL) >= 0),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("JobId", u->job ? u->job->id : 0),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("NeedDaemonReload", unit_need_daemon_reload(u)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ConditionResult", u->condition_result),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("AssertResult", u->assert_result),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ConditionTimestamp", &u->condition_timestamp),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("AssertTimestamp", &u->assert_timestamp),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(u->invocation_id), "InvocationID", SD_JSON_BUILD_UUID(u->invocation_id)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Markers", markers_build_json, &u->markers),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ActivationDetails", activation_details_build_json, u->activation_details),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation));
+}
+
 static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
@@ -190,7 +303,10 @@ static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
         assert(link);
         assert(unit);
 
-        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit));
+        r = sd_json_buildo(
+                &v,
+                SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit),
+                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, unit));
         if (r < 0)
                 return r;
 
