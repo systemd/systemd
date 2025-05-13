@@ -2,7 +2,9 @@
 
 #include "console.h"
 #include "efi-string-table.h"
+#include "efivars-fundamental.h"
 #include "efivars.h"
+#include "log.h"
 #include "proto/security-arch.h"
 #include "secure-boot.h"
 #include "util.h"

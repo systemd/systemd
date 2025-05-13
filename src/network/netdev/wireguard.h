@@ -2,16 +2,13 @@
 
 #pragma once
 
-typedef struct Wireguard Wireguard;
-
 #include <linux/wireguard.h>
 #include <netinet/in.h>
 
-#include "sd-event.h"
-#include "sd-resolve.h"
-
 #include "in-addr-util.h"
+#include "list.h"
 #include "netdev.h"
+#include "networkd-forward.h"
 #include "socket-util.h"
 
 typedef struct WireguardIPmask {

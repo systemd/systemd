@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "pidref.h"
+#include "forward.h"
 
 #define AUDIT_SESSION_INVALID UINT32_MAX
 

@@ -1,15 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hashmap.h"
 #include "list.h"
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
-typedef struct DnsScope DnsScope;
-typedef struct DnsTransaction DnsTransaction;
-typedef struct DnsZoneItem DnsZoneItem;
+#include "resolved-forward.h"
 
 typedef struct DnsZone {
         Hashmap *by_key;
