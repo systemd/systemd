@@ -2,15 +2,15 @@
 
 #include <getopt.h>
 #include <locale.h>
+#include <signal.h>
 #include <unistd.h>
-
-#include "sd-daemon.h"
 
 #include "argv-util.h"
 #include "build.h"
 #include "bus-util.h"
 #include "capsule-util.h"
 #include "dissect-image.h"
+#include "extract-word.h"
 #include "install.h"
 #include "logs-show.h"
 #include "main-func.h"
@@ -19,14 +19,10 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
-#include "reboot-util.h"
-#include "rlimit-util.h"
-#include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "systemctl.h"
 #include "systemctl-add-dependency.h"
 #include "systemctl-cancel-job.h"
@@ -60,13 +56,10 @@
 #include "systemctl-start-special.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-switch-root.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
 #include "systemctl-whoami.h"
-#include "terminal-util.h"
 #include "time-util.h"
-#include "user-util.h"
 #include "verbs.h"
 #include "virt.h"
 

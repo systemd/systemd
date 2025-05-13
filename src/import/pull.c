@@ -4,7 +4,6 @@
 #include <locale.h>
 
 #include "sd-event.h"
-#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -12,10 +11,10 @@
 #include "discover-image.h"
 #include "env-util.h"
 #include "hexdecoct.h"
-#include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -23,7 +22,6 @@
 #include "pull-tar.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "verbs.h"
 #include "web-util.h"
 
@@ -109,7 +107,7 @@ static void on_tar_finished(TarPull *pull, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int pull_tar(int argc, char *argv[], void *userdata) {
@@ -179,7 +177,7 @@ static void on_raw_finished(RawPull *pull, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int pull_raw(int argc, char *argv[], void *userdata) {

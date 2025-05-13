@@ -2,9 +2,8 @@
 #pragma once
 
 #include <fcntl.h>
-#include <sys/stat.h>
 
-#include "memory-util.h"
+#include "forward.h"
 
 typedef enum RemoveFlags {
         REMOVE_ONLY_DIRECTORIES = 1 << 0, /* Only remove empty directories, no files */

@@ -3,10 +3,10 @@
 #include <getopt.h>
 #include <locale.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stdlib.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -23,10 +23,13 @@
 #include "parse-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
 #include "sparse-endian.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;

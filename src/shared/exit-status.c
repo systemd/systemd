@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <signal.h>
-#include <stdlib.h>
 #include <sysexits.h>
 
 #include "exit-status.h"
-#include "macro.h"
 #include "parse-util.h"
-#include "set.h"
 #include "string-util.h"
 
 const ExitStatusMapping exit_status_mappings[256] = {
