@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stddef.h>
-#include <sys/socket.h>
-
-typedef struct Server Server;
+#include "journald-forward.h"
 
 void server_process_native_message(
                 Server *s,
