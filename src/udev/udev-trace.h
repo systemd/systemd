@@ -8,6 +8,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
+#include "forward.h"
 
 /* Each trace point can have different number of additional arguments. Note that when the macro is used only
  * additional arguments are listed in the macro invocation!

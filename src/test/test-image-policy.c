@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "ansi-color.h"
 #include "image-policy.h"
-#include "pager.h"
-#include "pretty-print.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void test_policy(const ImagePolicy *p, const char *name) {

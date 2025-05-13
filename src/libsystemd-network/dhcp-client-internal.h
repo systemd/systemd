@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
 #include "sd-dhcp-client.h"
 
-#include "macro.h"
+#include "forward.h"
 #include "network-common.h"
 
 typedef enum DHCPState {
