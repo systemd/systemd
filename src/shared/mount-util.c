@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/loop.h>
 #include <stdlib.h>
 #include <sys/mount.h>
@@ -11,16 +10,15 @@
 #include "alloc-util.h"
 #include "chase.h"
 #include "dissect-image.h"
-#include "exec-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
-#include "initrd-util.h"
-#include "label-util.h"
 #include "libmount-util.h"
 #include "log.h"
 #include "missing_syscall.h"
@@ -28,14 +26,12 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
-#include "stdio-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -1869,6 +1865,25 @@ int make_fsmount(
                                       type);
 
         return TAKE_FD(mnt_fd);
+}
+
+char* umount_and_rmdir_and_free(char *p) {
+        if (!p)
+                return NULL;
+
+        PROTECT_ERRNO;
+        (void) umount_recursive(p, 0);
+        (void) rmdir(p);
+        return mfree(p);
+}
+
+char* umount_and_free(char *p) {
+        if (!p)
+                return NULL;
+
+        PROTECT_ERRNO;
+        (void) umount_recursive(p, 0);
+        return mfree(p);
 }
 
 char* umount_and_unlink_and_free(char *p) {

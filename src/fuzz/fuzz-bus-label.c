@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "alloc-util.h"
 #include "bus-label.h"
 #include "fuzz.h"

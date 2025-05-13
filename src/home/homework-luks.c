@@ -5,6 +5,10 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/xattr.h>
+#include "cryptsetup-util.h"
+#include "homework-password-cache.h"
+#include "missing_syscall.h"
+#include "user-record-util.h"
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
@@ -13,6 +17,7 @@
 #include "sd-daemon.h"
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-gpt.h"
 #include "sd-id128.h"
 
 #include "blkid-util.h"
@@ -21,18 +26,19 @@
 #include "chattr-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
-#include "dm-util.h"
+#include "dissect-image.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
 #include "fileio.h"
 #include "filesystems.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "fsck-util.h"
 #include "glyph-util.h"
-#include "gpt.h"
 #include "home-util.h"
+#include "homework.h"
 #include "homework-blob.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
@@ -50,10 +56,13 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "resize-fs.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 /* Round down to the nearest 4K size. Given that newer hardware generally prefers 4K sectors, let's align our
@@ -3912,4 +3921,18 @@ int home_auto_shrink_luks(UserRecord *h, HomeSetup *setup, PasswordCache *cache)
                 return r;
 
         return 1;
+}
+
+uint64_t luks_volume_key_size_convert(struct crypt_device *cd) {
+        int k;
+
+        assert(cd);
+
+        /* Convert the "int" to uint64_t, which we usually use for byte sizes stored on disk. */
+
+        k = sym_crypt_get_volume_key_size(cd);
+        if (k <= 0)
+                return UINT64_MAX;
+
+        return (uint64_t) k;
 }
