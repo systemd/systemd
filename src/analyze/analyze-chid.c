@@ -361,7 +361,10 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to open device %s: %m", arg_drm_device_path);
 
-                if (!device_in_subsystem(drm_dev, "drm"))
+                r = device_in_subsystem(drm_dev, "drm");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if the device is a DRM device: %m");
+                if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot read EDID from a non-DRM device '%s'", arg_drm_device_path);
 
                 r = edid_parse(drm_dev, &smbios_fields[CHID_EDID_PANEL]);

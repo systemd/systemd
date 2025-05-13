@@ -506,7 +506,11 @@ static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
         if (r < 0)
                 return r;
 
-        return device_path_make_major_minor(device_in_subsystem(dev, "block") ? S_IFBLK : S_IFCHR, devnum, ret);
+        r = device_in_subsystem(dev, "block");
+        if (r < 0)
+                return r;
+
+        return device_path_make_major_minor(r > 0 ? S_IFBLK : S_IFCHR, devnum, ret);
 }
 
 int udev_node_update(sd_device *dev, sd_device *dev_old) {

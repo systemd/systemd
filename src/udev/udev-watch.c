@@ -199,12 +199,16 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         assert(manager);
         assert(dev);
 
-        const char *sysname;
-        r = sd_device_get_sysname(dev, &sysname);
+        r = device_sysname_startswith(dev, "dm-");
         if (r < 0)
                 return r;
+        if (r > 0)
+                return synthesize_change_one(dev, dev);
 
-        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
+        r = block_device_is_whole_disk(dev);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return synthesize_change_one(dev, dev);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;

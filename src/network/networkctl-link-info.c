@@ -327,7 +327,7 @@ static void acquire_wlan_link_info(LinkInfo *link) {
         if (!link->sd_device)
                 return;
 
-        if (!device_is_devtype(link->sd_device, "wlan"))
+        if (device_is_devtype(link->sd_device, "wlan") <= 0)
                 return;
 
         r = sd_genl_socket_open(&genl);
