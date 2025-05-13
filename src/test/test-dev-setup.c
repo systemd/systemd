@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "capability-util.h"
 #include "dev-setup.h"
-#include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
