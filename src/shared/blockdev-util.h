@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
+#include <sys/sysmacros.h>
 
 #include "sd-device.h"
 
-#include "macro.h"
+#include "forward.h"
 #include "stdio-util.h"
 #include "string-util.h"
 

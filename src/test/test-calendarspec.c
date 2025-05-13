@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <time.h>
+
 #include "alloc-util.h"
 #include "calendarspec.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 static void _test_one(int line, const char *input, const char *output) {
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;

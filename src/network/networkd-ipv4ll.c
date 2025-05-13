@@ -1,16 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if.h>
+#include <linux/rtnetlink.h>
 #include <netinet/in.h>
 
+#include "sd-event.h"
+#include "sd-ipv4ll.h"
+
+#include "errno-util.h"
 #include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
-#include "networkd-queue.h"
 #include "parse-util.h"
+#include "set.h"
 
 bool link_ipv4ll_enabled(Link *link) {
         assert(link);
