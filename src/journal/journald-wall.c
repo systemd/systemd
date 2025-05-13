@@ -4,6 +4,7 @@
 #include "format-util.h"
 #include "journald-server.h"
 #include "journald-wall.h"
+#include "log.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "wall.h"
