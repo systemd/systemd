@@ -2,8 +2,8 @@
 #pragma once
 
 #include <endian.h>
-#include <stdint.h>
 
+#include "forward.h"
 #include "unaligned-fundamental.h"
 
 /* BE */

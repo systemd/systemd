@@ -8,12 +8,9 @@
 #include "fileio.h"
 #include "glob-util.h"
 #include "log.h"
-#include "macro.h"
-#include "path-util.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
-#include "string-util.h"
-#include "strv.h"
+#include "siphash24.h"
 #include "tests.h"
 #include "unaligned.h"
 

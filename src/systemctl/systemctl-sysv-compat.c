@@ -1,20 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "env-util.h"
 #include "fd-util.h"
 #include "initreq.h"
 #include "install.h"
 #include "io-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "systemctl.h"
 #include "systemctl-sysv-compat.h"
+#include "time-util.h"
 
 int talk_initctl(char rl) {
 #if HAVE_SYSV_COMPAT
