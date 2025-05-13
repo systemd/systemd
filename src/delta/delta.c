@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <sys/prctl.h>
 #include <unistd.h>
@@ -20,15 +19,12 @@
 #include "nulstr-util.h"
 #include "pager.h"
 #include "parse-argument.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static const char prefixes[] =
         "/etc\0"

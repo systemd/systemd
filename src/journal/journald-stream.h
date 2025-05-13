@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "fdset.h"
-
-typedef struct Server Server;
-typedef struct StdoutStream StdoutStream;
+#include "journald-forward.h"
 
 int server_open_stdout_socket(Server *s, const char *stdout_socket);
 int server_restore_streams(Server *s, FDSet *fds);

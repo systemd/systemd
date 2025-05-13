@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <pwd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-messages.h"
 
@@ -26,13 +27,16 @@
 #include "efivars.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "login-util.h"
+#include "logind-session.h"
 #include "logind.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
@@ -44,22 +48,20 @@
 #include "logind-user-dbus.h"
 #include "logind-utmp.h"
 #include "mkdir-label.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "reboot-util.h"
-#include "selinux-util.h"
 #include "serialize.h"
 #include "signal-util.h"
 #include "sleep-config.h"
-#include "special.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
-#include "unit-name.h"
+#include "user-record.h"
 #include "user-util.h"
-#include "utmp-wtmp.h"
 #include "virt.h"
 #include "wall.h"
 

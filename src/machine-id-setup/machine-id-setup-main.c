@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "build.h"
@@ -15,9 +13,7 @@
 #include "main-func.h"
 #include "mount-util.h"
 #include "parse-argument.h"
-#include "path-util.h"
 #include "pretty-print.h"
-#include "terminal-util.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
