@@ -2,14 +2,10 @@
 #pragma once
 
 #include "list.h"
+#include "logind-forward.h"
 #include "time-util.h"
 
-typedef struct Device Device;
-typedef struct Manager Manager;
-typedef struct Seat Seat;
-typedef struct SessionDevice SessionDevice;
-
-struct Device {
+typedef struct Device {
         Manager *manager;
 
         char *sysfs;
@@ -20,7 +16,7 @@ struct Device {
 
         LIST_FIELDS(Device, devices);
         LIST_HEAD(SessionDevice, session_devices);
-};
+} Device;
 
 Device* device_new(Manager *m, const char *sysfs, bool master);
 void device_free(Device *d);

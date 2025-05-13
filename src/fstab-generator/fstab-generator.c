@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "argv-util.h"
@@ -14,6 +16,7 @@
 #include "creds-util.h"
 #include "efi-loader.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -23,15 +26,12 @@
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
-#include "process-util.h"
 #include "special.h"
 #include "specifier.h"
 #include "stat-util.h"
