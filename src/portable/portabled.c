@@ -1,24 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "bus-log-control-api.h"
-#include "bus-polkit.h"
 #include "bus-util.h"
 #include "common-signal.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "hashmap.h"
+#include "log.h"
 #include "main-func.h"
 #include "portabled.h"
-#include "portabled-bus.h"
 #include "portabled-image-bus.h"
-#include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
+#include "time-util.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);

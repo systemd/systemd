@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <locale.h>
 
 #include "sd-journal.h"
 
 #include "build.h"
+#include "dissect-image.h"
+#include "extract-word.h"
 #include "glob-util.h"
 #include "id128-print.h"
 #include "image-policy.h"
@@ -14,16 +17,21 @@
 #include "journalctl-misc.h"
 #include "journalctl-show.h"
 #include "journalctl-varlink.h"
-#include "locale-util.h"
+#include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "set.h"
 #include "static-destruct.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 

@@ -2,6 +2,7 @@
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "cake.h"
@@ -16,15 +17,14 @@
 #include "gred.h"
 #include "hhf.h"
 #include "htb.h"
-#include "in-addr-util.h"
 #include "mq.h"
 #include "multiq.h"
 #include "netem.h"
-#include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "pie.h"
 #include "qdisc.h"
@@ -32,6 +32,7 @@
 #include "set.h"
 #include "sfb.h"
 #include "sfq.h"
+#include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tbf.h"
