@@ -2309,6 +2309,24 @@ static int setup_wall_message_timer(Manager *m, sd_bus_message* message) {
         return 0;
 }
 
+static int cache_wakeup_count(void) {
+        static const char kernel_wakeup_count[] = "/sys/power/wakeup_count";
+        static const char systemd_wakeup_count[] = "/run/wakeup_count";
+        _cleanup_free_ char *buf = NULL;
+        size_t bufsize;
+        int r;
+
+        r = read_full_virtual_file(kernel_wakeup_count, &buf, &bufsize);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to read %s: %m", kernel_wakeup_count);
+
+        r = write_string_file(systemd_wakeup_count, buf, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write wakeup count %s: %m", systemd_wakeup_count);
+
+        return 0;
+}
+
 static int method_do_shutdown_or_sleep(
                 Manager *m,
                 sd_bus_message *message,
@@ -2368,6 +2386,10 @@ static int method_do_shutdown_or_sleep(
         if (action == HANDLE_SLEEP) {
                 HandleAction selected;
 
+                r = cache_wakeup_count();
+                if (r < 0)
+                        return r;
+
                 selected = handle_action_sleep_select(m);
                 if (selected < 0)
                         return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
@@ -2382,6 +2404,10 @@ static int method_do_shutdown_or_sleep(
 
                 assert(a->sleep_operation >= 0);
                 assert(a->sleep_operation < _SLEEP_OPERATION_MAX);
+
+                r = cache_wakeup_count();
+                if (r < 0)
+                        return r;
 
                 r = sleep_supported_full(a->sleep_operation, &support);
                 if (r < 0)
