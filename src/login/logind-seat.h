@@ -4,16 +4,10 @@
 #include "sd-device.h"
 
 #include "list.h"
-#include "memory-util.h"
+#include "logind-forward.h"
 #include "string-util.h"
-#include "time-util.h"
 
-typedef struct Device Device;
-typedef struct Manager Manager;
-typedef struct Seat Seat;
-typedef struct Session Session;
-
-struct Seat {
+typedef struct Seat {
         Manager *manager;
         char *id;
 
@@ -33,7 +27,7 @@ struct Seat {
         bool started:1;
 
         LIST_FIELDS(Seat, gc_queue);
-};
+} Seat;
 
 int seat_new(Manager *m, const char *id, Seat **ret);
 Seat* seat_free(Seat *s);
