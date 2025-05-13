@@ -126,7 +126,10 @@ static int link_get_wiphy(Link *link, Wiphy **ret) {
         if (!link->dev)
                 return -ENODEV;
 
-        if (!device_is_devtype(link->dev, "wlan"))
+        r = device_is_devtype(link->dev, "wlan");
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EOPNOTSUPP;
 
         r = sd_device_new_child(&phy, link->dev, "phy80211");

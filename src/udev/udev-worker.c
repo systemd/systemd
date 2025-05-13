@@ -47,17 +47,16 @@ int udev_get_whole_disk(sd_device *dev, sd_device **ret_device, const char **ret
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 goto irrelevant;
 
-        r = sd_device_get_sysname(dev, &val);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
-
         /* Exclude the following devices:
          * For "dm-", see the comment added by e918a1b5a94f270186dca59156354acd2a596494.
          * For "md", see the commit message of 2e5b17d01347d3c3118be2b8ad63d20415dbb1f0,
          * but not sure the assumption is still valid even when partitions are created on the md
          * devices, surprisingly which seems to be possible, see PR #22973.
          * For "drbd", see the commit message of fee854ee8ccde0cd28e0f925dea18cce35f3993d. */
-        if (STARTSWITH_SET(val, "dm-", "md", "drbd"))
+        r = device_sysname_startswith(dev, "dm-", "md", "drbd");
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check sysname: %m");
+        if (r > 0)
                 goto irrelevant;
 
         r = block_device_get_whole_disk(dev, &dev);
@@ -149,9 +148,7 @@ nolock:
 }
 
 static int worker_mark_block_device_read_only(sd_device *dev) {
-        _cleanup_close_ int fd = -EBADF;
-        const char *val;
-        int state = 1, r;
+        int r;
 
         assert(dev);
 
@@ -161,23 +158,31 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
         if (!device_for_action(dev, SD_DEVICE_ADD))
                 return 0;
 
-        if (!device_in_subsystem(dev, "block"))
-                return 0;
-
-        r = sd_device_get_sysname(dev, &val);
+        r = device_in_subsystem(dev, "block");
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+                return r;
+        if (r == 0)
+                return 0;
 
         /* Exclude synthetic devices for now, this is supposed to be a safety feature to avoid modification
          * of physical devices, and what sits on top of those doesn't really matter if we don't allow the
          * underlying block devices to receive changes. */
-        if (STARTSWITH_SET(val, "dm-", "md", "drbd", "loop", "nbd", "zram"))
+        r = device_sysname_startswith(dev, "dm-", "md", "drbd", "loop", "nbd", "zram");
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check sysname: %m");
+        if (r > 0)
                 return 0;
 
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        const char *val;
+        r = sd_device_get_devname(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device node: %m");
+
+        _cleanup_close_ int fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_device_debug_errno(dev, fd, "Failed to open '%s', ignoring: %m", val);
 
+        int state = 1;
         if (ioctl(fd, BLKROSET, &state) < 0)
                 return log_device_warning_errno(dev, errno, "Failed to mark block device '%s' read-only: %m", val);
 

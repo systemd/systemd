@@ -441,7 +441,10 @@ static int device_verify(sd_device *device) {
                 return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
                                               "sd-device: Device created from strv or nulstr lacks devpath, subsystem, action or seqnum.");
 
-        if (device_in_subsystem(device, "drivers")) {
+        r = device_in_subsystem(device, "drivers");
+        if (r < 0)
+                return log_device_debug_errno(device, r, "sd-device: Failed to check if the device is a driver: %m");
+        if (r > 0) {
                 r = device_set_drivers_subsystem(device);
                 if (r < 0)
                         return log_device_debug_errno(device, r,

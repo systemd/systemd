@@ -394,7 +394,10 @@ static int enumerator_sort_devices(sd_device_enumerator *enumerator) {
                         HASHMAP_FOREACH_KEY(device, syspath, enumerator->devices_by_syspath) {
                                 _cleanup_free_ char *p = NULL;
 
-                                if (!device_in_subsystem(device, *prioritized_subsystem))
+                                r = device_in_subsystem(device, *prioritized_subsystem);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
                                         continue;
 
                                 devices[n++] = sd_device_ref(device);
