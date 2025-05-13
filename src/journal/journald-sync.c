@@ -138,7 +138,7 @@ SyncReq* sync_req_free(SyncReq *req) {
                         LIST_REMOVE(pending_rqlen, req->server->sync_req_pending_rqlen, req);
         }
 
-        req->idle_event_source = sd_event_source_disable_unref(req->idle_event_source);
+        sd_event_source_disable_unref(req->idle_event_source);
 
         sd_varlink_unref(req->link);
 
