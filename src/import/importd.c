@@ -724,7 +724,8 @@ static int manager_new(Manager **ret) {
                         SD_EVENT_PRIORITY_NORMAL,
                         manager_on_notify,
                         m,
-                        &m->notify_socket_path);
+                        &m->notify_socket_path,
+                        /* ret_event_source= */ NULL);
         if (r < 0)
                 return r;
 
