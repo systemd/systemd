@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "sd-bus.h"
 
@@ -13,7 +11,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
-#include "terminal-util.h"
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;

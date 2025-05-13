@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <poll.h>
 #include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "sd-event.h"

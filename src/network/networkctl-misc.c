@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
+#include "sd-bus.h"
+#include "sd-netlink.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-ifname.h"
 #include "log.h"
@@ -14,7 +17,7 @@
 #include "parse-util.h"
 #include "polkit-agent.h"
 #include "set.h"
-#include "strv.h"
+#include "string-util.h"
 #include "varlink-util.h"
 
 static int link_up_down_send_message(sd_netlink *rtnl, char *command, int index) {

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "core-forward.h"
 #include "unit.h"
 
 /* A mask specifying where we have seen the device currently. This is a bitmask because the device might show up

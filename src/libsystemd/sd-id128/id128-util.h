@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <stdbool.h>
-
 #include "sd-id128.h"
 
 #include "errno-util.h"
-#include "hash-funcs.h"
-#include "macro.h"
+#include "forward.h"
 
 bool id128_is_valid(const char *s) _pure_;
 
