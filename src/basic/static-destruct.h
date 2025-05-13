@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include <errno.h>
-
-#include "macro.h"
+#include "forward.h"
 #include "memory-util.h"
 
 typedef void (*free_func_t)(void *p);

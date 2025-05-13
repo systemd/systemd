@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "memory-util.h"
 #include "systemctl.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-preset-all.h"

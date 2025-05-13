@@ -1,20 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
-#include "hashmap.h"
 #include "list.h"
+#include "logind-forward.h"
 #include "pidref.h"
-#include "string-util.h"
 #include "time-util.h"
-
-typedef struct Manager Manager;
-typedef struct Seat Seat;
-typedef struct Session Session;
-typedef struct User User;
+#include "string-util.h"
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */
