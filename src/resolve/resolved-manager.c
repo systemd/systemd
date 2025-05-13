@@ -6,28 +6,28 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-netlink.h"
+#include "sd-network.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
-#include "bus-polkit.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
-#include "idn-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "memstream-util.h"
 #include "missing_network.h"
 #include "missing_socket.h"
-#include "netlink-util.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -53,11 +53,10 @@
 #include "resolved-socket-graveyard.h"
 #include "resolved-util.h"
 #include "resolved-varlink.h"
-#include "socket-netlink.h"
+#include "set.h"
 #include "socket-util.h"
-#include "string-table.h"
 #include "string-util.h"
-#include "utf8.h"
+#include "time-util.h"
 #include "varlink-util.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)

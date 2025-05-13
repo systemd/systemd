@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
+
 #include "netdev.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
+#include "ordered-set.h"
+#include "siphash24.h"
 #include "string-table.h"
 
 #define REPLY_CALLBACK_COUNT_THRESHOLD 128

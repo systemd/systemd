@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "efi.h"
+#include "forward.h"
 
 bool shim_loaded(void);
 bool shim_loader_available(void);
