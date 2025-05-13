@@ -66,10 +66,12 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-journal-header-util.c'),
+                'conditions' : ['HAVE_LIBCURL'],
                 'objects' : ['systemd-journal-upload'],
         },
         fuzz_template + {
                 'sources' : files('fuzz-journal-remote.c'),
+                'conditions' : ['HAVE_MICROHTTPD'],
                 'objects' : ['systemd-journal-remote'],
                 'dependencies' : common_deps + [libmicrohttpd],
         },
