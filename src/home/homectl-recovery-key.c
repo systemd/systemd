@@ -9,10 +9,8 @@
 #include "log.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
-#include "random-util.h"
 #include "recovery-key.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static int add_privileged(sd_json_variant **v, const char *hashed) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL, *w = NULL, *l = NULL;

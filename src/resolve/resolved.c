@@ -4,21 +4,19 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "bus-log-control-api.h"
 #include "capability-util.h"
 #include "daemon-util.h"
+#include "label-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "resolved-bus.h"
-#include "resolved-conf.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
-#include "selinux-util.h"
 #include "service-util.h"
-#include "signal-util.h"
 #include "user-util.h"
 
 static int run(int argc, char *argv[]) {
