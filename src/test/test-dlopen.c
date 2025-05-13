@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <dlfcn.h>
-#include <stdlib.h>
 
-#include "assert-util.h"
-#include "macro.h"
+#include "forward.h"
 
 int main(int argc, char **argv) {
         void *handles[argc - 1];
