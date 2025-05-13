@@ -18,11 +18,11 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Service.Name,     config_parse_dnssd_service_name,    0,                 0
-Service.Type,     config_parse_dnssd_service_type,    0,                 0
-Service.SubType,  config_parse_dnssd_service_subtype, 0,                 0
-Service.Port,     config_parse_ip_port,               0,                 offsetof(DnssdService, port)
-Service.Priority, config_parse_uint16,                0,                 offsetof(DnssdService, priority)
-Service.Weight,   config_parse_uint16,                0,                 offsetof(DnssdService, weight)
+Service.Name,     config_parse_dnssd_registered_service_name,    0,                 0
+Service.Type,     config_parse_dnssd_registered_service_type,    0,                 0
+Service.SubType,  config_parse_dnssd_registered_service_subtype, 0,                 0
+Service.Port,     config_parse_ip_port,               0,                 offsetof(DnssdRegisteredService, port)
+Service.Priority, config_parse_uint16,                0,                 offsetof(DnssdRegisteredService, priority)
+Service.Weight,   config_parse_uint16,                0,                 offsetof(DnssdRegisteredService, weight)
 Service.TxtText,  config_parse_dnssd_txt,             DNS_TXT_ITEM_TEXT, 0
 Service.TxtData,  config_parse_dnssd_txt,             DNS_TXT_ITEM_DATA, 0
