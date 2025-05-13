@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
 #include "bus-object.h"
-#include "macro.h"
-
-typedef struct User User;
+#include "logind-forward.h"
 
 extern const BusObjectImplementation user_object;
 
