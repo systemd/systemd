@@ -6,10 +6,12 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
 #include "install.h"
+#include "log.h"
 #include "missing_socket.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -18,6 +20,7 @@
 #include "socket-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 /* A small generator binding potentially five or more SSH sockets:
