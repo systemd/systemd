@@ -2812,6 +2812,9 @@ bool user_record_match(UserRecord *u, const UserDBMatch *match) {
         if (!BIT_SET(match->disposition_mask, user_record_disposition(u)))
                 return false;
 
+        if (!sd_id128_is_null(match->uuid) && !sd_id128_equal(match->uuid, u->uuid))
+                return false;
+
         if (!strv_isempty(match->fuzzy_names)) {
 
                 /* Note this array of names is sparse, i.e. various entries listed in it will be
