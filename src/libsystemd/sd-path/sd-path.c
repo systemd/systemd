@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "sd-path.h"
 
 #include "alloc-util.h"
@@ -7,7 +9,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "log.h"
 #include "network-util.h"
 #include "nulstr-util.h"
 #include "path-lookup.h"

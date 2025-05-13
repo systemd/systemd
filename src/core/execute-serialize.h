@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "execute.h"
+#include "core-forward.h"
 
 /* These functions serialize/deserialize for invocation purposes (i.e.: serialized object is passed to a
  * child process) rather than to save state across reload/reexec. */

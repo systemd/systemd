@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptenroll-fido2.h"
 #include "cryptsetup-fido2.h"
@@ -9,9 +10,8 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "libfido2-util.h"
-#include "memory-util.h"
 #include "pretty-print.h"
-#include "random-util.h"
+#include "string-util.h"
 
 int load_volume_key_fido2(
                 struct crypt_device *cd,
@@ -20,6 +20,7 @@ int load_volume_key_fido2(
                 void *ret_vk,
                 size_t *ret_vks) {
 
+#if HAVE_LIBFIDO2
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *passphrase = NULL;
         size_t decrypted_key_size;
@@ -63,6 +64,9 @@ int load_volume_key_fido2(
                 return log_error_errno(r, "Unlocking via FIDO2 device failed: %m");
 
         return r;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "FIDO2 unlocking not supported.");
+#endif
 }
 
 int enroll_fido2(
@@ -74,6 +78,7 @@ int enroll_fido2(
                 const char *salt_file,
                 bool parameters_in_header) {
 
+#if HAVE_LIBFIDO2
         _cleanup_(iovec_done_erase) struct iovec salt = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
@@ -202,4 +207,7 @@ int enroll_fido2(
 
         log_info("New FIDO2 token enrolled as key slot %i.", keyslot);
         return keyslot;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "FIDO2 key enrollment not supported.");
+#endif
 }
