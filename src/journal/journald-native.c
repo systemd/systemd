@@ -1,25 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stddef.h>
-#include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
+#include "format-util.h"
 #include "iovec-util.h"
 #include "journal-importer.h"
 #include "journal-internal.h"
-#include "journal-util.h"
 #include "journald-client.h"
 #include "journald-console.h"
+#include "journald-context.h"
 #include "journald-kmsg.h"
 #include "journald-native.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
 #include "journald-wall.h"
+#include "log.h"
 #include "memfd-util.h"
 #include "memory-util.h"
 #include "parse-util.h"
@@ -29,7 +31,6 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "unaligned.h"
 
 static bool allow_object_pid(const struct ucred *ucred) {

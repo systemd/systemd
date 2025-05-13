@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <limits.h>
-
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
@@ -15,13 +13,12 @@
 #include "graphics.h"
 #include "initrd.h"
 #include "line-edit.h"
-#include "linux.h"
+#include "log.h"
 #include "measure.h"
 #include "memory-util-fundamental.h"
 #include "part-discovery.h"
 #include "pe.h"
 #include "proto/block-io.h"
-#include "proto/device-path.h"
 #include "proto/load-file.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
