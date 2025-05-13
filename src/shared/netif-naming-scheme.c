@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "sd-device.h"
 
 #include "alloc-util.h"
 #include "device-private.h"
+#include "log.h"
 #include "netif-naming-scheme.h"
 #include "proc-cmdline.h"
 #include "string-table.h"

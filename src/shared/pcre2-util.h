@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hash-funcs.h"
-#include "macro.h"
+#include "forward.h"
 
 #if HAVE_PCRE2
 
@@ -29,7 +28,7 @@ typedef struct {} pcre2_code;
 
 extern const struct hash_ops pcre2_code_hash_ops_free;
 
-typedef enum {
+typedef enum PatternCompileCase {
         PATTERN_COMPILE_CASE_AUTO,
         PATTERN_COMPILE_CASE_SENSITIVE,
         PATTERN_COMPILE_CASE_INSENSITIVE,

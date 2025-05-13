@@ -1,21 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <sys/epoll.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "async.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "dbus-path.h"
 #include "dbus-unit.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "event-util.h"
-#include "fd-util.h"
 #include "glob-util.h"
 #include "inotify-util.h"
-#include "macro.h"
 #include "manager.h"
 #include "mkdir-label.h"
 #include "path.h"
@@ -25,8 +23,8 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit.h"
-#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD]    = UNIT_INACTIVE,

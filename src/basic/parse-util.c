@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <inttypes.h>
 #include <linux/ipv6.h>
 #include <linux/netfilter/nf_tables.h>
 #include <net/if.h>
@@ -14,11 +12,9 @@
 #include "extract-word.h"
 #include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_network.h"
 #include "parse-util.h"
 #include "process-util.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 

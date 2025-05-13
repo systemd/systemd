@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "escape.h"
 #include "hexdecoct.h"
-#include "macro.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 
@@ -358,6 +357,10 @@ ssize_t cunescape_length_with_prefix(const char *s, size_t length, const char *p
         assert(t >= ans); /* Let static analyzers know that the answer is non-negative. */
         *ret = TAKE_PTR(ans);
         return t - *ret;
+}
+
+ssize_t cunescape(const char *s, UnescapeFlags flags, char **ret) {
+        return cunescape_length(s, strlen(s), flags, ret);
 }
 
 char* xescape_full(const char *s, const char *bad, size_t console_width, XEscapeFlags flags) {
