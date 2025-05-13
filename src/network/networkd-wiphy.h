@@ -1,15 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
-#include "sd-device.h"
-#include "sd-netlink.h"
-
-#include "macro.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
+#include "networkd-forward.h"
 
 /* The following values are different from the ones defined in linux/rfkill.h. */
 typedef enum RFKillState {

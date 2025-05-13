@@ -4,11 +4,12 @@
 #include <net/if.h>
 #include <netinet/in.h>
 
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
 #include "ipvlan.h"
 #include "ipvlan-util.h"
 #include "networkd-link.h"
-#include "string-util.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipvlan_mode, ipvlan_mode, IPVlanMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipvlan_flags, ipvlan_flags, IPVlanFlags);

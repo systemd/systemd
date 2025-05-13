@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <sys/stat.h>
 
@@ -15,7 +14,6 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "static-destruct.h"
-#include "terminal-util.h"
 
 static HibernateInfo arg_info = {};
 static bool arg_clear = false;

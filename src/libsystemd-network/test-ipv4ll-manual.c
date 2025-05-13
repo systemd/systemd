@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <linux/veth.h>
+#include <net/ethernet.h>
 #include <net/if.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -10,7 +11,6 @@
 #include "sd-ipv4ll.h"
 #include "sd-netlink.h"
 
-#include "alloc-util.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "parse-util.h"
