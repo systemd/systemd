@@ -3,9 +3,9 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "btrfs-util.h"
 #include "bus-polkit.h"
 #include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "image.h"
@@ -17,7 +17,6 @@
 #include "machined.h"
 #include "operation.h"
 #include "process-util.h"
-#include "string-util.h"
 
 typedef struct ImageUpdateParameters {
         const char *name;

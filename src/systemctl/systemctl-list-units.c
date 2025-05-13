@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
 #include "sd-login.h"
 
 #include "alloc-util.h"
@@ -7,15 +8,19 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-message-util.h"
+#include "bus-unit-util.h"
+#include "bus-util.h"
 #include "format-table.h"
-#include "locale-util.h"
+#include "glyph-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "sort-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-list-units.h"
 #include "systemctl-util.h"
-#include "terminal-util.h"
+#include "unit-name.h"
 
 static int get_unit_list_recursive(
                 sd_bus *bus,

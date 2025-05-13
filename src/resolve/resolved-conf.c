@@ -2,26 +2,19 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "constants.h"
 #include "creds-util.h"
-#include "dns-domain.h"
 #include "dns-type.h"
 #include "extract-word.h"
-#include "hexdecoct.h"
-#include "parse-util.h"
+#include "ordered-set.h"
 #include "proc-cmdline.h"
 #include "resolved-conf.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
-#include "resolved-dnssd.h"
 #include "resolved-manager.h"
+#include "set.h"
 #include "socket-netlink.h"
-#include "specifier.h"
-#include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
-#include "utf8.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
 
