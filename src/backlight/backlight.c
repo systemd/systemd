@@ -93,53 +93,58 @@ static int has_multiple_graphics_cards(void) {
 }
 
 static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
-        sd_device *parent;
-        const char *s;
         int r;
 
         assert(device);
         assert(ret);
 
-        r = sd_device_get_parent(device, &parent);
-        if (r < 0)
-                return r;
-
-        if (device_in_subsystem(parent, "drm")) {
-
-                r = sd_device_get_sysname(parent, &s);
+        for (;;) {
+                r = sd_device_get_parent(device, &device);
                 if (r < 0)
                         return r;
 
-                s = startswith(s, "card");
-                if (!s)
-                        return -ENODATA;
+                if (device_in_subsystem(device, "drm")) {
+                        const char *s;
 
-                s += strspn(s, DIGITS);
-                if (*s == '-' && !STARTSWITH_SET(s, "-LVDS-", "-Embedded DisplayPort-", "-eDP-"))
-                        /* A connector DRM device, let's ignore all but LVDS and eDP! */
-                        return -EOPNOTSUPP;
+                        r = sd_device_get_sysname(device, &s);
+                        if (r < 0)
+                                return r;
 
-        } else if (device_in_subsystem(parent, "pci") &&
-                   sd_device_get_sysattr_value(parent, "class", &s)) {
+                        s = startswith(s, "card");
+                        if (!s)
+                                return -ENODATA;
 
-                unsigned long class;
+                        s += strspn(s, DIGITS);
+                        if (*s == '-' && !STARTSWITH_SET(s, "-LVDS-", "-Embedded DisplayPort-", "-eDP-"))
+                                /* A connector DRM device, let's ignore all but LVDS and eDP! */
+                                return -EOPNOTSUPP;
 
-                r = safe_atolu(s, &class);
-                if (r < 0)
-                        return log_device_warning_errno(parent, r, "Cannot parse PCI class '%s': %m", s);
-
-                /* Graphics card */
-                if (class == PCI_CLASS_GRAPHICS_CARD) {
-                        *ret = parent;
-                        return 0;
+                        continue;
                 }
 
-        } else if (device_in_subsystem(parent, "platform")) {
-                *ret = parent;
-                return 0;
-        }
+                if (device_in_subsystem(device, "pci")) {
+                        uint32_t class;
 
-        return find_pci_or_platform_parent(parent, ret);
+                        r = device_get_sysattr_u32(device, "class", &class);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r < 0)
+                                return r;
+
+                        /* Graphics card */
+                        if (class == PCI_CLASS_GRAPHICS_CARD) {
+                                *ret = device;
+                                return 0;
+                        }
+
+                        continue;
+                }
+
+                if (device_in_subsystem(device, "platform")) {
+                        *ret = device;
+                        return 0;
+                }
+        }
 }
 
 static int same_device(sd_device *a, sd_device *b) {
