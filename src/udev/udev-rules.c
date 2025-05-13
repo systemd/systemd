@@ -2,9 +2,11 @@
 
 #include <ctype.h>
 #include <fnmatch.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "confidential-virt.h"
@@ -19,9 +21,9 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "hashmap.h"
 #include "list.h"
 #include "memstream-util.h"
-#include "mkdir.h"
 #include "netif-naming-scheme.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -30,6 +32,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
 #include "sysctl-util.h"
@@ -44,6 +47,8 @@
 #include "udev-trace.h"
 #include "udev-util.h"
 #include "udev-worker.h"
+#include "user-record.h"
+#include "user-util.h"
 #include "userdb.h"
 #include "virt.h"
 
