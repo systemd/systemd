@@ -3,12 +3,9 @@
 
 #include <alloca.h>
 #include <malloc.h>
-#include <stddef.h>
-#include <string.h>
 
-#include "assert-util.h"
-#include "cleanup-util.h"
-#include "macro.h"
+#include "constants.h"
+#include "forward.h"
 #include "memory-util.h"
 
 #if HAS_FEATURE_MEMORY_SANITIZER

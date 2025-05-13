@@ -4,7 +4,7 @@
 
 #include <linux/batman_adv.h>
 
-#include "conf-parser.h"
+#include "forward.h"
 #include "netdev.h"
 
 #define BATADV_GENL_NAME "batadv"
