@@ -2,6 +2,7 @@
 
 #include "fileio.h"
 #include "ordered-set.h"
+#include "string-util.h"
 #include "strv.h"
 
 int ordered_set_ensure_allocated(OrderedSet **s, const struct hash_ops *ops) {

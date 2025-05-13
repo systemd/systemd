@@ -1,25 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
 #include "dns-def.h"
+#include "forward.h"
 #include "list.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-zone.h"
-#include "socket-util.h"
-
-typedef struct DnsQuery DnsQuery;
-typedef struct DnsQueryCandidate DnsQueryCandidate;
-typedef struct DnsQuestion DnsQuestion;
-typedef struct DnsSearchDomain DnsSearchDomain;
-typedef struct DnsServer DnsServer;
-typedef struct DnsStream DnsStream;
-typedef struct Link Link;
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 typedef enum DnsScopeMatch {
         DNS_SCOPE_NO,

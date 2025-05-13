@@ -5,9 +5,9 @@
  */
 
 #include "graphics.h"
+#include "log.h"
 #include "proto/console-control.h"
 #include "proto/simple-text-io.h"
-#include "util.h"
 
 EFI_STATUS graphics_mode(bool on) {
         EFI_CONSOLE_CONTROL_PROTOCOL *ConsoleControl = NULL;
