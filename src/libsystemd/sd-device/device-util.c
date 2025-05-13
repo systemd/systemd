@@ -191,6 +191,21 @@ int device_sysname_startswith_strv(sd_device *device, char * const *prefixes, co
         return !!suffix;
 }
 
+int device_get_seat(sd_device *device, const char **ret) {
+        const char *seat = NULL;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = sd_device_get_property_value(device, "ID_SEAT", &seat);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        *ret = isempty(seat) ? "seat0" : seat;
+        return 0;
+}
+
 bool device_property_can_set(const char *property) {
         return property &&
                 !STR_IN_SET(property,

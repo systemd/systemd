@@ -111,6 +111,8 @@ int device_is_devtype(sd_device *device, const char *devtype);
 
 int device_is_subsystem_devtype(sd_device *device, const char *subsystem, const char *devtype);
 
+int device_get_seat(sd_device *device, const char **ret);
+
 int device_sysname_startswith_strv(sd_device *device, char * const *prefixes, const char **ret_suffix);
 #define device_sysname_startswith(device, ...) \
         device_sysname_startswith_strv(device, STRV_MAKE(__VA_ARGS__), NULL)
