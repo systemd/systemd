@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
-
-typedef struct Manager Manager;
-
-#include "hashmap.h"
+#include "forward.h"
 #include "ratelimit.h"
 
 #define NSRESOURCE_WORKERS_MIN 5
 #define NSRESOURCE_WORKERS_MAX 4096
 
-struct Manager {
+typedef struct Manager {
         sd_event *event;
 
         Set *workers_fixed;    /* Workers 0…NSRESOURCE_WORKERS_MIN */
@@ -31,7 +26,7 @@ struct Manager {
 #endif
 
         int registry_fd;
-};
+} Manager;
 
 int manager_new(Manager **ret);
 Manager* manager_free(Manager *m);

@@ -2,19 +2,15 @@
 
 #include "alloc-util.h"
 #include "cgroup-util.h"
-#include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "parse-util.h"
-#include "proc-cmdline.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "special.h"
-#include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "tests.h"
-#include "user-util.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;

@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-
 #include "efi-fundamental.h"
+#include "forward.h"
 #include "macro-fundamental.h"
 
 #if SD_BOOT
