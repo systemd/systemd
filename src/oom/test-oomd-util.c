@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -7,13 +8,12 @@
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "oomd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "string-util.h"
-#include "strv.h"
+#include "set.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int fork_and_sleep(unsigned sleep_min) {

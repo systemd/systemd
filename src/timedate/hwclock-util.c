@@ -3,7 +3,7 @@
 #include <fcntl.h>
 #include <linux/rtc.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
+#include <time.h>
 
 #include "errno-util.h"
 #include "fd-util.h"

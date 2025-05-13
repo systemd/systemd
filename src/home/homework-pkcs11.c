@@ -6,6 +6,11 @@
 #include "log.h"
 #include "pkcs11-util.h"
 #include "strv.h"
+#include "user-record.h"
+
+void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
+        erase_and_free(data->decrypted_password);
+}
 
 int pkcs11_callback(
                 CK_FUNCTION_LIST *m,
@@ -16,6 +21,7 @@ int pkcs11_callback(
                 P11KitUri *uri,
                 void *userdata) {
 
+#if HAVE_P11KIT
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         struct pkcs11_callback_data *data = ASSERT_PTR(userdata);
         _cleanup_free_ char *token_label = NULL;
@@ -101,4 +107,7 @@ decrypt:
                 return log_oom();
 
         return 1;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PKCS#11 Token support not available.");
+#endif
 }

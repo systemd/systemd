@@ -10,7 +10,7 @@
 #include "glyph-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "path-lookup.h"
+#include "string-util.h"
 #include "strv.h"
 
 static int environment_dirs(char ***ret) {
