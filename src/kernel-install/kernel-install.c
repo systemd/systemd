@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <stdbool.h>
+#include <stdlib.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #include "argv-util.h"
 #include "boot-entry.h"
@@ -10,6 +11,7 @@
 #include "chase.h"
 #include "conf-files.h"
 #include "dirent-util.h"
+#include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
@@ -23,8 +25,8 @@
 #include "image-policy.h"
 #include "kernel-config.h"
 #include "kernel-image.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "mkdir.h"
 #include "mount-util.h"
 #include "parse-argument.h"
 #include "path-util.h"

@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
-
-#include "cryptsetup-util.h"
-#include "time-util.h"
+#include "forward.h"
 
 int parse_integrity_options(
                 const char *options,
