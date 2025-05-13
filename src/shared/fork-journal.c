@@ -162,7 +162,7 @@ int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref) {
                         _exit(EXIT_MEMORY);
                 }
 
-                r = invoke_callout_binary(argv[0], (char**) argv);
+                r = invoke_callout_binary(argv[0], argv);
                 log_debug_errno(r, "Failed to invoke journalctl: %m");
                 _exit(EXIT_EXEC);
         }
