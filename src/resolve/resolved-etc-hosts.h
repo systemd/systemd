@@ -2,12 +2,7 @@
 #pragma once
 
 #include "in-addr-util.h"
-#include "set.h"
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsQuestion DnsQuestion;
-typedef struct EtcHosts EtcHosts;
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 typedef struct EtcHosts {
         Hashmap *by_address;
