@@ -2,11 +2,7 @@
  * Copyright © 2020 VMware, Inc. */
 #pragma once
 
-typedef struct BareUDP BareUDP;
-
-#include <linux/if_ether.h>
-
-#include "conf-parser.h"
+#include "forward.h"
 #include "netdev.h"
 
 typedef enum BareUDPProtocol {
@@ -18,13 +14,13 @@ typedef enum BareUDPProtocol {
         _BARE_UDP_PROTOCOL_INVALID = -EINVAL,
 } BareUDPProtocol;
 
-struct BareUDP {
+typedef struct BareUDP {
         NetDev meta;
 
         BareUDPProtocol iftype;
         uint16_t dest_port;
         uint16_t min_port;
-};
+} BareUDP;
 
 DEFINE_NETDEV_CAST(BAREUDP, BareUDP);
 extern const NetDevVTable bare_udp_vtable;
