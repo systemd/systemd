@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-device.h"
+
 #include "device-util.h"
 #include "mountpoint-util.h"
 #include "tests.h"

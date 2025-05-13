@@ -1,22 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "exec-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "macro.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -24,6 +19,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int prepare_handler(sd_event_source *s, void *userdata) {

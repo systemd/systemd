@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
@@ -8,9 +9,9 @@
 #include "constants.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
