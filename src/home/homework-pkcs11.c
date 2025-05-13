@@ -6,6 +6,11 @@
 #include "log.h"
 #include "pkcs11-util.h"
 #include "strv.h"
+#include "user-record.h"
+
+void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
+        erase_and_free(data->decrypted_password);
+}
 
 int pkcs11_callback(
                 CK_FUNCTION_LIST *m,

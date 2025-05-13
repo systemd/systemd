@@ -1,16 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/input.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "async.h"
 #include "fd-util.h"
+#include "hashmap.h"
+#include "log.h"
 #include "logind.h"
 #include "logind-button.h"
 #include "logind-dbus.h"

@@ -2,7 +2,6 @@
 
 #include <getopt.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "build.h"
@@ -12,6 +11,7 @@
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit-def.h"
 #include "unit-name.h"
 
 static enum {

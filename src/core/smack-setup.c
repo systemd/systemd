@@ -5,10 +5,8 @@
         Nathaniel Chen <nathaniel.chen@intel.com>
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
@@ -18,7 +16,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
 #include "smack-setup.h"
 #include "string-util.h"
 

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -10,17 +9,13 @@
 #include "alloc-util.h"
 #include "battery-util.h"
 #include "build.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
-#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "parse-util.h"
 #include "plymouth-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
-#include "socket-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 
