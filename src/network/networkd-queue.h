@@ -1,16 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-netlink.h"
-
-#include "alloc-util.h"
-#include "hash-funcs.h"
 #include "netif-sriov.h"
-
-typedef struct Link Link;
-typedef struct NetDev NetDev;
-typedef struct Manager Manager;
-typedef struct Request Request;
+#include "networkd-forward.h"
 
 typedef int (*request_process_func_t)(Request *req, Link *link, void *userdata);
 typedef int (*request_netlink_handler_t)(sd_netlink *nl, sd_netlink_message *m, Request *req, Link *link, void *userdata);

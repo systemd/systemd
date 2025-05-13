@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "extract-word.h"
+#include "forward.h"
 #include "hashmap.h"
-#include "macro.h"
+
+typedef enum ExtractFlags ExtractFlags;
 
 #define set_free_and_replace(a, b)              \
         free_and_replace_full(a, b, set_free)
