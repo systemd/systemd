@@ -1,27 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/types.h>
+#include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/types.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
 #include "bpf-restrict-fs.h"
-#include "cgroup-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "filesystems.h"
 #include "log.h"
 #include "lsm-util.h"
 #include "manager.h"
-#include "mkdir.h"
 #include "nulstr-util.h"
+#include "set.h"
 #include "stat-util.h"
-#include "strv.h"
+#include "unit.h"
 
 #if BPF_FRAMEWORK
 /* libbpf, clang and llc compile time dependencies are satisfied */

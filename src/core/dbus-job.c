@@ -9,10 +9,11 @@
 #include "dbus-job.h"
 #include "dbus-unit.h"
 #include "dbus-util.h"
+#include "hashmap.h"
 #include "job.h"
 #include "log.h"
+#include "manager.h"
 #include "selinux-access.h"
-#include "string-util.h"
 #include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
