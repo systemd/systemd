@@ -45,3 +45,5 @@ int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret);
 const char* in_addr_full_to_string(struct in_addr_full *a);
 
 int netns_get_nsid(int netnsfd, uint32_t *ret);
+
+int af_unix_get_qlen(int fd, uint32_t *ret);
