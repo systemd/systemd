@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <sys/sysmacros.h>
+
 #include "alloc-util.h"
 #include "device-util.h"
 #include "errno-util.h"

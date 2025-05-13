@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <netdb.h>
 #include <poll.h>
 #include <pthread.h>
 #include <resolv.h>
@@ -13,6 +14,7 @@
 #include <threads.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
@@ -24,7 +26,6 @@
 #include "list.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_syscall.h"
 #include "process-util.h"
 #include "resolve-private.h"
 #include "socket-util.h"

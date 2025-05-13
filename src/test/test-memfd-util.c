@@ -4,7 +4,6 @@
 #include "fd-util.h"
 #include "memfd-util.h"
 #include "missing_mman.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(memfd_get_sealed) {
