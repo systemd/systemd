@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
 #include <sys/auxv.h>
 #include <sys/mount.h>
@@ -9,6 +8,7 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-json.h"
@@ -27,24 +27,25 @@
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
 #include "elf-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "journal-importer.h"
 #include "journal-send.h"
 #include "json-util.h"
 #include "log.h"
-#include "macro.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "memstream-util.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -52,8 +53,6 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
-#include "sync-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "user-util.h"

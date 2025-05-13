@@ -2,10 +2,15 @@
 
 #include "alloc-util.h"
 #include "analyze.h"
-#include "analyze-verify.h"
 #include "analyze-verify-util.h"
+#include "analyze-verify.h"
 #include "copy.h"
+#include "extract-word.h"
+#include "log.h"
+#include "path-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
+#include "strv.h"
 #include "tmpfile-util.h"
 
 static int process_aliases(char *argv[], char *tempdir, char ***ret) {
