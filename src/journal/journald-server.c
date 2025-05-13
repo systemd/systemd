@@ -1596,6 +1596,9 @@ int server_process_datagram(
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Got file descriptors via syslog socket. Ignoring.");
 
+                if (tv)
+                        s->syslog_timestamp = timeval_load(tv);
+
         } else if (fd == s->native_fd) {
                 if (n > 0 && n_fds == 0)
                         server_process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
@@ -1604,6 +1607,9 @@ int server_process_datagram(
                 else if (n_fds > 0)
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Got too many file descriptors via native socket. Ignoring.");
+
+                if (tv)
+                        s->native_timestamp = timeval_load(tv);
 
         } else {
                 assert(fd == s->audit_fd);
@@ -1616,6 +1622,9 @@ int server_process_datagram(
         }
 
         close_many(fds, n_fds);
+
+        if (tv)
+                sync_req_revalidate_by_timestamp(s);
 
         server_refresh_idle_timer(s);
         return 0;
@@ -2752,6 +2761,15 @@ Server* server_free(Server *s) {
         free(s->runtime_directory);
 
         mmap_cache_unref(s->mmap);
+
+        SyncReq *req;
+        while ((req = prioq_peek(s->sync_req_realtime_prioq)))
+                sync_req_free(req);
+        prioq_free(s->sync_req_realtime_prioq);
+
+        while ((req = prioq_peek(s->sync_req_boottime_prioq)))
+                sync_req_free(req);
+        prioq_free(s->sync_req_boottime_prioq);
 
         return mfree(s);
 }

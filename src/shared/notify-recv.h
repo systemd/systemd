@@ -13,7 +13,8 @@ int notify_socket_prepare(
                 int64_t priority,
                 sd_event_io_handler_t handler,
                 void *userdata,
-                char **ret_path);
+                char **ret_path,
+                sd_event_source **ret_event_source);
 
 int notify_recv_with_fds(
                 int fd,

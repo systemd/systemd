@@ -1227,7 +1227,8 @@ static int manager_start_worker_notify(Manager *manager) {
                         EVENT_PRIORITY_WORKER_NOTIFY,
                         on_worker_notify,
                         manager,
-                        &manager->worker_notify_socket_path);
+                        &manager->worker_notify_socket_path,
+                        /* ret_event_source= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare worker notification socket: %m");
 

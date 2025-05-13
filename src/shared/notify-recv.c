@@ -14,12 +14,12 @@ int notify_socket_prepare(
                 int64_t priority,
                 sd_event_io_handler_t handler,
                 void *userdata,
-                char **ret_path) {
+                char **ret_path,
+                sd_event_source **ret_event_source) {
 
         int r;
 
         assert(event);
-        assert(ret_path);
 
         /* This creates an autobind AF_UNIX socket and adds an IO event source for the socket, which helps
          * prepare the notification socket used to communicate with worker processes. */
@@ -58,11 +58,17 @@ int notify_socket_prepare(
 
         (void) sd_event_source_set_description(s, "notify-socket");
 
-        r = sd_event_source_set_floating(s, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to make notification event source floating: %m");
+        if (ret_event_source)
+                *ret_event_source = TAKE_PTR(s);
+        else {
+                r = sd_event_source_set_floating(s, true);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make notification event source floating: %m");
+        }
 
-        *ret_path = TAKE_PTR(path);
+        if (ret_path)
+                *ret_path = TAKE_PTR(path);
+
         return 0;
 }
 
