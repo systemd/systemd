@@ -2,7 +2,7 @@
 
 #include <gnu/libc-version.h>
 #include <stdio.h>
-#include <sys/types.h>
+#include <stdlib.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -16,27 +16,23 @@
 #include "condition.h"
 #include "confidential-virt.h"
 #include "cpu-set-util.h"
-#include "efi-loader.h"
+#include "efivars.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
 #include "libaudit-util.h"
 #include "limits-util.h"
 #include "log.h"
-#include "macro.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "psi-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
-#include "set.h"
 #include "smack-util.h"
 #include "string-util.h"
 #include "strv.h"

@@ -2,17 +2,16 @@
 
 #include <fnmatch.h>
 #include <stdio.h>
-#include <stdlib.h>
 
+#include "sd-daemon.h"
 #include "sd-id128.h"
 
 #include "all-units.h"
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "glob-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
-#include "macro.h"
 #include "manager.h"
 #include "path-util.h"
 #include "rm-rf.h"

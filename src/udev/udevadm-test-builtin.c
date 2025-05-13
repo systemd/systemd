@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "device-private.h"
 #include "device-util.h"
