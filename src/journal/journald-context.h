@@ -1,18 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <syslog.h>
 
 #include "sd-id128.h"
 
 #include "capability-util.h"
-#include "set.h"
-#include "time-util.h"
-
-typedef struct Server Server;
+#include "journald-forward.h"
 
 typedef struct ClientContext {
         unsigned n_ref;

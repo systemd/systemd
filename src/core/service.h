@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "cgroup.h"
+#include "core-forward.h"
 #include "exit-status.h"
 #include "kill.h"
-#include "manager.h"
-#include "open-file.h"
-#include "path.h"
 #include "pidref.h"
-#include "ratelimit.h"
-#include "socket.h"
 #include "unit.h"
-
-typedef struct Service Service;
 
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,

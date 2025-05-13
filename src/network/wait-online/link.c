@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
 #include "sd-network.h"
 
 #include "alloc-util.h"
@@ -7,6 +8,7 @@
 #include "format-ifname.h"
 #include "hashmap.h"
 #include "link.h"
+#include "log-link.h"
 #include "manager.h"
 #include "string-util.h"
 #include "strv.h"

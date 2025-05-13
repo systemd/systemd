@@ -3,12 +3,11 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "efi-loader.h"
+#include "efivars.h"
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "special.h"
-#include "string-util.h"
 #include "virt.h"
 
 /* This generator pulls systemd-bless-boot.service into the initial transaction if the "LoaderBootCountPath"

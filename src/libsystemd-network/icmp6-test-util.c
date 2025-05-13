@@ -2,10 +2,12 @@
 
 #include <netinet/icmp6.h>
 #include <netinet/ip6.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include "fd-util.h"
 #include "icmp6-test-util.h"
+#include "time-util.h"
 
 int test_fd[2] = EBADF_PAIR;
 

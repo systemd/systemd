@@ -1,27 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
+#include "sd-bus.h"
+
 #include "cgroup-setup.h"
 #include "dbus-scope.h"
 #include "dbus-unit.h"
 #include "exit-status.h"
-#include "load-dropin.h"
 #include "log.h"
 #include "manager.h"
 #include "parse-util.h"
-#include "process-util.h"
+#include "pidref.h"
 #include "random-util.h"
 #include "scope.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit.h"
-#include "unit-name.h"
 #include "user-util.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
