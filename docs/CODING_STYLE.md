@@ -249,6 +249,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     inline functions that require the full definition of a struct into the
     implementation file so that only a forward declaration of the struct is
     required and not the full definition.
+  - `src/basic/forward.h` contains forward declarations for common types. If
+    possible, only include `forward.h` in header files which makes circular
+    header dependencies a non-issue.
 
   Bad:
 
@@ -306,24 +309,40 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   the implementation (.c) file over implementing them in the corresponding
   header file. Inline functions in the header are allowed if they are just a few
   lines and don't require including any extra header files that would otherwise
-  not have to be included. Similarly, prefer forward declarations of structs
-  over including the corresponding header file. Keeping header files as lean as
-  possible speeds up incremental builds when header files are changed (either by
-  yourself when working on a pull request or as part of rebasing onto the main
-  branch) as each file that (transitively) includes a header that was changed
-  needs to be recompiled. By keeping the number of header files included by
-  other header files low, we reduce the impact of modifying header files on
+  not have to be included. Keeping header files as lean as possible speeds up
+  incremental builds when header files are changed (either by yourself when
+  working on a pull request or as part of rebasing onto the main branch) as each
+  file that (transitively) includes a header that was changed needs to be
+  recompiled. By keeping the number of header files included by other header
+  files low, we reduce the impact of modifying header files on
   incremental builds as much as possible.
+
+  To avoid having to include other headers in header files, always include
+  `forward.h` in each header file and then add other required includes as
+  needed. `forward.h` already includes generic headers and contains forward
+  declarations for common types which should be sufficient for most header
+  files. For each extra include you add on top of `forward.h`, check if it can
+  be replaced by adding another forward declaration to `forward.h`. Depending on
+  the daemon, there might be a specific forward header to include (e.g.
+  `resolved-forward.h` for systemd-resolved header files).
+
+  Header files that extend other header files can include the original header
+  file. For example, `iovec-util.h` includes `iovec-fundamental.h` and
+  `sys/uio.h`. To identify headers that are exported from other headers, add a
+  `IWYU pragma: export` comment to the includes so that these exports are
+  recognized by clang static analysis tooling.
 
   Bad:
 
   ```c
   // source.h
 
+  #include <stddef.h>
+
   #include "log.h"
 
-  static inline void my_function_that_logs(void) {
-          log_error("oops");
+  static inline void my_function_that_logs(size_t sz) {
+          log_error("oops: %zu", sz);
   }
   ```
 
@@ -332,15 +351,17 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   ```c
   // source.h
 
-  void my_function_that_logs(void);
+  #include "forward.h"
+
+  void my_function_that_logs(size_t sz);
 
   // source.c
 
-  #include "header.h"
+  #include "source.h"
   #include "log.h"
 
-  void my_function_that_logs(void) {
-          log_error("oops");
+  void my_function_that_logs(size_t sz) {
+          log_error("oops: %zu", sz);
   }
   ```
 
