@@ -1,22 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
-#include "in-addr-util.h"
 #include "list.h"
 #include "resolved-def.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-server.h"
-#include "set.h"
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsPacket DnsPacket;
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsScope DnsScope;
-typedef struct DnsServer DnsServer;
-typedef struct DnsStream DnsStream;
-typedef struct DnsTransaction DnsTransaction;
+#include "resolved-forward.h"
 
 typedef enum DnsTransactionState {
         DNS_TRANSACTION_NULL,
