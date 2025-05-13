@@ -5182,61 +5182,6 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to set up credentials: %m");
         }
 
-        r = build_environment(
-                        context,
-                        params,
-                        cgroup_context,
-                        n_fds,
-                        pwent_home,
-                        username,
-                        shell,
-                        journal_stream_dev,
-                        journal_stream_ino,
-                        memory_pressure_path,
-                        needs_sandboxing,
-                        &our_env);
-        if (r < 0) {
-                *exit_status = EXIT_MEMORY;
-                return log_oom();
-        }
-
-        r = build_pass_environment(context, &pass_env);
-        if (r < 0) {
-                *exit_status = EXIT_MEMORY;
-                return log_oom();
-        }
-
-        /* The $PATH variable is set to the default path in params->environment. However, this is overridden
-         * if user-specified fields have $PATH set. The intention is to also override $PATH if the unit does
-         * not specify PATH but the unit has ExecSearchPath. */
-        if (!strv_isempty(context->exec_search_path)) {
-                _cleanup_free_ char *joined = NULL;
-
-                joined = strv_join(context->exec_search_path, ":");
-                if (!joined) {
-                        *exit_status = EXIT_MEMORY;
-                        return log_oom();
-                }
-
-                r = strv_env_assign(&joined_exec_search_path, "PATH", joined);
-                if (r < 0) {
-                        *exit_status = EXIT_MEMORY;
-                        return log_oom();
-                }
-        }
-
-        accum_env = strv_env_merge(params->environment,
-                                   our_env,
-                                   joined_exec_search_path,
-                                   pass_env,
-                                   context->environment,
-                                   params->files_env);
-        if (!accum_env) {
-                *exit_status = EXIT_MEMORY;
-                return log_oom();
-        }
-        accum_env = strv_env_clean(accum_env);
-
         (void) umask(context->umask);
 
         r = setup_keyring(context, params, uid, gid);
@@ -5417,6 +5362,61 @@ int exec_invoke(
                         exit_status);
         if (r < 0)
                 return r;
+
+        r = build_environment(
+                        context,
+                        params,
+                        cgroup_context,
+                        n_fds,
+                        pwent_home,
+                        username,
+                        shell,
+                        journal_stream_dev,
+                        journal_stream_ino,
+                        memory_pressure_path,
+                        needs_sandboxing,
+                        &our_env);
+        if (r < 0) {
+                *exit_status = EXIT_MEMORY;
+                return log_oom();
+        }
+
+        r = build_pass_environment(context, &pass_env);
+        if (r < 0) {
+                *exit_status = EXIT_MEMORY;
+                return log_oom();
+        }
+
+        /* The $PATH variable is set to the default path in params->environment. However, this is overridden
+         * if user-specified fields have $PATH set. The intention is to also override $PATH if the unit does
+         * not specify PATH but the unit has ExecSearchPath. */
+        if (!strv_isempty(context->exec_search_path)) {
+                _cleanup_free_ char *joined = NULL;
+
+                joined = strv_join(context->exec_search_path, ":");
+                if (!joined) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+
+                r = strv_env_assign(&joined_exec_search_path, "PATH", joined);
+                if (r < 0) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+        }
+
+        accum_env = strv_env_merge(params->environment,
+                                   our_env,
+                                   joined_exec_search_path,
+                                   pass_env,
+                                   context->environment,
+                                   params->files_env);
+        if (!accum_env) {
+                *exit_status = EXIT_MEMORY;
+                return log_oom();
+        }
+        accum_env = strv_env_clean(accum_env);
 
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */
