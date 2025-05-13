@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/stat.h>
 
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "af-list.h"
@@ -10,6 +12,7 @@
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
+#include "bpf-program.h"
 #include "bpf-restrict-ifaces.h"
 #include "bpf-socket-bind.h"
 #include "btrfs-util.h"
@@ -19,12 +22,14 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "devnum-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "inotify-util.h"
-#include "io-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "manager.h"
@@ -32,18 +37,22 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 #if BPF_FRAMEWORK
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
+#include "bpf-restrict-fs.h"
 #include "bpf/restrict_fs/restrict-fs-skel.h"
 #endif
 
@@ -52,7 +61,7 @@
 /* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
  * problems we downgrade to LOG_DEBUG. This is supposed to be nice to container managers and kernels which want to mask
  * out specific attributes from us. */
-#define LOG_LEVEL_CGROUP_WRITE(r) (IN_SET(abs(r), ENOENT, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING)
+#define LOG_LEVEL_CGROUP_WRITE(r) (IN_SET(ABS(r), ENOENT, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING)
 
 static void unit_remove_from_cgroup_empty_queue(Unit *u);
 

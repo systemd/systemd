@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "selinux-access.h"
+#include "string-util.h"
 
 #if HAVE_SELINUX
 
-#include <errno.h>
 #include <selinux/avc.h>
 #include <selinux/selinux.h>
 #if HAVE_AUDIT
@@ -15,11 +15,9 @@
 
 #include "alloc-util.h"
 #include "audit-fd.h"
-#include "bus-util.h"
 #include "errno-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "path-util.h"
 #include "selinux-util.h"
 #include "stdio-util.h"
 #include "strv.h"

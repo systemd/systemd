@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hashmap.h"
-#include "job.h"
+#include "core-forward.h"
 
 typedef struct Transaction {
         /* Jobs to be added */

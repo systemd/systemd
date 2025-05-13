@@ -3,7 +3,6 @@
 #include "glyph-util.h"
 #include "kbd-util.h"
 #include "locale-util.h"
-#include "macro.h"
 #include "strv.h"
 #include "tests.h"
 

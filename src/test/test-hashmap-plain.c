@@ -5,7 +5,6 @@
 #include "log.h"
 #include "nulstr-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
