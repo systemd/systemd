@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-json.h"
 #include "sd-netlink.h"
 
@@ -15,6 +17,8 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "userns-registry.h"

@@ -4,12 +4,11 @@
   Copyright © 2018 Dell Inc.
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <poll.h>
+#include <stdlib.h>
 #include <sys/timerfd.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -29,25 +28,20 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "constants.h"
-#include "devnum-util.h"
 #include "efivars.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
 #include "hibernate-util.h"
-#include "id128-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "os-util.h"
-#include "parse-util.h"
 #include "pretty-print.h"
 #include "sleep-config.h"
 #include "special.h"
-#include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 
