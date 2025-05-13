@@ -26,12 +26,12 @@ struct SyncReq {
         Server *server;
         sd_varlink *link;
 
-        bool offline; /* if true, we'll offline the journal files after sync is complete */
-
         usec_t realtime; /* CLOCK_REALTIME timestamp when synchronization request was initiated (for syncing on AF_UNIX/SOCK_DGRAM) */
         usec_t boottime; /* CLOCK_BOOTTIME timestamp when synchronization request was initiated (for syncing on /dev/kmsg) */
 
         sd_event_source *idle_event_source;
+
+        bool offline; /* if true, we'll offline the journal files after sync is complete */
 
         uint32_t pending_rqlen;   /* The rqlen counter on the stream AF_UNIX socket when the sync was initiated */
         LIST_FIELDS(SyncReq, pending_rqlen);

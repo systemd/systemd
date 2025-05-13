@@ -7,9 +7,9 @@
 #define USER_NAMESPACE_NETIFS_DELEGATE_MAX 16U
 
 typedef struct UserNamespaceInfo {
-        uid_t owner;
         char *name;
         uint64_t userns_inode;
+        uid_t owner;
         uint32_t size;
         uid_t start_uid;
         uid_t target_uid;

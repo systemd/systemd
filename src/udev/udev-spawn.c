@@ -27,15 +27,15 @@ typedef struct Spawn {
         usec_t timeout_warn_usec;
         usec_t timeout_usec;
         int timeout_signal;
+        bool accept_failure;
+        bool truncated;
         usec_t event_birth_usec;
         usec_t cmd_birth_usec;
-        bool accept_failure;
         int fd_stdout;
         int fd_stderr;
         char *result;
         size_t result_size;
         size_t result_len;
-        bool truncated;
 } Spawn;
 
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {

@@ -56,13 +56,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 typedef struct RequestMeta {
         sd_journal *journal;
 
-        OutputMode mode;
-
         char *cursor;
         usec_t since, until;
         int64_t n_skip;
         uint64_t n_entries;
         bool n_entries_set, since_set, until_set;
+
+        OutputMode mode;
 
         FILE *tmp;
         uint64_t delta, size;

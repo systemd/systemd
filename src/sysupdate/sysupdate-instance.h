@@ -19,11 +19,11 @@ typedef struct InstanceMetadata {
          * from metadata of the file/partition itself */
         char *version;
         sd_id128_t partition_uuid;
-        bool partition_uuid_set;
         uint64_t partition_flags;          /* GPT partition flags */
+        bool partition_uuid_set;
         bool partition_flags_set;
-        usec_t mtime;
         mode_t mode;
+        usec_t mtime;
         uint64_t size;                     /* uncompressed size of the file */
         uint64_t tries_done, tries_left;   /* for boot assessment counters */
         int no_auto;

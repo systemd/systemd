@@ -9,10 +9,10 @@
 typedef struct ControlledDelay {
         QDisc meta;
 
-        uint32_t packet_limit;
         usec_t interval_usec;
         usec_t target_usec;
         usec_t ce_threshold_usec;
+        uint32_t packet_limit;
         int ecn;
 } ControlledDelay;
 

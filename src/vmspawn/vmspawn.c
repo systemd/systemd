@@ -93,8 +93,8 @@ typedef enum TpmStateMode {
 } TpmStateMode;
 
 typedef struct SSHInfo {
-        unsigned cid;
         char *private_key_path;
+        unsigned cid;
         unsigned port;
 } SSHInfo;
 
