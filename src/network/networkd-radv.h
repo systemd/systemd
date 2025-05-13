@@ -5,19 +5,8 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "sd-radv.h"
-
-#include "conf-parser.h"
-#include "in-addr-util.h"
 #include "ndisc-option.h"
-#include "networkd-util.h"
-
-typedef struct Address Address;
-typedef struct Link Link;
-typedef struct Network Network;
+#include "networkd-forward.h"
 
 typedef enum RADVPrefixDelegation {
         RADV_PREFIX_DELEGATION_NONE   = 0,

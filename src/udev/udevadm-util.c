@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
+#include <getopt.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
@@ -9,14 +11,19 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "device-private.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "log.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "udev-ctrl.h"
 #include "udev-rules.h"
 #include "udev-varlink.h"
 #include "udevadm-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "varlink-util.h"
 

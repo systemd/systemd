@@ -1,14 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <gnu/libc-version.h>
-#include <limits.h>
-#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
@@ -29,8 +24,8 @@
 #include "confidential-virt.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
-#include "efi-api.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "extract-word.h"
@@ -39,20 +34,20 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
 #include "initrd-util.h"
 #include "libaudit-util.h"
 #include "limits-util.h"
 #include "list.h"
-#include "macro.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
@@ -62,6 +57,8 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "tomoyo-util.h"
 #include "tpm2-util.h"
 #include "uid-classification.h"

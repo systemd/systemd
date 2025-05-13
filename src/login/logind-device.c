@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "hashmap.h"
 #include "logind.h"
 #include "logind-device.h"
 #include "logind-seat.h"

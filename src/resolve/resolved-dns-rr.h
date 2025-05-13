@@ -3,21 +3,10 @@
 
 #include <netinet/in.h>
 
-#include "sd-json.h"
-
-#include "bitmap.h"
 #include "dns-def.h"
 #include "dns-type.h"
-#include "hashmap.h"
-#include "in-addr-util.h"
 #include "list.h"
-#include "string-util.h"
-#include "time-util.h"
-
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
-typedef struct DnsTxtItem DnsTxtItem;
-typedef struct DnsSvcParam DnsSvcParam;
+#include "resolved-forward.h"
 
 /* DNSKEY RR flags */
 #define DNSKEY_FLAG_SEP            (UINT16_C(1) << 0)
@@ -86,13 +75,13 @@ struct DnsResourceKey {
                 ._name = (char*) n,                     \
         })
 
-struct DnsTxtItem {
+typedef struct DnsTxtItem {
         size_t length;
         LIST_FIELDS(DnsTxtItem, items);
         uint8_t data[];
-};
+} DnsTxtItem;
 
-struct DnsSvcParam {
+typedef struct DnsSvcParam {
         uint16_t key;
         size_t length;
         LIST_FIELDS(DnsSvcParam, params);
@@ -101,9 +90,9 @@ struct DnsSvcParam {
                 DECLARE_FLEX_ARRAY(struct in_addr, value_in_addr);
                 DECLARE_FLEX_ARRAY(struct in6_addr, value_in6_addr);
         };
-};
+} DnsSvcParam;
 
-struct DnsResourceRecord {
+typedef struct DnsResourceRecord {
         unsigned n_ref;
         uint32_t ttl;
         usec_t expiry; /* RRSIG signature expiry */
@@ -284,7 +273,7 @@ struct DnsResourceRecord {
         };
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-};
+} DnsResourceRecord;
 
 /* We use uint8_t for label counts above, and UINT8_MAX/-1 has special meaning. */
 assert_cc(DNS_N_LABELS_MAX < UINT8_MAX);
