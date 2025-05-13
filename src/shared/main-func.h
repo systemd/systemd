@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdlib.h>
-
+#include "forward.h"
 #include "static-destruct.h"
 
 void main_prepare(int argc, char *argv[]);

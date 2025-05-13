@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <threads.h>
 #include <unistd.h>
 
@@ -16,7 +17,6 @@
 #include "io-util.h"
 #include "keyring-util.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_syscall.h"
 #include "path-util.h"
 #include "random-util.h"

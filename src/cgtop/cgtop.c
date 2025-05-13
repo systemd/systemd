@@ -1,18 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <signal.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <unistd.h>
-
-#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "build.h"
-#include "bus-error.h"
-#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
@@ -20,7 +13,6 @@
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
-#include "missing_sched.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -28,10 +20,9 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "sort-util.h"
-#include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "unit-name.h"
+#include "time-util.h"
 #include "virt.h"
 
 typedef struct Group {

@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
-#include "macro.h"
-#include "pidref.h"
+#include "forward.h"
 #include "rm-rf.h"
 
 /* These functions implement various potentially slow operations that are executed asynchronously. They are

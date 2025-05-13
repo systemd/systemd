@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/socket.h>
-
-#include "sd-event.h"
-
-#include "fdset.h"
-#include "pidref.h"
+#include "forward.h"
 
 int notify_socket_prepare(
                 sd_event *event,
