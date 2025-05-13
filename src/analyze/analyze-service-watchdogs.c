@@ -1,10 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "analyze.h"
 #include "analyze-service-watchdogs.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-util.h"
 #include "parse-util.h"
+#include "runtime-scope.h"
+#include "string-util.h"
 
 int verb_service_watchdogs(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

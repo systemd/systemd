@@ -5,14 +5,10 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/icmp6.h>
+#include <netinet/in.h>
 
-#include "sd-radv.h"
-
-#include "list.h"
-#include "ndisc-option.h"
+#include "forward.h"
 #include "network-common.h"
-#include "sparse-endian.h"
 #include "time-util.h"
 
 /* RFC 4861 section 6.2.1.
