@@ -170,11 +170,11 @@ static int manager_process_uevent(sd_device_monitor *monitor, sd_device *device,
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to get udev action, ignoring: %m");
 
-        if (device_in_subsystem(device, "net"))
+        if (device_in_subsystem(device, "net") > 0)
                 r = manager_udev_process_link(m, device, action);
-        else if (device_in_subsystem(device, "ieee80211"))
+        else if (device_in_subsystem(device, "ieee80211") > 0)
                 r = manager_udev_process_wiphy(m, device, action);
-        else if (device_in_subsystem(device, "rfkill"))
+        else if (device_in_subsystem(device, "rfkill") > 0)
                 r = manager_udev_process_rfkill(m, device, action);
         if (r < 0)
                 log_device_warning_errno(device, r, "Failed to process \"%s\" uevent, ignoring: %m",

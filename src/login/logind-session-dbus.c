@@ -9,6 +9,7 @@
 #include "bus-label.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -705,7 +706,10 @@ static int method_set_brightness(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to open device %s:%s: %m", subsystem, name);
 
-        if (sd_device_get_property_value(d, "ID_SEAT", &seat) >= 0 && !streq_ptr(seat, s->seat->id))
+        r = device_get_seat(d, &seat);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to get seat of %s:%s: %m", subsystem, name);
+        if (!streq(seat, s->seat->id))
                 return sd_bus_error_setf(error, BUS_ERROR_NOT_YOUR_DEVICE, "Device %s:%s does not belong to your seat %s, refusing.", subsystem, name, s->seat->id);
 
         r = manager_write_brightness(s->manager, d, brightness, message);
