@@ -1,15 +1,19 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "netif-naming-scheme.h"
 #include "netlink-util.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "udev-event.h"
 #include "udev-node.h"
 #include "udev-rules.h"

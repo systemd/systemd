@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <getopt.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdlib.h>
 #include <sys/file.h>
 #include <sysexits.h>
 #include <time.h>
@@ -33,6 +28,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -43,10 +39,8 @@
 #include "io-util.h"
 #include "label-util.h"
 #include "log.h"
-#include "macro.h"
 #include "main-func.h"
 #include "missing_fs.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -64,12 +58,11 @@
 #include "sort-util.h"
 #include "specifier.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 #include "verbs.h"

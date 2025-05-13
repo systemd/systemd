@@ -2,7 +2,6 @@
 
 #include <netinet/in.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"

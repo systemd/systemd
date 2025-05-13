@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdio.h>
-
-#include "sd-bus.h"
-
-#include "hashmap.h"
+#include "forward.h"
 
 enum bus_match_node_type {
         BUS_MATCH_ROOT,

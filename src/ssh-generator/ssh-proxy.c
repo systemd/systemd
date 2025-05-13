@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if_arp.h>
-#include <stdio.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
@@ -13,7 +12,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "missing_socket.h"
-#include "parse-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"

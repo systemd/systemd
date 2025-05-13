@@ -1,13 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-internal.h"
+#include "sd-bus.h"
+#include "sd-event.h"
+
 #include "bus-message.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
+#include "errno-util.h"
+#include "hashmap.h"
+#include "list.h"
 #include "log.h"
-#include "process-util.h"
+#include "pidref.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 #include "varlink-util.h"
 
 static int bus_message_check_good_user(sd_bus_message *m, uid_t good_user) {
