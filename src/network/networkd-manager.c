@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/fib_rules.h>
+#include <linux/filter.h>
 #include <linux/if.h>
 #include <linux/nexthop.h>
 #include <linux/nl80211.h>
@@ -8,43 +9,35 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-netlink.h"
+#include "sd-resolve.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
-#include "bus-polkit.h"
 #include "bus-util.h"
 #include "capability-util.h"
 #include "common-signal.h"
-#include "conf-parser.h"
-#include "constants.h"
 #include "daemon-util.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "dns-domain.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "firewall-util.h"
-#include "fs-util.h"
 #include "initrd-util.h"
-#include "local-addresses.h"
 #include "mount-util.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-address-label.h"
 #include "networkd-address-pool.h"
-#include "networkd-dhcp-server-bus.h"
-#include "networkd-dhcp6.h"
-#include "networkd-link-bus.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager-varlink.h"
 #include "networkd-neighbor.h"
-#include "networkd-network-bus.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
@@ -55,14 +48,10 @@
 #include "networkd-wifi.h"
 #include "networkd-wiphy.h"
 #include "ordered-set.h"
-#include "path-lookup.h"
-#include "path-util.h"
 #include "qdisc.h"
-#include "selinux-util.h"
 #include "set.h"
-#include "signal-util.h"
+#include "stat-util.h"
 #include "strv.h"
-#include "sysctl-util.h"
 #include "tclass.h"
 #include "tuntap.h"
 #include "udev-util.h"

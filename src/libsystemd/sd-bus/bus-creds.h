@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
-
-#include "pidref.h"
-#include "user-util.h"
+#include "forward.h"
 
 struct sd_bus_creds {
         bool allocated;
