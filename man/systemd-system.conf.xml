@@ -754,10 +754,9 @@
       <variablelist>
         <varlistentry>
           <term>systemd 252</term>
-          <listitem><para>Option <varname>DefaultBlockIOAccounting=</varname> was deprecated. Please switch
-          to the unified cgroup hierarchy.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <listitem><para>Option <varname>DefaultBlockIOAccounting=</varname> was deprecated. Please switch
+          to the unified cgroup hierarchy.</para></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>
