@@ -146,7 +146,6 @@ static char* validate_fields_gpt_type_uuid_as_string(const ValidateFields *f) {
                 const char *id = gpt_partition_type_uuid_to_string(*u);
                 if (id)
                         (void) strextend(&joined, " (", id, ")");
-
         }
 
         return TAKE_PTR(joined);
