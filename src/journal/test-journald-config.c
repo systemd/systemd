@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/un.h>
 
-#include "journald-server.h"
+#include "journald-manager.h"
 #include "log.h"
 #include "path-util.h"
 #include "socket-util.h"

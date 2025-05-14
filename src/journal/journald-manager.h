@@ -67,7 +67,7 @@ typedef struct SeqnumData {
         uint64_t seqnum;
 } SeqnumData;
 
-typedef struct Server {
+typedef struct Manager {
         char *namespace;
 
         int syslog_fd;
@@ -195,9 +195,9 @@ typedef struct Server {
 
         /* Pending synchronization requests with non-zero rqlen counter */
         LIST_HEAD(SyncReq, sync_req_pending_rqlen);
-} Server;
+} Manager;
 
-#define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
+#define MANAGER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
 
 /* Extra fields for any log messages */
 #define N_IOVEC_META_FIELDS 24
@@ -217,9 +217,9 @@ typedef struct Server {
 /* audit: Maximum number of extra fields we'll import from audit messages */
 #define N_IOVEC_AUDIT_FIELDS 64
 
-void server_dispatch_message(Server *s, struct iovec *iovec, size_t n, size_t m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
-void server_driver_message_internal(Server *s, pid_t object_pid, const char *format, ...) _sentinel_;
-#define server_driver_message(...) server_driver_message_internal(__VA_ARGS__, NULL)
+void manager_dispatch_message(Manager *m, struct iovec *iovec, size_t n, size_t k, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
+void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *format, ...) _sentinel_;
+#define manager_driver_message(...) manager_driver_message_internal(__VA_ARGS__, NULL)
 
 /* gperf lookup function */
 const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
@@ -237,21 +237,21 @@ CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
 const char* split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;
 
-int server_new(Server **ret);
-int server_init(Server *s, const char *namespace);
-Server* server_free(Server *s);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Server*, server_free);
-void server_full_sync(Server *s, bool wait);
-void server_vacuum(Server *s, bool verbose);
-void server_rotate(Server *s);
-void server_full_rotate(Server *s);
-int server_flush_to_var(Server *s, bool require_flag_file);
-void server_full_flush(Server *s);
-int server_relinquish_var(Server *s);
-void server_maybe_append_tags(Server *s);
-int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);
-void server_space_usage_message(Server *s, JournalStorage *storage);
+int manager_new(Manager **ret);
+int manager_init(Manager *m, const char *namespace);
+Manager* manager_free(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+void manager_full_sync(Manager *m, bool wait);
+void manager_vacuum(Manager *m, bool verbose);
+void manager_rotate(Manager *m);
+void manager_full_rotate(Manager *m);
+int manager_flush_to_var(Manager *m, bool require_flag_file);
+void manager_full_flush(Manager *m);
+int manager_relinquish_var(Manager *m);
+void manager_maybe_append_tags(Manager *m);
+int manager_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);
+void manager_space_usage_message(Manager *m, JournalStorage *storage);
 
-int server_start_or_stop_idle_timer(Server *s);
+int manager_start_or_stop_idle_timer(Manager *m);
 
-int server_map_seqnum_file(Server *s, const char *fname, size_t size, void **ret);
+int manager_map_seqnum_file(Manager *m, const char *fname, size_t size, void **ret);
