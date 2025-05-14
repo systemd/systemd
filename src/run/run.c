@@ -2438,7 +2438,7 @@ static int start_transient_service(sd_bus *bus) {
 
         _cleanup_(journal_terminate) PidRef journal_pid = PIDREF_NULL;
         if (arg_verbose)
-                (void) journal_fork(arg_runtime_scope, (const char**) STRV_MAKE(c.unit), &journal_pid);
+                (void) journal_fork(arg_runtime_scope, STRV_MAKE(c.unit), &journal_pid);
 
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
