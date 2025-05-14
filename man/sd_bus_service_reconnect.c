@@ -38,6 +38,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <systemd/sd-bus.h>
 
 #define _cleanup_(f) __attribute__((cleanup(f)))
