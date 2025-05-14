@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/random.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
@@ -20,7 +20,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "missing_random.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
