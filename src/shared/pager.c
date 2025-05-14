@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/prctl.h>
 #include <unistd.h>
 
 #include "sd-login.h"
@@ -17,10 +13,8 @@
 #include "io-util.h"
 #include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "pager.h"
 #include "process-util.h"
-#include "rlimit-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"

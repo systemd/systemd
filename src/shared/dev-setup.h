@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
+#include "forward.h"
 
 int dev_setup(const char *prefix, uid_t uid, gid_t gid);
 

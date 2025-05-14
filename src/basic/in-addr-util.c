@@ -2,23 +2,19 @@
 
 #include <arpa/inet.h>
 #include <endian.h>
-#include <errno.h>
-#include <net/if.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "hash-funcs.h"
 #include "in-addr-util.h"
 #include "logarithm.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "siphash24.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "strxcpyx.h"
 
 bool in4_addr_is_null(const struct in_addr *a) {
         assert(a);
@@ -491,6 +487,18 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
 
         *ret = TAKE_PTR(x);
         return 0;
+}
+
+const char* typesafe_inet_ntop(int family, const union in_addr_union *a, char *buf, size_t len) {
+        return inet_ntop(family, a, buf, len);
+}
+
+const char* typesafe_inet_ntop4(const struct in_addr *a, char *buf, size_t len) {
+        return inet_ntop(AF_INET, a, buf, len);
+}
+
+const char* typesafe_inet_ntop6(const struct in6_addr *a, char *buf, size_t len) {
+        return inet_ntop(AF_INET6, a, buf, len);
 }
 
 int in_addr_prefix_to_string(

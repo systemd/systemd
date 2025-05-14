@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if.h>
-#include <net/if.h>
 
-#include "log.h"
+#include "sd-event.h"
+#include "sd-netlink.h"
+
 #include "netlink-internal.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-scope.h"

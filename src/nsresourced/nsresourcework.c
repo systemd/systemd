@@ -7,9 +7,7 @@
 #include <net/if.h>
 #include <poll.h>
 #include <sys/eventfd.h>
-#include <sys/mount.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <utmpx.h>
 
 #include "sd-daemon.h"

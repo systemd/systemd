@@ -1,20 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
 #include "env-util.h"
 #include "escape.h"
-#include "fd-util.h"
 #include "format-table.h"
-#include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
-#if HAVE_OPENSSL
 #include "openssl-util.h"
-#endif
 #include "pkcs11-util.h"
 #include "random-util.h"
 #include "string-util.h"
@@ -61,33 +55,6 @@ DLSYM_PROTOTYPE(p11_kit_uri_match_token_info) = NULL;
 DLSYM_PROTOTYPE(p11_kit_uri_message) = NULL;
 DLSYM_PROTOTYPE(p11_kit_uri_new) = NULL;
 DLSYM_PROTOTYPE(p11_kit_uri_parse) = NULL;
-
-int dlopen_p11kit(void) {
-        ELF_NOTE_DLOPEN("p11-kit",
-                        "Support for PKCS11 hardware tokens",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libp11-kit.so.0");
-
-        return dlopen_many_sym_or_warn(
-                        &p11kit_dl,
-                        "libp11-kit.so.0", LOG_DEBUG,
-                        DLSYM_ARG(p11_kit_module_get_name),
-                        DLSYM_ARG(p11_kit_modules_finalize_and_release),
-                        DLSYM_ARG(p11_kit_modules_load_and_initialize),
-                        DLSYM_ARG(p11_kit_strerror),
-                        DLSYM_ARG(p11_kit_uri_format),
-                        DLSYM_ARG(p11_kit_uri_free),
-                        DLSYM_ARG(p11_kit_uri_get_attributes),
-                        DLSYM_ARG(p11_kit_uri_get_attribute),
-                        DLSYM_ARG(p11_kit_uri_set_attribute),
-                        DLSYM_ARG(p11_kit_uri_get_module_info),
-                        DLSYM_ARG(p11_kit_uri_get_slot_info),
-                        DLSYM_ARG(p11_kit_uri_get_token_info),
-                        DLSYM_ARG(p11_kit_uri_match_token_info),
-                        DLSYM_ARG(p11_kit_uri_message),
-                        DLSYM_ARG(p11_kit_uri_new),
-                        DLSYM_ARG(p11_kit_uri_parse));
-}
 
 int uri_from_string(const char *p, P11KitUri **ret) {
         _cleanup_(sym_p11_kit_uri_freep) P11KitUri *uri = NULL;
@@ -1822,6 +1789,37 @@ static int list_callback(
         return -EAGAIN; /* keep scanning */
 }
 #endif
+
+int dlopen_p11kit(void) {
+#if HAVE_P11KIT
+        ELF_NOTE_DLOPEN("p11-kit",
+                        "Support for PKCS11 hardware tokens",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libp11-kit.so.0");
+
+        return dlopen_many_sym_or_warn(
+                        &p11kit_dl,
+                        "libp11-kit.so.0", LOG_DEBUG,
+                        DLSYM_ARG(p11_kit_module_get_name),
+                        DLSYM_ARG(p11_kit_modules_finalize_and_release),
+                        DLSYM_ARG(p11_kit_modules_load_and_initialize),
+                        DLSYM_ARG(p11_kit_strerror),
+                        DLSYM_ARG(p11_kit_uri_format),
+                        DLSYM_ARG(p11_kit_uri_free),
+                        DLSYM_ARG(p11_kit_uri_get_attributes),
+                        DLSYM_ARG(p11_kit_uri_get_attribute),
+                        DLSYM_ARG(p11_kit_uri_set_attribute),
+                        DLSYM_ARG(p11_kit_uri_get_module_info),
+                        DLSYM_ARG(p11_kit_uri_get_slot_info),
+                        DLSYM_ARG(p11_kit_uri_get_token_info),
+                        DLSYM_ARG(p11_kit_uri_match_token_info),
+                        DLSYM_ARG(p11_kit_uri_message),
+                        DLSYM_ARG(p11_kit_uri_new),
+                        DLSYM_ARG(p11_kit_uri_parse));
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "p11kit support is not compiled in.");
+#endif
+}
 
 int pkcs11_list_tokens(void) {
 #if HAVE_P11KIT
