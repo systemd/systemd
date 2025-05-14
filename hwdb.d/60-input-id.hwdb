@@ -14,12 +14,11 @@
 # where /dev/input/eventXX is the device in question. If in
 # doubt, simply use /dev/input/event* to reload all input rules.
 #
-# If your changes are generally applicable, preferably send them as a pull
-# request to
+# If your changes are generally applicable, send them as a pull request to
 #   https://github.com/systemd/systemd
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
-#   udevadm info /dev/input/eventXX.
+#   udevadm info /dev/input/eventXX
 #
 # This file must only be used where the input_id builtin assigns the wrong
 # properties or lacks the assignment of some properties. This is almost always
