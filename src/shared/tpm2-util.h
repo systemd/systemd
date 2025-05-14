@@ -55,7 +55,7 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 int dlopen_tpm2(void);
 
-typedef struct {
+typedef struct Tpm2Context {
         unsigned n_ref;
 
         void *tcti_dl;
@@ -78,7 +78,7 @@ Tpm2Context *tpm2_context_ref(Tpm2Context *context);
 Tpm2Context *tpm2_context_unref(Tpm2Context *context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
 
-typedef struct {
+typedef struct Tpm2Handle {
         Tpm2Context *tpm2_context;
         ESYS_TR esys_handle;
 
@@ -94,7 +94,7 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
 
-typedef struct {
+typedef struct Tpm2PCRValue {
         unsigned index;
         TPMI_ALG_HASH hash;
         TPM2B_DIGEST value;
@@ -370,9 +370,9 @@ int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2
         })
 
 #else /* HAVE_TPM2 */
-typedef struct {} Tpm2Context;
-typedef struct {} Tpm2Handle;
-typedef struct {} Tpm2PCRValue;
+typedef struct Tpm2Context {} Tpm2Context;
+typedef struct Tpm2Handle {} Tpm2Handle;
+typedef struct Tpm2PCRValue {} Tpm2PCRValue;
 
 #define TPM2_PCR_VALUE_MAKE(i, h, v) (Tpm2PCRValue) {}
 
@@ -440,7 +440,7 @@ char* tpm2_pcr_mask_to_string(uint32_t mask);
 
 extern const uint16_t tpm2_hash_algorithms[];
 
-typedef struct {
+typedef struct systemd_tpm2_plugin_params {
         uint32_t search_pcr_mask;
         const char *device;
         const char *signature_path;
