@@ -17,4 +17,4 @@ After=initrd-root-fs.target initrd-fs.target initrd.target
 
 [Service]
 Type=oneshot
-ExecStart=systemctl --no-block isolate initrd-switch-root.target
+ExecStart=systemctl --no-block isolate initrd-switch-root.service
