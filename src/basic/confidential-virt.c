@@ -3,13 +3,10 @@
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
 #endif
-#include <errno.h>
 #include <fcntl.h>
-#include <stdlib.h>
 #include <threads.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
 #include "confidential-virt.h"
 #include "confidential-virt-fundamental.h"
 #include "errno-util.h"

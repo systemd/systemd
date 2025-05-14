@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/file.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -21,24 +22,24 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "lock-util.h"
 #include "log.h"
 #include "logarithm.h"
 #include "memory-util.h"
 #include "mkdir.h"
-#include "nulstr-util.h"
-#include "parse-util.h"
+#include "ordered-set.h"
 #include "random-util.h"
 #include "recurse-dir.h"
-#include "sha256.h"
+#include "siphash24.h"
 #include "sort-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
 #include "time-util.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
-#include "user-util.h"
 #include "virt.h"
 
 #if HAVE_OPENSSL
