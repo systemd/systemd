@@ -1,17 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <linux/fs.h>
 #include <linux/fuse.h>
 #include <linux/loop.h>
+#include <net/if.h>
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
@@ -22,7 +21,9 @@
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "barrier.h"
@@ -37,7 +38,6 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "chase.h"
-#include "chattr-util.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "cpu-set-util.h"
@@ -48,29 +48,33 @@
 #include "env-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
+#include "group-record.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "image-policy.h"
+#include "in-addr-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
 #include "machine-credential.h"
-#include "macro.h"
 #include "main-func.h"
+#include "missing_keyctl.h"
+#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "notify-recv.h"
-#include "nspawn.h"
 #include "nspawn-bind-user.h"
 #include "nspawn-cgroup.h"
 #include "nspawn-expose-ports.h"
@@ -82,13 +86,15 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
+#include "nspawn.h"
 #include "nsresource.h"
-#include "nulstr-util.h"
 #include "os-util.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -97,9 +103,11 @@
 #include "resolve-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "seccomp-util.h"
 #include "shift-uid.h"
 #include "signal-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -112,6 +120,7 @@
 #include "uid-classification.h"
 #include "umask-util.h"
 #include "unit-name.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "vpick.h"
 

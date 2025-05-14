@@ -3,8 +3,6 @@
 #include "dns-type.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
-#include "log.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-rr.h"
 #include "tests.h"

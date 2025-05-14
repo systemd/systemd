@@ -1,18 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "env-util.h"
+#include "forward.h"
 #include "gpt.h"
 #include "list.h"
-#include "loop-util.h"
-#include "macro.h"
-#include "os-util.h"
-#include "strv.h"
 
 typedef struct DissectedImage DissectedImage;
 typedef struct DissectedPartition DissectedPartition;
@@ -200,13 +194,8 @@ static inline bool dissected_image_is_bootable_uefi(DissectedImage *m) {
         return m && m->partitions[PARTITION_ESP].found && dissected_image_is_bootable_os(m);
 }
 
-static inline bool dissected_image_is_portable(DissectedImage *m) {
-        return m && strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES");
-}
-
-static inline bool dissected_image_is_initrd(DissectedImage *m) {
-        return m && !strv_isempty(m->initrd_release);
-}
+bool dissected_image_is_portable(DissectedImage *m);
+bool dissected_image_is_initrd(DissectedImage *m);
 
 DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);

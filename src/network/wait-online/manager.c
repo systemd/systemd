@@ -6,16 +6,19 @@
 
 #include "sd-event.h"
 #include "sd-json.h"
+#include "sd-netlink.h"
+#include "sd-network.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "dns-configuration.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "link.h"
+#include "log-link.h"
 #include "manager.h"
-#include "netlink-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "time-util.h"
 
 static bool link_in_command_line_interfaces(Link *link, Manager *m) {
         assert(link);

@@ -11,9 +11,8 @@
 #include "capability-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "fs-util.h"
 #include "gpt.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
@@ -23,8 +22,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
 #include "virt.h"
 
 static unsigned arg_n_threads = 5;
