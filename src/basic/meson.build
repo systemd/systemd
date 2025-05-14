@@ -96,6 +96,7 @@ basic_sources = files(
         'socket-util.c',
         'sort-util.c',
         'stat-util.c',
+        'static-destruct.c',
         'strbuf.c',
         'string-table.c',
         'string-util.c',
