@@ -10,6 +10,7 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "gpt.h"
 #include "initrd-util.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
@@ -119,16 +120,36 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 typedef struct ValidateFields {
-        sd_id128_t gpt_type_uuid;
-        char *gpt_label;
+        sd_id128_t *gpt_type_uuid;
+        size_t n_gpt_type_uuid;
+        char **gpt_label;
         char **mount_point;
 } ValidateFields;
 
 static void validate_fields_done(ValidateFields *f) {
         assert(f);
 
-        free(f->gpt_label);
+        free(f->gpt_type_uuid);
+        strv_free(f->gpt_label);
         strv_free(f->mount_point);
+}
+
+static char* validate_fields_gpt_type_uuid_as_string(const ValidateFields *f) {
+        _cleanup_free_ char *joined = NULL;
+
+        assert(f);
+
+        FOREACH_ARRAY(u, f->gpt_type_uuid, f->n_gpt_type_uuid) {
+                if (!strextend_with_separator(&joined, ", ", SD_ID128_TO_UUID_STRING(*u)))
+                        return NULL;
+
+                const char *id = gpt_partition_type_uuid_to_string(*u);
+                if (id)
+                        (void) strextend(&joined, " (", id, ")");
+
+        }
+
+        return TAKE_PTR(joined);
 }
 
 static int validate_fields_read(int fd, ValidateFields *ret) {
@@ -138,27 +159,41 @@ static int validate_fields_read(int fd, ValidateFields *ret) {
         assert(fd >= 0);
         assert(ret);
 
-        _cleanup_free_ char *t = NULL;
-        r = fgetxattr_malloc(fd, "user.validatefs.gpt_type_uuid", &t, /* ret_size= */ NULL);
+        _cleanup_strv_free_ char **l = NULL;
+        r = getxattr_at_strv(fd, /* path= */ NULL, "user.validatefs.gpt_type_uuid", AT_EMPTY_PATH, &l);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))
                         return log_error_errno(r, "Failed to read 'user.validatefs.gpt_type_uuid' xattr: %m");
         } else {
-                r = sd_id128_from_string(t, &f.gpt_type_uuid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse 'user.validatefs.gpt_type_uuid' xattr: %s", t);
+                STRV_FOREACH(i, l) {
+                        if (!GREEDY_REALLOC(f.gpt_type_uuid, f.n_gpt_type_uuid+1))
+                                return log_oom();
+
+                        r = sd_id128_from_string(*i, f.gpt_type_uuid + f.n_gpt_type_uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse 'user.validatefs.gpt_type_uuid' xattr: %s", *i);
+
+                        f.n_gpt_type_uuid++;
+                }
         }
 
-        r = fgetxattr_malloc(fd, "user.validatefs.gpt_label", &f.gpt_label, /* ret_size= */ NULL);
+        l = strv_free(l);
+        r = getxattr_at_strv(fd, /* path= */ NULL, "user.validatefs.gpt_label", AT_EMPTY_PATH, &l);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))
                         return log_error_errno(r, "Failed to read 'user.validatefs.gpt_label' xattr: %m");
-        } else if (!utf8_is_valid(f.gpt_label) || string_has_cc(f.gpt_label, /* ok= */ NULL))
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EINVAL),
-                                "Extended attribute 'user.validatefs.gpt_label' contains invalid characters, refusing.");
+        } else {
+                STRV_FOREACH(i, l)
+                        if (!utf8_is_valid(*i) ||
+                            string_has_cc(*i, /* ok= */ NULL))
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "Extended attribute 'user.validatefs.gpt_label' contains invalid characters, refusing: %s", *i);
 
-        _cleanup_strv_free_ char **l = NULL;
+                f.gpt_label = TAKE_PTR(l);
+        }
+
+        l = strv_free(l);
         r = getxattr_at_strv(fd, /* path= */ NULL, "user.validatefs.mount_point", AT_EMPTY_PATH, &l);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))
@@ -176,7 +211,7 @@ static int validate_fields_read(int fd, ValidateFields *ret) {
                 f.mount_point = TAKE_PTR(l);
         }
 
-        r = !sd_id128_is_null(f.gpt_type_uuid) || f.gpt_label || !strv_isempty(f.mount_point);
+        r = f.n_gpt_type_uuid > 0 || !strv_isempty(f.gpt_label) || !strv_isempty(f.mount_point);
         *ret = TAKE_STRUCT(f);
         return r;
 }
@@ -187,8 +222,6 @@ static int validate_mount_point(const char *path, const ValidateFields *f) {
 
         if (strv_isempty(f->mount_point))
                 return 0;
-
-        bool good = false;
 
         STRV_FOREACH(i, f->mount_point) {
                 _cleanup_free_ char *jj = NULL;
@@ -203,38 +236,23 @@ static int validate_mount_point(const char *path, const ValidateFields *f) {
                 } else
                         j = *i;
 
-                if (path_equal(path, j)) {
-                        good = true;
-                        break;
-                }
+                if (path_equal(path, j))
+                        return 0;
         }
 
-        if (!good) {
-                _cleanup_free_ char *joined = strv_join(f->mount_point, ", ");
+        _cleanup_free_ char *joined = strv_join(f->mount_point, ", ");
 
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EPERM),
-                                "File system is supposed to be mounted on one of %s only, but is mounted on %s, refusing.",
-                                strna(joined), path);
-        }
-
-        return 0;
+        return log_error_errno(
+                        SYNTHETIC_ERRNO(EPERM),
+                        "File system is supposed to be mounted on one of %s only, but is mounted on %s, refusing.",
+                        strna(joined), path);
 }
 
-static int validate_gpt_metadata(int fd, const char *path, const ValidateFields *f) {
+static int validate_gpt_metadata_one(sd_device *d, const char *path, const ValidateFields *f) {
         int r;
 
-        assert(fd >= 0);
-        assert(path);
+        assert(d);
         assert(f);
-
-        if (!f->gpt_label && sd_id128_is_null(f->gpt_type_uuid))
-                return 0;
-
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        r = block_device_new_from_fd(fd, BLOCK_DEVICE_LOOKUP_ORIGINATING|BLOCK_DEVICE_LOOKUP_BACKING, &d);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find block device backing '%s': %m", path);
 
         _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (block_fd < 0)
@@ -270,33 +288,88 @@ static int validate_gpt_metadata(int fd, const char *path, const ValidateFields 
         if (!streq_ptr(v, "gpt"))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "File system is supposed to be on a GPT partition table, but is not, refusing.");
 
-        if (f->gpt_label) {
+        if (!strv_isempty(f->gpt_label)) {
                 v = NULL;
                 (void) blkid_probe_lookup_value(b, "PART_ENTRY_NAME", &v, /* ret_len= */ NULL);
 
-                if (!streq(f->gpt_label, strempty(v)))
+                if (!strv_contains(f->gpt_label, strempty(v))) {
+                        _cleanup_free_ char *joined = strv_join(f->gpt_label, "', '");
+
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(EPERM),
-                                        "File system is supposed to be placed in a partition with label '%s' only, but is placed in one labelled '%s', refusing.",
-                                        f->gpt_label, strempty(v));
+                                        "File system is supposed to be placed in a partition with labels '%s' only, but is placed in one labelled '%s', refusing.",
+                                        strna(joined), strempty(v));
+                }
         }
 
-        if (!sd_id128_is_null(f->gpt_type_uuid)) {
+        if (f->n_gpt_type_uuid > 0) {
                 v = NULL;
                 (void) blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* ret_len= */ NULL);
 
-                sd_id128_t id = SD_ID128_NULL;
-                if (!v || sd_id128_from_string(v, &id) < 0)
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(EPERM),
-                                        "File system is supposed to be placed in a partition of type UUID '%s' only, but has no type, refusing.",
-                                        SD_ID128_TO_UUID_STRING(f->gpt_type_uuid));
+                sd_id128_t id;
+                if (!v || sd_id128_from_string(v, &id) < 0) {
+                        _cleanup_free_ char *joined = validate_fields_gpt_type_uuid_as_string(f);
 
-                if (!sd_id128_equal(f->gpt_type_uuid, id))
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(EPERM),
-                                        "File system is supposed to be placed in a partition of type UUID '%s' only, but has type '%s', refusing.",
-                                        SD_ID128_TO_UUID_STRING(f->gpt_type_uuid), SD_ID128_TO_UUID_STRING(id));
+                                        "File system is supposed to be placed in a partition of type UUIDs %s only, but has no type, refusing.",
+                                        strna(joined));
+                }
+
+                bool found = false;
+                FOREACH_ARRAY(u, f->gpt_type_uuid, f->n_gpt_type_uuid)
+                        if (sd_id128_equal(*u, id)) {
+                                found = true;
+                                break;
+                        }
+
+                if (!found) {
+                        _cleanup_free_ char *joined = validate_fields_gpt_type_uuid_as_string(f);
+
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EPERM),
+                                        "File system is supposed to be placed in a partition of type UUIDs %s only, but has type '%s', refusing.",
+                                        strna(joined), SD_ID128_TO_UUID_STRING(id));
+                }
+        }
+
+        return 0;
+}
+
+static int validate_gpt_metadata(int fd, const char *path, const ValidateFields *f) {
+        int r;
+
+        assert(fd >= 0);
+        assert(path);
+        assert(f);
+
+        if (strv_isempty(f->gpt_label) && f->n_gpt_type_uuid == 0)
+                return 0;
+
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        r = block_device_new_from_fd(fd, BLOCK_DEVICE_LOOKUP_BACKING, &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find block device backing '%s': %m", path);
+
+        /* Now validate all subordinate devices individually. */
+        bool have_slaves = false;
+        const char *suffix;
+        FOREACH_DEVICE_CHILD_WITH_SUFFIX(d, child, suffix) {
+                if (!path_startswith(suffix, "slaves"))
+                        continue;
+
+                have_slaves = true;
+
+                r = validate_gpt_metadata_one(child, path, f);
+                if (r < 0)
+                        return r;
+        }
+
+        /* If this device has no subordinate devices, then validate the device itself instead */
+        if (!have_slaves) {
+                r = validate_gpt_metadata_one(d, path, f);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
