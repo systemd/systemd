@@ -208,8 +208,17 @@ static int dns_query_candidate_go(DnsQueryCandidate *c) {
         /* Let's keep a reference to the query while we're operating */
         keep_c = dns_query_candidate_ref(c);
 
+        uint64_t generation = c->generation;
+
         /* Start the transactions that are not started yet */
         SET_FOREACH(t, c->transactions) {
+                if (c->generation != generation)
+                        /* One of the transaction has been completed, and dns_transaction_complete() ->
+                         * dns_query_candidate_notify() has been already called. Moreover, the query
+                         * candidate has been regenerated, and the query should be already restarted.
+                         * Let's exit from the loop now. */
+                        return 0;
+
                 if (t->state != DNS_TRANSACTION_NULL)
                         continue;
 
@@ -277,6 +286,8 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
         assert(c->query); /* We shan't add transactions to a candidate that has been detached already */
 
         dns_query_candidate_stop(c);
+
+        c->generation++;
 
         if (c->query->question_bypass) {
                 /* If this is a bypass query, then pass the original query packet along to the transaction */
