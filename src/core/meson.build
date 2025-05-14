@@ -61,11 +61,11 @@ libcore_sources = files(
         'unit-dependency-atom.c',
         'unit-printf.c',
         'unit-serialize.c',
-        'unit-varlink.c',
         'unit.c',
         'varlink.c',
         'varlink-common.c',
         'varlink-manager.c',
+        'varlink-unit.c',
 )
 
 subdir('bpf/socket_bind')
