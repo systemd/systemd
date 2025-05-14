@@ -146,7 +146,6 @@ static char* validate_fields_gpt_type_uuid_as_string(const ValidateFields *f) {
                 const char *id = gpt_partition_type_uuid_to_string(*u);
                 if (id)
                         (void) strextend(&joined, " (", id, ")");
-
         }
 
         return TAKE_PTR(joined);
@@ -241,11 +240,60 @@ static int validate_mount_point(const char *path, const ValidateFields *f) {
         }
 
         _cleanup_free_ char *joined = strv_join(f->mount_point, ", ");
-
         return log_error_errno(
                         SYNTHETIC_ERRNO(EPERM),
                         "File system is supposed to be mounted on one of %s only, but is mounted on %s, refusing.",
                         strna(joined), path);
+}
+
+static int validate_gpt_label(blkid_probe b, const ValidateFields *f) {
+        assert(b);
+        assert(f);
+
+        if (strv_isempty(f->gpt_label))
+                return 0;
+
+        const char *v = NULL;
+        (void) blkid_probe_lookup_value(b, "PART_ENTRY_NAME", &v, /* ret_len= */ NULL);
+
+        if (strv_contains(f->gpt_label, strempty(v)))
+                return 0;
+
+        _cleanup_free_ char *joined = strv_join(f->gpt_label, "', '");
+        return log_error_errno(
+                        SYNTHETIC_ERRNO(EPERM),
+                        "File system is supposed to be placed in a partition with labels '%s' only, but is placed in one labelled '%s', refusing.",
+                        strna(joined), strempty(v));
+}
+
+static int validate_gpt_type(blkid_probe b, const ValidateFields *f) {
+        assert(b);
+        assert(f);
+
+        if (f->n_gpt_type_uuid == 0)
+                return 0;
+
+        const char *v = NULL;
+        (void) blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* ret_len= */ NULL);
+
+        sd_id128_t id;
+        if (!v || sd_id128_from_string(v, &id) < 0) {
+                _cleanup_free_ char *joined = validate_fields_gpt_type_uuid_as_string(f);
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EPERM),
+                                "File system is supposed to be placed in a partition of type UUIDs %s only, but has no type, refusing.",
+                                strna(joined));
+        }
+
+        FOREACH_ARRAY(u, f->gpt_type_uuid, f->n_gpt_type_uuid)
+                if (sd_id128_equal(*u, id))
+                        return 0;
+
+        _cleanup_free_ char *joined = validate_fields_gpt_type_uuid_as_string(f);
+        return log_error_errno(
+                        SYNTHETIC_ERRNO(EPERM),
+                        "File system is supposed to be placed in a partition of type UUIDs %s only, but has type '%s', refusing.",
+                        strna(joined), SD_ID128_TO_UUID_STRING(id));
 }
 
 static int validate_gpt_metadata_one(sd_device *d, const char *path, const ValidateFields *f) {
@@ -288,50 +336,13 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         if (!streq_ptr(v, "gpt"))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "File system is supposed to be on a GPT partition table, but is not, refusing.");
 
-        if (!strv_isempty(f->gpt_label)) {
-                v = NULL;
-                (void) blkid_probe_lookup_value(b, "PART_ENTRY_NAME", &v, /* ret_len= */ NULL);
+        r = validate_gpt_label(b, f);
+        if (r < 0)
+                return r;
 
-                if (!strv_contains(f->gpt_label, strempty(v))) {
-                        _cleanup_free_ char *joined = strv_join(f->gpt_label, "', '");
-
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(EPERM),
-                                        "File system is supposed to be placed in a partition with labels '%s' only, but is placed in one labelled '%s', refusing.",
-                                        strna(joined), strempty(v));
-                }
-        }
-
-        if (f->n_gpt_type_uuid > 0) {
-                v = NULL;
-                (void) blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* ret_len= */ NULL);
-
-                sd_id128_t id;
-                if (!v || sd_id128_from_string(v, &id) < 0) {
-                        _cleanup_free_ char *joined = validate_fields_gpt_type_uuid_as_string(f);
-
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(EPERM),
-                                        "File system is supposed to be placed in a partition of type UUIDs %s only, but has no type, refusing.",
-                                        strna(joined));
-                }
-
-                bool found = false;
-                FOREACH_ARRAY(u, f->gpt_type_uuid, f->n_gpt_type_uuid)
-                        if (sd_id128_equal(*u, id)) {
-                                found = true;
-                                break;
-                        }
-
-                if (!found) {
-                        _cleanup_free_ char *joined = validate_fields_gpt_type_uuid_as_string(f);
-
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(EPERM),
-                                        "File system is supposed to be placed in a partition of type UUIDs %s only, but has type '%s', refusing.",
-                                        strna(joined), SD_ID128_TO_UUID_STRING(id));
-                }
-        }
+        r = validate_gpt_type(b, f);
+        if (r < 0)
+                return r;
 
         return 0;
 }
