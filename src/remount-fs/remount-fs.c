@@ -9,11 +9,13 @@
 
 #include "env-util.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "fstab-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mount-setup.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -69,11 +71,96 @@ static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
         return track_pid(pids, path, pid);
 }
 
+static int device_node_uuid(const char *path, sd_id128_t *ret_uuid) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        int r;
+
+        r = sd_device_new_from_devname(&device, path);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to create device from %s: %m", path);
+
+        const char *uuid;
+        r = sd_device_get_property_value(device, "ID_FS_UUID", &uuid);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get filesystem UUID for device %s: %m", path);
+
+        r = sd_id128_from_string(uuid, ret_uuid);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse ID_FS_UUID '%s' for device %s: %m",
+                                         uuid, path);
+        return 0;
+}
+
+static void mount_point_check(const struct mntent *me) {
+        _cleanup_free_ char *what = NULL, *where = NULL, *type = NULL;
+        int r;
+
+        r = path_get_mount_info(ASSERT_PTR(me)->mnt_dir, &what, &where, &type, /* options= */ NULL);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to acquire information about mount point %s: %m", me->mnt_dir);
+        if (!path_equal(me->mnt_dir, where))  /* We got the containing mount point */
+                return log_debug("Mount point \"%s\" is not mounted.", me->mnt_dir);
+
+        if (!streq(type, me->mnt_type) && !streq(me->mnt_type, "auto"))
+                return log_info("Note: file system type mounted at \"%s\" doesn't match fstab (type %s vs. %s).\n"
+                                "Consider adjusting fstab.",
+                                me->mnt_dir, type, me->mnt_type);
+
+        if (!fstype_is_blockdev_backed(type))
+                return log_debug("File system type mounted at \"%s\" matches fstab.", me->mnt_dir);
+
+        /* Figure out if the two paths point at the same device node */
+        _cleanup_free_ char *node = fstab_node_to_udev_node(me->mnt_fsname);
+        if (!node)
+                return (void) log_oom();
+
+        _cleanup_close_ int pin_a = -EBADF, pin_b = -EBADF;
+
+        pin_a = r = RET_NERRNO(open(what, O_PATH|O_CLOEXEC));
+        if (r < 0)
+                return (void) log_debug_errno(r, "Cannot open mount device %s: %m, ignoring.", what);
+        pin_b = r = RET_NERRNO(open(node, O_PATH|O_CLOEXEC));
+        if (r == -ENOENT)
+                return (void) log_notice_errno(r, "Mount device %s specified in fstab doesn't exist,\n"
+                                                  "             %s is mounted instead.\n"
+                                                  "Consider adjusting fstab.",
+                                               node, what);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Cannot open mount device %s specified in fstab, ignoring: %m\n",
+                                                node);
+
+        struct stat sta, stb;
+        if (fstat(pin_a, &sta) < 0)
+                return (void) log_warning_errno(errno, "Cannot stat %s: %m", what);
+        if (fstat(pin_b, &stb) < 0)
+                return (void) log_warning_errno(errno, "Cannot stat %s: %m", node);
+        r = sta.st_dev != stb.st_dev;
+
+        if (r == 0) {
+                /* Try to figure out if the file system identifier matches…
+                 * This way we cover multi-device file systems like btrfs or bcachefs. */
+                sd_id128_t uuid_a, uuid_b;
+
+                if (device_node_uuid(what, &uuid_a) < 0 ||
+                    device_node_uuid(node, &uuid_b) < 0)
+                        return;
+
+                r = sd_id128_equal(uuid_a, uuid_b);
+        }
+
+        if (r > 0)
+                log_debug("File system mounted at \"%s\" matches fstab.", me->mnt_dir);
+        else
+                log_info("Note: file system mounted at \"%s\" doesn't match fstab (%s vs. %s)\n"
+                         "Consider adjusting fstab.",
+                         me->mnt_dir, what, me->mnt_fsname);
+}
+
 static int remount_by_fstab(Hashmap **ret_pids) {
         _cleanup_hashmap_free_ Hashmap *pids = NULL;
         _cleanup_endmntent_ FILE *f = NULL;
         bool has_root = false;
-        struct mntent* me;
+        struct mntent *me;
         int r;
 
         assert(ret_pids);
@@ -98,7 +185,9 @@ static int remount_by_fstab(Hashmap **ret_pids) {
                 if (path_equal(me->mnt_dir, "/"))
                         has_root = true;
 
-                r = do_remount(me->mnt_dir, false, &pids);
+                mount_point_check(me);
+
+                r = do_remount(me->mnt_dir, /* force_rw= */ false, &pids);
                 if (r < 0)
                         return r;
         }
@@ -132,7 +221,7 @@ static int run(int argc, char *argv[]) {
                         log_warning_errno(r, "Failed to parse $SYSTEMD_REMOUNT_ROOT_RW, ignoring: %m");
 
                 if (r > 0) {
-                        r = do_remount("/", true, &pids);
+                        r = do_remount("/", /* force_rw= */ true, &pids);
                         if (r < 0)
                                 return r;
                 }

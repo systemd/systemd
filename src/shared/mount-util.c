@@ -1881,9 +1881,11 @@ char* umount_and_unlink_and_free(char *p) {
         return mfree(p);
 }
 
-static int path_get_mount_info_at(
+int path_get_mount_info_at(
                 int dir_fd,
                 const char *path,
+                char **ret_source,
+                char **ret_target,
                 char **ret_fstype,
                 char **ret_options) {
 
@@ -1918,7 +1920,19 @@ static int path_get_mount_info_at(
                 if (mnt_fs_get_id(fs) != mnt_id)
                         continue;
 
-                _cleanup_free_ char *fstype = NULL, *options = NULL;
+                _cleanup_free_ char *source = NULL, *target = NULL, *fstype = NULL, *options = NULL;
+
+                if (ret_source) {
+                        source = strdup(ASSERT_PTR(mnt_fs_get_source(fs)));
+                        if (!source)
+                                return log_oom_debug();
+                }
+
+                if (ret_target) {
+                        target = strdup(ASSERT_PTR(mnt_fs_get_target(fs)));
+                        if (!target)
+                                return log_oom_debug();
+                }
 
                 if (ret_fstype) {
                         fstype = strdup(strempty(mnt_fs_get_fstype(fs)));
@@ -1932,6 +1946,10 @@ static int path_get_mount_info_at(
                                 return log_oom_debug();
                 }
 
+                if (ret_source)
+                        *ret_source = TAKE_PTR(source);
+                if (ret_target)
+                        *ret_target = TAKE_PTR(target);
                 if (ret_fstype)
                         *ret_fstype = TAKE_PTR(fstype);
                 if (ret_options)
@@ -1940,7 +1958,7 @@ static int path_get_mount_info_at(
                 return 0;
         }
 
-        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find mount ID %i from /proc/self/mountinfo.", mnt_id);
+        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find mount ID %i in /proc/self/mountinfo.", mnt_id);
 }
 
 int path_is_network_fs_harder_at(int dir_fd, const char *path) {
@@ -1958,7 +1976,7 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
                 return r;
 
         _cleanup_free_ char *fstype = NULL, *options = NULL;
-        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &options);
+        r = path_get_mount_info_at(fd, /* path= */ NULL, /* source= */ NULL, /* target= */ NULL, &fstype, &options);
         if (r < 0)
                 return r;
 
