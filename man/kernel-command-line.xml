@@ -802,11 +802,10 @@
       <variablelist>
         <varlistentry>
           <term>systemd 252</term>
+
           <listitem><para>Kernel command-line arguments <varname>systemd.unified_cgroup_hierarchy</varname>
           and <varname>systemd.legacy_systemd_cgroup_controller</varname> were deprecated. Please switch to
-          the unified cgroup hierarchy.</para>
-
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          the unified cgroup hierarchy.</para></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>
