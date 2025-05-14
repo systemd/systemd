@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_arp.h>
-#include <net/if.h>
-#include <netinet/in.h>
 #include <unistd.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "arphrd-util.h"
@@ -11,18 +11,18 @@
 #include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
+#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "dummy.h"
-#include "fd-util.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
+#include "hashmap.h"
 #include "hsr.h"
 #include "ifb.h"
 #include "ipoib.h"
 #include "ipvlan.h"
 #include "l2tp-tunnel.h"
-#include "list.h"
 #include "macsec.h"
 #include "macvlan.h"
 #include "netdev.h"
@@ -31,12 +31,9 @@
 #include "network-util.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
-#include "networkd-setlink.h"
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "nlmon.h"
-#include "path-lookup.h"
-#include "siphash24.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"

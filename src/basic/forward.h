@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+/* IWYU pragma: always_keep */
+
 #include <errno.h>              /* IWYU pragma: export */
 #include <inttypes.h>           /* IWYU pragma: export */
 #include <limits.h>             /* IWYU pragma: export */

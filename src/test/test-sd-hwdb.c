@@ -2,8 +2,6 @@
 
 #include "sd-hwdb.h"
 
-#include "alloc-util.h"
-#include "errno.h"
 #include "errno-util.h"
 #include "hwdb-internal.h"
 #include "nulstr-util.h"

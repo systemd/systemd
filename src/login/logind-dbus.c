@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <pwd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-messages.h"
 
@@ -26,13 +27,16 @@
 #include "efivars.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "login-util.h"
+#include "logind-session.h"
 #include "logind.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
@@ -44,22 +48,20 @@
 #include "logind-user-dbus.h"
 #include "logind-utmp.h"
 #include "mkdir-label.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "reboot-util.h"
-#include "selinux-util.h"
 #include "serialize.h"
 #include "signal-util.h"
 #include "sleep-config.h"
-#include "special.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
-#include "unit-name.h"
+#include "user-record.h"
 #include "user-util.h"
-#include "utmp-wtmp.h"
 #include "virt.h"
 #include "wall.h"
 
@@ -145,9 +147,9 @@ int manager_get_session_from_creds(
         assert(m);
         assert(ret);
 
-        if (SESSION_IS_SELF(name)) /* the caller's own session */
+        if (session_is_self(name)) /* the caller's own session */
                 return get_sender_session(m, message, false, error, ret);
-        if (SESSION_IS_AUTO(name)) /* The caller's own session if they have one, otherwise their user's display session */
+        if (session_is_auto(name)) /* The caller's own session if they have one, otherwise their user's display session */
                 return get_sender_session(m, message, true, error, ret);
 
         session = hashmap_get(m->sessions, name);
@@ -217,7 +219,7 @@ int manager_get_seat_from_creds(
         assert(m);
         assert(ret);
 
-        if (SEAT_IS_SELF(name) || SEAT_IS_AUTO(name)) {
+        if (seat_is_self(name) || seat_is_auto(name)) {
                 Session *session;
 
                 /* Use these special seat names as session names */
@@ -872,8 +874,8 @@ static int manager_choose_session_id(
                 } while (hashmap_contains(m->sessions, id));
 
         /* The generated names should not clash with 'auto' or 'self' */
-        assert(!SESSION_IS_SELF(id));
-        assert(!SESSION_IS_AUTO(id));
+        assert(!session_is_self(id));
+        assert(!session_is_auto(id));
 
         *ret_id = TAKE_PTR(id);
         return 0;
@@ -1792,7 +1794,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         if (!path_startswith(sysfs, "/sys"))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not in /sys", sysfs);
 
-        if (SEAT_IS_SELF(seat) || SEAT_IS_AUTO(seat)) {
+        if (seat_is_self(seat) || seat_is_auto(seat)) {
                 Seat *found;
 
                 r = manager_get_seat_from_creds(m, message, seat, error, &found);

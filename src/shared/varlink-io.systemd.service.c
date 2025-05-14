@@ -5,7 +5,6 @@
 #include "env-util.h"
 #include "json-util.h"
 #include "log.h"
-#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "varlink-io.systemd.service.h"

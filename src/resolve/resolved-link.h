@@ -3,26 +3,16 @@
 
 #include <sys/stat.h>
 
-#include "sd-netlink.h"
-
 #include "in-addr-util.h"
 #include "list.h"
 #include "network-util.h"
-#include "ratelimit.h"
 #include "resolve-util.h"
-
-typedef struct DnsResourceRecord DnsResourceRecord;
-typedef struct DnsScope DnsScope;
-typedef struct DnsSearchDomain DnsSearchDomain;
-typedef struct DnsServer DnsServer;
-typedef struct Link Link;
-typedef struct LinkAddress LinkAddress;
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 #define LINK_SEARCH_DOMAINS_MAX 256
 #define LINK_DNS_SERVERS_MAX 256
 
-struct LinkAddress {
+typedef struct LinkAddress {
         Link *link;
 
         int family;
@@ -39,9 +29,9 @@ struct LinkAddress {
         DnsResourceRecord *mdns_ptr_rr;
 
         LIST_FIELDS(LinkAddress, addresses);
-};
+} LinkAddress;
 
-struct Link {
+typedef struct Link {
         Manager *manager;
 
         int ifindex;
@@ -83,7 +73,7 @@ struct Link {
         char *state_file;
 
         bool unicast_relevant;
-};
+} Link;
 
 int link_new(Manager *m, Link **ret, int ifindex);
 Link *link_free(Link *l);

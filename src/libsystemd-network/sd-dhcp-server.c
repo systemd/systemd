@@ -3,10 +3,8 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <net/if_arp.h>
-#include <sys/ioctl.h>
-
 #include "sd-dhcp-server.h"
+#include "sd-event.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -16,6 +14,7 @@
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
@@ -24,9 +23,9 @@
 #include "ordered-set.h"
 #include "path-util.h"
 #include "siphash24.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "unaligned.h"
-#include "utf8.h"
 
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)

@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "chase.h"
@@ -15,24 +13,23 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "id128-util.h"
-#include "macro.h"
 #include "missing_magic.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
-#include "user-util.h"
+#include "time-util.h"
 
 int device_new_aux(sd_device **ret) {
         sd_device *device;

@@ -1,22 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-json.h"
-
 #include "list.h"
-#include "macro.h"
-#include "memory-util.h"
-
-typedef struct DnsSearchDomain DnsSearchDomain;
-typedef struct Link Link;
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 typedef enum DnsSearchDomainType {
         DNS_SEARCH_DOMAIN_SYSTEM,
         DNS_SEARCH_DOMAIN_LINK,
 } DnsSearchDomainType;
 
-struct DnsSearchDomain {
+typedef struct DnsSearchDomain {
         Manager *manager;
 
         unsigned n_ref;
@@ -31,7 +24,7 @@ struct DnsSearchDomain {
 
         bool linked:1;
         LIST_FIELDS(DnsSearchDomain, domains);
-};
+} DnsSearchDomain;
 
 int dns_search_domain_new(
                 Manager *m,

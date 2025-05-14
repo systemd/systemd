@@ -2,15 +2,13 @@
 #pragma once
 
 #if HAVE_SECCOMP
-#include <seccomp.h>
+#include <seccomp.h> /* IWYU pragma: export */
 #endif
-#include <stdbool.h>
-#include <stdint.h>
 
-#include "errno-list.h"
 #include "errno-util.h"
+#include "errno-list.h"
+#include "forward.h"
 #include "parse-util.h"
-#include "set.h"
 #include "string-util.h"
 
 #if HAVE_SECCOMP
