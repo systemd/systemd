@@ -28,11 +28,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-boot-clear-sysfail.service</filename> is a system service that automatically clears the
+    <para>The <filename>systemd-boot-clear-sysfail.service</filename> is a system service that automatically clears the
     'LoaderEntrySysFail' boot loader entry if the boot was successful and the 'LoaderSysFailReason' EFI variable,
     which indicates the reason for the system failure, is not set. </para>
 
-    <para>The <filename>systemd-boot-random-seed.service</filename> unit invokes the <command>bootctl --graceful
+    <para>The <filename>systemd-boot-clear-sysfail.service</filename> unit invokes the <command>bootctl --graceful
     set-sysfail ""</command> command, which clears the LoaderEntrySysFail entry. The service is conditionalized
     so that it is run only when a LoaderSysFailReason entry is not set.</para><para>For further details see
     <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, regarding
