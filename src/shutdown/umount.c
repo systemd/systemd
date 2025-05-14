@@ -3,18 +3,18 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
@@ -27,8 +27,10 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "umount.h"
-#include "user-util.h"
 #include "virt.h"
 
 static void mount_point_free(MountPoint **head, MountPoint *m) {

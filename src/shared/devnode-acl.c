@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "sd-device.h"
 
 #include "acl-util.h"
-#include "alloc-util.h"
 #include "device-util.h"
 #include "devnode-acl.h"
 #include "dirent-util.h"

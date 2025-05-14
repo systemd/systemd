@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <linux/vt.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 
-#include "sd-id128.h"
 #include "sd-journal.h"
 
 #include "alloc-util.h"
@@ -21,7 +19,7 @@
 #include "pretty-print.h"
 #include "qrcode-util.h"
 #include "signal-util.h"
-#include "sysctl-util.h"
+#include "stdio-util.h"
 #include "terminal-util.h"
 
 static bool arg_continuous = false;
