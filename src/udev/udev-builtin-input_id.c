@@ -6,12 +6,8 @@
  * Copyright © 2014 Carlos Garnacho <carlosg@gnome.org>
  */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/input.h>
-#include <linux/limits.h>
-#include <stdarg.h>
-#include <unistd.h>
 
 #include "device-util.h"
 #include "fd-util.h"

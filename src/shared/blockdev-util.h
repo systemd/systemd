@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
+#include <sys/sysmacros.h>
 
-#include "sd-device.h"
-
-#include "macro.h"
+#include "forward.h"
 #include "stdio-util.h"
-#include "string-util.h"
 
 #define SYS_BLOCK_PATH_MAX(suffix)                                      \
         (STRLEN("/sys/dev/block/") + DECIMAL_STR_MAX(dev_t) + 1 + DECIMAL_STR_MAX(dev_t) + STRLEN(suffix))

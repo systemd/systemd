@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/sockios.h>
-#if HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
+#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/signalfd.h>
@@ -12,6 +10,7 @@
 #include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "acl-util.h"
 #include "alloc-util.h"
@@ -21,8 +20,8 @@
 #include "creds-util.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "event-util.h"
-#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -30,8 +29,6 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
-#include "id128-util.h"
 #include "initrd-util.h"
 #include "iovec-util.h"
 #include "journal-authenticate.h"
@@ -46,6 +43,7 @@
 #include "journald-rate-limit.h"
 #include "journald-socket.h"
 #include "journald-stream.h"
+#include "journald-sync.h"
 #include "journald-syslog.h"
 #include "journald-varlink.h"
 #include "log.h"
@@ -54,17 +52,19 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "prioq.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
-#include "selinux-util.h"
-#include "signal-util.h"
+#include "set.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "user-util.h"
 

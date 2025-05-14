@@ -5,7 +5,6 @@
 
 #include "netlink-internal.h"
 #include "netlink-sock-diag.h"
-#include "netlink-util.h"
 
 int sd_sock_diag_socket_open(sd_netlink **ret) {
         return netlink_open_family(ret, NETLINK_SOCK_DIAG);

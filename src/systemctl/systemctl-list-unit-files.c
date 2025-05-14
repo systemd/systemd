@@ -2,15 +2,22 @@
 
 #include <fnmatch.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-util.h"
+#include "format-table.h"
+#include "hashmap.h"
+#include "install.h"
 #include "sort-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-list-unit-files.h"
 #include "systemctl-util.h"
-#include "terminal-util.h"
 
 static int compare_unit_file_list(const UnitFileList *a, const UnitFileList *b) {
         const char *d1, *d2;
