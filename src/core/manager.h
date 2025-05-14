@@ -152,7 +152,6 @@ typedef struct UnitDefaults {
         bool cpu_accounting;
         bool memory_accounting;
         bool io_accounting;
-        bool blockio_accounting;
         bool tasks_accounting;
         bool ip_accounting;
 
