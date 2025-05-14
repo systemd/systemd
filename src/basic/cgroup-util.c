@@ -109,14 +109,14 @@ int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret) {
         return 0;
 }
 
-static int cg_enumerate_items(const char *controller, const char *path, FILE **ret, const char *item) {
+int cg_enumerate_processes(const char *controller, const char *path, FILE **ret) {
         _cleanup_free_ char *fs = NULL;
         FILE *f;
         int r;
 
         assert(ret);
 
-        r = cg_get_path(controller, path, item, &fs);
+        r = cg_get_path(controller, path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
@@ -126,10 +126,6 @@ static int cg_enumerate_items(const char *controller, const char *path, FILE **r
 
         *ret = f;
         return 0;
-}
-
-int cg_enumerate_processes(const char *controller, const char *path, FILE **ret) {
-        return cg_enumerate_items(controller, path, ret, "cgroup.procs");
 }
 
 int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags) {
@@ -185,11 +181,6 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
 
                 if (pid == 0)
                         return -EREMOTE;
-
-                if (FLAGS_SET(flags, CGROUP_NO_PIDFD)) {
-                        *ret = PIDREF_MAKE_FROM_PID(pid);
-                        return 1;
-                }
 
                 r = pidref_set_pid(ret, pid);
                 if (r >= 0)
@@ -297,9 +288,8 @@ int cg_read_subgroup(DIR *d, char **ret) {
         return 0;
 }
 
-static int cg_kill_items(
+int cg_kill(
                 const char *path,
-                const char *item,
                 int sig,
                 CGroupFlags flags,
                 Set *s,
@@ -310,7 +300,6 @@ static int cg_kill_items(
         int r, ret = 0;
 
         assert(path);
-        assert(item);
         assert(sig >= 0);
 
          /* Don't send SIGCONT twice. Also, SIGKILL always works even when process is suspended, hence
@@ -336,7 +325,7 @@ static int cg_kill_items(
 
                 done = true;
 
-                r = cg_enumerate_items(SYSTEMD_CGROUP_CONTROLLER, path, &f, item);
+                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
                 if (r == -ENOENT)
                         break;
                 if (r < 0)
@@ -395,44 +384,6 @@ static int cg_kill_items(
         } while (!done);
 
         return ret;
-}
-
-int cg_kill(
-                const char *path,
-                int sig,
-                CGroupFlags flags,
-                Set *s,
-                cg_kill_log_func_t log_kill,
-                void *userdata) {
-
-        int r, ret;
-
-        assert(path);
-
-        ret = cg_kill_items(path, "cgroup.procs", sig, flags, s, log_kill, userdata);
-        if (ret < 0)
-                return log_debug_errno(ret, "Failed to kill processes in cgroup '%s' item cgroup.procs: %m", path);
-        if (sig != SIGKILL)
-                return ret;
-
-        /* Only in case of killing with SIGKILL and when using cgroupsv2, kill remaining threads manually as
-           a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83), backported to 4.19.66
-           (4340d175b898) and 4.14.138 (feb6b123b7dd). */
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return ret;
-
-        /* Opening pidfds for non thread group leaders only works from 6.9 onwards with PIDFD_THREAD. On
-         * older kernels or without PIDFD_THREAD pidfd_open() fails with EINVAL. Since we might read non
-         * thread group leader IDs from cgroup.threads, we set CGROUP_NO_PIDFD to avoid trying open pidfd's
-         * for them and instead use the regular pid. */
-        r = cg_kill_items(path, "cgroup.threads", sig, flags|CGROUP_NO_PIDFD, s, log_kill, userdata);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to kill processes in cgroup '%s' item cgroup.threads: %m", path);
-
-        return r > 0 || ret > 0;
 }
 
 int cg_kill_recursive(
