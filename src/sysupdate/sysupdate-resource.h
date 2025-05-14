@@ -80,12 +80,12 @@ struct Resource {
         ResourceType type;
 
         /* Where to look for instances, and what to match precisely */
-        char *path;
         bool path_auto; /* automatically find root path (only available if target resource, not source resource) */
+        bool partition_type_set;
+        char *path;
         PathRelativeTo path_relative_to;
         char **patterns;
         GptPartitionType partition_type;
-        bool partition_type_set;
 
         /* All instances of this resource we found */
         Instance **instances;

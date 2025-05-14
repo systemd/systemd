@@ -103,9 +103,9 @@ typedef enum ServiceRestartMode {
 typedef struct ServiceFDStore {
         Service *service;
 
-        int fd;
         char *fdname;
         sd_event_source *event_source;
+        int fd;
         bool do_poll;
 
         LIST_FIELDS(struct ServiceFDStore, fd_store);

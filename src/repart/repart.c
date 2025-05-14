@@ -437,8 +437,8 @@ typedef struct Context {
         sd_id128_t seed;
 
         char *node;
-        bool node_is_our_file;
         int backing_fd;
+        bool node_is_our_file;
 
         bool from_scratch;
 
@@ -4277,8 +4277,8 @@ static DecryptedPartitionTarget* decrypted_partition_target_free(DecryptedPartit
 
 typedef struct {
         LoopDevice *loop;
-        int fd;
         char *path;
+        int fd;
         int whole_fd;
         DecryptedPartitionTarget *decrypted;
 } PartitionTarget;
