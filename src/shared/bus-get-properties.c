@@ -8,6 +8,7 @@
 #include "string-util.h"
 
 BUS_DEFINE_PROPERTY_GET_GLOBAL(bus_property_get_bool_false, "b", 0);
+BUS_DEFINE_PROPERTY_GET_GLOBAL(bus_property_get_bool_true, "b", 1);
 BUS_DEFINE_PROPERTY_GET_GLOBAL(bus_property_get_uint64_max, "t", UINT64_MAX);
 
 int bus_property_get_bool(
