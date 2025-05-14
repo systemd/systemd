@@ -334,7 +334,6 @@ static void slice_enumerate_perpetual(Manager *m) {
                  * means the kernel will track CPU/tasks/memory for us anyway, and it is all available in /proc. Let's
                  * hence turn accounting on here, so that our APIs to query this data are available. */
 
-                s->cgroup_context.cpu_accounting = true;
                 s->cgroup_context.tasks_accounting = true;
                 s->cgroup_context.memory_accounting = true;
         }

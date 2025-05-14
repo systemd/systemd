@@ -469,8 +469,6 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u DefaultStartLimitBurst = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b DefaultCPUAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultIOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultIPAccounting = ...;
@@ -706,8 +704,6 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultStartLimitIntervalUSec is not documented!-->
 
     <!--property DefaultStartLimitBurst is not documented!-->
-
-    <!--property DefaultCPUAccounting is not documented!-->
 
     <!--property DefaultIOAccounting is not documented!-->
 
@@ -1150,8 +1146,6 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartLimitIntervalUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartLimitBurst"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultCPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultIOAccounting"/>
 
@@ -2884,8 +2878,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b CPUAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -3524,8 +3516,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property Delegate is not documented!-->
 
     <!--property DelegateControllers is not documented!-->
-
-    <!--property CPUAccounting is not documented!-->
 
     <!--property CPUWeight is not documented!-->
 
@@ -4178,8 +4168,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -5037,8 +5025,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b CPUAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -5690,8 +5676,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property DelegateControllers is not documented!-->
 
-    <!--property CPUAccounting is not documented!-->
-
     <!--property CPUWeight is not documented!-->
 
     <!--property StartupCPUWeight is not documented!-->
@@ -6315,8 +6299,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -7006,8 +6988,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b CPUAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -7589,8 +7569,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property DelegateControllers is not documented!-->
 
-    <!--property CPUAccounting is not documented!-->
-
     <!--property CPUWeight is not documented!-->
 
     <!--property StartupCPUWeight is not documented!-->
@@ -8130,8 +8108,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -8948,8 +8924,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b CPUAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -9513,8 +9487,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property DelegateControllers is not documented!-->
 
-    <!--property CPUAccounting is not documented!-->
-
     <!--property CPUWeight is not documented!-->
 
     <!--property StartupCPUWeight is not documented!-->
@@ -10036,8 +10008,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -10713,8 +10683,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b CPUAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -10893,8 +10861,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property Delegate is not documented!-->
 
     <!--property DelegateControllers is not documented!-->
-
-    <!--property CPUAccounting is not documented!-->
 
     <!--property CPUWeight is not documented!-->
 
@@ -11081,8 +11047,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
@@ -11295,8 +11259,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b CPUAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
@@ -11489,8 +11451,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property Delegate is not documented!-->
 
     <!--property DelegateControllers is not documented!-->
-
-    <!--property CPUAccounting is not documented!-->
 
     <!--property CPUWeight is not documented!-->
 
@@ -11701,8 +11661,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
 
