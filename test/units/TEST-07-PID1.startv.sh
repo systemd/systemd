@@ -9,7 +9,7 @@ set -o pipefail
 
 systemd-run -v --wait echo wampfl | grep wampfl
 
-systemd-run -v -p Type=notify bash -c 'echo brumfl ; systemd-notify --ready ; echo krass' |  grep brumfl
+systemd-run -v --service-type=notify bash -c 'echo brumfl ; systemd-notify --ready ; echo krass' | grep brumfl
 
 mkdir -p /run/systemd/journald.conf.d/
 
@@ -28,10 +28,19 @@ systemctl restart systemd-journald
 ( xxd /dev/urandom | systemd-cat -p debug ) &
 
 # Verify that this works even if the journal is super busy
-systemd-run -v -p Type=notify bash -c 'echo schmurz ; systemd-notify --ready ; echo kropf' |  grep schmurz
+systemd-run -v --service-type=notify bash -c 'echo schmurz ; systemd-notify --ready ; echo kropf' | grep schmurz
 
 kill %1
 kill %2
+
+# Flush pending journal entries
+systemd-run --unit=marker-hogefoo.service --service-type=notify -p NotifyAccess=all bash -c 'journalctl --follow -n 1 -p notice | grep -m1 marker_hogefoo'
+systemd-run --unit=marker-hogebar.service --service-type=notify -p NotifyAccess=all bash -c 'journalctl --follow -n 1 -p notice | grep -m1 marker_hogebar'
+echo marker_hogefoo | logger -p notice
+echo marker_hogebar | systemd-cat -p notice
+timeout 30 bash -c 'while systemctl is-active marker-hogefoo.service; do sleep 1; done'
+timeout 30 bash -c 'while systemctl is-active marker-hogebar.service; do sleep 1; done'
+journalctl --sync
 
 rm /run/systemd/journald.conf.d/50-disable-debug.conf
 rmdir --ignore-fail-on-non-empty /run/systemd/journald.conf.d
