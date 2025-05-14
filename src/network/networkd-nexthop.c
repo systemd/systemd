@@ -1200,6 +1200,7 @@ static int nexthop_section_verify(NextHop *nh) {
 
 int network_drop_invalid_nexthops(Network *network) {
         _cleanup_hashmap_free_ Hashmap *nexthops = NULL;
+        _cleanup_set_free_ Set *duplicated_nexthops = NULL;
         NextHop *nh;
         int r;
 
@@ -1222,8 +1223,13 @@ int network_drop_invalid_nexthops(Network *network) {
                                     dup->section->filename,
                                     nh->id, nh->section->line,
                                     dup->section->line, dup->section->line);
-                        /* nexthop_detach() will drop the nexthop from nexthops_by_section. */
-                        nexthop_detach(dup);
+
+                        /* Do not call nexthop_detach() for 'dup' now, as we can remove only the current
+                         * entry in the loop. We will drop the nexthop from nexthops_by_section later. */
+                        r = set_ensure_put(&duplicated_nexthops, &nexthop_hash_ops, dup);
+                        if (r < 0)
+                                return log_oom();
+                        assert(r > 0);
                 }
 
                 r = hashmap_ensure_put(&nexthops, NULL, UINT32_TO_PTR(nh->id), nh);
