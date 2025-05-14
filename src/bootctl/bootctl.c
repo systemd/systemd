@@ -5,6 +5,7 @@
 #include "sd-varlink.h"
 
 #include "blockdev-util.h"
+#include "boot-entry.h"
 #include "bootctl.h"
 #include "bootctl-install.h"
 #include "bootctl-random-seed.h"
@@ -16,19 +17,23 @@
 #include "devnum-util.h"
 #include "dissect-image.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "escape.h"
 #include "find-esp.h"
+#include "image-policy.h"
+#include "log.h"
 #include "main-func.h"
 #include "mount-util.h"
+#include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "utf8.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-util.h"
 #include "verbs.h"
-#include "virt.h"
 
 /* EFI_BOOT_OPTION_DESCRIPTION_MAX sets the maximum length for the boot option description
  * stored in NVRAM. The UEFI spec does not specify a minimum or maximum length for this

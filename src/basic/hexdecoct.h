@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <sys/types.h>
-
-#include "macro.h"
+#include "forward.h"
 
 char octchar(int x) _const_;
 int unoctchar(char c) _const_;
