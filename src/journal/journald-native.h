@@ -4,10 +4,10 @@
 #include <stddef.h>
 #include <sys/socket.h>
 
-typedef struct Server Server;
+typedef struct Manager Manager;
 
-void server_process_native_message(
-                Server *s,
+void manager_process_native_message(
+                Manager *m,
                 const char *buffer,
                 size_t buffer_size,
                 const struct ucred *ucred,
@@ -15,12 +15,12 @@ void server_process_native_message(
                 const char *label,
                 size_t label_len);
 
-int server_process_native_file(
-                Server *s,
+int manager_process_native_file(
+                Manager *m,
                 int fd,
                 const struct ucred *ucred,
                 const struct timeval *tv,
                 const char *label,
                 size_t label_len);
 
-int server_open_native_socket(Server *s, const char *native_socket);
+int manager_open_native_socket(Manager *m, const char *native_socket);

@@ -5,6 +5,6 @@
 
 #include "time-util.h"
 
-typedef struct Server Server;
+typedef struct Manager Manager;
 
-int server_forward_socket(Server *s, const struct iovec *iovec, size_t n, const dual_timestamp *ts, int priority);
+int manager_forward_socket(Manager *m, const struct iovec *iovec, size_t n, const dual_timestamp *ts, int priority);
