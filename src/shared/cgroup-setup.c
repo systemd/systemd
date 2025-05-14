@@ -445,6 +445,9 @@ int cg_enable(
                                                                            * not enabled. */
                                         ret |= bit;
                         } else {
+                                log_debug("%s controller %s for %s (%s).",
+                                          FLAGS_SET(mask, bit) ? "Enabled" : "Disabled", n, p, fs);
+
                                 /* Otherwise, if we managed to turn on a controller, set the bit reflecting that. */
                                 if (FLAGS_SET(mask, bit))
                                         ret |= bit;

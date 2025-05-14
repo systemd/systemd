@@ -590,7 +590,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecRuntime*, exec_runtime_free);
 ExecRuntime* exec_runtime_destroy(ExecRuntime *rt);
 void exec_runtime_clear(ExecRuntime *rt);
 
-int exec_params_get_cgroup_path(const ExecParameters *params, const CGroupContext *c, char **ret);
+int exec_params_get_cgroup_path(const ExecParameters *params, const CGroupContext *c, const char *prefix, char **ret);
 void exec_params_shallow_clear(ExecParameters *p);
 void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 void exec_params_deep_clear(ExecParameters *p);
@@ -634,12 +634,12 @@ ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
 bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
 bool exec_needs_network_namespace(const ExecContext *context);
 bool exec_needs_ipc_namespace(const ExecContext *context);
-bool exec_needs_pid_namespace(const ExecContext *context);
+bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *params);
 
-ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context);
-bool exec_needs_cgroup_namespace(const ExecContext *context);
-bool exec_needs_cgroup_mount(const ExecContext *context);
-bool exec_is_cgroup_mount_read_only(const ExecContext *context);
+ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context, const ExecParameters *params);
+bool exec_needs_cgroup_namespace(const ExecContext *context, const ExecParameters *params);
+bool exec_needs_cgroup_mount(const ExecContext *context, const ExecParameters *params);
+bool exec_is_cgroup_mount_read_only(const ExecContext *context, const ExecParameters *params);
 
 const char* exec_get_private_notify_socket_path(const ExecContext *context, const ExecParameters *params, bool needs_sandboxing);
 

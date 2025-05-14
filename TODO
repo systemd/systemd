@@ -125,6 +125,9 @@ Deprecations and removals:
 
 Features:
 
+* pid1: Maybe we should run control processes in the same pidns/cgroupns as the
+  main pid if it's still alive?
+
 * in pid1, name Accept=yes service instances after the socket cookie. Also, set
   $SO_COOKIE env var or so for executed services.
 
