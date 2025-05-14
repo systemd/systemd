@@ -9,7 +9,7 @@ set -o pipefail
 
 systemd-run -v --wait echo wampfl | grep wampfl
 
-systemd-run -v -p Type=notify bash -c 'echo brumfl ; systemd-notify --ready ; echo krass' |  grep brumfl
+systemd-run -v -p Type=notify bash -c 'echo brumfl ; systemd-notify --ready ; echo krass' | grep brumfl
 
 mkdir -p /run/systemd/journald.conf.d/
 
@@ -28,10 +28,22 @@ systemctl restart systemd-journald
 ( xxd /dev/urandom | systemd-cat -p debug ) &
 
 # Verify that this works even if the journal is super busy
-systemd-run -v -p Type=notify bash -c 'echo schmurz ; systemd-notify --ready ; echo kropf' |  grep schmurz
+systemd-run -v -p Type=notify bash -c 'echo schmurz ; systemd-notify --ready ; echo kropf' | grep schmurz
 
 kill %1
 kill %2
+
+( timeout 300 bash -c 'journalctl --lines 0 --follow | grep marker_hogehoge' ) &
+PID=$!
+echo marker_hogehoge | logger -p debug
+wait "$PID"
+
+( timeout 300 bash -c 'journalctl --lines 0 --follow | grep marker_foobar' ) &
+PID=$!
+echo marker_foobar | systemd-cat -p debug
+wait "$PID"
+
+journalctl --sync
 
 rm /run/systemd/journald.conf.d/50-disable-debug.conf
 rmdir --ignore-fail-on-non-empty /run/systemd/journald.conf.d
