@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -16,11 +15,9 @@
 #include "parse-util.h"
 #include "percent-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "reboot-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
 #define PCI_CLASS_GRAPHICS_CARD 0x30000
