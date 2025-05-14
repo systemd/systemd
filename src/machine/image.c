@@ -136,11 +136,11 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
 
                 HASHMAP_FOREACH(image, images) {
                         /* We can't remove vendor images (i.e. those in /usr) */
-                        if (IMAGE_IS_VENDOR(image))
+                        if (image_is_vendor(image))
                                 continue;
-                        if (IMAGE_IS_HOST(image))
+                        if (image_is_host(image))
                                 continue;
-                        if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN && !IMAGE_IS_HIDDEN(image))
+                        if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN && !image_is_hidden(image))
                                 continue;
 
                         r = image_remove(image);
