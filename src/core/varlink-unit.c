@@ -11,8 +11,8 @@
 #include "manager.h"
 #include "unit.h"
 #include "unit-name.h"
-#include "unit-varlink.h"
 #include "varlink-common.h"
+#include "varlink-unit.h"
 #include "varlink-util.h"
 
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
