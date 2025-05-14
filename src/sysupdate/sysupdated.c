@@ -1766,7 +1766,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                 _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
 
-                if (IMAGE_IS_HOST(image))
+                if (image_is_host(image))
                         continue; /* We already enroll the host ourselves */
 
                 r = target_new(m, class, image->name, image->path, &t);
