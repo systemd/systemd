@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <errno.h>
 #include <net/ethernet.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -9,12 +8,8 @@
 #include "sd-event.h"
 #include "sd-lldp-rx.h"
 
-#include "alloc-util.h"
 #include "fd-util.h"
 #include "lldp-network.h"
-#include "log.h"
-#include "macro.h"
-#include "string-util.h"
 #include "tests.h"
 
 #define TEST_LLDP_PORT "em1"

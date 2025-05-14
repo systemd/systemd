@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "hashmap.h"
-#include "path-lookup.h"
-#include "time-util.h"
-#include "unit-name.h"
+#include "forward.h"
+#include "unit-def.h"
 
 typedef enum UnitFileState UnitFileState;
 
