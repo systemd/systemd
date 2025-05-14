@@ -1110,6 +1110,9 @@ else
         conf.set10('BPF_FRAMEWORK', deps_found)
 endif
 
+have = cc.has_function('bpf_token_create', prefix : '''#include <bpf/bpf.h>''', dependencies : libbpf)
+conf.set10('HAVE_BPF_TOKEN_CREATE', libbpf.found() and have)
+
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
