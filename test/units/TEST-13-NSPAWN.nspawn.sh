@@ -312,6 +312,7 @@ EOF
     # Assorted tests
     systemd-nspawn --directory="$root" --suppress-sync=yes bash -xec 'echo hello'
     systemd-nspawn --capability=help
+    systemd-nspawn --directory="$root" --capability=all bash -xec 'echo hello'
     systemd-nspawn --resolv-conf=help
     systemd-nspawn --timezone=help
 

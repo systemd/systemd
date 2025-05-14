@@ -396,8 +396,9 @@ bool capability_quintet_mangle(CapabilityQuintet *q) {
 
         combined = q->effective | q->bounding | q->inheritable | q->permitted | q->ambient;
 
-        BIT_FOREACH(i, combined) {
-                assert((unsigned) i <= cap_last_cap());
+        for (unsigned i = 0; i <= cap_last_cap(); i++) {
+                if (!BIT_SET(combined, i))
+                        continue;
 
                 if (prctl(PR_CAPBSET_READ, (unsigned long) i) > 0)
                         continue;
