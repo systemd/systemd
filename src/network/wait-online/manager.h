@@ -1,16 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-#include "sd-netlink.h"
-#include "sd-network.h"
-#include "sd-varlink.h"
-
-#include "dns-configuration.h"
-#include "hashmap.h"
+#include "forward.h"
 #include "network-util.h"
-#include "time-util.h"
 
+typedef struct DNSConfiguration DNSConfiguration;
 typedef struct Manager Manager;
 typedef struct Link Link;
 

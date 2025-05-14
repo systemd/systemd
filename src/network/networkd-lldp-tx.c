@@ -11,7 +11,6 @@
 #include "networkd-sysctl.h"
 #include "parse-util.h"
 #include "string-table.h"
-#include "string-util.h"
 #include "strv.h"
 
 static bool link_lldp_tx_enabled(Link *link) {

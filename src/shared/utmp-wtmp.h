@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "time-util.h"
+#include "forward.h"
 
 #if ENABLE_UTMP
 #include <utmpx.h>
