@@ -2400,16 +2400,22 @@ int address_section_verify(Address *address) {
         return 0;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        trivial_hash_ops_address_detach,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        Address,
+        address_detach);
+
 int network_drop_invalid_addresses(Network *network) {
-        _cleanup_set_free_ Set *addresses = NULL;
+        _cleanup_set_free_ Set *addresses = NULL, *duplicated_addresses = NULL;
         Address *address;
         int r;
 
         assert(network);
 
         ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section) {
-                Address *dup;
-
                 if (address_section_verify(address) < 0) {
                         /* Drop invalid [Address] sections or Address= settings in [Network].
                          * Note that address_detach() will drop the address from addresses_by_section. */
@@ -2418,7 +2424,7 @@ int network_drop_invalid_addresses(Network *network) {
                 }
 
                 /* Always use the setting specified later. So, remove the previously assigned setting. */
-                dup = set_remove(addresses, address);
+                Address *dup = set_remove(addresses, address);
                 if (dup) {
                         log_warning("%s: Duplicated address %s is specified at line %u and %u, "
                                     "dropping the address setting specified at line %u.",
@@ -2427,8 +2433,12 @@ int network_drop_invalid_addresses(Network *network) {
                                     address->section->line,
                                     dup->section->line, dup->section->line);
 
-                        /* address_detach() will drop the address from addresses_by_section. */
-                        address_detach(dup);
+                        /* Do not call address_detach() for 'dup' now, as we can remove only the current
+                         * entry in the loop. We will drop the address from addresses_by_section later. */
+                        r = set_ensure_put(&duplicated_addresses, &trivial_hash_ops_address_detach, dup);
+                        if (r < 0)
+                                return log_oom();
+                        assert(r > 0);
                 }
 
                 /* Use address_hash_ops, instead of address_hash_ops_detach. Otherwise, the Address objects

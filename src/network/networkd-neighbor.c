@@ -679,8 +679,16 @@ static int neighbor_section_verify(Neighbor *neighbor) {
         return 0;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        trivial_hash_ops_neighbor_detach,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        Neighbor,
+        neighbor_detach);
+
 int network_drop_invalid_neighbors(Network *network) {
-        _cleanup_set_free_ Set *neighbors = NULL;
+        _cleanup_set_free_ Set *neighbors = NULL, *duplicated_neighbors = NULL;
         Neighbor *neighbor;
         int r;
 
@@ -705,8 +713,13 @@ int network_drop_invalid_neighbors(Network *network) {
                                     IN_ADDR_TO_STRING(neighbor->dst_addr.family, &neighbor->dst_addr.address),
                                     neighbor->section->line,
                                     dup->section->line, dup->section->line);
-                        /* neighbor_detach() will drop the neighbor from neighbors_by_section. */
-                        neighbor_detach(dup);
+
+                        /* Do not call nexthop_detach() for 'dup' now, as we can remove only the current
+                         * entry in the loop. We will drop the nexthop from nexthops_by_section later. */
+                        r = set_ensure_put(&duplicated_neighbors, &trivial_hash_ops_neighbor_detach, dup);
+                        if (r < 0)
+                                return log_oom();
+                        assert(r > 0);
                 }
 
                 /* Use neighbor_hash_ops, instead of neighbor_hash_ops_detach. Otherwise, the Neighbor objects
