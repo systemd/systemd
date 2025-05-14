@@ -183,3 +183,21 @@ static inline size_t size_add(size_t x, size_t y) {
         for (typeof(entry) _va_sentinel_[1] = {}, _entries_[] = { __VA_ARGS__ __VA_OPT__(,) _va_sentinel_[0] }, *_current_ = _entries_; \
              ((long)(_current_ - _entries_) < (long)(ELEMENTSOF(_entries_) - 1)) && ({ entry = *_current_; true; }); \
              _current_++)
+
+/* Argument list for parsers of specific configuration settings. */
+#define CONFIG_PARSER_ARGUMENTS                 \
+        const char *unit,                       \
+        const char *filename,                   \
+        unsigned line,                          \
+        const char *section,                    \
+        unsigned section_line,                  \
+        const char *lvalue,                     \
+        int ltype,                              \
+        const char *rvalue,                     \
+        void *data,                             \
+        void *userdata
+
+/* A macro declaring a function prototype, following the typedef above, simply because it's so cumbersomely long
+ * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
+ * prototypes on the same screen…) */
+#define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)

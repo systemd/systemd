@@ -19,26 +19,8 @@ typedef enum ConfigParseFlags {
         CONFIG_PARSE_WARN          = 1 << 1, /* Emit non-debug messages */
 } ConfigParseFlags;
 
-/* Argument list for parsers of specific configuration settings. */
-#define CONFIG_PARSER_ARGUMENTS                 \
-        const char *unit,                       \
-        const char *filename,                   \
-        unsigned line,                          \
-        const char *section,                    \
-        unsigned section_line,                  \
-        const char *lvalue,                     \
-        int ltype,                              \
-        const char *rvalue,                     \
-        void *data,                             \
-        void *userdata
-
 /* Prototype for a parser for a specific configuration setting */
 typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
-
-/* A macro declaring a function prototype, following the typedef above, simply because it's so cumbersomely long
- * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
- * prototypes on the same screen…) */
-#define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)
 
 /* Wraps information for parsing a specific configuration variable, to
  * be stored in a simple array */
