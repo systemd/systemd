@@ -3,13 +3,25 @@
 # Database for AV production controllers that should be accessible to the seat owner.
 #
 # This covers DJ tables, music-oriented key pads, and streaming-oriented key pads
-# such as Elgato Stream Deck
+# such as Elgato Stream Deck.
 #
-# To add local entries, copy this file to
-#   /etc/udev/hwdb.d/
+# The lookup keys are $MODALIAS strings, see udev's hwdb builtin.
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/71-av-production-local.hwdb
 # and add your rules there. To load the new rules execute (as root):
 #   systemd-hwdb update
-#   udevadm trigger
+#   udevadm trigger /dev/…
+#
+# If your changes are generally applicable, send them as a pull request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info
+# for the device.
+#
+# Allowed properties are:
+#   ID_AV_PRODUCTION_CONTROLLER=1
 
 ################
 # Ableton
