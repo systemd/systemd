@@ -7,14 +7,14 @@
 #include <netinet/icmp6.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-radv.h"
 
 #include "alloc-util.h"
-#include "hexdecoct.h"
 #include "icmp6-test-util.h"
+#include "in-addr-util.h"
 #include "radv-internal.h"
 #include "socket-util.h"
-#include "strv.h"
 #include "tests.h"
 
 static struct ether_addr mac_addr = {

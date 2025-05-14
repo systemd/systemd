@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <math.h>
 #include <openssl/evp.h>
 #include <sys/file.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-json.h"
@@ -20,23 +20,23 @@
 #include "conf-files.h"
 #include "creds-util.h"
 #include "efi-api.h"
+#include "efivars.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "find-esp.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
-#include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "initrd-util.h"
 #include "json-util.h"
 #include "list.h"
 #include "main-func.h"
 #include "mkdir-label.h"
-#include "openssl-util.h"
 #include "ordered-set.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -46,16 +46,16 @@
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
-#include "random-util.h"
 #include "recovery-key.h"
 #include "sort-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "unaligned.h"
 #include "unit-name.h"
-#include "user-util.h"
 #include "utf8.h"
 #include "varlink-io.systemd.PCRLock.h"
 #include "varlink-util.h"

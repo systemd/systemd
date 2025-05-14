@@ -2,15 +2,19 @@
 
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/rtnetlink.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <stdio.h>
+
+#include "sd-dhcp-protocol.h"
+#include "sd-ipv4ll.h"
 
 #include "alloc-util.h"
 #include "device-private.h"
 #include "dhcp-client-internal.h"
+#include "errno-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
-#include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp4.h"
@@ -26,9 +30,10 @@
 #include "networkd-setlink.h"
 #include "networkd-state-file.h"
 #include "parse-util.h"
+#include "set.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "strv.h"
-#include "sysctl-util.h"
 
 void network_adjust_dhcp4(Network *network) {
         assert(network);
