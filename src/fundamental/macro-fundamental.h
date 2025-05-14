@@ -173,7 +173,7 @@
 #else
 #  define ABS(a) __builtin_imaxabs(a)
 #endif
-assert_cc(sizeof(intmax_t) <= sizeof(long long));
+assert_cc(sizeof(long long) == sizeof(intmax_t));
 
 #define IS_UNSIGNED_INTEGER_TYPE(type) \
         (__builtin_types_compatible_p(typeof(type), unsigned char) ||   \
