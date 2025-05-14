@@ -567,7 +567,7 @@ static int device_new_from_devname(sd_device **ret, const char *devname, bool st
 
         _cleanup_free_ char *resolved = NULL;
         struct stat st;
-        r = chase_and_stat(devname, /* root = */ NULL, /* flags = */ 0, &resolved, &st);
+        r = chase_and_stat(devname, /* root = */ NULL, /* chase_flags = */ 0, &resolved, &st);
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
                 return -ENODEV;
         if (r < 0)
