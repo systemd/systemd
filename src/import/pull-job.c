@@ -8,16 +8,16 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
-#include "import-util.h"
 #include "io-util.h"
 #include "log.h"
-#include "machine-pool.h"
 #include "parse-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
+#include "curl-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "xattr-util.h"
 
 void pull_job_close_disk_fd(PullJob *j) {

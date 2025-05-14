@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "log.h"
 #if ENABLE_TPM
 
 #include "macro-fundamental.h"
 #include "measure.h"
-#include "memory-util-fundamental.h"
 #include "proto/cc-measurement.h"
 #include "proto/tcg.h"
 #include "tpm2-pcr.h"

@@ -3,14 +3,16 @@
 #include <linux/if_bridge.h>
 #include <net/if.h>
 
-#include "netlink-util.h"
+#include "sd-netlink.h"
+
+#include "conf-parser.h"
+#include "hashmap.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
 #include "networkd-util.h"
-#include "string-util.h"
 #include "vlan-util.h"
 
 #define STATIC_BRIDGE_MDB_ENTRIES_PER_NETWORK_MAX 1024U

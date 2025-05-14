@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
 #include <net/ethernet.h>
 
-#include "conf-parser.h"
 #include "in-addr-util.h"
-
-typedef struct Link Link;
-typedef struct Network Network;
+#include "networkd-forward.h"
 
 typedef enum BridgeMDBEntryType {
         BRIDGE_MDB_ENTRY_TYPE_L2,

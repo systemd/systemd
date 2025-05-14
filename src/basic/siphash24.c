@@ -21,8 +21,8 @@
 
 #include <stdio.h>
 
-#include "macro.h"
 #include "siphash24.h"
+#include "string-util.h"
 #include "unaligned.h"
 
 static uint64_t rotate_left(uint64_t x, uint8_t b) {
@@ -152,6 +152,10 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
         }
 }
 
+void siphash24_compress_string(const char *in, struct siphash *state) {
+        siphash24_compress_safe(in, strlen_ptr(in), state);
+}
+
 uint64_t siphash24_finalize(struct siphash *state) {
         uint64_t b;
 
@@ -198,4 +202,8 @@ uint64_t siphash24(const void *in, size_t inlen, const uint8_t k[static 16]) {
         siphash24_compress(in, inlen, &state);
 
         return siphash24_finalize(&state);
+}
+
+uint64_t siphash24_string(const char *s, const uint8_t k[static 16]) {
+        return siphash24(s, strlen(s) + 1, k);
 }

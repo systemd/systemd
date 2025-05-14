@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <grp.h>
+#include <pwd.h>
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "chase.h"
 #include "fd-util.h"
@@ -7,9 +11,12 @@
 #include "format-util.h"
 #include "json-util.h"
 #include "log.h"
+#include "nspawn-mount.h"
 #include "nspawn.h"
 #include "nspawn-bind-user.h"
 #include "path-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "userdb.h"
 
