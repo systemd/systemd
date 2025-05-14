@@ -864,7 +864,7 @@ int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, co
         if (ret)
                 *ret = (const char *) attr_data;
 
-        return 0;
+        return r;
 }
 
 int sd_netlink_message_read_u8(sd_netlink_message *m, uint16_t attr_type, uint8_t *ret) {
