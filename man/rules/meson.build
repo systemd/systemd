@@ -918,6 +918,7 @@ manpages = [
   '8',
   ['systemd-boot-check-no-failures'],
   ''],
+ ['systemd-boot-clear-sysfail.service', '8', [], 'ENABLE_BOOTLOADER'],
  ['systemd-boot-random-seed.service', '8', [], 'ENABLE_BOOTLOADER'],
  ['systemd-boot', '7', ['sd-boot'], 'ENABLE_BOOTLOADER'],
  ['systemd-bsod.service', '8', ['systemd-bsod'], 'HAVE_QRENCODE ENABLE_INITRD'],
