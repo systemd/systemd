@@ -3,10 +3,7 @@
 
 #include "list.h"
 #include "socket-util.h"
-
-typedef struct Manager Manager;
-typedef struct ServerAddress ServerAddress;
-typedef struct ServerName ServerName;
+#include "timesyncd-forward.h"
 
 typedef enum ServerType {
         SERVER_SYSTEM,
