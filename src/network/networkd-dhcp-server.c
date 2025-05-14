@@ -6,10 +6,14 @@
 
 #include "sd-dhcp-server.h"
 
+#include "conf-parser.h"
 #include "dhcp-protocol.h"
 #include "dhcp-server-lease-internal.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "network-common.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-server.h"
@@ -21,10 +25,9 @@
 #include "networkd-ntp.h"
 #include "networkd-queue.h"
 #include "networkd-route-util.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "set.h"
 #include "socket-netlink.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 

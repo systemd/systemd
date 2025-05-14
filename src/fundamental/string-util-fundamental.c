@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if !SD_BOOT
-#  include <ctype.h>
-#endif
-
 #include "macro-fundamental.h"
 #include "string-util-fundamental.h"
 
