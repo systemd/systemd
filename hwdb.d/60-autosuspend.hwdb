@@ -22,9 +22,9 @@
 # for the device.
 #
 # Allowed properties are:
-#    ID_AUTOSUSPEND=1
+#    ID_AUTOSUSPEND=0|1
 #    ID_AUTOSUSPEND_DELAY_MS=####
-#    ID_PERSIST=0
+#    ID_PERSIST=0|1
 #
 # ID_AUTOSUSPEND_DELAY_MS adjusts the delay for autosuspend to something
 # different than the kernel default of 2000ms.

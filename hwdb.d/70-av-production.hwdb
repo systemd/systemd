@@ -21,7 +21,7 @@
 # for the device.
 #
 # Allowed properties are:
-#   ID_AV_PRODUCTION_CONTROLLER=1
+#   ID_AV_PRODUCTION_CONTROLLER=0|1
 
 ################
 # Ableton

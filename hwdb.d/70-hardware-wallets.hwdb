@@ -18,7 +18,7 @@
 # for the device.
 #
 # Allowed properties are:
-#   ID_HARDWARE_WALLET=1
+#   ID_HARDWARE_WALLET=0|1
 
 ################
 # Trezor Hardware Wallets

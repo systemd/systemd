@@ -19,7 +19,7 @@
 # for the device.
 #
 # Allowed properties are:
-#   ID_SOFTWARE_RADIO=1
+#   ID_SOFTWARE_RADIO=0|1
 
 ################
 # Nuand
