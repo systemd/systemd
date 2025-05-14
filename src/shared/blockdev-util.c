@@ -534,7 +534,7 @@ static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
 }
 
 int fd_is_encrypted(int fd) {
-        char p[SYS_BLOCK_PATH_MAX(NULL)];
+        char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
 
@@ -550,7 +550,7 @@ int fd_is_encrypted(int fd) {
 }
 
 int path_is_encrypted(const char *path) {
-        char p[SYS_BLOCK_PATH_MAX(NULL)];
+        char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
 
