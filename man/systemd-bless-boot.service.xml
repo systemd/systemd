@@ -41,7 +41,7 @@
     OS. It contains a file system path (relative to the EFI system partition) of the <ulink
     url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> compliant boot loader entry
     file or unified kernel image file that was used to boot up the
-    system. <command>systemd-bless-boot.service</command> removes the two 'tries done' and 'tries left' numeric boot
+    system. <command>systemd-bless-boot.service</command> removes the two "tries done" and "tries left" numeric boot
     counters from the filename, which indicates to future invocations of the boot loader that the entry has completed
     booting successfully at least once. (This service will hence rename the boot loader entry file or unified kernel
     image file on the first successful boot.)</para>
@@ -84,8 +84,8 @@
       <varlistentry>
         <term><option>bad</option></term>
 
-        <listitem><para>When called the 'tries left' counter in the boot loader entry file name or unified kernel image
-        file name is set to zero, marking the boot loader entry or kernel image as "bad", so that the boot loader won't
+        <listitem><para>When called the "tries left" counter in the boot loader entry file name or unified kernel image
+        file name is set to zero, marking the boot loader entry or kernel image as "bad", so that the boot loader will not
         consider it anymore on future boots (at least as long as there are other entries available that are not marked
         "bad" yet). This command is normally not executed, but can be used to instantly put an end to the boot counting
         logic if a problem is detected and persistently mark the boot entry as bad.</para>

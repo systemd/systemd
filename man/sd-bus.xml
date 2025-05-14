@@ -72,6 +72,7 @@
       <member><citerefentry><refentrytitle>sd_bus_emit_signalv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_emit_signal_to</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_emit_signal_tov</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_enqueue_for_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_error_add_map</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
@@ -100,6 +101,7 @@
       <member><citerefentry><refentrytitle>sd_bus_interface_name_is_valid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_is_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_is_monitor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_is_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_is_server</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_list_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
@@ -136,6 +138,7 @@
       <member><citerefentry><refentrytitle>sd_bus_message_rewind</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_message_seal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_message_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_sensitive</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_message_set_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_message_set_expect_reply</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
@@ -145,6 +148,7 @@
       <member><citerefentry><refentrytitle>sd_bus_negotiate_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_path_encode</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_pending_method_calls</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_query_sender_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_query_sender_privilege</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
@@ -160,6 +164,7 @@
       <member><citerefentry><refentrytitle>sd_bus_set_connected_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_set_exit_on_disconnect</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_set_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_set_monitor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_set_property</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
@@ -176,7 +181,8 @@
       <member><citerefentry><refentrytitle>sd_bus_slot_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
       <member><citerefentry><refentrytitle>sd_bus_track_add_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
-      <member><citerefentry><refentrytitle>sd_bus_track_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_track_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
     </simplelist>
     for more information about the functions available.</para>
 

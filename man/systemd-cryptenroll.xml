@@ -229,7 +229,7 @@
     <para>Note that currently when enrolling a new key of one of the five supported types listed above, it is
     required to first provide a passphrase, a recovery key, a FIDO2 token, or a TPM2 key. It's currently not
     supported to unlock a device with a PKCS#11 key in order to enroll a new PKCS#11 key. Thus, if in future
-    key roll-over is desired it's generally recommended to ensure a passphrase, a recovery key, a FIDO2
+    key roll-over is desired it is generally recommended to ensure a passphrase, a recovery key, a FIDO2
     token, or a TPM2 key is always enrolled.</para>
 
     <para>Also note that support for enrolling multiple FIDO2 tokens is currently limited. When multiple FIDO2
@@ -398,7 +398,7 @@
         is unsupported if <option>--unlock-fido2-device=</option> option is also specified. The special value
         <literal>list</literal> may be used to enumerate all suitable FIDO2 tokens currently plugged in. Note
         that many hardware security tokens that implement FIDO2 also implement the older PKCS#11
-        standard. Typically FIDO2 is preferable, given it's simpler to use and more modern.</para>
+        standard. Typically FIDO2 is preferable, given it is simpler to use and more modern.</para>
 
         <para>In order to unlock a LUKS2 volume with an enrolled FIDO2 security token, specify the
         <option>fido2-device=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
@@ -628,7 +628,7 @@
         <filename>/etc/systemd/</filename>, <filename>/run/systemd/</filename>,
         <filename>/usr/lib/systemd/</filename> (searched in this order), it is automatically used. The
         <option>--tpm2-public-key-pcrs=</option> option takes a list of TPM2 PCR indexes to bind to (same
-        syntax as <option>--tpm2-pcrs=</option> described above). If not specified defaults to 11 (i.e. this
+        syntax as <option>--tpm2-pcrs=</option> described above). If not specified, defaults to 11 (i.e. this
         binds the policy to any unified kernel image for which a PCR signature can be provided).</para>
 
         <para>Note the difference between <option>--tpm2-pcrs=</option> and

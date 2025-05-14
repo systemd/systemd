@@ -834,7 +834,7 @@
           to provide protocol typing, OAM, and versioning capabilities. For details about the VXLAN GPE
           Header, see the <ulink url="https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-07">
           Generic Protocol Extension for VXLAN </ulink> document. If destination port is not specified and
-          Generic Protocol Extension is set then default port of 4790 is used. Defaults to false.</para>
+          Generic Protocol Extension is set, the default port of 4790 is used. Defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
@@ -842,7 +842,7 @@
       <varlistentry>
         <term><varname>DestinationPort=</varname></term>
         <listitem>
-          <para>Configures the default destination UDP port. If the destination port is not specified then
+          <para>Configures the default destination UDP port. If the destination port is not specified, the
           Linux kernel default will be used. Set to 4789 to get the IANA assigned value.</para>
 
           <xi:include href="version-info.xml" xpointer="v229"/>
@@ -1102,7 +1102,7 @@
         <term><varname>UDPSourcePort=</varname></term>
         <listitem>
           <para>Specifies the UDP source port to be used for the tunnel. When UDP encapsulation is selected
-          it's mandatory. Ignored when IP encapsulation is selected.</para>
+          it is mandatory. Ignored when IP encapsulation is selected.</para>
 
           <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
@@ -1110,7 +1110,7 @@
       <varlistentry>
         <term><varname>UDPDestinationPort=</varname></term>
         <listitem>
-          <para>Specifies destination port. When UDP encapsulation is selected it's mandatory. Ignored when IP
+          <para>Specifies destination port. When UDP encapsulation is selected it is mandatory. Ignored when IP
           encapsulation is selected.</para>
 
           <xi:include href="version-info.xml" xpointer="v245"/>
@@ -1945,7 +1945,7 @@
           I.e. for <filename>50-foobar.netdev</filename>, <literal>network.wireguard.private.50-foobar</literal>
           is tried.</para>
 
-          <para>Note that because this information is secret, it's strongly recommended to use an (encrypted)
+          <para>Note that because this information is secret, it is strongly recommended to use an (encrypted)
           credential. Alternatively, you may want to set the permissions of the .netdev file to be owned
           by <literal>root:systemd-network</literal> with a <literal>0640</literal> file mode.</para>
 
@@ -2055,7 +2055,7 @@
           This option honors the <literal>@</literal> prefix in the same way as the <option>PrivateKey=</option>
           setting of the <option>[WireGuard]</option> section.</para>
 
-          <para>Note that because this information is secret, it's strongly recommended to use an (encrypted)
+          <para>Note that because this information is secret, it is strongly recommended to use an (encrypted)
           credential. Alternatively, you may want to set the permissions of the .netdev file to be owned
           by <literal>root:systemd-network</literal> with a <literal>0640</literal> file mode.</para>
 

@@ -598,7 +598,7 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
         if (r < 0)
                 return r;
 
-        if (rule->fwmark > 0) {
+        if (rule->fwmark > 0 || rule->fwmask > 0) {
                 r = sd_netlink_message_append_u32(m, FRA_FWMARK, rule->fwmark);
                 if (r < 0)
                         return r;
@@ -1346,14 +1346,12 @@ static int parse_fwmark_fwmask(const char *s, uint32_t *ret_fwmark, uint32_t *re
         if (r < 0)
                 return r;
 
-        if (fwmark > 0) {
-                if (slash) {
-                        r = safe_atou32(slash + 1, &fwmask);
-                        if (r < 0)
-                                return r;
-                } else
-                        fwmask = UINT32_MAX;
-        }
+        if (slash) {
+                r = safe_atou32(slash + 1, &fwmask);
+                if (r < 0)
+                        return r;
+        } else if (fwmark > 0)
+                fwmask = UINT32_MAX;
 
         *ret_fwmark = fwmark;
         *ret_fwmask = fwmask;

@@ -104,7 +104,7 @@
       see above and below.</para></listitem>
 
       <listitem><para>The key may be acquired via a PKCS#11 compatible hardware security token or
-      smartcard. In this case a saved key used in unlock process is stored on disk/removable media, acquired via
+      smartcard. In this case, a saved key used in unlock process is stored on disk/removable media, acquired via
       <constant>AF_UNIX</constant>, or stored in the LUKS2 JSON token metadata header. For RSA, the saved key
       is an encrypted volume key. The encrypted volume key is then decrypted by the PKCS#11 token with an RSA
       private key stored on it, and used to unlock the encrypted volume. For elliptic-curve (EC) cryptography,
@@ -114,14 +114,14 @@
       </para></listitem>
 
       <listitem><para>Similarly, the key may be acquired via a FIDO2 compatible hardware security token
-      (which must implement the "hmac-secret" extension). In this case a key generated randomly during
+      (which must implement the "hmac-secret" extension). In this case, a key generated randomly during
       enrollment is stored on disk/removable media, acquired via <constant>AF_UNIX</constant>, or stored in
       the LUKS2 JSON token metadata header. The random key is hashed via a keyed hash function (HMAC) on the
       FIDO2 token, using a secret key stored on the token that never leaves it. The resulting hash value is
       then used as key to unlock the encrypted volume. Use the <option>fido2-device=</option> option
       described below to use this mechanism.</para></listitem>
 
-      <listitem><para>Similarly, the key may be acquired via a TPM2 security chip. In this case a (during
+      <listitem><para>Similarly, the key may be acquired via a TPM2 security chip. In this case, a (during
       enrollment) randomly generated key — encrypted by an asymmetric key derived from the TPM2 chip's seed
       key — is stored on disk/removable media, acquired via <constant>AF_UNIX</constant>, or stored in the
       LUKS2 JSON token metadata header. Use the <option>tpm2-device=</option> option described below to use
@@ -713,7 +713,7 @@
 
         <para>The specified URI can refer directly to a private key stored on a token or alternatively
         just to a slot or token, in which case a search for a suitable private key will be performed.  In
-        this case if multiple suitable objects are found the token is refused. The keyfile configured
+        this case, if multiple suitable objects are found, the token is refused. The keyfile configured
         in the third column of the line is used as is (i.e. in binary form, unprocessed). The resulting
         decrypted key (for RSA) or derived shared secret (for ECC) is then Base64 encoded before it is used
         to unlock the LUKS volume.</para>
@@ -783,7 +783,7 @@
         <term><option>fido2-rp=</option></term>
 
         <listitem><para>Takes a string, configuring the FIDO2 Relying Party (rp) for the FIDO2 unlock
-        operation. If not specified <literal>io.systemd.cryptsetup</literal> is used, except if the LUKS2
+        operation. If not specified, <literal>io.systemd.cryptsetup</literal> is used, except if the LUKS2
         JSON token header contains a different value. It should normally not be necessary to override
         this.</para>
 
@@ -891,7 +891,7 @@
         public key specified at key enrollment time can be provided. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for details on enrolling TPM2 PCR public keys. If this option is not specified but it is attempted to
-        unlock a LUKS2 volume with a signed TPM2 PCR enrollment a suitable signature file
+        unlock a LUKS2 volume with a signed TPM2 PCR enrollment, a suitable signature file
         <filename>tpm2-pcr-signature.json</filename> is searched for in <filename>/etc/systemd/</filename>,
         <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this
         order).</para>
@@ -908,7 +908,7 @@
         variants. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for details on enrolling TPM2 pcrlock policies. If this option is not specified but it is attempted
-        to unlock a LUKS2 volume with a TPM2 pcrlock enrollment a suitable signature file
+        to unlock a LUKS2 volume with a TPM2 pcrlock enrollment, a suitable signature file
         <filename>pcrlock.json</filename> is searched for in <filename>/run/systemd/</filename> and
         <filename>/var/lib/systemd/</filename> (in this order).</para>
 
@@ -934,7 +934,7 @@
 
         <listitem><para>Selects one or more TPM2 PCR banks to measure the volume key into, as configured with
         <option>tpm2-measure-pcr=</option> above. Multiple banks may be specified, separated by a colon
-        character. If not specified automatically determines available and used banks. Expects a message
+        character. If not specified, automatically determines available and used banks. Expects a message
         digest name (e.g. <literal>sha1</literal>, <literal>sha256</literal>, …) as argument, to identify the
         bank.</para>
 
@@ -984,10 +984,10 @@
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         units marked with <option>x-initrd.mount</option>.</para>
 
-        <para>Although it's not necessary to mark the mount entry for the root file system with
+        <para>Although it is not necessary to mark the mount entry for the root file system with
         <option>x-initrd.mount</option>, <option>x-initrd.attach</option> is still recommended with
         the encrypted block device containing the root file system as otherwise systemd will
-        attempt to detach the device during the regular system shutdown while it's still in
+        attempt to detach the device during the regular system shutdown while it is still in
         use. With this option the device will still be detached but later after the root file
         system is unmounted.</para>
 

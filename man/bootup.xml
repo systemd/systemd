@@ -339,7 +339,7 @@ systemd-reboot.service     |               |               |               |
     remaining file systems, kill any remaining processes and release any other remaining resources, in a simple and
     robust fashion, without taking any service or unit concept into account anymore. At that point, regular
     applications and resources are generally terminated and released already, the second phase hence operates only as
-    safety net for everything that couldn't be stopped or released for some reason during the primary, unit-based
+    safety net for everything that could not be stopped or released for some reason during the primary, unit-based
     shutdown phase described above.</para>
   </refsect1>
 

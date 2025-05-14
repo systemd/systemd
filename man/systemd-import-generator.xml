@@ -130,7 +130,7 @@
         completing the download successfully, or unsuccessfully. See
         <varname>SuccessAction=</varname>/<varname>FailureAction=</varname> on
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details about the available actions. If not specified no action is taken, and the system will
+        details about the available actions. If not specified, no action is taken, and the system will
         continue to boot normally.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>

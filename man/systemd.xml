@@ -1069,12 +1069,9 @@
         <term><varname>5</varname></term>
 
         <listitem><para>Boot into the specified legacy SysV runlevel.
-        These are equivalent to
-        <varname>systemd.unit=runlevel2.target</varname>,
-        <varname>systemd.unit=runlevel3.target</varname>,
-        <varname>systemd.unit=runlevel4.target</varname>, and
-        <varname>systemd.unit=runlevel5.target</varname>,
-        respectively, and provided for compatibility reasons and to be
+        <varname>2</varname>, <varname>3</varname>, and <varname>4</varname> are equivalent to
+        <varname>systemd.unit=multi-user.target</varname>; and <varname>5</varname> is equivalent to
+        <varname>systemd.unit=graphical.target</varname>, and provided for compatibility reasons and to be
         easier to type.</para>
 
         <xi:include href="version-info.xml" xpointer="v186"/></listitem>

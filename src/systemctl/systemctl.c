@@ -956,7 +956,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_WHAT:
                         if (isempty(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--what= requires arguments.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--what= requires arguments (see --what=help).");
 
                         for (const char *p = optarg;;) {
                                 _cleanup_free_ char *k = NULL;
@@ -973,7 +973,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                              "cache\n"
                                              "logs\n"
                                              "configuration\n"
-                                             "fdstore");
+                                             "fdstore\n"
+                                             "all");
                                         return 0;
                                 }
 

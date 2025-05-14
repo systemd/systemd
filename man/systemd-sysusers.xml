@@ -124,7 +124,7 @@
 
       <varlistentry>
         <term><option>--dry-run</option></term>
-        <listitem><para>Process the configuration and figure out what entries would be created, but don't
+        <listitem><para>Process the configuration and figure out what entries would be created, but do not
         actually write anything.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>

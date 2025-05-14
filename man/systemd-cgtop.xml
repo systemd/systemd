@@ -189,7 +189,7 @@
         pressing the <keycap>r</keycap> key. Note that this setting
         only applies to process counting, i.e. when the
         <option>-P</option> or <option>-k</option> options are
-        used. It has not effect if all tasks are counted, in which
+        used. It has no effect if all tasks are counted, in which
         case the counting is always recursive.</para>
 
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>

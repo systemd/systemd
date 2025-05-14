@@ -174,7 +174,7 @@ net.ipv4.conf.hub0.rp_filter = 1
       <filename>net.ipv4.conf.default.rp_filter</filename> first, so any interfaces which are added
       <emphasis>later</emphasis> will get this value (this also covers any interfaces detected while we're
       running). The glob matches any interfaces which were detected <emphasis>earlier</emphasis>. The glob
-      will also match <filename>net.ipv4.conf.all.rp_filter</filename>, which we don't want to set at all, so
+      will also match <filename>net.ipv4.conf.all.rp_filter</filename>, which we do not want to set at all, so
       it is explicitly excluded. And "hub0" is excluded from the glob because it has an explicit setting.
       </para>
     </example>

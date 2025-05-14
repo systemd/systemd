@@ -908,7 +908,7 @@ static void set_manager_settings(Manager *m) {
         assert(m);
 
         /* Propagates the various manager settings into the manager object, i.e. properties that
-         * effect the manager itself (as opposed to just being inherited into newly allocated
+         * affect the manager itself (as opposed to just being inherited into newly allocated
          * units, see set_manager_defaults() above). */
 
         m->confirm_spawn = arg_confirm_spawn;

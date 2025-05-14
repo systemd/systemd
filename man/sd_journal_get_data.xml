@@ -148,7 +148,7 @@
     code. <function>sd_journal_enumerate_data()</function> and
     <function>sd_journal_enumerate_available_data()</function> return a positive integer if the next field
     has been read, 0 when no more fields remain, or a negative errno-style error code.
-    <function>sd_journal_restart_data()</function> doesn't return anything.
+    <function>sd_journal_restart_data()</function> does not return anything.
     <function>sd_journal_set_data_threshold()</function> and <function>sd_journal_get_threshold()</function>
     return 0 on success or a negative errno-style error code.</para>
 

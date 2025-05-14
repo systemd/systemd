@@ -109,15 +109,15 @@ static int mount_array_add_internal(
                 char *in_what,
                 char *in_where,
                 const char *in_fstype,
-                const char *in_options) {
+                char *in_options) {
 
         _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
-        int r;
 
         /* This takes what and where. */
 
         what = ASSERT_PTR(in_what);
         where = in_where;
+        options = in_options;
 
         fstype = strdup(isempty(in_fstype) ? "auto" : in_fstype);
         if (!fstype)
@@ -125,19 +125,6 @@ static int mount_array_add_internal(
 
         if (streq(fstype, "swap"))
                 where = mfree(where);
-
-        if (!isempty(in_options)) {
-                _cleanup_strv_free_ char **options_strv = NULL;
-
-                r = strv_split_full(&options_strv, in_options, ",", 0);
-                if (r < 0)
-                        return r;
-
-                r = strv_make_nulstr(options_strv, &options, NULL);
-        } else
-                r = strv_make_nulstr(STRV_MAKE("defaults"), &options, NULL);
-        if (r < 0)
-                return r;
 
         if (!GREEDY_REALLOC(arg_mounts, arg_n_mounts + 1))
                 return -ENOMEM;
@@ -168,7 +155,7 @@ static int mount_array_add(bool for_initrd, const char *str) {
         if (!isempty(str))
                 return -EINVAL;
 
-        return mount_array_add_internal(for_initrd, TAKE_PTR(what), TAKE_PTR(where), fstype, options);
+        return mount_array_add_internal(for_initrd, TAKE_PTR(what), TAKE_PTR(where), fstype, TAKE_PTR(options));
 }
 
 static int mount_array_add_swap(bool for_initrd, const char *str) {
@@ -186,7 +173,7 @@ static int mount_array_add_swap(bool for_initrd, const char *str) {
         if (!isempty(str))
                 return -EINVAL;
 
-        return mount_array_add_internal(for_initrd, TAKE_PTR(what), NULL, "swap", options);
+        return mount_array_add_internal(for_initrd, TAKE_PTR(what), NULL, "swap", TAKE_PTR(options));
 }
 
 static int write_options(FILE *f, const char *options) {

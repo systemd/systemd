@@ -304,7 +304,7 @@
         <term><option>--force</option></term>
 
         <listitem><para>Write configuration even if the relevant files already exist. Without this option,
-        <command>systemd-firstboot</command> doesn't modify or replace existing files. Note that when
+        <command>systemd-firstboot</command> does not modify or replace existing files. Note that when
         configuring the root account, even with this option, <command>systemd-firstboot</command> only
         modifies the entry of the <literal>root</literal> user, leaving other entries in
         <filename>/etc/passwd</filename> and <filename>/etc/shadow</filename> intact.</para>
@@ -337,7 +337,7 @@
       <varlistentry>
         <term><option>--welcome=</option></term>
 
-        <listitem><para>Takes a boolean argument. By default when prompting the user for configuration
+        <listitem><para>Takes a boolean argument. By default, when prompting the user for configuration
         options a brief welcome text is shown before the first question is asked. Pass false to this option
         to turn off the welcome text.</para>
 
@@ -445,7 +445,7 @@
         <term><varname>systemd.firstboot=</varname></term>
 
         <listitem><para>Takes a boolean argument, defaults to on. If off, <filename>systemd-firstboot.service</filename>
-        won't interactively query the user for basic settings at first boot, even if those settings are not
+        will not interactively query the user for basic settings at first boot, even if those settings are not
         initialized yet.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>

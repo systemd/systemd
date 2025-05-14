@@ -252,9 +252,11 @@ install_data('org.freedesktop.systemd1.conf',
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
+install_emptydir(systemenvgeneratordir)
 install_emptydir(systemshutdowndir)
 install_emptydir(systemsleepdir)
 install_emptydir(systemgeneratordir)
+install_emptydir(userenvgeneratordir)
 install_emptydir(usergeneratordir)
 
 if install_sysconfdir
