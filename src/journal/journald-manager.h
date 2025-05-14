@@ -115,9 +115,13 @@ typedef struct Manager {
         JournalStorage system_storage;
 
         JournalCompressOptions compress;
+        int set_audit;
         bool seal;
         bool read_kmsg;
-        int set_audit;
+
+        bool send_watchdog;
+        bool sent_notify_ready;
+        bool sync_scheduled;
 
         bool forward_to_kmsg;
         bool forward_to_syslog;
@@ -154,10 +158,6 @@ typedef struct Manager {
 
         uint64_t *kernel_seqnum;
         RateLimit kmsg_own_ratelimit;
-
-        bool send_watchdog:1;
-        bool sent_notify_ready:1;
-        bool sync_scheduled:1;
 
         char machine_id_field[STRLEN("_MACHINE_ID=") + SD_ID128_STRING_MAX];
         char boot_id_field[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX];
