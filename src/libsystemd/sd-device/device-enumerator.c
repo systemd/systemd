@@ -12,6 +12,8 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "log.h"
+#include "path-util.h"
 #include "set.h"
 #include "sort-util.h"
 #include "string-util.h"

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 #if HAVE_AUDIT
 #  include <libaudit.h>
@@ -15,6 +17,8 @@
 #include "creds-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -23,26 +27,25 @@
 #include "image-policy.h"
 #include "libaudit-util.h"
 #include "libcrypt-util.h"
+#include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "mount-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "selinux-util.h"
 #include "set.h"
 #include "smack-util.h"
 #include "specifier.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "tmpfile-util-label.h"
 #include "uid-classification.h"
 #include "uid-range.h"
 #include "user-util.h"
-#include "utf8.h"
 #include "verbs.h"
 
 typedef enum ItemType {

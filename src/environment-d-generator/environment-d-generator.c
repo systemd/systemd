@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "sd-path.h"
 
 #include "alloc-util.h"
@@ -10,7 +12,7 @@
 #include "glyph-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "path-lookup.h"
+#include "string-util.h"
 #include "strv.h"
 
 static int environment_dirs(char ***ret) {

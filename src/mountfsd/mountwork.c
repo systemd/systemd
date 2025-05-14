@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/loop.h>
+#include <poll.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-varlink.h"
 
 #include "argv-util.h"
@@ -14,20 +17,28 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "hashmap.h"
+#include "image-policy.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "loop-util.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "missing_syscall.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
 #include "os-util.h"
-#include "process-util.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
-#include "user-util.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-util.h"
 

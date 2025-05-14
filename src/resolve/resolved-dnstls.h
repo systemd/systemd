@@ -8,13 +8,8 @@
 #endif
 
 #include <openssl/ssl.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/uio.h>
 
-typedef struct DnsServer DnsServer;
-typedef struct DnsStream DnsStream;
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 typedef struct DnsTlsManagerData {
         SSL_CTX *ctx;

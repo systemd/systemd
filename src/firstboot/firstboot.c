@@ -5,6 +5,7 @@
 #include <linux/loop.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -31,9 +32,9 @@
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "lock-util.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "mkdir.h"
 #include "mount-util.h"
 #include "os-util.h"
 #include "parse-argument.h"
@@ -42,8 +43,9 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
-#include "random-util.h"
+#include "runtime-scope.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"

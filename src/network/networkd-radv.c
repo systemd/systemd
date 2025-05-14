@@ -6,7 +6,10 @@
 #include <arpa/inet.h>
 #include <netinet/icmp6.h>
 
+#include "sd-radv.h"
+
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "ndisc-router-internal.h"
 #include "networkd-address.h"
 #include "networkd-address-generation.h"
@@ -17,8 +20,10 @@
 #include "networkd-queue.h"
 #include "networkd-radv.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "radv-internal.h"
+#include "set.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "bitmap.h"
 #include "dns-domain.h"
 #include "dns-type.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "memory-util.h"
@@ -12,10 +11,11 @@
 #include "openssl-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "sort-util.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "time-util.h"
 
 #if HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3
 DISABLE_WARNING_DEPRECATED_DECLARATIONS;
