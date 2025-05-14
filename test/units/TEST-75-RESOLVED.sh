@@ -1293,6 +1293,7 @@ testcase_15_wait_online_dns() {
 
     # Wait for the monitor to exit gracefully.
     timeout 10 bash -c "while systemctl --quiet is-active $unit; do sleep 0.5; done"
+    journalctl --sync
 
     # Check that a disconnect happened, and was handled.
     journalctl -b -u "$unit" --grep="DNS configuration monitor disconnected, reconnecting..." > /dev/null
