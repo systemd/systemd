@@ -9,7 +9,6 @@
 #include "mkdir-label.h"
 #include "strv.h"
 #include "unit.h"
-#include "unit-varlink.h"
 #include "user-util.h"
 #include "varlink.h"
 #include "varlink-internal.h"
@@ -20,6 +19,7 @@
 #include "varlink-io.systemd.service.h"
 #include "varlink-manager.h"
 #include "varlink-serialize.h"
+#include "varlink-unit.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {

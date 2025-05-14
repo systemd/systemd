@@ -8,8 +8,8 @@
 #include "install.h"
 #include "manager.h"
 #include "unit.h"
-#include "unit-varlink.h"
 #include "varlink-common.h"
+#include "varlink-unit.h"
 
 #define JSON_BUILD_STRING_FROM_TABLE_ABOVE_MIN(name, value, value_min, value_str) \
         SD_JSON_BUILD_PAIR_CONDITION(value > value_min, name, SD_JSON_BUILD_STRING(value_str))
