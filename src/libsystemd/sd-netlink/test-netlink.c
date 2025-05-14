@@ -705,6 +705,7 @@ TEST(rtnl_set_link_name) {
 
 TEST(sock_diag_unix) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        int r;
 
         ASSERT_OK(sd_sock_diag_socket_open(&nl));
 
@@ -724,7 +725,10 @@ TEST(sock_diag_unix) {
         ASSERT_OK(sd_sock_diag_message_new_unix(nl, &message, st.st_ino, cookie, UDIAG_SHOW_RQLEN));
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
-        ASSERT_OK(sd_netlink_call(nl, message, /* usec= */ 0, &reply));
+        r = sd_netlink_call(nl, message, /* usec= */ 0, &reply);
+        if (r == -ENOENT)
+                return (void) log_tests_skipped("netlink/network disabled");
+        ASSERT_OK(r);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
