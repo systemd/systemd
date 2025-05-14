@@ -172,11 +172,29 @@ varlinkctl info /run/systemd/io.systemd.Manager
 varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
 
+# test io.systemd.Unit
+varlinkctl info /run/systemd/unit/io.systemd.Unit
+varlinkctl introspect /run/systemd/unit/io.systemd.Unit io.systemd.Unit
+varlinkctl --more call /run/systemd/unit/io.systemd.Unit io.systemd.Unit.List ''
+varlinkctl call /run/systemd/unit/io.systemd.Unit io.systemd.Unit.List '{"name": "multi-user.target"}'
+varlinkctl call /run/systemd/unit/io.systemd.Unit io.systemd.Unit.List '{"pid": {"pid": 0}}'
+(! varlinkctl call /run/systemd/unit/io.systemd.Unit io.systemd.Unit.List '{"name": ""}')
+(! varlinkctl call /run/systemd/unit/io.systemd.Unit io.systemd.Unit.List '{"name": "non-existent.service"}')
+(! varlinkctl call /run/systemd/unit/io.systemd.Unit io.systemd.Unit.List '{"pid": {"pid": -1}}' )
+
 # test io.systemd.Manager in user manager
 testuser_uid=$(id -u testuser)
 systemd-run --wait --pipe --user --machine testuser@ \
-        varlinkctl info /run/user/"$testuser_uid"/systemd/io.systemd.Manager
+        varlinkctl info "/run/user/$testuser_uid/systemd/io.systemd.Manager"
 systemd-run --wait --pipe --user --machine testuser@ \
-        varlinkctl introspect /run/user/"$testuser_uid"/systemd/io.systemd.Manager
+        varlinkctl introspect "/run/user/$testuser_uid/systemd/io.systemd.Manager"
 systemd-run --wait --pipe --user --machine testuser@ \
-        varlinkctl call /run/user/"$testuser_uid"/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+        varlinkctl call "/run/user/$testuser_uid/systemd/io.systemd.Manager" io.systemd.Manager.Describe '{}'
+
+# test io.systemd.Unit in user manager
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl info "/run/user/$testuser_uid/systemd/unit/io.systemd.Unit"
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl introspect "/run/user/$testuser_uid/systemd/unit/io.systemd.Unit"
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl --more call "/run/user/$testuser_uid/systemd/unit/io.systemd.Unit" io.systemd.Unit.List '{}'
