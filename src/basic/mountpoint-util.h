@@ -19,7 +19,6 @@
 /* Very little, if any use expected */
 #define TMPFS_LIMITS_EMPTY_OR_ALMOST ",size=4m,nr_inodes=1k"
 #define TMPFS_LIMITS_SYS             TMPFS_LIMITS_EMPTY_OR_ALMOST
-#define TMPFS_LIMITS_SYS_FS_CGROUP   TMPFS_LIMITS_EMPTY_OR_ALMOST
 
 /* On an extremely small device with only 256MB of RAM, 20% of RAM should be enough for the re-execution of
  * PID1 because 16MB of free space is required. */
