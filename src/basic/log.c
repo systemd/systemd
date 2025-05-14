@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -28,8 +23,6 @@
 #include "list.h"
 #include "log.h"
 #include "log-context.h"
-#include "macro.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"

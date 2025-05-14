@@ -4,6 +4,8 @@
 #include <net/if.h>
 #include <netinet/in.h>
 
+#include "sd-netlink.h"
+
 #include "vrf.h"
 
 static int netdev_vrf_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
