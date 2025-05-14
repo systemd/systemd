@@ -32,8 +32,8 @@
 
 typedef struct write_queue_item {
         LIST_FIELDS(struct write_queue_item, queue);
-        int rfkill_idx;
         char *file;
+        int rfkill_idx;
         int state;
 } write_queue_item;
 

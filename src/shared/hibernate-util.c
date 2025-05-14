@@ -169,9 +169,9 @@ typedef struct SwapEntry {
         char *path;
         bool swapfile;
 
+        int priority;
         uint64_t size;
         uint64_t used;
-        int priority;
 
         /* Not present in original entry */
         dev_t devno;

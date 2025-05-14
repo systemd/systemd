@@ -104,9 +104,9 @@ typedef struct ServiceFDStore {
         Service *service;
 
         int fd;
+        bool do_poll;
         char *fdname;
         sd_event_source *event_source;
-        bool do_poll;
 
         LIST_FIELDS(struct ServiceFDStore, fd_store);
 } ServiceFDStore;

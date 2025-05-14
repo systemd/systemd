@@ -27,8 +27,8 @@ typedef struct HierarchyTokenBucketClass {
         uint16_t overhead;
         uint64_t rate;
         uint32_t buffer;
-        uint64_t ceil_rate;
         uint32_t ceil_buffer;
+        uint64_t ceil_rate;
 } HierarchyTokenBucketClass;
 
 DEFINE_TCLASS_CAST(HTB, HierarchyTokenBucketClass);
