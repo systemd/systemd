@@ -3,12 +3,14 @@
 #include <linux/if.h>
 #include <netinet/in.h>
 
-#include "netlink-util.h"
+#include "sd-netlink.h"
+
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
 

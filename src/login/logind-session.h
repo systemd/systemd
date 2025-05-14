@@ -1,20 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
-#include "hashmap.h"
 #include "list.h"
+#include "logind-forward.h"
 #include "pidref.h"
-#include "string-util.h"
 #include "time-util.h"
-
-typedef struct Manager Manager;
-typedef struct Seat Seat;
-typedef struct Session Session;
-typedef struct User User;
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */
@@ -231,10 +221,5 @@ bool session_job_pending(Session *s);
 
 int session_send_create_reply(Session *s, const sd_bus_error *error);
 
-static inline bool SESSION_IS_SELF(const char *name) {
-        return isempty(name) || streq(name, "self");
-}
-
-static inline bool SESSION_IS_AUTO(const char *name) {
-        return streq_ptr(name, "auto");
-}
+bool session_is_self(const char *name);
+bool session_is_auto(const char *name);

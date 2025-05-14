@@ -3,11 +3,10 @@
 
 #include <sys/socket.h>
 
-#include "sd-event.h"
 #include "sd-varlink.h"
 
-#include "hashmap.h"
 #include "list.h"
+#include "forward.h"
 
 typedef enum VarlinkState {
         /* Client side states */

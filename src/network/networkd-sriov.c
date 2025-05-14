@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
-#include "device-enumerator-private.h"
+#include "sd-netlink.h"
+
 #include "device-util.h"
-#include "fd-util.h"
+#include "errno-util.h"
+#include "hashmap.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-sriov.h"
+#include "set.h"
+#include "string-util.h"
 
 static int sr_iov_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, SRIOV *sr_iov) {
         int r;

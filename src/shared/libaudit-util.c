@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/audit.h>
 #include <linux/netlink.h>
 #include <stdio.h>
@@ -10,6 +9,7 @@
 #  include <libaudit.h>
 #endif
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "libaudit-util.h"

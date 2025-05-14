@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -27,8 +26,10 @@
 #include "journald-kmsg.h"
 #include "journald-manager.h"
 #include "journald-stream.h"
+#include "journald-sync.h"
 #include "journald-syslog.h"
 #include "journald-wall.h"
+#include "log.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -39,7 +40,6 @@
 #include "syslog-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
-#include "user-util.h"
 
 #define STDOUT_STREAMS_MAX (64*1024)
 

@@ -7,8 +7,8 @@
 #include "log.h"
 #include "random-util.h"
 #include "resolved-dns-answer.h"
-#include "resolved-dns-dnssec.h"
 #include "resolved-dns-rr.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 static DnsAnswerItem *dns_answer_item_free(DnsAnswerItem *item) {

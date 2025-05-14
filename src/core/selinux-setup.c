@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -13,7 +12,6 @@
 #include "errno-util.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "string-util.h"

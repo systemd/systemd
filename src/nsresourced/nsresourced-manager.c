@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
 
 #include "sd-daemon.h"
 
 #include "bpf-dlopen.h"
+#include "time-util.h"
 #if HAVE_VMLINUX_H
 #include "bpf-link.h"
 #endif
@@ -14,6 +16,7 @@
 #include "env-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "mkdir.h"
@@ -24,8 +27,8 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "umask-util.h"
 #include "unaligned.h"

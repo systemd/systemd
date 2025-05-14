@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "hashmap.h"
 #include "install.h"
 #include "tests.h"
 
