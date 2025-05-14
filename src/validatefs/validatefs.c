@@ -146,7 +146,6 @@ static char* validate_fields_gpt_type_uuid_as_string(const ValidateFields *f) {
                 const char *id = gpt_partition_type_uuid_to_string(*u);
                 if (id)
                         (void) strextend(&joined, " (", id, ")");
-
         }
 
         return TAKE_PTR(joined);
@@ -241,7 +240,6 @@ static int validate_mount_point(const char *path, const ValidateFields *f) {
         }
 
         _cleanup_free_ char *joined = strv_join(f->mount_point, ", ");
-
         return log_error_errno(
                         SYNTHETIC_ERRNO(EPERM),
                         "File system is supposed to be mounted on one of %s only, but is mounted on %s, refusing.",
