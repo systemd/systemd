@@ -162,9 +162,7 @@ bool is_ascii(const char16_t *f);
 
 char16_t **strv_free(char16_t **l);
 
-static inline void strv_freep(char16_t ***p) {
-        strv_free(*p);
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char16_t**, strv_free);
 
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
