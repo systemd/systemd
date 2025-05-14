@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
 
@@ -14,6 +15,7 @@
 #include "env-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "mkdir.h"
@@ -24,9 +26,10 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "unaligned.h"
 #include "user-util.h"
