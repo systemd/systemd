@@ -685,7 +685,7 @@ static char* context_fallback_icon_name(Context *c) {
 
 static int context_update_kernel_hostname(
                 Context *c,
-                const char *transient_hn) {
+                const char *transient_hostname) {
 
         _cleanup_free_ char *_hn_free = NULL;
         const char *hn;
@@ -700,8 +700,8 @@ static int context_update_kernel_hostname(
                 hns = HOSTNAME_STATIC;
 
         /* ... the transient hostname, (ie: DHCP) comes next ... */
-        } else if (transient_hn) {
-                hn = transient_hn;
+        } else if (transient_hostname) {
+                hn = transient_hostname;
                 hns = HOSTNAME_TRANSIENT;
 
         /* ... and the ultimate fallback */
