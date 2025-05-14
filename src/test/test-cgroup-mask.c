@@ -55,7 +55,6 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
          * else. */
         m->defaults.cpu_accounting =
                 m->defaults.memory_accounting =
-                m->defaults.blockio_accounting =
                 m->defaults.io_accounting =
                 m->defaults.tasks_accounting = false;
         m->defaults.tasks_max = CGROUP_TASKS_MAX_UNSET;
