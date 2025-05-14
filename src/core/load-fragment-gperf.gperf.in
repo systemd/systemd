@@ -201,7 +201,7 @@
 {{type}}.StartupAllowedCPUs,                  config_parse_allowed_cpuset,                        0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_cpus)
 {{type}}.AllowedMemoryNodes,                  config_parse_allowed_cpuset,                        0,                                  offsetof({{type}}, cgroup_context.cpuset_mems)
 {{type}}.StartupAllowedMemoryNodes,           config_parse_allowed_cpuset,                        0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_mems)
-{{type}}.CPUAccounting,                       config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.cpu_accounting)
+{{type}}.CPUAccounting,                       config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 {{type}}.CPUWeight,                           config_parse_cg_cpu_weight,                         0,                                  offsetof({{type}}, cgroup_context.cpu_weight)
 {{type}}.StartupCPUWeight,                    config_parse_cg_cpu_weight,                         0,                                  offsetof({{type}}, cgroup_context.startup_cpu_weight)
 {{type}}.CPUShares,                           config_parse_warn_compat,                           DISABLED_LEGACY,                    0

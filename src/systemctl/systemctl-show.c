@@ -1505,8 +1505,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         return 1;
 
-                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
-                           STR_IN_SET(name, "IODeviceWeight", "BlockIODeviceWeight")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "IODeviceWeight")) {
                         const char *path;
                         uint64_t weight;
 
@@ -1526,8 +1525,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
 
                 } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
-                           (cgroup_io_limit_type_from_string(name) >= 0 ||
-                            STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth"))) {
+                           cgroup_io_limit_type_from_string(name) >= 0) {
                         const char *path;
                         uint64_t bandwidth;
 

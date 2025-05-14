@@ -477,7 +477,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         startup_cpuset_mems = cpu_set_to_range_string(&c->startup_cpuset_mems);
 
         fprintf(f,
-                "%sCPUAccounting: %s\n"
                 "%sIOAccounting: %s\n"
                 "%sMemoryAccounting: %s\n"
                 "%sTasksAccounting: %s\n"
@@ -516,7 +515,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMPreference: %s\n"
                 "%sMemoryPressureWatch: %s\n"
                 "%sCoredumpReceive: %s\n",
-                prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
@@ -1697,9 +1695,6 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         assert_se(c = unit_get_cgroup_context(u));
 
         /* Figure out which controllers we need, based on the cgroup context object */
-
-        if (c->cpu_accounting)
-                mask |= get_cpu_accounting_mask();
 
         if (cgroup_context_has_cpu_weight(c) ||
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
@@ -3628,10 +3623,6 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         if (unit_has_host_root_cgroup(u))
                 return procfs_cpu_get_usage(ret);
 
-        /* Requisite controllers for CPU accounting are not enabled */
-        if ((get_cpu_accounting_mask() & ~crt->cgroup_realized_mask) != 0)
-                return -ENODATA;
-
         _cleanup_free_ char *val = NULL;
         uint64_t us;
 
@@ -3659,9 +3650,6 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
         /* Retrieve the current CPU usage counter. This will subtract the CPU counter taken when the unit was
          * started. If the cgroup has been removed already, returns the last cached value. To cache the value, simply
          * call this function with a NULL return value. */
-
-        if (!UNIT_CGROUP_BOOL(u, cpu_accounting))
-                return -ENODATA;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt)
