@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Server Server;
+typedef struct Manager Manager;
 typedef struct StdoutStream StdoutStream;
 typedef struct StreamSyncReq StreamSyncReq;
 
@@ -20,7 +20,7 @@ typedef enum StdoutStreamState {
 } StdoutStreamState;
 
 struct StdoutStream {
-        Server *server;
+        Manager *manager;
         StdoutStreamState state;
 
         int fd;
@@ -55,10 +55,10 @@ struct StdoutStream {
         LIST_HEAD(StreamSyncReq, stream_sync_reqs);
 };
 
-int server_open_stdout_socket(Server *s, const char *stdout_socket);
-int server_restore_streams(Server *s, FDSet *fds);
+int manager_open_stdout_socket(Manager *m, const char *stdout_socket);
+int manager_restore_streams(Manager *m, FDSet *fds);
 
 StdoutStream* stdout_stream_free(StdoutStream *s);
-int stdout_stream_install(Server *s, int fd, StdoutStream **ret);
+int stdout_stream_install(Manager *m, int fd, StdoutStream **ret);
 void stdout_stream_terminate(StdoutStream *s);
 void stdout_stream_send_notify(StdoutStream *s);

@@ -3,6 +3,6 @@
 
 #include <sys/socket.h>
 
-typedef struct Server Server;
+typedef struct Manager Manager;
 
-void server_forward_wall(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred);
+void manager_forward_wall(Manager *m, int priority, const char *identifier, const char *message, const struct ucred *ucred);
