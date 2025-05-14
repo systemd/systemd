@@ -5,18 +5,11 @@
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 
-#include "hashmap.h"
 #include "in-addr-util.h"
-#include "macro.h"
+#include "memory-util.h"
 #include "resolved-def.h"
-#include "resolved-dns-answer.h"
+#include "resolved-forward.h"
 #include "sparse-endian.h"
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsPacket DnsPacket;
-typedef struct DnsQuestion DnsQuestion;
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
 
 typedef enum DnsProtocol {
         DNS_PROTOCOL_DNS,

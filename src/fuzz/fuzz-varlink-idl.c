@@ -5,12 +5,8 @@
 #include "sd-varlink-idl.h"
 
 #include "alloc-util.h"
-#include "errno-util.h"
-#include "fd-util.h"
 #include "fuzz.h"
-#include "io-util.h"
 #include "log.h"
-#include "string-util.h"
 #include "varlink-idl-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {

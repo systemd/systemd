@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <limits.h>
-
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
@@ -10,6 +8,7 @@
 #include "graphics.h"
 #include "iovec-util-fundamental.h"
 #include "linux.h"
+#include "log.h"
 #include "measure.h"
 #include "memory-util-fundamental.h"
 #include "part-discovery.h"

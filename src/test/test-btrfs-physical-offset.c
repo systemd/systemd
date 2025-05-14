@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 
 #include "btrfs-util.h"
 #include "fd-util.h"
-#include "format-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "tests.h"

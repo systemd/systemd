@@ -1,21 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
 #include "sd-id128.h"
-#include "sd-json.h"
 
-#include "hashmap.h"
-#include "image-policy.h"
-#include "lock-util.h"
-#include "macro.h"
+#include "forward.h"
 #include "os-util.h"
-#include "path-util.h"
-#include "runtime-scope.h"
-#include "string-util.h"
-#include "time-util.h"
 
 typedef enum ImageType {
         IMAGE_DIRECTORY,
@@ -95,29 +84,14 @@ static inline char **image_extension_release(Image *image, ImageClass class) {
         return NULL;
 }
 
-static inline bool IMAGE_IS_HIDDEN(const struct Image *i) {
+static inline bool image_is_hidden(const struct Image *i) {
         assert(i);
 
         return i->name && i->name[0] == '.';
 }
 
-static inline bool IMAGE_IS_VENDOR(const struct Image *i) {
-        assert(i);
-
-        return i->path && path_startswith(i->path, "/usr");
-}
-
-static inline bool IMAGE_IS_HOST(const struct Image *i) {
-        assert(i);
-
-        if (i->name && streq(i->name, ".host"))
-                return true;
-
-        if (i->path && path_equal(i->path, "/"))
-                return true;
-
-        return false;
-}
+bool image_is_vendor(const struct Image *i);
+bool image_is_host(const struct Image *i);
 
 int image_to_json(const struct Image *i, sd_json_variant **ret);
 
