@@ -55,8 +55,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultStartLimit, RateLimit, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultCPUAccounting="),
                 SD_VARLINK_DEFINE_FIELD(DefaultCPUAccounting, SD_VARLINK_BOOL, 0),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultBlockIOAccounting="),
-                SD_VARLINK_DEFINE_FIELD(DefaultBlockIOAccounting, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIOAccounting="),
                 SD_VARLINK_DEFINE_FIELD(DefaultIOAccounting, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIPAccounting="),
