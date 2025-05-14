@@ -9,7 +9,6 @@
 #include "build.h"
 #include "confidential-virt.h"
 #include "json-util.h"
-#include "manager-varlink.h"
 #include "manager.h"
 #include "set.h"
 #include "strv.h"
@@ -17,6 +16,7 @@
 #include "taint.h"
 #include "version.h"
 #include "varlink-common.h"
+#include "varlink-manager.h"
 #include "virt.h"
 #include "watchdog.h"
 

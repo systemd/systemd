@@ -7,7 +7,6 @@
 #include "errno-util.h"
 #include "json-util.h"
 #include "manager.h"
-#include "manager-varlink.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "string-util.h"
@@ -22,6 +21,7 @@
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-manager.h"
 #include "varlink-serialize.h"
 #include "varlink-util.h"
 
