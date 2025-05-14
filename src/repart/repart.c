@@ -5894,6 +5894,63 @@ static int set_default_subvolume(Partition *p, const char *root) {
         return 0;
 }
 
+static int partition_acquire_sibling_labels(const Partition *p, char ***ret) {
+        assert(p);
+        assert(ret);
+
+        _cleanup_strv_free_ char **l = NULL;
+        if (p->new_label) {
+                l = strv_new(p->new_label);
+                if (!l)
+                        return log_oom();
+        }
+
+        FOREACH_ELEMENT(sibling, p->siblings) {
+                Partition *s = *sibling;
+
+                if (!s || s == p || !s->new_label || strv_contains(l, s->new_label))
+                        continue;
+
+                if (strv_extend(&l, s->new_label) < 0)
+                        return log_oom();
+        }
+
+        strv_sort(l); /* bring into a systematic order to make things reproducible */
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+static int partition_acquire_sibling_uuids(const Partition *p, char ***ret) {
+        assert(p);
+        assert(ret);
+
+        _cleanup_strv_free_ char **l = NULL;
+        l = strv_new(SD_ID128_TO_UUID_STRING(p->type.uuid));
+        if (!l)
+                return log_oom();
+
+        FOREACH_ELEMENT(sibling, p->siblings) {
+                Partition *s = *sibling;
+
+                if (!s || s == p)
+                        continue;
+
+                const char *u = SD_ID128_TO_UUID_STRING(s->type.uuid);
+                if (strv_contains(l, u))
+                        continue;
+
+                if (strv_extend(&l, u) < 0)
+                        return log_oom();
+        }
+
+        strv_sort(l); /* bring into a systematic order to make things reproducible */
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+
 static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
         int r;
 
@@ -5907,18 +5964,26 @@ static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open root inode '%s': %m", root);
 
-        if (p->new_label) {
-                r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_label", p->new_label);
+        _cleanup_strv_free_ char **l = NULL;
+        r = partition_acquire_sibling_labels(p, &l);
+        if (r < 0)
+                return r;
+        if (!strv_isempty(l)) {
+                r = xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_label", l);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set 'user.validatefs.gpt_label' extended attribute: %m");
         }
+        l = strv_free(l);
 
-        r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_type_uuid", SD_ID128_TO_UUID_STRING(p->type.uuid));
+        r = partition_acquire_sibling_uuids(p, &l);
+        if (r < 0)
+                return r;
+        r = xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_type_uuid", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to set 'user.validatefs.gpt_type_uuid' extended attribute: %m");
+        l = strv_free(l);
 
         /* Prefer the data from MountPoint= if specified, otherwise use data we derive from the partition type */
-        _cleanup_strv_free_ char **l = NULL;
         if (p->n_mountpoints > 0) {
                 FOREACH_ARRAY(m, p->mountpoints, p->n_mountpoints)
                         if (strv_extend(&l, m->where) < 0)

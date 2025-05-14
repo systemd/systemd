@@ -962,12 +962,12 @@
       <varlistentry>
         <term><varname>AddValidateFS=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If enabled will set the <varname>user.validatefs.gpt_label</varname>,
-        <varname>user.validatefs.gpt_type_uuid</varname> and <varname>user.validatefs.mount_point</varname>
-        extended attributes on the root inode of the formatted file system to the partition label, partition
-        type UUID and the intended mount point for the partition. Defaults to on if
-        <varname>Format=</varname> is used and the specified argument is neither <literal>swap</literal> nor
-        <literal>vfat</literal>.</para>
+        <listitem><para>Takes a boolean argument. If enabled will set the
+        <varname>user.validatefs.gpt_label</varname>, <varname>user.validatefs.gpt_type_uuid</varname> and
+        <varname>user.validatefs.mount_point</varname> extended attributes on the root inode of the formatted
+        file system to the partition labels, partition type UUIDs and the intended mount point for the file
+        system. Defaults to on if <varname>Format=</varname> is used and the specified argument is neither
+        <literal>swap</literal> nor <literal>vfat</literal>.</para>
 
         <para>These extended attributes are read by
         <citerefentry><refentrytitle>systemd-validatefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
