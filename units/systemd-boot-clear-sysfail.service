@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Clear SysFail Entry If The Boot Is Successful
-Documentation=man:systemd-boot-sysfail.service(8)
+Documentation=man:systemd-boot-clear-sysfail.service(8)
 
 DefaultDependencies=no
 Conflicts=shutdown.target
