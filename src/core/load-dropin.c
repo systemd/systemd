@@ -8,7 +8,6 @@
 #include "log.h"
 #include "manager.h"
 #include "stat-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "unit.h"
 #include "unit-name.h"

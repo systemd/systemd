@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
 #include "errno-util.h"
+#include "forward.h"
 
 int plymouth_connect(int flags);
 int plymouth_send_raw(const void *raw, size_t size, int flags);

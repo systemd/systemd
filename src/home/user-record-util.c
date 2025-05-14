@@ -1,23 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/xattr.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "group-record.h"
+#include "hashmap.h"
 #include "home-util.h"
-#include "id128-util.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
-#include "memory-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "recovery-key.h"
 #include "sha256.h"
 #include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
+#include "user-record.h"
 #include "user-record-util.h"
 #include "user-util.h"
 

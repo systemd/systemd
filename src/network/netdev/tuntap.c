@@ -1,21 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "alloc-util.h"
 #include "daemon-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "tuntap.h"
+#include "user-record.h"
+#include "user-util.h"
 #include "userdb.h"
 
 #define TUN_DEV "/dev/net/tun"

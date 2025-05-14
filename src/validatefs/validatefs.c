@@ -2,6 +2,8 @@
 
 #include <getopt.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
@@ -12,6 +14,7 @@
 #include "fd-util.h"
 #include "gpt.h"
 #include "initrd-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
 #include "parse-argument.h"
