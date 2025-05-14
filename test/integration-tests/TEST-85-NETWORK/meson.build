@@ -32,7 +32,7 @@ foreach testcase : [
                                         'TEST_MATCH_TESTCASE': testcase,
                                 }
                         },
-                        'priority' : 10,
+                        'priority' : testcase == 'NetworkdDHCPClientTests' ? 10 : 0,
                         'vm' : true,
                 },
         ]

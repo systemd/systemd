@@ -9,6 +9,11 @@ if ! command -v dfuzzer &>/dev/null; then
     exit 77
 fi
 
+if [[ ! -v ASAN_OPTIONS && ! -v UBSAN_OPTIONS && "${TEST_RUN_DFUZZER:-0}" == "0" ]]; then
+    echo "no sanitizer is enabled, skipping. (Hint: set TEST_RUN_DFUZZER=1 to run test forcibly)."
+    exit 77
+fi
+
 # Save the end.service state before we start fuzzing, as it might get changed
 # on the fly by one of the fuzzers
 systemctl list-jobs | grep -F 'end.service' && SHUTDOWN_AT_EXIT=1 || SHUTDOWN_AT_EXIT=0
