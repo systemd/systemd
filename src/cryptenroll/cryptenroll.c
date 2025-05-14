@@ -3,7 +3,6 @@
 #include <getopt.h>
 #include <sys/mman.h>
 
-#include "ask-password-api.h"
 #include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "build.h"
@@ -16,24 +15,20 @@
 #include "cryptenroll-tpm2.h"
 #include "cryptenroll-wipe.h"
 #include "cryptsetup-util.h"
-#include "devnum-util.h"
-#include "env-util.h"
-#include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "libfido2-util.h"
+#include "log.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
 #include "string-table.h"
-#include "strv.h"
-#include "terminal-util.h"
+#include "string-util.h"
 #include "tpm2-pcr.h"
+#include "tpm2-util.h"
 
 static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
 static char *arg_unlock_keyfile = NULL;

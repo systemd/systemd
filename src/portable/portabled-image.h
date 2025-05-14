@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "discover-image.h"
-#include "hashmap.h"
-
-typedef struct Manager Manager;
+#include "portabled-forward.h"
 
 Image *manager_image_cache_get(Manager *m, const char *name_or_path);
 

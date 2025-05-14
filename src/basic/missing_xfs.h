@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
+#include "forward.h"
 
 /* This is currently not exported in the public kernel headers, but the libxfs library code part of xfsprogs
  * defines it as public header */

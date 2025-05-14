@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
-#include "macro.h"
 #include "networkd-link.h"
 #include "parse-util.h"
-#include "string-util.h"
 #include "teql.h"
 
 static int trivial_link_equalizer_verify(QDisc *qdisc) {

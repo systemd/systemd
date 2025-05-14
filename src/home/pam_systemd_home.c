@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <libintl.h>
 #include <security/pam_ext.h>
 #include <security/pam_misc.h>
 #include <security/pam_modules.h>
@@ -10,16 +11,15 @@
 #include "bus-common-errors.h"
 #include "bus-locator.h"
 #include "bus-util.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "home-util.h"
 #include "locale-util.h"
-#include "log.h"
-#include "memory-util.h"
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "user-record.h"
 #include "user-record-util.h"
 #include "user-util.h"

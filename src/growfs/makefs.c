@@ -4,7 +4,6 @@
 #include <sys/file.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -15,9 +14,6 @@
 #include "main-func.h"
 #include "mkfs-util.h"
 #include "path-util.h"
-#include "process-util.h"
-#include "signal-util.h"
-#include "string-util.h"
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *device = NULL, *fstype = NULL, *detected = NULL, *label = NULL;

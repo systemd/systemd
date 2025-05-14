@@ -2,14 +2,18 @@
 
 #include <linux/sockios.h>
 #include <sys/ioctl.h>
+#include <sys/poll.h>
 
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "io-util.h"
 #include "journald-manager.h"
 #include "journald-stream.h"
 #include "journald-sync.h"
 #include "journald-varlink.h"
+#include "log.h"
+#include "prioq.h"
 #include "socket-netlink.h"
 #include "time-util.h"
 
