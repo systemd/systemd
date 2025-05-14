@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <linux/loop.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -17,10 +18,10 @@
 #include "chase.h"
 #include "copy.h"
 #include "device-util.h"
-#include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -28,13 +29,13 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "libarchive-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
