@@ -36,6 +36,7 @@
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -3971,6 +3972,84 @@ static const char* const private_bpf_table[_PRIVATE_BPF_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(private_bpf, PrivateBPF);
+
+#include "bpf-delegate-configs.inc"
+
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t);
+
+int bpf_dump_delegate_commands(FILE *fd, uint64_t u) {
+        assert(fd);
+
+        if (u == UINT64_MAX)
+                fprintf(fd, "any");
+        else {
+                bool first = true;
+                for (uint64_t i = 0; i < sizeof(u) * 8; i++) {
+                        if (u & (1UL << i)) {
+                                if (!first)
+                                        fprintf(fd, ",");
+                                first = false;
+                                fprintf(fd, "%s", bpf_delegate_cmd_to_string(i));
+                        }
+                }
+        }
+
+        return 0;
+}
+
+char* bpf_delegate_commands_to_string(uint64_t u) {
+        if (u == UINT64_MAX)
+                return strdup("any");
+
+        _cleanup_free_ char *buf = NULL;
+        size_t len = 1;
+
+        for (uint64_t i = 0; i < sizeof(u) * 8; i++)
+                if (u & (1UL << i))
+                        len += strlen(bpf_delegate_cmd_table[i]) + 1;
+
+        buf = malloc(len);
+        if (!buf)
+                return NULL;
+
+        buf[0] = 0;
+        char *end = buf;
+
+        for (uint64_t i = 0; i < sizeof(u) * 8; i++) {
+                if (u & (1UL << i)) {
+                        if (buf[0] != 0)
+                                end = stpcpy(end, ",");
+                        end = stpcpy(end, bpf_delegate_cmd_to_string(i));
+                }
+        }
+
+        return TAKE_PTR(buf);
+}
+
+int bpf_delegate_commands_from_string(const char *s, uint64_t *ret) {
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "any")) {
+                *ret = UINT64_MAX;
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **tokens = strv_split(s, ",");
+
+        *ret = 0;
+
+        for (char **token = tokens; *token; token++) {
+                int i = bpf_delegate_cmd_from_string(*token);
+
+                if (i < 0)
+                        return log_error_errno(i, "Invalid BPF delegate command %s", *token);
+
+                *ret |= 1UL << i;
+        }
+
+        return 0;
+}
 
 static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_NO]           = "no",
