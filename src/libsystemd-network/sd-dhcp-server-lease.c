@@ -467,7 +467,7 @@ static int load_leases_file(int dir_fd, const char *path, SavedInfo *ret) {
                         path,
                         /* flags = */ 0,
                         &v,
-                        /* ret_line = */ NULL,
+                        /* reterr_line = */ NULL,
                         /* ret_column = */ NULL);
         if (r < 0)
                 return r;

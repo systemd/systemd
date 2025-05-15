@@ -400,7 +400,7 @@ static int image_make(
                         r = extract_image_basename(
                                         filename,
                                         image_class_suffix_to_string(c),
-                                        /* format_suffix= */ NULL,
+                                        /* format_suffixes= */ NULL,
                                         &pretty_buffer,
                                         /* ret_suffix= */ NULL);
                         if (r < 0)
@@ -942,7 +942,7 @@ int image_discover(
                                                 image_class_suffix_to_string(class),
                                                 STRV_MAKE(".raw"),
                                                 &pretty,
-                                                /* suffix= */ NULL);
+                                                /* ret_suffix= */ NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", fname);
                                         continue;
@@ -1016,7 +1016,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         fname,
                                                         image_class_suffix_to_string(class),
-                                                        /* format_suffix= */ NULL,
+                                                        /* format_suffixes= */ NULL,
                                                         &pretty,
                                                         /* ret_suffix= */ NULL);
                                         if (r < 0) {
@@ -1031,7 +1031,7 @@ int image_discover(
                                                 /* class_suffix= */ NULL,
                                                 /* format_suffix= */ NULL,
                                                 &pretty,
-                                                /* ret_v_suffix= */ NULL);
+                                                /* ret_suffix= */ NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", fname);
                                         continue;

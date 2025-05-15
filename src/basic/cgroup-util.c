@@ -46,7 +46,7 @@ int cg_path_open(const char *controller, const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path(controller, path, /* item=*/ NULL, &fs);
+        r = cg_get_path(controller, path, /* suffix=*/ NULL, &fs);
         if (r < 0)
                 return r;
 
