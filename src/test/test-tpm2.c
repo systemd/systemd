@@ -1259,8 +1259,8 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         /* primary_alg= */ 0,
                         blobs,
                         n_blobs,
-                        /* policy_hash= */ NULL,
-                        /* n_policy_hash= */ 0,
+                        /* known_policy_hash= */ NULL,
+                        /* n_known_policy_hash= */ 0,
                         &srk,
                         &unsealed_secret) >= 0);
 
