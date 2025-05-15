@@ -3314,6 +3314,26 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
         return 1;
 }
 
+const char* bpf_delegate_to_string(uint64_t u) {
+        char *s;
+        if (u == ~0ULL)
+                return "any";
+
+        // FIXME: handle memory leak
+        asprintf(&s, "0x%lx", u);
+
+        return s;
+}
+
+int bpf_delegate_from_string(const char *s, uint64_t *u) {
+        if (streq(s, "any"))
+                *u = ~0ULL;
+        else
+                *u = strtoull(s, NULL, 0);
+
+        return 1;
+}
+
 static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
         [PROTECT_HOME_NO]        = "no",
         [PROTECT_HOME_YES]       = "yes",
