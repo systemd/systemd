@@ -7556,6 +7556,8 @@ static int context_fstab(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
 
+        t = mfree(t);
+
         log_info("%s written.", path);
 
         return 0;
@@ -7632,6 +7634,8 @@ static int context_crypttab(Context *context) {
         r = flink_tmpfile(f, t, path, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
+
+        t = mfree(t);
 
         log_info("%s written.", path);
 
