@@ -155,7 +155,7 @@ static int dns_answer_add_raw_all(DnsAnswer *a, DnsAnswer *source) {
                                 item->ifindex,
                                 item->flags,
                                 item->rrsig,
-                                USEC_INFINITY);
+                                /* until= */ USEC_INFINITY);
                 if (r < 0)
                         return r;
         }
