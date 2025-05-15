@@ -1300,7 +1300,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         error,
                         uid,
                         leader_pid,
-                        /* pidfd = */ -EBADF,
+                        /* leader_pidfd = */ -EBADF,
                         service,
                         type,
                         class,
@@ -4423,7 +4423,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 
                                         LIST_FOREACH(sessions_by_user, s, user->sessions)
                                                 /* Don't propagate user service failures to the client */
-                                                session_jobs_reply(s, id, unit, /* error = */ NULL);
+                                                session_jobs_reply(s, id, unit, /* result = */ NULL);
 
                                         user_save(user);
                                         break;

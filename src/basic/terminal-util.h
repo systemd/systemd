@@ -139,8 +139,8 @@ int getttyname_harder(int fd, char **ret);
 
 int ptsname_malloc(int fd, char **ret);
 
-int openpt_allocate(int flags, char **ret_peer);
-int openpt_allocate_in_namespace(const PidRef *pidref, int flags, char **ret_peer);
+int openpt_allocate(int flags, char **ret_peer_path);
+int openpt_allocate_in_namespace(const PidRef *pidref, int flags, char **ret_peer_path);
 
 int vt_restore(int fd);
 int vt_release(int fd, bool restore);

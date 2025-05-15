@@ -1671,7 +1671,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
                         path,
                         /* flags= */ 0,
                         &j,
-                        /* ret_line= */ NULL,
+                        /* reterr_line= */ NULL,
                         /* ret_column= */ NULL);
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse component file %s, ignoring: %m", path);
@@ -5320,7 +5320,7 @@ static int vl_method_make_policy(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
-        r = make_policy(p.force, /* recovery_key= */ RECOVERY_PIN_HIDE);
+        r = make_policy(p.force, /* recovery_pin_mode= */ RECOVERY_PIN_HIDE);
         if (r < 0)
                 return r;
         if (r == 0)

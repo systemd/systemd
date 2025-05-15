@@ -497,7 +497,7 @@ static int netns_child_begin(int netns_fd, int *ret_original_netns_fd) {
 
         /* Populate new sysfs instance associated with the client netns, to make sd_device usable. */
         r = mount_nofollow_verbose(LOG_ERR, "sysfs", "/sys/", "sysfs",
-                                   MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, /* opts = */ NULL);
+                                   MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, /* options = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to mount sysfs on /sys/: %m");
 

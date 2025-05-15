@@ -2774,7 +2774,7 @@ _public_ int sd_varlink_notifyb(sd_varlink *v, ...) {
         return sd_varlink_notify(v, parameters);
 }
 
-_public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field table[], void *userdata) {
+_public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field dispatch_table[], void *userdata) {
         const char *bad_field = NULL;
         int r;
 
@@ -2782,7 +2782,7 @@ _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, con
 
         /* A wrapper around json_dispatch_full() that returns a nice InvalidParameter error if we hit a problem with some field. */
 
-        r = sd_json_dispatch_full(parameters, table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
+        r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
         if (r < 0) {
                 if (bad_field)
                         return sd_varlink_error_invalid_parameter_name(v, bad_field);
