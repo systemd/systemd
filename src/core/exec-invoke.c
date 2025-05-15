@@ -2301,8 +2301,13 @@ static int setup_private_users_child(int unshare_ready_fd, char *uid_map, char *
 static int bpffs_prepare(
                 int *parent_fd,
                 PidRef *bpffs_pid,
-                int *exit_status) {
+                int *exit_status,
+                uint64_t delegate_cmds,
+                uint64_t delegate_maps,
+                uint64_t delegate_progs,
+                uint64_t delegate_attachs) {
 
+        char number[STRLEN("0x") + sizeof(uint64_t) * 2 + 1];
         _cleanup_close_pair_ int bpffs_fds[2] = EBADF_PAIR;
         int r;
 
@@ -2324,6 +2329,24 @@ static int bpffs_prepare(
 
                 fs_fd = receive_one_fd(bpffs_fds[0], 0);
                 if (fs_fd < 0)
+                        _exit(EXIT_FAILURE);
+
+                bpf_delegate_to_string(delegate_cmds, number);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
+                if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
@@ -5416,7 +5439,9 @@ int exec_invoke(
         }
 
         if (context->private_bpf) {
-                r = bpffs_prepare(&bpffs_fd, &bpffs_pid, exit_status);
+                r = bpffs_prepare(&bpffs_fd, &bpffs_pid, exit_status, context->bpf_delegate_commands,
+                                  context->bpf_delegate_maps, context->bpf_delegate_programs,
+                                  context->bpf_delegate_attachments);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mount BPFFS: %m");
         }
