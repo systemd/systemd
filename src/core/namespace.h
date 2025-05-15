@@ -236,6 +236,53 @@ ProcSubset proc_subset_from_string(const char *s) _pure_;
 const char* private_bpf_to_string(PrivateBPF i) _const_;
 PrivateBPF private_bpf_from_string(const char *s) _pure_;
 
+const char* bpf_delegate_cmd_to_string(uint64_t u) _const_;
+uint64_t bpf_delegate_cmd_from_string(const char *s) _pure_;
+
+const char* bpf_delegate_map_type_to_string(uint64_t u) _const_;
+uint64_t bpf_delegate_map_type_from_string(const char *s) _pure_;
+
+const char* bpf_delegate_prog_type_to_string(uint64_t u) _const_;
+uint64_t bpf_delegate_prog_type_from_string(const char *s) _pure_;
+
+const char* bpf_delegate_attach_type_to_string(uint64_t u) _const_;
+uint64_t bpf_delegate_attach_type_from_string(const char *s) _pure_;
+
+char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_);
+int bpf_delegate_from_string(const char *s, uint64_t *ret, uint64_t (*parser)(const char *));
+
+static inline int bpf_delegate_commands_from_string(const char *s, uint64_t *ret) {
+        return bpf_delegate_from_string(s, ret, bpf_delegate_cmd_from_string);
+}
+
+static inline char * bpf_delegate_commands_to_string(uint64_t u) {
+        return bpf_delegate_to_string(u, bpf_delegate_cmd_to_string);
+}
+
+static inline int bpf_delegate_maps_from_string(const char *s, uint64_t *ret) {
+        return bpf_delegate_from_string(s, ret, bpf_delegate_map_type_from_string);
+}
+
+static inline char * bpf_delegate_maps_to_string(uint64_t u) {
+        return bpf_delegate_to_string(u, bpf_delegate_map_type_to_string);
+}
+
+static inline int bpf_delegate_programs_from_string(const char *s, uint64_t *ret) {
+        return bpf_delegate_from_string(s, ret, bpf_delegate_prog_type_from_string);
+}
+
+static inline char * bpf_delegate_programs_to_string(uint64_t u) {
+        return bpf_delegate_to_string(u, bpf_delegate_prog_type_to_string);
+}
+
+static inline int bpf_delegate_attachments_from_string(const char *s, uint64_t *ret) {
+        return bpf_delegate_from_string(s, ret, bpf_delegate_attach_type_from_string);
+}
+
+static inline char * bpf_delegate_attachments_to_string(uint64_t u) {
+        return bpf_delegate_to_string(u, bpf_delegate_attach_type_to_string);
+}
+
 const char* private_tmp_to_string(PrivateTmp i) _const_;
 PrivateTmp private_tmp_from_string(const char *s) _pure_;
 
