@@ -3,14 +3,17 @@
 #include "sd-json.h"
 
 #include "bitfield.h"
+#include "cgroup.h"
 #include "condition.h"
 #include "execute.h"
 #include "json-util.h"
 #include "install.h"
 #include "manager.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "unit-varlink.h"
 #include "varlink-common.h"
+#include "varlink-util.h"
 
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(value > EMERGENCY_ACTION_NONE, name, SD_JSON_BUILD_STRING(emergency_action_to_string(value)))
@@ -311,18 +314,115 @@ static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
         return sd_varlink_reply(link, v);
 }
 
-int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
+static int lookup_unit_by_name(sd_varlink *link, Manager *manager, const char *name, Unit **ret_unit) {
+        assert(link);
+        assert(manager);
+        assert(ret_unit);
+
+        if (!name)
+                return -EINVAL;
+        if (!unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return -EINVAL;
+
+        Unit *u = manager_get_unit(manager, name);
+        if (!u)
+                return -ESRCH;
+
+        *ret_unit = u;
+        return 0;
+}
+
+static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pidref, Unit **ret_unit) {
+        _cleanup_(pidref_done) PidRef peer = PIDREF_NULL;
+        Unit *unit;
         int r;
 
+        assert(link);
+        assert(manager);
+        assert(ret_unit);
+
+        if (pidref_is_automatic(pidref)) {
+                r = varlink_get_peer_pidref(link, &peer);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get peer pidref: %m");
+
+                pidref = &peer;
+        } else if (!pidref_is_set(pidref))
+                return -EINVAL;
+
+        unit = manager_get_unit_by_pidref(manager, pidref);
+        if (!unit)
+                return -ESRCH;
+
+        *ret_unit = unit;
+        return 0;
+}
+
+typedef struct UnitLookupParameters {
+        const char *name;
+        PidRef pidref;
+} UnitLookupParameters;
+
+static void unit_lookup_parameters_done(UnitLookupParameters *p) {
+        assert(p);
+        pidref_done(&p->pidref);
+}
+
+int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                // XXX name or id???
+                { "name", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(UnitLookupParameters, name),   0                                        },
+                { "pid",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref), SD_JSON_RELAX /* allows PID_AUTOMATIC */ },
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+         _cleanup_(unit_lookup_parameters_done) UnitLookupParameters p = {
+                 .pidref = PIDREF_NULL,
+        };
+
+        Unit *unit;
+        int r;
+
+        assert(link);
         assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.name) {
+                r = lookup_unit_by_name(link, manager, p.name, &unit);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, "name");
+                if (r == -ESRCH)
+                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT, NULL);
+                if (r < 0)
+                        return r;
+
+                return list_unit_one(link, unit, /* more = */ false);
+        }
+
+        if (pidref_is_set(&p.pidref) || pidref_is_automatic(&p.pidref)) {
+                r = lookup_unit_by_pidref(link, manager, &p.pidref, &unit);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, "pid");
+                if (r == -ESRCH)
+                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT, NULL);
+                if (r < 0)
+                        return r;
+
+                return list_unit_one(link, unit, /* more = */ false);
+        }
+
+        // TODO lookup by invocationID, CGroup
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         const char *k;
         Unit *u, *previous = NULL;
-        HASHMAP_FOREACH_KEY(u, k, m->units) {
+        HASHMAP_FOREACH_KEY(u, k, manager->units) {
                 if (k != u->id)
                         continue;
 
