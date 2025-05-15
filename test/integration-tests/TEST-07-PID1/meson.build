@@ -3,6 +3,7 @@
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
+                'coredump-exclude-regex' : '/test-bpf-token$',
                 'configuration' : integration_test_template['configuration'] + {
                         'service' : integration_test_template['configuration']['service'] + {
                                 'NotifyAccess' : 'all',

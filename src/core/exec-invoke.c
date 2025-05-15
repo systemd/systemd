@@ -2271,6 +2271,7 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
 }
 
 static int bpffs_prepare(
+                const ExecContext *c,
                 int *ret_sock_fd,
                 PidRef *ret_pid,
                 int *ret_pipe) {
@@ -2295,6 +2296,7 @@ static int bpffs_prepare(
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
                 _cleanup_close_ int fs_fd = -EBADF;
+                char number[STRLEN("0x") + sizeof(c->bpf_delegate_commands) * 2 + 1];
 
                 bpffs_errno_pipe[0] = safe_close(bpffs_errno_pipe[0]);
 
@@ -2302,6 +2304,38 @@ static int bpffs_prepare(
                 if (fs_fd < 0) {
                         log_debug_errno(fs_fd, "Failed to receive_one_fd from parent: %m");
                         report_errno_and_exit(bpffs_errno_pipe[1], fs_fd);
+                }
+
+                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_commands);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, 0);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
+                }
+
+                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_maps);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", number, 0);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
+                }
+
+                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_programs);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", number, 0);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
+                }
+
+                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_attachments);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", number, 0);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
                 }
 
                 r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
@@ -5482,7 +5516,7 @@ int exec_invoke(
                  * This is the kernel sample doing this:
                  * https://github.com/torvalds/linux/blob/master/tools/testing/selftests/bpf/prog_tests/token.c
                  */
-                r = bpffs_prepare(&bpffs_socket_fd, &bpffs_pid, &bpffs_errno_pipe);
+                r = bpffs_prepare(context, &bpffs_socket_fd, &bpffs_pid, &bpffs_errno_pipe);
                 if (r < 0) {
                         *exit_status = EXIT_BPF;
                         return log_error_errno(r, "Failed to mount bpffs in bpffs_prepare(): %m");
