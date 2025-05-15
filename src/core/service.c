@@ -1749,7 +1749,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 15);
+        our_env = new0(char*, 16);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1820,6 +1820,14 @@ static int service_spawn_internal(
                                         return -ENOMEM;
                                 our_env[n_env++] = t;
                         }
+                }
+
+                uint64_t cookie;
+                if (socket_get_cookie(s->socket_fd, &cookie) >= 0) {
+                        char *t;
+                        if (asprintf(&t, "SO_COOKIE=%" PRIu64, cookie) < 0)
+                                return -ENOMEM;
+                        our_env[n_env++] = t;
                 }
         }
 
