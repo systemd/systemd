@@ -426,8 +426,7 @@
 
         <para>For IPv4 and IPv6 connections, the <varname>$REMOTE_ADDR</varname> environment variable will
         contain the remote IP address, and <varname>$REMOTE_PORT</varname> will contain the remote port. This
-        is the same as the format used by CGI. For <constant>SOCK_RAW</constant>, the port is the IP
-        protocol.</para>
+        is the same as the format used by CGI.</para>
 
         <para>For <constant>AF_UNIX</constant> socket connections, the <varname>$REMOTE_ADDR</varname>
         environment variable will contain either the remote socket's file system path starting with a slash
