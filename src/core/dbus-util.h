@@ -179,7 +179,7 @@ int bus_property_get_triggered_unit(sd_bus *bus, const char *path, const char *i
                         sd_bus_error *error) {                          \
                                                                         \
                 const char *s;                                          \
-                type v;                                                 \
+                type v = (type)0                                        \
                 int r;                                                  \
                                                                         \
                 assert(p);                                              \

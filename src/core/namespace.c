@@ -36,6 +36,7 @@
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -3853,6 +3854,27 @@ int refresh_extensions_in_namespace(
         }
 
         return 0;
+}
+
+void bpf_delegate_to_string(uint64_t u, char *s) {
+        if (u == ~0ULL)
+                strcpy(s, "any");
+        else
+                sprintf(s, "0x%lx", u);
+}
+
+int bpf_delegate_from_string(const char *s, uint64_t *u) {
+        int r;
+
+        r = safe_atou64(s, u);
+        if (r < 0) {
+                if (streq(s, "any"))
+                        *u = ~0ULL;
+                else
+                        return r;
+        }
+
+        return 1;
 }
 
 static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
