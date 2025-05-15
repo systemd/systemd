@@ -1288,6 +1288,7 @@ org.freedesktop.systemd1.Service.PIDFile
 org.freedesktop.systemd1.Service.PassEnvironment
 org.freedesktop.systemd1.Service.Personality
 org.freedesktop.systemd1.Service.PrivateBPF
+org.freedesktop.systemd1.Service.BPFDelegateCommands
 org.freedesktop.systemd1.Service.PrivateDevices
 org.freedesktop.systemd1.Service.PrivateIPC
 org.freedesktop.systemd1.Service.PrivateMounts
