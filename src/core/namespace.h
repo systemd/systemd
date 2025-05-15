@@ -234,6 +234,9 @@ ProcSubset proc_subset_from_string(const char *s) _pure_;
 const char* private_bpf_to_string(PrivateBPF i) _const_;
 PrivateBPF private_bpf_from_string(const char *s) _pure_;
 
+void bpf_delegate_to_string(uint64_t u, char *s);
+int bpf_delegate_from_string(const char *s, uint64_t *u) _pure_;
+
 const char* private_tmp_to_string(PrivateTmp i) _const_;
 PrivateTmp private_tmp_from_string(const char *s) _pure_;
 
