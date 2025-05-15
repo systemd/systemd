@@ -86,9 +86,6 @@ static inline CGroupMask CGROUP_MASK_EXTEND_JOINED(CGroupMask mask) {
         return mask;
 }
 
-CGroupMask get_cpu_accounting_mask(void);
-bool cpu_accounting_is_cheap(void);
-
 /* Special values for all weight knobs on unified hierarchy */
 #define CGROUP_WEIGHT_INVALID UINT64_MAX
 #define CGROUP_WEIGHT_IDLE UINT64_C(0)
