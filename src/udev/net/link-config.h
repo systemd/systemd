@@ -2,16 +2,12 @@
 #pragma once
 
 #include "sd-device.h"
-#include "sd-netlink.h"
 
-#include "condition.h"
-#include "conf-parser.h"
-#include "cpu-set-util.h"
+#include "ether-addr-util.h"
 #include "ethtool-util.h"
-#include "hashmap.h"
+#include "forward.h"
 #include "list.h"
 #include "net-condition.h"
-#include "netif-naming-scheme.h"
 
 typedef struct LinkConfigContext LinkConfigContext;
 typedef struct LinkConfig LinkConfig;

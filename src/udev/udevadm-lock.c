@@ -1,23 +1,23 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <getopt.h>
-#include <stdlib.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "blockdev-util.h"
-#include "btrfs-util.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "hash-funcs.h"
 #include "lock-util.h"
-#include "main-func.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "static-destruct.h"
 #include "strv.h"
 #include "time-util.h"
 #include "udevadm.h"

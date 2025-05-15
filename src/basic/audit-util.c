@@ -4,6 +4,7 @@
 #include "audit-util.h"
 #include "fileio.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "user-util.h"

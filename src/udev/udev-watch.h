@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "sd-device.h"
-
-typedef struct Manager Manager;
-typedef struct UdevWorker UdevWorker;
+#include "udev-forward.h"
 
 void udev_watch_dump(void);
 

@@ -2,7 +2,7 @@
 #pragma once
 
 #include "constants.h"
-#include "macro-fundamental.h"
+#include "macro-fundamental.h" // IWYU pragma: export
 
 /* Note: on GCC "no_sanitize_address" is a function attribute only, on llvm it may also be applied to global
  * variables. We define a specific macro which knows this. Note that on GCC we don't need this decorator so much, since

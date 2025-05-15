@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "strv.h"
 #include "tests.h"
 #include "unit.h"
 

@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <limits.h>
-
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "efi-efivars.h"
+#include "efi-log.h"
 #include "export-vars.h"
 #include "graphics.h"
 #include "iovec-util-fundamental.h"

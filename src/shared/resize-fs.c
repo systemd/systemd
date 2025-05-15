@@ -5,14 +5,13 @@
 #include <sys/ioctl.h>
 #include <sys/vfs.h>
 
-#include "blockdev-util.h"
-#include "fs-util.h"
-#include "log.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
 #include "missing_xfs.h"
 #include "resize-fs.h"
 #include "stat-util.h"
+#include "stdio-util.h"
+#include "string-util-fundamental.h"
 
 int resize_fs(int fd, uint64_t sz, uint64_t *ret_size) {
         struct statfs sfs;

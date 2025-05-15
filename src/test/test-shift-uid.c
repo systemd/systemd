@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdlib.h>
-
 #include "log.h"
 #include "shift-uid.h"
-#include "string-util.h"
 #include "tests.h"
 #include "user-util.h"
 

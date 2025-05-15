@@ -7,10 +7,11 @@
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
+#include <sys/epoll.h>
 
 #include "alloc-util.h"
-#include "io-util.h"
 #include "openssl-util.h"
+#include "log.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"

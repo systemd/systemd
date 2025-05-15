@@ -1,20 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "nulstr-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "xattr-util.h"
 

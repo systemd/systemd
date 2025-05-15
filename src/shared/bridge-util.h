@@ -4,7 +4,7 @@
 #include <linux/if_bridge.h>
 #include <netinet/in.h>
 
-#include "conf-parser.h"
+#include "forward.h"
 
 typedef enum BridgeState {
         NETDEV_BRIDGE_STATE_DISABLED   = BR_STATE_DISABLED,

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-json.h"
-
+#include "forward.h"
 #include "user-record.h"
 
 typedef struct GroupRecord {

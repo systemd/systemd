@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
-#include "home-util.h"
 #include "homework.h"
 #include "homework-mount.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "namespace-util.h"

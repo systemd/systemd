@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <limits.h>
-
 #include "chid.h"
 #include "devicetree.h"
 #include "efi-firmware.h"
+#include "efi-log.h"
 #include "pe.h"
 #include "util.h"
 

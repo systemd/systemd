@@ -3,15 +3,13 @@
 #include <sys/reboot.h>
 
 #include "ansi-color.h"
-#include "bus-error.h"
-#include "bus-util.h"
 #include "emergency-action.h"
 #include "manager.h"
 #include "raw-reboot.h"
 #include "reboot-util.h"
 #include "special.h"
 #include "string-table.h"
-#include "terminal-util.h"
+#include "string-util.h"
 #include "virt.h"
 
 static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {

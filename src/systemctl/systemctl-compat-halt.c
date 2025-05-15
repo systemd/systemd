@@ -6,6 +6,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "log.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "reboot-util.h"
@@ -15,7 +16,6 @@
 #include "systemctl-logind.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
-#include "terminal-util.h"
 #include "utmp-wtmp.h"
 
 static int halt_help(void) {

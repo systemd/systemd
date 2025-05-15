@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <netinet/icmp6.h>
+
+#include "sd-ndisc-protocol.h"
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -14,7 +18,8 @@
 #include "netlink-util.h"
 #include "network-common.h"
 #include "parse-util.h"
-#include "socket-util.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 

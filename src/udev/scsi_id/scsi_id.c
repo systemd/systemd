@@ -5,13 +5,10 @@
  */
 
 #include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -21,7 +18,6 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "parse-util.h"
 #include "scsi_id.h"
 #include "string-util.h"
 #include "strv.h"

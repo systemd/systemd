@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "fd-util.h"
 #include "log.h"

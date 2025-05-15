@@ -1,20 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <pthread.h>
+#include "sd-id128.h"
 
-#include "sd-bus.h"
-
-#include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-match.h"
-#include "constants.h"
-#include "hashmap.h"
+#include "forward.h"
 #include "list.h"
-#include "prioq.h"
 #include "runtime-scope.h"
 #include "socket-util.h"
-#include "time-util.h"
 
 /* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and
  * that way we become independent of /var being mounted */

@@ -3,17 +3,16 @@
 #include "sd-path.h"
 
 #include "alloc-util.h"
-#include "cgroup-util.h"
-#include "format-util.h"
-#include "macro.h"
+#include "creds-util.h"
+#include "env-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "manager.h"
 #include "specifier.h"
 #include "string-util.h"
-#include "strv.h"
 #include "unit.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "user-util.h"
 
 static int specifier_prefix_and_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
@@ -253,4 +252,24 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
         };
 
         return specifier_printf(format, max_length, table, NULL, u, ret);
+}
+
+int unit_full_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, LONG_LINE_MAX, ret);
+}
+
+int unit_path_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, PATH_MAX-1, ret);
+}
+
+int unit_fd_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, FDNAME_MAX, ret);
+}
+
+int unit_cred_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, CREDENTIAL_NAME_MAX, ret);
+}
+
+int unit_env_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, sc_arg_max(), ret);
 }

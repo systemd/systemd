@@ -1,24 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
-#include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
-#include "bus-polkit.h"
 #include "bus-util.h"
-#include "cgroup-util.h"
 #include "common-signal.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
-#include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "format-util.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
 #include "hostname-util.h"
 #include "machine.h"
 #include "machined.h"
@@ -26,11 +26,11 @@
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "operation.h"
-#include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
+#include "string-util.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);

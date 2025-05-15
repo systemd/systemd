@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
-#include "time-util.h"
+#include "forward.h"
 
 int procfs_get_pid_max(uint64_t *ret);
 int procfs_get_threads_max(uint64_t *ret);

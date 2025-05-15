@@ -4,7 +4,6 @@
  ***/
 
 #include "conf-parser.h"
-#include "constants.h"
 #include "networkd-address-label.h"
 #include "networkd-conf.h"
 #include "networkd-manager.h"

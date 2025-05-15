@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
-#include "hash-funcs.h"
+#include "networkd-forward.h"
 
 typedef struct RouteMetric {
         size_t n_metrics; /* maximum metric attr type with non-zero value */

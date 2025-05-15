@@ -2,17 +2,23 @@
 
 #include <linux/capability.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "home-util.h"
 #include "homed-bus.h"
 #include "homed-home.h"
 #include "homed-home-bus.h"
 #include "homed-manager.h"
+#include "homed-operation.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-util.h"

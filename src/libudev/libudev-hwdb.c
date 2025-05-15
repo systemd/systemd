@@ -1,15 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
-#include "assert-util.h"
 #include "errno-util.h"
-#include "hwdb-util.h"
 #include "libudev-list-internal.h"
-#include "log.h"
 
 /**
  * SECTION:libudev-hwdb

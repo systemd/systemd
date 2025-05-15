@@ -1,24 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
-#include "sd-event.h"
-
+#include "core-forward.h"
 #include "list.h"
-#include "memory-util.h"
-#include "time-util.h"
-#include "unit-dependency-atom.h"
-
-typedef struct ActivationDetails ActivationDetails;
-typedef struct Job Job;
-typedef struct JobDependency JobDependency;
-typedef enum JobType JobType;
-typedef enum JobState JobState;
-typedef enum JobResult JobResult;
-typedef struct Manager Manager;
-typedef struct Unit Unit;
 
 /* Be careful when changing the job types! Adjust job_merging_table[] accordingly! */
 enum JobType {
@@ -65,14 +49,14 @@ enum JobType {
         _JOB_TYPE_INVALID = -EINVAL,
 };
 
-enum JobState {
+typedef enum JobState {
         JOB_WAITING,
         JOB_RUNNING,
         _JOB_STATE_MAX,
         _JOB_STATE_INVALID = -EINVAL,
-};
+} JobState;
 
-enum JobResult {
+typedef enum JobResult {
         JOB_DONE,                /* Job completed successfully (or skipped due to an unmet ConditionXYZ=) */
         JOB_CANCELED,            /* Job canceled by a conflicting job installation or by explicit cancel request */
         JOB_TIMEOUT,             /* Job timeout elapsed */
@@ -88,9 +72,9 @@ enum JobResult {
         JOB_CONCURRENCY,         /* Slice the unit is in has its hard concurrency limit reached */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -EINVAL,
-};
+} JobResult;
 
-struct JobDependency {
+typedef struct JobDependency {
         /* Encodes that the 'subject' job needs the 'object' job in
          * some way. This structure is used only while building a transaction. */
         Job *subject;
@@ -101,9 +85,9 @@ struct JobDependency {
 
         bool matters:1;
         bool conflicts:1;
-};
+} JobDependency;
 
-struct Job {
+typedef struct Job {
         Manager *manager;
         Unit *unit;
 
@@ -158,7 +142,7 @@ struct Job {
         bool ref_by_private_bus:1;
 
         bool in_gc_queue:1;
-};
+} Job;
 
 Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);

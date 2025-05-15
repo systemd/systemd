@@ -2,8 +2,10 @@
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "calendarspec.h"
 #include "dbus-timer.h"
 #include "dbus-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "timer.h"
 #include "unit.h"

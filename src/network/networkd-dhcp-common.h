@@ -3,12 +3,9 @@
 
 #include <netinet/in.h>
 
-#include "conf-parser.h"
 #include "dhcp-duid-internal.h"
-#include "dns-resolver-internal.h"
 #include "in-addr-util.h"
-#include "set.h"
-#include "time-util.h"
+#include "networkd-forward.h"
 
 /* Special values for *_uplink_index. */
 #define UPLINK_INDEX_AUTO  0 /* uplink will be selected automatically */
@@ -20,10 +17,6 @@
 #define IPV6RA_ROUTE_METRIC_MEDIUM 1024
 #define IPV6RA_ROUTE_METRIC_LOW    2048
 #define DHCP6PD_ROUTE_METRIC 256
-
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Network Network;
 
 typedef enum DHCPOptionDataType {
         DHCP_OPTION_DATA_UINT8,

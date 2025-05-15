@@ -4,6 +4,9 @@
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  */
 
+#include <sys/signalfd.h>
+#include <sys/wait.h>
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "daemon-util.h"
@@ -12,10 +15,11 @@
 #include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "inotify-util.h"
-#include "mkdir.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "set.h"

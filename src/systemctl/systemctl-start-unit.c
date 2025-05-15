@@ -11,13 +11,14 @@
 #include "bus-wait-for-jobs.h"
 #include "bus-wait-for-units.h"
 #include "fork-journal.h"
-#include "macro.h"
+#include "pidref.h"
+#include "runtime-scope.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
-#include "terminal-util.h"
 
 static const struct {
         const char *verb;      /* systemctl verb */

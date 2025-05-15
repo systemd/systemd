@@ -5,13 +5,12 @@
 #  include "efi-string.h"
 #  include "util.h"
 #else
-#  include <endian.h>
 #  include <stddef.h>
 #  include <stdint.h>
 #  include <uchar.h>
 #endif
 
-#include "string-util-fundamental.h"
+#include "macro-fundamental.h"
 
 /* EDID structure, version 1.4 */
 typedef struct EdidHeader {

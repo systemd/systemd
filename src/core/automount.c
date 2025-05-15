@@ -1,21 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <linux/auto_dev-ioctl.h>
-#include <sys/epoll.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
-#include "async.h"
 #include "automount.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "dbus-automount.h"
 #include "dbus-unit.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fstab-util.h"
@@ -30,6 +28,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"

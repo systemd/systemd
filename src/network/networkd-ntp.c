@@ -2,9 +2,11 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "extract-word.h"
+#include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-ntp.h"
-#include "parse-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 /* Let's assume that anything above this number is a user misconfiguration. */

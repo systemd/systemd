@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/kd.h>
 #include <linux/vt.h>
@@ -9,7 +8,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "audit-util.h"
@@ -18,12 +20,14 @@
 #include "daemon-util.h"
 #include "devnum-util.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "io-util.h"
+#include "hashmap.h"
 #include "login-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
@@ -41,10 +45,9 @@
 #include "process-util.h"
 #include "serialize.h"
 #include "string-table.h"
-#include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
-#include "uid-classification.h"
+#include "user-record.h"
 #include "user-util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
@@ -1611,6 +1614,14 @@ int session_send_create_reply(Session *s, const sd_bus_error *error) {
         RET_GATHER(r, session_send_create_reply_bus(s, error));
         RET_GATHER(r, session_send_create_reply_varlink(s, error));
         return r;
+}
+
+bool session_is_self(const char *name) {
+        return isempty(name) || streq(name, "self");
+}
+
+bool session_is_auto(const char *name) {
+        return streq_ptr(name, "auto");
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {

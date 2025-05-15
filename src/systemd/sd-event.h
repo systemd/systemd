@@ -17,12 +17,10 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <signal.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
 

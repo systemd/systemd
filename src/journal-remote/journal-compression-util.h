@@ -2,8 +2,7 @@
 #pragma once
 
 #include "compress.h"
-#include "conf-parser.h"
-#include "hashmap.h"
+#include "forward.h"
 
 typedef struct CompressionConfig {
         Compression algorithm;

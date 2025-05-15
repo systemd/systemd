@@ -7,12 +7,14 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "conf-parser.h"
 #include "alloc-util.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "missing_network.h"
+#include "hashmap.h"
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
@@ -20,8 +22,10 @@
 #include "networkd-network.h"
 #include "networkd-sysctl.h"
 #include "path-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "sysctl-util.h"
 
 #if HAVE_VMLINUX_H

@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stddef.h>
-#include <sys/socket.h>
-
-typedef struct Manager Manager;
+#include "journald-forward.h"
 
 void manager_process_native_message(
                 Manager *m,

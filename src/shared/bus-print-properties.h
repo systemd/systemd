@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
-
-#include "macro.h"
-#include "set.h"
+#include "forward.h"
 
 typedef enum BusPrintPropertyFlags {
         BUS_PRINT_PROPERTY_ONLY_VALUE = 1 << 0,  /* e.g. systemctl --value */

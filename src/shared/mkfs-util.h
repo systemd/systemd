@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-id128.h"
 
-#include "strv.h"
+#include "forward.h"
 
 int mkfs_exists(const char *fstype);
 

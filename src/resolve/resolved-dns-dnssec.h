@@ -1,15 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "time-util.h"
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
+#include "resolved-forward.h"
 
 typedef enum DnssecResult {
         /* These six are returned by dnssec_verify_rrset() */

@@ -3,6 +3,7 @@
 #include <sys/auxv.h>
 
 #include "escape.h"
+#include "format-util.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
 #include "osc-context.h"

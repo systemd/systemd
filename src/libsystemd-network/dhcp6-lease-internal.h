@@ -5,15 +5,11 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <inttypes.h>
-
 #include "sd-dhcp6-lease.h"
 
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
-#include "dns-resolver-internal.h"
-#include "macro.h"
-#include "set.h"
+#include "forward.h"
 #include "time-util.h"
 
 struct sd_dhcp6_lease {

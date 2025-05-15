@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 
-#include "alloc-util.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fuzz.h"

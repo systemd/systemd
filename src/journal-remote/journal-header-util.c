@@ -2,7 +2,9 @@
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "hashmap.h"
 #include "journal-header-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 

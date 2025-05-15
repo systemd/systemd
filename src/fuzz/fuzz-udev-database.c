@@ -3,7 +3,6 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fuzz.h"
 #include "tmpfile-util.h"
 

@@ -43,6 +43,7 @@
  */
 
 #include <getopt.h>
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "build.h"

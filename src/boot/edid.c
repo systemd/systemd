@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "edid.h"
-#include "edid-fundamental.h"
-#include "efi-log.h"
 #include "proto/edid-discovered.h"
 #include "util.h"
 

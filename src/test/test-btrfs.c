@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 
 #include "btrfs-util.h"
 #include "fd-util.h"
@@ -11,6 +12,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 int main(int argc, char *argv[]) {
         BtrfsQuotaInfo quota;

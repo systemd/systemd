@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "event-util.h"
 #include "glyph-util.h"
-#include "hostname-util.h"
-#include "local-addresses.h"
+#include "log.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
@@ -14,12 +16,12 @@
 #include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
-#include "resolved-dns-stub.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-etc-hosts.h"
 #include "resolved-manager.h"
 #include "resolved-timeouts.h"
+#include "set.h"
 #include "string-util.h"
 
 #define QUERIES_MAX 2048

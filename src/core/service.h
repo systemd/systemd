@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "cgroup.h"
+#include "core-forward.h"
 #include "exit-status.h"
 #include "kill.h"
-#include "manager.h"
-#include "open-file.h"
-#include "path.h"
 #include "pidref.h"
-#include "ratelimit.h"
-#include "socket.h"
 #include "unit.h"
-
-typedef struct Service Service;
 
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
@@ -116,7 +111,7 @@ typedef struct ServiceExtraFD {
         char *fdname;
 } ServiceExtraFD;
 
-struct Service {
+typedef struct Service {
         Unit meta;
 
         ServiceType type;
@@ -245,7 +240,7 @@ struct Service {
 
         /* The D-Bus request, we will reply once the operation is finished, so that callers can block */
         sd_bus_message *mount_request;
-};
+} Service;
 
 static inline usec_t service_timeout_abort_usec(Service *s) {
         assert(s);

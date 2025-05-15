@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <stdbool.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -11,21 +8,16 @@
 #include "alloc-util.h"
 #include "base-filesystem.h"
 #include "chase.h"
-#include "creds-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "initrd-util.h"
 #include "log.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "path-util.h"
 #include "rm-rf.h"
-#include "stdio-util.h"
-#include "string-util.h"
-#include "strv.h"
+#include "stat-util.h"
 #include "switch-root.h"
-#include "user-util.h"
 
 int switch_root(const char *new_root,
                 const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */

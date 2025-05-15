@@ -3,9 +3,13 @@
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-calendar.h"
+#include "ansi-color.h"
 #include "calendarspec.h"
+#include "errno-util.h"
 #include "format-table.h"
-#include "terminal-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 
 static int test_calendar_one(usec_t n, const char *p) {
         _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;

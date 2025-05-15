@@ -7,11 +7,10 @@
 
 #include <netinet/ip.h>
 #include <netinet/udp.h>
-#include <stdint.h>
 
 #include "sd-dhcp-protocol.h"
 
-#include "macro.h"
+#include "forward.h"
 #include "sparse-endian.h"
 #include "time-util.h"
 

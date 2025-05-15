@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdio.h>
-
-#include "in-addr-util.h"
-#include "memory-util.h"
-
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
+#include "resolved-forward.h"
 
 /* A simple array of resource keys */
 

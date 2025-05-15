@@ -3,7 +3,6 @@
 #include <sys/utsname.h>
 
 #include "alloc-util.h"
-#include "cgroup-util.h"
 #include "clock-util.h"
 #include "errno-util.h"
 #include "fileio.h"

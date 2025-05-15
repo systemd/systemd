@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Manager Manager;
-typedef struct StdoutStream StdoutStream;
-typedef struct StreamSyncReq StreamSyncReq;
+#include <sys/socket.h>
 
-#include "fdset.h"
+#include "sd-id128.h"
+
+#include "journald-forward.h"
 #include "list.h"
 
 typedef enum StdoutStreamState {
@@ -19,7 +19,7 @@ typedef enum StdoutStreamState {
         STDOUT_STREAM_RUNNING,
 } StdoutStreamState;
 
-struct StdoutStream {
+typedef struct StdoutStream {
         Manager *manager;
         StdoutStreamState state;
 
@@ -53,7 +53,7 @@ struct StdoutStream {
         char id_field[STRLEN("_STREAM_ID=") + SD_ID128_STRING_MAX];
 
         LIST_HEAD(StreamSyncReq, stream_sync_reqs);
-};
+} StdoutStream;
 
 int manager_open_stdout_socket(Manager *m, const char *stdout_socket);
 int manager_restore_streams(Manager *m, FDSet *fds);

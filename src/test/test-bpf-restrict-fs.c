@@ -10,7 +10,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "unit.h"
-#include "virt.h"
 
 static int test_restrict_filesystems(Manager *m, const char *unit_name, const char *file_path, char **allowed_filesystems) {
         _cleanup_free_ char *exec_start = NULL;

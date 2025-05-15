@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/oom.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
 #endif
@@ -22,10 +23,8 @@
 #include "argv-util.h"
 #include "build.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
-#include "cgroup-util.h"
 #include "chase.h"
 #include "clock-util.h"
 #include "clock-warp.h"
@@ -33,25 +32,24 @@
 #include "confidential-virt.h"
 #include "constants.h"
 #include "copy.h"
+#include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "crash-handler.h"
 #include "dbus.h"
 #include "dbus-manager.h"
 #include "dev-setup.h"
 #include "efi-random.h"
-#include "efivars.h"
 #include "emergency-action.h"
 #include "env-util.h"
 #include "escape.h"
-#include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "getopt-defs.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
+#include "id128-util.h"
 #include "ima-setup.h"
 #include "import-creds.h"
 #include "initrd-util.h"
@@ -80,7 +78,6 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "psi-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
@@ -88,6 +85,7 @@
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "signal-util.h"
 #include "smack-setup.h"
 #include "special.h"
@@ -99,6 +97,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "umask-util.h"
+#include "unit-name.h"
 #include "user-util.h"
 #include "version.h"
 #include "virt.h"

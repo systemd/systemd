@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-json.h"
+#include "sd-bus.h"
 
 #include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "image.h"
 #include "io-util.h"
+#include "log.h"
 #include "machined.h"
 #include "operation.h"
 #include "process-util.h"

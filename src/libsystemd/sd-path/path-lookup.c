@@ -1,21 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "alloc-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "macro.h"
-#include "nulstr-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
 
 int user_search_dirs(const char *suffix, char ***ret_config_dirs, char ***ret_data_dirs) {
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;

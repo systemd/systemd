@@ -8,8 +8,8 @@
 #include "sd-ndisc.h"
 
 #include "icmp6-packet.h"
+#include "iterator.h"
 #include "ndisc-option.h"
-#include "time-util.h"
 
 struct sd_ndisc_router {
         unsigned n_ref;

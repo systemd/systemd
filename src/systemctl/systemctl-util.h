@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "bus-unit-util.h"
-#include "format-table.h"
 #include "systemctl.h"
 
 typedef enum BusFocus {

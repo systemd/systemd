@@ -1,19 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <poll.h>
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
+#include <sys/socket.h>
 
 #include "sd-login.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "errno-list.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "missing_syscall.h"
-#include "mountpoint-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"

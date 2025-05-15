@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
 #include <syslog.h>
 
 #if HAVE_LIBBPF
@@ -11,6 +10,7 @@
 
 #include "bpf-compat.h"
 #include "dlfcn-util.h"
+#include "forward.h"
 
 extern DLSYM_PROTOTYPE(bpf_link__destroy);
 extern DLSYM_PROTOTYPE(bpf_link__fd);

@@ -1,20 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
 #if HAVE_BZIP2
 #include <bzlib.h>
 #endif
 #include <lzma.h>
-#include <sys/types.h>
 #include <zlib.h>
 #if HAVE_ZSTD
 #include <zstd.h>
 #include <zstd_errors.h>
 #endif
 
-#include "macro.h"
+#include "forward.h"
 
 typedef enum ImportCompressType {
         IMPORT_COMPRESS_UNKNOWN,

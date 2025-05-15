@@ -1,18 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
 
-#include "fs-util.h"
+#include "sysupdate-forward.h"
 #include "sysupdate-partition.h"
-#include "time-util.h"
-
-typedef struct Resource Resource;
-typedef struct Instance Instance;
 
 typedef struct InstanceMetadata {
         /* Various bits of metadata for each instance, that is either derived from the filename/GPT label or

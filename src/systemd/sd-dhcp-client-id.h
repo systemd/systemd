@@ -17,15 +17,12 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <sys/types.h>
-
 #include "_sd-common.h"
-#include "sd-dhcp-duid.h"
 
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp_client_id sd_dhcp_client_id;
+typedef struct sd_dhcp_duid sd_dhcp_duid;
 
 int sd_dhcp_client_id_new(sd_dhcp_client_id **ret);
 sd_dhcp_client_id* sd_dhcp_client_id_free(sd_dhcp_client_id *client_id);

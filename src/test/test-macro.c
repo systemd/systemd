@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
 #include <sys/stat.h>
 
-#include "sd-messages.h"
+#include "sd-id128.h"
 
 #include "errno-util.h"
-#include "id128-util.h"
-#include "log.h"
-#include "macro.h"
 #include "tests.h"
 
 TEST(saturate_add) {

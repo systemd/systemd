@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-journal.h"
+
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "journal-internal.h"
 #include "journal-verify.h"
 #include "journalctl.h"
@@ -14,6 +17,7 @@
 #include "logs-show.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 
 int action_print_header(void) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
-#include "pidref.h"
+#include "forward.h"
 
 typedef enum NamespaceType {
         NAMESPACE_CGROUP,
@@ -56,13 +54,7 @@ int is_our_namespace(int fd, NamespaceType type);
 int namespace_is_init(NamespaceType type);
 
 int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type);
-static inline int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
-        assert(pid1 >= 0);
-        assert(pid2 >= 0);
-        return pidref_in_same_namespace(pid1 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid1),
-                                        pid2 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid2),
-                                        type);
-}
+int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
 
 int namespace_get_leader(PidRef *pidref, NamespaceType type, PidRef *ret);
 

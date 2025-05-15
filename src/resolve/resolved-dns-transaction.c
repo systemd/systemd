@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "af-list.h"
@@ -9,6 +10,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "random-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
@@ -18,13 +20,17 @@
 #include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-server.h"
+#include "resolved-dns-stream.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-dnstls.h"
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
+#include "resolved-manager.h"
 #include "resolved-socket-graveyard.h"
 #include "resolved-timeouts.h"
+#include "set.h"
 #include "string-table.h"
+#include "string-util.h"
 
 #define TRANSACTIONS_MAX 4096
 
@@ -473,7 +479,7 @@ static void dns_transaction_complete_errno(DnsTransaction *t, int error) {
         assert(t);
         assert(error != 0);
 
-        t->answer_errno = abs(error);
+        t->answer_errno = ABS(error);
         dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
 }
 

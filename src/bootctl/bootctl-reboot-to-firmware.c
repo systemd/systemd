@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
+#include "sd-json.h"
+#include "sd-varlink.h"
+
 #include "bootctl-reboot-to-firmware.h"
 #include "efi-api.h"
 #include "errno-util.h"

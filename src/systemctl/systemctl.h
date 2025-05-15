@@ -1,14 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "bus-print-properties.h"
-#include "bus-util.h"
-#include "image-policy.h"
-#include "install.h"
-#include "output-mode.h"
-#include "pager.h"
+#include "forward.h"
 
 enum action {
         ACTION_SYSTEMCTL,

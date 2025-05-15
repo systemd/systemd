@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <unistd.h>
+#include "forward.h"
 
 #define SD_LOGIND_ROOT_CHECK_INHIBITORS           (UINT64_C(1) << 0)
 #define SD_LOGIND_REBOOT_VIA_KEXEC                (UINT64_C(1) << 1)
@@ -18,6 +17,4 @@
 
 bool session_id_valid(const char *id);
 
-static inline bool logind_running(void) {
-        return access("/run/systemd/seats/", F_OK) >= 0;
-}
+bool logind_running(void);

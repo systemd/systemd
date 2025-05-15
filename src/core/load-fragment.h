@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-
-typedef struct Unit Unit;
+#include "core-forward.h"
 
 /* These functions are declared in the header to make them accessible to unit tests. */
 bool contains_instance_specifier_superset(const char *s);

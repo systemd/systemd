@@ -4,14 +4,16 @@
 ***/
 
 #include <getopt.h>
-#include <inttypes.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
+#include "analyze-verify-util.h"
 #include "analyze.h"
 #include "analyze-architectures.h"
 #include "analyze-blame.h"
@@ -40,7 +42,6 @@
 #include "analyze-srk.h"
 #include "analyze-syscall-filter.h"
 #include "analyze-time.h"
-#include "analyze-time-data.h"
 #include "analyze-timespan.h"
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
@@ -48,48 +49,25 @@
 #include "analyze-verify.h"
 #include "build.h"
 #include "bus-error.h"
-#include "bus-locator.h"
-#include "bus-map-properties.h"
-#include "bus-unit-util.h"
+#include "bus-util.h"
 #include "calendarspec.h"
-#include "cap-list.h"
-#include "capability-util.h"
-#include "conf-files.h"
-#include "constants.h"
-#include "copy.h"
-#include "exit-status.h"
-#include "extract-word.h"
-#include "fd-util.h"
-#include "fileio.h"
-#include "filesystems.h"
-#include "format-table.h"
-#include "glob-util.h"
-#include "hashmap.h"
+#include "dissect-image.h"
 #include "image-policy.h"
-#include "locale-util.h"
 #include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "nulstr-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "rm-rf.h"
-#if HAVE_SECCOMP
-#  include "seccomp-util.h"
-#endif
-#include "sort-util.h"
-#include "special.h"
-#include "stat-util.h"
+#include "runtime-scope.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
-#include "terminal-util.h"
 #include "time-util.h"
 #include "unit-name.h"
-#include "verb-log-control.h"
 #include "verbs.h"
 
 DotMode arg_dot = DEP_ALL;

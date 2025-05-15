@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
 #include "sd-bus-vtable.h"
 
-#include "execute.h"
-#include "unit.h"
+#include "bus-get-properties.h"
+#include "core-forward.h"
 
 #define BUS_EXEC_STATUS_VTABLE(prefix, offset, flags)                   \
         BUS_PROPERTY_DUAL_TIMESTAMP(prefix "StartTimestamp", (offset) + offsetof(ExecStatus, start_timestamp), flags), \

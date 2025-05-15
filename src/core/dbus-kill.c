@@ -5,6 +5,7 @@
 #include "dbus-util.h"
 #include "kill.h"
 #include "signal-util.h"
+#include "string-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_kill_mode, kill_mode, KillMode);
 

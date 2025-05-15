@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "hashmap.h"
-#include "macro.h"
+#include "forward.h"
+#include "iterator.h"
 
 typedef struct Bitmap {
         uint64_t *bitmaps;

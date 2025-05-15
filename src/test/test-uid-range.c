@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
-
-#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -10,7 +7,6 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "uid-range.h"
-#include "user-util.h"
 #include "virt.h"
 
 TEST(uid_range) {

@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "cap-list.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
-#include "hostname-util.h"
+#include "extract-word.h"
 #include "namespace-util.h"
+#include "nspawn-expose-ports.h"
+#include "nspawn-mount.h"
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
