@@ -10,7 +10,14 @@ set -o pipefail
 at_exit() {
     set +e
 
-    rm -f /run/systemd/system/TEST-23-UNIT-FILE-no-reload.{service,target}
+    rm -f /run/systemd/system/TEST-23-UNIT-FILE-no-reload.target
+    rm -f /run/systemd/system/TEST-23-UNIT-FILE-no-reload.service
+    rm -f /run/systemd/system/TEST-23-UNIT-FILE-no-reload-2.service
+    rm -f /run/systemd/system/TEST-23-UNIT-FILE-no-reload-3.service
+    systemctl stop TEST-23-UNIT-FILE-no-reload.target
+    systemctl stop TEST-23-UNIT-FILE-no-reload.service
+    systemctl stop TEST-23-UNIT-FILE-no-reload-2.service
+    systemctl stop TEST-23-UNIT-FILE-no-reload-3.service
 }
 
 trap at_exit EXIT
@@ -91,3 +98,58 @@ EOF
 systemctl restart TEST-23-UNIT-FILE-no-reload.target
 
 systemctl is-active TEST-23-UNIT-FILE-no-reload.service
+
+# Stop and remove, and try again to exercise https://github.com/systemd/systemd/issues/36031
+systemctl stop TEST-23-UNIT-FILE-no-reload.service TEST-23-UNIT-FILE-no-reload.target
+rm -f /run/systemd/system/TEST-23-UNIT-FILE-no-reload.service /run/systemd/system/TEST-23-UNIT-FILE-no-reload.target
+systemctl daemon-reload
+
+sleep 3.1
+
+cat >/run/systemd/system/TEST-23-UNIT-FILE-no-reload.target <<EOF
+[Unit]
+Conflicts=shutdown.target
+EOF
+
+cat >/run/systemd/system/TEST-23-UNIT-FILE-no-reload.service <<EOF
+[Unit]
+Conflicts=TEST-23-UNIT-FILE-no-reload.target
+Wants=TEST-23-UNIT-FILE-no-reload-2.service
+Wants=TEST-23-UNIT-FILE-no-reload-3.service
+[Service]
+ExecStart=sleep infinity
+EOF
+
+systemctl daemon-reload
+
+systemctl start TEST-23-UNIT-FILE-no-reload.service
+(! systemctl is-active TEST-23-UNIT-FILE-no-reload.target )
+systemctl is-active TEST-23-UNIT-FILE-no-reload.service
+[[ "$(systemctl show --property LoadState --value TEST-23-UNIT-FILE-no-reload-2.service)" == not-found ]]
+[[ "$(systemctl show --property LoadState --value TEST-23-UNIT-FILE-no-reload-3.service)" == not-found ]]
+
+cat >/run/systemd/system/TEST-23-UNIT-FILE-no-reload-2.service <<EOF
+[Unit]
+Conflicts=TEST-23-UNIT-FILE-no-reload.target
+[Service]
+ExecStart=sleep infinity
+EOF
+
+# This service file is intentionally invalid (Type=exec without ExecStart=).
+cat >/run/systemd/system/TEST-23-UNIT-FILE-no-reload-3.service <<EOF
+[Unit]
+Conflicts=TEST-23-UNIT-FILE-no-reload.target
+[Service]
+Type=exec
+ExecStop=sleep infinity
+EOF
+
+systemctl start TEST-23-UNIT-FILE-no-reload.target
+systemctl is-active TEST-23-UNIT-FILE-no-reload.target
+(! systemctl is-active TEST-23-UNIT-FILE-no-reload.service )
+(! systemctl is-active TEST-23-UNIT-FILE-no-reload-2.service )
+(! systemctl is-active TEST-23-UNIT-FILE-no-reload-3.service )
+[[ "$(systemctl show --property LoadState --value TEST-23-UNIT-FILE-no-reload-2.service)" == loaded ]]
+[[ "$(systemctl show --property LoadState --value TEST-23-UNIT-FILE-no-reload-3.service)" == bad-setting ]]
+[[ "$(systemctl show --property Conflicts --value TEST-23-UNIT-FILE-no-reload-2.service)" =~ TEST-23-UNIT-FILE-no-reload.target ]]
+[[ "$(systemctl show --property Conflicts --value TEST-23-UNIT-FILE-no-reload-3.service)" =~ TEST-23-UNIT-FILE-no-reload.target ]]
