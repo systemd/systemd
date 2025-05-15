@@ -14,10 +14,8 @@ systemd_xdg_autostart_generator_extract_sources = files(
 executables += [
         executable_template + {
                 'name' : 'systemd-xdg-autostart-generator',
-                'sources' : [
-                        systemd_xdg_autostart_generator_sources,
-                        systemd_xdg_autostart_generator_extract_sources,
-                ],
+                'sources' : systemd_xdg_autostart_generator_sources +
+                            systemd_xdg_autostart_generator_extract_sources,
                 'extract' : systemd_xdg_autostart_generator_extract_sources,
                 'install_dir' : usergeneratordir,
         },

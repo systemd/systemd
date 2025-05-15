@@ -15,14 +15,14 @@ executables += [
         executable_template + {
                 'name' : 'systemd-tmpfiles',
                 'public' : true,
-                'sources' : [systemd_tmpfiles_sources, systemd_tmpfiles_extract_sources],
+                'sources' : systemd_tmpfiles_sources + systemd_tmpfiles_extract_sources,
                 'extract' : systemd_tmpfiles_extract_sources,
                 'dependencies' : libacl,
         },
         executable_template + {
                 'name' : 'systemd-tmpfiles.standalone',
                 'public' : have_standalone_binaries,
-                'sources' : [systemd_tmpfiles_sources, systemd_tmpfiles_extract_sources],
+                'sources' : systemd_tmpfiles_sources + systemd_tmpfiles_extract_sources,
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
                         libbasic_static,

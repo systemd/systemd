@@ -149,11 +149,9 @@ udev_binaries_dict = [
         executable_template + {
                 'name' : 'udevadm',
                 'public' : true,
-                'sources' : [
-                        udevadm_sources,
-                        udevadm_extract_sources,
-                        keyboard_keys_from_name_h,
-                ],
+                'sources' : udevadm_sources +
+                            udevadm_extract_sources +
+                            keyboard_keys_from_name_h,
                 'include_directories' : [
                         libexec_template['include_directories'],
                         include_directories('.', 'net'),

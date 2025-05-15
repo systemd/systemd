@@ -4,13 +4,11 @@ if conf.get('ENABLE_REMOTE') != 1
         subdir_done()
 endif
 
-systemd_journal_upload_sources = files(
-        'journal-compression-util.c',
-        'journal-upload-journal.c',
-        'journal-upload.c',
+systemd_journal_gatewayd_sources = files(
+        'journal-gatewayd.c',
 )
-systemd_journal_upload_extract_sources = files(
-        'journal-header-util.c',
+systemd_journal_gatewayd_extract_sources = files(
+        'microhttpd-util.c',
 )
 
 systemd_journal_remote_sources = files('journal-remote-main.c')
@@ -21,15 +19,12 @@ systemd_journal_remote_extract_sources = files(
         'journal-remote.c',
 )
 
-if conf.get('HAVE_MICROHTTPD') == 1
-        systemd_journal_remote_extract_sources += files(
-                'microhttpd-util.c',
-        )
-endif
-
-systemd_journal_gatewayd_sources = files(
-        'journal-gatewayd.c',
-        'microhttpd-util.c',
+systemd_journal_upload_sources = files(
+        'journal-upload-journal.c',
+        'journal-upload.c',
+)
+systemd_journal_upload_extract_sources = files(
+        'journal-header-util.c',
 )
 
 common_deps = [
@@ -42,26 +37,29 @@ common_deps = [
 
 executables += [
         libexec_template + {
-                'name' : 'systemd-journal-upload',
+                'name' : 'systemd-journal-gatewayd',
                 'public' : true,
-                'conditions' : ['HAVE_LIBCURL'],
-                'sources' : [systemd_journal_upload_sources, systemd_journal_upload_extract_sources],
-                'extract' : systemd_journal_upload_extract_sources,
-                'dependencies' : common_deps + [libcurl],
+                'conditions' : ['HAVE_MICROHTTPD'],
+                'sources' : systemd_journal_gatewayd_sources + systemd_journal_gatewayd_extract_sources,
+                'extract' : systemd_journal_gatewayd_extract_sources,
+                'dependencies' : common_deps + [libmicrohttpd],
         },
         libexec_template + {
                 'name' : 'systemd-journal-remote',
                 'public' : true,
-                'sources' : [systemd_journal_remote_sources, systemd_journal_remote_extract_sources],
+                'sources' : systemd_journal_remote_sources + systemd_journal_remote_extract_sources,
+                'objects' : conf.get('HAVE_MICROHTTPD') == 1 ? ['systemd-journal-gatewayd'] : [],
                 'extract' : systemd_journal_remote_extract_sources,
                 'dependencies' : common_deps + [libmicrohttpd],
         },
         libexec_template + {
-                'name' : 'systemd-journal-gatewayd',
+                'name' : 'systemd-journal-upload',
                 'public' : true,
-                'conditions' : ['HAVE_MICROHTTPD'],
-                'sources' : systemd_journal_gatewayd_sources,
-                'dependencies' : common_deps + [libmicrohttpd],
+                'conditions' : ['HAVE_LIBCURL'],
+                'sources' : systemd_journal_upload_sources + systemd_journal_upload_extract_sources,
+                'objects' : ['systemd-journal-remote'],
+                'extract' : systemd_journal_upload_extract_sources,
+                'dependencies' : common_deps + [libcurl],
         },
         test_template + {
                 'sources' : files('test-journal-header-util.c'),

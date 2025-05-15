@@ -64,7 +64,7 @@ journal_fuzz_template = fuzz_template + {
 executables += [
         libexec_template + {
                 'name' : 'systemd-journald',
-                'sources' : [systemd_journald_sources, systemd_journald_extract_sources],
+                'sources' : systemd_journald_sources + systemd_journald_extract_sources,
                 'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'extract' : systemd_journald_extract_sources,
                 'dependencies' : [

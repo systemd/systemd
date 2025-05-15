@@ -114,7 +114,7 @@ executables += [
         libexec_template + resolve_common_template + {
                 'name' : 'systemd-resolved',
                 'dbus' : true,
-                'sources' : [systemd_resolved_sources, systemd_resolved_extract_sources],
+                'sources' : systemd_resolved_sources + systemd_resolved_extract_sources,
                 'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'extract' : systemd_resolved_extract_sources,
         },
