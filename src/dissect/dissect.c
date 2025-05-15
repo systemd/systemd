@@ -1789,6 +1789,8 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         r = flink_tmpfile(f, tar, arg_target, LINK_TMPFILE_REPLACE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move archive file into place: %m");
+
+                        tar = mfree(tar);
                 }
 
                 return 0;
