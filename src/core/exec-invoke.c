@@ -2222,7 +2222,11 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
 
 static int bpffs_prepare(
                 int *ret_pipe_fd,
-                PidRef *ret_pid) {
+                PidRef *ret_pid,
+                uint64_t delegate_cmds,
+                uint64_t delegate_maps,
+                uint64_t delegate_progs,
+                uint64_t delegate_attachs) {
 
         _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
         int r;
@@ -2242,6 +2246,22 @@ static int bpffs_prepare(
 
                 fs_fd = receive_one_fd(pipe_fds[0], 0);
                 if (fs_fd < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", BPF_DELEGATE_TO_STRING(delegate_cmds), 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
+                if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
@@ -5416,7 +5436,8 @@ int exec_invoke(
         }
 
         if (context->private_bpf != PRIVATE_BPF_NO) {
-                r = bpffs_prepare(&bpffs_socket_fd, &bpffs_pid);
+                r = bpffs_prepare(&bpffs_socket_fd, &bpffs_pid, context->bpf_delegate_commands, context->bpf_delegate_maps,
+                                  context->bpf_delegate_programs, context->bpf_delegate_attachments);
                 if (r < 0) {
                         *exit_status = EXIT_BPF;
                         return log_error_errno(r, "Failed to mount bpffs: %m");
