@@ -15,7 +15,7 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['clang-tidy', 'integration-tests'],
+        exclude_suites : ['clang-tidy', 'clang-include-cleaner', 'integration-tests'],
         is_default : true,
 )
 
@@ -2835,6 +2835,7 @@ endif
 alias_target('gensources', generated_sources)
 
 clang_tidy = find_program('clang-tidy', required : false)
+clang_include_cleaner = find_program('clang-include-cleaner', required : false)
 if meson.version().version_compare('>=1.4.0')
         foreach source : sources
                 if fs.name(source).endswith('.h')
@@ -2855,6 +2856,23 @@ if meson.version().version_compare('>=1.4.0')
                                         clang_tidy,
                                         args : ['-p', meson.project_build_root(), input],
                                         suite : 'clang-tidy',
+                                        depends : generated_sources,
+                                )
+                        endif
+
+                        if clang_include_cleaner.found()
+                                test(
+                                        f'clang-include-cleaner-@0@'.format(fs.name(input)),
+                                        clang_include_cleaner,
+                                        args : [
+                                                '-p', meson.project_build_root(),
+                                                '--print=changes',
+                                                '--disable-insert',
+                                                '--remove',
+                                                '--fail-on-changes',
+                                                input,
+                                        ],
+                                        suite : 'clang-include-cleaner',
                                         depends : generated_sources,
                                 )
                         endif
