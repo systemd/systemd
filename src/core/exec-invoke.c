@@ -2233,13 +2233,30 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-_noreturn_ static void bpffs_helper(int parent_fd)
+_noreturn_ static void bpffs_helper(int parent_fd, uint64_t delegate_cmds, uint64_t delegate_maps,
+                                    uint64_t delegate_progs, uint64_t delegate_attachs)
 {
         _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
         int r;
 
         fs_fd = receive_one_fd(parent_fd, 0);
         if (fs_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
+        if (r < 0)
                 _exit(EXIT_FAILURE);
 
         r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
@@ -5358,7 +5375,7 @@ int exec_invoke(
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        bpffs_helper(token_fds[1]);
+                        bpffs_helper(token_fds[1], -1, -1, -1, -1);
         }
 
         if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context)) {
