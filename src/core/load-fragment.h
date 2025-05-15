@@ -129,6 +129,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_keyring_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_proc);
 CONFIG_PARSER_PROTOTYPE(config_parse_proc_subset);
 CONFIG_PARSER_PROTOTYPE(config_parse_private_bpf);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_delegate);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_running_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_extra_fields);

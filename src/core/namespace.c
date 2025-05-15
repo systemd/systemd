@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "base-filesystem.h"
+#include "bitfield.h"
 #include "chase.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
@@ -17,6 +18,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -36,6 +38,7 @@
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -3966,6 +3969,201 @@ static const char* const private_bpf_table[_PRIVATE_BPF_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(private_bpf, PrivateBPF);
+
+#include "bpf-delegate-configs.inc"
+
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
+
+char* bpf_delegate_commands_to_string(uint64_t u) {
+        if (u == UINT64_MAX)
+                return strdup("any");
+
+        _cleanup_free_ char *buf = NULL;
+
+        BIT_FOREACH(i, u)
+                if (strextendf_with_separator(&buf, ",", "%s", bpf_delegate_cmd_to_string(i)) < 0)
+                        return NULL;
+
+        return TAKE_PTR(buf);
+}
+
+int bpf_delegate_commands_from_string(const char *s, uint64_t *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "any")) {
+                *ret = UINT64_MAX;
+                return 0;
+        }
+
+        uint64_t mask = 0;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", /* flags */ 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = bpf_delegate_cmd_from_string(word);
+                if (r < 0)
+                        log_warning_errno(r, "Invalid BPF delegate command: %s", word);
+
+                mask |= UINT64_C(1) << r;
+        }
+
+        *ret = mask;
+
+        return 0;
+}
+
+char* bpf_delegate_maps_to_string(uint64_t u) {
+        if (u == UINT64_MAX)
+                return strdup("any");
+
+        _cleanup_free_ char *buf = NULL;
+
+        BIT_FOREACH(i, u)
+                if (strextendf_with_separator(&buf, ",", "%s", bpf_delegate_map_type_to_string(i)) < 0)
+                        return NULL;
+
+        return TAKE_PTR(buf);
+}
+
+int bpf_delegate_maps_from_string(const char *s, uint64_t *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "any")) {
+                *ret = UINT64_MAX;
+                return 0;
+        }
+
+        uint64_t mask = 0;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", /* flags */ 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = bpf_delegate_map_type_from_string(word);
+                if (r < 0)
+                        log_warning_errno(r, "Invalid BPF delegate map: %s", word);
+
+                mask |= UINT64_C(1) << r;
+        }
+
+        *ret = mask;
+
+        return 0;
+}
+
+char* bpf_delegate_programs_to_string(uint64_t u) {
+        if (u == UINT64_MAX)
+                return strdup("any");
+
+        _cleanup_free_ char *buf = NULL;
+
+        BIT_FOREACH(i, u)
+                if (strextendf_with_separator(&buf, ",", "%s", bpf_delegate_prog_type_to_string(i)) < 0)
+                        return NULL;
+
+        return TAKE_PTR(buf);
+}
+
+int bpf_delegate_programs_from_string(const char *s, uint64_t *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "any")) {
+                *ret = UINT64_MAX;
+                return 0;
+        }
+
+        uint64_t mask = 0;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", /* flags */ 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = bpf_delegate_prog_type_from_string(word);
+                if (r < 0)
+                        log_warning_errno(r, "Invalid BPF delegate program: %s", word);
+
+                mask |= UINT64_C(1) << r;
+        }
+
+        *ret = mask;
+
+        return 0;
+}
+
+char* bpf_delegate_attachments_to_string(uint64_t u) {
+        if (u == UINT64_MAX)
+                return strdup("any");
+
+        _cleanup_free_ char *buf = NULL;
+
+        BIT_FOREACH(i, u)
+                if (strextendf_with_separator(&buf, ",", "%s", bpf_delegate_attach_type_to_string(i)) < 0)
+                        return NULL;
+
+        return TAKE_PTR(buf);
+}
+
+int bpf_delegate_attachments_from_string(const char *s, uint64_t *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "any")) {
+                *ret = UINT64_MAX;
+                return 0;
+        }
+
+        uint64_t mask = 0;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", /* flags */ 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = bpf_delegate_attach_type_from_string(word);
+                if (r < 0)
+                        log_warning_errno(r, "Invalid BPF delegate attachment: %s", word);
+
+                mask |= UINT64_C(1) << r;
+        }
+
+        *ret = mask;
+
+        return 0;
+}
 
 static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_NO]           = "no",
