@@ -200,7 +200,7 @@ executables += [
                 'name' : 'systemd-networkd',
                 'dbus' : true,
                 'conditions' : ['ENABLE_NETWORKD'],
-                'sources' : [systemd_networkd_sources, systemd_networkd_extract_sources],
+                'sources' : systemd_networkd_sources + systemd_networkd_extract_sources,
                 'extract' : systemd_networkd_extract_sources,
                 'include_directories' : network_includes,
                 'link_with' : [

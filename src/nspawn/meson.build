@@ -8,7 +8,6 @@ nspawn_sources = files(
         'nspawn.c',
         'nspawn-bind-user.c',
         'nspawn-cgroup.c',
-        'nspawn-network.c',
         'nspawn-register.c',
         'nspawn-seccomp.c',
         'nspawn-setuid.c',
@@ -42,7 +41,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-nspawn',
                 'public' : true,
-                'sources' : [nspawn_sources, nspawn_extract_sources],
+                'sources' : nspawn_sources + nspawn_extract_sources,
                 'include_directories' : [
                         executable_template['include_directories'],
                         include_directories('.')

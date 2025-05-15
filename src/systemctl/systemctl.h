@@ -84,6 +84,7 @@ extern int arg_signal;
 extern int arg_kill_value;
 extern bool arg_kill_value_set;
 extern char *arg_root;
+extern char *arg_image;
 extern usec_t arg_when;
 extern bool arg_stdin;
 extern const char *arg_reboot_argument;

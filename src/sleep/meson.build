@@ -10,7 +10,7 @@ sleep_extract_sources = files(
 executables += [
         libexec_template + {
                 'name' : 'systemd-sleep',
-                'sources' : [sleep_sources, sleep_extract_sources],
+                'sources' : sleep_sources + sleep_extract_sources,
                 'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'extract' : sleep_extract_sources,
         },
