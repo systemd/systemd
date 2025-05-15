@@ -2196,7 +2196,7 @@ test_additional_kwargs = {
 }
 
 fuzz_template = executable_template + {
-        'build_by_default' : fuzzer_build,
+        'build_by_default' : want_fuzz_tests,
         'install' : false,
 }
 
