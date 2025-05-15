@@ -2525,6 +2525,18 @@ RestrictNamespaces=~cgroup net</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BPFDelegateCommands=</varname></term>
+
+        <listitem><para>Accepts a bitmask containing representing the allowed BPF commands, or "any"
+        to allow everything. Requires <varname>PrivateBPF=</varname> enabled to be effective.
+        This will be set the <constant>delegate_cmds</constant> bpffs mount option.
+        A more detailed explanation of the feature can be found in this
+        <ulink url="https://lwn.net/Articles/947173/">LWN post</ulink></para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LockPersonality=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, locks down the <citerefentry

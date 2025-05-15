@@ -234,6 +234,11 @@ ProcSubset proc_subset_from_string(const char *s) _pure_;
 const char* private_bpf_to_string(PrivateBPF i) _const_;
 PrivateBPF private_bpf_from_string(const char *s) _pure_;
 
+#define BPF_DELEGATE_STRING_MAX (STRLEN("0x") + sizeof(uint64_t) * 2 + 1)
+char* bpf_delegate_to_string(uint64_t u, char buf[static BPF_DELEGATE_STRING_MAX]);
+#define BPF_DELEGATE_TO_STRING(u) bpf_delegate_to_string(u, (char[BPF_DELEGATE_STRING_MAX]){})
+int bpf_delegate_from_string(const char *s, uint64_t *ret) _pure_;
+
 const char* private_tmp_to_string(PrivateTmp i) _const_;
 PrivateTmp private_tmp_from_string(const char *s) _pure_;
 
