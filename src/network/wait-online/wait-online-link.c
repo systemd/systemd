@@ -6,10 +6,10 @@
 #include "dns-configuration.h"
 #include "format-ifname.h"
 #include "hashmap.h"
-#include "link.h"
-#include "manager.h"
 #include "string-util.h"
 #include "strv.h"
+#include "wait-online-link.h"
+#include "wait-online-manager.h"
 
 static Link* link_free(Link *l) {
 

@@ -116,8 +116,8 @@ systemd_networkd_extract_sources = files(
 
 systemd_networkd_wait_online_sources = files(
         'wait-online/dns-configuration.c',
-        'wait-online/link.c',
-        'wait-online/manager.c',
+        'wait-online/wait-online-link.c',
+        'wait-online/wait-online-manager.c',
         'wait-online/wait-online.c',
 )
 
@@ -229,7 +229,7 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-network-generator',
-                'sources' : files('generator/network-generator.c', 'generator/main.c'),
+                'sources' : files('generator/network-generator.c', 'generator/network-generator-main.c'),
                 'extract' : files('generator/network-generator.c'),
                 'link_with' : networkd_link_with,
         },

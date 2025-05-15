@@ -4,6 +4,6 @@ executables += [
         executable_template + {
                 'name' : 'systemd-escape',
                 'public' : true,
-                'sources' : files('escape.c'),
+                'sources' : files('escape-tool.c'),
         },
 ]

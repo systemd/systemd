@@ -8,7 +8,7 @@
 #include "device-path-util.h"
 #include "drivers.h"
 #include "efi-string.h"
-#include "efivars.h"
+#include "efi-efivars.h"
 #include "proto/device-path.h"
 #include "smbios.h"
 #include "string-util-fundamental.h"
