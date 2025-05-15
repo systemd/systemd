@@ -344,6 +344,8 @@ if host_machine.cpu_family() in ['aarch64', 'arm', 'x86_64', 'x86']
         systemd_boot_sources += files('bcd.c')
 endif
 
+sources += libefi_sources + systemd_boot_sources + stub_sources + addon_sources
+
 boot_targets = []
 efi_elf_binaries = []
 efi_archspecs = [

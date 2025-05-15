@@ -13,3 +13,5 @@ fundamental_sources = files(
         'string-util-fundamental.c',
         'uki.c',
 )
+
+sources += fundamental_sources

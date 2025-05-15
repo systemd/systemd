@@ -317,6 +317,7 @@ ethtool_link_mode_h = custom_target(
 
 generated_sources += ethtool_link_mode_h
 shared_sources += ethtool_link_mode_h
+sources += shared_sources
 
 fname = 'ethtool-link-mode.xml'
 ethtool_link_mode_xml = custom_target(

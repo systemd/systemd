@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-sources = files(
+libsystemd_network_sources = files(
         'arp-util.c',
         'dhcp-network.c',
         'dhcp-option.c',
@@ -36,9 +36,11 @@ sources = files(
         'sd-radv.c',
 )
 
+sources += libsystemd_network_sources
+
 libsystemd_network = static_library(
         'systemd-network',
-        sources,
+        libsystemd_network_sources,
         include_directories : includes,
         implicit_include_directories : false,
         dependencies : userspace,
