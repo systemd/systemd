@@ -178,6 +178,7 @@ def property_grammar():
              ('ID_SIGNAL_ANALYZER', Or((Literal('0'), Literal('1')))),
              ('ID_HARDWARE_WALLET', Or((Literal('0'), Literal('1')))),
              ('ID_SOFTWARE_RADIO', Or((Literal('0'), Literal('1')))),
+             ('ID_MM_DEVICE_IGNORE', Or((Literal('0'), Literal('1')))),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('ID_INPUT_JOYSTICK_INTEGRATION', Or(('internal', 'external'))),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
