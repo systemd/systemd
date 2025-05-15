@@ -125,9 +125,6 @@ Deprecations and removals:
 
 Features:
 
-* in pid1, name Accept=yes service instances after the socket cookie. Also, set
-  $SO_COOKIE env var or so for executed services.
-
 * loginctl: show argv[] of "leader" process in tabular list-sessions output
 
 * loginctl: show "service identifier" in tabular list-sessions output, to make

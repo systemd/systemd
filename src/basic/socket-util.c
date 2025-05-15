@@ -1959,3 +1959,18 @@ finalize:
 
         return 0;
 }
+
+int socket_get_cookie(int fd, uint64_t *ret) {
+        assert(fd >= 0);
+
+        uint64_t cookie = 0;
+        socklen_t cookie_len = sizeof(cookie);
+        if (getsockopt(fd, SOL_SOCKET, SO_COOKIE, &cookie, &cookie_len) < 0)
+                return -errno;
+
+        assert(cookie_len == sizeof(cookie));
+        if (ret)
+                *ret = cookie;
+
+        return 0;
+}
