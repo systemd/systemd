@@ -2566,6 +2566,56 @@ RestrictNamespaces=~cgroup net</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BPFDelegateCommands=</varname></term>
+
+        <listitem><para>Accepts a list of BPF commands to allow or <literal>any</literal> to allow everything.
+        Defaults to none. The accepted values are:
+        <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_cmd"/>
+        Requires <varname>PrivateBPF=</varname> enabled to be effective.
+        This will set the <constant>delegate_cmds</constant> bpffs mount option.
+        A more detailed explanation of the feature can be found in this
+        <ulink url="https://lwn.net/Articles/947173/">LWN post</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFDelegateMaps=</varname></term>
+
+        <listitem><para>Accepts a list of BPF maps to allow or <literal>any</literal> to allow everything.
+        Defaults to none. The accepted values are:
+        <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_map_type"/>
+        This will set the <constant>delegate_maps</constant> bpffs mount option.
+        See <varname>BPFDelegateCommands=</varname> for dependencies and more details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFDelegatePrograms=</varname></term>
+
+        <listitem><para>Accepts a list of BPF programs to allow or <literal>any</literal> to allow everything.
+        Defaults to none. The accepted values are:
+        <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_prog_type"/>
+        This will set the <constant>delegate_progs</constant> bpffs mount option.
+        See <varname>BPFDelegateCommands=</varname> for dependencies and more details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFDelegateAttachments=</varname></term>
+
+        <listitem><para>Accepts a list of BPF attach points to allow or <literal>any</literal> to allow everything.
+        Defaults to none. The accepted values are:
+        <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_attach_type"/>
+        This will set the <constant>delegate_attachs</constant> bpffs mount option.
+        See <varname>BPFDelegateCommands=</varname> for dependencies and more details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LockPersonality=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, locks down the <citerefentry

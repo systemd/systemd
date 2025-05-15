@@ -487,6 +487,12 @@ executables += [
                 'dependencies' : common_test_dependencies,
         },
         core_test_template + {
+                'sources' : files('test-bpf-token.c'),
+                'dependencies' : common_test_dependencies + libbpf,
+                'conditions' : ['BPF_FRAMEWORK'],
+                'type' : 'manual',
+        },
+        core_test_template + {
                 'sources' : files('test-cgroup-cpu.c'),
         },
         core_test_template + {

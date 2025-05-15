@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "base-filesystem.h"
+#include "bitfield.h"
 #include "chase.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
@@ -17,6 +18,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -36,6 +38,7 @@
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -3965,6 +3968,69 @@ static const char* const private_bpf_table[_PRIVATE_BPF_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_bpf, PrivateBPF, PRIVATE_BPF_YES);
+
+#include "bpf-delegate-configs.inc"
+
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
+
+char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_ ) {
+        assert(parser);
+
+        if (u == UINT64_MAX)
+                return strdup("any");
+
+        _cleanup_free_ char *buf = NULL;
+
+        BIT_FOREACH(i, u) {
+                const char *s = parser(i);
+                if (s) {
+                        if (!strextend_with_separator(&buf, ",", s))
+                                return NULL;
+                } else {
+                        if (strextendf_with_separator(&buf, ",", "%d", i) < 0)
+                                return NULL;
+                }
+        }
+
+        return TAKE_PTR(buf) ?: strdup("");
+}
+
+int bpf_delegate_from_string(const char *s, uint64_t *ret, uint64_t (*parser)(const char *)) {
+        int r;
+
+        assert(s);
+        assert(ret);
+        assert(parser);
+
+        if (streq(s, "any")) {
+                *ret = UINT64_MAX;
+                return 0;
+        }
+
+        uint64_t mask = 0;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", /* flags = */ 0);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse delegate options \"%s\": %m", s);
+                if (r == 0)
+                        break;
+
+                r = parser(word);
+                if (r < 0)
+                        log_warning_errno(r, "Unknown BPF delegate option, ignoring: %s", word);
+                else
+                        mask |= UINT64_C(1) << r;
+        }
+
+        *ret = mask;
+
+        return 0;
+}
 
 static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_NO]           = "no",
