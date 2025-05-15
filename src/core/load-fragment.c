@@ -6227,6 +6227,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_personality,           "PERSONALITY" },
                 { config_parse_log_filter_patterns,   "REGEX" },
                 { config_parse_mount_node,            "NODE" },
+                { config_parse_bpf_delegate,          "BPF_DELEGATE" },
         };
 
         const char *prev = NULL;
@@ -6644,4 +6645,28 @@ int config_parse_protect_hostname(
         c->protect_hostname = t;
         free_and_replace(c->private_hostname, h);
         return 1;
+}
+
+int config_parse_bpf_delegate(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint64_t *sz = data;
+
+        assert(rvalue);
+
+        if (streq(rvalue, "any")) {
+                *sz = ~0ULL;
+                return 1;
+        }
+
+        return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
