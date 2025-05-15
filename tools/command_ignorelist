@@ -14,6 +14,7 @@ journald.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="Co
 journald.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="RateLimitIntervalSec="]
 journald.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="SystemMaxUse="]
 journald.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="ForwardToSyslog="]
+kernel-command-line.xml ./refsect1[title="History"]/
 kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD-FILE ...]]"]/listitem/variablelist/varlistentry[term="50-depmod.install"]
 kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD-FILE ...]]"]/listitem/variablelist/varlistentry[term="90-loaderentry.install"]
 kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD-FILE ...]]"]/listitem/variablelist/varlistentry[term="90-uki-copy.install"]
@@ -129,6 +130,7 @@ systemctl.xml ./refsect1[title="Commands"]/refsect2[title="System Commands"]/var
 systemctl.xml ./refsect1[title="Commands"]/refsect2[title="System Commands"]/variablelist/varlistentry[term="suspend"]
 systemctl.xml ./refsect1[title="Commands"]/refsect2[title="System Commands"]/variablelist/varlistentry[term="hibernate"]
 systemctl.xml ./refsect1[title="Commands"]/refsect2[title="System Commands"]/variablelist/varlistentry[term="switch-root ROOT INIT"]
+systemd.xml ./refsect1[title="History"]/
 systemd-ask-password.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--icon="]
 systemd-ask-password.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--timeout="]
 systemd-ask-password.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--no-tty"]
@@ -175,6 +177,7 @@ systemd-nspawn.xml ./refsect1[title="Options"]/refsect2[title="Execution Options
 systemd-nspawn.xml ./refsect1[title="Options"]/refsect2[title="System Identity Options"]/variablelist/varlistentry[term="--uuid="]
 systemd-nspawn.xml ./refsect1[title="Options"]/refsect2[title="Networking Options"]/variablelist/varlistentry[term="--private-network"]
 systemd-nspawn.xml ./refsect1[title="Options"]/refsect2[title="Image Options"]/variablelist/varlistentry[term="--read-only"]
+systemd-system.conf.xml ./refsect1[title="History"]/
 systemd-tmpfiles.xml ./refsect1[title="Commands and options"]/variablelist/varlistentry[term="--create"]
 systemd-tmpfiles.xml ./refsect1[title="Commands and options"]/variablelist/varlistentry[term="--clean"]
 systemd-tmpfiles.xml ./refsect1[title="Commands and options"]/variablelist/varlistentry[term="--remove"]
@@ -249,6 +252,7 @@ systemd.path.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="Pat
 systemd.path.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="Unit="]
 systemd.path.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="MakeDirectory="]
 systemd.path.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="DirectoryMode="]
+systemd.resource-control.xml ./refsect1[title="History"]/
 systemd.service.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="Type="]
 systemd.service.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="RemainAfterExit="]
 systemd.service.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="GuessMainPID="]
