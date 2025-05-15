@@ -4121,7 +4121,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           unit with <varname>Accept=yes</varname>), these environment variables contain the IP address and
           port number of the remote peer of the socket connection.</para>
 
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v220"/></listitem>
         </varlistentry>
 
         <varlistentry>
