@@ -284,7 +284,7 @@ static int method_create_or_register_machine(
         if (leader == 1)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
-        if (!isempty(root_directory) && !path_is_absolute(root_directory))
+        if (!isempty(root_directory) && (!path_is_absolute(root_directory) || !path_is_valid(root_directory)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
         if (leader == 0) {
