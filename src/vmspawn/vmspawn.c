@@ -2310,33 +2310,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
-        if (arg_register) {
-                char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
-
-                xsprintf(vm_address, "vsock/%u", child_cid);
-                r = register_machine(
-                                bus,
-                                arg_machine,
-                                arg_uuid,
-                                "systemd-vmspawn",
-                                arg_directory,
-                                child_cid,
-                                child_cid != VMADDR_CID_ANY ? vm_address : NULL,
-                                ssh_private_key_path,
-                                arg_keep_unit);
-                if (r < 0)
-                        return r;
-        }
-
         assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
-
-        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        r = sd_event_new(&event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get default event source: %m");
-
-        (void) sd_event_set_watchdog(event, true);
 
         _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
 
@@ -2369,6 +2343,32 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
         child_vsock_fd = safe_close(child_vsock_fd);
         tap_fd = safe_close(tap_fd);
+
+        if (arg_register) {
+                char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
+                xsprintf(vm_address, "vsock/%u", child_cid);
+                r = register_machine(
+                                bus,
+                                arg_machine,
+                                arg_uuid,
+                                "systemd-vmspawn",
+                                &child_pidref,
+                                arg_directory,
+                                child_cid,
+                                child_cid != VMADDR_CID_ANY ? vm_address : NULL,
+                                ssh_private_key_path,
+                                arg_keep_unit);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get default event source: %m");
+
+        (void) sd_event_set_watchdog(event, true);
 
         int exit_status = INT_MAX;
         if (use_vsock) {
