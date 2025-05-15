@@ -4232,7 +4232,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           in case of an unnamed socket. <varname>$REMOTE_PORT</varname> is not set for <constant>AF_UNIX</constant>
           sockets.</para>
 
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v220"/></listitem>
         </varlistentry>
 
         <varlistentry>
