@@ -25,9 +25,9 @@
 #include "varlink-util.h"
 
 typedef struct ManagedOOMMessage {
-        ManagedOOMMode mode;
         char *path;
         char *property;
+        ManagedOOMMode mode;
         uint32_t limit;
         usec_t duration;
 } ManagedOOMMessage;

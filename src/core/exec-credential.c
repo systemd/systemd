@@ -441,10 +441,10 @@ struct load_cred_args {
         const ExecContext *context;
         const ExecParameters *params;
         const char *unit;
-        bool encrypted;
         int write_dfd;
         uid_t uid;
         gid_t gid;
+        bool encrypted;
         bool ownership_ok;
         uint64_t left;
 };

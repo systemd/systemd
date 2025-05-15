@@ -13,9 +13,9 @@ typedef enum PickFlags {
 } PickFlags;
 
 typedef struct PickFilter {
-        uint32_t type_mask;           /* A mask of 1U << DT_REG, 1U << DT_DIR, … */
         const char *basename;         /* Can be overridden by search pattern */
         const char *version;
+        uint32_t type_mask;           /* A mask of 1U << DT_REG, 1U << DT_DIR, … */
         Architecture architecture;
         char * const *suffix;         /* Can be overridden by search pattern */
 } PickFilter;

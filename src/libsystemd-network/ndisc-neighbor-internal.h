@@ -7,9 +7,9 @@
 #include "set.h"
 
 struct sd_ndisc_neighbor {
-        unsigned n_ref;
-
         ICMP6Packet *packet;
+
+        unsigned n_ref;
 
         uint32_t flags;
         struct in6_addr target_address;

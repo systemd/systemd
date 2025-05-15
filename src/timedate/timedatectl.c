@@ -362,13 +362,13 @@ typedef struct NTPStatusInfo {
         usec_t root_distance_max;
 
         uint32_t leap, version, mode, stratum;
-        int32_t precision;
         usec_t root_delay, root_dispersion;
         union {
                 char str[5];
                 uint32_t val;
         } reference;
         usec_t origin, recv, trans, dest;
+        int32_t precision;
 
         bool spike;
         uint64_t packet_count;

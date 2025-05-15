@@ -31,8 +31,8 @@ const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX
 /* Represents a "designated resolver" */
 /* typedef struct sd_dns_resolver sd_dns_resolver; */
 struct sd_dns_resolver {
-        uint16_t priority;
         char *auth_name;
+        uint16_t priority;
         int family;
         union in_addr_union *addrs;
         size_t n_addrs;

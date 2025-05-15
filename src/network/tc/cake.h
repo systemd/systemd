@@ -50,8 +50,8 @@ typedef struct CommonApplicationsKeptEnhanced {
         QDisc meta;
 
         /* Shaper parameters */
-        int autorate;
         uint64_t bandwidth;
+        int autorate;
 
         /* Overhead compensation parameters */
         bool overhead_set;

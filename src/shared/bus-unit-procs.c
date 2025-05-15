@@ -18,8 +18,8 @@ struct CGroupInfo {
         char *cgroup_path;
         bool is_const; /* If false, cgroup_path should be free()'d */
 
-        Hashmap *pids; /* PID → process name */
         bool done;
+        Hashmap *pids; /* PID → process name */
 
         struct CGroupInfo *parent;
         LIST_FIELDS(struct CGroupInfo, siblings);

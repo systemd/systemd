@@ -33,12 +33,12 @@ typedef struct Group {
         bool memory_valid;
         bool io_valid;
 
-        uint64_t n_tasks;
-
         unsigned cpu_iteration;
         nsec_t cpu_usage;
         nsec_t cpu_timestamp;
         double cpu_fraction;
+
+        uint64_t n_tasks;
 
         uint64_t memory;
 
