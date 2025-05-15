@@ -884,7 +884,7 @@ void transaction_add_propagate_reload_jobs(
         assert(tr);
         assert(unit);
 
-        UNIT_FOREACH_DEPENDENCY(dep, unit, UNIT_ATOM_PROPAGATES_RELOAD_TO) {
+        UNIT_FOREACH_DEPENDENCY_SAFE(dep, unit, UNIT_ATOM_PROPAGATES_RELOAD_TO) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 nt = job_type_collapse(JOB_TRY_RELOAD, dep);
@@ -1029,7 +1029,7 @@ int transaction_add_job_and_dependencies(
 
         /* Finally, recursively add in all dependencies. */
         if (IN_SET(type, JOB_START, JOB_RESTART)) {
-                UNIT_FOREACH_DEPENDENCY(dep, job->unit, UNIT_ATOM_PULL_IN_START) {
+                UNIT_FOREACH_DEPENDENCY_SAFE(dep, job->unit, UNIT_ATOM_PULL_IN_START) {
                         r = transaction_add_job_and_dependencies(tr, JOB_START, dep, job, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
                         if (r < 0) {
                                 if (r != -EBADR) /* job type not applicable */
@@ -1039,7 +1039,7 @@ int transaction_add_job_and_dependencies(
                         }
                 }
 
-                UNIT_FOREACH_DEPENDENCY(dep, job->unit, UNIT_ATOM_PULL_IN_START_IGNORED) {
+                UNIT_FOREACH_DEPENDENCY_SAFE(dep, job->unit, UNIT_ATOM_PULL_IN_START_IGNORED) {
                         r = transaction_add_job_and_dependencies(tr, JOB_START, dep, job, flags & TRANSACTION_IGNORE_ORDER, e);
                         if (r < 0) {
                                 /* unit masked, job type not applicable and unit not found are not considered
@@ -1052,7 +1052,7 @@ int transaction_add_job_and_dependencies(
                         }
                 }
 
-                UNIT_FOREACH_DEPENDENCY(dep, job->unit, UNIT_ATOM_PULL_IN_VERIFY) {
+                UNIT_FOREACH_DEPENDENCY_SAFE(dep, job->unit, UNIT_ATOM_PULL_IN_VERIFY) {
                         r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, job, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
                         if (r < 0) {
                                 if (r != -EBADR) /* job type not applicable */
@@ -1062,7 +1062,7 @@ int transaction_add_job_and_dependencies(
                         }
                 }
 
-                UNIT_FOREACH_DEPENDENCY(dep, job->unit, UNIT_ATOM_PULL_IN_STOP) {
+                UNIT_FOREACH_DEPENDENCY_SAFE(dep, job->unit, UNIT_ATOM_PULL_IN_STOP) {
                         r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, job, TRANSACTION_MATTERS | TRANSACTION_CONFLICTS | (flags & TRANSACTION_IGNORE_ORDER), e);
                         if (r < 0) {
                                 if (r != -EBADR) /* job type not applicable */
@@ -1072,7 +1072,7 @@ int transaction_add_job_and_dependencies(
                         }
                 }
 
-                UNIT_FOREACH_DEPENDENCY(dep, job->unit, UNIT_ATOM_PULL_IN_STOP_IGNORED) {
+                UNIT_FOREACH_DEPENDENCY_SAFE(dep, job->unit, UNIT_ATOM_PULL_IN_STOP_IGNORED) {
                         r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, job, flags & TRANSACTION_IGNORE_ORDER, e);
                         if (r < 0) {
                                 log_unit_warning(dep,
@@ -1086,7 +1086,7 @@ int transaction_add_job_and_dependencies(
         if (IN_SET(type, JOB_RESTART, JOB_STOP) || (type == JOB_START && FLAGS_SET(flags, TRANSACTION_PROPAGATE_START_AS_RESTART))) {
                 bool is_stop = type == JOB_STOP;
 
-                UNIT_FOREACH_DEPENDENCY(dep, job->unit, is_stop ? UNIT_ATOM_PROPAGATE_STOP : UNIT_ATOM_PROPAGATE_RESTART) {
+                UNIT_FOREACH_DEPENDENCY_SAFE(dep, job->unit, is_stop ? UNIT_ATOM_PROPAGATE_STOP : UNIT_ATOM_PROPAGATE_RESTART) {
                         /* We propagate RESTART only as TRY_RESTART, in order not to start dependencies that
                          * are not around. */
                         JobType nt;
@@ -1108,7 +1108,7 @@ int transaction_add_job_and_dependencies(
                  * all other dependencies are processed, i.e. we're the anchor job or already in the recursion
                  * that handles it. */
                 if (!by || FLAGS_SET(flags, TRANSACTION_PROCESS_PROPAGATE_STOP_GRACEFUL))
-                        UNIT_FOREACH_DEPENDENCY(dep, job->unit, UNIT_ATOM_PROPAGATE_STOP_GRACEFUL) {
+                        UNIT_FOREACH_DEPENDENCY_SAFE(dep, job->unit, UNIT_ATOM_PROPAGATE_STOP_GRACEFUL) {
                                 JobType nt;
                                 Job *j;
 
@@ -1206,7 +1206,7 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
         assert(tr);
         assert(u);
 
-        UNIT_FOREACH_DEPENDENCY(trigger, u, UNIT_ATOM_TRIGGERED_BY) {
+        UNIT_FOREACH_DEPENDENCY_SAFE(trigger, u, UNIT_ATOM_TRIGGERED_BY) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 /* No need to stop inactive jobs */
