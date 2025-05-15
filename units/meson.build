@@ -101,6 +101,10 @@ units = [
           'conditions' : ['ENABLE_INITRD'],
         },
         {
+          'file' : 'initrd-switch-root-post.target',
+          'conditions' : ['ENABLE_INITRD'],
+        },
+        {
           'file' : 'initrd-udevadm-cleanup-db.service',
           'conditions' : ['ENABLE_INITRD'],
           'install_tag' : 'udev',

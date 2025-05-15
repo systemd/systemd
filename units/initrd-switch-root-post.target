@@ -8,14 +8,8 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Cleaning Up and Shutting Down Daemons
-DefaultDependencies=no
+Description=Switch Root Post
 AssertPathExists=/etc/initrd-release
-OnFailure=emergency.target
-OnFailureJobMode=replace-irreversibly
-After=initrd-root-fs.target initrd-fs.target initrd.target
-
-[Service]
-Type=oneshot
-ExecStart=systemctl --no-block isolate initrd-switch-root.target
-ExecStart=systemctl --no-block start initrd-switch-root-post.target
+DefaultDependencies=no
+Wants=initrd-switch-root.target initrd-switch-root.service
+After=initrd-switch-root.target initrd-switch-root.service
