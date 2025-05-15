@@ -659,6 +659,7 @@ void exec_context_init(ExecContext *c) {
                 .memory_ksm = -1,
                 .private_var_tmp = _PRIVATE_TMP_INVALID,
                 .set_login_environment = -1,
+                .bpf_delegate_commands = UINT64_MAX,
         };
 
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
@@ -1155,6 +1156,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset),
                 prefix, private_bpf_to_string(c->private_bpf));
+
+        if (c->private_bpf == PRIVATE_BPF_YES) {
+                fprintf(f, "%sBPFDelegateCommands: ", prefix);
+                bpf_dump_delegate_commands(f, c->bpf_delegate_commands);
+                fprintf(f, "\n");
+        }
 
         if (c->set_login_environment >= 0)
                 fprintf(f, "%sSetLoginEnvironment: %s\n", prefix, yes_no(c->set_login_environment > 0));
