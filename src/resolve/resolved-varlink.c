@@ -1189,17 +1189,12 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
 }
 
 static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
-        static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_POLKIT_FIELD,
-                {}
-        };
-
         int r;
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
 
         assert(action);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
