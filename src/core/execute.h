@@ -303,6 +303,7 @@ typedef struct ExecContext {
         ProcSubset proc_subset;    /* subset= */
 
         PrivateBPF private_bpf;
+        uint64_t bpf_delegate_commands, bpf_delegate_maps, bpf_delegate_programs, bpf_delegate_attachments;
 
         int private_mounts;
         int mount_apivfs;
