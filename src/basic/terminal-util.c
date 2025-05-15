@@ -55,6 +55,11 @@
 #include "user-util.h"
 #include "utf8.h"
 
+#define ANSI_RESET_CURSOR                          \
+        "\033?25h"     /* turn on cursor */        \
+        "\033?12l"     /* reset cursor blinking */ \
+        "\033 1q"      /* reset cursor style */
+
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
@@ -856,6 +861,7 @@ int vt_disallocate(const char *tty_path) {
                 return fd2;
 
         return loop_write_full(fd2,
+                               ANSI_RESET_CURSOR
                                "\033[r"   /* clear scrolling region */
                                "\033[H"   /* move home */
                                "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
@@ -972,6 +978,7 @@ static int terminal_reset_ansi_seq(int fd) {
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
 
         k = loop_write_full(fd,
+                            ANSI_RESET_CURSOR
                             "\033[!p"      /* soft terminal reset */
                             "\033]104\007" /* reset colors */
                             "\033[?7h"     /* enable line-wrapping */
