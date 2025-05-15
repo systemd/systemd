@@ -229,6 +229,10 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
                 SD_VARLINK_FIELD_COMMENT("If non-null the name of a unit."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If non-null the PID of a unit. Special value 0 means to take pid of the caller."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(pid, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Configuration of unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, 0),
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, 0));
@@ -249,5 +253,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_Timestamp,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's activation details"),
                 &vl_type_ActivationDetail,
+                SD_VARLINK_SYMBOL_COMMENT("An object for referencing UNIX processes"),
+                &vl_type_ProcessId,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit);
