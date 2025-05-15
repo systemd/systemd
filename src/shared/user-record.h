@@ -26,7 +26,7 @@ typedef enum UserDisposition {
         _USER_DISPOSITION_INVALID = -EINVAL,
 } UserDisposition;
 
-typedef enum UserHomeStorage {
+typedef enum UserStorage {
         USER_CLASSIC,
         USER_LUKS,
         USER_DIRECTORY, /* A directory, and a .identity file in it, which USER_CLASSIC lacks */
