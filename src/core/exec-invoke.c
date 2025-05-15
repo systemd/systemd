@@ -2274,7 +2274,8 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
 static int bpffs_prepare(
                 int *ret_pipe_fd,
                 PidRef *ret_pid,
-                int error_pipe[static 2]) {
+                int error_pipe[static 2],
+                const ExecContext *c) {
 
         _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
         int r;
@@ -2292,6 +2293,7 @@ static int bpffs_prepare(
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
                 _cleanup_close_ int fs_fd = -EBADF;
+                char number[STRLEN("0x") + sizeof(c->bpf_delegate_commands) * 2 + 1];
 
                 error_pipe[0] = safe_close(error_pipe[0]);
 
@@ -2299,6 +2301,32 @@ static int bpffs_prepare(
                 if (fs_fd < 0) {
                         log_debug_errno(fs_fd, "Failed to receive_one_fd from parent: %m");
                         report_errno_and_exit(error_pipe[1], fs_fd);
+                }
+
+                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_commands);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, 0);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+                        _exit(EXIT_FAILURE);
                 }
 
                 r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
@@ -5502,7 +5530,7 @@ int exec_invoke(
                 if (r < 0)
                         return log_debug_errno(errno, "Failed to create pipe: %m");
 
-                r = bpffs_prepare(&bpffs_socket_fd, &bpffs_pid, error_pipe);
+                r = bpffs_prepare(&bpffs_socket_fd, &bpffs_pid, error_pipe, context);
                 if (r < 0) {
                         *exit_status = EXIT_BPF;
                         return log_error_errno(r, "Failed to mount bpffs in bpffs_prepare(): %m");
