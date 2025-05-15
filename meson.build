@@ -1569,17 +1569,17 @@ have = have and conf.get('HAVE_PAM') == 1
 conf.set10('ENABLE_PAM_HOME', have)
 
 feature = get_option('remote')
-have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
-             conf.get('HAVE_LIBCURL') == 1]
-# sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
-# it's possible to build one without the other. Complain only if
-# support was explicitly requested. The auxiliary files like sysusers
-# config should be installed when any of the programs are built.
-if feature.enabled() and not (have_deps[0] and have_deps[1])
-        error('remote support was requested, but dependencies are not available')
+if feature.enabled()
+        if conf.get('HAVE_MICROHTTPD') != 1
+                error('remote support was requested, but microhttpd is not available')
+        endif
+        if conf.get('HAVE_LIBCURL') != 1
+                error('remote support was requested, but libcurl is not available')
+        endif
 endif
-have = feature.allowed() and (have_deps[0] or have_deps[1])
-conf.set10('ENABLE_REMOTE', have)
+# A more minimal version of systemd-journal-remote can always be built, even if neither
+# libcurl nor microhttpd are available.
+conf.set10('ENABLE_REMOTE', feature.allowed())
 
 feature = get_option('vmspawn').disable_auto_if(conf.get('BUILD_MODE_DEVELOPER') == 0)
 conf.set10('ENABLE_VMSPAWN', feature.allowed())
