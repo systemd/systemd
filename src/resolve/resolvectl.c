@@ -3222,10 +3222,10 @@ static int dump_server_state(sd_json_variant *server) {
                 const char *server_name;
                 const char *type;
                 const char *ifname;
-                int ifindex;
                 const char *verified_feature_level;
                 const char *possible_feature_level;
                 const char *dnssec_mode;
+                int ifindex;
                 bool dnssec_supported;
                 size_t received_udp_fragment_max;
                 uint64_t n_failed_udp;

@@ -14,10 +14,10 @@ typedef struct DNSConfiguration DNSConfiguration;
 
 struct DNSServer {
         struct iovec addr;
+        char *server_name;
         int family;
         uint16_t port;
         int ifindex;
-        char *server_name;
         bool accessible;
 };
 

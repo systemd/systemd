@@ -30,9 +30,9 @@ typedef struct Batadv {
         BatadvGatewayModes gateway_mode;
         uint32_t gateway_bandwidth_down;
         uint32_t gateway_bandwidth_up;
-        uint8_t hop_penalty;
         BatadvRoutingAlgorithm routing_algorithm;
         usec_t originator_interval;
+        uint8_t hop_penalty;
         bool aggregation;
         bool bridge_loop_avoidance;
         bool distributed_arp_table;

@@ -58,11 +58,11 @@ typedef struct RequestMeta {
 
         OutputMode mode;
 
+        bool n_entries_set, since_set, until_set;
         char *cursor;
         usec_t since, until;
         int64_t n_skip;
         uint64_t n_entries;
-        bool n_entries_set, since_set, until_set;
 
         FILE *tmp;
         uint64_t delta, size;
