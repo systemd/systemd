@@ -35,6 +35,10 @@ static inline int varlink_verify_polkit_async(sd_varlink *link, sd_bus *bus, con
                 .type = SD_JSON_VARIANT_BOOLEAN,                 \
         }
 
+/* A dispatch table that only accepts (but ignores) the Polkit field, and refuses everything else. This can
+ * be used wherever methods do not accept any parameters but shall be access controlled via Polkit. */
+extern const sd_json_dispatch_field dispatch_table_polkit_only[];
+
 /* Generates the right Varlink introspection field for the allowInteractiveAuthentication field above. To be used in Varlink IDL definitions. */
 #define VARLINK_DEFINE_POLKIT_INPUT                                     \
         SD_VARLINK_FIELD_COMMENT("Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false."), \

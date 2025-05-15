@@ -886,3 +886,8 @@ bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char 
         return false;
 #endif
 }
+
+const sd_json_dispatch_field dispatch_table_polkit_only[] = {
+        VARLINK_DISPATCH_POLKIT_FIELD,
+        {}
+};

@@ -1797,11 +1797,6 @@ static int connect_bus(Context *c) {
 }
 
 static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_POLKIT_FIELD,
-                {}
-        };
-
         Context *c = ASSERT_PTR(userdata);
         bool privileged;
         int r;
@@ -1809,7 +1804,7 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         assert(link);
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
