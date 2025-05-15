@@ -6227,6 +6227,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_personality,           "PERSONALITY" },
                 { config_parse_log_filter_patterns,   "REGEX" },
                 { config_parse_mount_node,            "NODE" },
+                { config_parse_bpf_delegate,          "BPF_DELEGATE" },
         };
 
         const char *prev = NULL;
@@ -6624,5 +6625,42 @@ int config_parse_protect_hostname(
 
         c->protect_hostname = t;
         free_and_replace(c->private_hostname, h);
+        return 1;
+}
+
+int config_parse_bpf_delegate(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int r = 0;
+
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        uint64_t *number = ASSERT_PTR(data);
+
+        if (streq(lvalue, "BPFDelegateCommands"))
+                r = bpf_delegate_commands_from_string(rvalue, number);
+        else if (streq(lvalue, "BPFDelegateMaps"))
+                r = bpf_delegate_maps_from_string(rvalue, number);
+        else if (streq(lvalue, "BPFDelegatePrograms"))
+                r = bpf_delegate_programs_from_string(rvalue, number);
+        else if (streq(lvalue, "BPFDelegateAttachments"))
+                r = bpf_delegate_attachments_from_string(rvalue, number);
+        else
+                assert_not_reached();
+
+        if (r < 0)
+                return r;
+
         return 1;
 }
