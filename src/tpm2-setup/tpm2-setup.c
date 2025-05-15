@@ -385,6 +385,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to move SRK public key file to '%s': %m", tpm2b_public_path);
 
+        t = mfree(t);
+
         log_info("SRK public key saved to '%s' in TPM2B_PUBLIC format.", tpm2b_public_path);
         return 0;
 }
