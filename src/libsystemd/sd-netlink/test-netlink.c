@@ -717,9 +717,7 @@ TEST(sock_diag_unix) {
         ASSERT_OK_ERRNO(fstat(unix_fd, &st));
 
         uint64_t cookie;
-        socklen_t cookie_len = sizeof(cookie);
-        ASSERT_OK_ERRNO(getsockopt(unix_fd, SOL_SOCKET, SO_COOKIE, &cookie, &cookie_len));
-        ASSERT_EQ(cookie_len, sizeof(cookie));
+        ASSERT_OK(socket_get_cookie(unix_fd, &cookie));
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         ASSERT_OK(sd_sock_diag_message_new_unix(nl, &message, st.st_ino, cookie, UDIAG_SHOW_RQLEN));
