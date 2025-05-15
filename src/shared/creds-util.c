@@ -1358,7 +1358,7 @@ int decrypt_credential_and_warn(
                                 &IOVEC_MAKE(t->policy_hash_and_blob, le32toh(t->blob_size)),
                                 /* n_blobs= */ 1,
                                 &IOVEC_MAKE(t->policy_hash_and_blob + le32toh(t->blob_size), le32toh(t->policy_hash_size)),
-                                /* n_policy_hash= */ 1,
+                                /* n_known_policy_hash= */ 1,
                                 /* srk= */ NULL,
                                 &tpm2_key);
                 if (r == -EREMOTE)

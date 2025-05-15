@@ -255,7 +255,7 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
                         path,
                         /* flags= */ 0,
                         &json,
-                        /* ret_line= */ NULL,
+                        /* reterr_line= */ NULL,
                         /* ret_column= */ NULL);
         if (r < 0)
                 return r;

@@ -171,7 +171,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, /*ret_peer=*/ NULL);
+        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, /*ret_peer_path=*/ NULL);
         if (pty_fd < 0)
                 return log_error_errno(pty_fd, "Failed to acquire pseudo tty: %m");
 

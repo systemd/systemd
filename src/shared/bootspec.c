@@ -1007,7 +1007,7 @@ static int pe_find_uki_sections(
                 if (found->VirtualSize == 0)
                         continue;
 
-                r = pe_read_section_data(fd, found, PE_SECTION_SIZE_MAX, (void**) t->data, /* ret_data= */ NULL);
+                r = pe_read_section_data(fd, found, PE_SECTION_SIZE_MAX, (void**) t->data, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load contents of section '%s': %m", t->name);
         }

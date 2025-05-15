@@ -50,7 +50,7 @@ static int boot_config_load_and_select(
                 else if (r < 0)
                         log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
                 else
-                        (void) boot_config_augment_from_loader(config, efi_entries, /* only_auto= */ false);
+                        (void) boot_config_augment_from_loader(config, efi_entries, /* auto_only= */ false);
         }
 
         return boot_config_select_special_entries(config, /* skip_efivars= */ !!arg_root);
