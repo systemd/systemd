@@ -173,7 +173,6 @@ static void unit_init(Unit *u) {
                  * context, _before_ the rest of the settings have
                  * been initialized */
 
-                cc->cpu_accounting = u->manager->defaults.cpu_accounting;
                 cc->io_accounting = u->manager->defaults.io_accounting;
                 cc->memory_accounting = u->manager->defaults.memory_accounting;
                 cc->tasks_accounting = u->manager->defaults.tasks_accounting;
