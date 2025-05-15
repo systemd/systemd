@@ -51,8 +51,8 @@
     referenced bus slot object around. The floating state hence controls the direction of referencing between the bus
     object and the bus slot objects: if floating the bus pins the bus slot, and otherwise the bus slot pins the bus
     objects. Use <function>sd_bus_slot_set_floating()</function> to switch between both modes: if the
-    <parameter>b</parameter> parameter is zero, the slot object is considered floating, otherwise it is made a regular
-    (non-floating) slot object.</para>
+    <parameter>b</parameter> parameter is zero, the slot object is made into a regular (non-floating) slot object,
+    otherwise it is made into a floating slot object.</para>
 
     <para>Bus slot objects may be allocated with calls such as
     <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If the
