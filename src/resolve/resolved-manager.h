@@ -7,6 +7,7 @@
 #include "forward.h"
 #include "list.h"
 #include "resolve-util.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-stub.h"
@@ -156,6 +157,9 @@ typedef struct Manager {
         size_t n_socket_graveyard;
 
         struct sigrtmin18_info sigrtmin18_info;
+
+        /* Map varlink links to DnsServiceBrowser instances. */
+        Hashmap *dns_service_browsers;
 } Manager;
 
 /* Manager */
@@ -183,7 +187,13 @@ int manager_next_hostname(Manager *m);
 bool manager_packet_from_local_address(Manager *m, DnsPacket *p);
 bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p);
 
-DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
+DnsScope* manager_find_scope_from_protocol(Manager *m, int ifindex, DnsProtocol protocol, int family);
+
+static inline DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
+        assert(m);
+        assert(p);
+        return manager_find_scope_from_protocol(m, p->ifindex, p->protocol, p->family);
+}
 
 void manager_verify_all(Manager *m);
 
