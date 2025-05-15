@@ -560,7 +560,7 @@ static void check_parse_pcr_argument(
                 size_t n_arg_pcr_values = 0;
                 assert_se(tpm2_parse_pcr_argument(arg, &arg_pcr_values, &n_arg_pcr_values) >= 0);
                 uint32_t mask2 = UINT32_MAX;
-                assert_se(tpm2_pcr_values_to_mask(arg_pcr_values, n_arg_pcr_values, /* algorithm= */ 0, &mask2) >= 0);
+                assert_se(tpm2_pcr_values_to_mask(arg_pcr_values, n_arg_pcr_values, /* hash= */ 0, &mask2) >= 0);
 
                 assert_se((mask == UINT32_MAX ? mask2 : (mask|mask2)) == expected_mask);
         }
