@@ -52,7 +52,6 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-journal-remote',
                 'public' : true,
-                'conditions' : ['HAVE_MICROHTTPD'],
                 'sources' : [systemd_journal_remote_sources, systemd_journal_remote_extract_sources],
                 'extract' : systemd_journal_remote_extract_sources,
                 'dependencies' : common_deps + [libmicrohttpd],
