@@ -126,6 +126,10 @@ int parse_confirm_spawn(const char *value, char **console) {
         return 0;
 }
 
+static int parse_delegate(const char *s) {
+        return -1;
+}
+
 DEFINE_CONFIG_PARSE(config_parse_socket_protocol, parse_socket_protocol);
 DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode);
@@ -133,6 +137,8 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGrou
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_private_bpf, private_bpf, PrivateBPF);
+DEFINE_CONFIG_PARSE(config_parse_bpf_delegate_commands, parse_delegate);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_tmp, private_tmp, PrivateTmp);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_users, private_users, PrivateUsers);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_pids, private_pids, PrivatePIDs);
