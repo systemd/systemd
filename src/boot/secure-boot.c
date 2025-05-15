@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "console.h"
+#include "efi-efivars.h"
 #include "efi-string-table.h"
-#include "efivars.h"
 #include "proto/security-arch.h"
 #include "secure-boot.h"
 #include "util.h"

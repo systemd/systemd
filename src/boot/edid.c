@@ -2,7 +2,7 @@
 
 #include "edid.h"
 #include "edid-fundamental.h"
-#include "log.h"
+#include "efi-log.h"
 #include "proto/edid-discovered.h"
 #include "util.h"
 

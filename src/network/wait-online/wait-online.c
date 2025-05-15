@@ -11,12 +11,12 @@
 #include "daemon-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "manager.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "strv.h"
+#include "wait-online-manager.h"
 
 static bool arg_quiet = false;
 static usec_t arg_timeout = 120 * USEC_PER_SEC;

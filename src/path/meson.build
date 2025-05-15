@@ -4,6 +4,6 @@ executables += [
         executable_template + {
                 'name' : 'systemd-path',
                 'public' : true,
-                'sources' : files('path.c'),
+                'sources' : files('path-tool.c'),
         },
 ]
