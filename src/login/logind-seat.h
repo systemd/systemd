@@ -5,6 +5,7 @@
 
 #include "list.h"
 #include "memory-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "time-util.h"
 

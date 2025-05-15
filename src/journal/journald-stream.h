@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Manager Manager;
-typedef struct StdoutStream StdoutStream;
-typedef struct StreamSyncReq StreamSyncReq;
+#include <sys/socket.h>
+
+#include "sd-event.h"
+#include "sd-id128.h"
 
 #include "fdset.h"
 #include "list.h"
+
+typedef struct ClientContext ClientContext;
+typedef struct Manager Manager;
+typedef struct StdoutStream StdoutStream;
+typedef struct StreamSyncReq StreamSyncReq;
 
 typedef enum StdoutStreamState {
         STDOUT_STREAM_IDENTIFIER,

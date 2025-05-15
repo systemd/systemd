@@ -7,6 +7,7 @@
   Author: Auke Kok <auke-jan.h.kok@intel.com>
 ***/
 
+#include <errno.h>
 #include <stdbool.h>
 #include <sys/types.h>
 

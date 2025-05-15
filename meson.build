@@ -15,7 +15,7 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['integration-tests'],
+        exclude_suites : ['clang-tidy', 'integration-tests'],
         is_default : true,
 )
 
@@ -2002,6 +2002,7 @@ executables_by_name = {}
 objects_by_name = {}
 fuzzer_exes = []
 generated_sources = [version_h, vmlinux_h_dependency]
+sources = []
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
@@ -2470,6 +2471,10 @@ foreach dict : executables
 
         executables_by_name += { name : exe }
 
+        if not name.endswith('.standalone')
+                sources += dict.get('sources', [])
+        endif
+
         if dict.has_key('extract')
                 objects_by_name += {
                         name : {
@@ -2829,23 +2834,32 @@ endif
 
 alias_target('gensources', generated_sources)
 
-run_clang_tidy = find_program('run-clang-tidy', required : false)
-if run_clang_tidy.found()
-        run_target(
-                'clang-tidy',
-                command : [
-                        run_clang_tidy,
-                        '-use-color',
-                        '-quiet',
-                        '-p', meson.project_build_root(),
-                        # There seems to be a bug in clang-tidy where by even with --quiet some
-                        # messages from clang's own diagnostics engine leak through:
-                        #     X warnings generated.
-                        # Until this is fixed upstream, we use -fno-caret-diagnostics to suppress these.
-                        '-extra-arg=-fno-caret-diagnostics',
-                ],
-                depends : generated_sources
-        )
+clang_tidy = find_program('clang-tidy', required : false)
+if meson.version().version_compare('>=1.4.0')
+        foreach source : sources
+                if fs.name(source).endswith('.h')
+                        continue
+                endif
+
+                inputs = [source]
+
+                header = source.full_path().replace('.c', '.h')
+                if fs.exists(header)
+                        inputs += header
+                endif
+
+                foreach input : inputs
+                        if clang_tidy.found()
+                                test(
+                                        'clang-tidy-@0@'.format(fs.name(input)),
+                                        clang_tidy,
+                                        args : ['-p', meson.project_build_root(), input],
+                                        suite : 'clang-tidy',
+                                        depends : generated_sources,
+                                )
+                        endif
+                endforeach
+        endforeach
 endif
 
 check_api_docs_sh = find_program('tools/check-api-docs.sh')

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <sys/resource.h>
+#include <sys/types.h>
 
 #include "macro.h"
 
