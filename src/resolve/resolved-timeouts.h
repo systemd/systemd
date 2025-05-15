@@ -30,23 +30,23 @@
  * To adhere to these timing requirements for continuous queries,
  * the maximum number of attempts should be set to 1.
  */
-#define MDNS_TRANSACTION_CONTINUOUS_QUERY_MAX 1
+#define MDNS_TRANSACTION_CONTINUOUS_QUERY_MAX 1U
 
 static inline unsigned dns_transaction_attempts_max(DnsProtocol p, uint64_t query_flags) {
-    switch (p) {
+        switch (p) {
 
         case DNS_PROTOCOL_LLMNR:
-            return LLMNR_TRANSACTION_ATTEMPTS_MAX;
+                return LLMNR_TRANSACTION_ATTEMPTS_MAX;
 
         case DNS_PROTOCOL_MDNS:
-            if (FLAGS_SET(query_flags, SD_RESOLVED_QUERY_CONTINUOUS))
-                return MDNS_TRANSACTION_CONTINUOUS_QUERY_MAX;
-            else
-                return MDNS_TRANSACTION_ATTEMPTS_MAX;
+                if (FLAGS_SET(query_flags, SD_RESOLVED_QUERY_CONTINUOUS))
+                        return MDNS_TRANSACTION_CONTINUOUS_QUERY_MAX;
+                else
+                        return MDNS_TRANSACTION_ATTEMPTS_MAX;
 
         default:
-            return DNS_TRANSACTION_ATTEMPTS_MAX;
-    }
+                return DNS_TRANSACTION_ATTEMPTS_MAX;
+        }
 }
 
 /* After how much time to repeat classic DNS requests */

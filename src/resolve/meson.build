@@ -12,6 +12,7 @@ systemd_resolved_extract_sources = files(
         'resolved-bus.c',
         'resolved-conf.c',
         'resolved-dns-answer.c',
+        'resolved-dns-browse-services.c',
         'resolved-dns-cache.c',
         'resolved-dns-delegate.c',
         'resolved-dns-delegate-bus.c',
