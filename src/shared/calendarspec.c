@@ -27,6 +27,7 @@
 #define BITS_WEEKDAYS 127
 #define MIN_YEAR 1970
 #define MAX_YEAR 2199
+#define MIN_PERIOD (60 * USEC_PER_SEC)
 
 /* An arbitrary limit on the length of the chains of components. We don't want to
  * build a very long linked list, which would be slow to iterate over and might cause
@@ -383,6 +384,11 @@ int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
                 }
         }
 
+        if (c->period) {
+                fputs(" and every ", f);
+                fputs(FORMAT_TIMESPAN(c->period, 0), f);
+        }
+
         return memstream_finalize(&m, ret, NULL);
 }
 
@@ -618,6 +624,39 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
         c->hour = TAKE_PTR(hour);
         c->minute = TAKE_PTR(minute);
         c->microsecond = TAKE_PTR(us);
+        return 0;
+}
+
+static bool is_single_value_component(CalendarComponent *cc) {
+        assert(cc);
+        return cc->stop == -1 && cc->repeat == 0 && !cc->next;
+}
+
+static int calendarspec_to_usec_t(const CalendarSpec *c, usec_t *ret) {
+        struct tm tm;
+        int r;
+
+        assert(c);
+        assert(is_single_value_component(c->year));
+        assert(is_single_value_component(c->month));
+        assert(is_single_value_component(c->day));
+        assert(is_single_value_component(c->hour));
+        assert(is_single_value_component(c->minute));
+        assert(is_single_value_component(c->microsecond));
+
+        tm.tm_year = c->year->start - 1900;
+        tm.tm_mon  = c->month->start - 1;
+        tm.tm_mday = c->day->start;
+        tm.tm_hour = c->hour->start;
+        tm.tm_min  = c->minute->start;
+        tm.tm_sec  = c->microsecond->start / USEC_PER_SEC;
+        tm.tm_isdst = -1;
+
+        r = mktime_or_timegm_usec(&tm, c->utc, ret);
+        if (r < 0)
+                return r;
+        if (ret)
+                *ret += c->microsecond->start % USEC_PER_SEC;
         return 0;
 }
 
@@ -873,6 +912,45 @@ finish:
         return 0;
 }
 
+static int parse_and_every(const char *s, usec_t *ret_ts, usec_t *ret_rep) {
+        _cleanup_free_ char *p_ts = NULL;
+        int r;
+        usec_t ts, rep;
+
+        assert(s);
+        assert(ret_ts);
+        assert(ret_rep);
+
+        const char *p = strstr(s, " and ");
+        if (!p)
+                return -EINVAL;
+
+        p_ts = strndup(s, p - s);
+        delete_trailing_chars(p_ts, WHITESPACE);
+
+        r = parse_timestamp(p_ts, &ts);
+        if (r < 0)
+                return r;
+
+        p += strspn(p, " ");
+        if (!(p = startswith(p, "and ")))
+                return -EINVAL;
+        p += strspn(p, " ");
+        if (!(p = startswith(p, "every ")))
+                return -EINVAL;
+        p += strspn(p, " ");
+
+        r = parse_time(p, &rep, USEC_PER_SEC);
+        if (r < 0)
+                return r;
+        if (rep < MIN_PERIOD)
+                return -ERANGE;
+
+        *ret_ts = ts;
+        *ret_rep = rep;
+        return 0;
+}
+
 int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
         const char *utc;
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
@@ -889,6 +967,19 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
                 .dst = -1,
                 .timezone = NULL,
         };
+
+        if (strstr(p, " and ")) {
+                usec_t ts;
+                r = parse_and_every(p, &ts, &c->period);
+                if (r < 0)
+                        return r;
+                r = calendarspec_from_time_t(c, (time_t)(ts / USEC_PER_SEC));
+                if (r < 0)
+                        return r;
+                c->microsecond->start += ts % USEC_PER_SEC;
+                c->weekdays_bits = -1;
+                goto finish;
+        }
 
         utc = endswith_no_case(p, " UTC");
         if (utc) {
@@ -1090,6 +1181,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
 
         calendar_spec_normalize(c);
 
+finish:
         if (!calendar_spec_valid(c))
                 return -EINVAL;
 
@@ -1402,6 +1494,85 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                                  "Infinite loop in calendar calculation: %s", strna(s));
 }
 
+static int usec_dstoffset_sec(usec_t usec, time_t *ret_dstoffset) {
+        struct tm tm;
+        time_t t = usec / USEC_PER_SEC;
+        if (!localtime_r(&t, &tm))
+                return -EINVAL;
+        if (tm.tm_isdst) {
+                tm.tm_isdst = 0;
+                time_t tmp = mktime(&tm);
+                if (tmp == -1)
+                        return -EINVAL;
+                *ret_dstoffset = tmp - t;
+        } else
+                *ret_dstoffset = 0;
+        return 0;
+}
+
+/* In the case the period is multiple of the whole day. We need to compensate
+ * daylight saving. The repeating events should be at the same time of day
+ * according to daylight saving. We need to test up to three points around
+ * and detect localtime discontinuity on change of DST/Non DST localtime mode.
+ *
+ * We need up to three points in time to test.
+ *  - the 1st point is calculated as nearest possible next point. Unless we hit
+ *  exactly one of the points defined by our period series we get the point
+ *  before our searched point. But DST can affect this a bit.
+ *  - the 2nd point is with high probability our point, but the DST change can
+ *  affect the test and  even this point can be too late, so we need to calculate
+ *  the 3rd point
+ */
+#define NRT 3
+
+static int calendar_spec_next_usec_period(const CalendarSpec *spec, usec_t usec, usec_t *ret_next) {
+        usec_t ts;
+        int r;
+
+        assert(spec);
+        assert(ret_next);
+
+        r = calendarspec_to_usec_t(spec, &ts);
+        if (r < 0)
+                return r;
+        if (usec < ts) {
+                /* The timestamp is in the future. The first event of the period. */
+                *ret_next = ts;
+                return 0;
+        }
+
+        if (spec->period % (24 * 3600 * USEC_PER_SEC)) {
+                /* The period is not multiple of the whole day.
+                 * The next event is on the multiple of the period duration. */
+                *ret_next = ts + ( (usec - ts) / spec->period +1 ) * spec->period;
+                return 0;
+        }
+
+        /* The period is multiple of the whole day. We need to compensate daylight
+         * saving. The repeating events should be at the same time of day according to
+         * daylight saving. We need to test up to three points around and detect
+         * localtime discontinuity on change of DST/Non DST localtime mode. */
+        time_t dstoffset;
+        r = usec_dstoffset_sec(ts, &dstoffset);
+        if (r < 0)
+                return r;
+        usec_t u = ts + ( (usec - ts) / spec->period ) * spec->period;
+        for (size_t i = 0; i < NRT; i++) {
+                time_t dstoffset2;
+                r = usec_dstoffset_sec(u, &dstoffset2);
+                if (r < 0)
+                        return r;
+                u += ( dstoffset - dstoffset2 ) * USEC_PER_SEC;
+                if (usec < u) {
+                        *ret_next = u;
+                        return 0;
+                }
+                dstoffset = dstoffset2;
+                u += spec->period;
+        }
+        return -EINVAL;
+}
+
 static int calendar_spec_next_usec_impl(const CalendarSpec *spec, usec_t usec, usec_t *ret_next) {
         usec_t tm_usec;
         struct tm tm;
@@ -1411,6 +1582,9 @@ static int calendar_spec_next_usec_impl(const CalendarSpec *spec, usec_t usec, u
 
         if (usec > USEC_TIMESTAMP_FORMATTABLE_MAX)
                 return -EINVAL;
+
+        if (spec->period)
+                return calendar_spec_next_usec_period(spec, usec, ret_next);
 
         usec++;
         r = localtime_or_gmtime_usec(usec, spec->utc, &tm);

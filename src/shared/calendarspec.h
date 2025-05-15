@@ -23,6 +23,7 @@ typedef struct CalendarSpec {
         bool utc:1;
         signed int dst:2;
         char *timezone;
+        usec_t period;
 
         CalendarComponent *year;
         CalendarComponent *month;
