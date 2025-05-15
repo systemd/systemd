@@ -2245,12 +2245,37 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-_noreturn_ static void bpffs_helper(int parent_fd) {
+_noreturn_ static void bpffs_helper(
+                int parent_fd,
+                uint64_t delegate_cmds,
+                uint64_t delegate_maps,
+                uint64_t delegate_progs,
+                uint64_t delegate_attachs) {
+
         _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+        char number[STRLEN("0x") + sizeof(uint64_t) * 2 + 1];
         int r;
 
         fs_fd = receive_one_fd(parent_fd, 0);
         if (fs_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        bpf_delegate_to_string(delegate_cmds, number);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
+        if (r < 0)
                 _exit(EXIT_FAILURE);
 
         r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
@@ -5368,7 +5393,11 @@ int exec_invoke(
                         return r;
                 }
                 if (r == 0)
-                        bpffs_helper(token_fds[1]);
+                        bpffs_helper(token_fds[1],
+                                     context->bpf_delegate_commands,
+                                     context->bpf_delegate_maps,
+                                     context->bpf_delegate_programs,
+                                     context->bpf_delegate_attachments);
         }
 
         if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context)) {
