@@ -284,8 +284,18 @@ filesystem_switch_case_inc = custom_target(
                    '@INPUT@'],
         capture : true)
 
-generated_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
-basic_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
+generate_bpf_delegate_configs = find_program('generate-bpf-delegate-configs.py')
+fname = 'bpf-delegate-configs.inc'
+bpf_delegate_configs_inc = custom_target(
+        fname,
+        input : 'include/linux/bpf.h',
+        output : fname,
+        command : [generate_bpf_delegate_configs,
+                   '@INPUT@'],
+        capture : true)
+
+generated_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h, bpf_delegate_configs_inc]
+basic_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h, bpf_delegate_configs_inc]
 
 libbasic_static = static_library(
         'basic',
