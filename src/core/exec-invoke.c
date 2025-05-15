@@ -2248,8 +2248,13 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
 static int bpffs_prepare(
                 int *parent_fd,
                 PidRef *bpffs_pid,
-                int *exit_status) {
+                int *exit_status,
+                uint64_t delegate_cmds,
+                uint64_t delegate_maps,
+                uint64_t delegate_progs,
+                uint64_t delegate_attachs) {
 
+        char number[STRLEN("0x") + sizeof(uint64_t) * 2 + 1];
         _cleanup_close_pair_ int bpffs_fds[2] = EBADF_PAIR;
         int r;
 
@@ -2271,6 +2276,24 @@ static int bpffs_prepare(
 
                 fs_fd = receive_one_fd(bpffs_fds[0], 0);
                 if (fs_fd < 0)
+                        _exit(EXIT_FAILURE);
+
+                bpf_delegate_to_string(delegate_cmds, number);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
+                if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
@@ -2335,7 +2358,7 @@ static int bpffs_finalize(int bpffs_fd, int pid, int *exit_status) {
         return 0;
 }
 
-static int sd_userns(int unshare_ready_fd, char *uid_map, char *gid_map, bool allow_setgroups) {
+static int setup_private_users_child(int unshare_ready_fd, char *uid_map, char *gid_map, bool allow_setgroups) {
         _cleanup_close_ int fd = -EBADF;
         uint64_t c = 1;
         const char *a;
@@ -2493,7 +2516,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 return r;
         if (r == 0) {
                 errno_pipe[0] = safe_close(errno_pipe[0]);
-                r = sd_userns(unshare_ready_fd, uid_map, gid_map, allow_setgroups);
+                r = setup_private_users_child(unshare_ready_fd, uid_map, gid_map, allow_setgroups);
                 if (r < 0)
                         report_errno_and_exit(errno_pipe[1], r);
                 _exit(EXIT_SUCCESS);
@@ -5415,7 +5438,9 @@ int exec_invoke(
         }
 
         if (context->private_bpf) {
-                r = bpffs_prepare(&bpffs_fd, &bpffs_pid, exit_status);
+                r = bpffs_prepare(&bpffs_fd, &bpffs_pid, exit_status, context->bpf_delegate_commands,
+                                  context->bpf_delegate_maps, context->bpf_delegate_programs,
+                                  context->bpf_delegate_attachments);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mount BPFFS: %m");
         }
