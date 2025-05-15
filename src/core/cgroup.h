@@ -123,7 +123,6 @@ typedef enum CGroupPressureWatch {
  * manager is running (except for an occasional SetProperty() configuration change), outside of reload
  * cycles. */
 struct CGroupContext {
-        bool cpu_accounting;
         bool io_accounting;
         bool memory_accounting;
         bool tasks_accounting;
