@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/batman_adv.h>
+#include <linux/devlink.h>
 #include <linux/fou.h>
 #include <linux/genetlink.h>
 #include <linux/if.h>
@@ -14,6 +15,7 @@
 #include "missing_network.h"
 #include "netlink-genl.h"
 #include "netlink-types-internal.h"
+#include "netlink-types-devlink.h"
 
 /***************** genl ctrl type systems *****************/
 static const NLAPolicy genl_ctrl_mcast_group_policies[] = {
@@ -232,6 +234,118 @@ static const NLAPolicy genl_wireguard_policies[] = {
         [WGDEVICE_A_PEERS]       = BUILD_POLICY_NESTED(genl_wireguard_peer),
 };
 
+static const NLAPolicy genl_devlink_param_value_u8_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE_DATA]  = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_PARAM_VALUE_CMODE] = BUILD_POLICY(U8),
+};
+
+DEFINE_POLICY_SET(genl_devlink_param_value_u8);
+
+static const NLAPolicy genl_devlink_param_value_item_u8_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE] = BUILD_POLICY_NESTED(genl_devlink_param_value_u8),
+};
+
+static const NLAPolicy genl_devlink_param_value_u16_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE_DATA]  = BUILD_POLICY(U16),
+        [DEVLINK_ATTR_PARAM_VALUE_CMODE] = BUILD_POLICY(U8),
+};
+
+DEFINE_POLICY_SET(genl_devlink_param_value_u16);
+
+static const NLAPolicy genl_devlink_param_value_item_u16_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE] = BUILD_POLICY_NESTED(genl_devlink_param_value_u16),
+};
+
+static const NLAPolicy genl_devlink_param_value_u32_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE_DATA]  = BUILD_POLICY(U32),
+        [DEVLINK_ATTR_PARAM_VALUE_CMODE] = BUILD_POLICY(U8),
+};
+
+DEFINE_POLICY_SET(genl_devlink_param_value_u32);
+
+static const NLAPolicy genl_devlink_param_value_item_u32_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE] = BUILD_POLICY_NESTED(genl_devlink_param_value_u32),
+};
+
+static const NLAPolicy genl_devlink_param_value_string_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE_DATA]  = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_PARAM_VALUE_CMODE] = BUILD_POLICY(U8),
+};
+
+DEFINE_POLICY_SET(genl_devlink_param_value_string);
+
+static const NLAPolicy genl_devlink_param_value_item_string_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE] = BUILD_POLICY_NESTED(genl_devlink_param_value_string),
+};
+
+static const NLAPolicy genl_devlink_param_value_flag_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE_DATA]  = BUILD_POLICY(FLAG),
+        [DEVLINK_ATTR_PARAM_VALUE_CMODE] = BUILD_POLICY(U8),
+};
+
+DEFINE_POLICY_SET(genl_devlink_param_value_flag);
+
+static const NLAPolicy genl_devlink_param_value_item_flag_policies[] = {
+        [DEVLINK_ATTR_PARAM_VALUE] = BUILD_POLICY_NESTED(genl_devlink_param_value_flag),
+};
+
+static const NLAPolicySetUnionElement genl_devlink_param_value_policy_set_union_elements[] = {
+        BUILD_UNION_ELEMENT_BY_U8(DEVLINK_PARAM_TYPE_U8, genl_devlink_param_value_item_u8),
+        BUILD_UNION_ELEMENT_BY_U8(DEVLINK_PARAM_TYPE_U16, genl_devlink_param_value_item_u16),
+        BUILD_UNION_ELEMENT_BY_U8(DEVLINK_PARAM_TYPE_U32, genl_devlink_param_value_item_u32),
+        BUILD_UNION_ELEMENT_BY_U8(DEVLINK_PARAM_TYPE_STRING, genl_devlink_param_value_item_string),
+        BUILD_UNION_ELEMENT_BY_U8(DEVLINK_PARAM_TYPE_FLAG, genl_devlink_param_value_item_flag),
+};
+
+DEFINE_POLICY_SET_UNION(genl_devlink_param_value, DEVLINK_ATTR_PARAM_TYPE);
+
+static const NLAPolicy genl_devlink_param_policies[] = {
+        [DEVLINK_ATTR_PARAM_NAME]                      = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_PARAM_TYPE]                      = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_PARAM_VALUES_LIST]               = BUILD_POLICY_NESTED_UNION_BY_U8(genl_devlink_param_value),
+};
+
+DEFINE_POLICY_SET(genl_devlink_param);
+
+static const NLAPolicy genl_devlink_health_reporter_policies[] = {
+        [DEVLINK_ATTR_HEALTH_REPORTER_NAME]            = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_HEALTH_REPORTER_GRACEFUL_PERIOD] = BUILD_POLICY(U64),
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_RECOVER]    = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_DUMP]       = BUILD_POLICY(U8),
+};
+
+DEFINE_POLICY_SET(genl_devlink_health_reporter);
+
+static const NLAPolicy genl_devlink_nested_devlink_policies[] = {
+        [DEVLINK_ATTR_BUS_NAME]                        = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_DEV_NAME]                        = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_NETNS_ID]                        = BUILD_POLICY(S32),
+};
+
+DEFINE_POLICY_SET(genl_devlink_nested_devlink);
+
+static const NLAPolicy genl_devlink_policies[] = {
+        [DEVLINK_ATTR_BUS_NAME]                        = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_DEV_NAME]                        = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_PORT_INDEX]                      = BUILD_POLICY(U32),
+        [DEVLINK_ATTR_PORT_NETDEV_IFINDEX]             = BUILD_POLICY(U32),
+        [DEVLINK_ATTR_PORT_SPLIT_COUNT]                = BUILD_POLICY(U32),
+        [DEVLINK_ATTR_PORT_SPLIT_GROUP]                = BUILD_POLICY(U32),
+        [DEVLINK_ATTR_ESWITCH_MODE]                    = BUILD_POLICY(U16),
+        [DEVLINK_ATTR_PARAM]                           = BUILD_POLICY_NESTED(genl_devlink_param),
+        [DEVLINK_ATTR_PARAM_NAME]                      = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_PARAM_TYPE]                      = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_PARAM_VALUE_DATA]                = BUILD_POLICY(VARIABLE),
+        [DEVLINK_ATTR_PARAM_VALUE_CMODE]               = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_RELOAD_ACTION]                   = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_HEALTH_REPORTER]                 = BUILD_POLICY_NESTED(genl_devlink_health_reporter),
+        [DEVLINK_ATTR_HEALTH_REPORTER_NAME]            = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_HEALTH_REPORTER_GRACEFUL_PERIOD] = BUILD_POLICY(U64),
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_RECOVER]    = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_DUMP]       = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_NESTED_DEVLINK]                  = BUILD_POLICY_NESTED(genl_devlink_nested_devlink),
+};
+
 /***************** genl families *****************/
 static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING(CTRL_GENL_NAME,               genl_ctrl),
@@ -242,6 +356,7 @@ static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING(NETLBL_NLTYPE_UNLABELED_NAME, genl_netlabel),
         BUILD_UNION_ELEMENT_BY_STRING(NL80211_GENL_NAME,            genl_nl80211),
         BUILD_UNION_ELEMENT_BY_STRING(WG_GENL_NAME,                 genl_wireguard),
+        BUILD_UNION_ELEMENT_BY_STRING(DEVLINK_GENL_NAME,            genl_devlink),
 };
 
 /* This is the root type system union, so match_attribute is not necessary. */
