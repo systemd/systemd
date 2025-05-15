@@ -830,7 +830,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
-static int instance_from_socket(int fd, unsigned nr, char **ret) {
+static int instance_from_socket(
+                int fd,
+                unsigned nr,
+                char **ret) {
+
         union sockaddr_union local, remote;
         socklen_t l;
         int r;
@@ -846,6 +850,11 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
         if (getpeername(fd, &remote.sa, &l) < 0)
                 return -errno;
 
+        uint64_t cookie;
+        r = socket_get_cookie(fd, &cookie);
+        if (r < 0)
+                return r;
+
         char *s;
 
         switch (local.sa.sa_family) {
@@ -856,8 +865,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                         b = be32toh(remote.in.sin_addr.s_addr);
 
                 if (asprintf(&s,
-                             "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                             "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                              nr,
+                             cookie,
                              a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
                              be16toh(local.in.sin_port),
                              b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
@@ -879,8 +889,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                                 *b = remote.in6.sin6_addr.s6_addr+12;
 
                         if (asprintf(&s,
-                                     "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                     "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                                      nr,
+                                     cookie,
                                      a[0], a[1], a[2], a[3],
                                      be16toh(local.in6.sin6_port),
                                      b[0], b[1], b[2], b[3],
@@ -888,8 +899,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                                 return -ENOMEM;
                 } else {
                         if (asprintf(&s,
-                                     "%u-%s:%u-%s:%u",
+                                     "%u-%" PRIu64 "-%s:%u-%s:%u",
                                      nr,
+                                     cookie,
                                      IN6_ADDR_TO_STRING(&local.in6.sin6_addr),
                                      be16toh(local.in6.sin6_port),
                                      IN6_ADDR_TO_STRING(&remote.in6.sin6_addr),
@@ -909,19 +921,20 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                         uint64_t pidfd_id;
 
                         if (pidfd >= 0 && pidfd_get_inode_id(pidfd, &pidfd_id) >= 0)
-                                r = asprintf(&s, "%u-" PID_FMT "_%" PRIu64 "-" UID_FMT,
-                                             nr, ucred.pid, pidfd_id, ucred.uid);
+                                r = asprintf(&s, "%u-%" PRIu64 "-" PID_FMT "_%" PRIu64 "-" UID_FMT,
+                                             nr, cookie, ucred.pid, pidfd_id, ucred.uid);
                         else
-                                r = asprintf(&s, "%u-" PID_FMT "-" UID_FMT,
-                                             nr, ucred.pid, ucred.uid);
+                                r = asprintf(&s, "%u-%" PRIu64 "-" PID_FMT "-" UID_FMT,
+                                             nr, cookie, ucred.pid, ucred.uid);
                         if (r < 0)
                                 return -ENOMEM;
                 } else if (r == -ENODATA) {
                         /* This handles the case where somebody is connecting from another pid/uid namespace
                          * (e.g. from outside of our container). */
                         if (asprintf(&s,
-                                     "%u-unknown",
-                                     nr) < 0)
+                                     "%u-%" PRIu64 "-unknown",
+                                     nr,
+                                     cookie) < 0)
                                 return -ENOMEM;
                 } else
                         return r;
@@ -931,8 +944,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
 
         case AF_VSOCK:
                 if (asprintf(&s,
-                             "%u-%u:%u-%u:%u",
+                             "%u-%" PRIu64 "-%u:%u-%u:%u",
                              nr,
+                             cookie,
                              local.vm.svm_cid, local.vm.svm_port,
                              remote.vm.svm_cid, remote.vm.svm_port) < 0)
                         return -ENOMEM;
