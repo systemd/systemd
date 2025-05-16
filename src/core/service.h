@@ -237,6 +237,7 @@ struct Service {
 
         int reload_signal;
         usec_t reload_begin_usec;
+        bool reload_signal_require_handler;
 
         OOMPolicy oom_policy;
 
