@@ -36,6 +36,9 @@ usb:v1D50p6066*
 usb:v2CF0p5250*
  ID_SOFTWARE_RADIO=1
 
+#################
+# Analog Devices
+#################
 # ADI pluto SDR
 usb:v0456pB673*
  ID_SOFTWARE_RADIO=1
