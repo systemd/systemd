@@ -213,6 +213,21 @@ TEST(terminal_fix_size) {
                 log_notice("Fixed terminal size.");
 }
 
+TEST(terminal_get_terminfo_by_dcs) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        /* We need a non-blocking read-write fd. */
+        _cleanup_close_ int fd = fd_reopen(STDIN_FILENO, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0)
+                return (void) log_info_errno(fd, "Cannot reopen stdin in read-write mode: %m");
+
+        r = terminal_get_terminfo_by_dcs(fd, &name);
+        if (r < 0)
+                return (void) log_info_errno(r, "Can't get terminal terminfo via DCS: %m");
+        log_info("terminal terminfo via DCS: %s, $TERM: %s", name, strnull(getenv("TERM")));
+}
+
 TEST(terminal_is_pty_fd) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         int r;
