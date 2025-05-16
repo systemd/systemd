@@ -14,6 +14,8 @@ Requires=systemd-userdbd.socket
 Before=sysinit.target
 Wants=systemd-userdb-load-credentials.service
 DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE
