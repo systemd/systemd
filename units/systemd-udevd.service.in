@@ -24,6 +24,14 @@ ConditionPathIsReadWrite=/sys
 Before=soft-reboot.target systemd-soft-reboot.service
 Conflicts=soft-reboot.target
 
+# To avoid this service being triggered by a relevant socket unit during
+# switching root, which easily happens due to kernel events.
+# Note, unlike soft-reboot (and any other shutting down processes),
+# initrd-switching-root.service is started after initrd-switch-root.target.
+# Hence, we need to also add the service to Conflicts=.
+Before=initrd-switch-root.target initrd-switch-root.service
+Conflicts=initrd-switch-root.target initrd-switch-root.service
+
 [Service]
 CapabilityBoundingSet=~CAP_SYS_TIME CAP_WAKE_ALARM
 Delegate=
