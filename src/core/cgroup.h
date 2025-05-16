@@ -36,6 +36,7 @@ typedef struct CGroupIODeviceLimit CGroupIODeviceLimit;
 typedef struct CGroupIODeviceLatency CGroupIODeviceLatency;
 typedef struct CGroupBPFForeignProgram CGroupBPFForeignProgram;
 typedef struct CGroupSocketBindItem CGroupSocketBindItem;
+typedef struct CGroupDeviceMemoryLimit CGroupDeviceMemoryLimit;
 typedef struct CGroupRuntime CGroupRuntime;
 
 typedef enum CGroupDevicePolicy {
@@ -119,6 +120,15 @@ typedef enum CGroupPressureWatch {
         _CGROUP_PRESSURE_WATCH_INVALID = -EINVAL,
 } CGroupPressureWatch;
 
+struct CGroupDeviceMemoryLimit {
+        LIST_FIELDS(CGroupDeviceMemoryLimit, dev_limits);
+        char *region;
+        uint64_t max;
+        uint64_t low;
+        bool max_valid;
+        bool low_valid;
+};
+
 /* The user-supplied cgroup-related configuration options. This remains mostly immutable while the service
  * manager is running (except for an occasional SetProperty() configuration change), outside of reload
  * cycles. */
@@ -167,6 +177,8 @@ struct CGroupContext {
         uint64_t startup_memory_swap_max;
         uint64_t memory_zswap_max;
         uint64_t startup_memory_zswap_max;
+
+        LIST_HEAD(CGroupDeviceMemoryLimit, dev_mem_limits);
 
         bool default_memory_min_set:1;
         bool default_memory_low_set:1;
@@ -381,6 +393,7 @@ static inline bool cgroup_context_want_memory_pressure(const CGroupContext *c) {
 int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
+int cgroup_context_add_device_memory_limit(CGroupContext *c, const CGroupDeviceMemoryLimit *l);
 
 void unit_modify_nft_set(Unit *u, bool add);
 

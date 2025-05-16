@@ -747,6 +747,31 @@ int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_typ
         return 0;
 }
 
+int cgroup_context_add_device_memory_limit(CGroupContext *c, const CGroupDeviceMemoryLimit *l) {
+        _cleanup_free_ CGroupDeviceMemoryLimit *n = NULL;
+
+        assert(c);
+        assert(l);
+
+        n = new (CGroupDeviceMemoryLimit, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupDeviceMemoryLimit){
+                        .region = strdup(l->region),
+                        .max = l->max,
+                        .low = l->low,
+                        .max_valid = l->max_valid,
+                        .low_valid = l->low_valid,
+        };
+        if (!n->region)
+                return -ENOMEM;
+
+        LIST_PREPEND(dev_limits, c->dev_mem_limits, TAKE_PTR(n));
+        return 0;
+}
+
+
 #define UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(entry)                       \
         uint64_t unit_get_ancestor_##entry(Unit *u) {                   \
                 CGroupContext *c;                                       \
@@ -1310,6 +1335,22 @@ static void cgroup_apply_memory_limit(Unit *u, const char *file, uint64_t v) {
         (void) set_attribute_and_warn(u, "memory", file, buf);
 }
 
+static int cgroup_apply_unified_dev_memory_limit(
+                Unit *u, const char *file, const char *region, uint64_t v) {
+        _cleanup_free_ char *buf = NULL;
+
+        if (v == CGROUP_LIMIT_MAX)
+                asprintf(&buf, "%s max\n", region);
+        else
+                asprintf(&buf, "%s %" PRIu64 "\n", region, v);
+
+        if (!buf)
+                return log_oom();
+
+        (void) set_attribute_and_warn(u, "dmem", file, buf);
+        return 0;
+}
+
 static void cgroup_apply_firewall(Unit *u) {
         assert(u);
 
@@ -1564,6 +1605,17 @@ static void cgroup_context_apply(
                 (void) set_attribute_and_warn(u, "memory", "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
         }
 
+        if (apply_mask & CGROUP_MASK_DMEM) {
+                LIST_FOREACH(dev_limits, l, c->dev_mem_limits) {
+                        if (l->low_valid)
+                                cgroup_apply_unified_dev_memory_limit(
+                                                u, "dmem.low", l->region, l->low);
+                        if (l->max_valid)
+                                cgroup_apply_unified_dev_memory_limit(
+                                                u, "dmem.max", l->region, l->max);
+                }
+        }
+
         if (apply_mask & CGROUP_MASK_PIDS) {
 
                 if (is_host_root) {
@@ -1717,6 +1769,9 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         if (c->tasks_accounting ||
             cgroup_tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
+
+        if (c->dev_mem_limits)
+                mask |= CGROUP_MASK_DMEM;
 
         return CGROUP_MASK_EXTEND_JOINED(mask);
 }

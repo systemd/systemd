@@ -2048,6 +2048,120 @@ int bus_cgroup_set_property(
                 return 1;
         }
 
+        if (streq(name, "DeviceMemoryMax")) {
+                CGroupDeviceMemoryLimit *l;
+                char *region;
+                uint64_t size;
+
+                r = sd_bus_message_enter_container(message, 'a', "(st)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(st)", &region, &size)) > 0) {
+                        if (size < 1)
+                                return sd_bus_error_setf(
+                                                error,
+                                                SD_BUS_ERROR_INVALID_ARGS,
+                                                "Value specified in %s is out of range",
+                                                name);
+
+                        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                                continue;
+                        l = NULL;
+
+                        LIST_FOREACH(dev_limits, cur, c->dev_mem_limits) {
+                                if (streq(cur->region, region)) {
+                                        l = cur;
+                                        l->max = size;
+                                        l->max_valid = true;
+                                        break;
+                                }
+                        }
+
+                        if (!l) {
+                                _cleanup_free_ CGroupDeviceMemoryLimit *new_limit = new0(CGroupDeviceMemoryLimit, 1);
+                                if (!new_limit)
+                                        return log_oom();
+
+                                *new_limit = (CGroupDeviceMemoryLimit) {
+                                        .region = strdup(region),
+                                        .max = size,
+                                        .low = 0,
+                                        .max_valid = true,
+                                        .low_valid = false,
+                                };
+                                if (!new_limit->region) {
+                                        return log_oom();
+                                }
+
+                                LIST_PREPEND(dev_limits, c->dev_mem_limits, TAKE_PTR(new_limit));
+                        }
+
+                        unit_invalidate_cgroup(u, CGROUP_MASK_DMEM);
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+                return 1;
+        }
+
+        if (streq(name, "DeviceMemoryLow")) {
+                CGroupDeviceMemoryLimit *l = NULL;
+                char *region;
+                uint64_t size;
+
+                r = sd_bus_message_enter_container(message, 'a', "(st)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(st)", &region, &size)) > 0) {
+                        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                                continue;
+
+                        l = NULL;
+
+                        LIST_FOREACH(dev_limits, cur, c->dev_mem_limits) {
+                                if (streq(cur->region, region)) {
+                                        l = cur;
+                                        l->low = size;
+                                        l->low_valid = true;
+                                        break;
+                                }
+                        }
+
+                        if (!l) {
+                                _cleanup_free_ CGroupDeviceMemoryLimit *new_limit = new0(CGroupDeviceMemoryLimit, 1);
+                                if (!new_limit)
+                                        return log_oom();
+
+                                *new_limit = (CGroupDeviceMemoryLimit) {
+                                        .region = strdup(region),
+                                        .max = UINT64_MAX,
+                                        .low = size,
+                                        .low_valid = true,
+                                        .max_valid = false,
+                                };
+                                if (!new_limit->region) {
+                                        return log_oom();
+                                }
+
+                                LIST_PREPEND(dev_limits, c->dev_mem_limits, TAKE_PTR(new_limit));
+                        }
+
+                        unit_invalidate_cgroup(u, CGROUP_MASK_DMEM);
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+                return 1;
+        }
+
         /* must be last */
         if (streq(name, "DisableControllers") || (u->transient && u->load_state == UNIT_STUB))
                 return bus_cgroup_set_transient_property(u, c, name, message, flags, error);
