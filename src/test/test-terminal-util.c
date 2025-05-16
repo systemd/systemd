@@ -216,6 +216,16 @@ TEST(terminal_fix_size) {
                 log_notice("Fixed terminal size.");
 }
 
+TEST(terminal_get_terminfo_by_dcs) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        r = terminal_get_terminfo_by_dcs(STDIN_FILENO, STDOUT_FILENO, &name);
+        if (r < 0)
+                return (void) log_notice_errno(r, "Can't get terminal terminfo via DCS: %m");
+        log_notice("terminal terminfo via DCS: %s, $TERM: %s", name, strnull(getenv("TERM")));
+}
+
 TEST(terminal_is_pty_fd) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         int r;
