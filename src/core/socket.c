@@ -12,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "bpf-program.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "copy.h"
 #include "dbus-socket.h"
@@ -69,6 +70,7 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_START_CHOWN]      = UNIT_ACTIVATING,
         [SOCKET_START_POST]       = UNIT_ACTIVATING,
         [SOCKET_LISTENING]        = UNIT_ACTIVE,
+        [SOCKET_DEFERRED]         = UNIT_ACTIVE,
         [SOCKET_RUNNING]          = UNIT_ACTIVE,
         [SOCKET_STOP_PRE]         = UNIT_DEACTIVATING,
         [SOCKET_STOP_PRE_SIGTERM] = UNIT_DEACTIVATING,
@@ -144,6 +146,8 @@ static void socket_init(Unit *u) {
         s->trigger_limit = RATELIMIT_OFF;
 
         s->poll_limit = RATELIMIT_OFF;
+
+        s->defer_trigger_max_usec = USEC_INFINITY;
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -427,6 +431,9 @@ static int socket_verify(Socket *s) {
         if (s->accept && UNIT_ISSET(s->service))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Explicit service configuration for accepting socket units not supported. Refusing.");
 
+        if (s->accept && s->defer_trigger)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Socket unit is configured to be accepting with DeferTrigger=yes set. Refusing.");
+
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
 
@@ -672,8 +679,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, s->max_connections_per_source);
         else
                 fprintf(f,
-                        "%sFlushPending: %s\n",
-                         prefix, yes_no(s->flush_pending));
+                        "%sFlushPending: %s\n"
+                        "%sDeferTrigger: %s\n"
+                        "%sDeferTriggerMaxSec: %s\n",
+                        prefix, yes_no(s->flush_pending),
+                        prefix, yes_no(s->defer_trigger),
+                        prefix, FORMAT_TIMESPAN(s->defer_trigger_max_usec, USEC_PER_SEC));
 
         if (s->priority >= 0)
                 fprintf(f,
@@ -1852,8 +1863,10 @@ static void socket_set_state(Socket *s, SocketState state) {
         old_state = s->state;
         s->state = state;
 
-        if (!SOCKET_STATE_WITH_PROCESS(state)) {
+        if (!SOCKET_STATE_WITH_PROCESS(state) && state != SOCKET_DEFERRED)
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+
+        if (!SOCKET_STATE_WITH_PROCESS(state)) {
                 socket_unwatch_control_pid(s);
                 s->control_command = NULL;
                 s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
@@ -1867,11 +1880,15 @@ static void socket_set_state(Socket *s, SocketState state) {
                     SOCKET_START_CHOWN,
                     SOCKET_START_POST,
                     SOCKET_LISTENING,
+                    SOCKET_DEFERRED,
                     SOCKET_RUNNING,
                     SOCKET_STOP_PRE,
                     SOCKET_STOP_PRE_SIGTERM,
                     SOCKET_STOP_PRE_SIGKILL))
                 socket_close_fds(s);
+
+        if (state != SOCKET_DEFERRED)
+                unit_remove_from_stop_notify_queue(UNIT(s));
 
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", socket_state_to_string(old_state), socket_state_to_string(state));
@@ -1887,6 +1904,11 @@ static int socket_coldplug(Unit *u) {
 
         if (s->deserialized_state == s->state)
                 return 0;
+
+        /* Patch "deferred" back to "listening" and let socket_enter_running() figure out what to do.
+         * This saves us the trouble of handling flipping of DeferTrigger= vs Accept= during reload. */
+        if (s->deserialized_state == SOCKET_DEFERRED)
+                s->deserialized_state = SOCKET_LISTENING;
 
         if (pidref_is_set(&s->control_pid) &&
             pidref_is_unwaited(&s->control_pid) > 0 &&
@@ -2347,6 +2369,56 @@ static void socket_enter_start_pre(Socket *s) {
                 socket_enter_start_open(s);
 }
 
+static bool socket_stop_notify(Unit *u) {
+        Socket *s = ASSERT_PTR(SOCKET(u));
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(s->state == SOCKET_DEFERRED);
+
+        r = manager_add_job(u->manager, JOB_START, UNIT_DEREF(s->service), JOB_MEEK, &error, /* ret = */ NULL);
+        if (r >= 0) { /* Yay! */
+                socket_set_state(s, SOCKET_RUNNING);
+                return true; /* changed */
+        }
+        if (sd_bus_error_has_name(&error, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE)) {
+                if (!hashmap_isempty(u->manager->jobs))
+                        /* Wait for some more */
+                        return false;
+
+                log_unit_warning_errno(u, r, "Service conflicts with active units even after all jobs have completed, giving up.");
+        } else
+                log_unit_warning_errno(u, r, "Failed to queue service startup job: %s", bus_error_message(&error, r));
+
+        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+        return true; /* changed */
+}
+
+static void socket_enter_deferred(Socket *s) {
+        int r;
+
+        assert(s);
+        assert(s->defer_trigger);
+
+        /* So here's the thing: if there're currently units conflicting with the service we shall be
+         * triggering, and the previous transaction is still running (job pool is not empty), let's
+         * defer the activation a bit, and recheck upon any unit stop. IOW, the trigger in question
+         * becomes bound to the conflicting dependency, and not the socket IO because we never process them.
+         * Put a safety net around all this though, i.e. give up if the service still can't be started
+         * even after all existing jobs have completed, or DeferTriggerMaxSec= is reached. */
+
+        r = socket_arm_timer(s, /* relative = */ true, s->defer_trigger_max_usec);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                return socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+        }
+
+        unit_add_to_stop_notify_queue(UNIT(s));
+
+        /* Disable IO event sources */
+        socket_set_state(s, SOCKET_DEFERRED);
+}
+
 static void socket_enter_running(Socket *s, int cfd_in) {
         /* Note that this call takes possession of the connection fd passed. It either has to assign it
          * somewhere or close it. */
@@ -2365,6 +2437,11 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         goto refuse;
 
                 flush_ports(s);
+                return;
+        }
+
+        if (s->state == SOCKET_DEFERRED) {
+                assert(cfd < 0);
                 return;
         }
 
@@ -2392,9 +2469,18 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                                 goto fail;
                         }
 
-                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
-                        if (r == -EDEADLK)
-                                return (void) log_unit_debug_errno(UNIT(s), r, "Failed to queue service startup job, ignoring: %s", bus_error_message(&error, r));
+                        if (s->defer_trigger) {
+                                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_MEEK, &error, /* ret = */ NULL);
+                                if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE) &&
+                                    !hashmap_isempty(UNIT(s)->manager->jobs))
+                                        /* We only check BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE here, not
+                                         * BUS_ERROR_TRANSACTION_JOBS_CONFLICTING or BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
+                                         * since those are errors in a single transaction, which are most likely
+                                         * caused by dependency issues in the unit configuration.
+                                         * Deferring activation probabaly won't help. */
+                                        return socket_enter_deferred(s);
+                        } else
+                                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
                         if (r < 0)
                                 goto queue_error;
                 }
@@ -2598,7 +2684,7 @@ static int socket_stop(Unit *u) {
                 return 0;
         }
 
-        assert(IN_SET(s->state, SOCKET_LISTENING, SOCKET_RUNNING));
+        assert(IN_SET(s->state, SOCKET_LISTENING, SOCKET_DEFERRED, SOCKET_RUNNING));
 
         socket_enter_stop_pre(s, SOCKET_SUCCESS);
         return 1;
@@ -3285,6 +3371,11 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
                 socket_enter_stop_pre(s, SOCKET_FAILURE_TIMEOUT);
                 break;
 
+        case SOCKET_DEFERRED:
+                log_unit_warning(UNIT(s), "DeferTriggerMaxSec= elapsed. Stopping.");
+                socket_enter_stop_pre(s, SOCKET_FAILURE_TIMEOUT);
+                break;
+
         case SOCKET_STOP_PRE:
                 log_unit_warning(UNIT(s), "Stopping timed out. Terminating.");
                 socket_enter_signal(s, SOCKET_STOP_PRE_SIGTERM, SOCKET_FAILURE_TIMEOUT);
@@ -3414,7 +3505,7 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
         Service *service = ASSERT_PTR(SERVICE(other));
 
         /* Don't propagate state changes from the service if we are already down */
-        if (!IN_SET(s->state, SOCKET_RUNNING, SOCKET_LISTENING))
+        if (!IN_SET(s->state, SOCKET_RUNNING, SOCKET_LISTENING, SOCKET_DEFERRED))
                 return;
 
         /* We don't care for the service state if we are in Accept=yes mode */
@@ -3658,6 +3749,8 @@ const UnitVTable socket_vtable = {
         .sigchld_event = socket_sigchld_event,
 
         .trigger_notify = socket_trigger_notify,
+
+        .stop_notify = socket_stop_notify,
 
         .reset_failed = socket_reset_failed,
 
