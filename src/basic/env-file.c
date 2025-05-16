@@ -612,11 +612,13 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(fname);
 
-        r = fopen_temporary_at(dir_fd, fname, &f, &p);
+        r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY|O_CLOEXEC, &p, &f);
         if (r < 0)
                 return r;
 
-        (void) fchmod_umask(fileno(f), 0644);
+        r = fchmod_umask(fileno(f), 0644);
+        if (r < 0)
+                goto fail;
 
         STRV_FOREACH(i, headers) {
                 assert(isempty(*i) || startswith(*i, "#"));
@@ -627,15 +629,16 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l) {
         STRV_FOREACH(i, l)
                 write_env_var(f, *i);
 
-        r = fflush_and_check(f);
-        if (r >= 0) {
-                if (renameat(dir_fd, p, dir_fd, fname) >= 0)
-                        return 0;
+        r = flink_tmpfile_at(f, dir_fd, p, fname, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
+        if (r < 0)
+                goto fail;
 
-                r = -errno;
-        }
+        return 0;
 
-        (void) unlinkat(dir_fd, p, 0);
+fail:
+        if (p)
+                (void) unlinkat(dir_fd, p, 0);
+
         return r;
 }
 
