@@ -925,7 +925,17 @@
         limiting configured with <varname>StartLimitIntervalSec=</varname>
         and <varname>StartLimitBurst=</varname>, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para>
+        for details.
+        Rate limiting is enabled by default, so
+        if you need a service to restart no matter how frequently it fails,
+        you need to set <varname>StartLimitIntervalSec=</varname><constant>0</constant>
+        even if you use e.g. <varname>Restart=</varname><constant>always</constant>.
+        This is recommended for devices that run unattended,
+        such as web servers that need to recover from temporary
+        situations such as full disks or network downtime
+        which can trigger rate-limited repeat restarts of
+        arbitrary duration.
+        </para>
 
         <para>Setting this to <option>on-failure</option> is the
         recommended choice for long-running services, in order to
