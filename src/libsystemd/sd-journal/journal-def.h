@@ -55,7 +55,8 @@ struct ObjectHeader {
         uint8_t flags;
         uint8_t reserved[6];
         le64_t size;
-        uint8_t payload[];
+        uint8_t payload[0]; /* The struct is embedded in other objects, hence flex array (i.e. payload[])
+                             * cannot be used. */
 } _packed_;
 
 #define DataObject__contents {                                          \
