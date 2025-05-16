@@ -755,7 +755,7 @@ static bool handle_format_specifier(FormatContext *ctx, SpecifierContext *sp) {
          * otherwise warn about fetching smaller types. */
         assert_cc(sizeof(int) == 4);
         assert_cc(sizeof(wchar_t) <= sizeof(int));
-        assert_cc(sizeof(intmax_t) <= sizeof(long long));
+        assert_cc(sizeof(long long) == sizeof(intmax_t));
 
         assert(ctx);
         assert(sp);

@@ -1977,7 +1977,8 @@ static int scan_background_color_response(
                 size_t *ret_processed) {
 
         assert(context);
-        assert(buf || size == 0);
+        assert(buf);
+        assert(ret_processed);
 
         for (size_t i = 0; i < size; i++) {
                 char c = buf[i];
@@ -2051,9 +2052,7 @@ static int scan_background_color_response(
                 case BACKGROUND_BLUE:
                         if (c == '\x07') {
                                 if (context->blue_bits > 0) {
-                                        if (ret_processed)
-                                                *ret_processed = i + 1;
-
+                                        *ret_processed = i + 1;
                                         return 1; /* success! */
                                 }
 
@@ -2073,9 +2072,7 @@ static int scan_background_color_response(
 
                 case BACKGROUND_STRING_TERMINATOR:
                         if (c == '\\') {
-                                if (ret_processed)
-                                        *ret_processed = i + 1;
-
+                                *ret_processed = i + 1;
                                 return 1; /* success! */
                         }
 
@@ -2092,9 +2089,7 @@ static int scan_background_color_response(
                 }
         }
 
-        if (ret_processed)
-                *ret_processed = size;
-
+        *ret_processed = size;
         return 0; /* all good, but not enough data yet */
 }
 
@@ -2221,7 +2216,8 @@ static int scan_cursor_position_response(
                 size_t *ret_processed) {
 
         assert(context);
-        assert(buf || size == 0);
+        assert(buf);
+        assert(ret_processed);
 
         for (size_t i = 0; i < size; i++) {
                 char c = buf[i];
@@ -2254,9 +2250,7 @@ static int scan_cursor_position_response(
                 case CURSOR_COLUMN:
                         if (c == 'R') {
                                 if (context->column > 0) {
-                                        if (ret_processed)
-                                                *ret_processed = i + 1;
-
+                                        *ret_processed = i + 1;
                                         return 1; /* success! */
                                 }
 
@@ -2279,9 +2273,7 @@ static int scan_cursor_position_response(
                         context->row = context->column = 0;
         }
 
-        if (ret_processed)
-                *ret_processed = size;
-
+        *ret_processed = size;
         return 0; /* all good, but not enough data yet */
 }
 
