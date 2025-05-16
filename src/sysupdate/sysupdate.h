@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
 #include "specifier.h"
-
-/* Forward declare this type so that Transfers can point at it */
-typedef struct Context Context;
+#include "sysupdate-forward.h"
 
 extern bool arg_sync;
 extern uint64_t arg_instances_max;

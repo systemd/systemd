@@ -10,7 +10,7 @@
 #include "dlfcn-util.h"
 #include "format-table.h"
 #include "glyph-util.h"
-#include "memory-util.h"
+#include "iovec-util.h"
 #include "plymouth-util.h"
 #include "string-util.h"
 #include "strv.h"

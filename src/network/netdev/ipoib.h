@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "conf-parser.h"
 #include "netdev.h"
 
 typedef enum IPoIBMode {

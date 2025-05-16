@@ -7,11 +7,8 @@
   Author: Auke Kok <auke-jan.h.kok@intel.com>
 ***/
 
-#include <stdbool.h>
-#include <sys/types.h>
-
+#include "forward.h"
 #include "label-util.h"
-#include "macro.h"
 
 typedef enum SmackAttr {
         SMACK_ATTR_ACCESS,

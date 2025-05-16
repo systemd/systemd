@@ -7,7 +7,6 @@
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-swap.h"
-#include "string-util.h"
 #include "swap.h"
 #include "unit.h"
 

@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
-
-#include "hash-funcs.h"
-#include "time-util.h"
-#include "user-record.h"
+#include "forward.h"
 
 /* Flags supported by UpdateEx() */
 #define SD_HOMED_UPDATE_OFFLINE (UINT64_C(1) << 0)
@@ -24,9 +18,6 @@
  * this from the default rebalancing weights, so that what we create initially doesn't immediately require
  * rebalancing. */
 #define USER_DISK_SIZE_DEFAULT_PERCENT ((unsigned) ((100 * REBALANCE_WEIGHT_DEFAULT) / (REBALANCE_WEIGHT_DEFAULT + REBALANCE_WEIGHT_BACKING)))
-
-/* This should be 83% right now, i.e. 100 of (100 + 20). Let's protect us against accidental changes. */
-assert_cc(USER_DISK_SIZE_DEFAULT_PERCENT == 83U);
 
 extern const struct hash_ops blob_fd_hash_ops;
 

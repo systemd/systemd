@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-device.h"
 #include "sd-dhcp-duid.h"
 #include "sd-id128.h"
 
 #include "ether-addr-util.h"
-#include "macro.h"
+#include "forward.h"
 #include "sparse-endian.h"
 
 #define SYSTEMD_PEN    43793

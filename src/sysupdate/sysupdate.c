@@ -16,7 +16,7 @@
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
-#include "json-util.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "os-util.h"
@@ -37,7 +37,6 @@
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
-#include "terminal-util.h"
 #include "utf8.h"
 #include "verbs.h"
 

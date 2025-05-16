@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <uchar.h>
-
+#include "forward.h"
 #include "tpm2-util.h"
 
 /* Definitions as per "TCG PC Client Specific Platform Firmware Profile Specification"

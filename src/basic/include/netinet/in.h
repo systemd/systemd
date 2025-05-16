@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/in.h>
-#include <linux/in6.h>
-#include <linux/ipv6.h>
+#include <linux/in.h>   /* IWYU pragma: export */
+#include <linux/in6.h>  /* IWYU pragma: export */
+#include <linux/ipv6.h> /* IWYU pragma: export */
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/socket.h>

@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
 
-#include "sd-json.h"
-
-#include "analyze-verify-util.h"
-#include "bus-util.h"
-#include "pager.h"
-#include "pretty-print.h"
-#include "time-util.h"
-#include "unit-file.h"
+typedef enum RecursiveErrors RecursiveErrors;
 
 typedef enum DotMode {
         DEP_ALL,

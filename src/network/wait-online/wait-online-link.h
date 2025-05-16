@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-netlink.h"
-
-#include "dns-configuration.h"
-#include "log-link.h"
+#include "forward.h"
 #include "network-util.h"
 
-typedef struct Link Link;
+typedef struct DNSConfiguration DNSConfiguration;
 typedef struct Manager Manager;
 
-struct Link {
+typedef struct Link {
         Manager *manager;
 
         int ifindex;
@@ -26,7 +23,7 @@ struct Link {
         LinkAddressState ipv6_address_state;
         char *state;
         DNSConfiguration *dns_configuration;
-};
+} Link;
 
 int rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata);
 int link_update_monitor(Link *l);

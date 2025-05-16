@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #if HAVE_LZ4
 #include <lz4.h>
@@ -10,9 +12,6 @@
 #include "compress.h"
 #include "dlfcn-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "macro.h"
-#include "memory-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "tests.h"

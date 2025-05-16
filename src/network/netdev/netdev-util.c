@@ -3,6 +3,7 @@
 #include "netdev-util.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
+#include "set.h"
 #include "string-table.h"
 
 static const char * const netdev_local_address_type_table[_NETDEV_LOCAL_ADDRESS_TYPE_MAX] = {

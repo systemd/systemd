@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+#include "sd-netlink.h"
 #include "sd-network.h"
 
 #include "alloc-util.h"

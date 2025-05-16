@@ -1,15 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
 #include "sd-network.h"
 
 #include "alloc-util.h"
 #include "dns-configuration.h"
 #include "format-ifname.h"
 #include "hashmap.h"
-#include "link.h"
-#include "manager.h"
+#include "log-link.h"
 #include "string-util.h"
 #include "strv.h"
+#include "wait-online-link.h"
+#include "wait-online-manager.h"
 
 static Link* link_free(Link *l) {
 

@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "sd-device.h"
-
-#include "socket-util.h"
+#include "forward.h"
 
 typedef enum MonitorNetlinkGroup {
         MONITOR_GROUP_NONE,

@@ -5,9 +5,8 @@
 #include <netinet/in.h>
 
 #include "bond-util.h"
-#include "macro.h"
+#include "forward.h"
 #include "netdev.h"
-#include "ordered-set.h"
 
 typedef struct Bond {
         NetDev meta;

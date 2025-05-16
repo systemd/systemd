@@ -3,7 +3,6 @@
 #include "alloc-util.h"
 #include "efi-string.h"
 #include "fuzz.h"
-#include "utf8.h"
 
 typedef struct {
         EFI_STATUS status;

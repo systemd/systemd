@@ -2,14 +2,11 @@
 #pragma once
 
 #include <linux/netlink.h>
+#include <sys/socket.h>
 
-#include "sd-netlink.h"
-
+#include "forward.h"
 #include "list.h"
 #include "netlink-types.h"
-#include "ordered-set.h"
-#include "prioq.h"
-#include "time-util.h"
 
 #define NETLINK_DEFAULT_TIMEOUT_USEC ((usec_t) (25 * USEC_PER_SEC))
 
@@ -138,10 +135,7 @@ int message_new_full(
 int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type, uint16_t flags);
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
 
-static inline uint32_t message_get_serial(sd_netlink_message *m) {
-        assert(m);
-        return ASSERT_PTR(m->hdr)->nlmsg_seq;
-}
+uint32_t message_get_serial(sd_netlink_message *m);
 
 void message_seal(sd_netlink_message *m);
 

@@ -1,16 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
 #include "gpt.h"
-#include "hashmap.h"
-#include "macro.h"
-
-typedef struct Resource Resource;
-typedef struct Instance Instance;
+#include "sysupdate-forward.h"
 
 typedef enum ResourceType {
         RESOURCE_URL_FILE,
@@ -76,7 +68,7 @@ typedef enum PathRelativeTo {
         _PATH_RELATIVE_TO_INVALID = -EINVAL,
 } PathRelativeTo;
 
-struct Resource {
+typedef struct Resource {
         ResourceType type;
 
         /* Where to look for instances, and what to match precisely */
@@ -93,7 +85,7 @@ struct Resource {
 
         /* If this is a partition resource (RESOURCE_PARTITION), then how many partition slots are currently unassigned, that we can use */
         size_t n_empty;
-};
+} Resource;
 
 void resource_destroy(Resource *rr);
 

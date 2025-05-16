@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-
 #include "cgroup.h"
 #include "cgroup-util.h"
-#include "macro.h"
 #include "manager.h"
 #include "rm-rf.h"
-#include "string-util.h"
 #include "tests.h"
 #include "unit.h"
 

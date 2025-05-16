@@ -3,11 +3,13 @@
 #include <linux/if.h>
 #include <unistd.h>
 
+#include "sd-netlink.h"
 #include "sd-network.h"
 
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "env-file.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -22,7 +24,9 @@
 #include "resolved-dns-server.h"
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
+#include "resolved-manager.h"
 #include "resolved-mdns.h"
+#include "set.h"
 #include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"

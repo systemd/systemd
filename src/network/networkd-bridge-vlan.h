@@ -5,12 +5,7 @@
   Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
+#include "networkd-forward.h"
 #include "vlan-util.h"
 
 #define BRIDGE_VLAN_BITMAP_MAX 4096
@@ -19,9 +14,6 @@
 #define BRIDGE_VLAN_KEEP_PVID   UINT16_MAX
 #define BRIDGE_VLAN_REMOVE_PVID (UINT16_MAX - 1)
 assert_cc(BRIDGE_VLAN_REMOVE_PVID > VLANID_MAX);
-
-typedef struct Link Link;
-typedef struct Network Network;
 
 void network_adjust_bridge_vlan(Network *network);
 

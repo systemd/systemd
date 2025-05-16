@@ -3,14 +3,17 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
+#include "sd-dhcp6-option.h"
 
 #include "alloc-util.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
+#include "dns-resolver-internal.h"
 #include "network-common.h"
+#include "set.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
 

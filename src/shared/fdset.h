@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "hashmap.h"
-#include "macro.h"
-#include "set.h"
-
-typedef struct FDSet FDSet;
+#include "forward.h"
+#include "iterator.h"
 
 FDSet* fdset_new(void);
 FDSet* fdset_free(FDSet *s);

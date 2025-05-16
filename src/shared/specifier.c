@@ -1,26 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdlib.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
 #include "chase.h"
-#include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
-#include "macro.h"
 #include "os-util.h"
-#include "path-lookup.h"
 #include "path-util.h"
+#include "runtime-scope.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
@@ -426,6 +421,10 @@ int specifier_var_tmp_dir(char specifier, const void *data, const char *root, co
         }
 
         return strdup_to(ret, p);
+}
+
+char* specifier_escape(const char *string) {
+        return strreplace(string, "%", "%%");
 }
 
 int specifier_escape_strv(char **l, char ***ret) {

@@ -13,9 +13,8 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "utf8.h"
-
-#if ENABLE_EFI
 
 #define LOAD_OPTION_ACTIVE            0x00000001
 #define MEDIA_DEVICE_PATH                   0x04
@@ -65,41 +64,7 @@ struct device_path device_path__contents;
 struct device_path__packed device_path__contents _packed_;
 assert_cc(sizeof(struct device_path) == sizeof(struct device_path__packed));
 
-int efi_reboot_to_firmware_supported(void) {
-        _cleanup_free_ void *v = NULL;
-        static int cache = -1;
-        uint64_t b;
-        size_t s;
-        int r;
-
-        if (cache > 0)
-                return 0;
-        if (cache == 0)
-                return -EOPNOTSUPP;
-
-        if (!is_efi_boot())
-                goto not_supported;
-
-        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("OsIndicationsSupported"), NULL, &v, &s);
-        if (r == -ENOENT)
-                goto not_supported; /* variable doesn't exist? it's not supported then */
-        if (r < 0)
-                return r;
-        if (s != sizeof(uint64_t))
-                return -EINVAL;
-
-        b = *(uint64_t*) v;
-        if (!(b & EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
-                goto not_supported; /* bit unset? it's not supported then */
-
-        cache = 1;
-        return 0;
-
-not_supported:
-        cache = 0;
-        return -EOPNOTSUPP;
-}
-
+#if ENABLE_EFI
 static int get_os_indications(uint64_t *ret) {
         static struct stat cache_stat = {};
         _cleanup_free_ void *v = NULL;
@@ -150,34 +115,6 @@ static int get_os_indications(uint64_t *ret) {
         return 0;
 }
 
-int efi_get_reboot_to_firmware(void) {
-        int r;
-        uint64_t b;
-
-        r = get_os_indications(&b);
-        if (r < 0)
-                return r;
-
-        return !!(b & EFI_OS_INDICATIONS_BOOT_TO_FW_UI);
-}
-
-int efi_set_reboot_to_firmware(bool value) {
-        int r;
-        uint64_t b, b_new;
-
-        r = get_os_indications(&b);
-        if (r < 0)
-                return r;
-
-        b_new = UPDATE_FLAG(b, EFI_OS_INDICATIONS_BOOT_TO_FW_UI, value);
-
-        /* Avoid writing to efi vars store if we can due to firmware bugs. */
-        if (b != b_new)
-                return efi_set_variable(EFI_GLOBAL_VARIABLE_STR("OsIndications"), &b_new, sizeof(uint64_t));
-
-        return 0;
-}
-
 static ssize_t utf16_size(const uint16_t *s, size_t buf_len_bytes) {
         size_t l = 0;
 
@@ -192,13 +129,121 @@ static ssize_t utf16_size(const uint16_t *s, size_t buf_len_bytes) {
         return -EINVAL; /* The terminator was not found */
 }
 
+static void to_utf16(uint16_t *dest, const char *src) {
+        int i;
+
+        for (i = 0; src[i] != '\0'; i++)
+                dest[i] = src[i];
+        dest[i] = '\0';
+}
+
+static uint16_t *tilt_slashes(uint16_t *s) {
+        for (uint16_t *p = s; *p; p++)
+                if (*p == '/')
+                        *p = '\\';
+
+        return s;
+}
+
+static int boot_id_hex(const char s[static 4]) {
+        int id = 0;
+
+        assert(s);
+
+        for (int i = 0; i < 4; i++)
+                if (s[i] >= '0' && s[i] <= '9')
+                        id |= (s[i] - '0') << (3 - i) * 4;
+                else if (s[i] >= 'A' && s[i] <= 'F')
+                        id |= (s[i] - 'A' + 10) << (3 - i) * 4;
+                else
+                        return -EINVAL;
+
+        return id;
+}
+#endif
+
+int efi_reboot_to_firmware_supported(void) {
+#if ENABLE_EFI
+        _cleanup_free_ void *v = NULL;
+        static int cache = -1;
+        uint64_t b;
+        size_t s;
+        int r;
+
+        if (cache > 0)
+                return 0;
+        if (cache == 0)
+                return -EOPNOTSUPP;
+
+        if (!is_efi_boot())
+                goto not_supported;
+
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("OsIndicationsSupported"), NULL, &v, &s);
+        if (r == -ENOENT)
+                goto not_supported; /* variable doesn't exist? it's not supported then */
+        if (r < 0)
+                return r;
+        if (s != sizeof(uint64_t))
+                return -EINVAL;
+
+        b = *(uint64_t*) v;
+        if (!(b & EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
+                goto not_supported; /* bit unset? it's not supported then */
+
+        cache = 1;
+        return 0;
+
+not_supported:
+        cache = 0;
+        return -EOPNOTSUPP;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int efi_get_reboot_to_firmware(void) {
+#if ENABLE_EFI
+        int r;
+        uint64_t b;
+
+        r = get_os_indications(&b);
+        if (r < 0)
+                return r;
+
+        return !!(b & EFI_OS_INDICATIONS_BOOT_TO_FW_UI);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int efi_set_reboot_to_firmware(bool value) {
+#if ENABLE_EFI
+        int r;
+        uint64_t b, b_new;
+
+        r = get_os_indications(&b);
+        if (r < 0)
+                return r;
+
+        b_new = UPDATE_FLAG(b, EFI_OS_INDICATIONS_BOOT_TO_FW_UI, value);
+
+        /* Avoid writing to efi vars store if we can due to firmware bugs. */
+        if (b != b_new)
+                return efi_set_variable(EFI_GLOBAL_VARIABLE_STR("OsIndications"), &b_new, sizeof(uint64_t));
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 int efi_get_boot_option(
                 uint16_t id,
                 char **ret_title,
                 sd_id128_t *ret_part_uuid,
                 char **ret_path,
                 bool *ret_active) {
-
+#if ENABLE_EFI
         char variable[STRLEN(EFI_GLOBAL_VARIABLE_STR("Boot")) + 4 + 1];
         _cleanup_free_ uint8_t *buf = NULL;
         size_t l;
@@ -293,22 +338,9 @@ int efi_get_boot_option(
                 *ret_active = header->attr & LOAD_OPTION_ACTIVE;
 
         return 0;
-}
-
-static void to_utf16(uint16_t *dest, const char *src) {
-        int i;
-
-        for (i = 0; src[i] != '\0'; i++)
-                dest[i] = src[i];
-        dest[i] = '\0';
-}
-
-static uint16_t *tilt_slashes(uint16_t *s) {
-        for (uint16_t *p = s; *p; p++)
-                if (*p == '/')
-                        *p = '\\';
-
-        return s;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_add_boot_option(
@@ -319,7 +351,7 @@ int efi_add_boot_option(
                 uint64_t psize,
                 sd_id128_t part_uuid,
                 const char *path) {
-
+#if ENABLE_EFI
         size_t size, title_len, path_len;
         _cleanup_free_ char *buf = NULL;
         struct boot_option *option;
@@ -378,9 +410,13 @@ int efi_add_boot_option(
 
         xsprintf(variable, EFI_GLOBAL_VARIABLE_STR("Boot%04X"), id);
         return efi_set_variable(variable, buf, size);
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_remove_boot_option(uint16_t id) {
+#if ENABLE_EFI
         char variable[STRLEN(EFI_GLOBAL_VARIABLE_STR("Boot")) + 4 + 1];
 
         if (!is_efi_boot())
@@ -388,9 +424,13 @@ int efi_remove_boot_option(uint16_t id) {
 
         xsprintf(variable, EFI_GLOBAL_VARIABLE_STR("Boot%04X"), id);
         return efi_set_variable(variable, NULL, 0);
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_get_boot_order(uint16_t **ret_order) {
+#if ENABLE_EFI
         _cleanup_free_ void *buf = NULL;
         size_t l;
         int r;
@@ -413,33 +453,24 @@ int efi_get_boot_order(uint16_t **ret_order) {
 
         *ret_order = TAKE_PTR(buf);
         return (int) (l / sizeof(uint16_t));
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_set_boot_order(const uint16_t *order, size_t n) {
-
+#if ENABLE_EFI
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
         return efi_set_variable(EFI_GLOBAL_VARIABLE_STR("BootOrder"), order, n * sizeof(uint16_t));
-}
-
-static int boot_id_hex(const char s[static 4]) {
-        int id = 0;
-
-        assert(s);
-
-        for (int i = 0; i < 4; i++)
-                if (s[i] >= '0' && s[i] <= '9')
-                        id |= (s[i] - '0') << (3 - i) * 4;
-                else if (s[i] >= 'A' && s[i] <= 'F')
-                        id |= (s[i] - 'A' + 10) << (3 - i) * 4;
-                else
-                        return -EINVAL;
-
-        return id;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int efi_get_boot_options(uint16_t **ret_options) {
+#if ENABLE_EFI
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ uint16_t *list = NULL;
         int count = 0;
@@ -480,9 +511,13 @@ int efi_get_boot_options(uint16_t **ret_options) {
         *ret_options = TAKE_PTR(list);
 
         return count;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 bool efi_has_tpm2(void) {
+#if ENABLE_EFI
         static int cache = -1;
         int r;
 
@@ -521,9 +556,10 @@ bool efi_has_tpm2(void) {
                   log_debug_errno(errno, "Unable to test whether /sys/kernel/security/tpm0/binary_bios_measurements exists, assuming it doesn't: %m");
 
         return (cache = false);
-}
-
+#else
+        return -EOPNOTSUPP;
 #endif
+}
 
 sd_id128_t efi_guid_to_id128(const void *guid) {
         const EFI_GUID *uuid = ASSERT_PTR(guid); /* cast is safe, because struct efi_guid is packed */

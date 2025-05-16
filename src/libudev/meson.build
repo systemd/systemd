@@ -11,6 +11,8 @@ libudev_sources = files(
         'libudev.c',
 )
 
+sources += libudev_sources
+
 ############################################################
 
 libudev_includes = [includes, include_directories('.')]

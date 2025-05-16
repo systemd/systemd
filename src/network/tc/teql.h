@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
+#include "forward.h"
 #include "qdisc.h"
 
 typedef struct TrivialLinkEqualizer {

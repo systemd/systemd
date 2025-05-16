@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <sys/file.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
 
@@ -15,14 +17,15 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "label-util.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "siphash24.h"
 #include "smack-util.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "udev-node.h"

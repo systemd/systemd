@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "nulstr-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 

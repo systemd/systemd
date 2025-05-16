@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stddef.h>
-#include <sys/socket.h>
-
-typedef struct Manager Manager;
+#include "journald-forward.h"
 
 int manager_open_dev_kmsg(Manager *m);
 int manager_flush_dev_kmsg(Manager *m);

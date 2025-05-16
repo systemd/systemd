@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "device-path-util.h"
-#include "efivars.h"
+#include "efi-efivars.h"
 #include "export-vars.h"
 #include "part-discovery.h"
 #include "url-discovery.h"

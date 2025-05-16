@@ -7,14 +7,9 @@
  * Copyright (C) 2000 Red Hat, Inc.
  */
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdlib.h>
-
 #include "alloc-util.h"
 #include "gunicode.h"
 #include "hexdecoct.h"
-#include "macro.h"
 #include "string-util.h"
 #include "utf8.h"
 

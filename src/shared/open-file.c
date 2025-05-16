@@ -132,6 +132,10 @@ OpenFile* open_file_free(OpenFile *of) {
         return mfree(of);
 }
 
+void open_file_free_many(OpenFile **head) {
+        LIST_CLEAR(open_files, *ASSERT_PTR(head), open_file_free);
+}
+
 static const char * const open_file_flags_table[_OPENFILE_MAX] = {
         [OPENFILE_READ_ONLY] = "read-only",
         [OPENFILE_APPEND]    = "append",

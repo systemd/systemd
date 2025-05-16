@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <limits.h>
+#include "forward.h"
 
 #if defined(__FreeBSD_kernel__)
 #  define INIT_FIFO  "/etc/.initctl"

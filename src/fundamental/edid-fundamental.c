@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if !SD_BOOT
+#include <endian.h>
+#endif
+
 #include "edid-fundamental.h"
 #include "efivars-fundamental.h"
 

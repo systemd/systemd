@@ -5,18 +5,11 @@
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 
-#include "hashmap.h"
 #include "in-addr-util.h"
-#include "macro.h"
+#include "memory-util.h"
 #include "resolved-def.h"
-#include "resolved-dns-answer.h"
+#include "resolved-forward.h"
 #include "sparse-endian.h"
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsPacket DnsPacket;
-typedef struct DnsQuestion DnsQuestion;
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
 
 typedef enum DnsProtocol {
         DNS_PROTOCOL_DNS,
@@ -58,7 +51,7 @@ assert_cc(sizeof(DnsPacketHeader) == 12);
 /* With EDNS0 we can use larger packets, default to 1232, which is what is commonly used */
 #define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 1232u
 
-struct DnsPacket {
+typedef struct DnsPacket {
         unsigned n_ref;
         DnsProtocol protocol;
         size_t size, allocated, rindex, max_size, fragsize;
@@ -88,7 +81,7 @@ struct DnsPacket {
         bool canonical_form;
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-};
+} DnsPacket;
 
 static inline uint8_t* DNS_PACKET_DATA(const DnsPacket *p) {
         if (_unlikely_(!p))

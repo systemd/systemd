@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "cgroup.h"
+#include "core-forward.h"
+#include "execute.h"
 #include "kill.h"
 #include "pidref.h"
 #include "unit.h"

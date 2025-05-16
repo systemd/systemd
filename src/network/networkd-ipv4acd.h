@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-typedef struct Address Address;
-typedef struct Link Link;
+#include "networkd-forward.h"
 
 bool link_ipv4acd_supported(Link *link);
 bool link_ipv4acd_enabled(Link *link);

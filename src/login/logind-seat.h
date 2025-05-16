@@ -1,19 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-device.h"
-
 #include "list.h"
-#include "memory-util.h"
-#include "string-util.h"
-#include "time-util.h"
+#include "logind-forward.h"
 
-typedef struct Device Device;
-typedef struct Manager Manager;
-typedef struct Seat Seat;
-typedef struct Session Session;
-
-struct Seat {
+typedef struct Seat {
         Manager *manager;
         char *id;
 
@@ -33,7 +24,7 @@ struct Seat {
         bool started:1;
 
         LIST_FIELDS(Seat, gc_queue);
-};
+} Seat;
 
 int seat_new(Manager *m, const char *id, Seat **ret);
 Seat* seat_free(Seat *s);
@@ -74,11 +65,5 @@ bool seat_may_gc(Seat *s, bool drop_not_started);
 void seat_add_to_gc_queue(Seat *s);
 
 bool seat_name_is_valid(const char *name);
-
-static inline bool SEAT_IS_SELF(const char *name) {
-        return isempty(name) || streq(name, "self");
-}
-
-static inline bool SEAT_IS_AUTO(const char *name) {
-        return streq_ptr(name, "auto");
-}
+bool seat_is_self(const char *name);
+bool seat_is_auto(const char *name);

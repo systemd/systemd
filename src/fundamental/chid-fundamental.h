@@ -9,7 +9,6 @@
 #endif
 
 #include "efi-fundamental.h"
-#include "string-util-fundamental.h"
 
 #define CHID_TYPES_MAX 18
 /* Any chids starting from EXTRA_CHID_BASE are non-standard and are subject to change and renumeration at any time */

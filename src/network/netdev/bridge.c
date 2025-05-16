@@ -5,10 +5,14 @@
 #include <net/if.h>
 #include <netinet/in.h>
 
+#include "sd-netlink.h"
+
 #include "bridge.h"
+#include "conf-parser.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "vlan-util.h"
 
 assert_cc((int) MULTICAST_ROUTER_NONE            == (int) MDB_RTR_TYPE_DISABLED);

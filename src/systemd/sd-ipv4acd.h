@@ -18,14 +18,16 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <net/ethernet.h>
-#include <netinet/in.h>
 #include <stdbool.h>
 
 #include "_sd-common.h"
-#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct ether_addr;
+struct in_addr;
+
+typedef struct sd_event sd_event;
 
 enum {
         SD_IPV4ACD_EVENT_STOP           = 0,

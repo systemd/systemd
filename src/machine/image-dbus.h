@@ -2,6 +2,7 @@
 #pragma once
 
 #include "bus-object.h"
+#include "machine-forward.h"
 
 extern const BusObjectImplementation image_object;
 

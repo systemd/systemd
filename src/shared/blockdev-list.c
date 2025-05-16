@@ -6,7 +6,7 @@
 #include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "device-util.h"
-#include "macro.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 

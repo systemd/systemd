@@ -51,6 +51,8 @@ shared_sources = files(
         'coredump-util.c',
         'cpu-set-util.c',
         'creds-util.c',
+        'cryptsetup-fido2.c',
+        'cryptsetup-tpm2.c',
         'cryptsetup-util.c',
         'daemon-util.c',
         'data-fd-util.c',
@@ -259,14 +261,6 @@ if conf.get('HAVE_PAM') == 1
         shared_sources += files('pam-util.c')
 endif
 
-if conf.get('HAVE_LIBFIDO2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
-        shared_sources += files('cryptsetup-fido2.c')
-endif
-
-if conf.get('HAVE_TPM2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
-        shared_sources += files('cryptsetup-tpm2.c')
-endif
-
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         'ip-protocol-list.txt',
@@ -317,6 +311,7 @@ ethtool_link_mode_h = custom_target(
 
 generated_sources += ethtool_link_mode_h
 shared_sources += ethtool_link_mode_h
+sources += shared_sources
 
 fname = 'ethtool-link-mode.xml'
 ethtool_link_mode_xml = custom_target(

@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "efi-string.h"
-#include "efivars.h"
-#include "proto/device-path.h"
 #include "smbios.h"
-#include "string-util-fundamental.h"
 #include "util.h"
 
 #define SMBIOS_TABLE_GUID \

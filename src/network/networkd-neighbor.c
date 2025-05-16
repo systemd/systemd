@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
@@ -8,7 +12,11 @@
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
+#include "ordered-set.h"
 #include "set.h"
+#include "siphash24.h"
+#include "socket-util.h"
+#include "string-util.h"
 
 static Neighbor* neighbor_detach_impl(Neighbor *neighbor) {
         assert(neighbor);

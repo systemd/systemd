@@ -2,7 +2,6 @@
 
 #include <pwd.h>
 #include <stdlib.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -15,11 +14,9 @@
 #include "nss-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "user-util.h"
 
 static size_t arg_bufsize = 1024;
 

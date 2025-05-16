@@ -10,11 +10,7 @@
  * The underlying algorithm used in this implementation is a Heap.
  */
 
-#include <errno.h>
-#include <stdlib.h>
-
 #include "alloc-util.h"
-#include "hashmap.h"
 #include "prioq.h"
 
 struct prioq_item {

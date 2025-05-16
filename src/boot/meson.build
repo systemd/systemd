@@ -294,13 +294,13 @@ libefi_sources = files(
         'devicetree.c',
         'drivers.c',
         'edid.c',
+        'efi-efivars.c',
         'efi-firmware.c',
+        'efi-log.c',
         'efi-string.c',
-        'efivars.c',
         'export-vars.c',
         'graphics.c',
         'initrd.c',
-        'log.c',
         'measure.c',
         'part-discovery.c',
         'pe.c',
@@ -343,6 +343,8 @@ endif
 if host_machine.cpu_family() in ['aarch64', 'arm', 'x86_64', 'x86']
         systemd_boot_sources += files('bcd.c')
 endif
+
+sources += libefi_sources + systemd_boot_sources + stub_sources + addon_sources
 
 boot_targets = []
 efi_elf_binaries = []

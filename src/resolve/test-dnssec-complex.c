@@ -13,7 +13,6 @@
 #include "resolved-def.h"
 #include "string-util.h"
 #include "tests.h"
-#include "time-util.h"
 
 static void prefix_random(const char *name, char **ret) {
         uint64_t i, u;

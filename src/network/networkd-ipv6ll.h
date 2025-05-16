@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
 #include <linux/if_link.h>
-#include <stdbool.h>
 
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
-#include "macro.h"
-
-typedef struct Link Link;
+#include "networkd-forward.h"
 
 typedef enum IPv6LinkLocalAddressGenMode {
        IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_EUI64          = IN6_ADDR_GEN_MODE_EUI64,

@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <poll.h>
 
 #include "libudev.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "device-monitor-private.h"
-#include "device-private.h"
-#include "device-util.h"
+#include "errno-util.h"
 #include "io-util.h"
 #include "libudev-device-internal.h"
 #include "string-util.h"

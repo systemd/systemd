@@ -2,7 +2,6 @@
 
 #include "hexdecoct.h"
 #include "sha1-fundamental.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void sha1_process_string(const char *key, struct sha1_ctx *ctx) {

@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stddef.h>
-#include <stdint.h>
+#include <stdio.h>
 
-#include "assert-util.h"
-#include "env-util.h"
+#include "forward.h"
+
 #include "fileio.h"
 #include "log.h"
 

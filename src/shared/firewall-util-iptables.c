@@ -2,22 +2,19 @@
 
 #include <arpa/inet.h>
 #include <endian.h>
-#include <errno.h>
 #include <libiptc/libiptc.h>
 #include <linux/if.h>
 #include <linux/netfilter/nf_nat.h>
 #include <linux/netfilter/xt_addrtype.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <net/if.h>
-#include <stddef.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
-#include "firewall-util.h"
 #include "firewall-util-private.h"
 #include "in-addr-util.h"
-#include "macro.h"
+#include "log.h"
 #include "socket-util.h"
 
 static DLSYM_PROTOTYPE(iptc_check_entry) = NULL;

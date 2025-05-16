@@ -2,8 +2,12 @@
 
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "hash-funcs.h"
 #include "hostname-util.h"
 #include "in-addr-prefix-util.h"
+#include "log.h"
+#include "set.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 /* 0.0.0.0/0 */

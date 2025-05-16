@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <pwd.h>
 #include <sys/file.h>
+#include <unistd.h>
+#include "efivars.h"
+#include "time-util.h"
 
 #if HAVE_OPENSSL
 #include <openssl/err.h>
@@ -12,9 +16,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
-#include "capability-util.h"
 #include "chattr-util.h"
-#include "constants.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "efi-api.h"
@@ -37,6 +39,7 @@
 #include "recurse-dir.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
 #include "user-util.h"

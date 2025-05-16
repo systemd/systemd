@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/netfilter/nf_tables.h>
 #include <locale.h>
 #include <math.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 
-#include "alloc-util.h"
-#include "errno-list.h"
-#include "log.h"
 #include "parse-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(parse_boolean) {

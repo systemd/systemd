@@ -4,11 +4,6 @@ systemctl_sources = files(
         'systemctl-add-dependency.c',
         'systemctl-cancel-job.c',
         'systemctl-clean-or-freeze.c',
-        'systemctl-compat-halt.c',
-        'systemctl-compat-runlevel.c',
-        'systemctl-compat-shutdown.c',
-        'systemctl-compat-telinit.c',
-        'systemctl-daemon-reload.c',
         'systemctl-edit.c',
         'systemctl-enable.c',
         'systemctl-is-active.c',
@@ -21,7 +16,7 @@ systemctl_sources = files(
         'systemctl-list-unit-files.c',
         'systemctl-list-units.c',
         'systemctl-log-setting.c',
-        'systemctl-logind.c',
+        'systemctl-main.c',
         'systemctl-mount.c',
         'systemctl-preset-all.c',
         'systemctl-reset-failed.c',
@@ -31,12 +26,20 @@ systemctl_sources = files(
         'systemctl-set-property.c',
         'systemctl-show.c',
         'systemctl-start-special.c',
-        'systemctl-start-unit.c',
         'systemctl-switch-root.c',
-        'systemctl-sysv-compat.c',
         'systemctl-trivial-method.c',
-        'systemctl-util.c',
         'systemctl-whoami.c',
+)
+systemctl_extract_sources = files(
+        'systemctl-compat-halt.c',
+        'systemctl-compat-runlevel.c',
+        'systemctl-compat-shutdown.c',
+        'systemctl-compat-telinit.c',
+        'systemctl-daemon-reload.c',
+        'systemctl-logind.c',
+        'systemctl-start-unit.c',
+        'systemctl-sysv-compat.c',
+        'systemctl-util.c',
         'systemctl.c',
 )
 
@@ -51,7 +54,8 @@ executables += [
         executable_template + {
                 'name' : 'systemctl',
                 'public' : true,
-                'sources' : systemctl_sources,
+                'sources' : systemctl_sources + systemctl_extract_sources,
+                'extract' : systemctl_extract_sources,
                 'link_with' : systemctl_link_with,
                 'dependencies' : [
                         libcap,
@@ -64,12 +68,9 @@ executables += [
                 'install_tag' : 'systemctl',
         },
         fuzz_template + {
-                'sources' : [
-                        files('fuzz-systemctl-parse-argv.c'),
-                        systemctl_sources,
-                ],
+                'sources' : files('fuzz-systemctl-parse-argv.c'),
+                'objects' : ['systemctl'],
                 'link_with' : systemctl_link_with,
-                'c_args' : ['-DFUZZ_SYSTEMCTL_PARSE_ARGV'],
         },
 ]
 

@@ -83,5 +83,5 @@ int verb_capabilities(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to output table: %m");
 
-        return EXIT_SUCCESS;
+        return 0;
 }

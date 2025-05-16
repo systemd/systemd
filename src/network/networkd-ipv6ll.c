@@ -3,6 +3,9 @@
 #include <linux/if.h>
 #include <linux/if_arp.h>
 
+#include "sd-netlink.h"
+
+#include "hashmap.h"
 #include "in-addr-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv6ll.h"
@@ -10,8 +13,10 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
 

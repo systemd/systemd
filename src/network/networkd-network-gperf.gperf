@@ -8,6 +8,9 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include <netinet/icmp6.h>
 #include <stddef.h>
 
+#include "sd-dhcp-lease.h"
+
+#include "condition.h"
 #include "conf-parser.h"
 #include "in-addr-prefix-util.h"
 #include "net-condition.h"

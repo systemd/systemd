@@ -3,10 +3,7 @@
   Copyright © 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
 ***/
 
-#include <errno.h>
 #include <sched.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/signalfd.h>
 #include <unistd.h>
@@ -24,6 +21,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "udev-event.h"
 #include "udev-rules.h"
 #include "udev-spawn.h"

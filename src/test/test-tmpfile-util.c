@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"

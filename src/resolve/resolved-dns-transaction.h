@@ -1,22 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
-#include "in-addr-util.h"
 #include "list.h"
 #include "resolved-def.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-server.h"
-#include "set.h"
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsPacket DnsPacket;
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsScope DnsScope;
-typedef struct DnsServer DnsServer;
-typedef struct DnsStream DnsStream;
-typedef struct DnsTransaction DnsTransaction;
+#include "resolved-forward.h"
 
 typedef enum DnsTransactionState {
         DNS_TRANSACTION_NULL,
@@ -52,7 +41,7 @@ typedef enum DnsTransactionSource {
         _DNS_TRANSACTION_SOURCE_INVALID = -EINVAL,
 } DnsTransactionSource;
 
-struct DnsTransaction {
+typedef struct DnsTransaction {
         DnsScope *scope;
 
         DnsResourceKey *key;         /* For regular lookups the RR key to look for */
@@ -149,7 +138,7 @@ struct DnsTransaction {
         LIST_FIELDS(DnsTransaction, transactions_by_key);
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-};
+} DnsTransaction;
 
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key, DnsPacket *bypass, uint64_t flags);
 DnsTransaction* dns_transaction_free(DnsTransaction *t);

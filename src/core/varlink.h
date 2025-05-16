@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Manager Manager;
-typedef struct Unit Unit;
+#include "core-forward.h"
 
 int manager_setup_varlink_server(Manager *m);
 

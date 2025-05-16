@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-time-data.h"
@@ -7,9 +9,13 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
-#include "memory-util.h"
+#include "bus-util.h"
+#include "log.h"
+#include "runtime-scope.h"
 #include "special.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
         assert(a);

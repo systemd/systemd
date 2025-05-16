@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <libcryptsetup.h>
 
 #include "alloc-util.h"
@@ -10,7 +9,7 @@
 #include "json-util.h"
 #include "luks2-tpm2.h"
 #include "memory-util.h"
-#include "strv.h"
+#include "string-util.h"
 #include "tpm2-util.h"
 #include "version.h"
 

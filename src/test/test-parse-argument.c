@@ -2,6 +2,8 @@
 
 #include <signal.h>
 
+#include "sd-json.h"
+
 #include "parse-argument.h"
 #include "stdio-util.h"
 #include "tests.h"

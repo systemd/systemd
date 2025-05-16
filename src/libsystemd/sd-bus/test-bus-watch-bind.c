@@ -17,6 +17,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int method_foobar(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {

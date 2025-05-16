@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "chattr-util.h"
 #include "errno-util.h"
@@ -11,7 +14,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "io-util.h"
-#include "journal-authenticate.h"
+#include "journal-def.h"
 #include "journalctl.h"
 #include "journalctl-authenticate.h"
 #include "log.h"
@@ -20,7 +23,9 @@
 #include "qrcode-util.h"
 #include "random-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 #if HAVE_GCRYPT

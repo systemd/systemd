@@ -1,15 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
 
-#include "fdisk-util.h"
-#include "macro.h"
-
-typedef struct PartitionInfo PartitionInfo;
+#include "sysupdate-forward.h"
 
 typedef enum PartitionChange {
         PARTITION_FLAGS           = 1 << 0,

@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
 #include "dns-type.h"
+#include "errno-util.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "json-util.h"
@@ -21,7 +24,9 @@
 #include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-varlink.h"
+#include "set.h"
 #include "socket-netlink.h"
+#include "string-util.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.service.h"

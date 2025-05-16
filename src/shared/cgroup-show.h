@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "sd-bus.h"
-
-#include "logs-show.h"
+#include "forward.h"
 #include "output-mode.h"
 
 int show_cgroup_by_path(const char *path, const char *prefix, size_t n_columns, OutputFlags flags);

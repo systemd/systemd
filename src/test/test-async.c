@@ -8,6 +8,7 @@
 #include "async.h"
 #include "fs-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "tests.h"

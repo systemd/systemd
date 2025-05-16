@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "os-util.h"
 
 /* Given an image name (for logging purposes), a set of os-release values from the host and a key-value pair

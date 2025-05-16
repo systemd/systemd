@@ -2,13 +2,9 @@
 
 #pragma once
 
-#include <inttypes.h>
+#include <netinet/in.h>
 
-#include "conf-parser.h"
-#include "in-addr-util.h"
-
-typedef struct Network Network;
-typedef struct ConfigSection ConfigSection;
+#include "networkd-forward.h"
 
 typedef struct DHCPStaticLease {
         Network *network;

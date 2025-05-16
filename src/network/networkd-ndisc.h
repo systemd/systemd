@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "dns-resolver-internal.h"
-#include "time-util.h"
+#include <netinet/in.h>
 
-typedef struct Address Address;
-typedef struct Link Link;
-typedef struct Network Network;
+#include "dns-resolver-internal.h"
+#include "networkd-forward.h"
+#include "memory-util.h"
 
 typedef enum IPv6AcceptRAStartDHCP6Client {
         IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO,

@@ -3,6 +3,7 @@
 #include <linux/if.h>
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink.h>
+#include <linux/netlink.h>
 
 #include "netlink-types-internal.h"
 

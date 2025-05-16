@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "time-util.h"
-
-typedef struct InstanceMetadata InstanceMetadata;
+#include "sysupdate-forward.h"
 
 enum {
         PATTERN_MATCH_NO,

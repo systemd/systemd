@@ -3,9 +3,9 @@
 #include "alloc-util.h"
 #include "cryptsetup-keyfile.h"
 #include "fileio.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "path-util.h"
-#include "string-util.h"
 #include "strv.h"
 
 int find_key_file(const char *key_file, char **search_path, const char *bindname, struct iovec *ret_key) {

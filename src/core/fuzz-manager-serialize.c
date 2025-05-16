@@ -2,12 +2,11 @@
 
 #include <stdio.h>
 
-#include "alloc-util.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fuzz.h"
 #include "manager.h"
 #include "manager-serialize.h"
-#include "service.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(manager_freep) Manager *m = NULL;

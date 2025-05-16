@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <in-addr-util.h>
-#include <stdbool.h>
-#include <sys/types.h>
+#include "forward.h"
 
 typedef enum ExecutionMode {
         MODE_RESOLVE_HOST,

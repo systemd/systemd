@@ -23,23 +23,18 @@ systemd_homed_extract_sources = files(
 )
 
 systemd_homework_sources = files(
+        'homework.c',
         'homework-blob.c',
         'homework-cifs.c',
         'homework-directory.c',
+        'homework-fido2.c',
         'homework-fscrypt.c',
         'homework-luks.c',
         'homework-mount.c',
         'homework-password-cache.c',
+        'homework-pkcs11.c',
         'homework-quota.c',
-        'homework.c',
 )
-
-if conf.get('HAVE_P11KIT') == 1
-        systemd_homework_sources += files('homework-pkcs11.c')
-endif
-if conf.get('HAVE_LIBFIDO2') == 1
-        systemd_homework_sources += files('homework-fido2.c')
-endif
 
 homed_gperf_c = custom_target(
         'homed_gperf.c',
@@ -67,7 +62,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-homed',
                 'dbus' : true,
-                'sources' : [systemd_homed_sources, systemd_homed_extract_sources],
+                'sources' : systemd_homed_sources + systemd_homed_extract_sources,
                 'include_directories' : includes +
                                         include_directories('.'),
                 'extract' : systemd_homed_extract_sources,

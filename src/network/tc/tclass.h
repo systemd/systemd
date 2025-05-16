@@ -3,11 +3,8 @@
 #pragma once
 
 #include "conf-parser.h"
+#include "networkd-forward.h"
 #include "networkd-util.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Network Network;
 
 typedef enum TClassKind {
         TCLASS_KIND_DRR,

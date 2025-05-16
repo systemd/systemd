@@ -4,8 +4,9 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
-#include "sd-varlink.h"
+#include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "fileio.h"
 #include "journalctl.h"
@@ -13,8 +14,12 @@
 #include "journalctl-show.h"
 #include "journalctl-util.h"
 #include "journalctl-varlink.h"
+#include "log.h"
 #include "logs-show.h"
+#include "pager.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 
 #define PROCESS_INOTIFY_INTERVAL 1024   /* Every 1024 messages processed */
 

@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/magic.h>
 #include <pthread.h>
-#include <stddef.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/statvfs.h>
 #include <sys/uio.h>
@@ -21,6 +20,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "gcrypt-util.h"
+#include "hashmap.h"
 #include "id128-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
@@ -29,19 +29,19 @@
 #include "log.h"
 #include "lookup3.h"
 #include "memory-util.h"
-#include "missing_fs.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"
 #include "ratelimit.h"
-#include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "siphash24.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
 

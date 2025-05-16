@@ -83,8 +83,11 @@ basic_sources = files(
         'process-util.c',
         'procfs-util.c',
         'psi-util.c',
+        'pthread-util.c',
         'random-util.c',
         'ratelimit.c',
+        'raw-clone.c',
+        'raw-reboot.c',
         'recurse-dir.c',
         'replace-var.c',
         'rlimit-util.c',
@@ -117,6 +120,8 @@ basic_sources = files(
         'virt.c',
         'xattr-util.c',
 )
+
+sources += basic_sources
 
 missing_audit_h = files('missing_audit.h')
 missing_socket_h = files('missing_socket.h')

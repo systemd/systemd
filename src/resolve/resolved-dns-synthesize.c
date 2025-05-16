@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
+#include "log.h"
 #include "missing_network.h"
 #include "resolved-def.h"
 #include "resolved-dns-answer.h"

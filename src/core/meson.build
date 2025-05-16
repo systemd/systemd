@@ -78,6 +78,8 @@ if conf.get('BPF_FRAMEWORK') == 1
                 restrict_ifaces_skel_h]
 endif
 
+sources += libcore_sources
+
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.in',

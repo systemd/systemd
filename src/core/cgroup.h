@@ -1,18 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-event.h"
-
-#include "bpf-program.h"
-#include "bpf-restrict-fs.h"
 #include "cgroup-util.h"
+#include "core-forward.h"
 #include "cpu-set-util.h"
 #include "firewall-util.h"
 #include "list.h"
-#include "pidref.h"
-#include "time-util.h"
 
 typedef struct CGroupTasksMax {
         /* If scale == 0, just use value; otherwise, value / scale.
@@ -28,15 +21,6 @@ static inline bool cgroup_tasks_max_isset(const CGroupTasksMax *tasks_max) {
 }
 
 uint64_t cgroup_tasks_max_resolve(const CGroupTasksMax *tasks_max);
-
-typedef struct CGroupContext CGroupContext;
-typedef struct CGroupDeviceAllow CGroupDeviceAllow;
-typedef struct CGroupIODeviceWeight CGroupIODeviceWeight;
-typedef struct CGroupIODeviceLimit CGroupIODeviceLimit;
-typedef struct CGroupIODeviceLatency CGroupIODeviceLatency;
-typedef struct CGroupBPFForeignProgram CGroupBPFForeignProgram;
-typedef struct CGroupSocketBindItem CGroupSocketBindItem;
-typedef struct CGroupRuntime CGroupRuntime;
 
 typedef enum CGroupDevicePolicy {
         /* When devices listed, will allow those, plus built-in ones, if none are listed will allow
@@ -72,43 +56,43 @@ typedef enum CGroupDevicePermissions {
         _CGROUP_DEVICE_PERMISSIONS_INVALID = -EINVAL,
 } CGroupDevicePermissions;
 
-struct CGroupDeviceAllow {
+typedef struct CGroupDeviceAllow {
         LIST_FIELDS(CGroupDeviceAllow, device_allow);
         char *path;
         CGroupDevicePermissions permissions;
-};
+} CGroupDeviceAllow;
 
-struct CGroupIODeviceWeight {
+typedef struct CGroupIODeviceWeight {
         LIST_FIELDS(CGroupIODeviceWeight, device_weights);
         char *path;
         uint64_t weight;
-};
+} CGroupIODeviceWeight;
 
-struct CGroupIODeviceLimit {
+typedef struct CGroupIODeviceLimit {
         LIST_FIELDS(CGroupIODeviceLimit, device_limits);
         char *path;
         uint64_t limits[_CGROUP_IO_LIMIT_TYPE_MAX];
-};
+} CGroupIODeviceLimit;
 
-struct CGroupIODeviceLatency {
+typedef struct CGroupIODeviceLatency {
         LIST_FIELDS(CGroupIODeviceLatency, device_latencies);
         char *path;
         usec_t target_usec;
-};
+} CGroupIODeviceLatency;
 
-struct CGroupBPFForeignProgram {
+typedef struct CGroupBPFForeignProgram {
         LIST_FIELDS(CGroupBPFForeignProgram, programs);
         uint32_t attach_type;
         char *bpffs_path;
-};
+} CGroupBPFForeignProgram;
 
-struct CGroupSocketBindItem {
+typedef struct CGroupSocketBindItem {
         LIST_FIELDS(CGroupSocketBindItem, socket_bind_items);
         int address_family;
         int ip_protocol;
         uint16_t nr_ports;
         uint16_t port_min;
-};
+} CGroupSocketBindItem;
 
 typedef enum CGroupPressureWatch {
         CGROUP_PRESSURE_WATCH_NO,       /* → tells the service payload explicitly not to watch for memory pressure */
@@ -122,7 +106,7 @@ typedef enum CGroupPressureWatch {
 /* The user-supplied cgroup-related configuration options. This remains mostly immutable while the service
  * manager is running (except for an occasional SetProperty() configuration change), outside of reload
  * cycles. */
-struct CGroupContext {
+typedef struct CGroupContext {
         bool io_accounting;
         bool memory_accounting;
         bool tasks_accounting;
@@ -222,7 +206,7 @@ struct CGroupContext {
         /* Forward coredumps for processes that crash within this cgroup.
          * Requires 'delegate' to also be true. */
         bool coredump_receive;
-};
+} CGroupContext;
 
 /* Used when querying IP accounting data */
 typedef enum CGroupIPAccountingMetric {
@@ -348,10 +332,6 @@ typedef struct CGroupRuntime {
         /* Whether we warned about clamping the CPU quota period */
         bool warned_clamping_cpu_quota_period:1;
 } CGroupRuntime;
-
-typedef struct Unit Unit;
-typedef struct Manager Manager;
-typedef enum ManagerState ManagerState;
 
 uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
 

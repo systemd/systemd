@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dns-type.h"
-#include "log.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
-#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "tests.h"
 

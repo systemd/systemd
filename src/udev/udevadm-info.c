@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -17,10 +16,8 @@
 #include "device-enumerator-private.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "devnum-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
-#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "glyph-util.h"
@@ -31,7 +28,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "udev-util.h"
 #include "udevadm.h"
 #include "udevadm-util.h"

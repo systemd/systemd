@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "time-util.h"
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
 #endif
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/blkpg.h>
 #include <linux/loop.h>
@@ -26,7 +26,6 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "loop-util.h"
-#include "missing_fs.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"

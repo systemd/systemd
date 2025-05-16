@@ -137,6 +137,8 @@ libsystemd_sources = files(
   + sd_login_sources + sd_json_sources + sd_varlink_sources \
   + sd_path_sources + sd_netlink_sources + sd_network_sources
 
+sources += libsystemd_sources
+
 libsystemd_c_args = ['-fvisibility=default']
 
 libsystemd_static = static_library(

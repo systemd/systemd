@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <curl/curl.h>
-#include <stdbool.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "journal-upload.h"
 #include "log.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "utf8.h"
 
 /**

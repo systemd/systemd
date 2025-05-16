@@ -5,6 +5,6 @@
  */
 #pragma once
 
-#include "efi.h"
+#include "efi-forward.h"
 
 EFI_STATUS graphics_mode(bool on);

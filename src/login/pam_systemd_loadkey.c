@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <security/_pam_macros.h>
 #include <security/pam_ext.h>
 #include <security/pam_misc.h>
@@ -8,8 +7,6 @@
 #include <security/pam_modutil.h>
 
 #include "keyring-util.h"
-#include "log.h"
-#include "macro.h"
 #include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "pam-util.h"

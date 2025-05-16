@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-typedef struct Unit Unit;
+#include "core-forward.h"
 
 /* Read service data supplementary drop-in directories */
 

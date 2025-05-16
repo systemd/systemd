@@ -1,15 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bitfield.h"
-#include "bpf-restrict-ifaces.h"
-#include "bpf-socket-bind.h"
-#include "bus-util.h"
+#include "cgroup.h"
+#include "condition.h"
 #include "dbus.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "parse-util.h"
 #include "serialize.h"
-#include "string-table.h"
+#include "set.h"
+#include "string-util.h"
+#include "strv.h"
 #include "unit.h"
 #include "unit-serialize.h"
 #include "user-util.h"
@@ -677,7 +683,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tMerged into: %s\n",
                         prefix, u->merged_into->id);
         else if (u->load_state == UNIT_ERROR) {
-                errno = abs(u->load_error);
+                errno = ABS(u->load_error);
                 fprintf(f, "%s\tLoad Error Code: %m\n", prefix);
         }
 

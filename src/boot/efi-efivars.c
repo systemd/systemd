@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "efi-efivars.h"
 #include "efi-string.h"
-#include "efivars.h"
 #include "ticks.h"
 #include "util.h"
 
