@@ -48,7 +48,7 @@ int close_nointr(int fd) {
          * http://utcc.utoronto.ca/~cks/space/blog/unix/CloseEINTR
          * https://sites.google.com/site/michaelsafyan/software-engineering/checkforeintrwheninvokingclosethinkagain
          */
-        if (errno == EINTR)
+        if (IN_SET(errno, EINTR, EINPROGRESS))
                 return 0;
 
         return -errno;
