@@ -55,7 +55,6 @@ struct ObjectHeader {
         uint8_t flags;
         uint8_t reserved[6];
         le64_t size;
-        uint8_t payload[];
 } _packed_;
 
 #define DataObject__contents {                                          \
