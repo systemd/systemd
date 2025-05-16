@@ -102,18 +102,12 @@ assert_cc(sizeof(struct FieldObject) == sizeof(struct FieldObject__packed));
         le64_t xor_hash;                               \
         union {                                        \
                 struct {                               \
-                        dummy_t __empty__regular;      \
-                        struct {                       \
-                                le64_t object_offset;  \
-                                le64_t hash;           \
-                        } regular[];                   \
-                };                                     \
+                        le64_t object_offset;          \
+                        le64_t hash;                   \
+                } regular[0];                          \
                 struct {                               \
-                        dummy_t __empty_compact;       \
-                        struct {                       \
-                                le32_t object_offset;  \
-                        } compact[];                   \
-                };                                     \
+                        le32_t object_offset;          \
+                } compact[0];                          \
         } items;                                       \
 }
 
