@@ -131,12 +131,21 @@ static int delete_md(RaidDevice *m) {
         assert(m->path);
 
         fd = open(m->path, O_RDONLY|O_CLOEXEC|O_EXCL);
-        if (fd < 0)
-                return -errno;
+        if (fd < 0) {
+                if (ERRNO_IS_DEVICE_ABSENT(errno)) {
+                        log_debug_errno(errno, "Tried to open MD device '%s', but device disappeared by now, ignoring: %m", m->path);
+                        return 0;
+                }
+
+                return log_debug_errno(errno, "Failed to open MD device '%s': %m", m->path);
+        }
 
         (void) sync_with_progress(fd);
 
-        return RET_NERRNO(ioctl(fd, STOP_ARRAY, NULL));
+        if (ioctl(fd, STOP_ARRAY, NULL) < 0)
+                return log_debug_errno(errno, "Failed to issue STOP_ARRAY on MD device '%s': %m", m->path);
+
+        return 1;
 }
 
 static int md_points_list_detach(RaidDevice **head, bool *changed, bool last_try) {
@@ -164,8 +173,9 @@ static int md_points_list_detach(RaidDevice **head, bool *changed, bool last_try
                         n_failed++;
                         continue;
                 }
+                if (r > 0)
+                        *changed = true;
 
-                *changed = true;
                 raid_device_free(head, m);
         }
 
