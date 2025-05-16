@@ -158,6 +158,7 @@ DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagat
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat);
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_defer_trigger, socket_defer_trigger, SocketDeferTrigger);
 
 bool contains_instance_specifier_superset(const char *s) {
         const char *p, *q;
