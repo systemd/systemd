@@ -386,7 +386,7 @@ static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void
         /* Set a low priority on the idle event handler, so that we show any log messages first */
         r = sd_varlink_attach_event(vl, c->event, SD_EVENT_PRIORITY_IDLE);
         if (r < 0) {
-                log_warning_errno(r, "Failed to attach Varlink connectio to event loop: %m");
+                log_warning_errno(r, "Failed to attach Varlink connection to event loop: %m");
                 goto finish;
         }
 
