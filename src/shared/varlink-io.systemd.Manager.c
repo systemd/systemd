@@ -17,7 +17,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 /* The split between ManagerContext and ManagerRuntime follows the rule:
  * - Context is what cannot change once configuration is loaded. You can think about context settings as constants.
- * - Runtime is changable settings at runtime, in other words - variables. */
+ * - Runtime is changeable settings at runtime, in other words - variables. */
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ManagerContext,
