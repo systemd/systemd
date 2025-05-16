@@ -740,31 +740,31 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
                 r = parse_address_key(p, "guid", guid);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "path", &path);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "abstract", &abstract);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "uid", &uids);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "gid", &gids);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 skip_address_key(p);
@@ -835,25 +835,25 @@ static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
                 r = parse_address_key(p, "guid", guid);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "host", &host);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "port", &port);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "family", &family);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 skip_address_key(p);
@@ -871,7 +871,7 @@ static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
         r = getaddrinfo(host, port, &hints, &result);
         if (r == EAI_SYSTEM)
                 return -errno;
-        else if (r != 0)
+        if (r != 0)
                 return -EADDRNOTAVAIL;
 
         memcpy(&b->sockaddr, result->ai_addr, result->ai_addrlen);
@@ -899,13 +899,13 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
                 r = parse_address_key(p, "guid", guid);
                 if (r < 0)
                         goto fail;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "path", &path);
                 if (r < 0)
                         goto fail;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 if (startswith(*p, "argv")) {
@@ -989,19 +989,19 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                 r = parse_address_key(p, "guid", guid);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "machine", &machine);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 r = parse_address_key(p, "pid", &pid);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         continue;
 
                 skip_address_key(p);
@@ -1269,7 +1269,7 @@ _public_ int sd_bus_open_with_description(sd_bus **ret, const char *description)
         if (e) {
                 if (streq(e, "system"))
                         return sd_bus_open_system_with_description(ret, description);
-                else if (STR_IN_SET(e, "session", "user"))
+                if (STR_IN_SET(e, "session", "user"))
                         return sd_bus_open_user_with_description(ret, description);
         }
 
@@ -2086,10 +2086,10 @@ static int dispatch_wqueue(sd_bus *bus) {
                 r = bus_write_message(bus, bus->wqueue[0], &bus->windex);
                 if (r < 0)
                         return r;
-                else if (r == 0)
+                if (r == 0)
                         /* Didn't do anything this time */
                         return ret;
-                else if (bus->windex >= BUS_MESSAGE_SIZE(bus->wqueue[0])) {
+                if (bus->windex >= BUS_MESSAGE_SIZE(bus->wqueue[0])) {
                         /* Fully written. Let's drop the entry from
                          * the queue.
                          *
@@ -2954,12 +2954,11 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
                         return r;
 
                 r = sd_bus_message_append(reply, "s", SD_ID128_TO_STRING(id));
-        } else {
+        } else
                 r = sd_bus_message_new_method_errorf(
                                 m, &reply,
                                 SD_BUS_ERROR_UNKNOWN_METHOD,
                                  "Unknown method '%s' on interface '%s'.", m->member, m->interface);
-        }
         if (r < 0)
                 return r;
 
@@ -3138,9 +3137,8 @@ static int bus_exit_now(sd_bus *bus, sd_event *event) {
 
         if (event)
                 return sd_event_exit(event, EXIT_FAILURE);
-        else
-                exit(EXIT_FAILURE);
 
+        exit(EXIT_FAILURE);
         assert_not_reached();
 }
 
