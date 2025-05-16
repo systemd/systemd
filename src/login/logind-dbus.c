@@ -1994,6 +1994,28 @@ static int strdup_job(sd_bus_message *reply, char **ret) {
         return 0;
 }
 
+static void cleanup_wakeup_count(void) {
+        if (access("/run/systemd/system/wakeup_count", F_OK))
+                unlink("/run/systemd/system/wakeup_count");
+}
+
+static int save_wakeup_count(void) {
+        _cleanup_free_ char *buf = NULL;
+        int r;
+
+        r = read_full_virtual_file("/run/systemd/system/wakeup_count", &buf, NULL);
+        if (r < 0) {
+                cleanup_wakeup_count();
+                return log_debug_errno(r, "Unable to read wakeup count: %m");
+        }
+
+        r = write_string_file("/sys/power/wakeup_count", buf, WRITE_STRING_FILE_ATOMIC);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write wakeup count %m");
+
+        return 0;
+}
+
 static int execute_shutdown_or_sleep(
                 Manager *m,
                 const HandleActionData *a,
@@ -2008,6 +2030,8 @@ static int execute_shutdown_or_sleep(
 
         if (a->inhibit_what == INHIBIT_SHUTDOWN)
                 bus_manager_log_shutdown(m, a);
+
+        save_wakeup_count();
 
         r = bus_call_method(
                         m->bus,
@@ -4391,6 +4415,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 /* Tell people that they now may take a lock again */
                 (void) send_prepare_for(m, m->delayed_action, false);
 
+                cleanup_wakeup_count();
                 m->action_job = mfree(m->action_job);
                 m->delayed_action = NULL;
                 return 0;
