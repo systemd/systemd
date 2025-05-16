@@ -102,6 +102,10 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                         siginfo_t status;
 
                         if (siginfo) {
+                                /* si_pid is not filled on SIGBUS. */
+                                if (sig == SIGBUS)
+                                        siginfo->si_pid = 1;
+
                                 if (siginfo->si_pid == 0)
                                         log_struct(LOG_EMERG,
                                                    LOG_MESSAGE("Caught <%s>, from unknown sender process.", signal_to_string(sig)),
