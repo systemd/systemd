@@ -2412,12 +2412,11 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 if (s->max_connections_per_source > 0) {
                         r = socket_acquire_peer(s, cfd, &p);
-                        if (r < 0) {
-                                if (ERRNO_IS_DISCONNECT(r))
-                                        return;
+                        if (ERRNO_IS_NEG_DISCONNECT(r))
+                                return;
+                        if (r < 0)
                                 /* We didn't have enough resources to acquire peer information, let's fail. */
                                 goto fail;
-                        }
                         if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
