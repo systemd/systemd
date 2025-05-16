@@ -161,6 +161,8 @@ struct Socket {
 
         RateLimit trigger_limit;
         RateLimit poll_limit;
+
+        bool defer_trigger;
 };
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
