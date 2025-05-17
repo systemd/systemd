@@ -177,7 +177,7 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **ret, size_t *ret_size) {
+EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **ret_data, size_t *ret_size) {
         EFI_STATUS err;
 
         assert(vendor);
@@ -193,8 +193,8 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **r
         if (err != EFI_SUCCESS)
                 return err;
 
-        if (ret)
-                *ret = TAKE_PTR(buf);
+        if (ret_data)
+                *ret_data = TAKE_PTR(buf);
         if (ret_size)
                 *ret_size = size;
 
