@@ -26,6 +26,7 @@ typedef struct Manager Manager;
 struct DnsQueryCandidate {
         unsigned n_ref;
         int error_code;
+        uint64_t generation;
 
         DnsQuery *query;
         DnsScope *scope;
