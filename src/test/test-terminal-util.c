@@ -16,6 +16,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 #define LOREM_IPSUM "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor " \
@@ -175,7 +176,10 @@ TEST(get_default_background_color) {
         double red, green, blue;
         int r;
 
+        usec_t n = now(CLOCK_MONOTONIC);
         r = get_default_background_color(&red, &green, &blue);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
         if (r < 0)
                 log_notice_errno(r, "Can't get terminal default background color: %m");
         else
@@ -186,25 +190,31 @@ TEST(terminal_get_size_by_dsr) {
         unsigned rows, columns;
         int r;
 
+        usec_t n = now(CLOCK_MONOTONIC);
         r = terminal_get_size_by_dsr(STDIN_FILENO, STDOUT_FILENO, &rows, &columns);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
         if (r < 0)
-                log_notice_errno(r, "Can't get screen dimensions via DSR: %m");
-        else {
-                log_notice("terminal size via DSR: rows=%u columns=%u", rows, columns);
+                return (void) log_notice_errno(r, "Can't get screen dimensions via DSR: %m");
 
-                struct winsize ws = {};
+        log_notice("terminal size via DSR: rows=%u columns=%u", rows, columns);
 
-                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
-                        log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
-                else
-                        log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
-        }
+        struct winsize ws = {};
+
+        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
+                log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
+        else
+                log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
 }
 
 TEST(terminal_fix_size) {
         int r;
 
+        usec_t n = now(CLOCK_MONOTONIC);
+
         r = terminal_fix_size(STDIN_FILENO, STDOUT_FILENO);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
         if (r < 0)
                 log_warning_errno(r, "Failed to fix terminal size: %m");
         else if (r == 0)
@@ -222,7 +232,11 @@ TEST(terminal_get_terminfo_by_dcs) {
         if (fd < 0)
                 return (void) log_info_errno(fd, "Cannot reopen stdin in read-write mode: %m");
 
+        usec_t n = now(CLOCK_MONOTONIC);
+
         r = terminal_get_terminfo_by_dcs(fd, &name);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
         if (r < 0)
                 return (void) log_info_errno(r, "Can't get terminal terminfo via DCS: %m");
         log_info("terminal terminfo via DCS: %s, $TERM: %s", name, strnull(getenv("TERM")));
