@@ -448,11 +448,17 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                 return r;
 
         if (req->agent_info_option) {
-                size_t opt_full_length = *(req->agent_info_option + 1) + 2;
+                /* should not happen as we don't merge the relay agent information option. see
+                   dhcp_option_can_merge for reference */
+                if (req->agent_info_option_len > UINT8_MAX)
+                        return -EINVAL;
                 /* there must be space left for SD_DHCP_OPTION_END */
-                if (optoffset + opt_full_length < req->max_optlen) {
-                        memcpy(packet->dhcp.options + optoffset, req->agent_info_option, opt_full_length);
-                        optoffset += opt_full_length;
+                if (optoffset + req->agent_info_option_len + 2 < req->max_optlen) {
+                        packet->dhcp.options[optoffset] = SD_DHCP_OPTION_RELAY_AGENT_INFORMATION;
+                        packet->dhcp.options[optoffset + 1] = req->agent_info_option_len;
+                        memcpy(&packet->dhcp.options[optoffset + 2], req->agent_info_option,
+                               req->agent_info_option_len);
+                        optoffset += req->agent_info_option_len + 2;
                 }
         }
 
@@ -729,7 +735,7 @@ static int server_send_forcerenew(
                                     sizeof(DHCPMessage) + optoffset);
 }
 
-static int parse_request(uint8_t code, uint8_t len, const void *option, void *userdata) {
+static int parse_request(uint8_t code, size_t len, const void *option, void *userdata) {
         DHCPRequest *req = ASSERT_PTR(userdata);
         int r;
 
@@ -761,9 +767,13 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
 
                 break;
         case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION:
-                req->agent_info_option = (uint8_t*)option - 2;
-
+                free(req->agent_info_option);
+                req->agent_info_option = memdup(option, len);
+                if (!req->agent_info_option)
+                        return -ENOMEM;
+                req->agent_info_option_len = len;
                 break;
+
         case SD_DHCP_OPTION_HOST_NAME: {
                 _cleanup_free_ char *p = NULL;
 
@@ -775,7 +785,10 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
                 break;
         }
         case SD_DHCP_OPTION_PARAMETER_REQUEST_LIST:
-                req->parameter_request_list = option;
+                free(req->parameter_request_list);
+                req->parameter_request_list = memdup(option, len);
+                if (!req->parameter_request_list)
+                        return -ENOMEM;
                 req->parameter_request_list_len = len;
                 break;
 
@@ -792,6 +805,8 @@ static DHCPRequest* dhcp_request_free(DHCPRequest *req) {
                 return NULL;
 
         free(req->hostname);
+        free(req->agent_info_option);
+        free(req->parameter_request_list);
         return mfree(req);
 }
 
