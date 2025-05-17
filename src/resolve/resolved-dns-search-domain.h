@@ -7,6 +7,7 @@
 #include "macro.h"
 #include "memory-util.h"
 
+typedef struct DnsDelegate DnsDelegate;
 typedef struct DnsSearchDomain DnsSearchDomain;
 typedef struct Link Link;
 typedef struct Manager Manager;
@@ -14,6 +15,7 @@ typedef struct Manager Manager;
 typedef enum DnsSearchDomainType {
         DNS_SEARCH_DOMAIN_SYSTEM,
         DNS_SEARCH_DOMAIN_LINK,
+        DNS_SEARCH_DOMAIN_DELEGATE,
 } DnsSearchDomainType;
 
 struct DnsSearchDomain {
@@ -23,6 +25,7 @@ struct DnsSearchDomain {
 
         DnsSearchDomainType type;
         Link *link;
+        DnsDelegate *delegate;
 
         char *name;
 
@@ -38,6 +41,7 @@ int dns_search_domain_new(
                 DnsSearchDomain **ret,
                 DnsSearchDomainType type,
                 Link *link,
+                DnsDelegate *delegate,
                 const char *name);
 
 DnsSearchDomain* dns_search_domain_ref(DnsSearchDomain *d);

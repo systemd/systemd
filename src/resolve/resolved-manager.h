@@ -89,6 +89,8 @@ typedef struct Manager {
         LIST_HEAD(DnsScope, dns_scopes);
         DnsScope *unicast_scope;
 
+        Hashmap *delegates; /* id string → DnsDelegate objects */
+
         /* LLMNR */
         int llmnr_ipv4_udp_fd;
         int llmnr_ipv6_udp_fd;

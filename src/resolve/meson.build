@@ -13,6 +13,8 @@ systemd_resolved_extract_sources = files(
         'resolved-conf.c',
         'resolved-dns-answer.c',
         'resolved-dns-cache.c',
+        'resolved-dns-delegate.c',
+        'resolved-dns-delegate-bus.c',
         'resolved-dns-dnssec.c',
         'resolved-dns-packet.c',
         'resolved-dns-query.c',
@@ -90,8 +92,14 @@ resolved_dnssd_gperf_c = custom_target(
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-generated_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c]
-systemd_resolved_extract_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c]
+resolved_dns_delegate_gperf_c = custom_target(
+        'resolved_dns_delegate_gperf.c',
+        input : 'resolved-dns-delegate-gperf.gperf',
+        output : 'resolved-dns-delegate-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+generated_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
+systemd_resolved_extract_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
 
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         systemd_resolved_extract_sources += files(
