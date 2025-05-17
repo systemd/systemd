@@ -1377,17 +1377,17 @@ static int manager_setup_event(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
-        r = sd_event_add_post(e, /* ret_event_source = */ NULL, on_post, manager);
+        r = sd_event_add_post(e, /* ret = */ NULL, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
 
         /* Eventually, we probably want to do more here on memory pressure, for example, kill idle workers immediately */
-        r = sd_event_add_memory_pressure(e, /* ret_event_source= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
+        r = sd_event_add_memory_pressure(e, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
-        r = sd_event_add_signal(e, /* ret_event_source= */ NULL,
+        r = sd_event_add_signal(e, /* ret= */ NULL,
                                 (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate SIGRTMIN+18 event source, ignoring: %m");

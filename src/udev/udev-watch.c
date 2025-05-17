@@ -630,7 +630,7 @@ static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
+        r = sd_event_add_signal(e, /* ret = */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
         if (r < 0)
                 return r;
 
