@@ -25,6 +25,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
+#include "missing_magic.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
@@ -35,6 +36,8 @@
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
@@ -111,6 +114,7 @@ typedef struct MountEntry {
         LIST_HEAD(MountOptions, image_options_const);
         char **overlay_layers;
         VeritySettings verity;
+        ImageClass filter_class; /* Used for live updates to skip unapplicable images */
         bool idmapped;
         uid_t idmap_uid;
         gid_t idmap_gid;
@@ -500,6 +504,7 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
                         .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
                         .verity = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT),
+                        .filter_class = _IMAGE_CLASS_INVALID,
                 };
         }
 
@@ -597,6 +602,7 @@ static int append_extensions(
                         .mode = MOUNT_EXTENSION_IMAGE,
                         .has_prefix = true,
                         .verity = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT),
+                        .filter_class = _IMAGE_CLASS_INVALID,
                 };
         }
 
@@ -663,6 +669,7 @@ static int append_extensions(
                         .ignore = ignore_enoent,
                         .has_prefix = true,
                         .read_only = true,
+                        .filter_class = _IMAGE_CLASS_INVALID,
                 };
         }
 
@@ -1575,6 +1582,7 @@ static int mount_image(
 
         _cleanup_(extension_release_data_done) ExtensionReleaseData rdata = {};
         _cleanup_free_ char *extension_name = NULL;
+        ImageClass required_class = _IMAGE_CLASS_INVALID;
         int r;
 
         assert(m);
@@ -1595,6 +1603,8 @@ static int mount_image(
                         return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
                 if (isempty(rdata.os_release_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s'.", empty_to_root(root_directory));
+
+                required_class = m->filter_class;
         }
 
         r = verity_dissect_and_mount(
@@ -1605,6 +1615,7 @@ static int mount_image(
                         image_policy,
                         /* image_filter= */ NULL,
                         &rdata,
+                        required_class,
                         &m->verity,
                         /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
@@ -1620,6 +1631,10 @@ static int mount_image(
                                        strempty(rdata.os_release_sysext_level),
                                        rdata.os_release_confext_level ? image_class_info[IMAGE_CONFEXT].level_env_print : "",
                                        strempty(rdata.os_release_confext_level));
+        if (r == -ENOCSI) {
+                log_debug("Image %s does not match the expected class, ignoring", mount_entry_source(m));
+                return 0; /* Nothing to do, wrong class */
+        }
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
@@ -1670,7 +1685,7 @@ static int mount_overlay(const MountEntry *m) {
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
-        r = mount_nofollow_verbose(LOG_DEBUG, "overlay", mount_entry_path(m), "overlay", MS_RDONLY, options);
+        r = mount_nofollow_verbose(LOG_DEBUG, "systemd-extensions", mount_entry_path(m), "overlay", MS_RDONLY, options);
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r < 0)
@@ -1799,11 +1814,14 @@ static int apply_one_mount(
 
                 r = load_extension_release_pairs(
                                 mount_entry_source(m),
-                                IMAGE_SYSEXT,
+                                m->filter_class >= 0 ? m->filter_class : IMAGE_SYSEXT,
                                 extension_name,
                                 /* relax_extension_release_check= */ false,
                                 &extension_release);
                 if (r == -ENOENT) {
+                        if (m->filter_class >= 0)
+                                return 0; /* Nothing to do, wrong class */
+
                         r = load_extension_release_pairs(
                                         mount_entry_source(m),
                                         IMAGE_CONFEXT,
@@ -3289,6 +3307,518 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
                 return r;
 
         return 1;
+}
+
+static int is_extension_overlay(const char *path, int fd) {
+        _cleanup_free_ char *source = NULL;
+        _cleanup_close_ int dfd = -EBADF;
+        int r;
+
+        assert(path);
+
+        if (fd < 0) {
+                r = chase(path, /* root= */ NULL, CHASE_TRAIL_SLASH|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &dfd);
+                if (r < 0)
+                        return r;
+                fd = dfd;
+        }
+
+        r = is_mount_point_at(fd, /* filename= */ NULL, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether '%s' is a mount point: %m", path);
+        if (r == 0)
+                return 0;
+
+        r = fd_is_fs_type(fd, OVERLAYFS_SUPER_MAGIC);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if %s is an overlayfs: %m", path);
+        if (r == 0)
+                return 0;
+
+        /* Check the 'source' field of the mount on mount_path */
+        r = path_get_mount_info_at(fd, /* path= */ NULL, /* ret_fstype= */ NULL, /* ret_options= */ NULL, &source);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get mount info for %s: %m", path);
+        if (!streq_ptr(source, "systemd-extensions"))
+                return 0;
+
+        return 1;
+}
+
+static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        _cleanup_close_ int fs_fd = -EBADF;
+        pid_t pid;
+        int r;
+
+        assert(mount_path);
+        assert(ret_fd);
+
+        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pipe_fds);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+        /* Clone mount namespace here to unpeel without affecting live process */
+        r = safe_fork("(sd-ns-unpeel)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                _cleanup_close_ int dir_fd = -EBADF;
+
+                pipe_fds[0] = safe_close(pipe_fds[0]);
+
+                /* Opportunistically unmount any overlay at this path */
+                r = is_extension_overlay(mount_path, /* fd= */ -EBADF);
+                if (r < 0) {
+                        log_debug_errno(r, "Unable to determine whether '%s' is an extension overlay: %m", mount_path);
+                        _exit(EXIT_FAILURE);
+                }
+                if (r > 0) {
+                        r = umount_recursive(mount_path, MNT_DETACH);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+                        if (r == 0) /* no umounts done, possible if a previous reload deleted all extensions */
+                                log_debug("No overlay layer unmountable from %s", mount_path);
+                }
+
+                /* Now that /mount_path is exposed, get an FD for it and pass back */
+                dir_fd = open_tree(-EBADF, mount_path, AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLONE);
+                if (dir_fd < 0) {
+                        log_debug_errno(errno, "Failed to clone mount %s: %m", mount_path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = is_extension_overlay(mount_path, dir_fd);
+                if (r < 0) {
+                        log_debug_errno(r, "Unable to determine whether '%s' is an extension overlay after mounting: %m", mount_path);
+                        _exit(EXIT_FAILURE);
+                }
+                if (r > 0) {
+                        log_debug_errno(r, "'%s' is still an extension overlay after umounting: %m", mount_path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = send_one_fd(pipe_fds[1], dir_fd, 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send mount fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pipe_fds[1] = safe_close(pipe_fds[1]);
+
+        r = receive_one_fd(pipe_fds[0], 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to receive mount fd: %m");
+        fs_fd = r;
+
+        r = fd_is_fs_type(fs_fd, OVERLAYFS_SUPER_MAGIC);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine if unpeeled directory refers to overlayfs: %m");
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unpeeled mount is still an overlayfs, something is weird, refusing.");
+
+        *ret_fd = TAKE_FD(fs_fd);
+        return 0;
+}
+
+/* In target namespace, unmounts an existing overlayfs at mount_path (if one exists), grabs FD from the
+ * underlying directory, and sets up a new overlayfs mount. Coordinates with parent process over pair_fd:
+ * 1. Creates and sends new overlay fs fd to parent
+ * 2. Fake-unmounts overlay at mount_path to obtain underlying directory fd to build new overlay
+ * 3. Waits for parent to configure layers
+ * 4. Performs final mount at mount_path
+ *
+ * This is used by refresh_extensions_in_namespace() to peel back any existing overlays and reapply them.
+ */
+static int unpeel_mount_and_setup_overlay(int pair_fd, const char *mount_path) {
+        _cleanup_close_ int dir_unpeeled_fd = -EBADF, overlay_fs_fd = -EBADF, mount_fd = -EBADF;
+        int r;
+
+        assert(pair_fd >= 0);
+        assert(mount_path);
+
+        /* Create new OverlayFS and send to parent */
+        overlay_fs_fd = fsopen("overlay", FSOPEN_CLOEXEC);
+        if (overlay_fs_fd < 0)
+                return log_debug_errno(errno, "Failed to create overlay fs for %s: %m", mount_path);
+
+        r = send_one_fd(pair_fd, overlay_fs_fd, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send overlay fs fd to parent: %m");
+
+        /* Unpeel in cloned mount namespace to get underlying directory fd */
+        r = unpeel_get_fd(mount_path, &dir_unpeeled_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to unpeel mount %s: %m", mount_path);
+
+        /* Send the fd to the parent */
+        r = send_one_fd(pair_fd, dir_unpeeled_fd, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send %s fd to parent: %m", mount_path);
+
+        /* Wait for parent to signal overlay configuration completion */
+        log_debug("Waiting for configured overlay fs for %s", mount_path);
+        r = receive_one_fd(pair_fd, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to receive configured overlay: %m");
+
+        /* Create the mount */
+        mount_fd = fsmount(overlay_fs_fd, FSMOUNT_CLOEXEC, /* flags= */ 0);
+        if (mount_fd < 0)
+                return log_debug_errno(errno, "Failed to create overlay mount: %m");
+
+        /* Move mount to final location */
+        r = mount_exchange_graceful(mount_fd, mount_path, /* mount_beneath= */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to move overlay to %s: %m", mount_path);
+
+        return 0;
+}
+
+static int refresh_grandchild_proc(
+                const PidRef *target,
+                MountList *ml,
+                const char *overlay_prefix,
+                int pidns_fd,
+                int mntns_fd,
+                int root_fd,
+                int pipe_fd) {
+
+        int r;
+
+        assert(pidref_is_set(target));
+        assert(ml);
+        assert(overlay_prefix);
+        assert(pidns_fd >= 0);
+        assert(mntns_fd >= 0);
+        assert(root_fd >= 0);
+        assert(pipe_fd >= 0);
+
+        r = namespace_enter(pidns_fd, mntns_fd, /* netns_fd= */ -EBADF, /* userns_fd= */ -EBADF, root_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enter namespace: %m");
+
+        /* Handle each overlay mount path */
+        FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
+                if (m->mode != MOUNT_OVERLAY)
+                        continue;
+
+                /* path_startswith() truncates the slash from the output so use startswith() */
+                const char *mount_path = startswith(mount_entry_unprefixed_path(m), overlay_prefix);
+                if (!mount_path)
+                        mount_path = mount_entry_unprefixed_path(m);
+
+                /* If there are no extensions mounted for this overlay layer, instead of setting everything
+                 * up, the correct behavior is to unmount the existing overlay in the target namespace to
+                 * expose the original files. */
+                if (strv_isempty(m->overlay_layers)) {
+                        r = is_extension_overlay(mount_path, /* fd= */ -EBADF);
+                        if (r < 0)
+                                return log_debug_errno(r, "Unable to determine whether '%s' is an extension overlay: %m", mount_path);
+                        if (r == 0)
+                                continue;
+
+                        log_debug("No extensions for %s, undoing existing mount", mount_path);
+                        (void) umount_recursive(mount_path, MNT_DETACH);
+
+                        continue;
+                }
+
+                r = unpeel_mount_and_setup_overlay(pipe_fd, mount_path);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to setup overlay mount for %s: %m", mount_path);
+        }
+
+        return 0;
+}
+
+static int handle_mount_from_grandchild(
+                MountEntry *m,
+                const char *overlay_prefix,
+                int **fd_layers,
+                size_t *n_fd_layers,
+                int pipe_fd) {
+
+        _cleanup_free_ char *layers = NULL, *options = NULL, *hierarchy_path_moved_mount = NULL;
+        _cleanup_close_ int hierarchy_path_fd = -EBADF, overlay_fs_fd = -EBADF;
+        _cleanup_strv_free_ char **new_layers = NULL;
+        int r;
+
+        assert(m);
+        assert(overlay_prefix);
+        assert(fd_layers);
+        assert(n_fd_layers);
+        assert(pipe_fd >= 0);
+
+        if (m->mode != MOUNT_OVERLAY)
+                return 0;
+
+        const char *mount_path = path_startswith(mount_entry_unprefixed_path(m), overlay_prefix);
+        if (!mount_path)
+                mount_path = mount_entry_unprefixed_path(m);
+
+        /* If there are no extensions mounted for this overlay layer, we only need to
+        * unmount the existing overlay (this is handled in the grandchild process) and
+        * would skip the usual cooperative processing here.
+        */
+        if (strv_isempty(m->overlay_layers)) {
+                log_debug("No layers for %s, skip setting up overlay", mount_path);
+                return 0;
+        }
+
+        /* Receive the fds from grandchild */
+        overlay_fs_fd = receive_one_fd(pipe_fd, 0);
+        if (overlay_fs_fd < 0)
+                return log_debug_errno(overlay_fs_fd, "Failed to receive overlay fs fd from grandchild: %m");
+
+        hierarchy_path_fd = receive_one_fd(pipe_fd, 0);
+        if (hierarchy_path_fd < 0)
+                return log_debug_errno(hierarchy_path_fd, "Failed to receive fd from grandchild for %s: %m", mount_path);
+
+        /* move_mount so that it is visible on our end. */
+        hierarchy_path_moved_mount = path_join(overlay_prefix, mount_path);
+        if (!hierarchy_path_moved_mount)
+                return log_oom_debug();
+
+        (void) mkdir_p_label(hierarchy_path_moved_mount, 0555);
+        r = move_mount(hierarchy_path_fd, "", AT_FDCWD, hierarchy_path_moved_mount, MOVE_MOUNT_F_EMPTY_PATH);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to move mount for %s: %m", mount_path);
+
+        /* Turn all overlay layer directories into FD-based references */
+        if (!GREEDY_REALLOC(*fd_layers, *n_fd_layers + strv_length(m->overlay_layers)))
+                return log_oom_debug();
+
+        STRV_FOREACH(ol, m->overlay_layers) {
+                _cleanup_close_ int tree_fd = -EBADF;
+
+                tree_fd = open_tree(-EBADF, *ol, /* flags= */ 0);
+                if (tree_fd < 0)
+                        return log_debug_errno(errno, "Failed to open_tree overlay layer '%s': %m", *ol);
+
+                r = strv_extend(&new_layers, FORMAT_PROC_FD_PATH(tree_fd));
+                if (r < 0)
+                        return log_oom_debug();
+
+                *fd_layers[(*n_fd_layers)++] = TAKE_FD(tree_fd);
+        }
+        m->overlay_layers = strv_free(m->overlay_layers);
+        m->overlay_layers = TAKE_PTR(new_layers);
+
+        layers = strv_join(m->overlay_layers, ":");
+        if (!layers)
+                return log_oom_debug();
+
+        /* Append the underlying hierarchy path as the last lowerdir */
+        options = strjoin(layers, ":", FORMAT_PROC_FD_PATH(hierarchy_path_fd));
+        if (!options)
+                return log_oom_debug();
+
+        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "lowerdir", options, 0) < 0)
+                return log_debug_errno(errno, "Failed to set lowerdir=%s: %m", options);
+
+        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "source", "systemd-extensions", 0) < 0)
+                return log_debug_errno(errno, "Failed to set source=systemd-extensions: %m");
+
+        /* Create the superblock */
+        if (fsconfig(overlay_fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+                return log_debug_errno(errno, "Failed to create overlay superblock: %m");
+
+        /* Signal completion to grandchild */
+        r = send_one_fd(pipe_fd, overlay_fs_fd, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to signal overlay configuration complete for %s: %m", mount_path);
+
+        return 0;
+}
+
+static int refresh_apply_and_prune(const NamespaceParameters *p, MountList *ml) {
+        int r;
+
+        assert(p);
+        assert(ml);
+
+        /* Open all extensions on the host, drop all sysexts since they won't have /etc/. The list of
+         * overlays also need to be updated, so that if it's empty after a confext has been removed, the
+         * child process can correctly undo the overlay in the target namespace, rather than attempting to
+         * mount an empty overlay which the kernel does not allow, so this pruning has to be done here and
+         * not later (nor earlier, as we don't know if an image is a confext until this point). */
+        MountEntry *f, *t;
+        for (f = ml->mounts, t = ml->mounts; f < ml->mounts + ml->n_mounts; f++) {
+                if (IN_SET(f->mode, MOUNT_EXTENSION_DIRECTORY, MOUNT_EXTENSION_IMAGE)) {
+                        f->filter_class = IMAGE_CONFEXT;
+
+                        r = apply_one_mount("/", f, p);
+                        if (r < 0)
+                                return r;
+                        /* Nothing happened? Then it is not a confext, prune it from the lists */
+                        if (r == 0) {
+                                FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
+                                        if (m->mode != MOUNT_OVERLAY)
+                                                continue;
+
+                                        _cleanup_strv_free_ char **pruned = NULL;
+
+                                        STRV_FOREACH(ol, m->overlay_layers)
+                                                if (!startswith(*ol, mount_entry_path(f))) {
+                                                        r = strv_extend(&pruned, *ol);
+                                                        if (r < 0)
+                                                                return log_oom_debug();
+                                                }
+                                        strv_free(m->overlay_layers);
+                                        m->overlay_layers = TAKE_PTR(pruned);
+                                }
+                                mount_entry_done(f);
+                                continue;
+                        }
+                }
+
+                *t = *f;
+                t++;
+        }
+
+        ml->n_mounts = t - ml->mounts;
+
+        return 0;
+}
+
+int refresh_extensions_in_namespace(
+                const PidRef *target,
+                const char *hierarchy_env,
+                const NamespaceParameters *p) {
+
+        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+        const char *overlay_prefix = "/run/systemd/mount-rootfs";
+        _cleanup_(mount_list_done) MountList ml = {};
+        _cleanup_free_ char *extension_dir = NULL;
+        _cleanup_strv_free_ char **hierarchies = NULL;
+        int r;
+
+        assert(pidref_is_set(target));
+        assert(hierarchy_env);
+        assert(p);
+
+        log_debug("Refreshing extensions in-namespace for hierarchy '%s'", hierarchy_env);
+
+        r = pidref_namespace_open(target, &pidns_fd, &mntns_fd, /* ret_netns_fd= */ NULL, /* ret_userns_fd= */ NULL, &root_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open namespace: %m");
+
+        r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if target namespace is separate: %m");
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Target namespace is not separate, cannot reload extensions");
+
+        extension_dir = path_join(p->private_namespace_dir, "unit-extensions");
+        if (!extension_dir)
+                return log_oom_debug();
+
+        r = parse_env_extension_hierarchies(&hierarchies, hierarchy_env);
+        if (r < 0)
+                return r;
+
+        r = append_extensions(
+                        &ml,
+                        overlay_prefix,
+                        p->private_namespace_dir,
+                        hierarchies,
+                        p->extension_images,
+                        p->n_extension_images,
+                        p->extension_directories);
+        if (r < 0)
+                return r;
+
+        sort_and_drop_unused_mounts(&ml, overlay_prefix);
+        if (ml.n_mounts == 0)
+                return 0;
+
+        /**
+         * There are three main steps:
+         * 1. In child, set up the extension images and directories in a slave mountns, so that we have
+         *    access to their FDs
+         * 2. Fork into a grandchild, which will enter the target namespace and attempt to "unpeel" the
+         *    overlays to obtain FDs the underlying directories, over which we will reapply the overlays
+         * 3. In the child again, receive the FDs and reapply the overlays
+         */
+        r = safe_fork("(sd-ns-refresh-exts)",
+                      FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                      NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child (host namespace) */
+                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                _cleanup_(sigkill_waitp) pid_t grandchild_pid = 0;
+
+                 (void) mkdir_p_label(overlay_prefix, 0555);
+
+                r = refresh_apply_and_prune(p, &ml);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to apply extensions for refreshing: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* Create a grandchild process to handle the unmounting and reopening of hierarchy */
+                r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to create socket pair: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = safe_fork("(sd-ns-refresh-exts-grandchild)",
+                                FORK_LOG|FORK_DEATHSIG_SIGKILL,
+                                &grandchild_pid);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+                if (r == 0) {
+                        /* Grandchild (target service namespace) */
+                        pair[0] = safe_close(pair[0]);
+
+                        r = refresh_grandchild_proc(target, &ml, overlay_prefix, pidns_fd, mntns_fd, root_fd, pair[1]);
+                        if (r < 0) {
+                                pair[1] = safe_close(pair[1]);
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                pair[1] = safe_close(pair[1]);
+
+                /* Until kernel 6.15, the FDs to the individual layers used to set up the OverlayFS via
+                 * lowerdir=/proc/self/fd/X need to remain open until the OverlayFS mount is _attached_
+                 * (as opposed to merely created) to its mount point, hence we need to ensure these FDs
+                 * stay open until the grandchild has attached the mount and exited. */
+                // TODO: once the kernel baseline is >= 6.15, move the FD array into the helper function
+                // and close them immediately
+                int *fd_layers = NULL;
+                size_t n_fd_layers = 0;
+                CLEANUP_ARRAY(fd_layers, n_fd_layers, close_many_and_free);
+
+                FOREACH_ARRAY(m, ml.mounts, ml.n_mounts) {
+                        r = handle_mount_from_grandchild(m, overlay_prefix, &fd_layers, &n_fd_layers, pair[0]);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+                }
+
+                r = wait_for_terminate_and_check("(sd-ns-refresh-exts-grandchild)", TAKE_PID(grandchild_pid), 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to wait for target namespace process to finish: %m");
+                        _exit(EXIT_FAILURE);
+                }
+                if (r != EXIT_SUCCESS) {
+                        log_debug("Target namespace fork did not succeed");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
 }
 
 static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
