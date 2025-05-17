@@ -55,7 +55,7 @@ int path_pick_update_warn(
                 char **path,
                 const PickFilter *filter,
                 PickFlags flags,
-                PickResult *ret);
+                PickResult *ret_result);
 
 int path_uses_vpick(const char *path);
 
