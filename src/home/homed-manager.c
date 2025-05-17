@@ -242,16 +242,16 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_memory_pressure(m->event, /* ret_event_source= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata = */ NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata = */ NULL);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR1|SD_EVENT_SIGNAL_PROCMASK, sigusr1_handler, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR1|SD_EVENT_SIGNAL_PROCMASK, sigusr1_handler, m);
         if (r < 0)
                 return r;
 
