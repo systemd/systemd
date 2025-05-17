@@ -1383,6 +1383,46 @@ char* find_line_startswith(const char *haystack, const char *needle) {
         return p + strlen(needle);
 }
 
+char* find_line(const char *haystack, const char *needle) {
+        char *p;
+
+        assert(haystack);
+        assert(needle);
+
+        /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
+         * beginning of the line */
+
+        p = find_line_startswith(haystack, needle);
+        if (!p)
+                return NULL;
+
+        if (*p == 0 || strchr(NEWLINE, *p))
+                return p - strlen(needle);
+
+        return NULL;
+}
+
+char* find_line_after(const char *haystack, const char *needle) {
+        char *p;
+
+        assert(haystack);
+        assert(needle);
+
+        /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
+         * next line after it */
+
+        p = find_line_startswith(haystack, needle);
+        if (!p)
+                return NULL;
+
+        if (*p == 0)
+                return p;
+        if (strchr(NEWLINE, *p))
+                return p + 1;
+
+        return NULL;
+}
+
 bool version_is_valid(const char *s) {
         if (isempty(s))
                 return false;

@@ -279,6 +279,8 @@ char* strdupcspn(const char *a, const char *reject);
         })
 
 char* find_line_startswith(const char *haystack, const char *needle);
+char* find_line(const char *haystack, const char *needle);
+char* find_line_after(const char *haystack, const char *needle);
 
 bool version_is_valid(const char *s);
 
