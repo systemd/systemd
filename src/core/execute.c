@@ -146,7 +146,7 @@ int exec_context_apply_tty_size(
         return terminal_set_size_fd(output_fd, tty_path, rows, cols);
 }
 
-void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p, sd_id128_t invocation_id) {
+void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, sd_id128_t invocation_id) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
         int fd, r;
 
@@ -159,8 +159,8 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p,
 
         const char *path = exec_context_tty_path(context);
 
-        if (p && p->stdout_fd >= 0 && isatty_safe(p->stdout_fd))
-                fd = p->stdout_fd;
+        if (parameters && parameters->stdout_fd >= 0 && isatty_safe(parameters->stdout_fd))
+                fd = parameters->stdout_fd;
         else if (path && (context->tty_path || is_terminal_input(context->std_input) ||
                         is_terminal_output(context->std_output) || is_terminal_output(context->std_error))) {
                 fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
