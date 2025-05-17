@@ -1467,7 +1467,7 @@ static int signal_exit_callback(sd_event_source *s, const struct signalfd_siginf
 
 _public_ int sd_event_add_signal(
                 sd_event *e,
-                sd_event_source **ret,
+                sd_event_source **ret_event_source,
                 int sig,
                 sd_event_signal_handler_t callback,
                 void *userdata) {
@@ -1513,7 +1513,7 @@ _public_ int sd_event_add_signal(
         } else if (e->signal_sources[sig])
                 return -EBUSY;
 
-        s = source_new(e, !ret, SOURCE_SIGNAL);
+        s = source_new(e, !ret_event_source, SOURCE_SIGNAL);
         if (!s)
                 return -ENOMEM;
 
@@ -1556,8 +1556,8 @@ _public_ int sd_event_add_signal(
         /* Use the signal name as description for the event source by default */
         (void) sd_event_source_set_description(s, signal_to_string(sig));
 
-        if (ret)
-                *ret = s;
+        if (ret_event_source)
+                *ret_event_source = s;
         TAKE_PTR(s);
 
         return 0;
@@ -1785,7 +1785,7 @@ _public_ int sd_event_add_defer(
 
 _public_ int sd_event_add_post(
                 sd_event *e,
-                sd_event_source **ret,
+                sd_event_source **ret_event_source,
                 sd_event_handler_t callback,
                 void *userdata) {
 
@@ -1800,7 +1800,7 @@ _public_ int sd_event_add_post(
         if (!callback)
                 callback = generic_exit_callback;
 
-        s = source_new(e, !ret, SOURCE_POST);
+        s = source_new(e, !ret_event_source, SOURCE_POST);
         if (!s)
                 return -ENOMEM;
 
@@ -1813,8 +1813,8 @@ _public_ int sd_event_add_post(
                 return r;
         assert(r > 0);
 
-        if (ret)
-                *ret = s;
+        if (ret_event_source)
+                *ret_event_source = s;
         TAKE_PTR(s);
 
         return 0;
@@ -1915,7 +1915,7 @@ static int memory_pressure_callback(sd_event_source *s, void *userdata) {
 
 _public_ int sd_event_add_memory_pressure(
                 sd_event *e,
-                sd_event_source **ret,
+                sd_event_source **ret_event_source,
                 sd_event_handler_t callback,
                 void *userdata) {
 
@@ -1938,7 +1938,7 @@ _public_ int sd_event_add_memory_pressure(
         if (!callback)
                 callback = memory_pressure_callback;
 
-        s = source_new(e, !ret, SOURCE_MEMORY_PRESSURE);
+        s = source_new(e, !ret_event_source, SOURCE_MEMORY_PRESSURE);
         if (!s)
                 return -ENOMEM;
 
@@ -2106,8 +2106,8 @@ _public_ int sd_event_add_memory_pressure(
                         return r;
         }
 
-        if (ret)
-                *ret = s;
+        if (ret_event_source)
+                *ret_event_source = s;
         TAKE_PTR(s);
 
         return 0;

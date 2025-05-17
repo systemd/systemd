@@ -59,7 +59,7 @@ static int update_rules_map(
 }
 
 static int prepare_socket_bind_bpf(
-                Unit *u,
+                Unit *unit,
                 CGroupSocketBindItem *allow,
                 CGroupSocketBindItem *deny,
                 struct socket_bind_bpf **ret_obj) {
@@ -77,27 +77,27 @@ static int prepare_socket_bind_bpf(
                 deny_count++;
 
         if (allow_count > SOCKET_BIND_MAX_RULES)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
+                return log_unit_full_errno(unit, unit ? LOG_ERR : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
                                            "bpf-socket-bind: Maximum number of socket bind rules=%i is exceeded", SOCKET_BIND_MAX_RULES);
 
         if (deny_count > SOCKET_BIND_MAX_RULES)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
+                return log_unit_full_errno(unit, unit ? LOG_ERR : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
                                            "bpf-socket-bind: Maximum number of socket bind rules=%i is exceeded", SOCKET_BIND_MAX_RULES);
 
         obj = socket_bind_bpf__open();
         if (!obj)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno, "bpf-socket-bind: Failed to open BPF object: %m");
+                return log_unit_full_errno(unit, unit ? LOG_ERR : LOG_DEBUG, errno, "bpf-socket-bind: Failed to open BPF object: %m");
 
         if (sym_bpf_map__set_max_entries(obj->maps.sd_bind_allow, MAX(allow_count, 1u)) != 0)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, errno,
+                return log_unit_full_errno(unit, unit ? LOG_ERR : LOG_WARNING, errno,
                                            "bpf-socket-bind: Failed to resize BPF map '%s': %m", sym_bpf_map__name(obj->maps.sd_bind_allow));
 
         if (sym_bpf_map__set_max_entries(obj->maps.sd_bind_deny, MAX(deny_count, 1u)) != 0)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, errno,
+                return log_unit_full_errno(unit, unit ? LOG_ERR : LOG_WARNING, errno,
                                            "bpf-socket-bind: Failed to resize BPF map '%s': %m", sym_bpf_map__name(obj->maps.sd_bind_deny));
 
         if (socket_bind_bpf__load(obj) != 0)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno,
+                return log_unit_full_errno(unit, unit ? LOG_ERR : LOG_DEBUG, errno,
                                            "bpf-socket-bind: Failed to load BPF object: %m");
 
         allow_map_fd = sym_bpf_map__fd(obj->maps.sd_bind_allow);
@@ -105,7 +105,7 @@ static int prepare_socket_bind_bpf(
 
         r = update_rules_map(allow_map_fd, allow);
         if (r < 0)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, r,
+                return log_unit_full_errno(unit, unit ? LOG_ERR : LOG_WARNING, r,
                                            "bpf-socket-bind: Failed to put socket bind allow rules into BPF map '%s'",
                                            sym_bpf_map__name(obj->maps.sd_bind_allow));
 
@@ -114,7 +114,7 @@ static int prepare_socket_bind_bpf(
 
         r = update_rules_map(deny_map_fd, deny);
         if (r < 0)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, r,
+                return log_unit_full_errno(unit, unit ? LOG_ERR : LOG_WARNING, r,
                                            "bpf-socket-bind: Failed to put socket bind deny rules into BPF map '%s'",
                                            sym_bpf_map__name(obj->maps.sd_bind_deny));
 

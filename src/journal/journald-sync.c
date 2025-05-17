@@ -318,7 +318,7 @@ static void sync_req_advance_rqlen_revalidate(SyncReq *req, uint32_t current_rql
         sync_req_revalidate(req);
 }
 
-void manager_notify_stream(Manager *m, StdoutStream *ss) {
+void manager_notify_stream(Manager *m, StdoutStream *stream) {
         int r;
 
         assert(m);
@@ -339,7 +339,7 @@ void manager_notify_stream(Manager *m, StdoutStream *ss) {
 
         LIST_FOREACH(pending_rqlen, sr, m->sync_req_pending_rqlen)
                 /* NB: this might invalidate the SyncReq object! */
-                sync_req_advance_rqlen_revalidate(sr, current_qlen, ss);
+                sync_req_advance_rqlen_revalidate(sr, current_qlen, stream);
 }
 
 bool sync_req_revalidate(SyncReq *req) {

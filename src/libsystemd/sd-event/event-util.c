@@ -163,7 +163,7 @@ int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handle
 
 int event_add_child_pidref(
                 sd_event *e,
-                sd_event_source **ret,
+                sd_event_source **ret_event_source,
                 const PidRef *pid,
                 int options,
                 sd_event_child_handler_t callback,
@@ -180,7 +180,7 @@ int event_add_child_pidref(
                 return -EREMOTE;
 
         if (pid->fd < 0)
-                return sd_event_add_child(e, ret, pid->pid, options, callback, userdata);
+                return sd_event_add_child(e, ret_event_source, pid->pid, options, callback, userdata);
 
         _cleanup_close_ int copy_fd = fcntl(pid->fd, F_DUPFD_CLOEXEC, 3);
         if (copy_fd < 0)
@@ -197,8 +197,8 @@ int event_add_child_pidref(
 
         TAKE_FD(copy_fd);
 
-        if (ret)
-                *ret = TAKE_PTR(s);
+        if (ret_event_source)
+                *ret_event_source = TAKE_PTR(s);
         else {
                 r = sd_event_source_set_floating(s, true);
                 if (r < 0)
