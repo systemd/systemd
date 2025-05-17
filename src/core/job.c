@@ -1112,6 +1112,9 @@ finish:
         unit_submit_to_stop_when_bound_queue(u);
         unit_submit_to_stop_when_unneeded_queue(u);
 
+        /* All jobs might have finished, let's see */
+        u->manager->may_dispatch_stop_notify_queue = true;
+
         manager_check_finished(u->manager);
 
         return 0;

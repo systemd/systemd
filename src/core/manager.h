@@ -227,6 +227,9 @@ struct Manager {
         /* Units that have resources open, and where it might be good to check if they can be released now */
         LIST_HEAD(Unit, release_resources_queue);
 
+        /* Units that perform certain actions after some other unit deactivates */
+        LIST_HEAD(Unit, stop_notify_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in them. We allow multiple units to be
@@ -374,6 +377,7 @@ struct Manager {
 
         /* Flags */
         bool dispatching_load_queue;
+        bool may_dispatch_stop_notify_queue;
 
         /* Have we already sent out the READY=1 notification? */
         bool ready_sent;
@@ -465,6 +469,9 @@ struct Manager {
          * multiple times on the same unit. */
         unsigned sigchldgen;
         unsigned notifygen;
+
+        /* Used during stop_notify_queue dispatch */
+        unsigned stop_notify_generation;
 
         sd_varlink_server *varlink_server;
         /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
