@@ -89,13 +89,13 @@ jobs:
             cflags: "-Og"
             relabel: yes
             vm: 0
-          # - distro: opensuse
-          #  release: tumbleweed
-          #  sanitizers: ""
-          #  llvm: 0
-          #  cflags: "-Og"
-          #  relabel: no
-          #  vm: 0
+          - distro: opensuse
+            release: tumbleweed
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
           - distro: centos
             release: "9"
             sanitizers: ""
