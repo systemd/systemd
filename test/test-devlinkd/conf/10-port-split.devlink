@@ -1,0 +1,7 @@
+[Match]
+Kind=port
+Handle=netdevsim/netdevsim99
+Index=0
+
+[Port]
+SplitCount=2
