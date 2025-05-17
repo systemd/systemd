@@ -457,7 +457,7 @@ int terminal_tint_color(double hue, char **ret) {
                 return log_debug_errno(r, "Unable to get terminal background color: %m");
 
         double s, v;
-        rgb_to_hsv(red, green, blue, /* h= */ NULL, &s, &v);
+        rgb_to_hsv(red, green, blue, /* ret_h= */ NULL, &s, &v);
 
         if (v > 50) /* If the background is bright, then pull down saturation */
                 s = 25;
