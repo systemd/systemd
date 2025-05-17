@@ -55,4 +55,4 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SyncReq*, sync_req_free);
 bool sync_req_revalidate(SyncReq *req);
 void sync_req_revalidate_by_timestamp(Manager *m);
 
-void manager_notify_stream(Manager *m, StdoutStream *ss);
+void manager_notify_stream(Manager *m, StdoutStream *stream);
