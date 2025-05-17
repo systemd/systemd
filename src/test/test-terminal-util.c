@@ -32,18 +32,22 @@ TEST(colors_enabled) {
 }
 
 TEST(default_term_for_tty) {
-        puts(default_term_for_tty("/dev/tty23"));
-        puts(default_term_for_tty("/dev/ttyS23"));
-        puts(default_term_for_tty("/dev/tty0"));
-        puts(default_term_for_tty("/dev/pty0"));
-        puts(default_term_for_tty("/dev/pts/0"));
-        puts(default_term_for_tty("/dev/console"));
-        puts(default_term_for_tty("tty23"));
-        puts(default_term_for_tty("ttyS23"));
-        puts(default_term_for_tty("tty0"));
-        puts(default_term_for_tty("pty0"));
-        puts(default_term_for_tty("pts/0"));
-        puts(default_term_for_tty("console"));
+        STRV_FOREACH_PAIR(s, t, STRV_MAKE_CONST(
+                                          "/dev/tty23", "linux",
+                                          "/dev/ttyS23", "vt220",
+                                          "/dev/tty0", "linux",
+                                          "/dev/pty0", "vt220",
+                                          "/dev/pts/0", "vt220",
+                                          "/dev/console", "linux",
+                                          "tty23", "linux",
+                                          "ttyS23", "vt220",
+                                          "tty0", "linux",
+                                          "pty0", "vt220",
+                                          "pts/0", "vt220",
+                                          "console", "linux")) {
+                log_info("%s → %s", *s, default_term_for_tty(*s));
+                ASSERT_STREQ(default_term_for_tty(*s), *t);
+        }
 }
 
 TEST(read_one_char) {
