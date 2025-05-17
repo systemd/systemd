@@ -22,6 +22,16 @@ typedef enum ExecDirFlags {
         EXEC_DIR_WARN_WORLD_WRITABLE  = 1 << 4, /* Warn if world writable files are found */
 } ExecDirFlags;
 
+typedef enum ExecDirectoryType {
+        EXEC_DIRECTORY_RUNTIME,
+        EXEC_DIRECTORY_STATE,
+        EXEC_DIRECTORY_CACHE,
+        EXEC_DIRECTORY_LOGS,
+        EXEC_DIRECTORY_CONFIGURATION,
+        _EXEC_DIRECTORY_TYPE_MAX,
+        _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
+} ExecDirectoryType;
+
 int execute_strv(
                 const char *name,
                 char * const *paths,
