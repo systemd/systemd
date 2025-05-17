@@ -636,12 +636,14 @@ static void unit_clear_dependencies(Unit *u) {
                                 hashmap_remove(other_deps, u);
 
                         unit_add_to_gc_queue(other);
+                        other->dependency_generation++;
                 }
 
                 hashmap_free(deps);
         }
 
         u->dependencies = hashmap_free(u->dependencies);
+        u->dependency_generation++;
 }
 
 static void unit_remove_transient(Unit *u) {
@@ -1099,6 +1101,9 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
         }
 
         other->dependencies = hashmap_free(other->dependencies);
+
+        u->dependency_generation++;
+        other->dependency_generation++;
 }
 
 int unit_merge(Unit *u, Unit *other) {
@@ -3110,6 +3115,9 @@ static int unit_add_dependency_impl(
 
                 flags |= NOTIFY_DEPENDENCY_UPDATE_TO;
         }
+
+        u->dependency_generation++;
+        other->dependency_generation++;
 
         return flags;
 }
@@ -5622,6 +5630,9 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
 
                                 /* The unit 'other' may not be wanted by the unit 'u'. */
                                 unit_submit_to_stop_when_unneeded_queue(other);
+
+                                u->dependency_generation++;
+                                other->dependency_generation++;
 
                                 done = false;
                                 break;
