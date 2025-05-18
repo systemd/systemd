@@ -2197,6 +2197,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem>
           <para>When queuing a new job, this option controls how to deal with
           already queued jobs. It takes one of <literal>fail</literal>,
+          <literal>meek</literal>
           <literal>replace</literal>,
           <literal>replace-irreversibly</literal>,
           <literal>isolate</literal>,
@@ -2209,10 +2210,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <command>isolate</command> command is used which implies the
           <literal>isolate</literal> job mode.</para>
 
-          <para>If <literal>fail</literal> is specified and a requested
-          operation conflicts with a pending job (more specifically:
-          causes an already pending start job to be reversed into a stop
-          job or vice versa), cause the operation to fail.</para>
+          <para>If <literal>fail</literal> is specified and a requested operation on weak dependencies
+          conflicts with a pending job (more specifically: causes an already pending start job to be reversed
+          into a stop job or vice versa), cause the operation to fail.</para>
+
+          <para>If <literal>meek</literal> is specified and a requested operation conflicts with any
+          active/activating unit, cause the operation to fail.</para>
 
           <para>If <literal>replace</literal> (the default) is
           specified, any conflicting pending job will be replaced, as
