@@ -341,6 +341,7 @@ DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 
 static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_FAIL]                 = "fail",
+        [JOB_MEEK]                 = "meek",
         [JOB_REPLACE]              = "replace",
         [JOB_REPLACE_IRREVERSIBLY] = "replace-irreversibly",
         [JOB_ISOLATE]              = "isolate",
