@@ -936,6 +936,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DeferTrigger=</varname></term>
+
+        <listitem><para>Takes a boolean argument. May only be used when <varname>Accept=no</varname>.
+        If enabled, job mode <literal>fail</literal> instead of <literal>replace</literal> is used when
+        triggering the service, which means currently running units that conflict with the service won't
+        be disturbed/brought down. Furthermore, if a conflict exists, the socket unit will wait for existing
+        stop jobs to complete and potentially defer the activation by then. This is particularly useful
+        if the socket unit should stay active across switch root/soft-reboot operations while the triggered service is stopped.
+        Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PassFileDescriptorsToExec=</varname></term>
 
         <listitem><para>Takes a boolean argument. Defaults to off. If enabled, file descriptors created by
