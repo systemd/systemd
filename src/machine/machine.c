@@ -208,18 +208,13 @@ int machine_save(Machine *m) {
                         m->timestamp.monotonic);
 
         if (m->n_netif > 0) {
-                size_t i;
-
-                fputs("NETIF=", f);
-
-                for (i = 0; i < m->n_netif; i++) {
-                        if (i != 0)
+                fputs("NETIF=\"", f);
+                FOREACH_ARRAY(ifi, m->netif, m->n_netif) {
+                        if (*ifi != 0)
                                 fputc(' ', f);
-
-                        fprintf(f, "%i", m->netif[i]);
+                        fprintf(f, "%i", *ifi);
                 }
-
-                fputc('\n', f);
+                fputs("\"\n", f);
         }
 
         r = flink_tmpfile(f, temp_path, m->state_file, LINK_TMPFILE_REPLACE);
@@ -315,13 +310,13 @@ int machine_load(Machine *m) {
         if (monotonic)
                 (void) deserialize_usec(monotonic, &m->timestamp.monotonic);
 
+        m->netif = mfree(m->netif);
+        m->n_netif = 0;
         if (netif) {
                 _cleanup_free_ int *ni = NULL;
                 size_t nr = 0;
-                const char *p;
 
-                p = netif;
-                for (;;) {
+                for (const char *p = netif;;) {
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, 0);
@@ -344,7 +339,7 @@ int machine_load(Machine *m) {
                         ni[nr++] = r;
                 }
 
-                free_and_replace(m->netif, ni);
+                m->netif = TAKE_PTR(ni);
                 m->n_netif = nr;
         }
 
