@@ -550,7 +550,7 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_erro
                 assert(!j->transaction_prev);
                 assert(!j->transaction_next);
 
-                if (j->unit->job && (mode == JOB_FAIL || j->unit->job->irreversible) &&
+                if (j->unit->job && (IN_SET(mode, JOB_FAIL, JOB_MEEK) || j->unit->job->irreversible) &&
                     job_type_is_conflicting(j->unit->job->type, j->type))
                         return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE,
                                                  "Transaction for %s/%s is destructive (%s has '%s' job queued, but '%s' is included in transaction).",
@@ -561,7 +561,7 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_erro
         return 0;
 }
 
-static void transaction_minimize_impact(Transaction *tr) {
+static int transaction_minimize_impact(Transaction *tr, JobMode mode, sd_bus_error *e) {
         Job *head;
 
         assert(tr);
@@ -569,13 +569,16 @@ static void transaction_minimize_impact(Transaction *tr) {
         /* Drops all unnecessary jobs that reverse already active jobs
          * or that stop a running service. */
 
+        if (!IN_SET(mode, JOB_FAIL, JOB_MEEK))
+                return 0;
+
 rescan:
         HASHMAP_FOREACH(head, tr->jobs) {
                 LIST_FOREACH(transaction, j, head) {
                         bool stops_running_service, changes_existing_job;
 
                         /* If it matters, we shouldn't drop it */
-                        if (j->matters_to_anchor)
+                        if (j->matters_to_anchor && mode != JOB_MEEK)
                                 continue;
 
                         /* Would this stop a running service?
@@ -591,6 +594,13 @@ rescan:
 
                         if (!stops_running_service && !changes_existing_job)
                                 continue;
+
+                        if (j->matters_to_anchor) {
+                                assert(mode == JOB_MEEK);
+                                return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE,
+                                                         "%s/%s would stop a running unit or change existing job, bailing",
+                                                         j->unit->id, job_type_to_string(j->type));
+                        }
 
                         if (stops_running_service)
                                 log_unit_debug(j->unit,
@@ -611,6 +621,8 @@ rescan:
                         goto rescan;
                 }
         }
+
+        return 0;
 }
 
 static int transaction_apply(
@@ -719,11 +731,12 @@ int transaction_activate(
         /* First step: figure out which jobs matter */
         transaction_find_jobs_that_matter_to_anchor(tr->anchor_job, generation++);
 
-        /* Second step: Try not to stop any running services if
-         * we don't have to. Don't try to reverse running
-         * jobs if we don't have to. */
-        if (mode == JOB_FAIL)
-                transaction_minimize_impact(tr);
+        /* Second step: Try not to stop any running services if we don't have to. Don't try to reverse
+         * running jobs if we don't have to. */
+        r = transaction_minimize_impact(tr, mode, e);
+        if (r < 0)
+                return r; /* Note that we don't log here, because for JOB_MEEK conflicts are very much expected
+                             and shouldn't appear to be fatal for the unit. Only inform the caller via bus error. */
 
         /* Third step: Drop redundant jobs */
         transaction_drop_redundant(tr);
