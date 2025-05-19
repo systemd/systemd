@@ -1262,7 +1262,7 @@ int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_erro
         return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnit", error, NULL, "ssi", unit, "all", signo);
 }
 
-int manager_unit_is_active(Manager *manager, const char *unit) {
+int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *reterr_error) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
@@ -1294,6 +1294,7 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
                                                    BUS_ERROR_LOAD_FAILED))
                         return false;
 
+                sd_bus_error_move(reterr_error, &error);
                 return r;
         }
 
@@ -1304,7 +1305,7 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
         return !STR_IN_SET(state, "inactive", "failed");
 }
 
-int manager_job_is_active(Manager *manager, const char *path) {
+int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *reterr_error) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
@@ -1329,6 +1330,7 @@ int manager_job_is_active(Manager *manager, const char *path) {
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
                         return false;
 
+                sd_bus_error_move(reterr_error, &error);
                 return r;
         }
 
