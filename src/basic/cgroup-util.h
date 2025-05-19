@@ -226,31 +226,9 @@ int cg_is_delegated_fd(int fd);
 
 int cg_has_coredump_receive(const char *path);
 
-typedef enum {
-        CG_KEY_MODE_GRACEFUL = 1 << 0,
-} CGroupKeyMode;
-
 int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret);
-int cg_get_keyed_attribute_full(const char *controller, const char *path, const char *attribute, char **keys, char **values, CGroupKeyMode mode);
-
-static inline int cg_get_keyed_attribute(
-                const char *controller,
-                const char *path,
-                const char *attribute,
-                char **keys,
-                char **ret_values) {
-        return cg_get_keyed_attribute_full(controller, path, attribute, keys, ret_values, 0);
-}
-
-static inline int cg_get_keyed_attribute_graceful(
-                const char *controller,
-                const char *path,
-                const char *attribute,
-                char **keys,
-                char **ret_values) {
-        return cg_get_keyed_attribute_full(controller, path, attribute, keys, ret_values, CG_KEY_MODE_GRACEFUL);
-}
+int cg_get_keyed_attribute(const char *path, const char *attribute, char * const *keys, char **values);
 
 int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
 
