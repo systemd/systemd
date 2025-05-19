@@ -302,19 +302,19 @@ int session_save(Session *s) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "UID="UID_FMT"\n"
-                "USER=%s\n"
                 "ACTIVE=%s\n"
                 "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
                 "REMOTE=%s\n"
                 "LEADER_FD_SAVED=%s\n",
                 s->user->user_record->uid,
-                s->user->user_record->user_name,
                 one_zero(session_is_active(s)),
                 one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
                 one_zero(s->remote),
                 one_zero(s->leader_fd_saved));
+
+        env_file_fputs_assignment(f, "USER=", s->user->user_record->user_name);
 
         if (s->type >= 0)
                 fprintf(f, "TYPE=%s\n", session_type_to_string(s->type));
@@ -325,62 +325,20 @@ int session_save(Session *s) {
         if (s->class >= 0)
                 fprintf(f, "CLASS=%s\n", session_class_to_string(s->class));
 
-        if (s->scope)
-                fprintf(f, "SCOPE=%s\n", s->scope);
-        if (s->scope_job)
-                fprintf(f, "SCOPE_JOB=%s\n", s->scope_job);
-
+        env_file_fputs_assignment(f, "SCOPE=", s->scope);
+        env_file_fputs_assignment(f, "SCOPE_JOB=", s->scope_job);
         if (s->seat)
-                fprintf(f, "SEAT=%s\n", s->seat->id);
-
-        if (s->tty)
-                fprintf(f, "TTY=%s\n", s->tty);
+                env_file_fputs_assignment(f, "SEAT=", s->seat->id);
+        env_file_fputs_assignment(f, "TTY=", s->tty);
 
         if (s->tty_validity >= 0)
                 fprintf(f, "TTY_VALIDITY=%s\n", tty_validity_to_string(s->tty_validity));
 
-        if (s->display)
-                fprintf(f, "DISPLAY=%s\n", s->display);
-
-        if (s->remote_host) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->remote_host);
-                if (!escaped)
-                        return log_oom();
-
-                fprintf(f, "REMOTE_HOST=%s\n", escaped);
-        }
-
-        if (s->remote_user) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->remote_user);
-                if (!escaped)
-                        return log_oom();
-
-                fprintf(f, "REMOTE_USER=%s\n", escaped);
-        }
-
-        if (s->service) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->service);
-                if (!escaped)
-                        return log_oom();
-
-                fprintf(f, "SERVICE=%s\n", escaped);
-        }
-
-        if (s->desktop) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->desktop);
-                if (!escaped)
-                        return log_oom();
-
-                fprintf(f, "DESKTOP=%s\n", escaped);
-        }
+        env_file_fputs_assignment(f, "DISPLAY=", s->display);
+        env_file_fputs_assignment(f, "REMOTE_HOST=", s->remote_host);
+        env_file_fputs_assignment(f, "REMOTE_USER=", s->remote_user);
+        env_file_fputs_assignment(f, "SERVICE=", s->service);
+        env_file_fputs_assignment(f, "DESKTOP=", s->desktop);
 
         if (s->seat && seat_has_vts(s->seat))
                 fprintf(f, "VTNR=%u\n", s->vtnr);
@@ -402,7 +360,7 @@ int session_save(Session *s) {
                         s->timestamp.monotonic);
 
         if (s->controller) {
-                fprintf(f, "CONTROLLER=%s\n", s->controller);
+                env_file_fputs_assignment(f, "CONTROLLER=", s->controller);
                 session_save_devices(s, f);
         }
 

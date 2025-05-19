@@ -174,17 +174,11 @@ static int user_save_internal(User *u) {
                 user_gc_mode_to_string(u->gc_mode));
 
         /* LEGACY: no-one reads RUNTIME= anymore, drop it at some point */
-        if (u->runtime_path)
-                fprintf(f, "RUNTIME=%s\n", u->runtime_path);
-
-        if (u->runtime_dir_job)
-                fprintf(f, "RUNTIME_DIR_JOB=%s\n", u->runtime_dir_job);
-
-        if (u->service_manager_job)
-                fprintf(f, "SERVICE_JOB=%s\n", u->service_manager_job);
-
+        env_file_fputs_assignment(f, "RUNTIME=", u->runtime_path);
+        env_file_fputs_assignment(f, "RUNTIME_DIR_JOB=", u->runtime_dir_job);
+        env_file_fputs_assignment(f, "SERVICE_JOB=", u->service_manager_job);
         if (u->display)
-                fprintf(f, "DISPLAY=%s\n", u->display->id);
+                env_file_fputs_assignment(f, "DISPLAY=%s\n", u->display->id);
 
         if (dual_timestamp_is_set(&u->timestamp))
                 fprintf(f,

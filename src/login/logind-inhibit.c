@@ -117,28 +117,19 @@ static int inhibitor_save(Inhibitor *i) {
                 i->uid,
                 i->pid.pid);
 
-        if (i->who) {
-                _cleanup_free_ char *cc = NULL;
+        /* For historical reasons there's double escaping applied here: once here via cescape(), and once by
+         * env_file_fputs_assignment() */
+        _cleanup_free_ char *who_escaped = cescape(i->who);
+        if (!who_escaped)
+                return log_oom();
+        env_file_fputs_assignment(f, "WHO=", who_escaped);
 
-                cc = cescape(i->who);
-                if (!cc)
-                        return log_oom();
+        _cleanup_free_ char *why_escaped = cescape(i->why);
+        if (!why_escaped)
+                return log_oom();
+        env_file_fputs_assignment(f, "WHY=", why_escaped);
 
-                fprintf(f, "WHO=%s\n", cc);
-        }
-
-        if (i->why) {
-                _cleanup_free_ char *cc = NULL;
-
-                cc = cescape(i->why);
-                if (!cc)
-                        return log_oom();
-
-                fprintf(f, "WHY=%s\n", cc);
-        }
-
-        if (i->fifo_path)
-                fprintf(f, "FIFO=%s\n", i->fifo_path);
+        env_file_fputs_assignment(f, "FIFO=", i->fifo_path);
 
         r = flink_tmpfile(f, temp_path, i->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
