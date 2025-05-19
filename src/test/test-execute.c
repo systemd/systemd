@@ -63,7 +63,7 @@ static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         int r;
 
         log_error("Test timeout when testing %s", unit->id);
-        r = unit_kill(unit, KILL_ALL, SIGKILL, SI_USER, 0, NULL);
+        r = unit_kill(unit, KILL_ALL, /* subgroup= */ NULL, SIGKILL, SI_USER, /* value= */ 0, /* reterr_error= */ NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to kill %s, ignoring: %m", unit->id);
 
