@@ -312,9 +312,7 @@ int machine_load(Machine *m) {
         }
 
         if (class) {
-                MachineClass c;
-
-                c = machine_class_from_string(class);
+                MachineClass c = machine_class_from_string(class);
                 if (c >= 0)
                         m->class = c;
         }
