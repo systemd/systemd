@@ -609,22 +609,43 @@ int machine_finalize(Machine *m) {
 }
 
 bool machine_may_gc(Machine *m, bool drop_not_started) {
+        int r;
+
         assert(m);
 
         if (m->class == MACHINE_HOST)
                 return false;
 
-        if (!pidref_is_set(&m->leader))
-                return true;
-
         if (drop_not_started && !m->started)
                 return true;
 
-        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+        r = pidref_is_alive(&m->leader);
+        if (r == -ESRCH)
+                return true;
+        if (r < 0)
+                log_debug_errno(r, "Unable to determine if leader PID " PID_FMT " is still alive, assuming not: %m", m->leader.pid);
+        if (r > 0)
                 return false;
 
-        if (m->unit && manager_unit_is_active(m->manager, m->unit))
-                return false;
+        if (m->scope_job) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = manager_job_is_active(m->manager, m->scope_job, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether job '%s' is pending, ignoring: %s", m->scope_job, bus_error_message(&error, r));
+                if (r != 0)
+                        return false;
+        }
+
+        if (m->unit) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = manager_unit_is_active(m->manager, m->unit, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether unit '%s' is active, ignoring: %s", m->unit, bus_error_message(&error, r));
+                if (r != 0)
+                        return false;
+        }
 
         return true;
 }
