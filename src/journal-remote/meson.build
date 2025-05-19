@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if conf.get('ENABLE_REMOTE') != 1
-        subdir_done()
-endif
-
 systemd_journal_gatewayd_sources = files(
         'journal-gatewayd.c',
 )
@@ -39,7 +35,10 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-journal-gatewayd',
                 'public' : true,
-                'conditions' : ['HAVE_MICROHTTPD'],
+                'conditions' : [
+                        'ENABLE_REMOTE',
+                        'HAVE_MICROHTTPD',
+                ],
                 'sources' : systemd_journal_gatewayd_sources + systemd_journal_gatewayd_extract_sources,
                 'extract' : systemd_journal_gatewayd_extract_sources,
                 'dependencies' : common_deps + [libmicrohttpd],
@@ -47,6 +46,10 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-journal-remote',
                 'public' : true,
+                # We always build systemd-journal regardless of ENABLE_REMOTE because we have to build
+                # fuzz-journal-remote even when --auto-features=disabled (see tools/oss-fuzz.sh for why).
+                # Instead, we make sure we don't install it when the remote feature is disabled.
+                'install' : conf.get('ENABLE_REMOTE') == 1,
                 'sources' : systemd_journal_remote_sources + systemd_journal_remote_extract_sources,
                 'objects' : conf.get('HAVE_MICROHTTPD') == 1 ? ['systemd-journal-gatewayd'] : [],
                 'extract' : systemd_journal_remote_extract_sources,
@@ -55,7 +58,10 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-journal-upload',
                 'public' : true,
-                'conditions' : ['HAVE_LIBCURL'],
+                'conditions' : [
+                        'ENABLE_REMOTE',
+                        'HAVE_LIBCURL',
+                ],
                 'sources' : systemd_journal_upload_sources + systemd_journal_upload_extract_sources,
                 'objects' : ['systemd-journal-remote'],
                 'extract' : systemd_journal_upload_extract_sources,
@@ -63,7 +69,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-journal-header-util.c'),
-                'conditions' : ['HAVE_LIBCURL'],
+                'conditions' : ['ENABLE_REMOTE', 'HAVE_LIBCURL'],
                 'objects' : ['systemd-journal-upload'],
         },
         fuzz_template + {
@@ -74,8 +80,10 @@ executables += [
 ]
 
 in_files = [
-        ['journal-upload.conf', conf.get('HAVE_LIBCURL') == 1 and install_sysconfdir_samples],
-        ['journal-remote.conf', conf.get('HAVE_MICROHTTPD') == 1 and install_sysconfdir_samples]]
+        ['journal-upload.conf',
+         conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_LIBCURL') == 1 and install_sysconfdir_samples],
+        ['journal-remote.conf',
+         conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1 and install_sysconfdir_samples]]
 
 foreach tuple : in_files
         file = tuple[0]
@@ -88,7 +96,7 @@ foreach tuple : in_files
                 install_dir : pkgconfigfiledir)
 endforeach
 
-if conf.get('HAVE_MICROHTTPD') == 1
+if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         install_data('browse.html',
                      install_dir : pkgdatadir / 'gatewayd')
 
