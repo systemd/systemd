@@ -353,8 +353,12 @@ int session_save(Session *s) {
         if (!s->vtnr)
                 fprintf(f, "POSITION=%u\n", s->position);
 
-        if (pidref_is_set(&s->leader))
+        if (pidref_is_set(&s->leader)) {
                 fprintf(f, "LEADER="PID_FMT"\n", s->leader.pid);
+                (void) pidref_acquire_pidfd_id(&s->leader);
+                if (s->leader.fd_id != 0)
+                        fprintf(f, "LEADER_PIDFDID=%" PRIu64 "\n", s->leader.fd_id);
+        }
 
         if (audit_session_is_valid(s->audit_id))
                 fprintf(f, "AUDIT=%"PRIu32"\n", s->audit_id);
