@@ -287,6 +287,7 @@ class UkifyConfig:
     sb_certdir: Path
     sb_key: Union[str, Path, None]
     sbat: Optional[list[str]]
+    extra_sbat: Optional[list[str]]
     sections: list['Section']
     sections_by_name: dict[str, 'Section']
     sign_kernel: Optional[bool]
@@ -1102,8 +1103,49 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     pe.write(output)
 
 
+def check_sbat_component(sbat_section: list[str], sbat_components: dict, fname: str) -> None:
+    if not sbat_section[0].startswith('sbat,'):
+        print(f'{fname} does not contain a valid SBAT section, skipping.', file=sys.stderr)
+        return
+
+    for line in sbat_section:
+        args = line.split(',')
+        component = args[0]
+        version = int(args[1])
+
+        if not component in sbat_components:
+            sbat_components[component] = {
+                "version" : version,
+                "line" : line
+            }
+        else:
+            # if component already exists, compare versions. If sbat_components
+            # version is newer, ignore the new one, if greated update.
+            sbat_comp_version = sbat_components[component]["version"]
+            sbat_comp_line = sbat_components[component]["line"]
+            if sbat_comp_version > version:
+                print('Found a duplicate SBAT component with lower version, skipping it:\n'
+                        f'Old: {sbat_comp_line}\nNew: {line}')
+            elif sbat_comp_version < version:
+                print('Found a duplicate SBAT component with higher version, using it:\n'
+                        f'Old: {sbat_comp_line}\nNew: {line}')
+                sbat_components[component] = {
+                    "version" : version,
+                    "line" : line
+                }
+            else:
+                if sbat_comp_line != line:
+                    print('Found a duplicate SBAT component with same version but'
+                            ' the remaining data is different, skipping it:\n'
+                            f'Old: {sbat_comp_line}\nSkipped: {line}')
+                elif component != "sbat":
+                    # don't print this for sbat, as it will always be duplicated
+                    print('Found a duplicate SBAT component with same version, skipping it:\n'
+                        f'Component: {line}')
+
 def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
-    sbat = []
+    # keep track of components and versions, to avoid having duplicates
+    sbat = {}
 
     for f in input_pe:
         try:
@@ -1115,27 +1157,19 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
         for section in pe.sections:
             if pe_strip_section_name(section.Name) == '.sbat':
                 split = section.get_data().rstrip(b'\x00').decode().splitlines()
-                if not split[0].startswith('sbat,'):
-                    print(f'{f} does not contain a valid SBAT section, skipping.', file=sys.stderr)
-                    continue
-                # Filter out the sbat line, we'll add it back later, there needs to be only one and it
-                # needs to be first.
-                sbat += split[1:]
+                check_sbat_component(split, sbat, str(f))
 
     for t in input_text:
         if t.startswith('@'):
             t = Path(t[1:]).read_text()
         split = t.splitlines()
-        if not split[0].startswith('sbat,'):
-            print(f'{t} does not contain a valid SBAT section, skipping.', file=sys.stderr)
-            continue
-        sbat += split[1:]
+        check_sbat_component(split, sbat, t)
 
-    return (
-        'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n'
-        + '\n'.join(sbat)
-        + '\n\x00'
-    )
+    end_sbat = ''
+    for v in sbat.values():
+        end_sbat += v["line"] + '\n'
+    end_sbat += '\x00'
+    return end_sbat
 
 
 # Keep in sync with Device from src/boot/chid.h
@@ -1411,7 +1445,10 @@ def make_uki(opts: UkifyConfig) -> None:
             input_pes = []
             if not opts.sbat:
                 opts.sbat = [ADDON_SBAT]
-        uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
+        ukify_sbat = opts.sbat
+        if opts.extra_sbat:
+            ukify_sbat += opts.extra_sbat
+        uki.add_section(Section.create('.sbat', merge_sbat(input_pes, ukify_sbat), measure=linux is not None))
 
     # If we're building a UKI with additional profiles, the .profile section for the base profile has to be
     # the last one so that everything before it is shared between profiles. The only thing we don't share
@@ -1980,6 +2017,15 @@ CONFIG_ITEMS = [
         config_key='UKI/SBAT',
     ),
     ConfigItem(
+        '--extra-sbat',
+        metavar='TEXT|@PATH',
+        dest='extra_sbat',
+        help='SBAT policy to append to the default .sbat section',
+        default=[],
+        action='append',
+        config_key='UKI/ExtraSBAT',
+    ),
+    ConfigItem(
         '--pcrpkey',
         metavar='KEY',
         type=Path,
@@ -2458,6 +2504,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
         or opts.join_profiles
         or opts.microcode
         or opts.sbat
+        or opts.extra_sbat
         or opts.uname
         or opts.os_release
         or opts.cmdline
