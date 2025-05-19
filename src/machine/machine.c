@@ -190,8 +190,12 @@ int machine_save(Machine *m) {
         if (!sd_id128_is_null(m->id))
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
 
-        if (pidref_is_set(&m->leader))
+        if (pidref_is_set(&m->leader)) {
                 fprintf(f, "LEADER="PID_FMT"\n", m->leader.pid);
+                (void) pidref_acquire_pidfd_id(&m->leader);
+                if (m->leader.fd_id != 0)
+                        fprintf(f, "LEADER_PIDFDID=%" PRIu64 "\n", m->leader.fd_id);
+        }
 
         if (m->class != _MACHINE_CLASS_INVALID)
                 fprintf(f, "CLASS=%s\n", machine_class_to_string(m->class));
@@ -249,7 +253,7 @@ static void machine_unlink(Machine *m) {
 }
 
 int machine_load(Machine *m) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *class = NULL, *netif = NULL;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *leader_pidfdid = NULL, *class = NULL, *netif = NULL;
         int r;
 
         assert(m);
@@ -258,16 +262,17 @@ int machine_load(Machine *m) {
                 return 0;
 
         r = parse_env_file(NULL, m->state_file,
-                           "SCOPE",     &m->unit,
-                           "SCOPE_JOB", &m->scope_job,
-                           "SERVICE",   &m->service,
-                           "ROOT",      &m->root_directory,
-                           "ID",        &id,
-                           "LEADER",    &leader,
-                           "CLASS",     &class,
-                           "REALTIME",  &realtime,
-                           "MONOTONIC", &monotonic,
-                           "NETIF",     &netif);
+                           "SCOPE",          &m->unit,
+                           "SCOPE_JOB",      &m->scope_job,
+                           "SERVICE",        &m->service,
+                           "ROOT",           &m->root_directory,
+                           "ID",             &id,
+                           "LEADER",         &leader,
+                           "LEADER_PIDFDID", &leader_pidfdid,
+                           "CLASS",          &class,
+                           "REALTIME",       &realtime,
+                           "MONOTONIC",      &monotonic,
+                           "NETIF",          &netif);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -276,11 +281,25 @@ int machine_load(Machine *m) {
         if (id)
                 (void) sd_id128_from_string(id, &m->id);
 
+        pidref_done(&m->leader);
         if (leader) {
-                pidref_done(&m->leader);
                 r = pidref_set_pidstr(&m->leader, leader);
                 if (r < 0)
                         log_debug_errno(r, "Failed to set leader PID to '%s', ignoring: %m", leader);
+                else if (leader_pidfdid) {
+                        uint64_t fd_id;
+                        r = safe_atou64(leader_pidfdid, &fd_id);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse leader pidfd ID, ignoring: %s", leader_pidfdid);
+                        else {
+                                (void) pidref_acquire_pidfd_id(&m->leader);
+
+                                if (fd_id != m->leader.fd_id) {
+                                        log_debug("Leader PID got recycled, ignoring.");
+                                        pidref_done(&m->leader);
+                                }
+                        }
+                }
         }
 
         if (class) {
