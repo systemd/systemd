@@ -110,12 +110,18 @@ static int inhibitor_save(Inhibitor *i) {
                 "# This is private data. Do not parse.\n"
                 "WHAT=%s\n"
                 "MODE=%s\n"
-                "UID="UID_FMT"\n"
-                "PID="PID_FMT"\n",
+                "UID="UID_FMT"\n",
                 inhibit_what_to_string(i->what),
                 inhibit_mode_to_string(i->mode),
-                i->uid,
-                i->pid.pid);
+                i->uid);
+
+        if (pidref_is_set(&i->pid)) {
+                fprintf(f, "PID="PID_FMT"\n", i->pid.pid);
+
+                (void) pidref_acquire_pidfd_id(&i->pid);
+                if (i->pid.fd_id != 0)
+                        fprintf(f, "PIDFDID=%" PRIu64 "\n", i->pid.fd_id);
+        }
 
         /* For historical reasons there's double escaping applied here: once here via cescape(), and once by
          * env_file_fputs_assignment() */
@@ -191,7 +197,7 @@ void inhibitor_stop(Inhibitor *i) {
 }
 
 int inhibitor_load(Inhibitor *i) {
-        _cleanup_free_ char *what = NULL, *uid = NULL, *pid = NULL, *who = NULL, *why = NULL, *mode = NULL;
+        _cleanup_free_ char *what = NULL, *uid = NULL, *pid = NULL, *pidfdid = NULL, *who = NULL, *why = NULL, *mode = NULL;
         InhibitWhat w;
         InhibitMode mm;
         char *cc;
@@ -202,6 +208,7 @@ int inhibitor_load(Inhibitor *i) {
                            "WHAT", &what,
                            "UID", &uid,
                            "PID", &pid,
+                           "PIDFDID", &pidfdid,
                            "WHO", &who,
                            "WHY", &why,
                            "MODE", &mode,
@@ -223,11 +230,25 @@ int inhibitor_load(Inhibitor *i) {
                         log_debug_errno(r, "Failed to parse UID of inhibitor: %s", uid);
         }
 
+        pidref_done(&i->pid);
         if (pid) {
-                pidref_done(&i->pid);
                 r = pidref_set_pidstr(&i->pid, pid);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to parse PID of inhibitor: %s", pid);
+                        log_debug_errno(r, "Failed to parse PID of inhibitor, ignoring: %s", pid);
+                else if (pidfdid) {
+                        uint64_t fd_id;
+                        r = safe_atou64(pidfdid, &fd_id);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse leader pidfd ID, ignoring: %s", pidfdid);
+                        else {
+                                (void) pidref_acquire_pidfd_id(&i->pid);
+
+                                if (fd_id != i->pid.fd_id) {
+                                        log_debug("PID got recycled, ignoring.");
+                                        pidref_done(&i->pid);
+                                }
+                        }
+                }
         }
 
         if (who) {
