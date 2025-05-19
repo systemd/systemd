@@ -1251,6 +1251,8 @@ node /org/freedesktop/login1/session/1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u Leader = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t LeaderPIDFDId = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u Audit = ...;
       readonly s Type = '...';
       readonly s Class = '...';
@@ -1350,6 +1352,8 @@ node /org/freedesktop/login1/session/1 {
     <variablelist class="dbus-property" generated="True" extra-ref="Scope"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Leader"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LeaderPIDFDId"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Audit"/>
 
@@ -1539,6 +1543,9 @@ node /org/freedesktop/login1/session/1 {
 
       <para><varname>Leader</varname> encodes the PID of the process that registered the session.</para>
 
+      <para><varname>LeaderPIDFDId</varname> encodes the Linux pidfd inode ID of the process that registered
+      the session.</para>
+
       <para><varname>Audit</varname> encodes the Kernel Audit session ID of the session if auditing is
       available.</para>
 
@@ -1660,6 +1667,7 @@ node /org/freedesktop/login1/session/1 {
       <para><function>SetDisplay()</function> was added in version 252.</para>
       <para><function>SetTTY()</function> was added in version 254.</para>
       <para><function>SetClass()</function> was added in version 256.</para>
+      <para><varname>LeaderPIDFDId</varname> was added in version 258.</para>
     </refsect2>
   </refsect1>
 
