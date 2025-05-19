@@ -5031,37 +5031,56 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # Add an unmanaged interface with an up address
         call('ip link add unmanaged0 type dummy')
         call('ip link set unmanaged0 up')
+        call('ip -4 addr add 10.20.30.40/32 dev unmanaged0')
         call('ip -6 addr add 2001:db8:9999:f101::15/64 dev unmanaged0')
 
-        copy_network_unit('12-dummy.netdev', '85-static-ipv6.network')
-        start_networkd()
-        self.check_keep_configuration_on_restart()
-
         # Start `ip monitor` with output to a temporary file
-        with tempfile.TemporaryFile(mode='r+', prefix='ip_monitor') as logfile:
-            process = subprocess.Popen(['ip', 'monitor', 'dev', 'dummy98'], stdout=logfile, text=True)
-            restart_networkd()
+        with tempfile.TemporaryFile(mode='r+', prefix='ip_monitor_u') as logfile_unmanaged:
+            process_u = subprocess.Popen(['ip', 'monitor', 'dev', 'unmanaged0'], stdout=logfile_unmanaged, text=True)
+
+            copy_network_unit('12-dummy.netdev', '85-static-ipv6.network', '85-unmanaged.link')
+            start_networkd()
             self.check_keep_configuration_on_restart()
 
-            process.send_signal(signal.SIGTERM)
-            process.wait()
+            # Start `ip monitor` with output to a temporary file
+            with tempfile.TemporaryFile(mode='r+', prefix='ip_monitor') as logfile:
+                process = subprocess.Popen(['ip', 'monitor', 'dev', 'dummy98'], stdout=logfile, text=True)
 
-            print('### ip monitor dev dummy98 BEGIN')
+                restart_networkd()
+                self.check_keep_configuration_on_restart()
 
-            # Read the `ip monitor` output looking for network changes
-            logfile.seek(0)
-            for line in logfile:
-                print(line, end="")
-                # Check if a link went down
-                self.assertNotRegex(line, 'unmanaged0: .* state DOWN')
-                self.assertNotRegex(line, 'dummy98: .* state DOWN')
-                # Check if an address was removed
-                self.assertNotRegex(line, '^Deleted .* 2001:db8:')
-                self.assertNotRegex(line, '^Deleted 2001:db8:.*/64')
-                # Check if the default route was removed
-                self.assertNotRegex(line, '^Deleted default via fe80::f0ca:cc1a')
+                process.send_signal(signal.SIGTERM)
+                process.wait()
+
+                print('### ip monitor dev dummy98 BEGIN')
+
+                # Read the `ip monitor` output looking for network changes
+                logfile.seek(0)
+                for line in logfile:
+                    print(line, end="")
+                    # Check if a link went down
+                    self.assertNotRegex(line, 'dummy98: .* state DOWN')
+                    # Check if an address was removed
+                    self.assertNotRegex(line, '^Deleted .* 2001:db8:')
+                    self.assertNotRegex(line, '^Deleted 2001:db8:.*/64')
+                    # Check if the default route was removed
+                    self.assertNotRegex(line, '^Deleted default via fe80::f0ca:cc1a')
 
             print('### ip monitor dev dummy98 END')
+
+            process_u.send_signal(signal.SIGTERM)
+            process_u.wait()
+
+            print('### ip monitor dev unmanaged0 BEGIN')
+
+            # Read the `ip monitor` output looking for network changes
+            logfile_unmanaged.seek(0)
+            for line in logfile_unmanaged:
+                print(line, end="")
+                # Check if something happened
+                self.assertNotEmpty(line)
+
+        print('### ip monitor dev unmanaged0 END')
 
     def test_keep_untracked_addresses(self):
         # Add an unmanaged interface with an up address
