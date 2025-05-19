@@ -129,7 +129,7 @@ static SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_ErrorTest);
 
 static void test_parse_format_one(const sd_varlink_interface *iface) {
-        _cleanup_(varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
         _cleanup_free_ char *text = NULL, *text2 = NULL;
 
         assert_se(iface);
@@ -137,7 +137,7 @@ static void test_parse_format_one(const sd_varlink_interface *iface) {
         assert_se(sd_varlink_idl_dump(stdout, iface, SD_VARLINK_IDL_FORMAT_COLOR, /* cols= */ SIZE_MAX) >= 0);
         assert_se(varlink_idl_consistent(iface, LOG_ERR) >= 0);
         assert_se(sd_varlink_idl_format(iface, &text) >= 0);
-        assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
+        assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         assert_se(varlink_idl_consistent(parsed, LOG_ERR) >= 0);
         assert_se(sd_varlink_idl_format(parsed, &text2) >= 0);
 
@@ -145,13 +145,13 @@ static void test_parse_format_one(const sd_varlink_interface *iface) {
 
         text = mfree(text);
         text2 = mfree(text2);
-        parsed = varlink_interface_free(parsed);
+        parsed = sd_varlink_interface_free(parsed);
 
         /* Do the same thing, but aggressively line break, and make sure this is roundtrippable as well */
         assert_se(sd_varlink_idl_dump(stdout, iface, SD_VARLINK_IDL_FORMAT_COLOR, 23) >= 0);
         assert_se(varlink_idl_consistent(iface, LOG_ERR) >= 0);
         assert_se(sd_varlink_idl_format_full(iface, 0, 23, &text) >= 0);
-        assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
+        assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         assert_se(varlink_idl_consistent(parsed, LOG_ERR) >= 0);
         assert_se(sd_varlink_idl_format_full(parsed, 0, 23, &text2) >= 0);
 
@@ -213,7 +213,7 @@ TEST(parse_format) {
 }
 
 TEST(parse) {
-        _cleanup_(varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
 
         /* This one has (nested) enonymous enums and structs */
         static const char text[] =
@@ -222,13 +222,13 @@ TEST(parse) {
                 "type Barstruct ( a : (x, y, z), b : (x : int), c: (f, ff, fff), d: object, e : (sub : (subsub: (subsubsub: string, subsubsub2: (iii, ooo)))))"
                 ;
 
-        assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
+        assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         test_parse_format_one(parsed);
 
-        assert_se(varlink_idl_parse("interface org.freedesktop.Foo\n"
-                                    "type Foo (b: bool, c: foo, c: int)", NULL, NULL, NULL) == -ENETUNREACH); /* unresolved type */
-        assert_se(varlink_idl_parse("interface org.freedesktop.Foo\n"
-                                    "type Foo ()", NULL, NULL, NULL) == -EBADMSG); /* empty struct/enum */
+        assert_se(sd_varlink_idl_parse("interface org.freedesktop.Foo\n"
+                                       "type Foo (b: bool, c: foo, c: int)", NULL, NULL, NULL) == -ENETUNREACH); /* unresolved type */
+        assert_se(sd_varlink_idl_parse("interface org.freedesktop.Foo\n"
+                                       "type Foo ()", NULL, NULL, NULL) == -EBADMSG); /* empty struct/enum */
 }
 
 TEST(interface_name_is_valid) {
@@ -300,7 +300,7 @@ TEST(qualified_symbol_name_is_valid) {
 
 TEST(validate_json) {
 
-        _cleanup_(varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
 
         /* This one has (nested) enonymous enums and structs */
         static const char text[] =
@@ -311,7 +311,7 @@ TEST(validate_json) {
                 "#paff\n"
                 "b:int, c:?bool, d:[]int, e:?[string]bool, f:?(piff, paff), g:(f:float) ) -> ()\n";
 
-        assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
+        assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         test_parse_format_one(parsed);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -330,7 +330,7 @@ TEST(validate_json) {
 }
 
 static int test_recursive_one(unsigned depth) {
-        _cleanup_(varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
         _cleanup_free_ char *pre = NULL, *post = NULL, *text = NULL;
         static const char header[] =
                 "interface recursive.test\n"
@@ -346,7 +346,7 @@ static int test_recursive_one(unsigned depth) {
         if (!text)
                 return log_oom();
 
-        return varlink_idl_parse(text, NULL, NULL, &parsed);
+        return sd_varlink_idl_parse(text, NULL, NULL, &parsed);
 }
 
 TEST(recursive) {
