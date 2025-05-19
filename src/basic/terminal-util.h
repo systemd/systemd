@@ -113,7 +113,6 @@ bool tty_is_vc(const char *tty);
 bool tty_is_vc_resolve(const char *tty);
 bool tty_is_console(const char *tty) _pure_;
 int vtnr_from_tty(const char *tty);
-const char* default_term_for_tty(const char *tty);
 
 void reset_dev_console_fd(int fd, bool switch_to_text);
 int lock_dev_console(void);
@@ -159,6 +158,9 @@ void termios_disable_echo(struct termios *termios);
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
 int terminal_get_size_by_dsr(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
 int terminal_get_terminfo_by_dcs(int input_fd, int output_fd, char **ret_name);
+int have_terminfo_file(const char *name);
+const char* default_term_for_tty(const char *tty);
+int query_term_for_tty(const char *tty, char **ret_term);
 
 int terminal_fix_size(int input_fd, int output_fd);
 
