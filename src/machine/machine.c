@@ -254,7 +254,7 @@ static void machine_unlink(Machine *m) {
 }
 
 int machine_load(Machine *m) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *leader_pidfdid = NULL,
+        _cleanup_free_ char *name = NULL, *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *leader_pidfdid = NULL,
                 *class = NULL, *netif = NULL, *vsock_cid = NULL;
         int r;
 
@@ -264,6 +264,7 @@ int machine_load(Machine *m) {
                 return 0;
 
         r = parse_env_file(NULL, m->state_file,
+                           "NAME",                 &name,
                            "SCOPE",                &m->unit,
                            "SCOPE_JOB",            &m->scope_job,
                            "SERVICE",              &m->service,
@@ -282,6 +283,9 @@ int machine_load(Machine *m) {
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", m->state_file);
+
+        if (!streq_ptr(name, m->name))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "State file '%s' for machine '%s' reports a different name '%s', refusing", m->state_file, m->name, name);
 
         if (id)
                 (void) sd_id128_from_string(id, &m->id);
