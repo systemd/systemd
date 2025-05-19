@@ -993,6 +993,7 @@ static const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("Desktop", "s", NULL, offsetof(Session, desktop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Scope", "s", NULL, offsetof(Session, scope), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Leader", "u", bus_property_get_pid, offsetof(Session, leader.pid), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LeaderPidFdId", "t", bus_property_get_pidfdid, offsetof(Session, leader), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Audit", "u", NULL, offsetof(Session, audit_id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Session, type), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Session, class), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
