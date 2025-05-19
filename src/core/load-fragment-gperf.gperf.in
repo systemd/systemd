@@ -67,6 +67,11 @@
 {{type}}.KeyringMode,                         config_parse_exec_keyring_mode,                     0,                                  offsetof({{type}}, exec_context.keyring_mode)
 {{type}}.ProtectProc,                         config_parse_protect_proc,                          0,                                  offsetof({{type}}, exec_context.protect_proc)
 {{type}}.ProcSubset,                          config_parse_proc_subset,                           0,                                  offsetof({{type}}, exec_context.proc_subset)
+{{type}}.PrivateBPF,                          config_parse_private_bpf,                           0,                                  offsetof({{type}}, exec_context.private_bpf)
+{{type}}.BPFDelegateCommands,                 config_parse_bpf_delegate,                          0,                                  offsetof({{type}}, exec_context.bpf_delegate_commands)
+{{type}}.BPFDelegateMaps,                     config_parse_bpf_delegate,                          0,                                  offsetof({{type}}, exec_context.bpf_delegate_maps)
+{{type}}.BPFDelegatePrograms,                 config_parse_bpf_delegate,                          0,                                  offsetof({{type}}, exec_context.bpf_delegate_programs)
+{{type}}.BPFDelegateAttachments,              config_parse_bpf_delegate,                          0,                                  offsetof({{type}}, exec_context.bpf_delegate_attachments)
 {% if HAVE_SECCOMP %}
 {{type}}.SystemCallFilter,                    config_parse_syscall_filter,                        0,                                  offsetof({{type}}, exec_context)
 {{type}}.SystemCallArchitectures,             config_parse_syscall_archs,                         0,                                  offsetof({{type}}, exec_context.syscall_archs)
