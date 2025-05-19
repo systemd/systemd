@@ -572,7 +572,7 @@ int machine_stop(Machine *m) {
 
                 r = manager_stop_unit(m->manager, m->unit, &error, &job);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to stop machine unit: %s", bus_error_message(&error, r));
 
                 free_and_replace(m->scope_job, job);
         }
