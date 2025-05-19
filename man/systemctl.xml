@@ -2478,14 +2478,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>When used with <command>kill</command>, choose which processes to send a UNIX process signal
-          to. Must be one of <option>main</option>, <option>control</option> or <option>all</option> to
-          select whether to kill only the main process, the control process or all processes of the unit. The
-          main process of the unit is the one that defines the life-time of it. A control process of a unit
-          is one that is invoked by the manager to induce state changes of it. For example, all processes
-          started due to the <varname>ExecStartPre=</varname>, <varname>ExecStop=</varname> or
-          <varname>ExecReload=</varname> settings of service units are control processes. Note that there is
-          only one control process per unit at a time, as only one state change is executed at a time. For
-          services of type <varname>Type=forking</varname>, the initial process started by the manager for
+          to. Must be one of <option>main</option>, <option>control</option>, <option>cgroup</option> or
+          <option>all</option> to select whether to kill only the main process, the control process, all
+          processes in the unit's control group or all processes of the unit. The main process of the unit is
+          the one that defines the life-time of it. A control process of a unit is one that is invoked by the
+          manager to induce state changes of it. For example, all processes started due to the
+          <varname>ExecStartPre=</varname>, <varname>ExecStop=</varname> or <varname>ExecReload=</varname>
+          settings of service units are control processes. Note that there is only one control process per
+          unit at a time, as only one state change is executed at a time. For services of type
+          <varname>Type=forking</varname>, the initial process started by the manager for
           <varname>ExecStart=</varname> is a control process, while the process ultimately forked off by that
           one is then considered the main process of the unit (if it can be determined). This is different
           for service units of other types, where the process forked off by the manager for
