@@ -155,6 +155,13 @@ int machine_save(Machine *m) {
         if (!m->started)
                 return 0;
 
+        _cleanup_(unlink_and_freep) char *sl = NULL; /* auto-unlink! */
+        if (m->unit) {
+                sl = strjoin("/run/systemd/machines/unit:", m->unit);
+                if (!sl)
+                        return log_oom();
+        }
+
         r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/systemd/machines/: %m");
@@ -241,14 +248,13 @@ int machine_save(Machine *m) {
 
         temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
 
-        if (m->unit) {
-                char *sl;
-
-                /* Create a symlink from the unit name to the machine
-                 * name, so that we can quickly find the machine for
-                 * each given unit. Ignore error. */
-                sl = strjoina("/run/systemd/machines/unit:", m->unit);
+        if (sl) {
+                /* Create a symlink from the unit name to the machine name, so that we can quickly find the machine
+                 * for each given unit. Ignore error. */
                 (void) symlink(m->name, sl);
+
+                /* disarm auto-removal */
+                sl = mfree(sl);
         }
 
         return 0;
@@ -258,9 +264,7 @@ static void machine_unlink(Machine *m) {
         assert(m);
 
         if (m->unit) {
-                char *sl;
-
-                sl = strjoina("/run/systemd/machines/unit:", m->unit);
+                const char *sl = strjoina("/run/systemd/machines/unit:", m->unit);
                 (void) unlink(sl);
         }
 
