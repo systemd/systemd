@@ -588,7 +588,7 @@ static sd_varlink_symbol* varlink_symbol_free(sd_varlink_symbol *symbol) {
         return mfree(symbol);
 }
 
-sd_varlink_interface* varlink_interface_free(sd_varlink_interface *interface) {
+sd_varlink_interface* sd_varlink_interface_free(sd_varlink_interface *interface) {
         if (!interface)
                 return NULL;
 
@@ -1139,13 +1139,13 @@ static int varlink_idl_resolve_types(sd_varlink_interface *interface) {
         return 0;
 }
 
-int varlink_idl_parse(
+int sd_varlink_idl_parse(
                 const char *text,
                 unsigned *reterr_line,
                 unsigned *reterr_column,
                 sd_varlink_interface **ret) {
 
-        _cleanup_(varlink_interface_freep) sd_varlink_interface *interface = NULL;
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *interface = NULL;
         _cleanup_(varlink_symbol_freep) sd_varlink_symbol *symbol = NULL;
         enum {
                 STATE_PRE_INTERFACE,
