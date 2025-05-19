@@ -287,6 +287,7 @@ class UkifyConfig:
     sb_certdir: Path
     sb_key: Union[str, Path, None]
     sbat: Optional[list[str]]
+    extra_sbat: Optional[list[str]]
     sections: list['Section']
     sections_by_name: dict[str, 'Section']
     sign_kernel: Optional[bool]
@@ -1444,7 +1445,10 @@ def make_uki(opts: UkifyConfig) -> None:
             input_pes = []
             if not opts.sbat:
                 opts.sbat = [ADDON_SBAT]
-        uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
+        ukify_sbat = opts.sbat
+        if opts.extra_sbat:
+            ukify_sbat += opts.extra_sbat
+        uki.add_section(Section.create('.sbat', merge_sbat(input_pes, ukify_sbat), measure=linux is not None))
 
     # If we're building a UKI with additional profiles, the .profile section for the base profile has to be
     # the last one so that everything before it is shared between profiles. The only thing we don't share
@@ -2013,6 +2017,15 @@ CONFIG_ITEMS = [
         config_key='UKI/SBAT',
     ),
     ConfigItem(
+        '--extra-sbat',
+        metavar='TEXT|@PATH',
+        dest='extra_sbat',
+        help='SBAT policy to append to the default .sbat section',
+        default=[],
+        action='append',
+        config_key='UKI/ExtraSBAT',
+    ),
+    ConfigItem(
         '--pcrpkey',
         metavar='KEY',
         type=Path,
@@ -2491,6 +2504,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
         or opts.join_profiles
         or opts.microcode
         or opts.sbat
+        or opts.extra_sbat
         or opts.uname
         or opts.os_release
         or opts.cmdline
