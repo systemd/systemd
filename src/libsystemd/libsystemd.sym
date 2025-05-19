@@ -994,6 +994,8 @@ global:
         sd_varlink_idl_dump;
         sd_varlink_idl_format;
         sd_varlink_idl_format_full;
+        sd_varlink_idl_parse;
+        sd_varlink_interface_free;
         sd_varlink_invocation;
         sd_varlink_invoke;
         sd_varlink_invokeb;
