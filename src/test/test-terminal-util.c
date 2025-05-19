@@ -242,6 +242,35 @@ TEST(terminal_get_terminfo_by_dcs) {
         log_info("terminal terminfo via DCS: %s, $TERM: %s", name, strnull(getenv("TERM")));
 }
 
+TEST(have_terminfo_file) {
+        int r;
+
+        FOREACH_STRING(s,
+                       "linux",
+                       "xterm",
+                       "vt220",
+                       "xterm-256color",
+                       "nosuchfile") {
+                r = have_terminfo_file(s);
+                log_info("%s: %s → %s", __func__+5, s, r >= 0 ? yes_no(r) : STRERROR(r));
+                ASSERT_OK(r);
+        }
+}
+
+TEST(query_term_for_tty) {
+        int r;
+
+        FOREACH_STRING(s,
+                       "/dev/console",
+                       "/dev/stdin",
+                       "/dev/stdout") {
+                _cleanup_free_ char *term = NULL;
+
+                r = query_term_for_tty(s, &term);
+                log_info("%s: %s → %s/%s", __func__+5, s, STRERROR(r), strnull(term));
+        }
+}
+
 TEST(terminal_is_pty_fd) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         int r;

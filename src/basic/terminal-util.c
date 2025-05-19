@@ -1373,6 +1373,25 @@ int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols
         return 0;
 }
 
+int have_terminfo_file(const char *name) {
+        /* This is a heuristic check if we have the file, using the directory layout used on
+         * current Linux systems. Checks for other layouts can be added later if appropriate. */
+        int r;
+
+        assert(filename_is_valid(name));
+
+        _cleanup_free_ char *p = path_join("/usr/share/terminfo", CHAR_TO_STR(name[0]), name);
+        if (!p)
+                return log_oom_debug();
+
+        r = RET_NERRNO(access(p, F_OK));
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+        return true;
+}
+
 int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_cols) {
         _cleanup_free_ char *rowskey = NULL, *rowsvalue = NULL, *colskey = NULL, *colsvalue = NULL;
         unsigned rows = UINT_MAX, cols = UINT_MAX;
@@ -2547,6 +2566,36 @@ int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
 finish:
         RET_GATHER(r, RET_NERRNO(tcsetattr(fd, TCSADRAIN, &old_termios)));
         return r < 0 ? r : 0;
+}
+
+int query_term_for_tty(const char *tty, char **ret_term) {
+        _cleanup_free_ char *dcs_term = NULL;
+        int r;
+
+        assert(tty);
+        assert(ret_term);
+
+        /* Try to query the terminal implementation that we're on. This will not work in all
+         * cases, which is fine, since this is intended to be used as a fallback. */
+
+        _cleanup_close_ int tty_fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (tty_fd < 0)
+                return log_debug_errno(tty_fd, "Failed to open %s to query terminfo: %m", tty);
+
+        r = terminal_get_terminfo_by_dcs(tty_fd, &dcs_term);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query %s for terminfo: %m", tty);
+
+        r = have_terminfo_file(dcs_term);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query %s for terminfo: %m",
+                                       dcs_term);
+        if (r == 0)
+                return log_info_errno(SYNTHETIC_ERRNO(ENODATA),
+                                      "Terminfo %s not found for %s.", dcs_term, tty);
+
+        *ret_term = TAKE_PTR(dcs_term);
+        return 0;
 }
 
 int terminal_fix_size(int input_fd, int output_fd) {
