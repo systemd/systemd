@@ -14,7 +14,7 @@
 #include "varlink-idl-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(varlink_interface_freep) sd_varlink_interface *vi = NULL;
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *str = NULL, *dump = NULL;
         int r;
 
@@ -25,7 +25,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(str = memdup_suffix0(data, size));
 
-        r = varlink_idl_parse(str, /* ret_line= */ NULL, /* column= */ NULL, &vi);
+        r = sd_varlink_idl_parse(str, /* ret_line= */ NULL, /* column= */ NULL, &vi);
         if (r < 0) {
                 log_debug_errno(r, "Failed to parse varlink interface definition: %m");
                 return 0;

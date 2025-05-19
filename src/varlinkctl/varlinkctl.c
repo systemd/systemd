@@ -449,7 +449,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                                 {}
                         };
-                        _cleanup_(varlink_interface_freep) sd_varlink_interface *vi = NULL;
+                        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
                         const char *description = NULL;
                         unsigned line = 0, column = 0;
 
@@ -461,7 +461,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 print_separator();
 
                         /* Try to parse the returned description, so that we can add syntax highlighting */
-                        r = varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
+                        r = sd_varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
                         if (r < 0) {
                                 if (list_methods)
                                         return log_error_errno(r, "Failed to parse returned interface description at %u:%u: %m", line, column);
@@ -818,7 +818,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_validate_idl(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_interface_freep) sd_varlink_interface *vi = NULL;
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *text = NULL;
         const char *fname;
         unsigned line = 1, column = 1;
@@ -838,7 +838,7 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
                 fname = "<stdin>";
         }
 
-        r = varlink_idl_parse(text, &line, &column, &vi);
+        r = sd_varlink_idl_parse(text, &line, &column, &vi);
         if (r == -EBADMSG)
                 return log_error_errno(r, "%s:%u:%u: Bad syntax.", fname, line, column);
         if (r == -ENETUNREACH)
