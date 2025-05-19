@@ -1072,6 +1072,8 @@ global:
         sd_varlink_get_input_fd;
         sd_varlink_get_n_fds;
         sd_varlink_get_output_fd;
+        sd_varlink_idl_parse;
+        sd_varlink_interface_free;
         sd_varlink_reset_fds;
         sd_varlink_server_listen_name;
 } LIBSYSTEMD_257;
