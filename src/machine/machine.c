@@ -180,36 +180,12 @@ int machine_save(Machine *m) {
                 "NAME=%s\n",
                 m->name);
 
-        if (m->unit) {
-                _cleanup_free_ char *escaped = NULL;
+        /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
+        env_file_fputs_assignment(f, "SCOPE=", m->unit);
+        env_file_fputs_assignment(f, "SCOPE_JOB=", m->scope_job);
 
-                escaped = cescape(m->unit);
-                if (!escaped)
-                        return log_oom();
-
-                fprintf(f, "SCOPE=%s\n", escaped); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
-        }
-
-        if (m->scope_job)
-                fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
-
-        if (m->service) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(m->service);
-                if (!escaped)
-                        return log_oom();
-                fprintf(f, "SERVICE=%s\n", escaped);
-        }
-
-        if (m->root_directory) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(m->root_directory);
-                if (!escaped)
-                        return log_oom();
-                fprintf(f, "ROOT=%s\n", escaped);
-        }
+        env_file_fputs_assignment(f, "SERVICE=", m->service);
+        env_file_fputs_assignment(f, "ROOT=", m->root_directory);
 
         if (!sd_id128_is_null(m->id))
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
