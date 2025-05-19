@@ -145,8 +145,6 @@ Machine* machine_free(Machine *m) {
 }
 
 int machine_save(Machine *m) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(m);
@@ -159,13 +157,16 @@ int machine_save(Machine *m) {
 
         r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/machines/: %m");
 
-        r = fopen_temporary(m->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(m->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", m->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", m->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -176,10 +177,8 @@ int machine_save(Machine *m) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->unit);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!escaped)
+                        return log_oom();
 
                 fprintf(f, "SCOPE=%s\n", escaped); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
         }
@@ -191,10 +190,8 @@ int machine_save(Machine *m) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->service);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!escaped)
+                        return log_oom();
                 fprintf(f, "SERVICE=%s\n", escaped);
         }
 
@@ -202,10 +199,8 @@ int machine_save(Machine *m) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->root_directory);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!escaped)
+                        return log_oom();
                 fprintf(f, "ROOT=%s\n", escaped);
         }
 
@@ -240,16 +235,11 @@ int machine_save(Machine *m) {
                 fputc('\n', f);
         }
 
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, m->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", m->state_file);
 
-        if (rename(temp_path, m->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
 
         if (m->unit) {
                 char *sl;
@@ -262,11 +252,6 @@ int machine_save(Machine *m) {
         }
 
         return 0;
-
-fail:
-        (void) unlink(m->state_file);
-
-        return log_error_errno(r, "Failed to save machine data %s: %m", m->state_file);
 }
 
 static void machine_unlink(Machine *m) {
