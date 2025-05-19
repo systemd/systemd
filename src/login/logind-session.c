@@ -276,8 +276,6 @@ static void session_save_devices(Session *s, FILE *f) {
 }
 
 int session_save(Session *s) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(s);
@@ -290,13 +288,16 @@ int session_save(Session *s) {
 
         r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/sessions/: %m");
 
-        r = fopen_temporary(s->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", s->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", s->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -345,10 +346,8 @@ int session_save(Session *s) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->remote_host);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!escaped)
+                        return log_oom();
 
                 fprintf(f, "REMOTE_HOST=%s\n", escaped);
         }
@@ -357,10 +356,8 @@ int session_save(Session *s) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->remote_user);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!escaped)
+                        return log_oom();
 
                 fprintf(f, "REMOTE_USER=%s\n", escaped);
         }
@@ -369,10 +366,8 @@ int session_save(Session *s) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->service);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!escaped)
+                        return log_oom();
 
                 fprintf(f, "SERVICE=%s\n", escaped);
         }
@@ -381,10 +376,8 @@ int session_save(Session *s) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->desktop);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!escaped)
+                        return log_oom();
 
                 fprintf(f, "DESKTOP=%s\n", escaped);
         }
@@ -413,22 +406,12 @@ int session_save(Session *s) {
                 session_save_devices(s, f);
         }
 
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, s->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", s->state_file);
 
-        if (rename(temp_path, s->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
         return 0;
-
-fail:
-        (void) unlink(s->state_file);
-
-        return log_error_errno(r, "Failed to save session data %s: %m", s->state_file);
 }
 
 static int session_load_devices(Session *s, const char *devices) {

@@ -89,21 +89,22 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
 }
 
 static int inhibitor_save(Inhibitor *i) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(i);
 
         r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/inhibit/: %m");
 
-        r = fopen_temporary(i->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(i->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", i->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", i->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -120,10 +121,8 @@ static int inhibitor_save(Inhibitor *i) {
                 _cleanup_free_ char *cc = NULL;
 
                 cc = cescape(i->who);
-                if (!cc) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!cc)
+                        return log_oom();
 
                 fprintf(f, "WHO=%s\n", cc);
         }
@@ -132,10 +131,8 @@ static int inhibitor_save(Inhibitor *i) {
                 _cleanup_free_ char *cc = NULL;
 
                 cc = cescape(i->why);
-                if (!cc) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!cc)
+                        return log_oom();
 
                 fprintf(f, "WHY=%s\n", cc);
         }
@@ -143,22 +140,12 @@ static int inhibitor_save(Inhibitor *i) {
         if (i->fifo_path)
                 fprintf(f, "FIFO=%s\n", i->fifo_path);
 
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, i->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", i->state_file);
 
-        if (rename(temp_path, i->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
         return 0;
-
-fail:
-        (void) unlink(i->state_file);
-
-        return log_error_errno(r, "Failed to save inhibit data %s: %m", i->state_file);
 }
 
 static int bus_manager_send_inhibited_change(Inhibitor *i) {

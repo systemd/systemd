@@ -144,8 +144,6 @@ User *user_free(User *u) {
 }
 
 static int user_save_internal(User *u) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(u);
@@ -153,13 +151,16 @@ static int user_save_internal(User *u) {
 
         r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/users/: %m");
 
-        r = fopen_temporary(u->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(u->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", u->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", u->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -282,22 +283,12 @@ static int user_save_internal(User *u) {
                 fputc('\n', f);
         }
 
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, u->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", u->state_file);
 
-        if (rename(temp_path, u->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
         return 0;
-
-fail:
-        (void) unlink(u->state_file);
-
-        return log_error_errno(r, "Failed to save user data %s: %m", u->state_file);
 }
 
 int user_save(User *u) {
