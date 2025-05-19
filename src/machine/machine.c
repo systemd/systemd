@@ -217,6 +217,12 @@ int machine_save(Machine *m) {
                 fputs("\"\n", f);
         }
 
+        if (m->vsock_cid != 0)
+                fprintf(f, "VSOCK_CID=%u\n", m->vsock_cid);
+
+        env_file_fputs_assignment(f, "SSH_ADDRESS=", m->ssh_address);
+        env_file_fputs_assignment(f, "SSH_PRIVATE_KEY_PATH=", m->ssh_private_key_path);
+
         r = flink_tmpfile(f, temp_path, m->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
                 return log_error_errno(r, "Failed to move '%s' into place: %m", m->state_file);
@@ -248,7 +254,8 @@ static void machine_unlink(Machine *m) {
 }
 
 int machine_load(Machine *m) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *leader_pidfdid = NULL, *class = NULL, *netif = NULL;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *leader_pidfdid = NULL,
+                *class = NULL, *netif = NULL, *vsock_cid = NULL;
         int r;
 
         assert(m);
@@ -257,17 +264,20 @@ int machine_load(Machine *m) {
                 return 0;
 
         r = parse_env_file(NULL, m->state_file,
-                           "SCOPE",          &m->unit,
-                           "SCOPE_JOB",      &m->scope_job,
-                           "SERVICE",        &m->service,
-                           "ROOT",           &m->root_directory,
-                           "ID",             &id,
-                           "LEADER",         &leader,
-                           "LEADER_PIDFDID", &leader_pidfdid,
-                           "CLASS",          &class,
-                           "REALTIME",       &realtime,
-                           "MONOTONIC",      &monotonic,
-                           "NETIF",          &netif);
+                           "SCOPE",                &m->unit,
+                           "SCOPE_JOB",            &m->scope_job,
+                           "SERVICE",              &m->service,
+                           "ROOT",                 &m->root_directory,
+                           "ID",                   &id,
+                           "LEADER",               &leader,
+                           "LEADER_PIDFDID",       &leader_pidfdid,
+                           "CLASS",                &class,
+                           "REALTIME",             &realtime,
+                           "MONOTONIC",            &monotonic,
+                           "NETIF",                &netif,
+                           "VSOCK_CID",            &vsock_cid,
+                           "SSH_ADDRESS",          &m->ssh_address,
+                           "SSH_PRIVATE_KEY_PATH", &m->ssh_private_key_path);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -341,6 +351,13 @@ int machine_load(Machine *m) {
 
                 m->netif = TAKE_PTR(ni);
                 m->n_netif = nr;
+        }
+
+        m->vsock_cid = 0;
+        if (vsock_cid) {
+                r = safe_atou(vsock_cid, &m->vsock_cid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse AF_VSOCK CID, ignoring: %s", vsock_cid);
         }
 
         return r;
