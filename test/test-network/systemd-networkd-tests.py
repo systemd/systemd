@@ -5063,6 +5063,23 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
             print('### ip monitor dev dummy98 END')
 
+    def test_keep_untracked_addresses(self):
+        # Add an unmanaged interface with an up address
+
+        copy_network_unit('12-dummy.netdev', '85-static-ipv6.network')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -6 addr add 2222:3333::4444/64 dev dummy98')
+        output = check_output('ip -6 addr add 2222:3333::4444/64 dev dummy98')
+        print(output)
+
+        restart_networkd()
+
+        output = check_output('ip -6 addr show dev enp0s1')
+        print(output)
+        self.assertRegex(output, 'inet6 2222:3333::4444/64 scope global')
+
     def check_nexthop(self, manage_foreign_nexthops, first):
         self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
 
