@@ -2575,6 +2575,9 @@ int query_term_for_tty(const char *tty, char **ret_term) {
         assert(tty);
         assert(ret_term);
 
+        if (tty_is_vc_resolve(tty))
+                return strdup_to(ret_term, "linux");
+
         /* Try to query the terminal implementation that we're on. This will not work in all
          * cases, which is fine, since this is intended to be used as a fallback. */
 
