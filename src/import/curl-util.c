@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <fcntl.h>
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "curl-util.h"
 #include "fd-util.h"
-#include "locale-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "version.h"
 
 static void curl_glue_check_finished(CurlGlue *g) {

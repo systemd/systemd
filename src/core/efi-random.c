@@ -1,17 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <unistd.h>
+#include <sys/stat.h>
 
-#include "alloc-util.h"
 #include "chattr-util.h"
 #include "efi-random.h"
 #include "efivars.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "log.h"
-#include "random-util.h"
-#include "strv.h"
 
 void lock_down_efi_variables(void) {
         _cleanup_close_ int fd = -EBADF;

@@ -4,20 +4,10 @@
 
 #pragma once
 
-#include <inttypes.h>
-
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
-#include "hashmap.h"
 #include "in-addr-util.h"
+#include "networkd-forward.h"
 #include "networkd-util.h"
 
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Network Network;
-typedef struct NextHop NextHop;
-typedef struct Request Request;
 typedef int (*nexthop_netlink_handler_t)(
                 sd_netlink *rtnl,
                 sd_netlink_message *m,
@@ -25,7 +15,7 @@ typedef int (*nexthop_netlink_handler_t)(
                 Link *link,
                 NextHop *nexthop);
 
-struct NextHop {
+typedef struct NextHop {
         Network *network;
         Manager *manager;
         ConfigSection *section;
@@ -53,7 +43,7 @@ struct NextHop {
         /* For managing routes and nexthops that depend on this nexthop. */
         Set *nexthops;
         Set *routes;
-};
+} NextHop;
 
 void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *manager);
 

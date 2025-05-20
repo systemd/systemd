@@ -2,7 +2,6 @@
 
 #include <getopt.h>
 #include <sys/socket.h>
-#include <unistd.h>
 
 #include "sd-messages.h"
 

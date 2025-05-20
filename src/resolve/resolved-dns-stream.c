@@ -1,18 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_arp.h>
-#include <netinet/tcp.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
-#include "macro.h"
+#include "log.h"
 #include "missing_network.h"
+#include "ordered-set.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
+#include "set.h"
+#include "time-util.h"
 
 #define DNS_STREAMS_MAX 128
 

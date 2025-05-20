@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "errno-list.h"
 #include "errno-to-name.h"
-#include "macro.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(errno_list) {

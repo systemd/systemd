@@ -2,16 +2,12 @@
 #pragma once
 
 #include <curl/curl.h>
-#include <sys/types.h>
 
-#include "sd-event.h"
-
-#include "hashmap.h"
-#include "time-util.h"
+#include "forward.h"
 
 typedef struct CurlGlue CurlGlue;
 
-struct CurlGlue {
+typedef struct CurlGlue {
         sd_event *event;
         CURLM *curl;
         sd_event_source *timer;
@@ -20,7 +16,7 @@ struct CurlGlue {
 
         void (*on_finished)(CurlGlue *g, CURL *curl, CURLcode code);
         void *userdata;
-};
+} CurlGlue;
 
 int curl_glue_new(CurlGlue **glue, sd_event *event);
 CurlGlue* curl_glue_unref(CurlGlue *glue);

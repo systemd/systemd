@@ -11,7 +11,6 @@
 #include "efi-efivars.h"
 #include "proto/device-path.h"
 #include "smbios.h"
-#include "string-util-fundamental.h"
 #include "util.h"
 #include "vmm.h"
 

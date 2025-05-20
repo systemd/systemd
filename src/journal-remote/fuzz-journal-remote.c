@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mman.h>
+#include <stdlib.h>
 
 #include "sd-journal.h"
 
 #include "env-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "fuzz.h"
 #include "journal-remote.h"
@@ -14,7 +13,6 @@
 #include "memfd-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
