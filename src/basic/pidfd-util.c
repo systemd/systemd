@@ -248,7 +248,7 @@ int pidfd_get_inode_id(int fd, uint64_t *ret) {
                 r = RET_NERRNO(name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH));
                 if (r >= 0) {
                         if (ret)
-                                *ret = *(uint64_t*) fh.file_handle.f_handle;
+                                *ret = *CAST_ALIGN_PTR(uint64_t, fh.file_handle.f_handle);
                         return 0;
                 }
                 assert(r != -EOVERFLOW);
