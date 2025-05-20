@@ -3,11 +3,17 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
+#include <linux/if_addr.h>
+#include <stdio.h>
+
+#include "sd-dhcp6-protocol.h"
+
+#include "conf-parser.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp6.h"
@@ -18,6 +24,7 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-state-file.h"
+#include "set.h"
 #include "string-table.h"
 #include "string-util.h"
 

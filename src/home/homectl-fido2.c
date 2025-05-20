@@ -1,14 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_LIBFIDO2
-#include <fido.h>
-#endif
-
 #include "alloc-util.h"
-#include "ask-password-api.h"
 #include "errno-util.h"
 #include "fido2-util.h"
-#include "format-table.h"
 #include "hexdecoct.h"
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
@@ -16,10 +10,7 @@
 #include "json-util.h"
 #include "libcrypt-util.h"
 #include "libfido2-util.h"
-#include "locale-util.h"
 #include "log.h"
-#include "memory-util.h"
-#include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
 

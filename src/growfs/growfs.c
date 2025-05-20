@@ -2,9 +2,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/magic.h>
-#include <sys/ioctl.h>
-#include <sys/mount.h>
 #include <sys/vfs.h>
 
 #include "alloc-util.h"

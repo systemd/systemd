@@ -25,7 +25,6 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "missing_syscall.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"

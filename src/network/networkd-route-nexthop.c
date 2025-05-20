@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/nexthop.h>
+#include <stdio.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
@@ -11,7 +15,11 @@
 #include "networkd-route.h"
 #include "networkd-route-nexthop.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
+#include "set.h"
+#include "siphash24.h"
+#include "socket-util.h"
 #include "string-util.h"
 
 void route_detach_from_nexthop(Route *route) {

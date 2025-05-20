@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -12,7 +13,6 @@
 #include "main-func.h"
 #include "pager.h"
 #include "pretty-print.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;

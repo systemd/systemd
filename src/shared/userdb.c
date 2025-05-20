@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/auxv.h>
+#include <gshadow.h>
+#include <stdlib.h>
 
+#include "sd-event.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -14,10 +16,9 @@
 #include "format-util.h"
 #include "json-util.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
 #include "set.h"
-#include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "uid-classification.h"
 #include "user-record-nss.h"

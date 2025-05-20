@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/ethtool.h>
-#include <linux/netdevice.h>
 #include <linux/sockios.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "errno-util.h"
+#include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -17,8 +18,10 @@
 #include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 
 static const char* const duplex_table[_DUP_MAX] = {
         [DUP_FULL] = "full",
