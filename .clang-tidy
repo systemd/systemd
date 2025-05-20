@@ -3,8 +3,12 @@
 Checks: '
     -*,
     misc-header-include-cycle,
+    misc-include-cleaner,
     readability-duplicate-include
 '
+CheckOptions:
+  misc-include-cleaner.MissingIncludes: 'false'
+  misc-include-cleaner.IgnoreHeaders: 'getopt\.h;sys/uio\.h;netinet/in\.h;net/if\.h;net/if_arp\.h;runtime-scope\.h'
 WarningsAsErrors: '*'
 HeaderFileExtensions:
   - h
