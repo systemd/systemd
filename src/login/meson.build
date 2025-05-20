@@ -29,7 +29,7 @@ systemd_logind_extract_sources = files(
 )
 
 logind_gperf_c = custom_target(
-        'logind_gperf.c',
+        'logind-gperf.c',
         input : 'logind-gperf.gperf',
         output : 'logind-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])

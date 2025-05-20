@@ -42,7 +42,7 @@ if conf.get('HAVE_LIBFIDO2') == 1
 endif
 
 homed_gperf_c = custom_target(
-        'homed_gperf.c',
+        'homed-gperf.c',
         input : 'homed-gperf.gperf',
         output : 'homed-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
