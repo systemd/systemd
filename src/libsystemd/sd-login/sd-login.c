@@ -888,11 +888,11 @@ _public_ int sd_session_get_leader(const char *session, pid_t *leader) {
         return 0;
 }
 
-_public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
+_public_ int sd_seat_get_active(const char *seat, char **ret_session, uid_t *uid) {
         _cleanup_free_ char *p = NULL, *s = NULL, *t = NULL;
         int r;
 
-        assert_return(session || uid, -EINVAL);
+        assert_return(ret_session || uid, -EINVAL);
 
         r = file_of_seat(seat, &p);
         if (r < 0)
@@ -906,7 +906,7 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         if (r < 0)
                 return r;
 
-        if (session && !s)
+        if (ret_session && !s)
                 return -ENODATA;
 
         if (uid && !t)
@@ -918,8 +918,8 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
                         return r;
         }
 
-        if (session && s)
-                *session = TAKE_PTR(s);
+        if (ret_session && s)
+                *ret_session = TAKE_PTR(s);
 
         return 0;
 }

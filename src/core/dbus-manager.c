@@ -1050,7 +1050,7 @@ static int transient_aux_units_from_message(
                 if (r < 0)
                         return r;
 
-                r = transient_unit_from_message(m, message, name, /* unit = */ NULL, error);
+                r = transient_unit_from_message(m, message, name, /* ret_unit = */ NULL, error);
                 if (r < 0)
                         return r;
 
