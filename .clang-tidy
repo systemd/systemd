@@ -4,7 +4,8 @@ Checks: '
     -*,
     misc-header-include-cycle,
     readability-duplicate-include,
-    bugprone-argument-comment
+    bugprone-argument-comment,
+    misc-include-cleaner
 '
 CheckOptions:
   misc-include-cleaner.MissingIncludes: 'false'
