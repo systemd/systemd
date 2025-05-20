@@ -63,26 +63,31 @@ static int status_entries(
                 const char *xbootldr_path,
                 sd_id128_t xbootldr_partition_uuid) {
 
-        sd_id128_t dollar_boot_partition_uuid;
-        const char *dollar_boot_path;
         int r;
 
         assert(config);
         assert(esp_path || xbootldr_path);
 
+        printf("%sBoot Loader Entry Locations:%s\n", ansi_underline(), ansi_normal());
+
         if (xbootldr_path) {
-                dollar_boot_path = xbootldr_path;
-                dollar_boot_partition_uuid = xbootldr_partition_uuid;
-        } else {
-                dollar_boot_path = esp_path;
-                dollar_boot_partition_uuid = esp_partition_uuid;
+                printf("     XBOOTLDR: %s (", xbootldr_path);
+                if (!sd_id128_is_null(xbootldr_partition_uuid))
+                        printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ", ",
+                               SD_ID128_FORMAT_VAL(xbootldr_partition_uuid));
+                /* XBOOTLDR is always $BOOT if present. */
+                printf("%s$BOOT%s)\n", ansi_green(), ansi_normal());
         }
 
-        printf("%sBoot Loader Entries:%s\n"
-               "        $BOOT: %s", ansi_underline(), ansi_normal(), dollar_boot_path);
-        if (!sd_id128_is_null(dollar_boot_partition_uuid))
-                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")",
-                       SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
+        printf("          ESP: %s (", esp_path);
+        if (!sd_id128_is_null(esp_partition_uuid))
+                printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "",
+                       SD_ID128_FORMAT_VAL(esp_partition_uuid));
+        if (!xbootldr_path)
+                /* ESP is $BOOT if XBOOTLDR not present. */
+                printf(", %s$BOOT%s", ansi_green(), ansi_normal());
+        printf(")");
+
         if (settle_entry_token() >= 0)
                 printf("\n        token: %s", arg_entry_token);
         printf("\n\n");
@@ -139,7 +144,8 @@ static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
         printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                SD_ID128_FORMAT_VAL(partition));
-        printf("         File: %s%s\n", glyph(GLYPH_TREE_RIGHT), path);
+        printf("         File: %s%s%s/%s%s\n",
+               glyph(GLYPH_TREE_RIGHT), ansi_grey(), arg_esp_path, ansi_normal(), path);
         printf("\n");
 
         (*n_printed)++;
@@ -224,7 +230,6 @@ static int enumerate_binaries(
                         return log_error_errno(errno, "Failed to open file for reading: %m");
 
                 r = get_file_version(fd, &v);
-
                 if (r < 0 && r != -ESRCH)
                         return r;
 
@@ -241,9 +246,12 @@ static int enumerate_binaries(
                  * variable, because we only will know the tree glyph to print (branch or final edge) once we
                  * read one more entry */
                 if (r == -ESRCH) /* No systemd-owned file but still interesting to print */
-                        r = asprintf(previous, "/%s/%s", path, de->d_name);
+                        r = asprintf(previous, "%s%s/%s/%s/%s",
+                                     ansi_grey(), esp_path, ansi_normal(), path, de->d_name);
                 else /* if (r >= 0) */
-                        r = asprintf(previous, "/%s/%s (%s%s%s)", path, de->d_name, ansi_highlight(), v, ansi_normal());
+                        r = asprintf(previous, "%s%s/%s/%s/%s (%s%s%s)",
+                                     ansi_grey(), esp_path, ansi_normal(), path, de->d_name,
+                                     ansi_highlight(), v, ansi_normal());
                 if (r < 0)
                         return log_oom();
 
@@ -510,7 +518,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                 printf("     Partition: n/a\n");
 
                         if (loader_path)
-                                printf("        Loader: %s%s\n", glyph(GLYPH_TREE_RIGHT), strna(loader_path));
+                                printf("        Loader: %s%s%s/%s%s\n",
+                                       glyph(GLYPH_TREE_RIGHT), ansi_grey(), arg_esp_path, ansi_normal(), loader_path);
 
                         if (loader_url)
                                 printf("  Net Boot URL: %s\n", loader_url);
