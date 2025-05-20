@@ -141,17 +141,10 @@ static bool exec_context_needs_term(const ExecContext *c) {
         assert(c);
 
         /* Return true if the execution context suggests we should set $TERM to something useful. */
-
-        if (is_terminal_input(c->std_input))
-                return true;
-
-        if (is_terminal_output(c->std_output))
-                return true;
-
-        if (is_terminal_output(c->std_error))
-                return true;
-
-        return !!c->tty_path;
+        return is_terminal_input(c->std_input) ||
+               is_terminal_output(c->std_output) ||
+               is_terminal_output(c->std_error) ||
+               !!c->tty_path;
 }
 
 static int open_null_as(int flags, int nfd) {
