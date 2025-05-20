@@ -960,7 +960,6 @@ int transaction_add_job_and_dependencies(
                 return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
 
         if (type != JOB_STOP) {
-                r = bus_unit_validate_load_state(unit, e);
                 /* The time-based cache allows new units to be started without daemon-reload, but if they are
                  * already referenced (because of dependencies or ordering) then we have to force a load of
                  * the fragment. As an optimization, check first if anything in the usual paths was modified
@@ -971,14 +970,15 @@ int transaction_add_job_and_dependencies(
                  *
                  * Given building up the transaction is a synchronous operation, attempt
                  * to load the unit immediately. */
-                if (r < 0 && manager_unit_cache_should_retry_load(unit)) {
-                        sd_bus_error_free(e);
+                if (manager_unit_cache_should_retry_load(unit)) {
+                        assert(unit->load_state == UNIT_NOT_FOUND);
                         unit->load_state = UNIT_STUB;
                         r = unit_load(unit);
                         if (r < 0 || unit->load_state == UNIT_STUB)
                                 unit->load_state = UNIT_NOT_FOUND;
-                        r = bus_unit_validate_load_state(unit, e);
                 }
+
+                r = bus_unit_validate_load_state(unit, e);
                 if (r < 0)
                         return r;
         }
