@@ -36,9 +36,9 @@ typedef struct Server {
         LIST_HEAD(Fifo, fifos);
         unsigned n_fifos;
 
-        sd_bus *bus;
-
         bool quit;
+
+        sd_bus *bus;
 } Server;
 
 struct Fifo {

@@ -39,7 +39,6 @@
 struct iovec;
 
 typedef struct LogContext {
-        unsigned n_ref;
         /* Depending on which destructor is used (log_context_free() or log_context_detach()) the memory
          * referenced by this is freed or not */
         char **fields;
@@ -47,6 +46,7 @@ typedef struct LogContext {
         size_t n_input_iovec;
         char *key;
         char *value;
+        unsigned n_ref;
         bool owned;
         LIST_FIELDS(struct LogContext, ll);
 } LogContext;

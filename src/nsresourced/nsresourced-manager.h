@@ -13,8 +13,6 @@ typedef struct Manager {
         Set *workers_fixed;    /* Workers 0…NSRESOURCE_WORKERS_MIN */
         Set *workers_dynamic;  /* Workers NSRESOURCES_WORKERS_MIN+1…NSRESOURCES_WORKERS_MAX */
 
-        int listen_fd;
-
         RateLimit worker_ratelimit;
 
         sd_event_source *deferred_start_worker_event_source;
@@ -24,6 +22,7 @@ typedef struct Manager {
         struct ring_buffer *userns_restrict_bpf_ring_buffer;
         sd_event_source *userns_restrict_bpf_ring_buffer_event_source;
 #endif
+        int listen_fd;
 
         int registry_fd;
 } Manager;

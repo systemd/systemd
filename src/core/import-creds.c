@@ -61,8 +61,8 @@
  * and untrusted ones from $ENCRYPTED_CREDENTIALS_DIRECTORY. */
 
 typedef struct ImportCredentialContext {
-        int target_dir_fd;
         size_t size_sum;
+        int target_dir_fd;
         unsigned n_credentials;
 } ImportCredentialContext;
 
