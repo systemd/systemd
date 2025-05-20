@@ -973,9 +973,9 @@ int transaction_add_job_and_dependencies(
                 if (manager_unit_cache_should_retry_load(unit)) {
                         assert(unit->load_state == UNIT_NOT_FOUND);
                         unit->load_state = UNIT_STUB;
-                        r = unit_load(unit);
-                        if (r < 0 || unit->load_state == UNIT_STUB)
-                                unit->load_state = UNIT_NOT_FOUND;
+                        unit->load_error = 0;
+                        (void) unit_load(unit);
+                        assert(unit->load_state != UNIT_STUB);
                 }
 
                 r = bus_unit_validate_load_state(unit, e);
