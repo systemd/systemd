@@ -1594,8 +1594,10 @@ static int fixup_environment(void) {
                         return r;
         }
 
-        const char *t = term ?: default_term_for_tty("/dev/console");
-        if (setenv("TERM", t, /* overwrite= */ true) < 0)
+        if (!term)
+                (void) query_term_for_tty("/dev/console", &term);
+
+        if (setenv("TERM", term ?: FALLBACK_TERM, /* overwrite= */ true) < 0)
                 return -errno;
 
         /* The kernels sets HOME=/ for init. Let's undo this. */
