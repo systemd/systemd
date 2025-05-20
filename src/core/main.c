@@ -1594,6 +1594,9 @@ static int fixup_environment(void) {
                         return r;
         }
 
+        if (!term)
+                (void) query_term_for_tty("/dev/console", &term);
+
         const char *t = term ?: default_term_for_tty("/dev/console");
         if (setenv("TERM", t, /* overwrite= */ true) < 0)
                 return -errno;
