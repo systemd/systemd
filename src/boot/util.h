@@ -8,7 +8,7 @@
 
 #if SD_BOOT
 
-#include "log.h"
+#include "efi-log.h"
 #include "proto/file-io.h"
 
 /* This is provided by the linker. */

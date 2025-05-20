@@ -9,14 +9,14 @@ systemd_sysupdate_sources = files(
         'sysupdate-resource.c',
         'sysupdate-transfer.c',
         'sysupdate-update-set.c',
+        'sysupdate.c',
+)
+systemd_sysupdate_extract_sources = files(
         'sysupdate-update-set-flags.c',
         'sysupdate-util.c',
-        'sysupdate.c',
 )
 
 systemd_updatectl_sources = files(
-        'sysupdate-update-set-flags.c',
-        'sysupdate-util.c',
         'updatectl.c',
 )
 
@@ -25,7 +25,8 @@ executables += [
                 'name' : 'systemd-sysupdate',
                 'public' : true,
                 'conditions' : ['ENABLE_SYSUPDATE'],
-                'sources' : systemd_sysupdate_sources,
+                'sources' : systemd_sysupdate_sources + systemd_sysupdate_extract_sources,
+                'extract' : systemd_sysupdate_extract_sources,
                 'link_with' : [
                         libshared,
                         libshared_fdisk,
@@ -48,6 +49,7 @@ executables += [
                 'name' : 'updatectl',
                 'public' : true,
                 'sources' : systemd_updatectl_sources,
+                'objects' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATED'],
         },
 ]

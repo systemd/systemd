@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "assert-util.h"
 #include "time-util.h"
 
 #if ENABLE_UTMP

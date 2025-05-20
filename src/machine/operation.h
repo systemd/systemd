@@ -7,6 +7,7 @@
 #include "sd-event.h"
 #include "sd-varlink.h"
 
+#include "assert-util.h"
 #include "list.h"
 
 typedef struct Machine Machine;

@@ -364,15 +364,14 @@ executables += [
                         'test-nss-hosts.c',
                         'nss-test-util.c',
                 ),
+                'extract' : files('nss-test-util.c'),
                 'dependencies' : libdl,
                 'conditions' : ['ENABLE_NSS'],
                 'timeout' : 120,
         },
         test_template + {
-                'sources' : files(
-                        'test-nss-users.c',
-                        'nss-test-util.c',
-                ),
+                'sources' : files('test-nss-users.c'),
+                'objects' : ['test-nss-hosts'],
                 'dependencies' : libdl,
                 'conditions' : ['ENABLE_NSS'],
         },

@@ -8,7 +8,7 @@ executables += [
                         'HAVE_OPENSSL',
                         'HAVE_TPM2',
                 ],
-                'sources' : files('measure.c'),
+                'sources' : files('measure-tool.c'),
                 'dependencies' : libopenssl,
         },
 ]

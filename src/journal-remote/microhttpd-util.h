@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if HAVE_MICROHTTPD
+
 #include <microhttpd.h>
 #include <stdarg.h>
 
@@ -108,3 +110,5 @@ int setup_gnutls_logger(char **categories);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct MHD_Daemon*, MHD_stop_daemon, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct MHD_Response*, MHD_destroy_response, NULL);
+
+#endif

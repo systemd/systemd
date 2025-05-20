@@ -32,6 +32,12 @@ meson_args=("-Db_lundef=false")
 if [ -z "$FUZZING_ENGINE" ]; then
     meson_args+=("-Dllvm-fuzz=true")
 else
+    # The situation with runtime dependencies on oss-fuzz is complicated as the execution environment differs
+    # from the build environment
+    # (https://google.github.io/oss-fuzz/further-reading/fuzzer-environment/#runtime-dependencies). Because
+    # statically linking isn't viable for us for various reasons, we do a build with most features disabled
+    # to link against as few libraries as possible. The libraries we do end up linking against happen (by
+    # chance) to be installed in the oss-fuzz execution environment.
     meson_args+=("-Doss-fuzz=true" "--auto-features=disabled" "-Dnspawn=enabled" "-Dresolve=true")
 
     apt-get update

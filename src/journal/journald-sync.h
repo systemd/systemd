@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Manager Manager;
-typedef struct StreamSyncReq StreamSyncReq;
-typedef struct SyncReq SyncReq;
+#include "sd-varlink.h"
 
 #include "journald-stream.h"
 #include "list.h"
 #include "macro.h"
+
+typedef struct Manager Manager;
+typedef struct StreamSyncReq StreamSyncReq;
+typedef struct SyncReq SyncReq;
 
 /* Encapsulates the synchronization request data we need to keep per STDOUT stream. Primarily a byte counter
  * to count down. */

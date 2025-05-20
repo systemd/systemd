@@ -42,7 +42,7 @@ if conf.get('HAVE_LIBFIDO2') == 1
 endif
 
 homed_gperf_c = custom_target(
-        'homed_gperf.c',
+        'homed-gperf.c',
         input : 'homed-gperf.gperf',
         output : 'homed-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -67,7 +67,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-homed',
                 'dbus' : true,
-                'sources' : [systemd_homed_sources, systemd_homed_extract_sources],
+                'sources' : systemd_homed_sources + systemd_homed_extract_sources,
                 'include_directories' : includes +
                                         include_directories('.'),
                 'extract' : systemd_homed_extract_sources,

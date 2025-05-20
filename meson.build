@@ -15,7 +15,7 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['integration-tests'],
+        exclude_suites : ['clang-tidy', 'integration-tests'],
         is_default : true,
 )
 
@@ -1569,17 +1569,17 @@ have = have and conf.get('HAVE_PAM') == 1
 conf.set10('ENABLE_PAM_HOME', have)
 
 feature = get_option('remote')
-have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
-             conf.get('HAVE_LIBCURL') == 1]
-# sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
-# it's possible to build one without the other. Complain only if
-# support was explicitly requested. The auxiliary files like sysusers
-# config should be installed when any of the programs are built.
-if feature.enabled() and not (have_deps[0] and have_deps[1])
-        error('remote support was requested, but dependencies are not available')
+if feature.enabled()
+        if conf.get('HAVE_MICROHTTPD') != 1
+                error('remote support was requested, but microhttpd is not available')
+        endif
+        if conf.get('HAVE_LIBCURL') != 1
+                error('remote support was requested, but libcurl is not available')
+        endif
 endif
-have = feature.allowed() and (have_deps[0] or have_deps[1])
-conf.set10('ENABLE_REMOTE', have)
+# A more minimal version of systemd-journal-remote can always be built, even if neither
+# libcurl nor microhttpd are available.
+conf.set10('ENABLE_REMOTE', feature.allowed())
 
 feature = get_option('vmspawn').disable_auto_if(conf.get('BUILD_MODE_DEVELOPER') == 0)
 conf.set10('ENABLE_VMSPAWN', feature.allowed())
@@ -2002,6 +2002,7 @@ executables_by_name = {}
 objects_by_name = {}
 fuzzer_exes = []
 generated_sources = [version_h, vmlinux_h_dependency]
+sources = []
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
@@ -2196,7 +2197,7 @@ test_additional_kwargs = {
 }
 
 fuzz_template = executable_template + {
-        'build_by_default' : fuzzer_build,
+        'build_by_default' : want_fuzz_tests,
         'install' : false,
 }
 
@@ -2469,6 +2470,10 @@ foreach dict : executables
         )
 
         executables_by_name += { name : exe }
+
+        if not name.endswith('.standalone')
+                sources += dict.get('sources', [])
+        endif
 
         if dict.has_key('extract')
                 objects_by_name += {
@@ -2829,23 +2834,32 @@ endif
 
 alias_target('gensources', generated_sources)
 
-run_clang_tidy = find_program('run-clang-tidy', required : false)
-if run_clang_tidy.found()
-        run_target(
-                'clang-tidy',
-                command : [
-                        run_clang_tidy,
-                        '-use-color',
-                        '-quiet',
-                        '-p', meson.project_build_root(),
-                        # There seems to be a bug in clang-tidy where by even with --quiet some
-                        # messages from clang's own diagnostics engine leak through:
-                        #     X warnings generated.
-                        # Until this is fixed upstream, we use -fno-caret-diagnostics to suppress these.
-                        '-extra-arg=-fno-caret-diagnostics',
-                ],
-                depends : generated_sources
-        )
+clang_tidy = find_program('clang-tidy', required : false)
+if meson.version().version_compare('>=1.4.0')
+        foreach source : sources
+                if fs.name(source).endswith('.h')
+                        continue
+                endif
+
+                inputs = [source]
+
+                header = source.full_path().replace('.c', '.h')
+                if fs.exists(header)
+                        inputs += header
+                endif
+
+                foreach input : inputs
+                        if clang_tidy.found()
+                                test(
+                                        'clang-tidy-@0@'.format(fs.name(input)),
+                                        clang_tidy,
+                                        args : ['-p', meson.project_build_root(), input],
+                                        suite : 'clang-tidy',
+                                        depends : generated_sources,
+                                )
+                        endif
+                endforeach
+        endforeach
 endif
 
 check_api_docs_sh = find_program('tools/check-api-docs.sh')

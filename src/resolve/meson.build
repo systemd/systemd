@@ -79,13 +79,13 @@ dns_type_to_name_h = custom_target(
         capture : true)
 
 resolved_gperf_c = custom_target(
-        'resolved_gperf.c',
+        'resolved-gperf.c',
         input : 'resolved-gperf.gperf',
         output : 'resolved-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 resolved_dnssd_gperf_c = custom_target(
-        'resolved_dnssd_gperf.c',
+        'resolved-dnssd-gperf.c',
         input : 'resolved-dnssd-gperf.gperf',
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -114,7 +114,7 @@ executables += [
         libexec_template + resolve_common_template + {
                 'name' : 'systemd-resolved',
                 'dbus' : true,
-                'sources' : [systemd_resolved_sources, systemd_resolved_extract_sources],
+                'sources' : systemd_resolved_sources + systemd_resolved_extract_sources,
                 'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'extract' : systemd_resolved_extract_sources,
         },

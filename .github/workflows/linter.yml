@@ -74,4 +74,4 @@ jobs:
         run: mkosi sandbox -- env CC=clang CXX=clang++ meson setup build
 
       - name: Run clang-tidy
-        run: mkosi sandbox -- ninja -C build clang-tidy
+        run: mkosi sandbox -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit
