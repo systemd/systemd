@@ -63,26 +63,31 @@ static int status_entries(
                 const char *xbootldr_path,
                 sd_id128_t xbootldr_partition_uuid) {
 
-        sd_id128_t dollar_boot_partition_uuid;
-        const char *dollar_boot_path;
         int r;
 
         assert(config);
         assert(esp_path || xbootldr_path);
 
+        printf("%sBoot Loader Entry Locations:%s\n", ansi_underline(), ansi_normal());
+
+        printf("          ESP: %s (", esp_path);
+        if (!sd_id128_is_null(esp_partition_uuid))
+                printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "",
+                       SD_ID128_FORMAT_VAL(esp_partition_uuid));
+        if (!xbootldr_path)
+                /* ESP is $BOOT if XBOOTLDR not present. */
+                printf(", %s$BOOT%s", ansi_green(), ansi_normal());
+        printf(")");
+
         if (xbootldr_path) {
-                dollar_boot_path = xbootldr_path;
-                dollar_boot_partition_uuid = xbootldr_partition_uuid;
-        } else {
-                dollar_boot_path = esp_path;
-                dollar_boot_partition_uuid = esp_partition_uuid;
+                printf("\n     XBOOTLDR: %s (", xbootldr_path);
+                if (!sd_id128_is_null(xbootldr_partition_uuid))
+                        printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ", ",
+                               SD_ID128_FORMAT_VAL(xbootldr_partition_uuid));
+                /* XBOOTLDR is always $BOOT if present. */
+                printf("%s$BOOT%s)", ansi_green(), ansi_normal());
         }
 
-        printf("%sBoot Loader Entries:%s\n"
-               "        $BOOT: %s", ansi_underline(), ansi_normal(), dollar_boot_path);
-        if (!sd_id128_is_null(dollar_boot_partition_uuid))
-                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")",
-                       SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
         if (settle_entry_token() >= 0)
                 printf("\n        token: %s", arg_entry_token);
         printf("\n\n");
