@@ -143,6 +143,9 @@ assert_cc((TTY_MODE & 0711) == 0600);
 
 void termios_disable_echo(struct termios *termios);
 
+/* The $TERM value we use for terminals other than the Linux console */
+#define FALLBACK_TERM "vt220"
+
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
 int terminal_get_size_by_dsr(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
 int terminal_fix_size(int input_fd, int output_fd);
