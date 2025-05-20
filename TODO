@@ -125,6 +125,8 @@ Deprecations and removals:
 
 Features:
 
+* replace most calls to sd_bus_send() by sd_bus_message_send()
+
 * loginctl: show argv[] of "leader" process in tabular list-sessions output
 
 * loginctl: show "service identifier" in tabular list-sessions output, to make
