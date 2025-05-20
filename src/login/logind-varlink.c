@@ -1,17 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "alloc-util.h"
 #include "cgroup-util.h"
-#include "fd-util.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "json-util.h"
+#include "logind-session.h"
 #include "logind.h"
 #include "logind-dbus.h"
 #include "logind-seat.h"
-#include "logind-session-dbus.h"
 #include "logind-user.h"
 #include "logind-varlink.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Login.h"
 #include "varlink-io.systemd.service.h"
@@ -78,9 +82,9 @@ static int manager_varlink_get_session_by_name(
 
         /* Resolves a session name to a session object. Supports resolving the special names "self" and "auto". */
 
-        if (SESSION_IS_SELF(name))
+        if (session_is_self(name))
                 return manager_varlink_get_session_by_peer(m, link, /* consult_display= */ false, ret);
-        if (SESSION_IS_AUTO(name))
+        if (session_is_auto(name))
                 return manager_varlink_get_session_by_peer(m, link, /* consult_display= */ true, ret);
 
         Session *session = hashmap_get(m->sessions, name);

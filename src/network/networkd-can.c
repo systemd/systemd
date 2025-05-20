@@ -3,6 +3,8 @@
 #include <linux/can/netlink.h>
 #include <net/if.h>
 
+#include "sd-netlink.h"
+
 #include "networkd-can.h"
 #include "networkd-link.h"
 #include "networkd-network.h"

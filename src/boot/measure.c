@@ -2,9 +2,8 @@
 
 #if ENABLE_TPM
 
-#include "macro-fundamental.h"
+#include "efi-log.h"
 #include "measure.h"
-#include "memory-util-fundamental.h"
 #include "proto/cc-measurement.h"
 #include "proto/tcg.h"
 #include "tpm2-pcr.h"

@@ -3,8 +3,11 @@
 Checks: '
     -*,
     misc-header-include-cycle,
+    misc-include-cleaner,
     readability-duplicate-include
 '
+CheckOptions:
+  misc-include-cleaner.MissingIncludes: 'false'
 WarningsAsErrors: '*'
 HeaderFileExtensions:
   - h
