@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <linux/capability.h>
 #include <linux/netlink.h>
-#include <sys/capability.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 
-#include "alloc-util.h"
 #include "log.h"
 #include "nspawn-seccomp.h"
 #include "seccomp-util.h"
-#include "string-util.h"
 #include "strv.h"
 
 #if HAVE_SECCOMP

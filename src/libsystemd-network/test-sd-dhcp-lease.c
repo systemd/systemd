@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "dhcp-lease-internal.h"
-#include "log.h"
-#include "macro.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 

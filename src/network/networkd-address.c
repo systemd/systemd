@@ -1,16 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
-#include <net/if_arp.h>
+#include <stdio.h>
+
+#include "sd-event.h"
+#include "sd-netlink.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bitfield.h"
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "logarithm.h"
-#include "memory-util.h"
 #include "netlink-util.h"
+#include "networkd-address-generation.h"
 #include "networkd-address.h"
 #include "networkd-address-pool.h"
 #include "networkd-dhcp-prefix-delegation.h"
@@ -23,10 +28,13 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
+#include "set.h"
+#include "siphash24.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
 
 #define ADDRESSES_PER_LINK_MAX 16384U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U

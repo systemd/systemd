@@ -2,7 +2,6 @@
 
 #include <sys/stat.h>
 #include <sys/statvfs.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "coredump-vacuum.h"

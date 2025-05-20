@@ -11,10 +11,12 @@
 #include "iovec-util.h"
 #include "journald-console.h"
 #include "journald-manager.h"
+#include "log.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 
 static bool prefix_timestamp(void) {
 
