@@ -787,7 +787,9 @@ static int context_ensure_layout(Context *c) {
         /* There's no metadata in $BOOT_ROOT, and apparently no entry token directory installed? Then we
          * really don't know anything. */
         c->layout = LAYOUT_OTHER;
-        log_debug("Entry-token directory not found, using layout=%s.", layout_to_string(c->layout));
+        log_debug("Entry-token directory %s not found, using layout=%s.",
+                  entry_token_path,
+                  layout_to_string(c->layout));
         return 0;
 }
 
