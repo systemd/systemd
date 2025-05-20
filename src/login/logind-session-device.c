@@ -273,21 +273,22 @@ static void session_device_stop(SessionDevice *sd) {
 }
 
 static DeviceType detect_device_type(sd_device *dev) {
-        const char *sysname;
-
-        if (sd_device_get_sysname(dev, &sysname) < 0)
-                return DEVICE_TYPE_UNKNOWN;
-
-        if (device_in_subsystem(dev, "drm")) {
-                if (startswith(sysname, "card"))
+        if (device_in_subsystem(dev, "drm") > 0) {
+                if (device_sysname_startswith(dev, "card") > 0)
                         return DEVICE_TYPE_DRM;
+                return DEVICE_TYPE_UNKNOWN;
+        }
 
-        } else if (device_in_subsystem(dev, "input")) {
-                if (startswith(sysname, "event"))
+        if (device_in_subsystem(dev, "input") > 0) {
+                if (device_sysname_startswith(dev, "event") > 0)
                         return DEVICE_TYPE_EVDEV;
-        } else if (device_in_subsystem(dev, "hidraw")) {
-                if (startswith(sysname, "hidraw"))
+                return DEVICE_TYPE_UNKNOWN;
+        }
+
+        if (device_in_subsystem(dev, "hidraw") > 0) {
+                if (device_sysname_startswith(dev, "hidraw") > 0)
                         return DEVICE_TYPE_HIDRAW;
+                return DEVICE_TYPE_UNKNOWN;
         }
 
         return DEVICE_TYPE_UNKNOWN;

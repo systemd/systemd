@@ -11,7 +11,6 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#include "sd-device.h"
 #include "sd-id128.h"
 #include "sd-json.h"
 
@@ -31,8 +30,11 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "dissect-image.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "factory-reset.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
@@ -50,10 +52,8 @@
 #include "io-util.h"
 #include "json-util.h"
 #include "list.h"
-#include "logarithm.h"
 #include "loop-util.h"
 #include "main-func.h"
-#include "missing_fs.h"
 #include "mkdir.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
@@ -64,19 +64,19 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "sort-util.h"
 #include "specifier.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
@@ -5894,6 +5894,63 @@ static int set_default_subvolume(Partition *p, const char *root) {
         return 0;
 }
 
+static int partition_acquire_sibling_labels(const Partition *p, char ***ret) {
+        assert(p);
+        assert(ret);
+
+        _cleanup_strv_free_ char **l = NULL;
+        if (p->new_label) {
+                l = strv_new(p->new_label);
+                if (!l)
+                        return log_oom();
+        }
+
+        FOREACH_ELEMENT(sibling, p->siblings) {
+                Partition *s = *sibling;
+
+                if (!s || s == p || !s->new_label || strv_contains(l, s->new_label))
+                        continue;
+
+                if (strv_extend(&l, s->new_label) < 0)
+                        return log_oom();
+        }
+
+        strv_sort(l); /* bring into a systematic order to make things reproducible */
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+static int partition_acquire_sibling_uuids(const Partition *p, char ***ret) {
+        assert(p);
+        assert(ret);
+
+        _cleanup_strv_free_ char **l = NULL;
+        l = strv_new(SD_ID128_TO_UUID_STRING(p->type.uuid));
+        if (!l)
+                return log_oom();
+
+        FOREACH_ELEMENT(sibling, p->siblings) {
+                Partition *s = *sibling;
+
+                if (!s || s == p)
+                        continue;
+
+                const char *u = SD_ID128_TO_UUID_STRING(s->type.uuid);
+                if (strv_contains(l, u))
+                        continue;
+
+                if (strv_extend(&l, u) < 0)
+                        return log_oom();
+        }
+
+        strv_sort(l); /* bring into a systematic order to make things reproducible */
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+
 static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
         int r;
 
@@ -5907,18 +5964,26 @@ static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open root inode '%s': %m", root);
 
-        if (p->new_label) {
-                r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_label", p->new_label);
+        _cleanup_strv_free_ char **l = NULL;
+        r = partition_acquire_sibling_labels(p, &l);
+        if (r < 0)
+                return r;
+        if (!strv_isempty(l)) {
+                r = xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_label", l);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set 'user.validatefs.gpt_label' extended attribute: %m");
         }
+        l = strv_free(l);
 
-        r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_type_uuid", SD_ID128_TO_UUID_STRING(p->type.uuid));
+        r = partition_acquire_sibling_uuids(p, &l);
+        if (r < 0)
+                return r;
+        r = xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_type_uuid", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to set 'user.validatefs.gpt_type_uuid' extended attribute: %m");
+        l = strv_free(l);
 
         /* Prefer the data from MountPoint= if specified, otherwise use data we derive from the partition type */
-        _cleanup_strv_free_ char **l = NULL;
         if (p->n_mountpoints > 0) {
                 FOREACH_ARRAY(m, p->mountpoints, p->n_mountpoints)
                         if (strv_extend(&l, m->where) < 0)
@@ -7491,6 +7556,8 @@ static int context_fstab(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
 
+        t = mfree(t);
+
         log_info("%s written.", path);
 
         return 0;
@@ -7567,6 +7634,8 @@ static int context_crypttab(Context *context) {
         r = flink_tmpfile(f, t, path, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
+
+        t = mfree(t);
 
         log_info("%s written.", path);
 

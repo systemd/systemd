@@ -57,9 +57,14 @@ static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
 }
 
 int block_device_is_whole_disk(sd_device *dev) {
+        int r;
+
         assert(dev);
 
-        if (!device_in_subsystem(dev, "block"))
+        r = device_in_subsystem(dev, "block");
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -ENOTBLK;
 
         return device_is_devtype(dev, "disk");
@@ -414,7 +419,10 @@ int blockdev_partscan_enabled(sd_device *dev) {
 
         /* Partition block devices never have partition scanning on, there's no concept of sub-partitions for
          * partitions. */
-        if (device_is_devtype(dev, "partition"))
+        r = device_is_devtype(dev, "partition");
+        if (r < 0)
+                return r;
+        if (r > 0)
                 return false;
 
         /* For loopback block device, especially for v5.19 or newer. Even if this is enabled, we also need to
@@ -534,7 +542,7 @@ static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
 }
 
 int fd_is_encrypted(int fd) {
-        char p[SYS_BLOCK_PATH_MAX(NULL)];
+        char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
 
@@ -550,7 +558,7 @@ int fd_is_encrypted(int fd) {
 }
 
 int path_is_encrypted(const char *path) {
-        char p[SYS_BLOCK_PATH_MAX(NULL)];
+        char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
 

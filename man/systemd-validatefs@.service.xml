@@ -50,13 +50,16 @@
       mounted to a location not matching any of the listed paths the validation check will
       fail.</para></listitem>
 
-      <listitem><para><varname>user.validatefs.gpt_label</varname>: this extended attribute may contain a
-      free-form string. It is compared with the partition label string of the partition this file system is
-      located on, and if different the validation will fail.</para></listitem>
+      <listitem><para><varname>user.validatefs.gpt_label</varname>: this extended attribute may contain one
+      or more free-form strings, separated by NUL bytes. If set, all backing partitions of the file system
+      are checked against this list, and if any backing partition's label is not listed, the validation will
+      fail. Note that there may be multiple backing partition in case of Verity setups, which combines a data
+      and a hash partition.</para></listitem>
 
-      <listitem><para><varname>user.validatefs.gpt_type_uuid</varname>: this extended attribute may contain a
-      GPT partition type UUID formatted as string. It is compared with the partition type UUID of the
-      partition this file system is located on, and if different the validation will fail.</para></listitem>
+      <listitem><para><varname>user.validatefs.gpt_type_uuid</varname>: this extended attribute may contain
+      one or more GPT partition type UUIDs, formatted as string, separated by NUL bytes. As above, all
+      backing partitions of the file system are checked against this list, and if none is matching the
+      validation will fail.</para></listitem>
     </orderedlist>
 
     <para>The <filename>systemd-validatefs@.service</filename> unit is automatically pulled into the initial

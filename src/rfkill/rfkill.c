@@ -4,7 +4,6 @@
 #include <linux/rfkill.h>
 #include <poll.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -19,11 +18,11 @@
 #include "io-util.h"
 #include "list.h"
 #include "main-func.h"
-#include "mkdir.h"
 #include "parse-util.h"
 #include "reboot-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "udev-util.h"
 
 /* Note that any write is delayed until exit and the rfkill state will not be

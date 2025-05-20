@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Server Server;
+typedef struct Manager Manager;
 typedef struct StreamSyncReq StreamSyncReq;
 typedef struct SyncReq SyncReq;
 
@@ -23,7 +23,7 @@ struct StreamSyncReq {
 
 /* Encapsulates a synchronization request */
 struct SyncReq {
-        Server *server;
+        Manager *manager;
         sd_varlink *link;
 
         usec_t realtime; /* CLOCK_REALTIME timestamp when synchronization request was initiated (for syncing on AF_UNIX/SOCK_DGRAM) */
@@ -46,11 +46,11 @@ StreamSyncReq *stream_sync_req_free(StreamSyncReq *ssr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(StreamSyncReq*, stream_sync_req_free);
 void stream_sync_req_advance_revalidate(StreamSyncReq *ssr, size_t p);
 
-int sync_req_new(Server *s, sd_varlink *link, SyncReq **ret);
+int sync_req_new(Manager *m, sd_varlink *link, SyncReq **ret);
 SyncReq* sync_req_free(SyncReq *req);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SyncReq*, sync_req_free);
 
 bool sync_req_revalidate(SyncReq *req);
-void sync_req_revalidate_by_timestamp(Server *s);
+void sync_req_revalidate_by_timestamp(Manager *m);
 
-void server_notify_stream(Server *s, StdoutStream *ss);
+void manager_notify_stream(Manager *m, StdoutStream *ss);

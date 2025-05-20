@@ -567,6 +567,17 @@
         To disable the safety check that the extension-release file name matches the image file name, the
         <varname>x-systemd.relax-extension-release-check</varname> mount option may be appended.</para>
 
+        <para>This option can be used together with a <option>notify-reload</option> service type and
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        to manage configuration updates. When such a service carrying confext images is reloaded via
+        <command>systemctl reload foo.service</command> or equivalent D-Bus method, the confext itself will
+        be reloaded to pick up any changes. This only applies to confext extensions. Note that in case a
+        service has this configuration enabled at first, and then it is subsequently removed in an update
+        followed by a daemon-reload operation, reloading the confexts will be a no-op, and a full service
+        restart is required instead. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        also for details.</para>
+
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
         set, then this setting adds <filename>/dev/loop-control</filename> with <constant>rw</constant> mode,
@@ -610,6 +621,17 @@
         file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
         or the host. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>This option can be used together with a <option>notify-reload</option> service type and
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        to manage configuration updates. When such a service carrying confext directories is reloaded via
+        <command>systemctl reload foo.service</command> or equivalent D-Bus method, the confext itself will
+        be reloaded to pick up any changes. This only applies to confext extensions. Note that in case a
+        service has this configuration enabled at first, and then it is subsequently removed in an update
+        followed by a daemon-reload operation, reloading the confexts will be a no-op, and a full service
+        restart is required instead. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        also for details.</para>
 
         <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
         which was first introduced in kernel v5.11.</para>
@@ -4409,7 +4431,18 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           in case of an unnamed socket. <varname>$REMOTE_PORT</varname> is not set for <constant>AF_UNIX</constant>
           sockets.</para>
 
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$SO_COOKIE</varname></term>
+
+          <listitem><para>If this is a unit started via per-connection socket activation (i.e. via a socket
+          unit with <varname>Accept=yes</varname>), this environment variable contains the Linux socket
+          cookie, formatted as decimal integer. The socket cookie can otherwise be acquired via <citerefentry
+          project='man-pages'><refentrytitle>getsockopt</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>

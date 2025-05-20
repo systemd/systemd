@@ -86,9 +86,6 @@ static inline CGroupMask CGROUP_MASK_EXTEND_JOINED(CGroupMask mask) {
         return mask;
 }
 
-CGroupMask get_cpu_accounting_mask(void);
-bool cpu_accounting_is_cheap(void);
-
 /* Special values for all weight knobs on unified hierarchy */
 #define CGROUP_WEIGHT_INVALID UINT64_MAX
 #define CGROUP_WEIGHT_IDLE UINT64_C(0)
@@ -197,7 +194,6 @@ typedef enum CGroupFlags {
         CGROUP_SIGCONT            = 1 << 0,
         CGROUP_IGNORE_SELF        = 1 << 1,
         CGROUP_DONT_SKIP_UNMAPPED = 1 << 2,
-        CGROUP_NO_PIDFD           = 1 << 3,
 } CGroupFlags;
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
@@ -230,31 +226,9 @@ int cg_is_delegated_fd(int fd);
 
 int cg_has_coredump_receive(const char *path);
 
-typedef enum {
-        CG_KEY_MODE_GRACEFUL = 1 << 0,
-} CGroupKeyMode;
-
 int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret);
-int cg_get_keyed_attribute_full(const char *controller, const char *path, const char *attribute, char **keys, char **values, CGroupKeyMode mode);
-
-static inline int cg_get_keyed_attribute(
-                const char *controller,
-                const char *path,
-                const char *attribute,
-                char **keys,
-                char **ret_values) {
-        return cg_get_keyed_attribute_full(controller, path, attribute, keys, ret_values, 0);
-}
-
-static inline int cg_get_keyed_attribute_graceful(
-                const char *controller,
-                const char *path,
-                const char *attribute,
-                char **keys,
-                char **ret_values) {
-        return cg_get_keyed_attribute_full(controller, path, attribute, keys, ret_values, CG_KEY_MODE_GRACEFUL);
-}
+int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char * const *keys, char **values);
 
 int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
 

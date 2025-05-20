@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <linux/loop.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -17,10 +18,10 @@
 #include "chase.h"
 #include "copy.h"
 #include "device-util.h"
-#include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -28,13 +29,14 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "json-util.h"
 #include "libarchive-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -46,6 +48,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "recurse-dir.h"
+#include "runtime-scope.h"
 #include "sha256.h"
 #include "shift-uid.h"
 #include "stat-util.h"
@@ -1786,6 +1789,8 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         r = flink_tmpfile(f, tar, arg_target, LINK_TMPFILE_REPLACE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move archive file into place: %m");
+
+                        tar = mfree(tar);
                 }
 
                 return 0;
@@ -2084,8 +2089,13 @@ static int action_detach(const char *path) {
                 FOREACH_DEVICE(e, d) {
                         _cleanup_(loop_device_unrefp) LoopDevice *entry_loop = NULL;
 
-                        if (!device_is_devtype(d, "disk")) /* Filter out partition block devices */
+                        r = device_is_devtype(d, "disk");
+                        if (r < 0) {
+                                log_device_warning_errno(d, r, "Failed to check if device is a whole disk, skipping: %m");
                                 continue;
+                        }
+                        if (r == 0)
+                                continue; /* Filter out partition block devices */
 
                         r = loop_device_open(d, O_RDONLY, LOCK_SH, &entry_loop);
                         if (r < 0) {

@@ -55,6 +55,11 @@
 #include "user-util.h"
 #include "utf8.h"
 
+#define ANSI_RESET_CURSOR                          \
+        "\033?25h"     /* turn on cursor */        \
+        "\033?12l"     /* reset cursor blinking */ \
+        "\033 1q"      /* reset cursor style */
+
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
@@ -856,6 +861,7 @@ int vt_disallocate(const char *tty_path) {
                 return fd2;
 
         return loop_write_full(fd2,
+                               ANSI_RESET_CURSOR
                                "\033[r"   /* clear scrolling region */
                                "\033[H"   /* move home */
                                "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
@@ -972,6 +978,7 @@ static int terminal_reset_ansi_seq(int fd) {
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
 
         k = loop_write_full(fd,
+                            ANSI_RESET_CURSOR
                             "\033[!p"      /* soft terminal reset */
                             "\033]104\007" /* reset colors */
                             "\033[?7h"     /* enable line-wrapping */
@@ -1119,7 +1126,7 @@ int resolve_dev_console(char **ret) {
          * is a sign for container setups). */
 
         _cleanup_free_ char *chased = NULL;
-        r = chase("/dev/console", /* root= */ NULL, /* chase_flags= */ 0,  &chased, /* ret_fd= */ NULL);
+        r = chase("/dev/console", /* root= */ NULL, /* flags= */ 0,  &chased, /* ret_fd= */ NULL);
         if (r < 0)
                 return r;
         if (!path_equal(chased, "/dev/console")) {
@@ -1970,7 +1977,8 @@ static int scan_background_color_response(
                 size_t *ret_processed) {
 
         assert(context);
-        assert(buf || size == 0);
+        assert(buf);
+        assert(ret_processed);
 
         for (size_t i = 0; i < size; i++) {
                 char c = buf[i];
@@ -2044,9 +2052,7 @@ static int scan_background_color_response(
                 case BACKGROUND_BLUE:
                         if (c == '\x07') {
                                 if (context->blue_bits > 0) {
-                                        if (ret_processed)
-                                                *ret_processed = i + 1;
-
+                                        *ret_processed = i + 1;
                                         return 1; /* success! */
                                 }
 
@@ -2066,9 +2072,7 @@ static int scan_background_color_response(
 
                 case BACKGROUND_STRING_TERMINATOR:
                         if (c == '\\') {
-                                if (ret_processed)
-                                        *ret_processed = i + 1;
-
+                                *ret_processed = i + 1;
                                 return 1; /* success! */
                         }
 
@@ -2085,9 +2089,7 @@ static int scan_background_color_response(
                 }
         }
 
-        if (ret_processed)
-                *ret_processed = size;
-
+        *ret_processed = size;
         return 0; /* all good, but not enough data yet */
 }
 
@@ -2129,9 +2131,9 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
          * else process the POLLIN. */
 
-        nonblock_input_fd = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (nonblock_input_fd < 0)
-                return nonblock_input_fd;
+        nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                goto finish;
 
         usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
         char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
@@ -2214,7 +2216,8 @@ static int scan_cursor_position_response(
                 size_t *ret_processed) {
 
         assert(context);
-        assert(buf || size == 0);
+        assert(buf);
+        assert(ret_processed);
 
         for (size_t i = 0; i < size; i++) {
                 char c = buf[i];
@@ -2247,9 +2250,7 @@ static int scan_cursor_position_response(
                 case CURSOR_COLUMN:
                         if (c == 'R') {
                                 if (context->column > 0) {
-                                        if (ret_processed)
-                                                *ret_processed = i + 1;
-
+                                        *ret_processed = i + 1;
                                         return 1; /* success! */
                                 }
 
@@ -2272,9 +2273,7 @@ static int scan_cursor_position_response(
                         context->row = context->column = 0;
         }
 
-        if (ret_processed)
-                *ret_processed = size;
-
+        *ret_processed = size;
         return 0; /* all good, but not enough data yet */
 }
 
@@ -2285,11 +2284,10 @@ int terminal_get_size_by_dsr(
                 unsigned *ret_columns) {
 
         _cleanup_close_ int nonblock_input_fd = -EBADF;
+        int r;
 
         assert(input_fd >= 0);
         assert(output_fd >= 0);
-
-        int r;
 
         /* Tries to determine the terminal dimension by means of ANSI sequences rather than TIOCGWINSZ
          * ioctl(). Why bother with this? The ioctl() information is often incorrect on serial terminals
@@ -2336,9 +2334,9 @@ int terminal_get_size_by_dsr(
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
          * else process the POLLIN. */
 
-        nonblock_input_fd = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (nonblock_input_fd < 0)
-                return nonblock_input_fd;
+        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                goto finish;
 
         usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
         char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */

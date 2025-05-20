@@ -1969,7 +1969,7 @@ endif
 #####################################################################
 
 if get_option('b_coverage')
-        userspace_c_args += ['-include', 'src/basic/coverage.h']
+        userspace_c_args += ['-include', 'coverage.h']
 endif
 
 #####################################################################

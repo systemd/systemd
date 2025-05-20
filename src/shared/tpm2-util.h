@@ -55,7 +55,7 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 int dlopen_tpm2(void);
 
-typedef struct {
+typedef struct Tpm2Context {
         unsigned n_ref;
 
         void *tcti_dl;
@@ -78,7 +78,7 @@ Tpm2Context *tpm2_context_ref(Tpm2Context *context);
 Tpm2Context *tpm2_context_unref(Tpm2Context *context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
 
-typedef struct {
+typedef struct Tpm2Handle {
         Tpm2Context *tpm2_context;
         ESYS_TR esys_handle;
 
@@ -94,7 +94,7 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
 
-typedef struct {
+typedef struct Tpm2PCRValue {
         unsigned index;
         TPMI_ALG_HASH hash;
         TPM2B_DIGEST value;
@@ -289,7 +289,7 @@ int tpm2_get_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_p
 int tpm2_get_or_create_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
 int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
-int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec policy_hash[], size_t n_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
+int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec known_policy_hash[], size_t n_known_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
 
 #if HAVE_OPENSSL
 int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret);
@@ -370,9 +370,9 @@ int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2
         })
 
 #else /* HAVE_TPM2 */
-typedef struct {} Tpm2Context;
-typedef struct {} Tpm2Handle;
-typedef struct {} Tpm2PCRValue;
+typedef struct Tpm2Context {} Tpm2Context;
+typedef struct Tpm2Handle {} Tpm2Handle;
+typedef struct Tpm2PCRValue {} Tpm2PCRValue;
 
 #define TPM2_PCR_VALUE_MAKE(i, h, v) (Tpm2PCRValue) {}
 
@@ -440,7 +440,7 @@ char* tpm2_pcr_mask_to_string(uint32_t mask);
 
 extern const uint16_t tpm2_hash_algorithms[];
 
-typedef struct {
+typedef struct systemd_tpm2_plugin_params {
         uint32_t search_pcr_mask;
         const char *device;
         const char *signature_path;

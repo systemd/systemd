@@ -6,6 +6,6 @@
 #include "runtime-scope.h"
 #include "set.h"
 
-int journal_fork(RuntimeScope scope, const char * const *units, PidRef *ret_pidref);
+int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref);
 
 void journal_terminate(PidRef *pidref);

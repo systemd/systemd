@@ -1358,7 +1358,7 @@ int decrypt_credential_and_warn(
                                 &IOVEC_MAKE(t->policy_hash_and_blob, le32toh(t->blob_size)),
                                 /* n_blobs= */ 1,
                                 &IOVEC_MAKE(t->policy_hash_and_blob + le32toh(t->blob_size), le32toh(t->policy_hash_size)),
-                                /* n_policy_hash= */ 1,
+                                /* n_known_policy_hash= */ 1,
                                 /* srk= */ NULL,
                                 &tpm2_key);
                 if (r == -EREMOTE)
@@ -1758,7 +1758,7 @@ static int pick_up_credential_one(
                         AT_FDCWD, target_path,
                         /* open_flags= */ 0,
                         0644,
-                        /* flags= */ 0);
+                        /* copy_flags= */ 0);
         if (r < 0)
                 return log_warning_errno(r, "Failed to copy credential %s → file %s: %m",
                                          credential_name, target_path);

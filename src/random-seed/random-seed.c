@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/random.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
@@ -20,7 +20,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "missing_random.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -73,7 +72,7 @@ static CreditEntropy may_credit(int seed_fd) {
         }
 
         /* Determine if the file is marked as creditable */
-        r = getxattr_at_bool(seed_fd, /* path= */ NULL, "user.random-seed-creditable", /* flags= */ 0);
+        r = getxattr_at_bool(seed_fd, /* path= */ NULL, "user.random-seed-creditable", /* at_flags= */ 0);
         if (r < 0) {
                 if (ERRNO_IS_XATTR_ABSENT(r))
                         log_debug_errno(r, "Seed file is not marked as creditable, not crediting.");

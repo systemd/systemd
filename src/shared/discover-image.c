@@ -299,7 +299,7 @@ static int image_update_quota(Image *i, int fd) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         if (i->type != IMAGE_SUBVOLUME)
@@ -400,7 +400,7 @@ static int image_make(
                         r = extract_image_basename(
                                         filename,
                                         image_class_suffix_to_string(c),
-                                        /* format_suffix= */ NULL,
+                                        /* format_suffixes= */ NULL,
                                         &pretty_buffer,
                                         /* ret_suffix= */ NULL);
                         if (r < 0)
@@ -942,7 +942,7 @@ int image_discover(
                                                 image_class_suffix_to_string(class),
                                                 STRV_MAKE(".raw"),
                                                 &pretty,
-                                                /* suffix= */ NULL);
+                                                /* ret_suffix= */ NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", fname);
                                         continue;
@@ -1016,7 +1016,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         fname,
                                                         image_class_suffix_to_string(class),
-                                                        /* format_suffix= */ NULL,
+                                                        /* format_suffixes= */ NULL,
                                                         &pretty,
                                                         /* ret_suffix= */ NULL);
                                         if (r < 0) {
@@ -1031,7 +1031,7 @@ int image_discover(
                                                 /* class_suffix= */ NULL,
                                                 /* format_suffix= */ NULL,
                                                 &pretty,
-                                                /* ret_v_suffix= */ NULL);
+                                                /* ret_suffix= */ NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", fname);
                                         continue;
@@ -1094,7 +1094,7 @@ int image_remove(Image *i) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         settings = image_settings_path(i);
@@ -1189,7 +1189,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         if (!image_name_is_valid(new_name))
                 return -EINVAL;
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         settings = image_settings_path(i);
@@ -1388,7 +1388,7 @@ int image_read_only(Image *i, bool b) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         /* Make sure we don't interfere with a running nspawn */
@@ -1578,7 +1578,7 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         if (i->type != IMAGE_SUBVOLUME)
@@ -1827,6 +1827,24 @@ bool image_in_search_path(
                 if (p[strspn(p, "/")] == 0)
                         return true;
         }
+
+        return false;
+}
+
+bool image_is_vendor(const struct Image *i) {
+        assert(i);
+
+        return i->path && path_startswith(i->path, "/usr");
+}
+
+bool image_is_host(const struct Image *i) {
+        assert(i);
+
+        if (i->name && streq(i->name, ".host"))
+                return true;
+
+        if (i->path && path_equal(i->path, "/"))
+                return true;
 
         return false;
 }

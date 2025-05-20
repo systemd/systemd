@@ -385,12 +385,16 @@ TEST(netns_get_nsid) {
 }
 
 TEST(af_unix_get_qlen) {
+        int r;
         _cleanup_close_ int unix_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
         ASSERT_OK(socket_autobind(unix_fd, /* ret_name= */ NULL));
         ASSERT_OK_ERRNO(listen(unix_fd, 123));
 
         uint32_t q;
-        ASSERT_OK(af_unix_get_qlen(unix_fd, &q));
+        r = af_unix_get_qlen(unix_fd, &q);
+        if (r == -ENOENT)
+                return (void) log_tests_skipped("CONFIG_UNIX_DIAG disabled");
+        ASSERT_OK(r);
         ASSERT_EQ(q, 0U);
 
         _cleanup_close_ int conn_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0));

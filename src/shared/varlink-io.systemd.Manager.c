@@ -17,7 +17,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 /* The split between ManagerContext and ManagerRuntime follows the rule:
  * - Context is what cannot change once configuration is loaded. You can think about context settings as constants.
- * - Runtime is changable settings at runtime, in other words - variables. */
+ * - Runtime is changeable settings at runtime, in other words - variables. */
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ManagerContext,
@@ -53,10 +53,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DefaultRestartUSec, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultStartLimit="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultStartLimit, RateLimit, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultCPUAccounting="),
-                SD_VARLINK_DEFINE_FIELD(DefaultCPUAccounting, SD_VARLINK_BOOL, 0),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultBlockIOAccounting="),
-                SD_VARLINK_DEFINE_FIELD(DefaultBlockIOAccounting, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIOAccounting="),
                 SD_VARLINK_DEFINE_FIELD(DefaultIOAccounting, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIPAccounting="),

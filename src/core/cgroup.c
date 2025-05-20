@@ -477,7 +477,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         startup_cpuset_mems = cpu_set_to_range_string(&c->startup_cpuset_mems);
 
         fprintf(f,
-                "%sCPUAccounting: %s\n"
                 "%sIOAccounting: %s\n"
                 "%sMemoryAccounting: %s\n"
                 "%sTasksAccounting: %s\n"
@@ -516,7 +515,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMPreference: %s\n"
                 "%sMemoryPressureWatch: %s\n"
                 "%sCoredumpReceive: %s\n",
-                prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
@@ -1697,9 +1695,6 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         assert_se(c = unit_get_cgroup_context(u));
 
         /* Figure out which controllers we need, based on the cgroup context object */
-
-        if (c->cpu_accounting)
-                mask |= get_cpu_accounting_mask();
 
         if (cgroup_context_has_cpu_weight(c) ||
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
@@ -3181,7 +3176,7 @@ static int unit_check_cgroup_events(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return 0;
 
-        r = cg_get_keyed_attribute_graceful(
+        r = cg_get_keyed_attribute(
                         SYSTEMD_CGROUP_CONTROLLER,
                         crt->cgroup_path,
                         "cgroup.events",
@@ -3193,22 +3188,18 @@ static int unit_check_cgroup_events(Unit *u) {
         /* The cgroup.events notifications can be merged together so act as we saw the given state for the
          * first time. The functions we call to handle given state are idempotent, which makes them
          * effectively remember the previous state. */
-        if (values[0]) {
-                if (streq(values[0], "1"))
-                        unit_remove_from_cgroup_empty_queue(u);
-                else
-                        unit_add_to_cgroup_empty_queue(u);
-        }
+        if (streq(values[0], "1"))
+                unit_remove_from_cgroup_empty_queue(u);
+        else
+                unit_add_to_cgroup_empty_queue(u);
 
         /* Disregard freezer state changes due to operations not initiated by us.
          * See: https://github.com/systemd/systemd/pull/13512/files#r416469963 and
          *      https://github.com/systemd/systemd/pull/13512#issuecomment-573007207 */
-        if (values[1] && IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_FREEZING_BY_PARENT, FREEZER_THAWING))
+        if (IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_FREEZING_BY_PARENT, FREEZER_THAWING))
                 unit_freezer_complete(u, streq(values[1], "0") ? FREEZER_RUNNING : FREEZER_FROZEN);
 
-        free(values[0]);
-        free(values[1]);
-
+        free_many_charp(values, ELEMENTSOF(values));
         return 0;
 }
 
@@ -3628,10 +3619,6 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         if (unit_has_host_root_cgroup(u))
                 return procfs_cpu_get_usage(ret);
 
-        /* Requisite controllers for CPU accounting are not enabled */
-        if ((get_cpu_accounting_mask() & ~crt->cgroup_realized_mask) != 0)
-                return -ENODATA;
-
         _cleanup_free_ char *val = NULL;
         uint64_t us;
 
@@ -3659,9 +3646,6 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
         /* Retrieve the current CPU usage counter. This will subtract the CPU counter taken when the unit was
          * started. If the cgroup has been removed already, returns the last cached value. To cache the value, simply
          * call this function with a NULL return value. */
-
-        if (!UNIT_CGROUP_BOOL(u, cpu_accounting))
-                return -ENODATA;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt)

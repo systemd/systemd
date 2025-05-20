@@ -18,7 +18,7 @@
 #include "iovec-util.h"
 #include "journal-internal.h"
 #include "journald-kmsg.h"
-#include "journald-server.h"
+#include "journald-manager.h"
 #include "journald-syslog.h"
 #include "log.h"
 #include "parse-util.h"
@@ -26,8 +26,8 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
-void server_forward_kmsg(
-                Server *s,
+void manager_forward_kmsg(
+                Manager *m,
                 int priority,
                 const char *identifier,
                 const char *message,
@@ -39,15 +39,15 @@ void server_forward_kmsg(
              header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
         size_t n = 0;
 
-        assert(s);
+        assert(m);
         assert(priority >= 0);
         assert(priority <= 999);
         assert(message);
 
-        if (_unlikely_(LOG_PRI(priority) > s->max_level_kmsg))
+        if (_unlikely_(LOG_PRI(priority) > m->max_level_kmsg))
                 return;
 
-        if (_unlikely_(s->dev_kmsg_fd < 0))
+        if (_unlikely_(m->dev_kmsg_fd < 0))
                 return;
 
         /* Never allow messages with kernel facility to be written to
@@ -79,7 +79,7 @@ void server_forward_kmsg(
         iovec[n++] = IOVEC_MAKE_STRING(message);
         iovec[n++] = IOVEC_MAKE_STRING("\n");
 
-        if (writev(s->dev_kmsg_fd, iovec, n) < 0)
+        if (writev(m->dev_kmsg_fd, iovec, n) < 0)
                 log_debug_errno(errno, "Failed to write to /dev/kmsg for logging, ignoring: %m");
 }
 
@@ -96,7 +96,7 @@ static bool is_us(const char *identifier, const char *pid) {
                streq(identifier, program_invocation_short_name);
 }
 
-void dev_kmsg_record(Server *s, char *p, size_t l) {
+void dev_kmsg_record(Manager *m, char *p, size_t l) {
 
         _cleanup_free_ char *message = NULL, *syslog_pid = NULL, *syslog_identifier = NULL, *identifier = NULL, *pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
@@ -110,7 +110,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         int saved_log_max_level = INT_MAX;
         ClientContext *c = NULL;
 
-        assert(s);
+        assert(m);
         assert(p);
 
         if (l <= 0)
@@ -126,7 +126,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (r < 0 || priority < 0 || priority > 999)
                 return;
 
-        if (s->forward_to_kmsg && LOG_FAC(priority) != LOG_KERN)
+        if (m->forward_to_kmsg && LOG_FAC(priority) != LOG_KERN)
                 return;
 
         /* seqnum */
@@ -141,23 +141,23 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (r < 0)
                 return;
 
-        if (s->kernel_seqnum) {
+        if (m->kernel_seqnum) {
                 /* We already read this one? */
-                if (serial < *s->kernel_seqnum)
+                if (serial < *m->kernel_seqnum)
                         return;
 
                 /* Did we lose any? */
-                if (serial > *s->kernel_seqnum)
-                        server_driver_message(s, 0,
-                                              LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_MISSED_STR),
-                                              LOG_MESSAGE("Missed %"PRIu64" kernel messages",
-                                                          serial - *s->kernel_seqnum));
+                if (serial > *m->kernel_seqnum)
+                        manager_driver_message(m, 0,
+                                               LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_MISSED_STR),
+                                               LOG_MESSAGE("Missed %"PRIu64" kernel messages",
+                                                           serial - *m->kernel_seqnum));
 
                 /* Make sure we never read this one again. Note that
                  * we always store the next message serial we expect
                  * here, simply because this makes handling the first
                  * message with serial 0 easy. */
-                *s->kernel_seqnum = serial + 1;
+                *m->kernel_seqnum = serial + 1;
         }
 
         /* CLOCK_BOOTTIME timestamp */
@@ -192,7 +192,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         k = e + 1;
 
         for (j = 0; l > 0 && j < N_IOVEC_KERNEL_FIELDS; j++) {
-                char *m;
+                char *mm;
                 /* Metadata fields attached */
 
                 if (*k != ' ')
@@ -206,13 +206,13 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
 
                 *e = 0;
 
-                if (cunescape_length_with_prefix(k, e - k, "_KERNEL_", UNESCAPE_RELAX, &m) < 0)
+                if (cunescape_length_with_prefix(k, e - k, "_KERNEL_", UNESCAPE_RELAX, &mm) < 0)
                         break;
 
-                if (startswith(m, "_KERNEL_DEVICE="))
-                        kernel_device = m + 15;
+                if (startswith(mm, "_KERNEL_DEVICE="))
+                        kernel_device = mm + 15;
 
-                iovec[n++] = IOVEC_MAKE_STRING(m);
+                iovec[n++] = IOVEC_MAKE_STRING(mm);
                 z++;
 
                 l -= (e - k) + 1;
@@ -287,11 +287,11 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                 /* Avoid logging any new messages when we're processing messages generated by ourselves via
                  * log_info() and friends to avoid infinite loops. */
                 if (is_us(identifier, pid)) {
-                        if (!ratelimit_below(&s->kmsg_own_ratelimit))
+                        if (!ratelimit_below(&m->kmsg_own_ratelimit))
                                 return;
 
                         saved_log_max_level = log_get_max_level();
-                        c = s->my_context;
+                        c = m->my_context;
                         log_set_max_level(LOG_NULL);
                 }
 
@@ -311,28 +311,28 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (cunescape_length_with_prefix(p, pl, "MESSAGE=", UNESCAPE_RELAX, &message) >= 0)
                 iovec[n++] = IOVEC_MAKE_STRING(message);
 
-        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), c, NULL, priority, 0);
+        manager_dispatch_message(m, iovec, n, ELEMENTSOF(iovec), c, NULL, priority, 0);
 
         if (saved_log_max_level != INT_MAX)
                 log_set_max_level(saved_log_max_level);
 
-        s->dev_kmsg_timestamp = usec;
-        sync_req_revalidate_by_timestamp(s);
+        m->dev_kmsg_timestamp = usec;
+        sync_req_revalidate_by_timestamp(m);
 
 finish:
         for (j = 0; j < z; j++)
                 free(iovec[j].iov_base);
 }
 
-static int server_read_dev_kmsg(Server *s) {
+static int manager_read_dev_kmsg(Manager *m) {
         char buffer[8192+1]; /* the kernel-side limit per record is 8K currently */
         ssize_t l;
 
-        assert(s);
-        assert(s->dev_kmsg_fd >= 0);
-        assert(s->read_kmsg);
+        assert(m);
+        assert(m->dev_kmsg_fd >= 0);
+        assert(m->read_kmsg);
 
-        l = read(s->dev_kmsg_fd, buffer, sizeof(buffer) - 1);
+        l = read(m->dev_kmsg_fd, buffer, sizeof(buffer) - 1);
         if (l == 0)
                 return 0;
         if (l < 0) {
@@ -342,25 +342,25 @@ static int server_read_dev_kmsg(Server *s) {
                 return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT, "Failed to read from /dev/kmsg: %m");
         }
 
-        dev_kmsg_record(s, buffer, l);
+        dev_kmsg_record(m, buffer, l);
         return 1;
 }
 
-int server_flush_dev_kmsg(Server *s) {
+int manager_flush_dev_kmsg(Manager *m) {
         int r;
 
-        assert(s);
+        assert(m);
 
-        if (s->dev_kmsg_fd < 0)
+        if (m->dev_kmsg_fd < 0)
                 return 0;
 
-        if (!s->read_kmsg)
+        if (!m->read_kmsg)
                 return 0;
 
         log_debug("Flushing /dev/kmsg...");
 
         for (;;) {
-                r = server_read_dev_kmsg(s);
+                r = manager_read_dev_kmsg(m);
                 if (r < 0)
                         return r;
 
@@ -372,10 +372,10 @@ int server_flush_dev_kmsg(Server *s) {
 }
 
 static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Server *s = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(es);
-        assert(fd == s->dev_kmsg_fd);
+        assert(fd == m->dev_kmsg_fd);
 
         if (revents & EPOLLERR)
                 log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
@@ -384,17 +384,17 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
         if (!(revents & EPOLLIN))
                 log_error("Got invalid event from epoll for /dev/kmsg: %"PRIx32, revents);
 
-        return server_read_dev_kmsg(s);
+        return manager_read_dev_kmsg(m);
 }
 
-int server_open_dev_kmsg(Server *s) {
+int manager_open_dev_kmsg(Manager *m) {
         int r;
 
-        assert(s);
-        assert(s->dev_kmsg_fd < 0);
-        assert(!s->dev_kmsg_event_source);
+        assert(m);
+        assert(m->dev_kmsg_fd < 0);
+        assert(!m->dev_kmsg_event_source);
 
-        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(s->read_kmsg ? O_RDWR : O_WRONLY);
+        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(m->read_kmsg ? O_RDWR : O_WRONLY);
 
         _cleanup_close_ int fd = open("/dev/kmsg", mode);
         if (fd < 0) {
@@ -403,13 +403,13 @@ int server_open_dev_kmsg(Server *s) {
                 return 0;
         }
 
-        if (!s->read_kmsg) {
-                s->dev_kmsg_fd = TAKE_FD(fd);
+        if (!m->read_kmsg) {
+                m->dev_kmsg_fd = TAKE_FD(fd);
                 return 0;
         }
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
-        r = sd_event_add_io(s->event, &es, fd, EPOLLIN, dispatch_dev_kmsg, s);
+        r = sd_event_add_io(m->event, &es, fd, EPOLLIN, dispatch_dev_kmsg, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add /dev/kmsg fd to event loop: %m");
 
@@ -417,23 +417,23 @@ int server_open_dev_kmsg(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of kmsg event source: %m");
 
-        s->dev_kmsg_fd = TAKE_FD(fd);
-        s->dev_kmsg_event_source = TAKE_PTR(es);
+        m->dev_kmsg_fd = TAKE_FD(fd);
+        m->dev_kmsg_event_source = TAKE_PTR(es);
         return 0;
 }
 
-int server_open_kernel_seqnum(Server *s) {
+int manager_open_kernel_seqnum(Manager *m) {
         int r;
 
-        assert(s);
+        assert(m);
 
         /* We store the seqnum we last read in an mmapped file. That way we can just use it like a variable,
          * but it is persistent and automatically flushed at reboot. */
 
-        if (!s->read_kmsg)
+        if (!m->read_kmsg)
                 return 0;
 
-        r = server_map_seqnum_file(s, "kernel-seqnum", sizeof(uint64_t), (void**) &s->kernel_seqnum);
+        r = manager_map_seqnum_file(m, "kernel-seqnum", sizeof(uint64_t), (void**) &m->kernel_seqnum);
         if (r < 0)
                 return log_error_errno(r, "Failed to map kernel seqnum file: %m");
 

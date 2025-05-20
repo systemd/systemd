@@ -173,7 +173,7 @@
 #else
 #  define ABS(a) __builtin_imaxabs(a)
 #endif
-assert_cc(sizeof(intmax_t) <= sizeof(long long));
+assert_cc(sizeof(long long) == sizeof(intmax_t));
 
 #define IS_UNSIGNED_INTEGER_TYPE(type) \
         (__builtin_types_compatible_p(typeof(type), unsigned char) ||   \
@@ -465,3 +465,10 @@ assert_cc(sizeof(dummy_t) == 0);
 
 assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
 #define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
+
+/* In GCC 14 (C23) we can force enums to have the right types, and not solely rely on language extensions anymore */
+#if __GNUC__ >= 14 || __STDC_VERSION__ >= 202311L
+#  define ENUM_TYPE_S64(id) id : int64_t
+#else
+#  define ENUM_TYPE_S64(id) id
+#endif

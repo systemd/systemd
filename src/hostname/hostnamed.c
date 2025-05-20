@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
+#include "sd-event.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -22,25 +22,26 @@
 #include "env-file.h"
 #include "env-file-label.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "json-util.h"
+#include "label-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "selinux-util.h"
 #include "service-util.h"
-#include "signal-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
-#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
+#include "time-util.h"
 #include "utf8.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.service.h"
@@ -685,7 +686,7 @@ static char* context_fallback_icon_name(Context *c) {
 
 static int context_update_kernel_hostname(
                 Context *c,
-                const char *transient_hn) {
+                const char *transient_hostname) {
 
         _cleanup_free_ char *_hn_free = NULL;
         const char *hn;
@@ -700,8 +701,8 @@ static int context_update_kernel_hostname(
                 hns = HOSTNAME_STATIC;
 
         /* ... the transient hostname, (ie: DHCP) comes next ... */
-        } else if (transient_hn) {
-                hn = transient_hn;
+        } else if (transient_hostname) {
+                hn = transient_hostname;
                 hns = HOSTNAME_TRANSIENT;
 
         /* ... and the ultimate fallback */
@@ -1796,11 +1797,6 @@ static int connect_bus(Context *c) {
 }
 
 static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_POLKIT_FIELD,
-                {}
-        };
-
         Context *c = ASSERT_PTR(userdata);
         bool privileged;
         int r;
@@ -1808,7 +1804,7 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         assert(link);
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 

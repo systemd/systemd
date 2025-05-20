@@ -3,13 +3,13 @@
 #include <getopt.h>
 #include <linux/if.h>
 #include <net/if.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -18,16 +18,14 @@
 #include "architecture.h"
 #include "bootspec.h"
 #include "build.h"
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "capability-util.h"
-#include "chase.h"
 #include "common-signal.h"
 #include "copy.h"
-#include "creds-util.h"
-#include "dirent-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "escape.h"
@@ -35,18 +33,15 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
-#include "io-util.h"
-#include "kernel-image.h"
+#include "id128-util.h"
 #include "log.h"
 #include "machine-credential.h"
-#include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "namespace-util.h"
@@ -66,15 +61,13 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
-#include "time-util.h"
+#include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
-#include "user-util.h"
 #include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-register.h"
@@ -2337,7 +2330,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         const char *e = secure_getenv("SYSTEMD_VMSPAWN_QEMU_EXTRA");
         if (e) {
                 r = strv_split_and_extend_full(&cmdline, e,
-                                               /* separator = */ NULL, /* filter_duplicates = */ false,
+                                               /* separators = */ NULL, /* filter_duplicates = */ false,
                                                EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse $SYSTEMD_VMSPAWN_QEMU_EXTRA: %m");

@@ -754,12 +754,38 @@
         <varlistentry>
           <term><filename>sleep.target</filename></term>
           <listitem>
-            <para>A special target unit that is pulled in by
-            <filename>suspend.target</filename>,
-            <filename>hibernate.target</filename>,
-            <filename>suspend-then-hibernate.target</filename>, and
-            <filename>hybrid-sleep.target</filename> and may be used to
-            hook units into the sleep state logic.</para>
+            <para>A special target unit that is pulled in by <filename>suspend.target</filename>,
+            <filename>hibernate.target</filename>, <filename>suspend-then-hibernate.target</filename>, and
+            <filename>hybrid-sleep.target</filename> and may be used to hook units into the sleep state
+            logic.</para>
+
+            <para>In order to hook external programs <emphasis>before</emphasis> the actual system sleep
+            operation, place their command line in a service unit file's <varname>ExecStart=</varname> line
+            (use <varname>Type=oneshot</varname>), and ensure the unit is pulled in by
+            <filename>sleep.target</filename> and ordered before it. In order to hook program code
+            <emphasis>after</emphasis> the actual system sleep operation (i.e. to be run after the system
+            woke up again), place the command in <varname>ExecStop=</varname> instead, and make sure to
+            enable <varname>StopWhenUnneeded=</varname> and <varname>RemainAfterExit=</varname>. Both
+            approaches can be combined into one unit file in order to run programs both before and after the
+            sleep operation.</para>
+
+            <example>
+              <title>Combined Example</title>
+
+              <programlisting>[Unit]
+DefaultDependencies=no
+StopWhenUnneeded=yes
+Before=sleep.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/some-before-command
+ExecStop=/Usr/bin/some-after-command
+
+[Install]
+WantedBy=sleep.target</programlisting>
+            </example>
           </listitem>
         </varlistentry>
         <varlistentry>

@@ -471,6 +471,7 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_monitor, sd_device_monitor, devic
 
 static int check_subsystem_filter(sd_device_monitor *m, sd_device *device) {
         const char *s, *d;
+        int r;
 
         assert(m);
         assert(device);
@@ -479,13 +480,9 @@ static int check_subsystem_filter(sd_device_monitor *m, sd_device *device) {
                 return true;
 
         HASHMAP_FOREACH_KEY(d, s, m->subsystem_filter) {
-                if (!device_in_subsystem(device, s))
-                        continue;
-
-                if (d && !device_is_devtype(device, d))
-                        continue;
-
-                return true;
+                r = device_is_subsystem_devtype(device, s, d);
+                if (r != 0)
+                        return r;
         }
 
         return false;

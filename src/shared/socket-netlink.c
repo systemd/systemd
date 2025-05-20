@@ -504,12 +504,10 @@ int af_unix_get_qlen(int fd, uint32_t *ret) {
         if (r < 0)
                 return r;
 
-        uint64_t cookie = 0;
-        socklen_t cookie_len = sizeof(cookie);
-        if (getsockopt(fd, SOL_SOCKET, SO_COOKIE, &cookie, &cookie_len) < 0)
-                return -errno;
-
-        assert(cookie_len == sizeof(cookie));
+        uint64_t cookie;
+        r = socket_get_cookie(fd, &cookie);
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         r = sd_sock_diag_message_new_unix(nl, &message, st.st_ino, cookie, UDIAG_SHOW_RQLEN);

@@ -610,34 +610,72 @@ static int manager_enumerate_inhibitors(Manager *m) {
 
 static int manager_dispatch_seat_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        int r;
 
         assert(device);
 
-        manager_process_seat_device(m, device);
+        /* If the event is triggered by us, do not try to start the relevant seat again. Otherwise, starting
+         * the seat may trigger uevents again again again... */
+        r = manager_process_device_triggered_by_seat(m, device);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Failed to process seat device event triggered by us, ignoring: %m");
+        if (r != 0)
+                return 0;
+
+        r = manager_process_seat_device(m, device);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Failed to process seat device, ignoring: %m");
+
         return 0;
 }
 
 static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        int r;
 
         assert(device);
 
-        manager_process_seat_device(m, device);
+        /* If the device currently has "master-of-seat" tag, then it has been or will be processed by
+         * manager_dispatch_seat_udev(). */
+        r = sd_device_has_current_tag(device, "master-of-seat");
+        if (r < 0)
+                log_device_warning_errno(device, r, "Failed to check if the device currently has master-of-seat tag, ignoring: %m");
+        if (r != 0)
+                return 0;
+
+        /* If the event is triggered by us, do not try to start the relevant seat again. Otherwise, starting
+         * the seat may trigger uevents again again again... */
+        r = manager_process_device_triggered_by_seat(m, device);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Failed to process seat device event triggered by us, ignoring: %m");
+        if (r != 0)
+                return 0;
+
+        r = manager_process_seat_device(m, device);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Failed to process seat device, ignoring: %m");
+
         return 0;
 }
 
 static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        const char *name;
+        int r;
 
         assert(device);
 
         /* Whenever a VCSA device is removed try to reallocate our
          * VTs, to make sure our auto VTs never go away. */
 
-        if (sd_device_get_sysname(device, &name) >= 0 &&
-            startswith(name, "vcsa") &&
-            device_for_action(device, SD_DEVICE_REMOVE))
+        r = device_sysname_startswith(device, "vcsa");
+        if (r < 0) {
+                log_device_debug_errno(device, r, "Failed to check device sysname, ignoring: %m");
+                return 0;
+        }
+        if (r == 0)
+                return 0;
+
+        if (device_for_action(device, SD_DEVICE_REMOVE))
                 seat_preallocate_vts(m->seat0);
 
         return 0;
@@ -883,17 +921,11 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "input", NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "graphics", NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "drm", NULL);
-        if (r < 0)
-                return r;
+        FOREACH_STRING(s, "input", "graphics", "drm") {
+                r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, s, /* devtype = */ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_device_monitor_attach_event(m->device_monitor, m->event);
         if (r < 0)

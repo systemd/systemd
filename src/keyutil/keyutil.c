@@ -8,12 +8,14 @@
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memstream-util.h"
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -382,7 +384,7 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
         ASN1_STRING_set0(signer_info->enc_digest, TAKE_PTR(pkcs1), pkcs1_len);
 
         _cleanup_fclose_ FILE *output = NULL;
-        _cleanup_free_ char *tmp = NULL;
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
         r = fopen_tmpfile_linkable(arg_output, O_WRONLY|O_CLOEXEC, &tmp, &output);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file: %m");
@@ -394,6 +396,8 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
         r = flink_tmpfile(output, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", arg_output);
+
+        tmp = mfree(tmp);
 
         return 0;
 }

@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
+#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
@@ -14,17 +14,15 @@
 #include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
 #include "chase.h"
-#include "constants.h"
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
 #include "fd-util.h"
@@ -32,8 +30,10 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "image-policy.h"
 #include "initrd-util.h"
 #include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "missing_magic.h"
 #include "mkdir.h"
@@ -47,11 +47,14 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "selinux-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "terminal-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"

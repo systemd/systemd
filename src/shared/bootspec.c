@@ -1007,7 +1007,7 @@ static int pe_find_uki_sections(
                 if (found->VirtualSize == 0)
                         continue;
 
-                r = pe_read_section_data(fd, found, PE_SECTION_SIZE_MAX, (void**) t->data, /* ret_data= */ NULL);
+                r = pe_read_section_data(fd, found, PE_SECTION_SIZE_MAX, (void**) t->data, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load contents of section '%s': %m", t->name);
         }
@@ -1565,7 +1565,7 @@ int boot_config_load_auto(
 int boot_config_augment_from_loader(
                 BootConfig *config,
                 char **found_by_loader,
-                bool only_auto) {
+                bool auto_only) {
 
         static const BootEntryAddons no_addons = (BootEntryAddons) {};
         static const char *const title_table[] = {
@@ -1595,7 +1595,7 @@ int boot_config_augment_from_loader(
                         continue;
                 }
 
-                if (only_auto && !startswith(*i, "auto-"))
+                if (auto_only && !startswith(*i, "auto-"))
                         continue;
 
                 c = strdup(*i);

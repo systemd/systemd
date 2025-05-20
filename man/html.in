@@ -8,7 +8,7 @@ if [ -z "$1" ]; then
 fi
 
 # make sure the rules have been regenerated (in case update-man-rules was just run)
-ninja -C "@BUILD_ROOT@" version.h
+ninja -C "@BUILD_ROOT@" src/version/version.h
 
 target="man/$1.html"
 ninja -C "@BUILD_ROOT@" "$target"

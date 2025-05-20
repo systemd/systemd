@@ -58,8 +58,6 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultDeviceTimeoutUSec", m->defaults.device_timeout_usec),
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultRestartUSec", m->defaults.restart_usec),
                         JSON_BUILD_PAIR_RATELIMIT("DefaultStartLimit", &m->defaults.start_limit),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DefaultCPUAccounting", m->defaults.cpu_accounting),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DefaultBlockIOAccounting", m->defaults.blockio_accounting),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultIOAccounting", m->defaults.io_accounting),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultIPAccounting", m->defaults.ip_accounting),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultMemoryAccounting", m->defaults.memory_accounting),
@@ -158,8 +156,9 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
 
         assert(parameters);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
 
         r = sd_json_buildo(&v,
                         SD_JSON_BUILD_PAIR_CALLBACK("Context", manager_context_build_json, manager),

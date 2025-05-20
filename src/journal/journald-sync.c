@@ -6,7 +6,7 @@
 #include "sd-varlink.h"
 
 #include "io-util.h"
-#include "journald-server.h"
+#include "journald-manager.h"
 #include "journald-stream.h"
 #include "journald-sync.h"
 #include "journald-varlink.h"
@@ -49,7 +49,7 @@ static bool sync_req_is_complete(SyncReq *req) {
         int r;
 
         assert(req);
-        assert(req->server);
+        assert(req->manager);
 
         /* In case the clock jumped backwards, let's adjust the timestamp, to guarantee reasonably quick
          * termination */
@@ -61,18 +61,18 @@ static bool sync_req_is_complete(SyncReq *req) {
                 /* If this sync request is still in the priority queue it means we still need to check if
                  * incoming message timestamps are now newer than then sync request timestamp. */
 
-                if (req->server->native_fd >= 0 &&
-                    req->server->native_timestamp < req->realtime) {
-                        r = fd_wait_for_event(req->server->native_fd, POLLIN, /* timeout= */ 0);
+                if (req->manager->native_fd >= 0 &&
+                    req->manager->native_timestamp < req->realtime) {
+                        r = fd_wait_for_event(req->manager->native_fd, POLLIN, /* timeout= */ 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to determine pending IO events of native socket, ignoring: %m");
                         else if (r != 0) /* if there's more queued we need to wait for the timestamp to pass. If it's idle though we are done here. */
                                 return false;
                 }
 
-                if (req->server->syslog_fd >= 0&&
-                    req->server->syslog_timestamp < req->realtime) {
-                        r = fd_wait_for_event(req->server->syslog_fd, POLLIN, /* timeout= */ 0);
+                if (req->manager->syslog_fd >= 0&&
+                    req->manager->syslog_timestamp < req->realtime) {
+                        r = fd_wait_for_event(req->manager->syslog_fd, POLLIN, /* timeout= */ 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to determine pending IO events of syslog socket, ignoring: %m");
                         else if (r != 0)
@@ -82,22 +82,22 @@ static bool sync_req_is_complete(SyncReq *req) {
                 /* This sync request is fulfilled for the native + syslog datagram streams? Then, let's
                  * remove this sync request from the priority queue, so that we dont need to consider it
                  * anymore. */
-                assert(prioq_remove(req->server->sync_req_realtime_prioq, req, &req->realtime_prioq_idx) > 0);
+                assert(prioq_remove(req->manager->sync_req_realtime_prioq, req, &req->realtime_prioq_idx) > 0);
         }
 
         if (req->boottime_prioq_idx != PRIOQ_IDX_NULL) {
                 /* Very similar to the above, but for /dev/kmsg we operate on the CLOCK_BOOTTIME clock */
 
-                if (req->server->dev_kmsg_fd >= 0 &&
-                    req->server->dev_kmsg_timestamp < req->boottime) {
-                        r = fd_wait_for_event(req->server->dev_kmsg_fd, POLLIN, /* timeout= */ 0);
+                if (req->manager->dev_kmsg_fd >= 0 &&
+                    req->manager->dev_kmsg_timestamp < req->boottime) {
+                        r = fd_wait_for_event(req->manager->dev_kmsg_fd, POLLIN, /* timeout= */ 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to determine pending IO events of /dev/kmsg file descriptor, ignoring: %m");
                         else if (r != 0)
                                 return false;
                 }
 
-                assert(prioq_remove(req->server->sync_req_boottime_prioq, req, &req->boottime_prioq_idx) > 0);
+                assert(prioq_remove(req->manager->sync_req_boottime_prioq, req, &req->boottime_prioq_idx) > 0);
         }
 
         /* If there are still streams with pending counters, we still need to look into things */
@@ -127,18 +127,18 @@ SyncReq* sync_req_free(SyncReq *req) {
         if (!req)
                 return NULL;
 
-        if (req->server) {
+        if (req->manager) {
                 if (req->realtime_prioq_idx != PRIOQ_IDX_NULL)
-                        assert_se(prioq_remove(req->server->sync_req_realtime_prioq, req, &req->realtime_prioq_idx) > 0);
+                        assert_se(prioq_remove(req->manager->sync_req_realtime_prioq, req, &req->realtime_prioq_idx) > 0);
 
                 if (req->boottime_prioq_idx != PRIOQ_IDX_NULL)
-                        assert_se(prioq_remove(req->server->sync_req_boottime_prioq, req, &req->boottime_prioq_idx) > 0);
+                        assert_se(prioq_remove(req->manager->sync_req_boottime_prioq, req, &req->boottime_prioq_idx) > 0);
 
                 if (req->pending_rqlen > 0)
-                        LIST_REMOVE(pending_rqlen, req->server->sync_req_pending_rqlen, req);
+                        LIST_REMOVE(pending_rqlen, req->manager->sync_req_pending_rqlen, req);
         }
 
-        req->idle_event_source = sd_event_source_disable_unref(req->idle_event_source);
+        sd_event_source_disable_unref(req->idle_event_source);
 
         sd_varlink_unref(req->link);
 
@@ -183,10 +183,10 @@ static int sync_req_add_stream(SyncReq *req, StdoutStream *ss) {
         return 1;
 }
 
-int sync_req_new(Server *s, sd_varlink *link, SyncReq **ret) {
+int sync_req_new(Manager *m, sd_varlink *link, SyncReq **ret) {
         int r;
 
-        assert(s);
+        assert(m);
         assert(link);
         assert(ret);
 
@@ -195,7 +195,7 @@ int sync_req_new(Server *s, sd_varlink *link, SyncReq **ret) {
                 return -ENOMEM;
 
         *req = (SyncReq) {
-                .server = s,
+                .manager = m,
                 .link = sd_varlink_ref(link),
                 .realtime_prioq_idx = PRIOQ_IDX_NULL,
                 .boottime_prioq_idx = PRIOQ_IDX_NULL,
@@ -239,19 +239,19 @@ int sync_req_new(Server *s, sd_varlink *link, SyncReq **ret) {
         req->realtime = now(CLOCK_REALTIME);
         req->boottime = now(CLOCK_BOOTTIME);
 
-        if (s->native_event_source || s->syslog_event_source) {
-                r = prioq_ensure_put(&s->sync_req_realtime_prioq, sync_req_realtime_compare, req, &req->realtime_prioq_idx);
+        if (m->native_event_source || m->syslog_event_source) {
+                r = prioq_ensure_put(&m->sync_req_realtime_prioq, sync_req_realtime_compare, req, &req->realtime_prioq_idx);
                 if (r < 0)
                         return r;
         }
 
-        if (s->dev_kmsg_event_source) {
-                r = prioq_ensure_put(&s->sync_req_boottime_prioq, sync_req_boottime_compare, req, &req->boottime_prioq_idx);
+        if (m->dev_kmsg_event_source) {
+                r = prioq_ensure_put(&m->sync_req_boottime_prioq, sync_req_boottime_compare, req, &req->boottime_prioq_idx);
                 if (r < 0)
                         return r;
         }
 
-        r = sd_event_add_defer(s->event, &req->idle_event_source, on_idle, req);
+        r = sd_event_add_defer(m->event, &req->idle_event_source, on_idle, req);
         if (r < 0)
                 return r;
 
@@ -263,7 +263,7 @@ int sync_req_new(Server *s, sd_varlink *link, SyncReq **ret) {
 
         /* Now determine the pending byte counter for each stdout stream. If non-zero allocate a
          * StreamSyncReq for the stream to keep track of it */
-        LIST_FOREACH(stdout_stream, ss, s->stdout_streams) {
+        LIST_FOREACH(stdout_stream, ss, m->stdout_streams) {
                 r = sync_req_add_stream(req, ss);
                 if (r < 0)
                         return r;
@@ -271,11 +271,11 @@ int sync_req_new(Server *s, sd_varlink *link, SyncReq **ret) {
 
         /* Also track how many pending, incoming stream sockets there are currently, so that we process them
          * too */
-        r = af_unix_get_qlen(s->stdout_fd, &req->pending_rqlen);
+        r = af_unix_get_qlen(m->stdout_fd, &req->pending_rqlen);
         if (r < 0)
                 log_warning_errno(r, "Failed to determine current incoming queue length, ignoring: %m");
         if (req->pending_rqlen > 0)
-                LIST_PREPEND(pending_rqlen, s->sync_req_pending_rqlen, req);
+                LIST_PREPEND(pending_rqlen, m->sync_req_pending_rqlen, req);
 
         *ret = TAKE_PTR(req);
         return 0;
@@ -310,7 +310,7 @@ static void sync_req_advance_rqlen_revalidate(SyncReq *req, uint32_t current_rql
                 /* If there are no more connections to wait for, remove us from the list of synchronization
                  * requests with non-zero pending connection counters */
                 if (n == 0)
-                        LIST_REMOVE(pending_rqlen, req->server->sync_req_pending_rqlen, req);
+                        LIST_REMOVE(pending_rqlen, req->manager->sync_req_pending_rqlen, req);
         }
 
         req->pending_rqlen = n;
@@ -318,26 +318,26 @@ static void sync_req_advance_rqlen_revalidate(SyncReq *req, uint32_t current_rql
         sync_req_revalidate(req);
 }
 
-void server_notify_stream(Server *s, StdoutStream *ss) {
+void manager_notify_stream(Manager *m, StdoutStream *ss) {
         int r;
 
-        assert(s);
+        assert(m);
 
         /* Invoked whenever a new connection was accept()ed, i.e. dropped off the queue of pending incoming
          * connections. */
 
-        if (!s->sync_req_pending_rqlen)
+        if (!m->sync_req_pending_rqlen)
                 return;
 
         uint32_t current_qlen;
 
-        r = af_unix_get_qlen(s->stdout_fd, &current_qlen);
+        r = af_unix_get_qlen(m->stdout_fd, &current_qlen);
         if (r < 0) {
                 log_warning_errno(r, "Failed to determine current AF_UNIX stream socket pending connections, ignoring: %m");
                 current_qlen = UINT32_MAX;
         }
 
-        LIST_FOREACH(pending_rqlen, sr, s->sync_req_pending_rqlen)
+        LIST_FOREACH(pending_rqlen, sr, m->sync_req_pending_rqlen)
                 /* NB: this might invalidate the SyncReq object! */
                 sync_req_advance_rqlen_revalidate(sr, current_qlen, ss);
 }
@@ -355,18 +355,18 @@ bool sync_req_revalidate(SyncReq *req) {
         return true;
 }
 
-void sync_req_revalidate_by_timestamp(Server *s) {
-        assert(s);
+void sync_req_revalidate_by_timestamp(Manager *m) {
+        assert(m);
 
         /* Go through the pending sync requests by timestamp, and complete those for which a sync is now
          * complete. */
 
         SyncReq *req;
-        while ((req = prioq_peek(s->sync_req_realtime_prioq)))
+        while ((req = prioq_peek(m->sync_req_realtime_prioq)))
                 if (!sync_req_revalidate(req))
                         break;
 
-        while ((req = prioq_peek(s->sync_req_boottime_prioq)))
+        while ((req = prioq_peek(m->sync_req_boottime_prioq)))
                 if (!sync_req_revalidate(req))
                         break;
 }

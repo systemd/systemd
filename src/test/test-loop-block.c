@@ -332,7 +332,7 @@ static int run(int argc, char *argv[]) {
                                   mounted,
                                   /* uid_shift= */ UID_INVALID,
                                   /* uid_range= */ UID_INVALID,
-                                  /* usernfs_fd= */ -EBADF,
+                                  /* userns_fd= */ -EBADF,
                                   0) >= 0);
 
         /* Now we mounted everything, the partitions are pinned. Now it's fine to release the lock

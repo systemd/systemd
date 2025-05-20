@@ -35,8 +35,8 @@ typedef struct Context {
 static void context_done(Context *c) {
         assert(c);
 
-        c->synchronize_varlink = sd_varlink_flush_close_unref(c->synchronize_varlink);
-        c->event = sd_event_unref(c->event);
+        sd_varlink_flush_close_unref(c->synchronize_varlink);
+        sd_event_unref(c->event);
         sd_journal_close(c->journal);
 }
 
@@ -313,7 +313,7 @@ static int on_first_event(sd_event_source *s, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_follow && !arg_reverse && !arg_cursor && !arg_after_cursor && !arg_cursor_file && !arg_since_set) {
+        if (arg_follow && !arg_reverse && !c->has_cursor && !arg_since_set) {
                 r = sd_journal_get_cursor(c->journal, /* ret_cursor= */ NULL);
                 if (r == -EADDRNOTAVAIL) {
                         /* If we shall operate in --follow mode, and we are unable to get a cursor after
@@ -350,8 +350,10 @@ static int on_synchronize_reply(
 
         assert(vl);
 
-        if (error_id)
+        if (error_id) {
                 log_warning("Failed to synchronize on Journal, ignoring: %s", error_id);
+                (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error_id);
+        }
 
         r = show_and_fflush(c);
         if (r < 0)
@@ -377,14 +379,14 @@ static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void
 
         r = varlink_connect_journal(&vl);
         if (r < 0) {
-                log_error_errno(r, "Failed to connect to Journal Varlink IPC interface, ignoring: %m");
+                log_error_errno(r, "Failed to connect to Journal Varlink IPC interface, skipping synchronization: %m");
                 goto finish;
         }
 
         /* Set a low priority on the idle event handler, so that we show any log messages first */
         r = sd_varlink_attach_event(vl, c->event, SD_EVENT_PRIORITY_IDLE);
         if (r < 0) {
-                log_warning_errno(r, "Failed to attach Varlink connectio to event loop: %m");
+                log_warning_errno(r, "Failed to attach Varlink connection to event loop: %m");
                 goto finish;
         }
 

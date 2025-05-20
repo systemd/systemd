@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
@@ -16,7 +17,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "terminal-util.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
 
@@ -383,6 +384,8 @@ static int run(int argc, char *argv[]) {
         r = flink_tmpfile(f, t, tpm2b_public_path, LINK_TMPFILE_SYNC|LINK_TMPFILE_REPLACE);
         if (r < 0)
                 return log_error_errno(r, "Failed to move SRK public key file to '%s': %m", tpm2b_public_path);
+
+        t = mfree(t);
 
         log_info("SRK public key saved to '%s' in TPM2B_PUBLIC format.", tpm2b_public_path);
         return 0;

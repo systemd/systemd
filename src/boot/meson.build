@@ -205,9 +205,15 @@ efi_c_ld_args = [
         '-z', 'separate-code',
 ]
 
-# Check if the compiler is GCC and then we link to lgcc in that case only
-if cc.get_id() == 'gcc'
-    efi_c_ld_args += ['-lgcc']
+linker_sanity_code = 'void a(void) {}; void _start(void) { a(); }'
+linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings']
+
+# Check if libgcc is available and then use it. It is needed for gcc builds
+# and for ia32 builds with clang.
+if cc.links(linker_sanity_code,
+            name : 'libgcc is available',
+            args : [linker_sanity_args, '-lgcc'])
+        efi_c_ld_args += ['-lgcc']
 endif
 
 efi_c_ld_args += cc.get_supported_link_arguments(
@@ -261,8 +267,6 @@ efi_arch_c_ld_args = {
         'x86'    : ['-m32'],
 }
 
-linker_sanity_code = 'void a(void) {}; void _start(void) { a(); }'
-linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings']
 if not cc.links(linker_sanity_code,
                 name : 'linker supports -static-pie',
                 args : [linker_sanity_args, '-static-pie'])

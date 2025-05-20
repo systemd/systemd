@@ -1367,7 +1367,6 @@ good:
 
 static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
         unsigned n = 0, gc_marker;
-        Unit *u;
 
         assert(m);
 
@@ -1379,11 +1378,13 @@ static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
 
         gc_marker = m->gc_marker;
 
-        while ((u = LIST_POP(gc_queue, m->gc_unit_queue))) {
+        Unit *u;
+        while ((u = m->gc_unit_queue)) {
                 assert(u->in_gc_queue);
 
                 unit_gc_sweep(u, gc_marker);
 
+                LIST_REMOVE(gc_queue, m->gc_unit_queue, u);
                 u->in_gc_queue = false;
 
                 n++;
@@ -1850,6 +1851,7 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
                     SERVICE_MOUNTING,
                     SERVICE_RELOAD,
                     SERVICE_RELOAD_NOTIFY,
+                    SERVICE_REFRESH_EXTENSIONS,
                     SERVICE_RELOAD_SIGNAL))
                 return false;
 
@@ -4197,10 +4199,8 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
 
         m->defaults.start_limit = defaults->start_limit;
 
-        m->defaults.cpu_accounting = defaults->cpu_accounting;
         m->defaults.memory_accounting = defaults->memory_accounting;
         m->defaults.io_accounting = defaults->io_accounting;
-        m->defaults.blockio_accounting = defaults->blockio_accounting;
         m->defaults.tasks_accounting = defaults->tasks_accounting;
         m->defaults.ip_accounting = defaults->ip_accounting;
 
@@ -5096,12 +5096,8 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
                 .device_timeout_usec = manager_default_timeout(scope),
                 .start_limit = { DEFAULT_START_LIMIT_INTERVAL, DEFAULT_START_LIMIT_BURST },
 
-                /* On 4.15+ with unified hierarchy, CPU accounting is essentially free as it doesn't require the CPU
-                 * controller to be enabled, so the default is to enable it unless we got told otherwise. */
-                .cpu_accounting = cpu_accounting_is_cheap(),
                 .memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
                 .io_accounting = false,
-                .blockio_accounting = false,
                 .tasks_accounting = true,
                 .ip_accounting = false,
 

@@ -4662,7 +4662,7 @@ static int tpm2_kdfa(
                         context,
                         context_len,
                         /* seed= */ NULL,
-                        /* seed_len= */ 0,
+                        /* seed_size= */ 0,
                         len,
                         &buf);
         if (r < 0)
@@ -4843,7 +4843,7 @@ static int tpm2_calculate_seal_private(
                       seed->size,
                       "INTEGRITY",
                       /* context= */ NULL,
-                      /* n_context= */ 0,
+                      /* context_len= */ 0,
                       bits,
                       &integrity_key,
                       &integrity_key_size);
@@ -4896,7 +4896,7 @@ static int tpm2_calculate_seal_private(
                         parent->publicArea.parameters.asymDetail.symmetric.keyBits.sym,
                         sym_mode,
                         storage_key, storage_key_size,
-                        /* iv= */ NULL, /* n_iv= */ 0,
+                        /* iv= */ NULL, /* iv_size= */ 0,
                         marshalled_sensitive, marshalled_sensitive_size,
                         &encrypted_sensitive, &encrypted_sensitive_size);
         if (r < 0)
@@ -5052,7 +5052,7 @@ static int tpm2_calculate_seal_ecc_seed(
 
         _cleanup_free_ void *x = NULL, *y = NULL;
         size_t x_size, y_size;
-        r = ecc_pkey_to_curve_x_y(pkey, /* curve_id= */ NULL, &x, &x_size, &y, &y_size);
+        r = ecc_pkey_to_curve_x_y(pkey, /* ret_curve_id= */ NULL, &x, &x_size, &y, &y_size);
         if (r < 0)
                 return log_debug_errno(r, "Could not get ECC get x/y: %m");
 
@@ -6958,7 +6958,7 @@ int tpm2_pcrlock_policy_load(
                         discovered_path,
                         /* flags = */ 0,
                         &v,
-                        /* ret_line= */ NULL,
+                        /* reterr_line= */ NULL,
                         /* ret_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse existing pcrlock policy file '%s': %m", discovered_path);
@@ -7002,7 +7002,7 @@ static int pcrlock_policy_load_credential(
         r = sd_json_parse(decoded.iov_base,
                        /* flags= */ 0,
                        &v,
-                       /* ret_line= */ NULL,
+                       /* reterr_line= */ NULL,
                        /* ret_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse pcrlock policy: %m");
@@ -7949,7 +7949,7 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask) {
         }
 
         uint32_t new_mask;
-        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, /* algorithm= */ 0, &new_mask);
+        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, /* hash= */ 0, &new_mask);
         if (r < 0)
                 return log_error_errno(r, "Could not get pcr values mask: %m");
 

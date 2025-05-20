@@ -391,7 +391,7 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
                                 goto fail;
 
                         if (r > 0) {
-                                /* New transactions where queued. Start them and wait */
+                                /* New transactions have been queued. Start them and wait */
 
                                 r = dns_query_candidate_go(c);
                                 if (r < 0)

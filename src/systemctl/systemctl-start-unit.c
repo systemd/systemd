@@ -394,7 +394,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                 ret = enqueue_marked_jobs(bus, w);
         else {
                 if (arg_verbose)
-                        (void) journal_fork(arg_runtime_scope, (const char**) names, &journal_pid);
+                        (void) journal_fork(arg_runtime_scope, names, &journal_pid);
 
                 STRV_FOREACH(name, names) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

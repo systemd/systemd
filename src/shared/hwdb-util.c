@@ -409,6 +409,8 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         if (r < 0)
                 return r;
 
+        filename_tmp = mfree(filename_tmp);
+
         /* write succeeded */
 
         log_debug("=== trie on-disk ===");

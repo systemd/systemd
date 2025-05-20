@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if HAVE_LIBBPF
+
 #include <stdio.h>
 #include <bpf/libbpf.h>
 
@@ -17,3 +19,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct bpf_link *, bpf_link_free);
 
 struct ring_buffer* bpf_ring_buffer_free(struct ring_buffer *rb);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct ring_buffer *, bpf_ring_buffer_free);
+
+#endif

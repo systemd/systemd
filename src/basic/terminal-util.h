@@ -139,11 +139,11 @@ int getttyname_harder(int fd, char **ret);
 
 int ptsname_malloc(int fd, char **ret);
 
-int openpt_allocate(int flags, char **ret_peer);
-int openpt_allocate_in_namespace(const PidRef *pidref, int flags, char **ret_peer);
+int openpt_allocate(int flags, char **ret_peer_path);
+int openpt_allocate_in_namespace(const PidRef *pidref, int flags, char **ret_peer_path);
 
 int vt_restore(int fd);
-int vt_release(int fd, bool restore_vt);
+int vt_release(int fd, bool restore);
 
 void get_log_colors(int priority, const char **on, const char **off, const char **highlight);
 
@@ -165,7 +165,7 @@ int pty_open_peer(int fd, int mode);
 static inline bool osc_char_is_valid(char c) {
         /* Checks whether the specified character is safe to be included inside an ANSI OSC sequence, as per
          * ECMA-48 5th edition, section 8.3.89 */
-        return (unsigned char) c >= 32U && (unsigned char) c < 127;
+        return (unsigned char) c >= 32 && (unsigned char) c < 127;
 }
 
 static inline bool vtnr_is_valid(unsigned n) {

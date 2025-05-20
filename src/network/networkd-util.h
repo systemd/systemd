@@ -153,25 +153,26 @@ sd_dhcp_lease_server_type_t dhcp_lease_server_type_from_string(const char *s) _p
 
 bool link_should_mark_config(Link *link, bool only_static, NetworkConfigSource source, uint8_t protocol);
 
-#define _log_link_message_full_errno(link, link_u, message, error_msg, level, level_u, error, error_u, format, ...) \
+#define _log_link_message_full_errno(link, link_u, message, error_msg, length, level, level_u, error, error_u, format, ...) \
         ({                                                              \
                 Link *link_u = (link);                                  \
                 int level_u = (level);                                  \
                 int error_u = (error);                                  \
+                int length = 0;                                         \
                                                                         \
                 const char *error_msg = NULL;                           \
                 if (message)                                            \
-                        (void) sd_netlink_message_read_string(message, NLMSGERR_ATTR_MSG, &error_msg); \
+                        length = sd_netlink_message_read_string(message, NLMSGERR_ATTR_MSG, &error_msg); \
                                                                         \
-                error_msg ?                                             \
+                error_msg && length > 0 ?                               \
                         log_link_full_errno(link_u, level_u, error_u, format ": %s%s %m", ##__VA_ARGS__, \
-                                            error_msg, endswith(error_msg, ".") ? "" : ".") : \
+                                            error_msg, error_msg[length - 1] == '.' ? "" : ".") : \
                         log_link_full_errno(link_u, level_u, error_u, format ": %m", ##__VA_ARGS__); \
         })
 
 
 #define log_link_message_full_errno(link, message, level, error, format, ...) \
-        _log_link_message_full_errno(link, UNIQ_T(lnk, UNIQ), message, UNIQ_T(emsg, UNIQ), level, UNIQ_T(lvl, UNIQ), error, UNIQ_T(err, UNIQ), format, ##__VA_ARGS__)
+        _log_link_message_full_errno(link, UNIQ_T(lnk, UNIQ), message, UNIQ_T(emsg, UNIQ), UNIQ_T(len, UNIQ), level, UNIQ_T(lvl, UNIQ), error, UNIQ_T(err, UNIQ), format, ##__VA_ARGS__)
 
 #define log_link_message_error_errno(link, m, err, fmt, ...)   log_link_message_full_errno(link, m, LOG_ERR, err, fmt, ##__VA_ARGS__)
 #define log_link_message_warning_errno(link, m, err, fmt, ...) log_link_message_full_errno(link, m, LOG_WARNING, err, fmt, ##__VA_ARGS__)

@@ -46,7 +46,7 @@ int cg_path_open(const char *controller, const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path(controller, path, /* item=*/ NULL, &fs);
+        r = cg_get_path(controller, path, /* suffix=*/ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -109,14 +109,14 @@ int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret) {
         return 0;
 }
 
-static int cg_enumerate_items(const char *controller, const char *path, FILE **ret, const char *item) {
+int cg_enumerate_processes(const char *controller, const char *path, FILE **ret) {
         _cleanup_free_ char *fs = NULL;
         FILE *f;
         int r;
 
         assert(ret);
 
-        r = cg_get_path(controller, path, item, &fs);
+        r = cg_get_path(controller, path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
@@ -126,10 +126,6 @@ static int cg_enumerate_items(const char *controller, const char *path, FILE **r
 
         *ret = f;
         return 0;
-}
-
-int cg_enumerate_processes(const char *controller, const char *path, FILE **ret) {
-        return cg_enumerate_items(controller, path, ret, "cgroup.procs");
 }
 
 int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags) {
@@ -185,11 +181,6 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
 
                 if (pid == 0)
                         return -EREMOTE;
-
-                if (FLAGS_SET(flags, CGROUP_NO_PIDFD)) {
-                        *ret = PIDREF_MAKE_FROM_PID(pid);
-                        return 1;
-                }
 
                 r = pidref_set_pid(ret, pid);
                 if (r >= 0)
@@ -297,9 +288,8 @@ int cg_read_subgroup(DIR *d, char **ret) {
         return 0;
 }
 
-static int cg_kill_items(
+int cg_kill(
                 const char *path,
-                const char *item,
                 int sig,
                 CGroupFlags flags,
                 Set *s,
@@ -310,7 +300,6 @@ static int cg_kill_items(
         int r, ret = 0;
 
         assert(path);
-        assert(item);
         assert(sig >= 0);
 
          /* Don't send SIGCONT twice. Also, SIGKILL always works even when process is suspended, hence
@@ -336,7 +325,7 @@ static int cg_kill_items(
 
                 done = true;
 
-                r = cg_enumerate_items(SYSTEMD_CGROUP_CONTROLLER, path, &f, item);
+                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
                 if (r == -ENOENT)
                         break;
                 if (r < 0)
@@ -395,44 +384,6 @@ static int cg_kill_items(
         } while (!done);
 
         return ret;
-}
-
-int cg_kill(
-                const char *path,
-                int sig,
-                CGroupFlags flags,
-                Set *s,
-                cg_kill_log_func_t log_kill,
-                void *userdata) {
-
-        int r, ret;
-
-        assert(path);
-
-        ret = cg_kill_items(path, "cgroup.procs", sig, flags, s, log_kill, userdata);
-        if (ret < 0)
-                return log_debug_errno(ret, "Failed to kill processes in cgroup '%s' item cgroup.procs: %m", path);
-        if (sig != SIGKILL)
-                return ret;
-
-        /* Only in case of killing with SIGKILL and when using cgroupsv2, kill remaining threads manually as
-           a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83), backported to 4.19.66
-           (4340d175b898) and 4.14.138 (feb6b123b7dd). */
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return ret;
-
-        /* Opening pidfds for non thread group leaders only works from 6.9 onwards with PIDFD_THREAD. On
-         * older kernels or without PIDFD_THREAD pidfd_open() fails with EINVAL. Since we might read non
-         * thread group leader IDs from cgroup.threads, we set CGROUP_NO_PIDFD to avoid trying open pidfd's
-         * for them and instead use the regular pid. */
-        r = cg_kill_items(path, "cgroup.threads", sig, flags|CGROUP_NO_PIDFD, s, log_kill, userdata);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to kill processes in cgroup '%s' item cgroup.threads: %m", path);
-
-        return r > 0 || ret > 0;
 }
 
 int cg_kill_recursive(
@@ -701,7 +652,7 @@ int cg_get_xattr_bool(const char *path, const char *name) {
         if (r < 0)
                 return r;
 
-        return getxattr_at_bool(AT_FDCWD, fs, name, /* flags= */ 0);
+        return getxattr_at_bool(AT_FDCWD, fs, name, /* at_flags= */ 0);
 }
 
 int cg_remove_xattr(const char *path, const char *name) {
@@ -1826,56 +1777,61 @@ int cg_get_owner(const char *path, uid_t *ret_uid) {
         return 0;
 }
 
-int cg_get_keyed_attribute_full(
+int cg_get_keyed_attribute(
                 const char *controller,
                 const char *path,
                 const char *attribute,
-                char **keys,
-                char **ret_values,
-                CGroupKeyMode mode) {
+                char * const *keys,
+                char **values) {
 
         _cleanup_free_ char *filename = NULL, *contents = NULL;
-        const char *p;
-        size_t n, i, n_done = 0;
-        char **v;
+        size_t n;
         int r;
 
+        assert(path);
+        assert(attribute);
+
         /* Reads one or more fields of a cgroup v2 keyed attribute file. The 'keys' parameter should be an strv with
-         * all keys to retrieve. The 'ret_values' parameter should be passed as string size with the same number of
+         * all keys to retrieve. The 'values' parameter should be passed as string size with the same number of
          * entries as 'keys'. On success each entry will be set to the value of the matching key.
          *
-         * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. If mode
-         * is set to GG_KEY_MODE_GRACEFUL we ignore missing keys and return those that were parsed successfully. */
+         * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. */
 
         r = cg_get_path(controller, path, attribute, &filename);
         if (r < 0)
                 return r;
 
-        r = read_full_file(filename, &contents, NULL);
+        r = read_full_file(filename, &contents, /* ret_size = */ NULL);
         if (r < 0)
                 return r;
 
         n = strv_length(keys);
         if (n == 0) /* No keys to retrieve? That's easy, we are done then */
                 return 0;
+        assert(strv_is_uniq(keys));
 
         /* Let's build this up in a temporary array for now in order not to clobber the return parameter on failure */
-        v = newa0(char*, n);
+        char **v = newa0(char*, n);
+        size_t n_done = 0;
 
-        for (p = contents; *p;) {
-                const char *w = NULL;
+        for (const char *p = contents; *p;) {
+                const char *w;
+                size_t i;
 
-                for (i = 0; i < n; i++)
-                        if (!v[i]) {
-                                w = first_word(p, keys[i]);
-                                if (w)
-                                        break;
-                        }
+                for (i = 0; i < n; i++) {
+                        w = first_word(p, keys[i]);
+                        if (w)
+                                break;
+                }
 
                 if (w) {
-                        size_t l;
+                        if (v[i]) { /* duplicate entry? */
+                                r = -EBADMSG;
+                                goto fail;
+                        }
 
-                        l = strcspn(w, NEWLINE);
+                        size_t l = strcspn(w, NEWLINE);
+
                         v[i] = strndup(w, l);
                         if (!v[i]) {
                                 r = -ENOMEM;
@@ -1884,7 +1840,7 @@ int cg_get_keyed_attribute_full(
 
                         n_done++;
                         if (n_done >= n)
-                                goto done;
+                                break;
 
                         p = w + l;
                 } else
@@ -1893,21 +1849,17 @@ int cg_get_keyed_attribute_full(
                 p += strspn(p, NEWLINE);
         }
 
-        if (mode & CG_KEY_MODE_GRACEFUL)
-                goto done;
+        if (n_done < n) {
+                r = -ENXIO;
+                goto fail;
+        }
 
-        r = -ENXIO;
+        memcpy(values, v, sizeof(char*) * n);
+        return 0;
 
 fail:
         free_many_charp(v, n);
         return r;
-
-done:
-        memcpy(ret_values, v, sizeof(char*) * n);
-        if (mode & CG_KEY_MODE_GRACEFUL)
-                return n_done;
-
-        return 0;
 }
 
 int cg_mask_to_string(CGroupMask mask, char **ret) {
@@ -2176,11 +2128,11 @@ int cg_is_delegated_fd(int fd) {
 
         assert(fd >= 0);
 
-        r = getxattr_at_bool(fd, /* path= */ NULL, "trusted.delegate", /* flags= */ 0);
+        r = getxattr_at_bool(fd, /* path= */ NULL, "trusted.delegate", /* at_flags= */ 0);
         if (!ERRNO_IS_NEG_XATTR_ABSENT(r))
                 return r;
 
-        r = getxattr_at_bool(fd, /* path= */ NULL, "user.delegate", /* flags= */ 0);
+        r = getxattr_at_bool(fd, /* path= */ NULL, "user.delegate", /* at_flags= */ 0);
         return ERRNO_IS_NEG_XATTR_ABSENT(r) ? false : r;
 }
 
@@ -2229,57 +2181,6 @@ static const char *const cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);
-
-CGroupMask get_cpu_accounting_mask(void) {
-        static CGroupMask needed_mask = (CGroupMask) -1;
-
-        /* On kernel ≥4.15 with unified hierarchy, cpu.stat's usage_usec is
-         * provided externally from the CPU controller, which means we don't
-         * need to enable the CPU controller just to get metrics. This is good,
-         * because enabling the CPU controller comes at a minor performance
-         * hit, especially when it's propagated deep into large hierarchies.
-         * There's also no separate CPU accounting controller available within
-         * a unified hierarchy.
-         *
-         * This combination of factors results in the desired cgroup mask to
-         * enable for CPU accounting varying as follows:
-         *
-         *                   ╔═════════════════════╤═════════════════════╗
-         *                   ║     Linux ≥4.15     │     Linux <4.15     ║
-         *   ╔═══════════════╬═════════════════════╪═════════════════════╣
-         *   ║ Unified       ║ nothing             │ CGROUP_MASK_CPU     ║
-         *   ╟───────────────╫─────────────────────┼─────────────────────╢
-         *   ║ Hybrid/Legacy ║ CGROUP_MASK_CPUACCT │ CGROUP_MASK_CPUACCT ║
-         *   ╚═══════════════╩═════════════════════╧═════════════════════╝
-         *
-         * We check kernel version here instead of manually checking whether
-         * cpu.stat is present for every cgroup, as that check in itself would
-         * already be fairly expensive.
-         *
-         * Kernels where this patch has been backported will therefore have the
-         * CPU controller enabled unnecessarily. This is more expensive than
-         * necessary, but harmless. ☺️
-         */
-
-        if (needed_mask == (CGroupMask) -1) {
-                if (cg_all_unified()) {
-                        struct utsname u;
-                        assert_se(uname(&u) >= 0);
-
-                        if (strverscmp_improved(u.release, "4.15") < 0)
-                                needed_mask = CGROUP_MASK_CPU;
-                        else
-                                needed_mask = 0;
-                } else
-                        needed_mask = CGROUP_MASK_CPUACCT;
-        }
-
-        return needed_mask;
-}
-
-bool cpu_accounting_is_cheap(void) {
-        return get_cpu_accounting_mask() == 0;
-}
 
 static const char* const managed_oom_mode_table[_MANAGED_OOM_MODE_MAX] = {
         [MANAGED_OOM_AUTO] = "auto",
