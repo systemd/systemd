@@ -1,19 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/netdevice.h>
-#include <net/if.h>
-#include <netinet/in.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "dns-domain.h"
-#include "fd-util.h"
-#include "hostname-util.h"
 #include "in-addr-util.h"
 #include "net-condition.h"
 #include "netdev/macvlan.h"
+#include "netif-sriov.h"
 #include "network-util.h"
 #include "networkd-address.h"
 #include "networkd-address-label.h"
@@ -30,9 +26,8 @@
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
-#include "networkd-sriov.h"
+#include "ordered-set.h"
 #include "parse-util.h"
-#include "path-lookup.h"
 #include "qdisc.h"
 #include "radv-internal.h"
 #include "set.h"

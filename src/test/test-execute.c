@@ -3,22 +3,23 @@
 #include <fnmatch.h>
 #include <linux/prctl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
 
 #include "sd-event.h"
 
+#include "argv-util.h"
 #include "build-path.h"
 #include "capability-util.h"
 #include "copy.h"
 #include "cpu-set-util.h"
 #include "dropin.h"
 #include "errno-list.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "manager.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -30,9 +31,9 @@
 #include "signal-util.h"
 #include "stat-util.h"
 #include "static-destruct.h"
+#include "strv.h"
 #include "sysctl-util.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"

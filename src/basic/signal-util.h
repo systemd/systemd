@@ -3,8 +3,7 @@
 
 #include <signal.h>
 
-#include "assert-util.h"
-#include "macro.h"
+#include "forward.h"
 
 int reset_all_signal_handlers(void);
 int reset_signal_mask(void);

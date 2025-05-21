@@ -3,13 +3,14 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
-#include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/rtnetlink.h>
 #include <netinet/icmp6.h>
 
 #include "sd-ndisc.h"
 
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "missing_network.h"
 #include "ndisc-router-internal.h"
@@ -23,7 +24,10 @@
 #include "networkd-route.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
-#include "sort-util.h"
+#include "ordered-set.h"
+#include "set.h"
+#include "siphash24.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

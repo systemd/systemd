@@ -1,21 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sched.h>
-#include <stdio.h>
-
-#include "sd-bus.h"
 #include "sd-id128.h"
 
 #include "capability-util.h"
-#include "conf-parser.h"
+#include "conf-parser-forward.h"
 #include "cpu-set-util.h"
-#include "macro.h"
-#include "nspawn-expose-ports.h"
-#include "nspawn-mount.h"
+#include "forward.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
-#include "time-util.h"
+#include "volatile-util.h"
+
+typedef struct CustomMount CustomMount;
+typedef struct ExposePort ExposePort;
 
 typedef enum StartMode {
         START_PID1, /* Run parameters as command line as process 1 */
