@@ -1,18 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <sys/stat.h>
+
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "blockdev-util.h"
 #include "build-path.h"
 #include "chase.h"
 #include "conf-parser.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "install-file.h"
 #include "mkdir.h"
@@ -20,13 +25,11 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "process-util.h"
-#include "random-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "specifier.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -36,6 +39,7 @@
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "web-util.h"
 
