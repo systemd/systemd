@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "capability-util.h"
 #include "daemon-util.h"
-#include "firewall-util.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "networkd-conf.h"
@@ -18,7 +15,6 @@
 #include "networkd-manager-bus.h"
 #include "networkd-serialize.h"
 #include "service-util.h"
-#include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"
 

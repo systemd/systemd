@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_bridge.h>
-#include <net/if.h>
 
-#include "netlink-util.h"
+#include "sd-netlink.h"
+
+#include "conf-parser.h"
+#include "hashmap.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
