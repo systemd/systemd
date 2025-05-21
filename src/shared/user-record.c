@@ -2070,7 +2070,7 @@ UserDisposition user_record_disposition(UserRecord *h) {
         if (uid_is_system(h->uid))
                 return USER_SYSTEM;
 
-        if (uid_is_dynamic(h->uid))
+        if (uid_is_dynamic(h->uid) || uid_is_greeter(h->uid))
                 return USER_DYNAMIC;
 
         if (uid_is_container(h->uid))
