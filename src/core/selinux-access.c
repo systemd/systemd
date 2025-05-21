@@ -7,9 +7,6 @@
 #include <errno.h>
 #include <selinux/avc.h>
 #include <selinux/selinux.h>
-#if HAVE_AUDIT
-#include <libaudit.h>
-#endif
 
 #include "sd-bus.h"
 
@@ -18,6 +15,7 @@
 #include "bus-util.h"
 #include "errno-util.h"
 #include "format-util.h"
+#include "libaudit-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "selinux-util.h"

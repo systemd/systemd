@@ -20,6 +20,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "log.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -325,6 +326,10 @@ int enter_cgroup_subroot(char **ret_cgroup) {
 
 int enter_cgroup_root(char **ret_cgroup) {
         return enter_cgroup(ret_cgroup, false);
+}
+
+int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len) {
+        return unhexmem_full(hex, strlen_ptr(hex), false, name, name_len);
 }
 
 const char* ci_environment(void) {
