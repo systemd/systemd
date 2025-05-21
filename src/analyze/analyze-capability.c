@@ -5,6 +5,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "format-table.h"
+#include "log.h"
 #include "parse-util.h"
 
 static int table_add_capability(Table *table, int c) {
@@ -83,5 +84,5 @@ int verb_capabilities(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to output table: %m");
 
-        return EXIT_SUCCESS;
+        return 0;
 }
