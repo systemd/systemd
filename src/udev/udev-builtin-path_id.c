@@ -5,14 +5,10 @@
  * Logic based on Hannes Reinecke's shell script.
  */
 
-#include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <getopt.h>
 #include <linux/usb/ch11.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <unistd.h>
+#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "device-private.h"
@@ -21,10 +17,8 @@
 #include "fd-util.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "sysexits.h"
 #include "udev-builtin.h"
-#include "udev-util.h"
 
 _printf_(2,3)
 static void path_prepend(char **path, const char *fmt, ...) {
