@@ -1,19 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
 #include <net/if.h>
 
-#include "bond.h"
-#include "dhcp6-internal.h"
+#include "sd-dhcp-lease.h"
+
+#include "bond-util.h"
 #include "dhcp6-protocol.h"
 #include "ethtool-util.h"
-#include "ipvlan.h"
+#include "ipvlan-util.h"
 #include "lldp-rx-internal.h"
-#include "macvlan.h"
+#include "macvlan-util.h"
 #include "ndisc-internal.h"
-#include "networkd-link.h"
-#include "networkd-network.h"
-#include "networkd-util.h"
+#include "networkd-dns.h"
+#include "networkd-lldp-rx.h"
+#include "networkd-radv.h"
+#include "networkd-sysctl.h"
 #include "test-tables.h"
 #include "tests.h"
 #include "tunnel.h"
