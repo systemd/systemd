@@ -1,14 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
 #include "list.h"
-
-typedef struct DnsDelegate DnsDelegate;
-typedef struct DnsScope DnsScope;
-typedef struct DnsSearchDomain DnsSearchDomain;
-typedef struct DnsServer DnsServer;
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 #define DELEGATE_SEARCH_DOMAINS_MAX 256
 #define DELEGATE_DNS_SERVERS_MAX 256
@@ -16,7 +10,7 @@ typedef struct Manager Manager;
 /* A DnsDelegate object is used to manage additional, explicitly configured unicast DNS lookup scopes,
  * independent from any network link and from the global scope. */
 
-struct DnsDelegate {
+typedef struct DnsDelegate {
         Manager *manager;
         char *id;
 
@@ -32,7 +26,7 @@ struct DnsDelegate {
         DnsScope *scope;
 
         LIST_FIELDS(DnsDelegate, delegates);
-};
+} DnsDelegate;
 
 int dns_delegate_new(Manager *m, const char *id, DnsDelegate **ret);
 DnsDelegate *dns_delegate_free(DnsDelegate *d);
