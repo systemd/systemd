@@ -8,6 +8,7 @@
  * This method works for Linux 5.8 and newer on ARM/Aarch64, x86/x68_64 and RISC-V.
  */
 
+#include "efi-log.h"
 #include "initrd.h"
 #include "linux.h"
 #include "pe.h"

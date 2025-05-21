@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "async.h"
 #include "fs-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "tests.h"

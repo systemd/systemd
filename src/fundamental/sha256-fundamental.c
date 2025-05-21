@@ -28,7 +28,6 @@
 #endif
 
 #include "assert-fundamental.h"
-#include "macro-fundamental.h"
 #include "memory-util-fundamental.h"
 #include "sha256-fundamental.h"
 #include "unaligned-fundamental.h"

@@ -5,30 +5,20 @@
  * Copyright © 2009-2010 David Zeuthen <zeuthen@gmail.com>
  */
 
-#include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/bsg.h>
 #include <linux/hdreg.h>
-#include <scsi/scsi.h>
-#include <scsi/scsi_ioctl.h>
 #include <scsi/sg.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "build.h"
 #include "device-nodes.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
 

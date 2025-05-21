@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
-#include "user-util.h"
+#include "forward.h"
 
 int clean_ipc_internal(uid_t uid, gid_t gid, bool rm);
 

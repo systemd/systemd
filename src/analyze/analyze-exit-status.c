@@ -4,6 +4,7 @@
 #include "analyze-exit-status.h"
 #include "exit-status.h"
 #include "format-table.h"
+#include "strv.h"
 
 int verb_exit_status(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -51,5 +52,5 @@ int verb_exit_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to output table: %m");
 
-        return EXIT_SUCCESS;
+        return 0;
 }

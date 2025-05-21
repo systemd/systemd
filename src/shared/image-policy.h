@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "dissect-image.h"
-#include "errno-list.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
+#include "gpt.h"
 
 typedef enum PartitionPolicyFlags {
         /* Not all policy flags really make sense on all partition types, see comments. But even if they
@@ -96,9 +96,7 @@ int image_policy_equivalent(const ImagePolicy *a, const ImagePolicy *b);   /* ch
 
 int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret);
 
-static inline ImagePolicy* image_policy_free(ImagePolicy *p) {
-        return mfree(p);
-}
+ImagePolicy* image_policy_free(ImagePolicy *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ImagePolicy*, image_policy_free);
 
