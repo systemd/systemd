@@ -5,6 +5,7 @@
 
 #include "ansi-color.h"
 #include "assert-util.h"
+#include "fileio.h"
 #include "glyph-util.h"
 #include "terminal-util.h"
 
