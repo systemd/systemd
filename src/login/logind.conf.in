@@ -52,4 +52,4 @@
 #SessionsMax=8192
 #StopIdleSessionSec=infinity
 #DesignatedMaintenanceTime=
-#EnableWallMessages=yes
+#WallMessages=yes

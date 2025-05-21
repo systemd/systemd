@@ -2595,7 +2595,7 @@ static int update_schedule_file(Manager *m) {
         (void) fchmod(fileno(f), 0644);
 
         serialize_usec(f, "USEC", m->scheduled_shutdown_timeout);
-        serialize_item_format(f, "WARN_WALL", "%s", one_zero(m->enable_wall_messages));
+        serialize_item_format(f, "WARN_WALL", "%s", one_zero(m->wall_messages));
         serialize_item_format(f, "MODE", "%s", handle_action_to_string(m->scheduled_shutdown_action));
         serialize_item_format(f, "UID", UID_FMT, m->scheduled_shutdown_uid);
 
@@ -2747,7 +2747,7 @@ void manager_load_scheduled_shutdown(Manager *m) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse enabling wall messages");
                 else
-                        m->enable_wall_messages = r;
+                        m->wall_messages = r;
         }
 
         if (wall_message) {
@@ -2876,7 +2876,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (m->enable_wall_messages) {
+        if (m->wall_messages) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 const char *tty = NULL;
                 uid_t uid = 0;
@@ -3745,7 +3745,7 @@ static int method_set_wall_message(
         /* Short-circuit the operation if the desired state is already in place, to
          * avoid an unnecessary polkit permission check. */
         if (streq_ptr(m->wall_message, empty_to_null(wall_message)) &&
-            m->enable_wall_messages == enable_wall_messages)
+            m->wall_messages == enable_wall_messages)
                 goto done;
 
         r = bus_verify_polkit_async(
@@ -3763,7 +3763,7 @@ static int method_set_wall_message(
         if (r < 0)
                 return log_oom();
 
-        m->enable_wall_messages = enable_wall_messages;
+        m->wall_messages = enable_wall_messages;
 
  done:
         return sd_bus_reply_method_return(message, NULL);
@@ -3902,7 +3902,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
-        SD_BUS_WRITABLE_PROPERTY("EnableWallMessages", "b", bus_property_get_bool, bus_property_set_bool, offsetof(Manager, enable_wall_messages), 0),
+        SD_BUS_WRITABLE_PROPERTY("EnableWallMessages", "b", bus_property_get_bool, bus_property_set_bool, offsetof(Manager, wall_messages), 0),
         SD_BUS_WRITABLE_PROPERTY("WallMessage", "s", NULL, NULL, offsetof(Manager, wall_message), 0),
 
         SD_BUS_PROPERTY("NAutoVTs", "u", NULL, offsetof(Manager, n_autovts), SD_BUS_VTABLE_PROPERTY_CONST),

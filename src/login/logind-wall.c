@@ -81,7 +81,7 @@ static int warn_wall(Manager *m, usec_t n) {
                    LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_SCHEDULED_STR),
                    username ? "OPERATOR=%s" : NULL, username);
 
-        if (m->enable_wall_messages)
+        if (m->wall_messages)
                 (void) wall(l, username, m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
 
         return 1;
