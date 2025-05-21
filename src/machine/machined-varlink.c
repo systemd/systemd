@@ -477,6 +477,7 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("service", m->service),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("rootDirectory", m->root_directory),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", m->unit),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("subgroup", m->subgroup),
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", JSON_BUILD_PIDREF(&m->leader)),
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("vSockCid", m->vsock_cid, VMADDR_CID_ANY),

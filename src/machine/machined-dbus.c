@@ -411,7 +411,7 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = cg_pidref_get_unit(&m->leader, &m->unit);
+        r = cg_pidref_get_unit_full(&m->leader, &m->unit, &m->subgroup);
         if (r < 0) {
                 r = sd_bus_error_set_errnof(error, r,
                                             "Failed to determine unit of process "PID_FMT" : %m",
@@ -1276,11 +1276,14 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
         return 1;
 }
 
-int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_error *error) {
+int manager_kill_unit(Manager *manager, const char *unit, const char *subgroup, int signo, sd_bus_error *reterr_error) {
         assert(manager);
         assert(unit);
 
-        return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnit", error, NULL, "ssi", unit, "all", signo);
+        if (empty_or_root(subgroup))
+                return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnit", reterr_error, NULL, "ssi", unit, "all", signo);
+
+        return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnitSubgroup", reterr_error, NULL, "sssi", unit, "cgroup", subgroup, signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *reterr_error) {

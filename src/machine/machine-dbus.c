@@ -717,6 +717,7 @@ static const sd_bus_vtable machine_vtable[] = {
         SD_BUS_PROPERTY("Service", "s", NULL, offsetof(Machine, service), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "s", NULL, offsetof(Machine, unit), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Scope", "s", NULL, offsetof(Machine, unit), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("Subgroup", "s", NULL, offsetof(Machine, subgroup), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Leader", "u", bus_property_get_pid, offsetof(Machine, leader.pid), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LeaderPIDFDId", "t", bus_property_get_pidfdid, offsetof(Machine, leader), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Machine, class), SD_BUS_VTABLE_PROPERTY_CONST),
