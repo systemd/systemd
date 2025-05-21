@@ -919,7 +919,7 @@ static void activation_details_path_done(ActivationDetails *details) {
         p->trigger_path_filename = mfree(p->trigger_path_filename);
 }
 
-static void activation_details_path_serialize(ActivationDetails *details, FILE *f) {
+static void activation_details_path_serialize(const ActivationDetails *details, FILE *f) {
         ActivationDetailsPath *p = ASSERT_PTR(ACTIVATION_DETAILS_PATH(details));
 
         assert(f);
@@ -951,7 +951,7 @@ static int activation_details_path_deserialize(const char *key, const char *valu
         return 0;
 }
 
-static int activation_details_path_append_env(ActivationDetails *details, char ***strv) {
+static int activation_details_path_append_env(const ActivationDetails *details, char ***strv) {
         ActivationDetailsPath *p = ASSERT_PTR(ACTIVATION_DETAILS_PATH(details));
         char *s;
         int r;
@@ -972,7 +972,7 @@ static int activation_details_path_append_env(ActivationDetails *details, char *
         return 1; /* Return the number of variables added to the env block */
 }
 
-static int activation_details_path_append_pair(ActivationDetails *details, char ***strv) {
+static int activation_details_path_append_pair(const ActivationDetails *details, char ***strv) {
         ActivationDetailsPath *p = ASSERT_PTR(ACTIVATION_DETAILS_PATH(details));
         int r;
 
