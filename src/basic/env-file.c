@@ -570,6 +570,41 @@ int merge_env_file(
         return parse_env_file_internal(f, fname, merge_env_file_push, env);
 }
 
+static void env_file_fputs_escaped(FILE *f, const char *p) {
+        assert(f);
+        assert(p);
+
+        flockfile(f);
+
+        if (string_has_cc(p, NULL) || chars_intersect(p, WHITESPACE SHELL_NEED_QUOTES)) {
+                fputc_unlocked('"', f);
+
+                for (; *p; p++) {
+                        if (strchr(SHELL_NEED_ESCAPE, *p))
+                                fputc_unlocked('\\', f);
+
+                        fputc_unlocked(*p, f);
+                }
+
+                fputc_unlocked('"', f);
+        } else
+                fputs_unlocked(p, f);
+
+        funlockfile(f);
+}
+
+void env_file_fputs_assignment(FILE *f, const char *k, const char *v) {
+        assert(f);
+        assert(k);
+
+        if (!v)
+                return;
+
+        fputs(k, f);
+        env_file_fputs_escaped(f, v);
+        fputc('\n', f);
+}
+
 static void write_env_var(FILE *f, const char *v) {
         const char *p;
 
@@ -587,19 +622,7 @@ static void write_env_var(FILE *f, const char *v) {
         p++;
         fwrite_unlocked(v, 1, p-v, f);
 
-        if (string_has_cc(p, NULL) || chars_intersect(p, WHITESPACE SHELL_NEED_QUOTES)) {
-                fputc_unlocked('"', f);
-
-                for (; *p; p++) {
-                        if (strchr(SHELL_NEED_ESCAPE, *p))
-                                fputc_unlocked('\\', f);
-
-                        fputc_unlocked(*p, f);
-                }
-
-                fputc_unlocked('"', f);
-        } else
-                fputs_unlocked(p, f);
+        env_file_fputs_escaped(f, p);
 
         fputc_unlocked('\n', f);
 }

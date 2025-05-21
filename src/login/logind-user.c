@@ -144,8 +144,6 @@ User *user_free(User *u) {
 }
 
 static int user_save_internal(User *u) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(u);
@@ -153,13 +151,16 @@ static int user_save_internal(User *u) {
 
         r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/users/: %m");
 
-        r = fopen_temporary(u->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(u->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", u->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", u->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -173,17 +174,11 @@ static int user_save_internal(User *u) {
                 user_gc_mode_to_string(u->gc_mode));
 
         /* LEGACY: no-one reads RUNTIME= anymore, drop it at some point */
-        if (u->runtime_path)
-                fprintf(f, "RUNTIME=%s\n", u->runtime_path);
-
-        if (u->runtime_dir_job)
-                fprintf(f, "RUNTIME_DIR_JOB=%s\n", u->runtime_dir_job);
-
-        if (u->service_manager_job)
-                fprintf(f, "SERVICE_JOB=%s\n", u->service_manager_job);
-
+        env_file_fputs_assignment(f, "RUNTIME=", u->runtime_path);
+        env_file_fputs_assignment(f, "RUNTIME_DIR_JOB=", u->runtime_dir_job);
+        env_file_fputs_assignment(f, "SERVICE_JOB=", u->service_manager_job);
         if (u->display)
-                fprintf(f, "DISPLAY=%s\n", u->display->id);
+                env_file_fputs_assignment(f, "DISPLAY=%s\n", u->display->id);
 
         if (dual_timestamp_is_set(&u->timestamp))
                 fprintf(f,
@@ -199,7 +194,7 @@ static int user_save_internal(User *u) {
         if (u->sessions) {
                 bool first;
 
-                fputs("SESSIONS=", f);
+                fputs("SESSIONS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (first)
@@ -210,7 +205,8 @@ static int user_save_internal(User *u) {
                         fputs(i->id, f);
                 }
 
-                fputs("\nSEATS=", f);
+                fputs("\"\n"
+                      "SEATS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!i->seat)
@@ -224,7 +220,8 @@ static int user_save_internal(User *u) {
                         fputs(i->seat->id, f);
                 }
 
-                fputs("\nACTIVE_SESSIONS=", f);
+                fputs("\"\n"
+                      "ACTIVE_SESSIONS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!session_is_active(i))
@@ -238,7 +235,8 @@ static int user_save_internal(User *u) {
                         fputs(i->id, f);
                 }
 
-                fputs("\nONLINE_SESSIONS=", f);
+                fputs("\"\n"
+                      "ONLINE_SESSIONS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (session_get_state(i) == SESSION_CLOSING)
@@ -252,7 +250,8 @@ static int user_save_internal(User *u) {
                         fputs(i->id, f);
                 }
 
-                fputs("\nACTIVE_SEATS=", f);
+                fputs("\"\n"
+                      "ACTIVE_SEATS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!session_is_active(i) || !i->seat)
@@ -266,7 +265,8 @@ static int user_save_internal(User *u) {
                         fputs(i->seat->id, f);
                 }
 
-                fputs("\nONLINE_SEATS=", f);
+                fputs("\"\n"
+                      "ONLINE_SEATS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (session_get_state(i) == SESSION_CLOSING || !i->seat)
@@ -279,25 +279,15 @@ static int user_save_internal(User *u) {
 
                         fputs(i->seat->id, f);
                 }
-                fputc('\n', f);
+                fputs("\"\n", f);
         }
 
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, u->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", u->state_file);
 
-        if (rename(temp_path, u->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
         return 0;
-
-fail:
-        (void) unlink(u->state_file);
-
-        return log_error_errno(r, "Failed to save user data %s: %m", u->state_file);
 }
 
 int user_save(User *u) {
