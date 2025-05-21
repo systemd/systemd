@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
+#include "conf-parser-forward.h"
 #include "hashmap.h"
 #include "log.h"
 #include "memory-util.h"
@@ -18,27 +19,6 @@ typedef enum ConfigParseFlags {
         CONFIG_PARSE_RELAXED       = 1 << 0, /* Do not warn about unknown non-extension fields */
         CONFIG_PARSE_WARN          = 1 << 1, /* Emit non-debug messages */
 } ConfigParseFlags;
-
-/* Argument list for parsers of specific configuration settings. */
-#define CONFIG_PARSER_ARGUMENTS                 \
-        const char *unit,                       \
-        const char *filename,                   \
-        unsigned line,                          \
-        const char *section,                    \
-        unsigned section_line,                  \
-        const char *lvalue,                     \
-        int ltype,                              \
-        const char *rvalue,                     \
-        void *data,                             \
-        void *userdata
-
-/* Prototype for a parser for a specific configuration setting */
-typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
-
-/* A macro declaring a function prototype, following the typedef above, simply because it's so cumbersomely long
- * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
- * prototypes on the same screen…) */
-#define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)
 
 /* Wraps information for parsing a specific configuration variable, to
  * be stored in a simple array */
@@ -164,12 +144,6 @@ int config_section_parse(
                 const char *rvalue,
                 void *userdata);
 
-typedef struct ConfigSection {
-        unsigned line;
-        bool invalid;
-        char filename[];
-} ConfigSection;
-
 static inline ConfigSection* config_section_free(ConfigSection *cs) {
         return mfree(cs);
 }
@@ -206,19 +180,6 @@ static inline bool section_is_invalid(ConfigSection *section) {
 
         return section->invalid;
 }
-
-#define DEFINE_SECTION_CLEANUP_FUNCTIONS(type, free_func)               \
-        static inline type* free_func##_or_set_invalid(type *p) {       \
-                assert(p);                                              \
-                                                                        \
-                if (p->section)                                         \
-                        p->section->invalid = true;                     \
-                else                                                    \
-                        free_func(p);                                   \
-                return NULL;                                            \
-        }                                                               \
-        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
-        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
 
 #define log_section_full_errno_zerook(section, level, error, ...)       \
         ({                                                              \

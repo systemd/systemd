@@ -35,7 +35,6 @@
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
-#include "missing_magic.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

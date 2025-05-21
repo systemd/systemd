@@ -2,9 +2,7 @@
 
 #include <fcntl.h>
 #include <sys/file.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
