@@ -6,8 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/file.h>
-#include <sys/ioctl.h>
-#include <sys/mount.h>
 
 #include "sd-device.h"
 

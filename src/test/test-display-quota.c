@@ -6,8 +6,9 @@
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "missing_syscall.h"
 #include "quota-util.h"
+#include "strv.h"
+#include "user-util.h"
 #include "userdb.h"
 
 static int show_quota(uid_t uid, const char *path) {

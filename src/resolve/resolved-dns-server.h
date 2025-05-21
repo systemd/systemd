@@ -1,22 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-json.h"
-
+#include "forward.h"
 #include "in-addr-util.h"
 #include "list.h"
-#include "resolve-util.h"
 #include "resolved-conf.h"
 #include "resolved-dnstls.h"
-#include "time-util.h"
-
-typedef struct DnsDelegate DnsDelegate;
-typedef struct DnsPacket DnsPacket;
-typedef struct DnsScope DnsScope;
-typedef struct DnsServer DnsServer;
-typedef struct DnsStream DnsStream;
-typedef struct Link Link;
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 typedef enum DnsServerType {
         DNS_SERVER_SYSTEM,
@@ -51,7 +41,7 @@ typedef enum DnsServerFeatureLevel {
 const char* dns_server_feature_level_to_string(DnsServerFeatureLevel i) _const_;
 DnsServerFeatureLevel dns_server_feature_level_from_string(const char *s) _pure_;
 
-struct DnsServer {
+typedef struct DnsServer {
         Manager *manager;
 
         unsigned n_ref;
@@ -110,7 +100,7 @@ struct DnsServer {
 
         /* Tri-state to indicate if the DNS server is accessible. */
         int accessible;
-};
+} DnsServer;
 
 int dns_server_new(
                 Manager *m,

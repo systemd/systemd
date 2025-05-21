@@ -8,6 +8,9 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include <netinet/icmp6.h>
 #include <stddef.h>
 
+#include "sd-dhcp-lease.h"
+
+#include "condition.h"
 #include "conf-parser.h"
 #include "in-addr-prefix-util.h"
 #include "net-condition.h"
@@ -30,7 +33,6 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-ipv6ll.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
-#include "networkd-netlabel.h"
 #include "networkd-network.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
@@ -38,11 +40,9 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
-#include "networkd-sriov.h"
 #include "qdisc.h"
 #include "socket-util.h"
 #include "tclass.h"
-#include "vlan-util.h"
 
 #include "cake.h"
 #include "codel.h"
@@ -54,8 +54,6 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "gred.h"
 #include "hhf.h"
 #include "htb.h"
-#include "mq.h"
-#include "multiq.h"
 #include "pie.h"
 #include "qfq.h"
 #include "netem.h"
