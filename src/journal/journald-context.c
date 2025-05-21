@@ -4,6 +4,8 @@
 #include <selinux/selinux.h>
 #endif
 
+#include <sys/stat.h>
+
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
@@ -13,16 +15,20 @@
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "journal-internal.h"
-#include "journal-util.h"
 #include "journald-client.h"
 #include "journald-context.h"
 #include "journald-manager.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
+#include "prioq.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "unaligned.h"
 #include "user-util.h"
 

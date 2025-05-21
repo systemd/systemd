@@ -3,7 +3,6 @@
 #include "dlfcn-util.h"
 #include "errno-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "password-quality-util.h"
 #include "strv.h"

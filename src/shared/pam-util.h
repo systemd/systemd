@@ -4,9 +4,7 @@
 #include <security/pam_modules.h>
 #include <syslog.h>
 
-#include "sd-bus.h"
-
-#include "macro.h"
+#include "forward.h"
 
 void pam_log_setup(void);
 
