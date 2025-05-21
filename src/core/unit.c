@@ -6747,7 +6747,7 @@ static ActivationDetails *activation_details_free(ActivationDetails *details) {
         return mfree(details);
 }
 
-void activation_details_serialize(ActivationDetails *details, FILE *f) {
+void activation_details_serialize(const ActivationDetails *details, FILE *f) {
         if (!details || details->trigger_unit_type == _UNIT_TYPE_INVALID)
                 return;
 
@@ -6805,7 +6805,7 @@ int activation_details_deserialize(const char *key, const char *value, Activatio
         return -EINVAL;
 }
 
-int activation_details_append_env(ActivationDetails *details, char ***strv) {
+int activation_details_append_env(const ActivationDetails *details, char ***strv) {
         int r = 0;
 
         assert(strv);
@@ -6832,7 +6832,7 @@ int activation_details_append_env(ActivationDetails *details, char ***strv) {
         return r + !isempty(details->trigger_unit_name); /* Return the number of variables added to the env block */
 }
 
-int activation_details_append_pair(ActivationDetails *details, char ***strv) {
+int activation_details_append_pair(const ActivationDetails *details, char ***strv) {
         int r = 0;
 
         assert(strv);
