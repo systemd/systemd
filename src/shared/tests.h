@@ -10,6 +10,7 @@
 #include "argv-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
+#include "forward.h"
 #include "log.h"
 #include "macro.h"
 #include "process-util.h"

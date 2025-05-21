@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "architecture.h"
-#include "glyph-util.h"
 #include "gpt.h"
 #include "log.h"
 #include "pretty-print.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "tests.h"
 
 TEST(gpt_types_against_architectures) {
