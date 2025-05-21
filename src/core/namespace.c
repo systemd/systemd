@@ -114,7 +114,7 @@ typedef struct MountEntry {
         LIST_HEAD(MountOptions, image_options_const);
         char **overlay_layers;
         VeritySettings verity;
-        ImageClass filter_class; /* Used for live updates to skip unapplicable images */
+        ImageClass filter_class; /* Used for live updates to skip inapplicable images */
         bool idmapped;
         uid_t idmap_uid;
         gid_t idmap_gid;
