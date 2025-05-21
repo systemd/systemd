@@ -7,8 +7,8 @@
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
-        test_table(split_mode, SPLIT);
-        test_table(storage, STORAGE);
+        test_table(SplitMode, split_mode, SPLIT);
+        test_table(Storage, storage, STORAGE);
 
         return EXIT_SUCCESS;
 }

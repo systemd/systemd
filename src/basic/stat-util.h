@@ -57,7 +57,7 @@ static inline int fd_inode_same(int fda, int fdb) {
 
 /* The .f_type field of struct statfs is really weird defined on
  * different archs. Let's give its type a name. */
-typedef typeof(((struct statfs*)NULL)->f_type) statfs_f_type_t;
+typedef typeof_field(struct statfs, f_type) statfs_f_type_t;
 
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) _pure_;
 int is_fs_type_at(int dir_fd, const char *path, statfs_f_type_t magic_value);

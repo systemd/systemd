@@ -12,10 +12,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#if HAVE_AUDIT
-#include <libaudit.h>
-#endif
-
 #include "sd-daemon.h"
 #include "sd-messages.h"
 #include "sd-path.h"
@@ -58,6 +54,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "label-util.h"
+#include "libaudit-util.h"
 #include "load-fragment.h"
 #include "locale-setup.h"
 #include "log.h"

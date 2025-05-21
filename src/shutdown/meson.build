@@ -28,8 +28,6 @@ executables += [
                         libsystemd_static,
                 ],
                 'dependencies' : libmount,
-                'build_by_default' : have_standalone_binaries,
-                'install' : have_standalone_binaries,
         },
         test_template + {
                 'sources' : files('test-umount.c'),

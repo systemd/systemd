@@ -2424,6 +2424,10 @@ foreach dict : executables
                 continue
         endif
 
+        if name.endswith('.standalone') and not have_standalone_binaries
+                continue
+        endif
+
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions',
