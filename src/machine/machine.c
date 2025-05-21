@@ -1087,6 +1087,10 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         if (uid_range != (uid_t) gid_range)
                 return -ENXIO;
 
+        r = pidref_verify(&m->leader);
+        if (r < 0)
+                return r;
+
         *ret = uid_shift;
         return 0;
 }
@@ -1138,6 +1142,10 @@ static int machine_owns_uid_internal(
                 converted = (uid - uid_shift + uid_base);
                 if (!uid_is_valid(converted))
                         return -EINVAL;
+
+                r = pidref_verify(&machine->leader);
+                if (r < 0)
+                        return r;
 
                 if (ret_internal_uid)
                         *ret_internal_uid = converted;
@@ -1201,6 +1209,10 @@ static int machine_translate_uid_internal(
                 converted = uid - uid_base + uid_shift;
                 if (!uid_is_valid(converted))
                         return -EINVAL;
+
+                r = pidref_verify(&machine->leader);
+                if (r < 0)
+                        return r;
 
                 if (ret_host_uid)
                         *ret_host_uid = converted;
