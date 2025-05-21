@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/audit.h>
 #include <linux/netlink.h>
 #include <stdio.h>
 #include <sys/socket.h>
 
-#if HAVE_AUDIT
-#  include <libaudit.h>
-#endif
-
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "libaudit-util.h"
@@ -108,6 +104,9 @@ int open_audit_fd_or_warn(void) {
         if (fd < 0)
                 return log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING,
                                       errno, "Failed to connect to audit log, ignoring: %m");
-#endif
+
         return fd;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libaudit support not compiled in");
+#endif
 }

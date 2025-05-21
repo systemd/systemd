@@ -1,16 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <grp.h>
+#include <linux/ioprio.h>
 #include <linux/prctl.h>
-#include <linux/sched.h>
 #include <linux/securebits.h>
+#include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include "constants.h"
+#include "coredump-util.h"
+#include "dissect-image.h"
+#include "fs-util.h"
+#include "namespace-util.h"
+#include "nsflags.h"
+#include "open-file.h"
+#include "path-util.h"
+#include "pidref.h"
+#include "set.h"
+#include "stat-util.h"
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
-#include <security/pam_misc.h>
 #endif
 
 #include "sd-messages.h"
@@ -27,7 +39,6 @@
 #include "cgroup.h"
 #include "cgroup-setup.h"
 #include "chase.h"
-#include "chattr-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
 #include "dynamic-user.h"
@@ -42,7 +53,6 @@
 #include "hostname-setup.h"
 #include "image-policy.h"
 #include "io-util.h"
-#include "ioprio-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
 #include "manager.h"

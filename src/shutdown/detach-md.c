@@ -6,7 +6,6 @@
 #include <linux/major.h>
 #include <linux/raid/md_u.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
 
 #include "sd-device.h"
 

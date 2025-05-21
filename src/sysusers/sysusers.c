@@ -4,10 +4,6 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-#if HAVE_AUDIT
-#  include <libaudit.h>
-#endif
-
 #include "alloc-util.h"
 #include "build.h"
 #include "chase.h"

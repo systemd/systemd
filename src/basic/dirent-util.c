@@ -5,7 +5,6 @@
 
 #include "dirent-util.h"
 #include "path-util.h"
-#include "stat-util.h"
 #include "string-util.h"
 
 int dirent_ensure_type(int dir_fd, struct dirent *de) {
@@ -100,4 +99,15 @@ struct dirent *readdir_no_dot(DIR *d) {
                 if (!de || !dot_or_dot_dot(de->d_name))
                         return de;
         }
+}
+
+ssize_t posix_getdents(int fd, void *buf, size_t nbyte, int flags) {
+        assert(fd >= 0);
+        assert(buf);
+        assert(nbyte > 0);
+
+        if (flags != 0)
+                return -EINVAL; /* Currently flags must be zero. */
+
+        return getdents64(fd, buf, nbyte);
 }

@@ -1,6 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "bus-object.h"
+#include "hashmap.h"
 #include "resolved-bus.h"
 #include "resolved-dns-delegate.h"
 #include "resolved-dns-delegate-bus.h"

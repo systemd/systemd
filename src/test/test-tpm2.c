@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "hexdecoct.h"
-#include "macro.h"
 #include "tests.h"
 #include "tpm2-util.h"
 #include "virt.h"

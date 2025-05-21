@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <unistd.h>
+#include <stdlib.h>
 
 #include "sd-journal.h"
 
+#include "argv-util.h"
 #include "alloc-util.h"
 #include "chattr-util.h"
 #include "dirent-util.h"
@@ -12,11 +13,12 @@
 #include "journal-file-util.h"
 #include "journal-internal.h"
 #include "logs-show.h"
-#include "macro.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int open_archive_file(sd_journal **ret) {

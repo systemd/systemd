@@ -1,29 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-varlink.h"
-
 #include "in-addr-util.h"
 #include "list.h"
-#include "resolved-def.h"
-#include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-transaction.h"
-#include "set.h"
+#include "resolved-forward.h"
 
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsPacket DnsPacket;
-typedef struct DnsQueryCandidate DnsQueryCandidate;
-typedef struct DnsQuery DnsQuery;
-typedef struct DnsQuestion DnsQuestion;
-typedef struct DnsScope DnsScope;
-typedef struct DnsSearchDomain DnsSearchDomain;
-typedef struct DnsStream DnsStream;
-typedef struct DnsStubListenerExtra DnsStubListenerExtra;
-typedef struct Manager Manager;
-
-struct DnsQueryCandidate {
+typedef struct DnsQueryCandidate {
         unsigned n_ref;
         int error_code;
 
@@ -37,9 +21,9 @@ struct DnsQueryCandidate {
 
         LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
         LIST_FIELDS(DnsQueryCandidate, candidates_by_scope);
-};
+} DnsQueryCandidate;
 
-struct DnsQuery {
+typedef struct DnsQuery {
         Manager *manager;
 
         /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note
@@ -129,7 +113,7 @@ struct DnsQuery {
         LIST_FIELDS(DnsQuery, auxiliary_queries);
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-};
+} DnsQuery;
 
 enum {
         DNS_QUERY_MATCH,
