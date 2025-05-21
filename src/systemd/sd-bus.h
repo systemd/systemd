@@ -251,7 +251,7 @@ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 int sd_bus_message_skip(sd_bus_message *m, const char *types);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
-int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
+int sd_bus_message_peek_type(sd_bus_message *m, char *ret_type, const char **ret_contents);
 int sd_bus_message_verify_type(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_at_end(sd_bus_message *m, int complete);
 int sd_bus_message_rewind(sd_bus_message *m, int complete);
