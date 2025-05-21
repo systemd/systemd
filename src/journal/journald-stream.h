@@ -3,16 +3,10 @@
 
 #include <sys/socket.h>
 
-#include "sd-event.h"
 #include "sd-id128.h"
 
-#include "fdset.h"
+#include "journald-forward.h"
 #include "list.h"
-
-typedef struct ClientContext ClientContext;
-typedef struct Manager Manager;
-typedef struct StdoutStream StdoutStream;
-typedef struct StreamSyncReq StreamSyncReq;
 
 typedef enum StdoutStreamState {
         STDOUT_STREAM_IDENTIFIER,
@@ -25,7 +19,7 @@ typedef enum StdoutStreamState {
         STDOUT_STREAM_RUNNING,
 } StdoutStreamState;
 
-struct StdoutStream {
+typedef struct StdoutStream {
         Manager *manager;
         StdoutStreamState state;
 
@@ -59,7 +53,7 @@ struct StdoutStream {
         char id_field[STRLEN("_STREAM_ID=") + SD_ID128_STRING_MAX];
 
         LIST_HEAD(StreamSyncReq, stream_sync_reqs);
-};
+} StdoutStream;
 
 int manager_open_stdout_socket(Manager *m, const char *stdout_socket);
 int manager_restore_streams(Manager *m, FDSet *fds);

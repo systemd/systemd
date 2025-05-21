@@ -5,11 +5,11 @@
 
 #include <fcntl.h>
 #include <sys/mount.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "constants.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -29,7 +29,6 @@
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "time-util.h"
 #include "umount.h"
 #include "virt.h"
 

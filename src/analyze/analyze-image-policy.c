@@ -3,9 +3,10 @@
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-image-policy.h"
+#include "ansi-color.h"
 #include "format-table.h"
 #include "image-policy.h"
-#include "terminal-util.h"
+#include "string-util.h"
 
 static int table_add_designator_line(Table *table, PartitionDesignator d, PartitionPolicyFlags f) {
         _cleanup_free_ char *q = NULL;

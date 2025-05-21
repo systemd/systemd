@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
 #include <netinet/in.h>
-#include <resolv.h>
+
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
+#include "log.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
@@ -17,6 +18,7 @@
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "sort-util.h"
+#include "time-util.h"
 
 #define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH_OR_QU & (x))
 

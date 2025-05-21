@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/netdevice.h>
-#include <netinet/ether.h>
+#include <net/if_arp.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -9,29 +9,34 @@
 
 #include "alloc-util.h"
 #include "arphrd-util.h"
+#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "constants.h"
+#include "cpu-set-util.h"
 #include "creds-util.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "escape.h"
+#include "ether-addr-util.h"
 #include "ethtool-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "link-config.h"
 #include "log-link.h"
 #include "memory-util.h"
 #include "net-condition.h"
+#include "netif-naming-scheme.h"
 #include "netif-sriov.h"
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "network-util.h"
 #include "parse-util.h"
-#include "path-lookup.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
+#include "socket-util.h"
 #include "specifier.h"
 #include "stat-util.h"
 #include "string-table.h"

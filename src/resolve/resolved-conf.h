@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 typedef enum ResolveConfigSource {
         RESOLVE_CONFIG_SOURCE_FILE,
