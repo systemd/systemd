@@ -1,15 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
-#include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-object.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-protocol.h"
 #include "networkd-dhcp6-bus.h"
 #include "networkd-link-bus.h"
 #include "networkd-manager.h"
-#include "string-table.h"
-#include "strv.h"
 
 static int property_get_dhcp6_client_state(
                 sd_bus *bus,

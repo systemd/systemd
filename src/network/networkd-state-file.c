@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
+#include <net/if.h>
 #include <netinet/in.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "sd-dhcp6-lease.h"
 
 #include "alloc-util.h"
-#include "dns-domain.h"
 #include "dns-resolver-internal.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -20,6 +24,7 @@
 #include "networkd-state-file.h"
 #include "ordered-set.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 
@@ -315,7 +320,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
                 NDiscDNSSL *a;
 
                 SET_FOREACH(a, link->ndisc_dnssl) {
-                        r = ordered_set_put_strdup(s, NDISC_DNSSL_DOMAIN(a));
+                        r = ordered_set_put_strdup(s, ndisk_dnssl_domain(a));
                         if (r < 0)
                                 return r;
                 }
@@ -671,7 +676,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, U
                 NDiscDNSSL *dd;
 
                 SET_FOREACH(dd, link->ndisc_dnssl)
-                        fputs_with_separator(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
+                        fputs_with_separator(f, ndisk_dnssl_domain(dd), NULL, &space);
         }
 }
 
