@@ -2,11 +2,14 @@
 
 #include <linux/nexthop.h>
 
+#include "sd-device.h"
+#include "sd-dhcp-client.h"
+#include "sd-dhcp6-client.h"
+
 #include "dhcp-lease-internal.h"
 #include "dhcp-server-lease-internal.h"
-#include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
-#include "dns-domain.h"
+#include "extract-word.h"
 #include "ip-protocol-list.h"
 #include "json-util.h"
 #include "netif-util.h"
@@ -22,10 +25,11 @@
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
-#include "sort-util.h"
+#include "ordered-set.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "udev-util.h"
-#include "user-util.h"
 #include "wifi-util.h"
 
 static int address_append_json(Address *address, bool serializing, sd_json_variant **array) {
@@ -926,7 +930,7 @@ static int domains_append_json(Link *link, bool is_route, sd_json_variant **v) {
                         NDiscDNSSL *a;
 
                         SET_FOREACH(a, link->ndisc_dnssl) {
-                                r = domain_append_json(AF_INET6, NDISC_DNSSL_DOMAIN(a), NETWORK_CONFIG_SOURCE_NDISC,
+                                r = domain_append_json(AF_INET6, ndisc_dnssl_domain(a), NETWORK_CONFIG_SOURCE_NDISC,
                                                        &(union in_addr_union) { .in6 = a->router },
                                                        &array);
                                 if (r < 0)

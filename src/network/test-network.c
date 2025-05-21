@@ -2,14 +2,11 @@
 
 #include <arpa/inet.h>
 
-#include "sd-device.h"
-
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
-#include "ether-addr-util.h"
+#include "hashmap.h"
 #include "hostname-setup.h"
 #include "network-internal.h"
-#include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-route-util.h"
 #include "string-util.h"
