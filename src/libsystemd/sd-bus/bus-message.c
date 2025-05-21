@@ -3180,7 +3180,7 @@ static void message_quit_container(sd_bus_message *m) {
         c->index = c->saved_index;
 }
 
-_public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents) {
+_public_ int sd_bus_message_peek_type(sd_bus_message *m, char *ret_type, const char **ret_contents) {
         struct bus_container *c;
         int r;
 
@@ -3196,16 +3196,16 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
         c = message_get_last_container(m);
 
         if (bus_type_is_basic(c->signature[c->index])) {
-                if (contents)
-                        *contents = NULL;
-                if (type)
-                        *type = c->signature[c->index];
+                if (ret_contents)
+                        *ret_contents = NULL;
+                if (ret_type)
+                        *ret_type = c->signature[c->index];
                 return 1;
         }
 
         if (c->signature[c->index] == SD_BUS_TYPE_ARRAY) {
 
-                if (contents) {
+                if (ret_contents) {
                         size_t l;
 
                         r = signature_element_length(c->signature+c->index+1, &l);
@@ -3220,18 +3220,18 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                                              c->signature + c->index + 1, l) < 0)
                                 return -ENOMEM;
 
-                        *contents = c->peeked_signature;
+                        *ret_contents = c->peeked_signature;
                 }
 
-                if (type)
-                        *type = SD_BUS_TYPE_ARRAY;
+                if (ret_type)
+                        *ret_type = SD_BUS_TYPE_ARRAY;
 
                 return 1;
         }
 
         if (IN_SET(c->signature[c->index], SD_BUS_TYPE_STRUCT_BEGIN, SD_BUS_TYPE_DICT_ENTRY_BEGIN)) {
 
-                if (contents) {
+                if (ret_contents) {
                         size_t l;
 
                         r = signature_element_length(c->signature+c->index, &l);
@@ -3243,17 +3243,17 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                                              c->signature + c->index + 1, l - 2) < 0)
                                 return -ENOMEM;
 
-                        *contents = c->peeked_signature;
+                        *ret_contents = c->peeked_signature;
                 }
 
-                if (type)
-                        *type = c->signature[c->index] == SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY;
+                if (ret_type)
+                        *ret_type = c->signature[c->index] == SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY;
 
                 return 1;
         }
 
         if (c->signature[c->index] == SD_BUS_TYPE_VARIANT) {
-                if (contents) {
+                if (ret_contents) {
                         size_t rindex, l;
                         void *q;
 
@@ -3274,11 +3274,11 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                         if (!validate_signature(q, l))
                                 return -EBADMSG;
 
-                        *contents = q;
+                        *ret_contents = q;
                 }
 
-                if (type)
-                        *type = SD_BUS_TYPE_VARIANT;
+                if (ret_type)
+                        *ret_type = SD_BUS_TYPE_VARIANT;
 
                 return 1;
         }
@@ -3286,10 +3286,10 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
         return -EINVAL;
 
 eof:
-        if (type)
-                *type = 0;
-        if (contents)
-                *contents = NULL;
+        if (ret_type)
+                *ret_type = 0;
+        if (ret_contents)
+                *ret_contents = NULL;
         return 0;
 }
 
