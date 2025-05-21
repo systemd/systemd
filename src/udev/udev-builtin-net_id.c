@@ -12,18 +12,13 @@
  * When the code here is changed, man/systemd.net-naming-scheme.xml must be updated too.
  */
 
-#include <errno.h>
-#include <fcntl.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/netdevice.h>
 #include <linux/pci_regs.h>
-#include <net/if.h>
-#include <stdarg.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "chase.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -33,11 +28,8 @@
 #include "glyph-util.h"
 #include "netif-naming-scheme.h"
 #include "parse-util.h"
-#include "proc-cmdline.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "strv.h"
-#include "strxcpyx.h"
 #include "udev-builtin.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)

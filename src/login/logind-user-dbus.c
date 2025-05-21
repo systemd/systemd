@@ -1,19 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "logind.h"
 #include "logind-dbus.h"
+#include "logind-session.h"
 #include "logind-session-dbus.h"
 #include "logind-user.h"
 #include "logind-user-dbus.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "user-record.h"
 #include "user-util.h"
 
 static int property_get_uid(

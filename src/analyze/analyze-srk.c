@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+#include <unistd.h>
+
 #include "alloc-util.h"
-#include "analyze.h"
 #include "analyze-srk.h"
 #include "fileio.h"
+#include "log.h"
+#include "terminal-util.h"
 #include "tpm2-util.h"
 
 int verb_srk(int argc, char *argv[], void *userdata) {

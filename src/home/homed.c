@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <sys/types.h>
+
+#include "sd-event.h"
 
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "daemon-util.h"
 #include "homed-manager.h"
 #include "homed-manager-bus.h"

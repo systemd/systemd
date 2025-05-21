@@ -1,10 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
+#include "conf-parser.h"
+#include "log.h"
 #include "netlink-util.h"
 #include "networkd-route.h"
 #include "networkd-route-metric.h"
 #include "parse-util.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 void route_metric_done(RouteMetric *metric) {
