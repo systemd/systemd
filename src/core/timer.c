@@ -905,7 +905,7 @@ static int timer_can_start(Unit *u) {
         return 1;
 }
 
-static void activation_details_timer_serialize(ActivationDetails *details, FILE *f) {
+static void activation_details_timer_serialize(const ActivationDetails *details, FILE *f) {
         ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
 
         assert(f);
@@ -937,7 +937,7 @@ static int activation_details_timer_deserialize(const char *key, const char *val
         return 0;
 }
 
-static int activation_details_timer_append_env(ActivationDetails *details, char ***strv) {
+static int activation_details_timer_append_env(const ActivationDetails *details, char ***strv) {
         ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
         int r;
 
@@ -958,7 +958,7 @@ static int activation_details_timer_append_env(ActivationDetails *details, char 
         return 2; /* Return the number of variables added to the env block */
 }
 
-static int activation_details_timer_append_pair(ActivationDetails *details, char ***strv) {
+static int activation_details_timer_append_pair(const ActivationDetails *details, char ***strv) {
         ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
         int r;
 
