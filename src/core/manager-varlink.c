@@ -2,11 +2,17 @@
 
 #include <sys/prctl.h>
 
+#include "sd-varlink.h"
+
+#include "alloc-util.h"
+#include "architecture.h"
 #include "build.h"
 #include "confidential-virt.h"
 #include "json-util.h"
 #include "manager-varlink.h"
 #include "manager.h"
+#include "set.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "taint.h"
 #include "version.h"

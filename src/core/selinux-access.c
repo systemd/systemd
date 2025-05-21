@@ -4,7 +4,6 @@
 
 #if HAVE_SELINUX
 
-#include <errno.h>
 #include <selinux/avc.h>
 #include <selinux/selinux.h>
 
@@ -12,15 +11,15 @@
 
 #include "alloc-util.h"
 #include "audit-fd.h"
-#include "bus-util.h"
 #include "errno-util.h"
 #include "format-util.h"
 #include "libaudit-util.h"
 #include "log.h"
-#include "path-util.h"
 #include "selinux-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "unit.h"
 
 static bool initialized = false;
 
@@ -172,8 +171,7 @@ static int access_init(sd_bus_error *error) {
 */
 int mac_selinux_access_check_internal(
                 sd_bus_message *message,
-                const char *unit_path,
-                const char *unit_context,
+                const Unit *unit,
                 const char *permission,
                 const char *function,
                 sd_bus_error *error) {
@@ -217,9 +215,9 @@ int mac_selinux_access_check_internal(
         if (r < 0)
                 return r;
 
-        if (unit_context) {
+        if (unit && unit->access_selinux_context) {
                 /* Nice! The unit comes with a SELinux context read from the unit file */
-                acon = unit_context;
+                acon = unit->access_selinux_context;
                 tclass = "service";
         } else {
                 /* If no unit context is known, use our own */
@@ -248,7 +246,7 @@ int mac_selinux_access_check_internal(
 
         struct audit_info audit_info = {
                 .creds = creds,
-                .path = unit_path,
+                .path = unit ? unit->fragment_path : NULL,
                 .cmdline = cl,
                 .function = function,
         };
@@ -263,7 +261,7 @@ int mac_selinux_access_check_internal(
 
         log_full_errno_zerook(LOG_DEBUG, r,
                               "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s path=%s cmdline=%s: %m",
-                              scon, acon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(unit_path), empty_to_na(cl));
+                              scon, acon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(unit ? unit->fragment_path : NULL), empty_to_na(cl));
         return enforce ? r : 0;
 }
 
@@ -271,8 +269,7 @@ int mac_selinux_access_check_internal(
 
 int mac_selinux_access_check_internal(
                 sd_bus_message *message,
-                const char *unit_path,
-                const char *unit_label,
+                const Unit *unit,
                 const char *permission,
                 const char *function,
                 sd_bus_error *error) {

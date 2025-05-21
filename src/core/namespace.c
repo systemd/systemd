@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/loop.h>
 #include <sched.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
@@ -13,11 +13,13 @@
 #include "chase.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
-#include "env-util.h"
+#include "dissect-image.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "label-util.h"
 #include "list.h"
@@ -26,7 +28,6 @@
 #include "loop-util.h"
 #include "loopback-setup.h"
 #include "missing_magic.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -3178,6 +3179,13 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
 
         *path = TAKE_PTR(x);
         return 0;
+}
+
+char* namespace_cleanup_tmpdir(char *p) {
+        PROTECT_ERRNO;
+        if (!streq_ptr(p, RUN_SYSTEMD_EMPTY))
+                (void) rmdir(p);
+        return mfree(p);
 }
 
 int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {

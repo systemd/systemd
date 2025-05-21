@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/kd.h>
-#include <sys/epoll.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
-#include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -18,24 +15,23 @@
 
 #include "all-units.h"
 #include "alloc-util.h"
+#include "architecture.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
+#include "bpf-restrict-fs.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
-#include "bus-kernel.h"
-#include "bus-util.h"
 #include "clean-ipc.h"
-#include "clock-util.h"
 #include "common-signal.h"
 #include "confidential-virt.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "daemon-util.h"
-#include "dbus.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
+#include "dbus.h"
 #include "dirent-util.h"
 #include "dynamic-user.h"
 #include "env-util.h"
@@ -45,7 +41,9 @@
 #include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "fileio.h"
+#include "fdset.h"
+#include "format-util.h"
+#include "fs-util.h"
 #include "generator-setup.h"
 #include "hashmap.h"
 #include "initrd-util.h"
@@ -58,20 +56,18 @@
 #include "load-fragment.h"
 #include "locale-setup.h"
 #include "log.h"
-#include "macro.h"
-#include "manager.h"
 #include "manager-dump.h"
 #include "manager-serialize.h"
-#include "memory-util.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "notify-recv.h"
-#include "os-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "plymouth-util.h"
 #include "pretty-print.h"
+#include "prioq.h"
 #include "process-util.h"
 #include "psi-util.h"
 #include "ratelimit.h"
@@ -79,6 +75,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
@@ -93,7 +90,6 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "transaction.h"
-#include "uid-range.h"
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -864,6 +860,10 @@ static int compare_job_priority(const void *a, const void *b) {
         const Job *x = a, *y = b;
 
         return unit_compare_priority(x->unit, y->unit);
+}
+
+usec_t manager_default_timeout(RuntimeScope scope) {
+        return scope == RUNTIME_SCOPE_SYSTEM ? DEFAULT_TIMEOUT_USEC : DEFAULT_USER_TIMEOUT_USEC;
 }
 
 int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **ret) {
@@ -2152,6 +2152,17 @@ int manager_add_job_full(
 
         tr = transaction_free(tr);
         return 0;
+}
+
+int manager_add_job(
+        Manager *m,
+        JobType type,
+        Unit *unit,
+        JobMode mode,
+        sd_bus_error *error,
+        Job **ret) {
+
+        return manager_add_job_full(m, type, unit, mode, 0, NULL, error, ret);
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret) {

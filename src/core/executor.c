@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
+#include <stdlib.h>
 
 #include "sd-messages.h"
 
@@ -20,6 +20,7 @@
 #include "fileio.h"
 #include "getopt-defs.h"
 #include "label-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
