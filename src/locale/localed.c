@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
@@ -10,6 +9,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
@@ -23,7 +23,6 @@
 #include "service-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "time-util.h"
 
 static int vconsole_reload(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
