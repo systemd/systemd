@@ -175,7 +175,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 return r;
 
         if (!machine->allocate_unit) {
-                r = cg_pidref_get_unit(&machine->leader, &machine->unit);
+                r = cg_pidref_get_unit_full(&machine->leader, &machine->unit, &machine->subgroup);
                 if (r < 0)
                         return r;
         }
