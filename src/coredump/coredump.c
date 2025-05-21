@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <elf.h>
 #include <stdio.h>
-#include <sys/auxv.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/statvfs.h>

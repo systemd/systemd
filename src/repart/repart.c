@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_VALGRIND_MEMCHECK_H
-#include <valgrind/memcheck.h>
-#endif
-
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>

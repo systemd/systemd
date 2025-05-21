@@ -7,7 +7,6 @@
 #include <linux/kd.h>
 #include <linux/tiocl.h>
 #include <linux/vt.h>
-#include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sysexits.h>
