@@ -21,7 +21,7 @@ executables += [
         },
         executable_template + {
                 'name' : 'systemd-tmpfiles.standalone',
-                'public' : have_standalone_binaries,
+                'public' : true,
                 'sources' : systemd_tmpfiles_sources + systemd_tmpfiles_extract_sources,
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
@@ -30,8 +30,6 @@ executables += [
                         libsystemd_static,
                 ],
                 'dependencies' : libacl,
-                'build_by_default' : have_standalone_binaries,
-                'install' : have_standalone_binaries,
         },
         test_template + {
                 'sources' : files('test-offline-passwd.c'),
