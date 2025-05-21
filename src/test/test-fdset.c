@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <unistd.h>
 
 #include "fd-util.h"
 #include "fdset.h"
-#include "fs-util.h"
-#include "macro.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 

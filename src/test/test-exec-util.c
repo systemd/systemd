@@ -1,20 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "constants.h"
-#include "copy.h"
 #include "env-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
-#include "macro.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
