@@ -22,7 +22,7 @@ executables += [
         },
         executable_template + {
                 'name' : 'systemd-repart.standalone',
-                'public' : have_standalone_binaries,
+                'public' : true,
                 'sources' : files('repart.c'),
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
@@ -37,8 +37,6 @@ executables += [
                         libopenssl,
                         threads,
                 ],
-                'build_by_default' : have_standalone_binaries,
-                'install' : have_standalone_binaries,
         },
 ]
 
