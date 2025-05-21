@@ -6,10 +6,6 @@
 #include <stdio.h>
 #include <sys/socket.h>
 
-#if HAVE_AUDIT
-#  include <libaudit.h>
-#endif
-
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "libaudit-util.h"
@@ -100,14 +96,15 @@ int close_audit_fd(int fd) {
 }
 
 int open_audit_fd_or_warn(void) {
-        int fd = -EBADF;
-
 #if HAVE_AUDIT
         /* If the kernel lacks netlink or audit support, don't worry about it. */
-        fd = audit_open();
+        int fd = audit_open();
         if (fd < 0)
                 return log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING,
                                       errno, "Failed to connect to audit log, ignoring: %m");
-#endif
+
         return fd;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libaudit support not compiled in");
+#endif
 }
