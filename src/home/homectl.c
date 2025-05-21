@@ -3718,6 +3718,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (uid_is_system(uid))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in system range, refusing.", uid);
+                        if (uid_is_greeter(uid))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in greeter range, refusing.", uid);
                         if (uid_is_dynamic(uid))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in dynamic range, refusing.", uid);
                         if (uid == UID_NOBODY)
