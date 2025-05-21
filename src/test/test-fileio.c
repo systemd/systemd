@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "ctype.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
