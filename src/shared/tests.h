@@ -86,11 +86,13 @@ bool userns_has_single_user(void);
 #define CAN_MEMLOCK_SIZE (512 * 1024U)
 bool can_memlock(void);
 
+int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len);
+
 /* Define void* buffer and size_t length variables from a hex string. */
 #define DEFINE_HEX_PTR(name, hex)                                       \
         _cleanup_free_ void *name = NULL;                               \
         size_t name##_len = 0;                                          \
-        assert_se(unhexmem_full(hex, strlen_ptr(hex), false, &name, &name##_len) >= 0);
+        assert_se(define_hex_ptr_internal(hex, &name, &name##_len) >= 0)
 
 /* Provide a convenient way to check if we're running in CI. */
 const char* ci_environment(void);
