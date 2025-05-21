@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "hostname-util.h"
 #include "image.h"
 #include "image-dbus.h"
@@ -30,10 +31,9 @@
 #include "operation.h"
 #include "os-util.h"
 #include "path-util.h"
-#include "process-util.h"
-#include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
+#include "unit-def.h"
 #include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_pool_path, "s", "/var/lib/machines");

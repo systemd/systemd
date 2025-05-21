@@ -2,7 +2,6 @@
 
 #include <getopt.h>
 #include <locale.h>
-#include <unistd.h>
 
 #include "dissect-image.h"
 #include "glyph-util.h"

@@ -1,10 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
 #include <linux/ipv6_route.h>
-#include <linux/nexthop.h>
+#include <net/if.h>
+#include <stdio.h>
+
+#include "sd-ndisc-protocol.h"
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
@@ -15,9 +20,11 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
+#include "set.h"
+#include "siphash24.h"
 #include "string-util.h"
-#include "strv.h"
 #include "vrf.h"
 #include "wireguard.h"
 
