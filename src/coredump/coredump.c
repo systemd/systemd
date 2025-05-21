@@ -90,9 +90,9 @@ assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 enum {
         /* We use these as array indexes for our process metadata cache.
          *
-         * The first indices of the cache stores the same metadata as the ones passed by
-         * the kernel via argv[], ie the strings array passed by the kernel according to
-         * our pattern defined in /proc/sys/kernel/core_pattern (see man:core(5)). */
+         * The first indices of the cache stores the same metadata as the ones passed by the kernel via
+         * argv[], i.e. the strings specified in our pattern defined in /proc/sys/kernel/core_pattern,
+         * see core(5). */
 
         META_ARGV_PID,          /* %P: as seen in the initial pid namespace */
         META_ARGV_UID,          /* %u: as seen in the initial user namespace */
@@ -269,7 +269,6 @@ static int fix_acl(int fd, uid_t uid, bool allow_user) {
 }
 
 static int fix_xattr(int fd, const Context *context) {
-
         static const char * const xattrs[_META_MAX] = {
                 [META_ARGV_PID]       = "user.coredump.pid",
                 [META_ARGV_UID]       = "user.coredump.uid",
@@ -1036,9 +1035,9 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         bool have_signal_name = false;
         FOREACH_ARRAY(iovec, iovw->iovec, iovw->count) {
                 for (size_t i = 0; i < ELEMENTSOF(meta_field_names); i++) {
-                        /* Note that these strings are NUL terminated, because we made sure that a
+                        /* Note that these strings are NUL-terminated, because we made sure that a
                          * trailing NUL byte is in the buffer, though not included in the iov_len
-                         * count (see process_socket() and gather_pid_metadata_*()) */
+                         * count (see process_socket() and gather_pid_metadata_*()). */
                         assert(((char*) iovec->iov_base)[iovec->iov_len] == 0);
 
                         const char *p = memory_startswith(iovec->iov_base, iovec->iov_len, meta_field_names[i]);
@@ -1053,10 +1052,11 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
                         memory_startswith(iovec->iov_base, iovec->iov_len, "COREDUMP_SIGNAL_NAME=");
         }
 
-        /* The basic fields from argv[] should always be there, refuse early if not */
+        /* The basic fields from argv[] should always be there, refuse early if not. */
         for (int i = 0; i < _META_ARGV_REQUIRED; i++)
                 if (!context->meta[i])
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "A required (%s) has not been sent, aborting.", meta_field_names[i]);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "A required (%s) has not been sent, aborting.", meta_field_names[i]);
 
         pid_t parsed_pid;
         r = parse_pid(context->meta[META_ARGV_PID], &parsed_pid);
@@ -1064,7 +1064,8 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_ARGV_PID]);
         if (pidref_is_set(&context->pidref)) {
                 if (context->pidref.pid != parsed_pid)
-                        return log_error_errno(r, "Passed PID " PID_FMT " does not match passed " PID_FMT ": %m", parsed_pid, context->pidref.pid);
+                        return log_error_errno(r, "Passed PID " PID_FMT " does not match passed " PID_FMT ": %m",
+                                               parsed_pid, context->pidref.pid);
         } else {
                 r = pidref_set_pid(&context->pidref, parsed_pid);
                 if (r < 0)
@@ -1162,7 +1163,8 @@ static int process_socket(int fd) {
                                  * that's permissible for the final two fds. Hence let's be strict on the
                                  * first fd, but lenient on the other two. */
 
-                                if (!cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1) && state != STATE_PAYLOAD) /* no fds, and already got the first fd → we are done */
+                                if (!cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1) && state != STATE_PAYLOAD)
+                                        /* No fds, and already got the first fd → we are done. */
                                         break;
 
                                 cmsg_close_all(&mh);
@@ -1354,7 +1356,7 @@ static int gather_pid_metadata_from_argv(
         }
 
         /* Cache some of the process metadata we collected so far and that we'll need to
-         * access soon */
+         * access soon. */
         return context_parse_iovw(context, iovw);
 }
 
@@ -1469,12 +1471,12 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         if (get_process_environ(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_ENVIRON=", t);
 
-        /* Now that we have parsed info from /proc/ ensure the pidfd is still valid before continuing */
+        /* Now that we have parsed info from /proc/ ensure the pidfd is still valid before continuing. */
         r = pidref_verify(&context->pidref);
         if (r < 0)
                 return log_error_errno(r, "PIDFD validation failed: %m");
 
-        /* we successfully acquired all metadata */
+        /* We successfully acquired all metadata. */
         return context_parse_iovw(context, iovw);
 }
 
@@ -1835,12 +1837,12 @@ static int process_kernel(int argc, char *argv[]) {
                         log_warning_errno(r, "Failed to access the mount tree of a container, ignoring: %m");
         }
 
-        /* If this is PID 1 disable coredump collection, we'll unlikely be able to process
+        /* If this is PID 1, disable coredump collection, we'll unlikely be able to process
          * it later on.
          *
          * FIXME: maybe we should disable coredumps generation from the beginning and
-         * re-enable it only when we know it's either safe (ie we're not running OOM) or
-         * it's not pid1 ? */
+         * re-enable it only when we know it's either safe (i.e. we're not running OOM) or
+         * it's not PID 1 ? */
         if (context.is_pid1) {
                 log_notice("Due to PID 1 having crashed coredump collection will now be turned off.");
                 disable_coredumps();
