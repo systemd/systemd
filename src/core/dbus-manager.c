@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <linux/capability.h>
 #include <sys/prctl.h>
-#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -16,9 +15,9 @@
 #include "bus-util.h"
 #include "chase.h"
 #include "confidential-virt.h"
-#include "dbus.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
+#include "dbus.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-scope.h"
@@ -27,25 +26,29 @@
 #include "dbus-util.h"
 #include "dynamic-user.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
+#include "glyph-util.h"
+#include "hashmap.h"
 #include "initrd-util.h"
 #include "install.h"
 #include "locale-util.h"
 #include "log.h"
 #include "manager-dump.h"
+#include "manager.h"
 #include "memfd-util.h"
 #include "os-util.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "selinux-access.h"
-#include "stat-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "taint.h"
+#include "unit-name.h"
 #include "user-util.h"
 #include "version.h"
 #include "virt.h"
