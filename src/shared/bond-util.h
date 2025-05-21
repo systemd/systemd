@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
 #include <linux/if_bonding.h>
-#include <netinet/in.h>
 
-#include "macro.h"
+#include "forward.h"
 
 /*
  * Maximum number of targets supported by the kernel for a single
