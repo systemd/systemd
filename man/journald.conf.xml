@@ -277,7 +277,7 @@
         and use the smaller of the two values.</para>
 
         <para>The first pair defaults to 10% and the second to 15% of
-        the size of the respective file system, but each value is
+        the size of the respective file system, but each of the calculated default values is
         capped to 4G. If the file system is nearly full and either
         <varname>SystemKeepFree=</varname> or
         <varname>RuntimeKeepFree=</varname> are violated when
