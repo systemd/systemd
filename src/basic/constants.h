@@ -1,29 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if !defined(HAS_FEATURE_MEMORY_SANITIZER)
-#  if defined(__has_feature)
-#    if __has_feature(memory_sanitizer)
-#      define HAS_FEATURE_MEMORY_SANITIZER 1
-#    endif
-#  endif
-#  if !defined(HAS_FEATURE_MEMORY_SANITIZER)
-#    define HAS_FEATURE_MEMORY_SANITIZER 0
-#  endif
-#endif
-
-#if !defined(HAS_FEATURE_ADDRESS_SANITIZER)
-#  ifdef __SANITIZE_ADDRESS__
-#      define HAS_FEATURE_ADDRESS_SANITIZER 1
-#  elif defined(__has_feature)
-#    if __has_feature(address_sanitizer)
-#      define HAS_FEATURE_ADDRESS_SANITIZER 1
-#    endif
-#  endif
-#  if !defined(HAS_FEATURE_ADDRESS_SANITIZER)
-#    define HAS_FEATURE_ADDRESS_SANITIZER 0
-#  endif
-#endif
+#include "time-util.h"
 
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
