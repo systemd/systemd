@@ -257,7 +257,7 @@ static int validate_gpt_label(blkid_probe b, const ValidateFields *f) {
                 return 0;
 
         const char *v = NULL;
-        (void) blkid_probe_lookup_value(b, "PART_ENTRY_NAME", &v, /* ret_len= */ NULL);
+        (void) blkid_probe_lookup_value(b, "PART_ENTRY_NAME", &v, /* len= */ NULL);
 
         if (strv_contains(f->gpt_label, strempty(v)))
                 return 0;
@@ -277,7 +277,7 @@ static int validate_gpt_type(blkid_probe b, const ValidateFields *f) {
                 return 0;
 
         const char *v = NULL;
-        (void) blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* ret_len= */ NULL);
+        (void) blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* len= */ NULL);
 
         sd_id128_t id;
         if (!v || sd_id128_from_string(v, &id) < 0) {
@@ -335,7 +335,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
         const char *v = NULL;
-        (void) blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, /* ret_len= */ NULL);
+        (void) blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, /* len= */ NULL);
         if (!streq_ptr(v, "gpt"))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "File system is supposed to be on a GPT partition table, but is not, refusing.");
 

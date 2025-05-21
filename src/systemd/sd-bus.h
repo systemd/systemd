@@ -251,7 +251,7 @@ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 int sd_bus_message_skip(sd_bus_message *m, const char *types);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
-int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
+int sd_bus_message_peek_type(sd_bus_message *m, char *ret_type, const char **ret_contents);
 int sd_bus_message_verify_type(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_at_end(sd_bus_message *m, int complete);
 int sd_bus_message_rewind(sd_bus_message *m, int complete);
@@ -313,7 +313,7 @@ int sd_bus_query_sender_creds(sd_bus_message *m, uint64_t mask, sd_bus_creds **c
 int sd_bus_query_sender_privilege(sd_bus_message *m, int capability);
 
 int sd_bus_match_signal(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t match_callback, sd_bus_message_handler_t add_callback, void *userdata);
+int sd_bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t match_callback, sd_bus_message_handler_t install_callback, void *userdata);
 
 /* Credential handling */
 

@@ -718,8 +718,8 @@ int fido2_generate_hmac_hash(
                 const void *user_id, size_t user_id_len,
                 const char *user_name,
                 const char *user_display_name,
-                const char *user_icon,
-                const char *askpw_icon,
+                const char *user_icon_name,
+                const char *askpw_icon_name,
                 const char *askpw_credential,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
@@ -831,7 +831,7 @@ int fido2_generate_hmac_hash(
                         user_id, user_id_len,
                         user_name,
                         user_display_name,
-                        user_icon);
+                        user_icon_name);
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set FIDO2 credential user data: %s", sym_fido_strerr(r));
@@ -889,7 +889,7 @@ int fido2_generate_hmac_hash(
                         AskPasswordRequest req = {
                                 .tty_fd = -EBADF,
                                 .message = "Please enter security token PIN:",
-                                .icon = askpw_icon,
+                                .icon = askpw_icon_name,
                                 .keyring = "fido2-pin",
                                 .credential = askpw_credential,
                                 .until = USEC_INFINITY,
