@@ -4397,7 +4397,7 @@ static int write_boot_policy_file(const char *json_text) {
                         /* tpm2_device= */ NULL,
                         /* tpm2_hash_pcr_mask= */ 0,
                         /* tpm2_pubkey_path= */ NULL,
-                        /* tpm2_pubkey_path_mask= */ 0,
+                        /* tpm2_pubkey_pcr_mask= */ 0,
                         UID_INVALID,
                         &IOVEC_MAKE_STRING(json_text),
                         CREDENTIAL_ALLOW_NULL,
