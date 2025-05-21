@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <sys/stat.h>
+
 #include "sd-bus.h"
 #include "sd-json.h"
 
@@ -9,9 +12,11 @@
 #include "bus-get-properties.h"
 #include "bus-label.h"
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "common-signal.h"
+#include "constants.h"
 #include "discover-image.h"
 #include "dropin.h"
 #include "env-util.h"
@@ -19,19 +24,22 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
-#include "mkdir-label.h"
 #include "notify-recv.h"
 #include "os-util.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "service-util.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "sysupdate-util.h"
 #include "utf8.h"
 

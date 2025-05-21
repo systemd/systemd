@@ -1,24 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
+#include "log.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
-#include "resolved-dns-synthesize.h"
 #include "resolved-etc-hosts.h"
 #include "resolved-manager.h"
+#include "set.h"
 #include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "time-util.h"
 
 /* Recheck /etc/hosts at most once every 2s */

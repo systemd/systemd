@@ -1,20 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-
+#include "forward.h"
 #include "lock-util.h"
-#include "memory-util.h"
-#include "time-util.h"
-
-#define MODE_INVALID ((mode_t) -1)
 
 /* The following macros add 1 when converting things, since 0 is a valid mode, while the pointer
  * NULL is special */
@@ -86,13 +74,7 @@ int unlink_or_warn(const char *filename);
 char *rmdir_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rmdir_and_free);
 
-static inline char* unlink_and_free(char *p) {
-        if (!p)
-                return NULL;
-
-        (void) unlink(p);
-        return mfree(p);
-}
+char* unlink_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, unlink_and_free);
 
 int access_fd(int fd, int mode);

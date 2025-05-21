@@ -83,8 +83,11 @@ basic_sources = files(
         'process-util.c',
         'procfs-util.c',
         'psi-util.c',
+        'pthread-util.c',
         'random-util.c',
         'ratelimit.c',
+        'raw-clone.c',
+        'raw-reboot.c',
         'recurse-dir.c',
         'replace-var.c',
         'rlimit-util.c',
@@ -155,17 +158,17 @@ errno_list_txt = custom_target(
         capture : true)
 
 generated_gperf_headers = []
-foreach item : [['af',     af_list_txt,     'af',         ''],
-                ['arphrd', arphrd_list_txt, 'arphrd',     'ARPHRD_'],
-                ['cap',    cap_list_txt,    'capability', ''],
-                ['errno',  errno_list_txt,  'errno',      '']]
+foreach item : [['af',     af_list_txt,     'af',         '',        ['<sys/socket.h>']],
+                ['arphrd', arphrd_list_txt, 'arphrd',     'ARPHRD_', []],
+                ['cap',    cap_list_txt,    'capability', '',        []],
+                ['errno',  errno_list_txt,  'errno',      '',        []]]
 
         fname = '@0@-from-name.gperf'.format(item[0])
         gperf_file = custom_target(
                 fname,
                 input : item[1],
                 output : fname,
-                command : [generate_gperfs, item[2], item[3], '@INPUT@'],
+                command : [generate_gperfs, item[2], item[3], '@INPUT@'] + item[4],
                 capture : true)
 
         fname = '@0@-from-name.h'.format(item[0])

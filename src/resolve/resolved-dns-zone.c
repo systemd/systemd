@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "list.h"
+#include "log.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
@@ -11,6 +14,7 @@
 #include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
 #include "resolved-manager.h"
+#include "set.h"
 #include "string-util.h"
 
 /* Never allow more than 1K entries */

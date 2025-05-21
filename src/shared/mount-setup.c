@@ -1,36 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdlib.h>
 #include <sys/mount.h>
-#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "bus-util.h"
-#include "cgroup-setup.h"
-#include "cgroup-util.h"
 #include "conf-files.h"
 #include "dev-setup.h"
-#include "dirent-util.h"
-#include "efi-loader.h"
+#include "efivars.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "label-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir-label.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "nulstr-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
-#include "set.h"
 #include "smack-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
+#include "time-util.h"
 #include "virt.h"
 
 typedef enum MountMode {

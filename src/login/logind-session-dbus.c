@@ -1,18 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/eventfd.h>
+
+#include "sd-bus.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-label.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hashmap.h"
+#include "log.h"
 #include "logind.h"
 #include "logind-brightness.h"
 #include "logind-dbus.h"
@@ -26,8 +31,10 @@
 #include "logind-user-dbus.h"
 #include "path-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 static int property_get_user(
