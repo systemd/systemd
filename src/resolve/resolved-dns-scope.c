@@ -2,6 +2,9 @@
 
 #include <netinet/tcp.h>
 
+#include "sd-event.h"
+#include "sd-json.h"
+
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -9,7 +12,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
-#include "missing_network.h"
+#include "log.h"
 #include "random-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-delegate.h"
@@ -29,9 +32,9 @@
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "resolved-timeouts.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
-#include "strv.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
 #define MULTICAST_RATELIMIT_BURST 1000

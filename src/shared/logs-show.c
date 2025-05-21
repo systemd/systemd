@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <fcntl.h>
 #include <signal.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -14,22 +10,21 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
-#include "hostname-util.h"
 #include "id128-util.h"
-#include "io-util.h"
 #include "journal-internal.h"
 #include "journal-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
-#include "macro.h"
 #include "output-mode.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "rlimit-util.h"
+#include "set.h"
+#include "sigbus.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -434,7 +429,7 @@ static int output_timestamp_realtime(
 
                 if (IN_SET(mode, OUTPUT_SHORT_ISO, OUTPUT_SHORT_ISO_PRECISE)) {
                         int h = tm.tm_gmtoff / 60 / 60,
-                                m = abs((int) ((tm.tm_gmtoff / 60) % 60));
+                                m = ABS((int) ((tm.tm_gmtoff / 60) % 60));
 
                         assert_se(snprintf_ok(buf + tail, sizeof(buf) - tail, "%+03d:%02d", h, m));
                 }
@@ -2315,4 +2310,12 @@ int journal_get_log_ids(
         *ret_ids = TAKE_PTR(ids);
         *ret_n_ids = n_ids;
         return n_ids > 0;
+}
+
+void journal_browse_prepare(void) {
+        /* Increase max number of open files if we can, we might needs this when browsing journal files,
+         * which might be split up into many files. */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
+
+        sigbus_install();
 }

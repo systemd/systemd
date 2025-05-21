@@ -1,20 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fnmatch.h>
-#include <linux/if.h>
-#include <netinet/ether.h>
+#include <net/if.h>
 
 #include "sd-event.h"
 #include "sd-json.h"
+#include "sd-netlink.h"
+#include "sd-network.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "dns-configuration.h"
+#include "hashmap.h"
 #include "json-util.h"
-#include "netlink-util.h"
+#include "log-link.h"
 #include "string-util.h"
 #include "strv.h"
-#include "time-util.h"
 #include "wait-online-link.h"
 #include "wait-online-manager.h"
 

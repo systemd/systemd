@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if_arp.h>
 #include <netinet/tcp.h>
+
+#include "sd-event.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "capability-util.h"
@@ -10,7 +12,6 @@
 #include "fd-util.h"
 #include "log.h"
 #include "missing_network.h"
-#include "missing_socket.h"
 #include "resolve-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
@@ -21,10 +22,13 @@
 #include "resolved-dns-stub.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-manager.h"
-#include "socket-netlink.h"
+#include "set.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "time-util.h"
 
 /* The MTU of the loopback device is 64K on Linux, advertise that as maximum datagram size, but subtract the Ethernet,
  * IP and UDP header sizes */

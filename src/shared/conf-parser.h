@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <sys/stat.h>
 #include <syslog.h>
 
+#include "alloc-util.h"
 #include "conf-parser-forward.h"
-#include "hashmap.h"
+#include "forward.h"
 #include "log.h"
-#include "memory-util.h"
 
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */
 
@@ -159,18 +154,9 @@ int _hashmap_by_section_find_unused_line(
                 HashmapBase *entries_by_section,
                 const char *filename,
                 unsigned *ret);
-static inline int hashmap_by_section_find_unused_line(
-                Hashmap *entries_by_section,
-                const char *filename,
-                unsigned *ret) {
-        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
-}
-static inline int ordered_hashmap_by_section_find_unused_line(
-                OrderedHashmap *entries_by_section,
-                const char *filename,
-                unsigned *ret) {
-        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
-}
+
+int hashmap_by_section_find_unused_line(Hashmap *entries_by_section, const char *filename, unsigned *ret);
+int ordered_hashmap_by_section_find_unused_line(OrderedHashmap *entries_by_section, const char *filename, unsigned *ret);
 
 static inline bool section_is_invalid(ConfigSection *section) {
         /* If this returns false, then it does _not_ mean the section is valid. */
