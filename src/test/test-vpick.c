@@ -185,9 +185,9 @@ TEST(path_uses_vpick) {
         ASSERT_OK_ZERO(path_uses_vpick("path/to.v/foo__"));
         ASSERT_OK_ZERO(path_uses_vpick("foo___.raw"));
 
-        ASSERT_LE(path_uses_vpick("/"), 0);
-        ASSERT_LE(path_uses_vpick("."), 0);
-        ASSERT_LE(path_uses_vpick(""), 0);
+        ASSERT_OK_ZERO(path_uses_vpick("/"));
+        ASSERT_OK_ZERO(path_uses_vpick("."));
+        ASSERT_ERROR(path_uses_vpick(""), EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
