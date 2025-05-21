@@ -4,7 +4,7 @@
 #include <sys/resource.h>
 #include <sys/types.h>
 
-#include "macro.h"
+#include "forward.h"
 
 #define _RLIMIT_MAX RLIMIT_NLIMITS
 

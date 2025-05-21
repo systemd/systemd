@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "conf-files.h"
+#include "conf-parser.h"
+#include "constants.h"
 #include "dns-domain.h"
+#include "extract-word.h"
+#include "hashmap.h"
 #include "in-addr-util.h"
+#include "log.h"
 #include "path-util.h"
 #include "resolved-dns-delegate.h"
 #include "resolved-dns-scope.h"
@@ -10,6 +16,7 @@
 #include "resolved-dns-server.h"
 #include "resolved-manager.h"
 #include "socket-netlink.h"
+#include "string-util.h"
 #include "strv.h"
 
 #define DNS_DELEGATES_MAX 4096U

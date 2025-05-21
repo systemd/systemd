@@ -1,16 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
 #include <poll.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "io-util.h"
@@ -21,7 +25,6 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"

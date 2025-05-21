@@ -1,41 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <sys/mount.h>
-#include <sys/wait.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
-#include "bus-internal.h"
 #include "bus-label.h"
-#include "bus-locator.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "copy.h"
-#include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "format-util.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "machine.h"
 #include "machine-dbus.h"
 #include "machined.h"
-#include "mkdir.h"
 #include "mount-util.h"
-#include "mountpoint-util.h"
-#include "namespace-util.h"
 #include "operation.h"
-#include "os-util.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
-#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
 static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", Machine, machine_get_state, machine_state_to_string);

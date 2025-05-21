@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
@@ -10,7 +12,6 @@
 #include "bus-util.h"
 #include "dns-domain.h"
 #include "format-util.h"
-#include "memory-util.h"
 #include "path-util.h"
 #include "resolve-util.h"
 #include "resolved-bus.h"
@@ -30,18 +31,15 @@
 #include "resolved-dns-stub.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-dns-transaction.h"
-#include "resolved-dns-trust-anchor.h"
 #include "resolved-dnssd.h"
 #include "resolved-dnssd-bus.h"
 #include "resolved-link.h"
 #include "resolved-link-bus.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
+#include "set.h"
 #include "socket-netlink.h"
-#include "stdio-util.h"
-#include "strv.h"
-#include "syslog-util.h"
-#include "user-util.h"
+#include "string-util.h"
 #include "utf8.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_resolve_support, resolve_support, ResolveSupport);

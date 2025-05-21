@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/can/netlink.h>
-#include <net/if.h>
+
+#include "sd-netlink.h"
 
 #include "networkd-can.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
-#include "networkd-setlink.h"
 #include "parse-util.h"
 #include "string-util.h"
 

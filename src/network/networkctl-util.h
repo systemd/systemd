@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
-#include "sd-varlink.h"
+#include "forward.h"
 
 int varlink_connect_networkd(sd_varlink **ret_varlink);
 bool networkd_is_running(void);

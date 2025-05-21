@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-print-properties.h"
 #include "cap-list.h"
@@ -9,11 +11,10 @@
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
-#include "stdio-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "user-util.h"
 
 int bus_print_property_value(const char *name, const char *expected_value, BusPrintPropertyFlags flags, const char *value) {
         assert(name);
