@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
-#include <sys/ioctl.h>
 #include <sys/time.h>
 
 #include "alloc-util.h"
 #include "clock-util.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "macro.h"
 #include "string-util.h"
+#include "time-util.h"
 
 int clock_is_localtime(const char *adjtime_path) {
         int r;

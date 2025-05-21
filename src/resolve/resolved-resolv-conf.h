@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "macro.h"
-
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 int manager_check_resolv_conf(const Manager *m);
 int manager_read_resolv_conf(Manager *m);

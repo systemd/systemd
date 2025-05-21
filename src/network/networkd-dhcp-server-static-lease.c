@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "hashmap.h"
 #include "networkd-dhcp-server-static-lease.h"
 #include "networkd-network.h"
-#include "networkd-util.h"
+#include "string-util.h"
 
 static DHCPStaticLease* dhcp_static_lease_free(DHCPStaticLease *static_lease) {
         if (!static_lease)
