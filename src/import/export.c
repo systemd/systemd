@@ -4,7 +4,6 @@
 #include <locale.h>
 
 #include "sd-event.h"
-#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -13,14 +12,12 @@
 #include "export-raw.h"
 #include "export-tar.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "hostname-util.h"
 #include "import-common.h"
-#include "import-util.h"
+#include "log.h"
 #include "main-func.h"
+#include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
@@ -56,7 +53,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int export_tar(int argc, char *argv[], void *userdata) {
@@ -129,7 +126,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int export_raw(int argc, char *argv[], void *userdata) {

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <unistd.h>
-
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"

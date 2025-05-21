@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <curl/curl.h>
 #include <sys/stat.h>
 
-#include "curl-util.h"
+#include "forward.h"
 #include "import-compress.h"
 #include "openssl-util.h"
 
+typedef struct CurlGlue CurlGlue;
 typedef struct PullJob PullJob;
 
 typedef void (*PullJobFinished)(PullJob *job);
@@ -27,7 +29,7 @@ typedef enum PullJobState {
 
 #define PULL_JOB_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))
 
-struct PullJob {
+typedef struct PullJob {
         PullJobState state;
         int error;
 
@@ -77,7 +79,7 @@ struct PullJob {
         char *checksum;
         bool sync;
         bool force_memory;
-};
+} PullJob;
 
 int pull_job_new(PullJob **job, const char *url, CurlGlue *glue, void *userdata);
 PullJob* pull_job_unref(PullJob *job);

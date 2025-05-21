@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
 #include "sparse-endian.h"
+#include "timesyncd-forward.h"
 
 /* NTP protocol, packet header */
 #define NTP_LEAP_PLUSSEC                1

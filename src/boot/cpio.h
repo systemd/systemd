@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "efi.h"
-#include "iovec-util-fundamental.h"
+#include "efi-forward.h"
 #include "proto/loaded-image.h"
 
 EFI_STATUS pack_cpio(
