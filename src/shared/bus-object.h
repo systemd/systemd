@@ -1,19 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "sd-bus.h"
-
-typedef struct BusObjectImplementation BusObjectImplementation;
+#include "forward.h"
 
 typedef struct BusObjectVtablePair {
         const sd_bus_vtable *vtable;
         sd_bus_object_find_t object_find;
 } BusObjectVtablePair;
 
-struct BusObjectImplementation {
+typedef struct BusObjectImplementation {
         const char *path;
         const char *interface;
         const sd_bus_vtable **vtables;
@@ -21,7 +16,7 @@ struct BusObjectImplementation {
         sd_bus_node_enumerator_t node_enumerator;
         bool manager;
         const BusObjectImplementation **children;
-};
+} BusObjectImplementation;
 
 #define BUS_VTABLES(...) ((const sd_bus_vtable* []){ __VA_ARGS__, NULL })
 #define BUS_FALLBACK_VTABLES(...) ((const BusObjectVtablePair[]) { __VA_ARGS__, {} })

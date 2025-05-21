@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
-#include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-object.h"
 #include "dhcp-server-lease-internal.h"
+#include "hashmap.h"
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-link-bus.h"
 #include "networkd-manager.h"
-#include "strv.h"
 
 static int property_get_leases(
                 sd_bus *bus,

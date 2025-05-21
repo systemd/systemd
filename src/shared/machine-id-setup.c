@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sched.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
@@ -12,13 +11,12 @@
 #include "chase.h"
 #include "creds-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "id128-util.h"
 #include "initrd-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "machine-id-setup.h"
-#include "macro.h"
-#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -26,6 +24,7 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
 #include "umask-util.h"
 #include "virt.h"
