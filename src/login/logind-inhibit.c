@@ -24,6 +24,7 @@
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "mkdir-label.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
