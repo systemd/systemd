@@ -4,9 +4,8 @@
 #if HAVE_MICROHTTPD
 
 #include <microhttpd.h>
-#include <stdarg.h>
 
-#include "memory-util.h"
+#include "forward.h"
 
 /* Those defines are added when options are renamed. If the old names
  * are not '#define'd, then they are not deprecated yet and there are
