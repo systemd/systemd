@@ -412,9 +412,15 @@ static int list_images(int argc, char *argv[], void *userdata) {
         return show_table(table, "images");
 }
 
-static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
+static int show_unit_cgroup(
+                sd_bus *bus,
+                const char *unit,
+                const char *subgroup,
+                pid_t leader) {
+
         _cleanup_free_ char *cgroup = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        OutputFlags extra_flags = 0;
         int r;
 
         assert(bus);
@@ -427,8 +433,16 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         if (isempty(cgroup))
                 return 0;
 
+        if (!empty_or_root(subgroup)) {
+                if (!path_extend(&cgroup, subgroup))
+                        return log_oom();
+
+                /* If we have a subcgroup, then hide all processes outside of it */
+                extra_flags |= OUTPUT_HIDE_EXTRA;
+        }
+
         unsigned c = MAX(LESS_BY(columns(), 18U), 10U);
-        r = unit_show_processes(bus, unit, cgroup, "\t\t  ", c, get_output_flags(), &error);
+        r = unit_show_processes(bus, unit, cgroup, "\t\t  ", c, get_output_flags() | extra_flags, &error);
         if (r == -EBADR) {
 
                 if (arg_transport == BUS_TRANSPORT_REMOTE)
@@ -494,6 +508,7 @@ typedef struct MachineStatusInfo {
         const char *class;
         const char *service;
         const char *unit;
+        const char *subgroup;
         const char *root_directory;
         pid_t leader;
         struct dual_timestamp timestamp;
@@ -589,7 +604,11 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
 
         if (i->unit) {
                 printf("\t    Unit: %s\n", i->unit);
-                show_unit_cgroup(bus, i->unit, i->leader);
+
+                if (!empty_or_root(i->subgroup))
+                        printf("\tSubgroup: %s\n", i->subgroup);
+
+                show_unit_cgroup(bus, i->unit, i->subgroup, i->leader);
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL)
 
@@ -636,6 +655,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                 { "Class",              "s",  NULL,          offsetof(MachineStatusInfo, class)               },
                 { "Service",            "s",  NULL,          offsetof(MachineStatusInfo, service)             },
                 { "Unit",               "s",  NULL,          offsetof(MachineStatusInfo, unit)                },
+                { "Subgroup",           "s",  NULL,          offsetof(MachineStatusInfo, subgroup)            },
                 { "RootDirectory",      "s",  NULL,          offsetof(MachineStatusInfo, root_directory)      },
                 { "Leader",             "u",  NULL,          offsetof(MachineStatusInfo, leader)              },
                 { "Timestamp",          "t",  NULL,          offsetof(MachineStatusInfo, timestamp.realtime)  },
