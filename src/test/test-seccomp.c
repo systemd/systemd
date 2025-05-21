@@ -7,8 +7,8 @@
 #include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/shm.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
@@ -19,7 +19,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"

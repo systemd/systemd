@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <sched.h>
-#include <sys/mount.h>
 
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "log.h"
 #include "lsm-util.h"
 #include "mkdir.h"

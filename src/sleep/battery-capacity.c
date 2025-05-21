@@ -13,6 +13,7 @@
 #include "parse-util.h"
 #include "siphash24.h"
 #include "string-util.h"
+#include "time-util.h"
 
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)

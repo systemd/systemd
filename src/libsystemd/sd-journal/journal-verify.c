@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <stddef.h>
 #include <sys/mman.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -17,9 +15,8 @@
 #include "journal-file.h"
 #include "journal-verify.h"
 #include "log.h"
-#include "lookup3.h"
-#include "macro.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static void draw_progress(uint64_t p, usec_t *last_usec) {

@@ -3,8 +3,6 @@
   Copyright © 2017 Felipe Sateler
 ***/
 
-#include <sys/prctl.h>
-
 #include "sd-bus.h"
 
 #include "alloc-util.h"

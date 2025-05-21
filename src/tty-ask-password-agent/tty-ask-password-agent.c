@@ -10,7 +10,6 @@
 #include <sys/prctl.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
-#include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
 

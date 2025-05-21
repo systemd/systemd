@@ -1,24 +1,22 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <linux/fs.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
+#include "sd-netlink.h"
 
-#include "alloc-util.h"
 #include "blockdev-util.h"
-#include "common-signal.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "path-util.h"
+#include "hashmap.h"
 #include "process-util.h"
-#include "signal-util.h"
-#include "string-util.h"
-#include "strv.h"
 #include "udev-error.h"
 #include "udev-event.h"
 #include "udev-rules.h"

@@ -4,7 +4,6 @@
 #include <getopt.h>
 #include <netdb.h>
 #include <stdio.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"

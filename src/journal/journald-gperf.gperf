@@ -5,7 +5,6 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
 #include <stddef.h>
-#include <sys/socket.h>
 #include "conf-parser.h"
 #include "journald-manager.h"
 %}

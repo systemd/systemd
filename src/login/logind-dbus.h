@@ -1,16 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "bus-object.h"
-#include "logind-session.h"
-#include "macro.h"
-
-typedef struct Manager Manager;
-typedef struct User User;
-typedef struct Seat Seat;
-typedef struct HandleActionData HandleActionData;
+#include "logind-forward.h"
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret);
