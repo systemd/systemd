@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
-#include <sys/mman.h>
 #include <unistd.h>
+
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bootctl.h"
@@ -14,14 +15,17 @@
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "find-esp.h"
+#include "hashmap.h"
+#include "log.h"
+#include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
-#include "terminal-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 static int boot_config_load_and_select(
