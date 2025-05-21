@@ -11,12 +11,12 @@ int main(int argc, char **argv) {
 
         test_setup_logging(LOG_DEBUG);
 
-        test_table(dns_protocol, DNS_PROTOCOL);
-        test_table(dnssec_result, DNSSEC_RESULT);
-        test_table(dnssec_verdict, DNSSEC_VERDICT);
+        test_table(DnsProtocol, dns_protocol, DNS_PROTOCOL);
+        test_table(DnssecResult, dnssec_result, DNSSEC_RESULT);
+        test_table(DnssecVerdict, dnssec_verdict, DNSSEC_VERDICT);
 
-        test_table_sparse(dns_rcode, DNS_RCODE);
-        test_table_sparse(dns_type, DNS_TYPE);
+        test_table_sparse(int, dns_rcode, DNS_RCODE);
+        test_table_sparse(int, dns_type, DNS_TYPE);
 
         log_info("/* DNS_TYPE */");
         for (i = 0; i < _DNS_TYPE_MAX; i++) {
