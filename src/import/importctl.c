@@ -195,7 +195,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
                         bus_import_mgr,
                         "TransferRemoved",
                         match_transfer_removed,
-                        /* add_callback= */ NULL,
+                        /* install_callback= */ NULL,
                         &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match: %m");
@@ -208,7 +208,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
                         "org.freedesktop.import1.Transfer",
                         "LogMessage",
                         match_log_message,
-                        /* add_callback= */ NULL,
+                        /* install_callback= */ NULL,
                         &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match: %m");
@@ -221,7 +221,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
                         "org.freedesktop.import1.Transfer",
                         "ProgressUpdate",
                         match_progress_update,
-                        /* add_callback= */ NULL,
+                        /* install_callback= */ NULL,
                         &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match: %m");
