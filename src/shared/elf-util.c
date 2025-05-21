@@ -7,9 +7,9 @@
 #include <elfutils/libdwfl.h>
 #include <libelf.h>
 #include <sys/prctl.h>
-#include <sys/resource.h>
-#include <sys/types.h>
 #include <unistd.h>
+
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
@@ -19,14 +19,12 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memstream-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "rlimit-util.h"
+#include "set.h"
 #include "string-util.h"
 
 #define FRAMES_MAX 64

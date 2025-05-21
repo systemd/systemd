@@ -3,21 +3,14 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <linux/if_packet.h>
-#include <net/if.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
-#include <netinet/ip6.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
-#include "iovec-util.h"
 #include "network-common.h"
 #include "socket-util.h"
 

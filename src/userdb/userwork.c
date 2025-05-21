@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <poll.h>
-#include <sys/wait.h>
 
 #include "sd-daemon.h"
 #include "sd-varlink.h"

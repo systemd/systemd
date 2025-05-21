@@ -4,19 +4,20 @@
 ***/
 
 #include <linux/if_arp.h>
-#include <linux/ipv6_route.h>
-#include <net/if.h>
+#include <netdb.h>
 #include <netinet/in.h>
-#include <sys/ioctl.h>
 
+#include "sd-netlink.h"
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "creds-util.h"
 #include "dns-domain.h"
 #include "event-util.h"
-#include "fd-util.h"
+#include "extract-word.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "memory-util.h"
 #include "netlink-util.h"
@@ -28,9 +29,8 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
-#include "resolve-private.h"
+#include "set.h"
 #include "string-util.h"
-#include "strv.h"
 #include "wireguard.h"
 
 static void wireguard_resolve_endpoints(NetDev *netdev);

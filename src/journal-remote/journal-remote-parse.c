@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
-#include "fd-util.h"
 #include "journal-remote-parse.h"
 #include "log.h"
-#include "parse-util.h"
-#include "string-util.h"
 
 RemoteSource* source_free(RemoteSource *source) {
         if (!source)
