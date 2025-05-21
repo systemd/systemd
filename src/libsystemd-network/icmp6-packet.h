@@ -8,7 +8,7 @@
 #include "memory-util.h"
 #include "time-util.h"
 
-typedef struct ICMP6Pakcet {
+typedef struct ICMP6Packet {
         unsigned n_ref;
 
         struct in6_addr sender_address;
