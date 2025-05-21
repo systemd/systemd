@@ -270,17 +270,22 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
 static void session_save_devices(Session *s, FILE *f) {
         SessionDevice *sd;
 
-        if (!hashmap_isempty(s->devices)) {
-                fprintf(f, "DEVICES=");
-                HASHMAP_FOREACH(sd, s->devices)
-                        fprintf(f, DEVNUM_FORMAT_STR " ", DEVNUM_FORMAT_VAL(sd->dev));
-                fprintf(f, "\n");
+        if (hashmap_isempty(s->devices))
+                return;
+
+        bool need_space = false;
+        fputs("DEVICES=\"", f);
+        HASHMAP_FOREACH(sd, s->devices) {
+                if (need_space)
+                        fputc(' ', f);
+
+                fprintf(f, DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(sd->dev));
+                need_space = true;
         }
+        fputs("\"\n", f);
 }
 
 int session_save(Session *s) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(s);
@@ -293,30 +298,33 @@ int session_save(Session *s) {
 
         r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/sessions/: %m");
 
-        r = fopen_temporary(s->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", s->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", s->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "UID="UID_FMT"\n"
-                "USER=%s\n"
                 "ACTIVE=%s\n"
                 "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
                 "REMOTE=%s\n"
                 "LEADER_FD_SAVED=%s\n",
                 s->user->user_record->uid,
-                s->user->user_record->user_name,
                 one_zero(session_is_active(s)),
                 one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
                 one_zero(s->remote),
                 one_zero(s->leader_fd_saved));
+
+        env_file_fputs_assignment(f, "USER=", s->user->user_record->user_name);
 
         if (s->type >= 0)
                 fprintf(f, "TYPE=%s\n", session_type_to_string(s->type));
@@ -327,70 +335,20 @@ int session_save(Session *s) {
         if (s->class >= 0)
                 fprintf(f, "CLASS=%s\n", session_class_to_string(s->class));
 
-        if (s->scope)
-                fprintf(f, "SCOPE=%s\n", s->scope);
-        if (s->scope_job)
-                fprintf(f, "SCOPE_JOB=%s\n", s->scope_job);
-
+        env_file_fputs_assignment(f, "SCOPE=", s->scope);
+        env_file_fputs_assignment(f, "SCOPE_JOB=", s->scope_job);
         if (s->seat)
-                fprintf(f, "SEAT=%s\n", s->seat->id);
-
-        if (s->tty)
-                fprintf(f, "TTY=%s\n", s->tty);
+                env_file_fputs_assignment(f, "SEAT=", s->seat->id);
+        env_file_fputs_assignment(f, "TTY=", s->tty);
 
         if (s->tty_validity >= 0)
                 fprintf(f, "TTY_VALIDITY=%s\n", tty_validity_to_string(s->tty_validity));
 
-        if (s->display)
-                fprintf(f, "DISPLAY=%s\n", s->display);
-
-        if (s->remote_host) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->remote_host);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "REMOTE_HOST=%s\n", escaped);
-        }
-
-        if (s->remote_user) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->remote_user);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "REMOTE_USER=%s\n", escaped);
-        }
-
-        if (s->service) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->service);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "SERVICE=%s\n", escaped);
-        }
-
-        if (s->desktop) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->desktop);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "DESKTOP=%s\n", escaped);
-        }
+        env_file_fputs_assignment(f, "DISPLAY=", s->display);
+        env_file_fputs_assignment(f, "REMOTE_HOST=", s->remote_host);
+        env_file_fputs_assignment(f, "REMOTE_USER=", s->remote_user);
+        env_file_fputs_assignment(f, "SERVICE=", s->service);
+        env_file_fputs_assignment(f, "DESKTOP=", s->desktop);
 
         if (s->seat && seat_has_vts(s->seat))
                 fprintf(f, "VTNR=%u\n", s->vtnr);
@@ -398,8 +356,12 @@ int session_save(Session *s) {
         if (!s->vtnr)
                 fprintf(f, "POSITION=%u\n", s->position);
 
-        if (pidref_is_set(&s->leader))
+        if (pidref_is_set(&s->leader)) {
                 fprintf(f, "LEADER="PID_FMT"\n", s->leader.pid);
+                (void) pidref_acquire_pidfd_id(&s->leader);
+                if (s->leader.fd_id != 0)
+                        fprintf(f, "LEADER_PIDFDID=%" PRIu64 "\n", s->leader.fd_id);
+        }
 
         if (audit_session_is_valid(s->audit_id))
                 fprintf(f, "AUDIT=%"PRIu32"\n", s->audit_id);
@@ -412,26 +374,16 @@ int session_save(Session *s) {
                         s->timestamp.monotonic);
 
         if (s->controller) {
-                fprintf(f, "CONTROLLER=%s\n", s->controller);
+                env_file_fputs_assignment(f, "CONTROLLER=", s->controller);
                 session_save_devices(s, f);
         }
 
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, s->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", s->state_file);
 
-        if (rename(temp_path, s->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
         return 0;
-
-fail:
-        (void) unlink(s->state_file);
-
-        return log_error_errno(r, "Failed to save session data %s: %m", s->state_file);
 }
 
 static int session_load_devices(Session *s, const char *devices) {
