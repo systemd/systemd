@@ -148,7 +148,7 @@ typedef struct ActivationDetails {
 
 /* For casting an activation event into the various unit-specific types */
 #define DEFINE_ACTIVATION_DETAILS_CAST(UPPERCASE, MixedCase, UNIT_TYPE)         \
-        static inline MixedCase* UPPERCASE(ActivationDetails *a) {              \
+        static inline MixedCase* UPPERCASE(const ActivationDetails *a) {              \
                 if (_unlikely_(!a || a->trigger_unit_type != UNIT_##UNIT_TYPE)) \
                         return NULL;                                            \
                                                                                 \
@@ -166,10 +166,10 @@ typedef struct ActivationDetails {
 ActivationDetails *activation_details_new(Unit *trigger_unit);
 ActivationDetails *activation_details_ref(ActivationDetails *p);
 ActivationDetails *activation_details_unref(ActivationDetails *p);
-void activation_details_serialize(ActivationDetails *p, FILE *f);
+void activation_details_serialize(const ActivationDetails *p, FILE *f);
 int activation_details_deserialize(const char *key, const char *value, ActivationDetails **info);
-int activation_details_append_env(ActivationDetails *info, char ***strv);
-int activation_details_append_pair(ActivationDetails *info, char ***strv);
+int activation_details_append_env(const ActivationDetails *info, char ***strv);
+int activation_details_append_pair(const ActivationDetails *info, char ***strv);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ActivationDetails*, activation_details_unref);
 
 typedef struct ActivationDetailsVTable {
@@ -184,18 +184,18 @@ typedef struct ActivationDetailsVTable {
         void (*done)(ActivationDetails *info);
 
         /* This should serialize all type-specific variables. */
-        void (*serialize)(ActivationDetails *info, FILE *f);
+        void (*serialize)(const ActivationDetails *info, FILE *f);
 
         /* This should deserialize all type-specific variables, one at a time. */
         int (*deserialize)(const char *key, const char *value, ActivationDetails **info);
 
         /* This should format the type-specific variables for the env block of the spawned service,
          * and return the number of added items. */
-        int (*append_env)(ActivationDetails *info, char ***strv);
+        int (*append_env)(const ActivationDetails *info, char ***strv);
 
         /* This should append type-specific variables as key/value pairs for the D-Bus property of the job,
          * and return the number of added pairs. */
-        int (*append_pair)(ActivationDetails *info, char ***strv);
+        int (*append_pair)(const ActivationDetails *info, char ***strv);
 } ActivationDetailsVTable;
 
 extern const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX];
