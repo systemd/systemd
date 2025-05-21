@@ -1,19 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-varlink.h"
-
-#include "journald-stream.h"
+#include "journald-forward.h"
 #include "list.h"
-#include "macro.h"
-
-typedef struct Manager Manager;
-typedef struct StreamSyncReq StreamSyncReq;
-typedef struct SyncReq SyncReq;
 
 /* Encapsulates the synchronization request data we need to keep per STDOUT stream. Primarily a byte counter
  * to count down. */
-struct StreamSyncReq {
+typedef struct StreamSyncReq {
         SyncReq *req;
         StdoutStream *stream;
 
@@ -21,10 +14,10 @@ struct StreamSyncReq {
 
         LIST_FIELDS(StreamSyncReq, by_sync_req);
         LIST_FIELDS(StreamSyncReq, by_stdout_stream);
-};
+} StreamSyncReq;
 
 /* Encapsulates a synchronization request */
-struct SyncReq {
+typedef struct SyncReq {
         Manager *manager;
         sd_varlink *link;
 
@@ -42,7 +35,7 @@ struct SyncReq {
 
         unsigned realtime_prioq_idx;
         unsigned boottime_prioq_idx;
-};
+} SyncReq;
 
 StreamSyncReq *stream_sync_req_free(StreamSyncReq *ssr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(StreamSyncReq*, stream_sync_req_free);

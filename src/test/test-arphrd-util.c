@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_arp.h>
-#include <net/if.h>
 
 #include "arphrd-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(arphrd) {

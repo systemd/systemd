@@ -5,9 +5,6 @@
 /* Generally speaking, the pstore contains a small number of files
  * that in turn contain a small amount of data.  */
 #include <stdio.h>
-#include <stdio_ext.h>
-#include <sys/prctl.h>
-#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "sd-journal.h"

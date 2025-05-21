@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
-#include <netinet/in.h>
-#include <sys/capability.h>
+
+#include "sd-bus.h"
+#include "sd-dhcp-server.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-message-util.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
 #include "networkd-dhcp4.h"
@@ -16,11 +18,13 @@
 #include "networkd-link-bus.h"
 #include "networkd-manager.h"
 #include "networkd-state-file.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "resolve-util.h"
+#include "set.h"
 #include "socket-netlink.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_carrier_state, link_carrier_state, LinkCarrierState);

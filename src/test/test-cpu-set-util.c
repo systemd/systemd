@@ -2,8 +2,6 @@
 
 #include "alloc-util.h"
 #include "cpu-set-util.h"
-#include "macro.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(parse_cpu_set) {
