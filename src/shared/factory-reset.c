@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "efivars.h"
 #include "env-util.h"
 #include "factory-reset.h"
+#include "log.h"
 #include "os-util.h"
 #include "proc-cmdline.h"
 #include "string-table.h"

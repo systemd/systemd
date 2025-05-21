@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "cgroup-setup.h"
 #include "chase.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "fs-util.h"
-#include "mkdir.h"
+#include "log.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -16,6 +16,7 @@
 #include "nsresource.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 static int chown_cgroup_path(const char *path, uid_t uid_shift) {
         _cleanup_close_ int fd = -EBADF;

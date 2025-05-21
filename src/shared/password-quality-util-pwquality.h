@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
+#include "forward.h"
 
 #if HAVE_PWQUALITY
-/* pwquality.h uses size_t but doesn't include sys/types.h on its own */
 #include <pwquality.h>
-#include <sys/types.h>
 
 #include "dlfcn-util.h"
-#include "memory-util.h"
 
 extern DLSYM_PROTOTYPE(pwquality_check);
 extern DLSYM_PROTOTYPE(pwquality_default_settings);
