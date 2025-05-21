@@ -362,6 +362,27 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         return 1;
 }
 
+static int bus_unit_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(userdata);
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(found);
+
+        r = find_unit(m, bus, path, &u, error);
+        if (r <= 0)
+                return r;
+
+        if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
+                return 0;
+
+        *found = u;
+        return 1;
+}
+
 static int bus_kill_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         KillContext *c;
@@ -441,6 +462,7 @@ static const BusObjectImplementation bus_mount_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -469,6 +491,7 @@ static const BusObjectImplementation bus_service_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -489,6 +512,7 @@ static const BusObjectImplementation bus_socket_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -500,6 +524,7 @@ static const BusObjectImplementation bus_swap_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -1158,6 +1183,7 @@ void dump_bus_properties(FILE *f) {
         vtable_dump_bus_properties(f, bus_cgroup_vtable);
         vtable_dump_bus_properties(f, bus_device_vtable);
         vtable_dump_bus_properties(f, bus_exec_vtable);
+        vtable_dump_bus_properties(f, bus_unit_exec_vtable);
         vtable_dump_bus_properties(f, bus_job_vtable);
         vtable_dump_bus_properties(f, bus_kill_vtable);
         vtable_dump_bus_properties(f, bus_manager_vtable);
