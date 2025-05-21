@@ -969,7 +969,7 @@ int encrypt_credential_and_warn(
                 r = tpm2_seal(tpm2_context,
                               /* seal_key_handle= */ 0,
                               &tpm2_policy,
-                              /* n_policy_hash= */ 1,
+                              /* n_policy= */ 1,
                               /* pin= */ NULL,
                               &tpm2_key,
                               &blobs,
