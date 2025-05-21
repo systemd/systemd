@@ -58,6 +58,36 @@ TEST(path_get_unit) {
         check_p_g_u("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
 }
 
+static void check_p_g_u_f(const char *path, int expected_code, const char *expected_unit, const char *expected_subgroup) {
+        _cleanup_free_ char *unit = NULL, *subgroup = NULL;
+        int r;
+
+        r = cg_path_get_unit_full(path, &unit, &subgroup);
+        printf("%s: %s → %s %s %d expected %s %s %d\n", __func__, path, unit, subgroup, r, strnull(expected_unit), strnull(expected_subgroup), expected_code);
+        assert_se(r == expected_code);
+        ASSERT_STREQ(unit, expected_unit);
+        ASSERT_STREQ(subgroup, expected_subgroup);
+}
+
+TEST(path_get_unit_full) {
+        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf", 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf", 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf/", 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf/", 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf//", 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf/urks", 0, "foobar.service", "sdfdsaf/urks");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf//urks", 0, "foobar.service", "sdfdsaf/urks");
+        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf/urks/", 0, "foobar.service", "sdfdsaf/urks");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf//urks//", 0, "foobar.service", "sdfdsaf/urks");
+        check_p_g_u_f("/system.slice/foobar.service", 0, "foobar.service", NULL);
+        check_p_g_u_f("/system.slice/foobar.service/", 0, "foobar.service", NULL);
+        check_p_g_u_f("/system.slice/foobar.service//", 0, "foobar.service", NULL);
+        check_p_g_u_f("/system.slice/", -ENXIO, NULL, NULL);
+        check_p_g_u_f("/system.slice/piff", -ENXIO, NULL, NULL);
+        check_p_g_u_f("/system.service/piff", 0, "system.service", "piff");
+        check_p_g_u_f("//system.service//piff", 0, "system.service", "piff");
+}
+
 static void check_p_g_u_p(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit_path = NULL;
         int r;
