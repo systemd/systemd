@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-files.h"
+#include "constants.h"
 #include "dns-domain.h"
 #include "in-addr-util.h"
 #include "path-util.h"
