@@ -17,15 +17,12 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-#include <time.h>
-
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct in6_addr;
+struct ether_addr;
 
 typedef struct sd_ndisc_neighbor sd_ndisc_neighbor;
 

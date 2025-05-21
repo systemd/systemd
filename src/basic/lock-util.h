@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
 /* Include here so consumers have LOCK_{EX,SH,NB} available. */
-#include <sys/file.h>
+#include <sys/file.h> /* IWYU pragma: export */
 
-#include "time-util.h"
+#include "forward.h"
 
 typedef struct LockFile {
         int dir_fd;

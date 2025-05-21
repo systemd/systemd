@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/audit.h>
-
-#if HAVE_AUDIT
-#  include <libaudit.h>
-#endif
+#include <linux/audit.h> /* IWYU pragma: export */
 
 /* We use _Static_assert() directly here instead of assert_cc()
  * because if we include macro.h in this header, the invocation
