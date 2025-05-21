@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <float.h>
+#include <sys/socket.h>
 #include <sys/sysmacros.h>
 
 #include "sd-json.h"
@@ -8,15 +9,16 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fileio.h"
 #include "iovec-util.h"
 #include "json-internal.h"
 #include "json-util.h"
 #include "math-util.h"
 #include "ordered-set.h"
+#include "pidref.h"
+#include "set.h"
 #include "string-table.h"
-#include "string-util.h"
-#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
