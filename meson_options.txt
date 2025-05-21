@@ -256,6 +256,10 @@ option('system-uid-max', type : 'integer', value : 0,
        description : 'maximum system UID')
 option('system-gid-max', type : 'integer', value : 0,
        description : 'maximum system GID')
+option('greeter-uid-min', type : 'integer', value : 0x0000ECA2,
+       description : 'minimum greeter UID')
+option('greeter-uid-max', type : 'integer', value : 0x0000ED21,
+       description : 'maximum greeter UID')
 option('dynamic-uid-min', type : 'integer', value : 0x0000EF00,
        description : 'minimum dynamic UID')
 option('dynamic-uid-max', type : 'integer', value : 0x0000FFEF,
