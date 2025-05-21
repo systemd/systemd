@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_arp.h>
-#include <net/if.h>
-#include <netinet/in.h>
 
+#include "sd-netlink.h"
+
+#include "conf-parser.h"
 #include "hsr.h"
-#include "netlink-util.h"
-#include "networkd-manager.h"
+#include "networkd-link.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <threads.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
@@ -11,7 +10,6 @@
 #include "fileio.h"
 #include "parse-util.h"
 #include "psi-util.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 

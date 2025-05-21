@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-device.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "blkid-util.h"
@@ -12,6 +13,7 @@
 #include "log.h"
 #include "mountpoint-util.h"
 #include "pcrextend-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 static int device_get_file_system_word(
