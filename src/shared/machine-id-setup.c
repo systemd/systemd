@@ -268,7 +268,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
                 unlink_run_machine_id = true;
         } else {
-                r = chase("/run/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &run_machine_id, /* ret_inode_fd= */ NULL);
+                r = chase("/run/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &run_machine_id, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '/run/machine-id': %m");
         }
@@ -284,7 +284,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         log_full(FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_TRANSIENT) ? LOG_DEBUG : LOG_INFO, "Installed transient '%s' file.", etc_machine_id);
 
         /* Mark the mount read-only (note: we are not going via FORMAT_PROC_FD_PATH() here because that fd is not updated to our new bind mount) */
-        (void) mount_follow_verbose(LOG_WARNING, /* source= */ NULL, etc_machine_id, /* fstype= */ NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, /* options= */ NULL);
+        (void) mount_follow_verbose(LOG_WARNING, /* what= */ NULL, etc_machine_id, /* fstype= */ NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, /* options= */ NULL);
 
 finish:
         if (!in_initrd())
@@ -395,7 +395,7 @@ int machine_id_commit(const char *root) {
                                          "Failed to switch back to initial mount namespace: %m.\n"
                                          "We'll keep transient %s file until next reboot.", etc_machine_id);
 
-        r = umountat_detach_verbose(LOG_DEBUG, fd, /* filename= */ NULL);
+        r = umountat_detach_verbose(LOG_DEBUG, fd, /* where= */ NULL);
         if (r < 0)
                 return log_warning_errno(r,
                                          "Failed to unmount transient %s file: %m.\n"
