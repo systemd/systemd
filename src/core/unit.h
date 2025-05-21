@@ -1,28 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
 #include "sd-id128.h"
 
-#include "cgroup.h"
-#include "condition.h"
+#include "core-forward.h"
 #include "emergency-action.h"
 #include "execute.h"
+#include "hashmap.h"
 #include "install.h"
+#include "iterator.h"
 #include "job.h"
 #include "list.h"
+#include "log.h"
 #include "log-context.h"
-#include "mount-util.h"
-#include "pidref.h"
 #include "ratelimit.h"
+#include "time-util.h"
+#include "unit-def.h"
+#include "unit-dependency-atom.h"
 #include "unit-file.h"
-
-typedef struct UnitRef UnitRef;
 
 typedef enum UnitMountDependencyType {
         UNIT_MOUNT_WANTS,
@@ -217,14 +212,14 @@ static inline void* UNIT_DEPENDENCY_TO_PTR(UnitDependency d) {
         return INT_TO_PTR(d);
 }
 
-struct UnitRef {
+typedef struct UnitRef {
         /* Keeps tracks of references to a unit. This is useful so
          * that we can merge two units if necessary and correct all
          * references to them */
 
         Unit *source, *target;
         LIST_FIELDS(UnitRef, refs_by_target);
-};
+} UnitRef;
 
 /* The generic, dynamic definition of the unit */
 typedef struct Unit {
@@ -1018,23 +1013,9 @@ static inline bool unit_has_job_type(Unit *u, JobType type) {
         return u && u->job && u->job->type == type;
 }
 
-static inline int unit_get_log_level_max(const Unit *u) {
-        if (u) {
-                if (u->debug_invocation)
-                        return LOG_DEBUG;
+int unit_get_log_level_max(const Unit *u);
 
-                ExecContext *ec = unit_get_exec_context(u);
-                if (ec && ec->log_level_max >= 0)
-                        return ec->log_level_max;
-        }
-
-        return log_get_max_level();
-}
-
-static inline bool unit_log_level_test(const Unit *u, int level) {
-        assert(u);
-        return LOG_PRI(level) <= unit_get_log_level_max(u);
-}
+bool unit_log_level_test(const Unit *u, int level);
 
 /* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
  * after some execution, rather than succeeded or failed. */
