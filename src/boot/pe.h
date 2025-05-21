@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "efi.h"
+#include "efi-forward.h"
 
 /* This is the actual PE format of the section header */
 typedef struct PeSectionHeader {

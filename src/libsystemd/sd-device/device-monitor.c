@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/filter.h>
 #include <linux/netlink.h>
 #include <linux/sockios.h>
@@ -22,13 +21,13 @@
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "log-context.h"
-#include "missing_socket.h"
 #include "mountpoint-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "uid-range.h"
 
 #define log_monitor(m, format, ...)                                     \

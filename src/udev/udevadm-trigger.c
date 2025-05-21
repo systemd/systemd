@@ -1,25 +1,21 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
 #include <getopt.h>
+#include <stdio.h>
 
 #include "sd-device.h"
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "device-enumerator-private.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "id128-util.h"
-#include "parse-util.h"
-#include "path-util.h"
-#include "process-util.h"
 #include "set.h"
 #include "static-destruct.h"
 #include "string-table.h"
-#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
 #include "virt.h"

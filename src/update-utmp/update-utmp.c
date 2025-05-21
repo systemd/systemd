@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <unistd.h>
-
-#if HAVE_AUDIT
-#  include <libaudit.h>
-#endif
 
 #include "sd-bus.h"
 

@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#if HAVE_AUDIT
+#  include <libaudit.h>         /* IWYU pragma: export */
+#  include <audit_logging.h>    /* IWYU pragma: export */
+#endif
+
+#include "forward.h"
 
 bool use_audit(void);
 

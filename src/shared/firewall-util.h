@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "conf-parser.h"
-#include "in-addr-util.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 
 typedef struct FirewallContext FirewallContext;
 

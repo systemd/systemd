@@ -20,7 +20,6 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "sort-util.h"
-#include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "virt.h"
