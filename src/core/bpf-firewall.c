@@ -1,27 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <linux/bpf_insn.h>
-#include <net/ethernet.h>
+#include <linux/if_ether.h>
 #include <net/if.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "bpf-firewall.h"
 #include "bpf-program.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "in-addr-prefix-util.h"
 #include "manager.h"
 #include "memory-util.h"
-#include "missing_syscall.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit.h"
 #include "virt.h"

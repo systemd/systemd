@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if BPF_FRAMEWORK
-#include <bpf/bpf.h>
-#endif
-
+#include "alloc-util.h"
 #include "bpf-socket-bind.h"
+#include "cgroup.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "unit.h"
 
 #if BPF_FRAMEWORK
