@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "alloc-util.h"
-#include "env-util.h"
 #include "errno-util.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "nulstr-util.h"
 #include "proc-cmdline.h"
-#include "process-util.h"
-#include "special.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
