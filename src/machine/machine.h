@@ -45,6 +45,7 @@ typedef struct Machine {
         char *root_directory;
 
         char *unit;
+        char *subgroup;
         char *scope_job;
 
         PidRef leader;
