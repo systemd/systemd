@@ -789,23 +789,23 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGHUP handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr1, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr1, m);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGUSR1 handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr2, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr2, m);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGUSR2 handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+1) | SD_EVENT_SIGNAL_PROCMASK, manager_sigrtmin1, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+1) | SD_EVENT_SIGNAL_PROCMASK, manager_sigrtmin1, m);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGRTMIN+1 handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &m->sigrtmin18_info);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &m->sigrtmin18_info);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGRTMIN+18 handler: %m");
 

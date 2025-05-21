@@ -1087,7 +1087,7 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *mm, void *use
         if (!c->display_refresh_scheduled) {
                 r = sd_event_add_time_relative(
                                 sd_netlink_get_event(rtnl),
-                                /* ret_slot= */ NULL,
+                                /* ret= */ NULL,
                                 CLOCK_MONOTONIC,
                                 750 * USEC_PER_MSEC,
                                 0,
