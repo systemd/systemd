@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <grp.h>
+#include <linux/ioprio.h>
 #include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
+#include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -10,7 +13,6 @@
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
-#include <security/pam_misc.h>
 #endif
 
 #include "sd-messages.h"
@@ -24,12 +26,14 @@
 #include "bpf-restrict-fs.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
-#include "cgroup.h"
 #include "cgroup-setup.h"
+#include "cgroup.h"
 #include "chase.h"
-#include "chattr-util.h"
 #include "chown-recursive.h"
+#include "constants.h"
 #include "copy.h"
+#include "coredump-util.h"
+#include "dissect-image.h"
 #include "dynamic-user.h"
 #include "env-util.h"
 #include "escape.h"
@@ -38,11 +42,11 @@
 #include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "image-policy.h"
 #include "io-util.h"
-#include "ioprio-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
 #include "manager.h"
@@ -51,16 +55,23 @@
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
+#include "namespace-util.h"
+#include "nsflags.h"
+#include "open-file.h"
 #include "osc-context.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
 #include "selinux-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"

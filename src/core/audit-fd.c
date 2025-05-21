@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "audit-fd.h"
 #include "capability-util.h"
 #include "libaudit-util.h"
