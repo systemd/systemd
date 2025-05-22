@@ -11,6 +11,7 @@
 #include "pager.h"
 #include "seccomp-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 
 #if HAVE_SECCOMP

@@ -7,7 +7,6 @@
 
 typedef enum CGroupDevicePermissions CGroupDevicePermissions;
 typedef enum CGroupDevicePolicy CGroupDevicePolicy;
-typedef enum CGroupMask CGroupMask;
 typedef enum ExecCleanMask ExecCleanMask;
 typedef enum ExecPreserveMode ExecPreserveMode;
 typedef enum FreezerAction FreezerAction;

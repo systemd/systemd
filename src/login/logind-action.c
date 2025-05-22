@@ -21,6 +21,7 @@
 #include "process-util.h"
 #include "special.h"
 #include "string-table.h"
+#include "strv.h"
 #include "user-util.h"
 
 static const HandleActionData handle_action_data_table[_HANDLE_ACTION_MAX] = {
