@@ -8,6 +8,7 @@
 #include "logs-show.h"
 #include "networkctl.h"
 #include "networkctl-journal.h"
+#include "output-mode.h"
 #include "terminal-util.h"
 
 static OutputFlags get_output_flags(void) {
