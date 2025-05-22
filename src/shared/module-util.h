@@ -2,13 +2,11 @@
 #pragma once
 
 #include "dlfcn-util.h"
+#include "forward.h"
 
 #if HAVE_KMOD
 
-#include <libkmod.h>
-
-#include "macro.h"
-#include "memory-util.h"
+#include <libkmod.h> /* IWYU pragma: export */
 
 extern DLSYM_PROTOTYPE(kmod_list_next);
 extern DLSYM_PROTOTYPE(kmod_load_resources);

@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_ELFUTILS
-
 #include <dwarf.h>
 #include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
 #include <libelf.h>
+#endif
 #include <sys/prctl.h>
-#include <sys/resource.h>
-#include <sys/types.h>
 #include <unistd.h>
+
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
@@ -19,14 +19,12 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memstream-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "rlimit-util.h"
+#include "set.h"
 #include "string-util.h"
 
 #define FRAMES_MAX 64
@@ -35,6 +33,8 @@
 
 /* The amount of data we're willing to write to each of the output pipes. */
 #define COREDUMP_PIPE_MAX (1024*1024U)
+
+#if HAVE_ELFUTILS
 
 static void *dw_dl = NULL;
 static void *elf_dl = NULL;
@@ -761,7 +761,10 @@ static int parse_elf(int fd, const char *executable, const char *root, char **re
         return 0;
 }
 
+#endif
+
 int parse_elf_object(int fd, const char *executable, const char *root, bool fork_disable_dump, char **ret, sd_json_variant **ret_package_metadata) {
+#if HAVE_ELFUTILS
         _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR,
                                  return_pipe[2] = EBADF_PAIR,
                                  json_pipe[2] = EBADF_PAIR;
@@ -912,6 +915,7 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
                 *ret_package_metadata = TAKE_PTR(package_metadata);
 
         return 0;
-}
-
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "elfutils disabled, parsing ELF objects not supported");
 #endif
+}
