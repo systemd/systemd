@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
-#include <stddef.h>
+#include <sched.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
@@ -20,10 +19,10 @@
 #include "env-util.h"
 #include "errno-list.h"
 #include "log.h"
-#include "macro.h"
 #include "namespace-util.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "seccomp-util.h"
 #include "set.h"
@@ -2524,4 +2523,20 @@ int seccomp_suppress_sync(void) {
         }
 
         return 0;
+}
+
+bool seccomp_errno_or_action_is_valid(int n) {
+        return n == SECCOMP_ERROR_NUMBER_KILL || errno_is_valid(n);
+}
+
+int seccomp_parse_errno_or_action(const char *p) {
+        if (streq_ptr(p, "kill"))
+                return SECCOMP_ERROR_NUMBER_KILL;
+        return parse_errno(p);
+}
+
+const char* seccomp_errno_or_action_to_string(int num) {
+        if (num == SECCOMP_ERROR_NUMBER_KILL)
+                return "kill";
+        return errno_to_name(num);
 }
