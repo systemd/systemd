@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "efivars-fundamental.h"
+#include "efi.h"
 
 typedef enum SysFailType {
         SYSFAIL_NO_FAILURE,

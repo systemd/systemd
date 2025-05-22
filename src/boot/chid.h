@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 #pragma once
 
-#include "chid-fundamental.h"
+#include "chid-fundamental.h" /* IWYU pragma: export */
 #include "efi.h"
 
 /* A .hwids PE section consists of a series of 'Device' structures. A 'Device' structure binds a CHID to some

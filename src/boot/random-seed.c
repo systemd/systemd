@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "efi-efivars.h"
+#include "efi-log.h"
 #include "memory-util-fundamental.h"
 #include "proto/rng.h"
 #include "random-seed.h"

@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "device-path-util.h"
-#include "efi-efivars.h"
+
+#include "efi-log.h"
 #include "efi-string.h"
 #include "memory-util-fundamental.h"
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
-#include "ticks.h"
+#include "string-util-fundamental.h"
 #include "util.h"
 #include "version.h"
 

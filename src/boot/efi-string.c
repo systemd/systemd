@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <limits.h>
-
 #include "efi-string.h"
 
 #if SD_BOOT

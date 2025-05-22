@@ -2,6 +2,7 @@
 #pragma once
 
 #include "efi.h"
+#include "efivars-fundamental.h" /* IWYU pragma: export */
 
 /*
  * Allocated random UUID, intended to be shared across tools that implement
