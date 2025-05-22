@@ -1,14 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "dhcp-server-lease-internal.h"
-#include "dns-def.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
+#include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "mkdir.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 
 static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease) {

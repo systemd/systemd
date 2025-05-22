@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-bus.h"
+#include "sd-bus-protocol.h"
 
-#include "assert-util.h"
 #include "bus-signature.h"
 #include "bus-type.h"
 

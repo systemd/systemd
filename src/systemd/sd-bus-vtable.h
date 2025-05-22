@@ -17,9 +17,6 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "_sd-common.h"
 #include "sd-bus-protocol.h"
 

@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "bus-internal.h"
-#include "bus-introspect.h"
+#include "forward.h"
+
+struct node;
 
 const sd_bus_vtable* bus_vtable_next(const sd_bus_vtable *vtable, const sd_bus_vtable *v);
 bool bus_vtable_has_names(const sd_bus_vtable *vtable);

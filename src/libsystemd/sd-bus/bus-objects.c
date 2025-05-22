@@ -2,6 +2,8 @@
 
 #include <linux/capability.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-introspect.h"
@@ -10,7 +12,7 @@
 #include "bus-signature.h"
 #include "bus-slot.h"
 #include "bus-type.h"
-#include "log.h"
+#include "ordered-set.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"

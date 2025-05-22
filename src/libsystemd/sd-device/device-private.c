@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <net/if.h>
-#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 
@@ -10,21 +10,21 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "macro.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 

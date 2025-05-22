@@ -17,9 +17,6 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <stdarg.h>
-#include <sys/types.h>
-
 #include "_sd-common.h"
 #include "sd-event.h"
 #include "sd-json.h"

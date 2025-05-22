@@ -3,16 +3,14 @@
   Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
-#include <errno.h>
 #include <netinet/if_ether.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "sd-ipv4acd.h"
 
 #include "alloc-util.h"
 #include "arp-util.h"
+#include "errno-util.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -20,7 +18,7 @@
 #include "memory-util.h"
 #include "network-common.h"
 #include "random-util.h"
-#include "siphash24.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
