@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <sys/types.h>
-
-#include "time-util.h"
+#include "forward.h"
 
 typedef enum MkdirFlags {
         MKDIR_FOLLOW_SYMLINK  = 1 << 0,
@@ -26,7 +23,7 @@ int mkdir_parents_safe(const char *prefix, const char *path, mode_t mode, uid_t 
 int mkdir_p(const char *path, mode_t mode);
 int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags);
 int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, char **subvolumes);
-static inline int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
+int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
         return mkdir_p_root_full(root, p, uid, gid, m, USEC_INFINITY, NULL);
 }
 

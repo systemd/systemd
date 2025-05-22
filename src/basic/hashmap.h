@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <limits.h>
-#include <stdbool.h>
-#include <stddef.h>
-
+#include "forward.h"
 #include "hash-funcs.h"
 #include "iterator.h"
-#include "macro.h"
 
 /*
  * A hash table implementation. As a minor optimization a NULL hashmap object
@@ -22,7 +18,6 @@
 
 #define HASH_KEY_SIZE 16
 
-typedef void* (*hashmap_destroy_t)(void *p);
 
 /* The base type for all hashmap and set types. Many functions in the implementation take (HashmapBase*)
  * parameters and are run-time polymorphic, though the API is not meant to be polymorphic (do not call

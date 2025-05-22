@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <stdbool.h>
-#include <stdio.h>
+#include "forward.h"
 
 int fopen_temporary_at(int dir_fd, const char *path, FILE **ret_file, char **ret_path);
 static inline int fopen_temporary(const char *path, FILE **ret_file, char **ret_path) {
