@@ -297,6 +297,12 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     # Validate when we invoke run0 without a tty, that depending on --pty it either allocates a tty or not
     assert_neq "$(run0 --pty tty < /dev/null)" "not a tty"
     assert_eq "$(run0 --pipe tty < /dev/null)" "not a tty"
+
+    # Test transient unit owner
+    OWNERPID=$(systemd-notify --fork -- run0 --pipe --property=ExecStopPost="touch /tmp/test-run0-owner-flag" sleep infinity)
+    [[ ! -e /tmp/test-run0-owner-flag ]]
+    kill -s KILL "$OWNERPID"
+    timeout 30 bash -c 'until [[ -e /tmp/test-run0-owner-flag ]]; do sleep 1; done'
 fi
 
 # Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)
