@@ -2104,6 +2104,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly (ss) LoadError = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b Transient = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(utt) TransientOwners = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b Perpetual = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -2451,6 +2453,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Transient"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="TransientOwners"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Perpetual"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartLimitIntervalUSec"/>
@@ -2643,6 +2647,15 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>Transient</varname> contains a boolean that indicates whether the unit was created as a
       transient unit (i.e. via <function>StartTransientUnit()</function> on the manager object).</para>
+
+      <para><varname>TransientOwners</varname> contains a list of owners of a transient unit, i.e. retain
+      privilege to enqueue jobs on the unit without reauthentication. Specifically, the PID and PIDFD inode number
+      are reported, as well as a flags field defined as follows:</para>
+      <programlisting>
+#define SD_UNIT_TRANSIENT_OWNER_STOP_ON_EXIT (UINT64_C(1) &lt;&lt; 0)
+      </programlisting>
+      <para>If <literal>SD_UNIT_TRANSIENT_OWNER_STOP_ON_EXIT</literal> is set, the "kill on last exit" semantics
+      is enabled on the owner, which means a stop job is automatically scheduled when all such owners exit.</para>
 
       <para><varname>ActivationDetails</varname> contains a list of string pairs, key and value, that
       describe the event that caused the unit to be activated, if any. The key describes the information
@@ -11991,6 +12004,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>WantsMountsFor</varname> was added in version 256.</para>
       <para><varname>DebugInvocation</varname>, and
       <varname>CanLiveMount</varname> were added in version 257.</para>
+      <para><varname>TransientOwners</varname> was added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Service Unit Objects</title>

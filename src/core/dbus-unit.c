@@ -365,6 +365,30 @@ static int property_get_markers(
         return sd_bus_message_close_container(reply);
 }
 
+static bool bus_unit_check_transient_owner(sd_bus_message *message, Unit *u) {
+        _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
+        int r;
+
+        assert(message);
+        assert(u);
+
+        if (!u->transient)
+                return false;
+        if (hashmap_isempty(u->transient_owners))
+                return false;
+
+        r = bus_query_sender_pidref(message, &sender);
+        if (r < 0)
+                return false;
+
+        UnitTransientOwner *owner = hashmap_get(u->transient_owners, &sender);
+        if (!owner)
+                return false;
+
+        /* Actually compare the pidfds here, not just pid. Better safe than sorry. */
+        return pidref_equal_strict(&sender, &owner->pidref) > 0;
+}
+
 static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
         [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
         [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
@@ -426,6 +450,7 @@ int bus_unit_method_start_generic(
                         u,
                         verb,
                         polkit_message_for_job[job_type],
+                        bus_unit_check_transient_owner(message, u),
                         message,
                         error);
         if (r < 0)
@@ -507,6 +532,7 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
                         u,
                         jtype,
                         polkit_message_for_job[type],
+                        bus_unit_check_transient_owner(message, u),
                         message,
                         error);
         if (r < 0)
@@ -563,6 +589,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                         u,
                         "kill",
                         N_("Authentication is required to send a UNIX signal to the processes of '$(unit)'."),
+                        /* transient_owner = */ false, /* Sending arbitrary signal is not allowed even for owners */
                         message,
                         error);
         if (r < 0)
@@ -591,6 +618,7 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
                         u,
                         "reset-failed",
                         N_("Authentication is required to reset the \"failed\" state of '$(unit)'."),
+                        bus_unit_check_transient_owner(message, u),
                         message,
                         error);
         if (r < 0)
@@ -621,6 +649,7 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
                         u,
                         "set-property",
                         N_("Authentication is required to set properties on '$(unit)'."),
+                        /* transient_owner = */ false, /* Deny attempts to change properties after the fact */
                         message,
                         error);
         if (r < 0)
@@ -649,6 +678,7 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *e
                         u,
                         "ref",
                         /* polkit_message= */ NULL,
+                        bus_unit_check_transient_owner(message, u),
                         message,
                         error);
         if (r < 0)
@@ -718,6 +748,7 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
                         u,
                         "clean",
                         N_("Authentication is required to delete files and directories associated with '$(unit)'."),
+                        /* transient_owner = */ false, /* Purging files on disk should require reauth */
                         message,
                         error);
         if (r < 0)
@@ -755,6 +786,7 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
                         u,
                         perm,
                         N_("Authentication is required to freeze or thaw the processes of '$(unit)' unit."),
+                        /* transient_owner = */ false,
                         message,
                         error);
         if (r < 0)
@@ -834,6 +866,39 @@ static int property_get_refs(
                         if (r < 0)
                                 return r;
                 }
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_transient_owners(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(utt)");
+        if (r < 0)
+                return r;
+
+        UnitTransientOwner *owner;
+        HASHMAP_FOREACH(owner, u->transient_owners) {
+                (void) pidref_acquire_pidfd_id(&owner->pidref);
+
+                r = sd_bus_message_append(reply, "(utt)",
+                                          owner->pidref.pid, owner->pidref.fd_id,
+                                          (uint64_t) (owner->stop_on_exit ? TRANSIENT_OWNER_STOP_ON_EXIT : 0));
+                if (r < 0)
+                        return r;
         }
 
         return sd_bus_message_close_container(reply);
@@ -924,6 +989,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TransientOwners", "a(utt)", property_get_transient_owners, 0, 0),
         SD_BUS_PROPERTY("Perpetual", "b", bus_property_get_bool, offsetof(Unit, perpetual), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_ratelimit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2444,6 +2510,43 @@ static int bus_unit_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags))
                         u->bus_track_add = b;
+
+                return 1;
+        }
+
+        if (streq(name, "TransientOwners")) {
+                r = sd_bus_message_enter_container(message, 'a', "(ht)");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                        uint64_t owner_flags;
+                        int fd;
+
+                        r = sd_bus_message_read(message, "(ht)", &fd, &owner_flags);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = pidref_set_pidfd(&pidref, fd);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(error, r, "Failed to create reference to transient owner: %m");
+
+                        if ((owner_flags & ~TRANSIENT_OWNER_STOP_ON_EXIT) != 0)
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags for TransientOwners");
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = unit_transient_add_owner(u, TAKE_PIDREF(pidref), owner_flags);
+                                if (r < 0)
+                                        return sd_bus_error_set_errnof(error, r, "Failed to track transient owner in unit: %m");
+                        }
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
 
                 return 1;
         }
