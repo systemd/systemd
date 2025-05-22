@@ -61,10 +61,10 @@ gperf_file = custom_target(
         command : [generate_dns_type_gperf, 'dns_type', 'DNS_TYPE_', '@INPUT@'],
         capture : true)
 
-dns_type_from_name_h = custom_target(
-        'dns_type-from-name.h',
+dns_type_from_name_inc = custom_target(
+        'dns_type-from-name.inc',
         input : gperf_file,
-        output : 'dns_type-from-name.h',
+        output : 'dns_type-from-name.inc',
         command : [gperf,
                    '-L', 'ANSI-C', '-t', '--ignore-case',
                    '-N', 'lookup_dns_type',
@@ -73,10 +73,10 @@ dns_type_from_name_h = custom_target(
                    '@INPUT@'],
         capture : true)
 
-dns_type_to_name_h = custom_target(
-        'dns_type-to-name.h',
+dns_type_to_name_inc = custom_target(
+        'dns_type-to-name.inc',
         input : ['dns_type-to-name.awk', dns_type_list_txt],
-        output : 'dns_type-to-name.h',
+        output : 'dns_type-to-name.inc',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
@@ -98,8 +98,8 @@ resolved_dns_delegate_gperf_c = custom_target(
         output : 'resolved-dns-delegate-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-generated_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
-systemd_resolved_extract_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
+generated_sources += [dns_type_from_name_inc, dns_type_to_name_inc, resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
+systemd_resolved_extract_sources += [dns_type_from_name_inc, dns_type_to_name_inc, resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
 
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         systemd_resolved_extract_sources += files(
