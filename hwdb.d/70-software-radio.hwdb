@@ -47,3 +47,30 @@ usb:v0456pB673*
 # ADI pluto DFU
 usb:v0456pB674*
  ID_SOFTWARE_RADIO=1
+
+#################
+# Ettus Research
+#################
+# USRP1
+usb:vFFFEp0002*
+ ID_SOFTWARE_RADIO=1
+
+# B100
+usb:v2500p0002*
+ ID_SOFTWARE_RADIO=1
+
+# B200
+usb:v2500p0020*
+ ID_SOFTWARE_RADIO=1
+
+usb:v2500p0021*
+ ID_SOFTWARE_RADIO=1
+
+usb:v2500p0022*
+ ID_SOFTWARE_RADIO=1
+
+usb:v3923p7813*
+ ID_SOFTWARE_RADIO=1
+
+usb:v3923p7814*
+ ID_SOFTWARE_RADIO=1
