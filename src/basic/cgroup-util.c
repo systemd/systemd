@@ -293,7 +293,7 @@ int cg_kill(
                 int sig,
                 CGroupFlags flags,
                 Set *killed_pids,
-                cg_kill_log_func_t log_kill,
+                cg_kill_log_func_t kill_log,
                 void *userdata) {
 
         _cleanup_set_free_ Set *allocated_set = NULL;
@@ -352,8 +352,8 @@ int cg_kill(
                                 continue;
                         }
 
-                        if (log_kill)
-                                ret_log_kill = log_kill(&pidref, sig, userdata);
+                        if (kill_log)
+                                ret_log_kill = kill_log(&pidref, sig, userdata);
 
                         /* If we haven't killed this process yet, kill it */
                         r = pidref_kill(&pidref, sig);
@@ -364,7 +364,7 @@ int cg_kill(
                                         (void) pidref_kill(&pidref, SIGCONT);
 
                                 if (ret == 0) {
-                                        if (log_kill)
+                                        if (kill_log)
                                                 ret = ret_log_kill;
                                         else
                                                 ret = 1;
@@ -391,7 +391,7 @@ int cg_kill_recursive(
                 int sig,
                 CGroupFlags flags,
                 Set *killed_pids,
-                cg_kill_log_func_t log_kill,
+                cg_kill_log_func_t kill_log,
                 void *userdata) {
 
         _cleanup_set_free_ Set *allocated_set = NULL;
@@ -407,7 +407,7 @@ int cg_kill_recursive(
                         return -ENOMEM;
         }
 
-        ret = cg_kill(path, sig, flags, killed_pids, log_kill, userdata);
+        ret = cg_kill(path, sig, flags, killed_pids, kill_log, userdata);
 
         r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
         if (r < 0) {
@@ -432,7 +432,7 @@ int cg_kill_recursive(
                 if (!p)
                         return -ENOMEM;
 
-                r = cg_kill_recursive(p, sig, flags, killed_pids, log_kill, userdata);
+                r = cg_kill_recursive(p, sig, flags, killed_pids, kill_log, userdata);
                 if (r < 0)
                         log_debug_errno(r, "Failed to recursively kill processes in cgroup '%s': %m", p);
                 if (r != 0 && ret >= 0)
