@@ -3,8 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "assert-util.h"
-#include "macro.h"
+#include "forward.h"
 
 int osc_context_open_boot(char **ret_seq);
 int osc_context_open_container(const char *name, char **ret_seq, sd_id128_t *ret_context_id);

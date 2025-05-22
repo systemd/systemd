@@ -6,6 +6,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "chattr-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -13,9 +14,11 @@
 #include "journal-internal.h"
 #include "logs-show.h"
 #include "macro.h"
+#include "output-mode.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
