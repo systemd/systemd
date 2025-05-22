@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "hexdecoct.h"
 #include "openssl-util.h"
 #include "tests.h"
 
