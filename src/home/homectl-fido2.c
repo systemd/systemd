@@ -171,8 +171,8 @@ int identity_add_fido2_parameters(
                         /* user_id= */ fido_un, strlen(fido_un), /* We pass the user ID and name as the same */
                         /* user_name= */ fido_un,
                         /* user_display_name= */ rn ? sd_json_variant_string(rn) : NULL,
-                        /* user_icon_name= */ NULL,
-                        /* askpw_icon_name= */ "user-home",
+                        /* user_icon= */ NULL,
+                        /* askpw_icon= */ "user-home",
                         /* askpw_credential= */ "home.token-pin",
                         lock_with,
                         cred_alg,
