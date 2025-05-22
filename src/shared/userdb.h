@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/socket.h>
-#include <sys/un.h>
-
+#include "forward.h"
 #include "group-record.h"
 #include "user-record.h"
 
