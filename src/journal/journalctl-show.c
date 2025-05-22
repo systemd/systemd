@@ -16,6 +16,7 @@
 #include "journalctl-varlink.h"
 #include "log.h"
 #include "logs-show.h"
+#include "output-mode.h"
 #include "pager.h"
 #include "string-util.h"
 #include "terminal-util.h"
