@@ -959,13 +959,12 @@ int cg_get_root_path(char **ret_path) {
 }
 
 int cg_shift_path(const char *cgroup, const char *root, const char **ret_shifted) {
-        _cleanup_free_ char *rt = NULL;
-        char *p;
         int r;
 
         assert(cgroup);
         assert(ret_shifted);
 
+        _cleanup_free_ char *rt = NULL;
         if (!root) {
                 /* If the root was specified let's use that, otherwise
                  * let's determine it from PID 1 */
@@ -977,12 +976,7 @@ int cg_shift_path(const char *cgroup, const char *root, const char **ret_shifted
                 root = rt;
         }
 
-        p = path_startswith(cgroup, root);
-        if (p && p > cgroup)
-                *ret_shifted = p - 1;
-        else
-                *ret_shifted = cgroup;
-
+        *ret_shifted = path_startswith_full(cgroup, root, PATH_STARTSWITH_RETURN_LEADING_SLASH) ?: cgroup;
         return 0;
 }
 

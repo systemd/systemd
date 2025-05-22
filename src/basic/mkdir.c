@@ -151,7 +151,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
         assert(_mkdirat != mkdirat);
 
         if (prefix) {
-                p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
+                p = path_startswith_full(path, prefix, /* flags= */ 0);
                 if (!p)
                         return -EINVAL;
 
