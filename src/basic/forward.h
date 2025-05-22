@@ -84,6 +84,7 @@ union sockaddr_union;
 typedef enum CGroupFlags CGroupFlags;
 typedef enum CGroupMask CGroupMask;
 typedef enum ExtractFlags ExtractFlags;
+typedef enum Glyph Glyph;
 typedef enum ImageClass ImageClass;
 typedef enum JobMode JobMode;
 typedef enum RuntimeScope RuntimeScope;
