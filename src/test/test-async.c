@@ -9,6 +9,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "signal-util.h"
 #include "tests.h"
 #include "time-util.h"

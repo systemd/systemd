@@ -29,6 +29,7 @@
 #include "memory-util.h"
 #include "numa-util.h"
 #include "open-file.h"
+#include "output-mode.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"

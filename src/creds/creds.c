@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"

@@ -61,6 +61,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "unit-def.h"
 #include "user-record.h"
 #include "user-util.h"
 #include "virt.h"

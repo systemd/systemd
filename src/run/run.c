@@ -20,6 +20,7 @@
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
 #include "capsule-util.h"
