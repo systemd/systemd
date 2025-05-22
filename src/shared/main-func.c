@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
 #endif
@@ -14,6 +15,7 @@
 #include "polkit-agent.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 
 void main_prepare(int argc, char *argv[]) {
         assert_se(argc > 0 && !isempty(argv[0]));
@@ -47,4 +49,12 @@ int raise_or_exit_status(int ret) {
         (void) raise(ret);
         /* exit with failure if raise() does not immediately abort the program. */
         return EXIT_FAILURE;
+}
+
+int exit_failure_if_negative(int result) {
+        return result < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
+int exit_failure_if_nonzero(int result) {
+        return result < 0 ? EXIT_FAILURE : result;
 }

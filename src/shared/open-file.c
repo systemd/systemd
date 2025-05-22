@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
@@ -130,6 +128,10 @@ OpenFile* open_file_free(OpenFile *of) {
         free(of->fdname);
 
         return mfree(of);
+}
+
+void open_file_free_many(OpenFile **head) {
+        LIST_CLEAR(open_files, *ASSERT_PTR(head), open_file_free);
 }
 
 static const char * const open_file_flags_table[_OPENFILE_MAX] = {

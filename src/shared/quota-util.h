@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/quota.h>
-#include <sys/types.h>
+#include <sys/quota.h> /* IWYU pragma: export */
+
+#include "forward.h"
 
 /* Wrapper around the QCMD() macro of linux/quota.h that removes some undefined behaviour. A typical quota
  * command such as QCMD(Q_GETQUOTA, USRQUOTA) cannot be resolved on platforms where "int" is 32-bit, as it is

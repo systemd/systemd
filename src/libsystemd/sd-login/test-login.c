@@ -8,6 +8,7 @@
 #include "sd-login.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "errno-list.h"
 #include "fd-util.h"
 #include "format-util.h"

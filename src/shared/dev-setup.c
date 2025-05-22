@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdlib.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
@@ -10,13 +8,11 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "label-util.h"
-#include "lock-util.h"
 #include "log.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "stat-util.h"
-#include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 
