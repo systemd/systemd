@@ -201,13 +201,13 @@ void link_add_rrs(Link *l, bool force_remove) {
             link_get_mdns_support(l) == RESOLVE_SUPPORT_YES) {
 
                 if (l->mdns_ipv4_scope) {
-                        r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
+                        r = dns_scope_add_dnssd_registered_services(l->mdns_ipv4_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to add IPv4 DNS-SD services, ignoring: %m");
                 }
 
                 if (l->mdns_ipv6_scope) {
-                        r = dns_scope_add_dnssd_services(l->mdns_ipv6_scope);
+                        r = dns_scope_add_dnssd_registered_services(l->mdns_ipv6_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to add IPv6 DNS-SD services, ignoring: %m");
                 }
@@ -215,13 +215,13 @@ void link_add_rrs(Link *l, bool force_remove) {
         } else {
 
                 if (l->mdns_ipv4_scope) {
-                        r = dns_scope_remove_dnssd_services(l->mdns_ipv4_scope);
+                        r = dns_scope_remove_dnssd_registered_services(l->mdns_ipv4_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to remove IPv4 DNS-SD services, ignoring: %m");
                 }
 
                 if (l->mdns_ipv6_scope) {
-                        r = dns_scope_remove_dnssd_services(l->mdns_ipv6_scope);
+                        r = dns_scope_remove_dnssd_registered_services(l->mdns_ipv6_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to remove IPv6 DNS-SD services, ignoring: %m");
                 }
