@@ -634,46 +634,6 @@ static int method_get_seat(sd_bus_message *message, void *userdata, sd_bus_error
 }
 
 static int method_list_sessions(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = ASSERT_PTR(userdata);
-        Session *session;
-        int r;
-
-        assert(message);
-
-        r = sd_bus_message_new_method_return(message, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(reply, 'a', "(susso)");
-        if (r < 0)
-                return r;
-
-        HASHMAP_FOREACH(session, m->sessions) {
-                _cleanup_free_ char *p = NULL;
-
-                p = session_bus_path(session);
-                if (!p)
-                        return -ENOMEM;
-
-                r = sd_bus_message_append(reply, "(susso)",
-                                          session->id,
-                                          (uint32_t) session->user->user_record->uid,
-                                          session->user->user_record->user_name,
-                                          session->seat ? session->seat->id : "",
-                                          p);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
-
-        return sd_bus_message_send(reply);
-}
-
-static int method_list_sessions_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
@@ -684,15 +644,23 @@ static int method_list_sessions_ex(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_open_container(reply, 'a', "(sussussbto)");
+        const char *method = sd_bus_message_get_member(message), *t;
+        if (endswith(method, "ExEx"))
+                t = "sussussbttttusbssssto";
+        else if (endswith(method, "Ex"))
+                t = "sussussbto";
+        else
+                t = "susso";
+
+        const char *j = strjoina("(", t, ")");
+
+        r = sd_bus_message_open_container(reply, 'a', j);
         if (r < 0)
                 return r;
 
         Session *s;
         HASHMAP_FOREACH(s, m->sessions) {
                 _cleanup_free_ char *path = NULL;
-                dual_timestamp idle_ts;
-                bool idle;
 
                 assert(s->user);
 
@@ -700,22 +668,67 @@ static int method_list_sessions_ex(sd_bus_message *message, void *userdata, sd_b
                 if (!path)
                         return -ENOMEM;
 
-                r = session_get_idle_hint(s, &idle_ts);
+                r = sd_bus_message_open_container(reply, 'r', t);
                 if (r < 0)
                         return r;
-                idle = r > 0;
 
-                r = sd_bus_message_append(reply, "(sussussbto)",
-                                          s->id,
-                                          (uint32_t) s->user->user_record->uid,
-                                          s->user->user_record->user_name,
-                                          s->seat ? s->seat->id : "",
-                                          (uint32_t) s->leader.pid,
-                                          session_class_to_string(s->class),
-                                          s->tty,
-                                          idle,
-                                          idle_ts.monotonic,
-                                          path);
+                r = sd_bus_message_append(
+                                reply,
+                                "suss",
+                                s->id,
+                                (uint32_t) s->user->user_record->uid,
+                                s->user->user_record->user_name,
+                                s->seat ? s->seat->id : "");
+                if (r < 0)
+                        return r;
+
+                if (endswith(method, "Ex")) {
+                        dual_timestamp idle_ts;
+                        r = session_get_idle_hint(s, &idle_ts);
+                        if (r < 0)
+                                return r;
+
+                        bool idle = r > 0;
+
+                        r = sd_bus_message_append(
+                                        reply,
+                                        "ussbt",
+                                        (uint32_t) s->leader.pid,
+                                        session_class_to_string(s->class),
+                                        s->tty,
+                                        idle,
+                                        idle_ts.monotonic);
+                        if (r < 0)
+                                return r;
+
+                        if (endswith(method, "ExEx")) {
+                                r = sd_bus_message_append(
+                                                reply,
+                                                "tttusbsssst",
+                                                idle_ts.realtime,
+                                                s->timestamp.monotonic,
+                                                s->timestamp.realtime,
+                                                s->vtnr,
+                                                session_type_to_string(s->type),
+                                                s->remote,
+                                                s->remote_user,
+                                                s->remote_host,
+                                                s->service,
+                                                s->desktop,
+                                                s->leader.fd_id);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                r = sd_bus_message_append(
+                                reply,
+                                "o",
+                                path);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(reply);
                 if (r < 0)
                         return r;
         }
@@ -3990,7 +4003,12 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD_WITH_ARGS("ListSessionsEx",
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("a(sussussbto)", sessions),
-                                method_list_sessions_ex,
+                                method_list_sessions,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("ListSessionsExEx",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("a(sussussbttttusbssssto)", sessions),
+                                method_list_sessions,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("ListUsers",
                                 SD_BUS_NO_ARGS,
