@@ -3,13 +3,14 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <net/if_arp.h>
 
 #include "sd-dhcp-server.h"
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "hashmap.h"
+#include "siphash24.h"
 #include "tests.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {

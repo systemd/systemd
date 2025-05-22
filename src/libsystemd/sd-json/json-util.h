@@ -5,9 +5,9 @@
 
 #include "sd-json.h"
 
+#include "forward.h"
 #include "log.h"
-#include "macro.h"
-#include "pidref.h"
+#include "string-util.h"
 
 #define JSON_VARIANT_REPLACE(v, q)        \
         do {                              \

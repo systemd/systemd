@@ -17,11 +17,8 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
-#include <sys/types.h>
 
 #include "_sd-common.h"
 #include "sd-event.h"

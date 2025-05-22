@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <poll.h>
 #include <sys/inotify.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-network.h"
 
@@ -11,9 +12,7 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "inotify-util.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"

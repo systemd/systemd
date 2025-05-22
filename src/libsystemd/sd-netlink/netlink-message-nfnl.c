@@ -3,15 +3,14 @@
 #include <linux/netfilter.h>
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink.h>
-#include <netinet/in.h>
 
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "netlink-internal.h"
-#include "netlink-types.h"
 #include "netlink-util.h"
 
 bool nfproto_is_valid(int nfproto) {
