@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <dlfcn.h>
-
 #include "apparmor-util.h"
 #include "bpf-dlopen.h"
 #include "compress.h"
