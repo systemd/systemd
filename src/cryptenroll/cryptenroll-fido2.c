@@ -118,8 +118,8 @@ int enroll_fido2(
                         /* user_id= */ un, strlen(un), /* We pass the user ID and name as the same: the disk's UUID if we have it */
                         /* user_name= */ un,
                         /* user_display_name= */ node,
-                        /* user_icon_name= */ NULL,
-                        /* askpw_icon_name= */ "drive-harddisk",
+                        /* user_icon= */ NULL,
+                        /* askpw_icon= */ "drive-harddisk",
                         /* askpw_credential= */ "cryptenroll.fido2-pin",
                         lock_with,
                         cred_alg,
