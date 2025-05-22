@@ -2290,7 +2290,7 @@ static void boot_entry_add_type2(
                 boot_entry_parse_tries(entry, path, filename, u".efi");
 
                 if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
-                        return;
+                        continue;
 
                 content = mfree(content);
 
