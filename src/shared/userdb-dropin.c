@@ -1,15 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "group-record.h"
-#include "log.h"
 #include "path-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "user-util.h"
+#include "userdb.h"
 #include "userdb-dropin.h"
 
 static int load_user(

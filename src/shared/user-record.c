@@ -7,12 +7,9 @@
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "dns-domain.h"
-#include "env-util.h"
-#include "fs-util.h"
 #include "glyph-util.h"
-#include "hexdecoct.h"
+#include "hashmap.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "json-util.h"
 #include "locale-util.h"
 #include "log.h"
@@ -23,11 +20,12 @@
 #include "rlimit-util.h"
 #include "sha256.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "user-record.h"
 #include "user-util.h"
-#include "utf8.h"
 
 #define DEFAULT_RATELIMIT_BURST 30
 #define DEFAULT_RATELIMIT_INTERVAL_USEC (1*USEC_PER_MINUTE)
@@ -104,6 +102,11 @@ UserRecord* user_record_new(void) {
         };
 
         return h;
+}
+
+sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags) {
+        return (FLAGS_SET(flags, USER_RECORD_LOG) ? SD_JSON_LOG : 0) |
+                (FLAGS_SET(flags, USER_RECORD_PERMISSIVE) ? SD_JSON_PERMISSIVE : 0);
 }
 
 static void pkcs11_encrypted_key_done(Pkcs11EncryptedKey *k) {
@@ -2759,6 +2762,21 @@ int suitable_blob_filename(const char *name) {
         return filename_is_valid(name) &&
                in_charset(name, URI_UNRESERVED) &&
                name[0] != '.';
+}
+
+bool userdb_match_is_set(const UserDBMatch *match) {
+        if (!match)
+                return false;
+
+        return !strv_isempty(match->fuzzy_names) ||
+                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
+                match->uid_min > 0 ||
+                match->uid_max < UID_INVALID-1;
+}
+
+void userdb_match_done(UserDBMatch *match) {
+        assert(match);
+        strv_free(match->fuzzy_names);
 }
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches) {
