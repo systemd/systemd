@@ -1657,18 +1657,18 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         return 0;
 }
 
-int dns_scope_add_dnssd_services(DnsScope *scope) {
-        DnssdService *service;
+int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
+        DnssdRegisteredService *service;
         int r;
 
         assert(scope);
 
-        if (hashmap_isempty(scope->manager->dnssd_services))
+        if (hashmap_isempty(scope->manager->dnssd_registered_services))
                 return 0;
 
         scope->announced = false;
 
-        HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
+        HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services) {
                 service->withdrawn = false;
 
                 r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
@@ -1695,9 +1695,9 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
         return 0;
 }
 
-int dns_scope_remove_dnssd_services(DnsScope *scope) {
+int dns_scope_remove_dnssd_registered_services(DnsScope *scope) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        DnssdService *service;
+        DnssdRegisteredService *service;
         int r;
 
         assert(scope);
@@ -1711,7 +1711,7 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
+        HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services) {
                 dns_zone_remove_rr(&scope->zone, service->ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->sub_ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->srv_rr);

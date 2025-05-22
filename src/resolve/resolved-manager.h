@@ -91,7 +91,7 @@ typedef struct Manager {
         sd_event_source *mdns_ipv6_event_source;
 
         /* DNS-SD */
-        Hashmap *dnssd_services;
+        Hashmap *dnssd_registered_services;
 
         /* dbus */
         sd_bus *bus;
