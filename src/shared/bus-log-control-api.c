@@ -5,9 +5,13 @@
 #include "alloc-util.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
-#include "bus-util.h"
+#include "bus-object.h"
 #include "log.h"
 #include "syslog-util.h"
+
+int bus_log_control_api_register(sd_bus *bus) {
+        return bus_add_implementation(bus, &log_control_object, NULL);
+}
 
 int bus_property_get_log_level(
                 sd_bus *bus,
