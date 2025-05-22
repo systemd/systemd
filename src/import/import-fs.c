@@ -7,6 +7,7 @@
 #include "ansi-color.h"
 #include "btrfs-util.h"
 #include "build.h"
+#include "copy.h"
 #include "discover-image.h"
 #include "fd-util.h"
 #include "format-util.h"

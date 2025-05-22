@@ -2,6 +2,8 @@
 
 #include <getopt.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "log.h"

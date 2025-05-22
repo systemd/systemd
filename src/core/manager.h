@@ -8,6 +8,7 @@
 #include "execute.h"
 #include "forward.h"
 #include "log.h"
+#include "path-lookup.h"
 #include "show-status.h"
 #include "unit.h"
 
