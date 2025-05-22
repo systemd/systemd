@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdbool.h>
-
-#include "macro.h"
+#include "forward.h"
 
 /* Manager status */
 

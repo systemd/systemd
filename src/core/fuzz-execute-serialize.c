@@ -18,13 +18,15 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 
-#include "alloc-util.h"
+#include "cgroup.h"
 #include "dynamic-user.h"
 #include "execute-serialize.h"
+#include "execute.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fuzz.h"
-#include "service.h"
 
 static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         _cleanup_(exec_params_deep_clear) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);

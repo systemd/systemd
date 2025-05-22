@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "macro.h"
+#include "forward.h"
 
 typedef enum KillMode {
         /* The kill mode is a property of a unit. */

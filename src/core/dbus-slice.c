@@ -5,6 +5,7 @@
 #include "dbus-slice.h"
 #include "dbus-util.h"
 #include "slice.h"
+#include "string-util.h"
 #include "unit.h"
 
 static int property_get_currently_active(

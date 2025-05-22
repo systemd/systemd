@@ -10,7 +10,6 @@
 #include "mount.h"
 #include "string-util.h"
 #include "unit.h"
-#include "utf8.h"
 
 static int property_get_what(
                 sd_bus *bus,
