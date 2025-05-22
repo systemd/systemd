@@ -16,6 +16,7 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 

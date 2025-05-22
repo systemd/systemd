@@ -16,6 +16,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
+#include "bus-util.h"
 #include "errno-util.h"
 #include "format-table.h"
 #include "hostname-setup.h"

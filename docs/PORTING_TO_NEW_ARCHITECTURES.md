@@ -42,7 +42,7 @@ architecture.
    `src/basic/missing_syscall_def.h`. systemd uses various system calls the
    Linux kernel provides that are currently not wrapped by glibc (or are only
    in very new glibc), and we need to know the right numbers for them. It might
-   also be necessary to tweak `src/basic/raw-clone.h`.
+   also be necessary to tweak `raw_clone()` in `src/basic/process-util.c`.
 
 5. Make sure the code in `src/shared/seccomp-util.c` properly understands the
    local architecture and its system call quirks.

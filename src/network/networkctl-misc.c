@@ -5,6 +5,7 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-ifname.h"

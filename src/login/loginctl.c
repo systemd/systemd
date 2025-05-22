@@ -14,6 +14,7 @@
 #include "bus-map-properties.h"
 #include "bus-print-properties.h"
 #include "bus-unit-procs.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "format-table.h"
