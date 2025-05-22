@@ -400,6 +400,7 @@ static int dns_scope_socket(
 
         _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa;
+        bool bound = false;
         socklen_t salen;
         int r, ifindex;
 
@@ -483,6 +484,15 @@ static int dns_scope_socket(
                 r = socket_set_unicast_if(fd, sa.sa.sa_family, ifindex);
                 if (r < 0)
                         return r;
+
+                /* TCP sockets don't use IP_UNICAST_IF for routing. We need SO_BINDTOINDEX. */
+                if (type == SOCK_STREAM) {
+                        r = socket_bind_to_ifindex(fd, ifindex);
+                        if (r < 0)
+                                return r;
+
+                        bound = true;
+                }
         }
 
         if (s->protocol == DNS_PROTOCOL_LLMNR) {
@@ -516,27 +526,28 @@ static int dns_scope_socket(
         if (ret_socket_address)
                 *ret_socket_address = sa;
         else {
-                bool bound = false;
+                bool tmp_bound = false;
 
-                /* Let's temporarily bind the socket to the specified ifindex. Older kernels only take
-                 * the SO_BINDTODEVICE/SO_BINDTOINDEX ifindex into account when making routing decisions
-                 * in connect() — and not IP_UNICAST_IF. We don't really want any of the other semantics of
-                 * SO_BINDTODEVICE/SO_BINDTOINDEX, hence we immediately unbind the socket after the fact
-                 * again.
+                /* Let's temporarily bind the socket to the specified ifindex if it's not already bound.
+                 * Older kernels only take the SO_BINDTODEVICE/SO_BINDTOINDEX ifindex into account when
+                 * making routing decisions in connect() — and not IP_UNICAST_IF. We don't really want any
+                 * of the other semantics of SO_BINDTODEVICE/SO_BINDTOINDEX, hence we immediately unbind
+                 * the socket after the fact again.
                  */
-                if (addr_is_nonlocal) {
+
+                if (!bound && addr_is_nonlocal) {
                         r = socket_bind_to_ifindex(fd, ifindex);
                         if (r < 0)
                                 return r;
 
-                        bound = true;
+                        tmp_bound = true;
                 }
 
                 r = connect(fd, &sa.sa, salen);
                 if (r < 0 && errno != EINPROGRESS)
                         return -errno;
 
-                if (bound) {
+                if (tmp_bound) {
                         r = socket_bind_to_ifindex(fd, 0);
                         if (r < 0)
                                 return r;
