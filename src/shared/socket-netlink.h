@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "in-addr-util.h"
-#include "macro.h"
-#include "socket-util.h"
 
 int make_socket_fd(int log_level, const char* address, int type, int flags);
 

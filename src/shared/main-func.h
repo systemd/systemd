@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdlib.h>
-
+#include "forward.h"
 #include "static-destruct.h"
 
 void main_prepare(int argc, char *argv[]);
@@ -20,18 +19,14 @@ void main_finalize(int r, int exit_status);
                 return result_to_return_value(r);                       \
         }
 
-static inline int exit_failure_if_negative(int result) {
-        return result < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-}
+int exit_failure_if_negative(int result);
 
 /* Negative return values from impl are mapped to EXIT_FAILURE, and
  * everything else means success! */
 #define DEFINE_MAIN_FUNCTION(impl)                                      \
         _DEFINE_MAIN_FUNCTION(,impl(argc, argv), exit_failure_if_negative, exit_failure_if_negative)
 
-static inline int exit_failure_if_nonzero(int result) {
-        return result < 0 ? EXIT_FAILURE : result;
-}
+int exit_failure_if_nonzero(int result);
 
 /* Zero is mapped to EXIT_SUCCESS, negative values are mapped to EXIT_FAILURE,
  * and positive values are propagated.

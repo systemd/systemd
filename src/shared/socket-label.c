@@ -1,19 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <netinet/in.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <string.h>
-#include <sys/un.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "macro.h"
-#include "missing_socket.h"
 #include "mkdir-label.h"
 #include "selinux-util.h"
 #include "socket-util.h"

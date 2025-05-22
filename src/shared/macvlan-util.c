@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "conf-parser.h"
 #include "macvlan-util.h"
 #include "string-table.h"
 
