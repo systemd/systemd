@@ -2841,14 +2841,14 @@ alias_target('gensources', generated_sources)
 clang_tidy = find_program('clang-tidy', required : false)
 if meson.version().version_compare('>=1.4.0')
         foreach source : sources
-                if fs.name(source).endswith('.h')
+                if not source.full_path().endswith('.c') and not source.full_path().endswith('.h')
                         continue
                 endif
 
                 inputs = [source]
 
                 header = source.full_path().replace('.c', '.h')
-                if fs.exists(header)
+                if fs.exists(header) and header != source.full_path()
                         inputs += header
                 endif
 
