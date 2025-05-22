@@ -210,6 +210,9 @@ typedef struct Manager {
         /* Units that have resources open, and where it might be good to check if they can be released now */
         LIST_HEAD(Unit, release_resources_queue);
 
+        /* Units that perform certain actions after some other unit deactivates */
+        LIST_HEAD(Unit, stop_notify_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in them. We allow multiple units to be
@@ -357,6 +360,7 @@ typedef struct Manager {
 
         /* Flags */
         bool dispatching_load_queue;
+        int may_dispatch_stop_notify_queue;
 
         /* Have we already sent out the READY=1 notification? */
         bool ready_sent;
