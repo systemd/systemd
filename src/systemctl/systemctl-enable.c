@@ -10,6 +10,7 @@
 #include "glyph-util.h"
 #include "install.h"
 #include "log.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv-fundamental.h"

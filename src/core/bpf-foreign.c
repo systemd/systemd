@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/bpf.h>
+
 #include "alloc-util.h"
 #include "bpf-foreign.h"
 #include "bpf-program.h"

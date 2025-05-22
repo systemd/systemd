@@ -4,6 +4,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "analyze-verify-util.h"
 #include "analyze.h"
 #include "analyze-security.h"
@@ -30,6 +31,7 @@
 #include "service.h"
 #include "set.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-def.h"
 #include "unit-name.h"

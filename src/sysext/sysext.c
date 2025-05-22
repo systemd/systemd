@@ -8,7 +8,6 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-#include "sd-bus.h"
 #include "sd-varlink.h"
 
 #include "argv-util.h"
@@ -32,6 +31,7 @@
 #include "hashmap.h"
 #include "image-policy.h"
 #include "initrd-util.h"
+#include "label-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"

@@ -15,6 +15,7 @@
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 
 static int append_machine_properties(

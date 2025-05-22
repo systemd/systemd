@@ -15,6 +15,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "unit-def.h"
 
 static int graph_one_property(
                 sd_bus *bus,

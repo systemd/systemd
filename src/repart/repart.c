@@ -21,6 +21,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "copy.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
 #include "devnum-util.h"

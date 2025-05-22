@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 
+#include "process-util.h"
 #include "random-util.h"
 
 /* This pattern needs to be repeated exactly in multiple modules, so macro it.
