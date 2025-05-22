@@ -1,17 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
-#include <netinet/ether.h>
+
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "condition.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "log.h"
 #include "net-condition.h"
 #include "netif-util.h"
-#include "network-util.h"
+#include "set.h"
 #include "socket-util.h"
-#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "wifi-util.h"
 

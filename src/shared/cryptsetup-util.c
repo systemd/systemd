@@ -1,10 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
 #include "dlfcn-util.h"
 #include "log.h"
 #include "parse-util.h"
+#include "string-util.h"
+#include "strv.h"
 
 #if HAVE_LIBCRYPTSETUP
 static void *cryptsetup_dl = NULL;
@@ -337,4 +343,9 @@ int cryptsetup_get_keyslot_from_token(sd_json_variant *v) {
                 return -EINVAL;
 
         return keyslot;
+}
+
+const char* mangle_none(const char *s) {
+        /* A helper that turns cryptsetup/integritysetup/veritysetup "options" strings into NULL if they are effectively empty */
+        return isempty(s) || STR_IN_SET(s, "-", "none") ? NULL : s;
 }
