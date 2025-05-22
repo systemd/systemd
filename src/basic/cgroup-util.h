@@ -1,18 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/statfs.h>
-#include <sys/types.h>
-
-#include "constants.h"
-#include "pidref.h"
-#include "set.h"
+#include "forward.h"
 
 #define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
 #define SYSTEMD_CGROUP_CONTROLLER_HYBRID "name=unified"
@@ -319,17 +308,3 @@ typedef enum ManagedOOMPreference {
 
 const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
 ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;
-
-/* The structure to pass to name_to_handle_at() on cgroupfs2 */
-typedef union {
-        struct file_handle file_handle;
-        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
-} cg_file_handle;
-
-#define CG_FILE_HANDLE_INIT                                     \
-        (cg_file_handle) {                                      \
-                .file_handle.handle_bytes = sizeof(uint64_t),   \
-                .file_handle.handle_type = FILEID_KERNFS,       \
-        }
-
-#define CG_FILE_HANDLE_CGROUPID(fh) (*CAST_ALIGN_PTR(uint64_t, (fh).file_handle.f_handle))

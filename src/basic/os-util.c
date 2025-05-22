@@ -1,24 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "alloc-util.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "env-file.h"
-#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "log.h"
-#include "macro.h"
 #include "os-util.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "utf8.h"
 #include "xattr-util.h"
 

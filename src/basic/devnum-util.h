@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
 #include <sys/sysmacros.h>
 
-#include "stdio-util.h"
+#include "forward.h"
 
 int parse_devnum(const char *s, dev_t *ret);
 
@@ -49,9 +46,7 @@ static inline bool devnum_set_and_equal(dev_t a, dev_t b) {
 #define DEVNUM_FORMAT_STR "%u:%u"
 #define DEVNUM_FORMAT_VAL(d) major(d), minor(d)
 
-static inline char *format_devnum(dev_t d, char buf[static DEVNUM_STR_MAX]) {
-        return ASSERT_PTR(snprintf_ok(buf, DEVNUM_STR_MAX, DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(d)));
-}
+char *format_devnum(dev_t d, char buf[static DEVNUM_STR_MAX]);
 
 #define FORMAT_DEVNUM(d) format_devnum((d), (char[DEVNUM_STR_MAX]) {})
 

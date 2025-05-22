@@ -1,18 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <sys/stat.h>
-#include <sys/statfs.h>
-#include <sys/types.h>
-#include <sys/vfs.h>
+#include <sys/stat.h>           /* IWYU pragma: export */
+#include <sys/statfs.h>         /* IWYU pragma: export */
 
-#include "fs-util.h"
-#include "macro.h"
-#include "siphash24.h"
-#include "time-util.h"
+#include "forward.h"
 
 int stat_verify_regular(const struct stat *st);
 int verify_regular_at(int fd, const char *path, bool follow);
@@ -93,12 +85,8 @@ bool statx_mount_same(const struct statx *a, const struct statx *b);
 
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
 
-static inline usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
-        return timespec_load(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
-}
-static inline nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) {
-        return timespec_load_nsec(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
-}
+usec_t statx_timestamp_load(const struct statx_timestamp *ts);
+nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts);
 
 void inode_hash_func(const struct stat *q, struct siphash *state);
 int inode_compare_func(const struct stat *a, const struct stat *b);
