@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/epoll.h>
+#include <stdlib.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <threads.h>
@@ -11,20 +11,19 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "env-util.h"
+#include "errno-util.h"
 #include "event-source.h"
 #include "fd-util.h"
-#include "fs-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "list.h"
+#include "log.h"
 #include "logarithm.h"
-#include "macro.h"
 #include "mallinfo-util.h"
 #include "memory-util.h"
 #include "missing_magic.h"
-#include "missing_syscall.h"
 #include "missing_wait.h"
 #include "origin-id.h"
 #include "path-util.h"
@@ -34,6 +33,7 @@
 #include "psi-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"

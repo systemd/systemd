@@ -12,7 +12,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "journal-def.h"
-#include "journal-file.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "log.h"

@@ -1,20 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/uio.h>
-
-#include "sd-event.h"
-#include "sd-id128.h"
-
 #include "compress.h"
+#include "forward.h"
 #include "gcrypt-util.h"
-#include "hashmap.h"
 #include "journal-def.h"
 #include "missing_fcntl.h"
 #include "mmap-cache.h"
 #include "sparse-endian.h"
-#include "time-util.h"
 
 typedef struct JournalMetrics {
         /* For all these: UINT64_MAX means "pick automatically", and 0 means "no limit enforced" */

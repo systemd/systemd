@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
+#include "sd-bus-vtable.h"
+
 #include "bus-internal.h"
 #include "bus-introspect.h"
 #include "bus-objects.h"
-#include "bus-protocol.h"
 #include "bus-signature.h"
-#include "fd-util.h"
-#include "fileio.h"
-#include "log.h"
-#include "memory-util.h"
 #include "memstream-util.h"
+#include "ordered-set.h"
 #include "string-util.h"
 
 #define BUS_INTROSPECT_DOCTYPE                                       \

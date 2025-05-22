@@ -2,7 +2,9 @@
 
 #include "sd-netlink.h"
 
+#include "ether-addr-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "memory-util.h"
@@ -10,6 +12,8 @@
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 static int parse_newlink_message(

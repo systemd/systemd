@@ -17,10 +17,7 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <sys/types.h>
 #include <sys/uio.h>
 
 #include "_sd-common.h"

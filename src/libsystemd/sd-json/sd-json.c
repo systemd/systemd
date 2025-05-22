@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <locale.h>
-#include <stdarg.h>
 #include <stdlib.h>
-#include <sys/types.h>
 
 #include "sd-json.h"
 #include "sd-messages.h"
@@ -15,31 +12,26 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "float.h"
-#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
-#include "iovec-util.h"
 #include "json-internal.h"
 #include "json-util.h"
 #include "log.h"
-#include "macro.h"
 #include "math-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "ordered-set.h"
 #include "parse-util.h"
-#include "path-util.h"
-#include "process-util.h"
+#include "pidref.h"
 #include "ratelimit.h"
-#include "set.h"
 #include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
