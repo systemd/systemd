@@ -983,6 +983,7 @@ static const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("Name", "s", property_get_name, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("Timestamp", offsetof(Session, timestamp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("VTNr", "u", NULL, offsetof(Session, vtnr), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Position", "u", NULL, offsetof(Session, position), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Seat", "(so)", property_get_seat, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TTY", "s", NULL, offsetof(Session, tty), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Display", "s", NULL, offsetof(Session, display), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
