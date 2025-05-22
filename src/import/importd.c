@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"

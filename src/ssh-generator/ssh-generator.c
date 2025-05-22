@@ -12,6 +12,7 @@
 #include "log.h"
 #include "missing_socket.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "socket-netlink.h"
