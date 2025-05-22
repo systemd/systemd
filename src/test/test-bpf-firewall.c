@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/bpf.h>
 #include <linux/bpf_insn.h>
 #include <unistd.h>
 
