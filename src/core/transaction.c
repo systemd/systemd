@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-#include <unistd.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -9,9 +8,10 @@
 #include "bus-error.h"
 #include "dbus-unit.h"
 #include "manager.h"
+#include "set.h"
 #include "slice.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "transaction.h"
 
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);

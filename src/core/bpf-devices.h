@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
-#include "cgroup.h"
-
-typedef struct BPFProgram BPFProgram;
+#include "core-forward.h"
 
 int bpf_devices_cgroup_init(BPFProgram **ret, CGroupDevicePolicy policy, bool allow_list);
 int bpf_devices_apply_policy(

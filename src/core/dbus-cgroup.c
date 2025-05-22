@@ -1,32 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
-
 #include "af-list.h"
 #include "alloc-util.h"
-#include "bpf-firewall.h"
-#include "bpf-foreign.h"
+#include "bpf-program.h"
 #include "bus-get-properties.h"
 #include "bus-message-util.h"
-#include "bus-util.h"
 #include "cgroup.h"
 #include "cgroup-util.h"
 #include "dbus-cgroup.h"
-#include "dbus-util.h"
-#include "errno-util.h"
 #include "escape.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
-#include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "manager.h"
 #include "memstream-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "set.h"
 #include "socket-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "varlink.h"
 
 BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", CGroupTasksMax, cgroup_tasks_max_resolve);

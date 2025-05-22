@@ -275,6 +275,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
 #include <stddef.h>
 #include "all-units.h"
+#include "condition.h"
 #include "conf-parser.h"
 #include "image-policy.h"
 #include "in-addr-prefix-util.h"

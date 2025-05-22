@@ -1,20 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/prctl.h>
 #include <poll.h>
-#include <sys/file.h>
 #include <sys/mman.h>
-#include <sys/personality.h>
+#include <sys/mount.h>
 #include <sys/prctl.h>
-#include <sys/shm.h>
-#include <sys/types.h>
-#include <sys/un.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#include <utmpx.h>
-
-#include "sd-messages.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -23,55 +17,51 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
-#include "constants.h"
+#include "coredump-util.h"
 #include "cpu-set-util.h"
+#include "dissect-image.h"
 #include "dynamic-user.h"
 #include "env-file.h"
 #include "env-util.h"
-#include "errno-list.h"
 #include "escape.h"
-#include "exec-credential.h"
 #include "execute.h"
 #include "execute-serialize.h"
-#include "exit-status.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "io-util.h"
 #include "ioprio-util.h"
-#include "lock-util.h"
 #include "log.h"
-#include "macro.h"
 #include "manager.h"
-#include "manager-dump.h"
-#include "memory-util.h"
-#include "missing_fs.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
+#include "namespace-util.h"
 #include "namespace.h"
+#include "nsflags.h"
+#include "open-file.h"
+#include "ordered-set.h"
 #include "osc-context.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
-#include "selinux-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "sort-util.h"
-#include "special.h"
-#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
-#include "umask-util.h"
-#include "unit-serialize.h"
-#include "user-util.h"
 #include "utmp-wtmp.h"
 #include "vpick.h"
 
@@ -384,6 +374,16 @@ const char* exec_get_private_notify_socket_path(const ExecContext *context, cons
                 return NULL;
 
         return "/run/host/notify";
+}
+
+int exec_log_level_max(const ExecContext *context, const ExecParameters *params) {
+        assert(context);
+        assert(params);
+
+        if (params->debug_invocation)
+                return LOG_DEBUG;
+
+        return context->log_level_max < 0 ? log_get_max_level() : context->log_level_max;
 }
 
 bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type) {
@@ -1993,6 +1993,27 @@ char** exec_context_get_restrict_filesystems(const ExecContext *c) {
 #else
         return strv_new(NULL);
 #endif
+}
+
+bool exec_context_restrict_namespaces_set(const ExecContext *c) {
+        assert(c);
+
+        return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
+}
+
+bool exec_context_restrict_filesystems_set(const ExecContext *c) {
+        assert(c);
+
+        return c->restrict_filesystems_allow_list ||
+          !set_isempty(c->restrict_filesystems);
+}
+
+bool exec_context_with_rootfs(const ExecContext *c) {
+        assert(c);
+
+        /* Checks if RootDirectory= or RootImage= are used */
+
+        return !empty_or_root(c->root_directory) || c->root_image;
 }
 
 int exec_context_has_vpicked_extensions(const ExecContext *context) {

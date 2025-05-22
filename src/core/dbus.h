@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "fdset.h"
-
-typedef struct Manager Manager;
+#include "core-forward.h"
 
 void bus_send_pending_reload_message(Manager *m);
 
