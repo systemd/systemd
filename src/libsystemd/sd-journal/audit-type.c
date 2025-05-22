@@ -3,4 +3,4 @@
 #include "audit-type.h"
 #include "missing_audit.h"
 
-#include "audit_type-to-name.h"
+#include "audit_type-to-name.inc"

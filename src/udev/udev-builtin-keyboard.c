@@ -14,7 +14,7 @@
 #include "udev-builtin.h"
 
 static const struct key_name *keyboard_lookup_key(const char *str, GPERF_LEN_TYPE len);
-#include "keyboard-keys-from-name.h"
+#include "keyboard-keys-from-name.inc"
 
 static int install_force_release(sd_device *dev, const unsigned *release, unsigned release_count) {
         sd_device *atkbd;

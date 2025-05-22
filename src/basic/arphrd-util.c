@@ -12,8 +12,8 @@
 
 static const struct arphrd_name* lookup_arphrd(register const char *str, register GPERF_LEN_TYPE len);
 
-#include "arphrd-from-name.h"
-#include "arphrd-to-name.h"
+#include "arphrd-from-name.inc"
+#include "arphrd-to-name.inc"
 
 int arphrd_from_name(const char *name) {
         const struct arphrd_name *sc;

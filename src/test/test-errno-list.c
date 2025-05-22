@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "errno-list.h"
-#include "errno-to-name.h"
 #include "tests.h"
+
+#include "errno-to-name.inc"
 
 TEST(errno_list) {
         ASSERT_NULL(errno_names[0]);
