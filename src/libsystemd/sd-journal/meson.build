@@ -27,8 +27,8 @@ audit_type_list_txt = custom_target(
         capture : true)
 
 audit_type_to_name = custom_target(
-        'audit_type-to-name.h',
+        'audit_type-to-name.inc',
         input : ['audit_type-to-name.awk', audit_type_list_txt],
-        output : 'audit_type-to-name.h',
+        output : 'audit_type-to-name.inc',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)

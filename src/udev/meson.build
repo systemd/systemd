@@ -78,8 +78,8 @@ gperf_file = custom_target(
         command : [generate_keyboard_keys_gperf, '@INPUT@'],
         capture : true)
 
-fname = 'keyboard-keys-from-name.h'
-keyboard_keys_from_name_h = custom_target(
+fname = 'keyboard-keys-from-name.inc'
+keyboard_keys_from_name_inc = custom_target(
         fname,
         input : gperf_file,
         output : fname,
@@ -91,7 +91,7 @@ keyboard_keys_from_name_h = custom_target(
                    '@INPUT@'],
         capture : true)
 
-generated_sources += keyboard_keys_from_name_h
+generated_sources += keyboard_keys_from_name_inc
 
 ############################################################
 
@@ -151,7 +151,7 @@ udev_binaries_dict = [
                 'public' : true,
                 'sources' : udevadm_sources +
                             udevadm_extract_sources +
-                            keyboard_keys_from_name_h,
+                            keyboard_keys_from_name_inc,
                 'include_directories' : [
                         libexec_template['include_directories'],
                         include_directories('.', 'net'),

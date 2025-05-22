@@ -227,8 +227,8 @@ if get_option('tests') != 'false'
 endif
 
 generate_syscall_list = find_program('generate-syscall-list.py')
-fname = 'syscall-list.h'
-syscall_list_h = custom_target(
+fname = 'syscall-list.inc'
+syscall_list_inc = custom_target(
         fname,
         input : syscall_list_txt,
         output : fname,
@@ -236,7 +236,7 @@ syscall_list_h = custom_target(
                    '@INPUT@'],
         capture : true)
 
-generated_sources += syscall_list_h
+generated_sources += syscall_list_inc
 
 if conf.get('ENABLE_UTMP') == 1
         shared_sources += files('utmp-wtmp.c')
@@ -244,7 +244,7 @@ endif
 
 if conf.get('HAVE_SECCOMP') == 1
         shared_sources += files('seccomp-util.c')
-        shared_sources += syscall_list_h
+        shared_sources += syscall_list_inc
 endif
 
 if conf.get('HAVE_LIBIPTC') == 1
@@ -282,7 +282,7 @@ gperf_file = custom_target(
         command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@', '<netinet/in.h>'],
         capture : true)
 
-fname = 'ip-protocol-from-name.h'
+fname = 'ip-protocol-from-name.inc'
 target1 = custom_target(
         fname,
         input : gperf_file,
@@ -295,7 +295,7 @@ target1 = custom_target(
                    '@INPUT@'],
         capture : true)
 
-fname = 'ip-protocol-to-name.h'
+fname = 'ip-protocol-to-name.inc'
 awkscript = 'ip-protocol-to-name.awk'
 target2 = custom_target(
         fname,
@@ -307,16 +307,16 @@ target2 = custom_target(
 generated_sources += [target1, target2]
 shared_sources += [target1, target2]
 
-fname = 'ethtool-link-mode.h'
-ethtool_link_mode_h = custom_target(
+fname = 'ethtool-link-mode.inc'
+ethtool_link_mode_inc = custom_target(
         fname,
         input : ['ethtool-link-mode.py', '../basic/include/linux/ethtool.h'],
         output : fname,
         command : [python, '@INPUT0@', '--header', cpp, '@INPUT1@'],
         capture : true)
 
-generated_sources += ethtool_link_mode_h
-shared_sources += ethtool_link_mode_h
+generated_sources += ethtool_link_mode_inc
+shared_sources += ethtool_link_mode_inc
 sources += shared_sources
 
 fname = 'ethtool-link-mode.xml'
