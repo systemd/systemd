@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <mqueue.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
@@ -20,9 +17,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "log.h"
-#include "macro.h"
-#include "string-util.h"
-#include "strv.h"
+#include "path-util.h"
 #include "user-util.h"
 
 static bool match_uid_gid(uid_t subject_uid, gid_t subject_gid, uid_t delete_uid, gid_t delete_gid) {

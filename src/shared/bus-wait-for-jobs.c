@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "log.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-def.h"
 

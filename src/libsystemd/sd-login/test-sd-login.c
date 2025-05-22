@@ -3,8 +3,10 @@
 #include "sd-login.h"
 
 #include "alloc-util.h"
+#include "format-util.h"
 #include "main-func.h"
 #include "parse-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static const char *arg_verb = NULL;  /* NULL means all */

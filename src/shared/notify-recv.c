@@ -1,13 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
+#include "alloc-util.h"
 #include "async.h"
+#include "constants.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "log.h"
 #include "notify-recv.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "strv.h"
-#include "user-util.h"
 
 int notify_socket_prepare(
                 sd_event *event,
