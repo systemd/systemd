@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
+#include "forward.h"
 
 #define COMPARE_OPERATOR_CHARS "!<=>"
 #define COMPARE_OPERATOR_WITH_FNMATCH_CHARS COMPARE_OPERATOR_CHARS "$"
