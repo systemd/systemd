@@ -2808,18 +2808,12 @@ static int unit_prune_cgroup_via_bus(Unit *u) {
                 return -EOWNERDEAD;
 
         /* Determine this unit's cgroup path relative to our cgroup root */
-        const char *pp = path_startswith(crt->cgroup_path, u->manager->cgroup_root);
+        const char *pp = path_startswith_full(
+                        crt->cgroup_path,
+                        u->manager->cgroup_root,
+                        PATH_STARTSWITH_RETURN_LEADING_SLASH);
         if (!pp)
                 return -EINVAL;
-
-        _cleanup_free_ char *absolute = NULL;
-        if (!path_is_absolute(pp)) { /* RemoveSubgroupFromUnit() wants an absolute path */
-                absolute = strjoin("/", pp);
-                if (!absolute)
-                        return -ENOMEM;
-
-                pp = absolute;
-        }
 
         r = bus_call_method(u->manager->system_bus,
                             bus_systemd_mgr,
