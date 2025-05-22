@@ -179,7 +179,7 @@ static int user_save_internal(User *u) {
         env_file_fputs_assignment(f, "RUNTIME_DIR_JOB=", u->runtime_dir_job);
         env_file_fputs_assignment(f, "SERVICE_JOB=", u->service_manager_job);
         if (u->display)
-                env_file_fputs_assignment(f, "DISPLAY=%s\n", u->display->id);
+                env_file_fputs_assignment(f, "DISPLAY=", u->display->id);
 
         if (dual_timestamp_is_set(&u->timestamp))
                 fprintf(f,
