@@ -17,8 +17,8 @@
 
 static const struct capability_name* lookup_capability(register const char *str, register GPERF_LEN_TYPE len);
 
-#include "cap-from-name.h"
-#include "cap-to-name.h"
+#include "cap-from-name.inc"
+#include "cap-to-name.inc"
 
 const char* capability_to_name(int id) {
         if (id < 0)
