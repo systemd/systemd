@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "macro.h"
+#include "forward.h"
 #include "strv.h"
 
 char* get_default_hostname_raw(void);
