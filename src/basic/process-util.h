@@ -285,3 +285,5 @@ int proc_dir_read_pidref(DIR *d, PidRef *ret);
 
 _noreturn_ void report_errno_and_exit(int errno_fd, int error);
 int read_errno(int errno_fd);
+
+pid_t raw_clone(unsigned long flags);
