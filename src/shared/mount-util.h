@@ -2,15 +2,8 @@
 #pragma once
 
 #include <mntent.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
-#include "alloc-util.h"
-#include "dissect-image.h"
-#include "errno-util.h"
-#include "macro.h"
-#include "pidref.h"
+#include "forward.h"
 
 typedef struct SubMount {
         char *path;
@@ -94,25 +87,10 @@ int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest)
 int mount_flags_to_string(unsigned long flags, char **ret);
 
 /* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
-static inline char* umount_and_rmdir_and_free(char *p) {
-        if (!p)
-                return NULL;
-
-        PROTECT_ERRNO;
-        (void) umount_recursive(p, 0);
-        (void) rmdir(p);
-        return mfree(p);
-}
+char* umount_and_rmdir_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
 
-static inline char* umount_and_free(char *p) {
-        if (!p)
-                return NULL;
-
-        PROTECT_ERRNO;
-        (void) umount_recursive(p, 0);
-        return mfree(p);
-}
+char* umount_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_free);
 
 char* umount_and_unlink_and_free(char *p);

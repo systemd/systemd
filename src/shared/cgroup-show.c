@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <dirent.h>
-#include <errno.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -16,19 +15,18 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "hostname-util.h"
-#include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "nulstr-util.h"
 #include "output-mode.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
-#include "unit-name.h"
+#include "unit-def.h"
 #include "xattr-util.h"
 
 static void show_pid_array(

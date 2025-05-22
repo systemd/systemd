@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdio.h>
-
-#include "errno-list.h"
-#include "macro.h"
+#include "forward.h"
 #include "main-func.h"
 
 int generator_open_unit_file_full(const char *dest, const char *source, const char *name, FILE **ret_file, char **ret_final_path, char **ret_temp_path);

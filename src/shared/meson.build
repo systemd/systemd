@@ -51,6 +51,8 @@ shared_sources = files(
         'coredump-util.c',
         'cpu-set-util.c',
         'creds-util.c',
+        'cryptsetup-fido2.c',
+        'cryptsetup-tpm2.c',
         'cryptsetup-util.c',
         'daemon-util.c',
         'data-fd-util.c',
@@ -161,6 +163,7 @@ shared_sources = files(
         'resolve-util.c',
         'rm-rf.c',
         'securebits-util.c',
+        'seccomp-util.c',
         'selinux-util.c',
         'serialize.c',
         'service-util.c',
@@ -236,15 +239,11 @@ syscall_list_inc = custom_target(
                    '@INPUT@'],
         capture : true)
 
+shared_sources += syscall_list_inc
 generated_sources += syscall_list_inc
 
 if conf.get('ENABLE_UTMP') == 1
         shared_sources += files('utmp-wtmp.c')
-endif
-
-if conf.get('HAVE_SECCOMP') == 1
-        shared_sources += files('seccomp-util.c')
-        shared_sources += syscall_list_inc
 endif
 
 if conf.get('HAVE_LIBIPTC') == 1
@@ -257,14 +256,6 @@ endif
 
 if conf.get('HAVE_PAM') == 1
         shared_sources += files('pam-util.c')
-endif
-
-if conf.get('HAVE_LIBFIDO2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
-        shared_sources += files('cryptsetup-fido2.c')
-endif
-
-if conf.get('HAVE_TPM2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
-        shared_sources += files('cryptsetup-tpm2.c')
 endif
 
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
