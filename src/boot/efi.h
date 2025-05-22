@@ -1,13 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+/* IWYU pragma: always_keep */
 
-#include "efi-fundamental.h"
-#include "macro-fundamental.h"
+#include <limits.h>                     /* IWYU pragma: export */
+#include <stdarg.h>                     /* IWYU pragma: export */
+#include <stdbool.h>                    /* IWYU pragma: export */
+#include <stddef.h>                     /* IWYU pragma: export */
+#include <stdint.h>                     /* IWYU pragma: export */
+
+#include "assert-fundamental.h"         /* IWYU pragma: export */
+#include "cleanup-fundamental.h"        /* IWYU pragma: export */
+#include "efi-fundamental.h"            /* IWYU pragma: export */
+#include "macro-fundamental.h"          /* IWYU pragma: export */
 
 #if SD_BOOT
 /* uchar.h/wchar.h are not suitable for freestanding environments. */
@@ -44,6 +49,8 @@ assert_cc(alignof(char32_t) == 4);
 #  include <uchar.h>
 #  include <wchar.h>
 #endif
+
+struct iovec;
 
 /* We use size_t/ssize_t to represent UEFI UINTN/INTN. */
 typedef size_t EFI_STATUS;

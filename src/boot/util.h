@@ -2,13 +2,10 @@
 #pragma once
 
 #include "efi.h"
-#include "efi-string.h"
 #include "memory-util-fundamental.h"
-#include "string-util-fundamental.h"
 
 #if SD_BOOT
 
-#include "efi-log.h"
 #include "proto/file-io.h"
 
 /* This is provided by the linker. */

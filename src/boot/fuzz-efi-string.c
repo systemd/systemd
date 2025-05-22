@@ -3,7 +3,6 @@
 #include "alloc-util.h"
 #include "efi-string.h"
 #include "fuzz.h"
-#include "utf8.h"
 
 static char16_t *memdup_str16(const uint8_t *data, size_t size) {
         char16_t *ret = memdup(data, size);

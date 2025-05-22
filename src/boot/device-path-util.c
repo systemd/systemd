@@ -2,6 +2,7 @@
 
 #include "device-path-util.h"
 #include "efi-string.h"
+#include "string-util-fundamental.h"
 #include "util.h"
 
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp) {
@@ -177,4 +178,8 @@ size_t device_path_size(const EFI_DEVICE_PATH *dp) {
                 ;
 
         return (const uint8_t*) i - (const uint8_t*) dp + sizeof(EFI_DEVICE_PATH);
+}
+
+EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp) {
+        return xmemdup(ASSERT_PTR(dp), device_path_size(dp));
 }
