@@ -3,7 +3,6 @@
   Copyright © 2009 Alan Jenkins <alan-jenkins@tuffmail.co.uk>
 ***/
 
-#include <errno.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 
