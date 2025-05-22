@@ -154,7 +154,7 @@ static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
 };
 
 static const char* const ethtool_link_mode_bit_table[] = {
-#  include "ethtool-link-mode.h"
+#  include "ethtool-link-mode.inc"
 };
 /* Make sure the array is large enough to fit all bits */
 assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < N_ADVERTISE);
