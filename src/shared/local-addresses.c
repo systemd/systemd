@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if_arp.h>
-
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "local-addresses.h"
 #include "log.h"
-#include "macro.h"
 #include "netlink-util.h"
+#include "socket-util.h"
 #include "sort-util.h"
 
 static int address_compare(const struct local_address *a, const struct local_address *b) {

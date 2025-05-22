@@ -2,13 +2,9 @@
 #pragma once
 
 #include <linux/nl80211.h>
-#include <stdbool.h>
 
-#include "sd-device.h"
-
-#include "conf-parser.h"
-#include "ether-addr-util.h"
-#include "set.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 
 typedef struct NetMatch {
         Set *hw_addr;

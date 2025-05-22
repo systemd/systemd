@@ -7,6 +7,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "chattr-util.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"

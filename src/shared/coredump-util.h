@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <pwd.h>
-
-#include "macro.h"
+#include "forward.h"
 
 typedef enum CoredumpFilter {
         COREDUMP_FILTER_PRIVATE_ANONYMOUS = 0,

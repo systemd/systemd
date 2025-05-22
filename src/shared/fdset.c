@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stddef.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -13,11 +11,10 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "log.h"
-#include "macro.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "set.h"
 #include "stat-util.h"
+#include "string-util.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)

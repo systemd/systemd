@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <endian.h>
-
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "fd-util.h"
