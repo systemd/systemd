@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <endian.h>
-#include <errno.h>
+#include <endian.h>     /* IWYU pragma: keep */
 
-#include "macro.h"
+#include "forward.h"
 
 /* A cleaned up architecture definition. We don't want to get lost in
  * processor features, models, generations or even ABIs. Hence we
