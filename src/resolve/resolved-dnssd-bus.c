@@ -15,7 +15,7 @@
 #include "strv.h"
 
 int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        DnssdService *s = ASSERT_PTR(userdata);
+        DnssdRegisteredService *s = ASSERT_PTR(userdata);
         Manager *m;
         Link *l;
         int r;
@@ -63,7 +63,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
                 }
         }
 
-        dnssd_service_free(s);
+        dnssd_registered_service_free(s);
 
         manager_refresh_rrs(m);
 
@@ -73,7 +73,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
 static int dnssd_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *name = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        DnssdService *service;
+        DnssdRegisteredService *service;
         int r;
 
         assert(bus);
@@ -85,7 +85,7 @@ static int dnssd_object_find(sd_bus *bus, const char *path, const char *interfac
         if (r <= 0)
                 return 0;
 
-        service = hashmap_get(m->dnssd_services, name);
+        service = hashmap_get(m->dnssd_registered_services, name);
         if (!service)
                 return 0;
 
@@ -96,7 +96,7 @@ static int dnssd_object_find(sd_bus *bus, const char *path, const char *interfac
 static int dnssd_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        DnssdService *service;
+        DnssdRegisteredService *service;
         unsigned c = 0;
         int r;
 
@@ -104,11 +104,11 @@ static int dnssd_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         assert(path);
         assert(nodes);
 
-        l = new0(char*, hashmap_size(m->dnssd_services) + 1);
+        l = new0(char*, hashmap_size(m->dnssd_registered_services) + 1);
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(service, m->dnssd_services) {
+        HASHMAP_FOREACH(service, m->dnssd_registered_services) {
                 char *p;
 
                 r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->id, &p);
