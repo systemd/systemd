@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>
-#include <errno.h>
-#include <stdbool.h>
+#include <dirent.h>     /* IWYU pragma: export */
 
-#include "assert-util.h"
-#include "macro.h"
+#include "forward.h"
 #include "path-util.h"
 
 bool dirent_is_file(const struct dirent *de) _pure_;
@@ -34,16 +31,7 @@ struct dirent *readdir_no_dot(DIR *dirp);
 /* Musl provides posix_getdents(). But glibc does not, and provides their own implementation as getdents64().
  * Let's introduce a simple wrapper. */
 #if !HAVE_POSIX_GETDENTS
-static inline ssize_t posix_getdents(int fd, void *buf, size_t nbyte, int flags) {
-        assert(fd >= 0);
-        assert(buf);
-        assert(nbyte > 0);
-
-        if (flags != 0)
-                return -EINVAL; /* Currently flags must be zero. */
-
-        return getdents64(fd, buf, nbyte);
-}
+ssize_t posix_getdents(int fd, void *buf, size_t nbyte, int flags);
 #endif
 
 /* Maximum space one dirent structure might require at most */
