@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "assert-fundamental.h"
-#include "macro.h"
+#include "assert-fundamental.h" /* IWYU pragma: export */
 
 /* Logging for various assertions */
 
