@@ -2,6 +2,8 @@
 
 #include "alloc-util.h"
 #include "dhcp-server-lease-internal.h"
+#include "dns-def.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "iovec-util.h"

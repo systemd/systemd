@@ -16,6 +16,7 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "errno-list.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

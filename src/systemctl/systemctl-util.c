@@ -12,6 +12,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "chase.h"
 #include "dropin.h"
 #include "env-util.h"

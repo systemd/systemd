@@ -57,6 +57,7 @@
 #include "ipe-setup.h"
 #include "killall.h"
 #include "kmod-setup.h"
+#include "label-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"

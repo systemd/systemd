@@ -9,6 +9,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
+#include "bus-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
