@@ -92,6 +92,15 @@ void json_escape(
                 size_t l,
                 OutputFlags flags);
 
+int discover_next_id(
+                sd_journal *j,
+                LogIdType type,
+                sd_id128_t boot_id,  /* optional, used when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
+                const char *unit,    /* mandatory when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
+                sd_id128_t previous_id,
+                bool advance_older,
+                LogId *ret);
+
 int journal_find_log_id(
                 sd_journal *j,
                 LogIdType type,
