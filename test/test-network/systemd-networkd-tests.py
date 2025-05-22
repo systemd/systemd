@@ -5058,7 +5058,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
                 # Read the `ip monitor` output looking for network changes
                 logfile.seek(0)
                 for line in logfile:
-                    print(line, end="")
+                    line = line.rstrip()
+                    print(line)
                     # Check if a link went down
                     self.assertNotRegex(line, 'dummy98: .* state DOWN')
                     # Check if an address was removed
@@ -5077,9 +5078,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             # Read the `ip monitor` output looking for network changes
             logfile_unmanaged.seek(0)
             for line in logfile_unmanaged:
-                print(line, end="")
+                line = line.rstrip()
+                print(line)
                 # Check if something happened
-                self.assertNotEmpty(line)
+                self.assertEqual(line, '')
 
         print('### ip monitor dev unmanaged0 END')
 
