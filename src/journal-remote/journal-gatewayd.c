@@ -885,6 +885,66 @@ static int request_handler_machine(
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
+static int request_handler_boots(
+                struct MHD_Connection *connection,
+                void *connection_cls) {
+
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        RequestMeta *m = ASSERT_PTR(connection_cls);
+        int r;
+        _cleanup_free_ BootId *boots = NULL;
+        size_t n_boots;
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        _cleanup_free_ char *json = NULL;
+
+        assert(connection);
+
+        r = open_journal(m);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+
+        r = journal_get_boots(
+                        m->journal,
+                        false,
+                        SIZE_MAX,
+                        &boots, &n_boots);
+
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine boots: %m");
+        if (r == 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "No boot found.");
+
+        for (int i = 0; i < (int) n_boots; i++) {
+                char boot_id[SD_ID128_STRING_MAX];
+                sd_id128_to_string(boots[i].id, boot_id);
+
+                r = json_variant_append_arrayb(
+                                &array,
+                                JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR("index", JSON_BUILD_INTEGER(-i)),
+                                                JSON_BUILD_PAIR("boot_id", JSON_BUILD_STRING(boot_id)),
+                                                JSON_BUILD_PAIR("first_entry", JSON_BUILD_UNSIGNED(boots[i].first_usec)),
+                                                JSON_BUILD_PAIR("last_entry", JSON_BUILD_UNSIGNED(boots[i].last_usec))));
+                if (r < 0)
+                        return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to append JSON object: %m");
+        }
+
+        r = json_variant_format(array, 0, &json);
+        if (r < 0) {
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to format JSON data: %m");
+        }
+
+        response = MHD_create_response_from_buffer(r, json, MHD_RESPMEM_MUST_FREE);
+        if (!response)
+                return respond_oom(connection);
+        TAKE_PTR(json);
+
+        if (MHD_add_response_header(response, "Content-Type", "application/json") == MHD_NO)
+                return respond_oom(connection);
+
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
+}
+
 static mhd_result request_handler(
                 void *cls,
                 struct MHD_Connection *connection,
@@ -930,6 +990,9 @@ static mhd_result request_handler(
 
         if (streq(url, "/machine"))
                 return request_handler_machine(connection, *connection_cls);
+
+        if (streq(url, "/boots"))
+                return request_handler_boots(connection, *connection_cls);
 
         return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
 }
