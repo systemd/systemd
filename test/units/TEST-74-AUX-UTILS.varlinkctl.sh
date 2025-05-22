@@ -173,7 +173,10 @@ varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
 
 # test io.systemd.Manager in user manager
-systemctl start user@4711
-varlinkctl info /run/user/4711/systemd/io.systemd.Manager
-varlinkctl introspect /run/user/4711/systemd/io.systemd.Manager
-varlinkctl call /run/user/4711/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+testuser_uid=$(id -u testuser)
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl info /run/user/"$testuser_uid"/systemd/io.systemd.Manager
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl introspect /run/user/"$testuser_uid"/systemd/io.systemd.Manager
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl call /run/user/"$testuser_uid"/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
