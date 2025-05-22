@@ -2371,6 +2371,8 @@ static bool socket_stop_notify(Unit *u) {
 }
 
 static void socket_enter_deferred(Socket *s) {
+        int r;
+
         assert(s);
         assert(s->defer_trigger);
 
