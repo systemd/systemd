@@ -4,6 +4,8 @@
 #include <fnmatch.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "architecture.h"
 #include "chase.h"

@@ -29,6 +29,7 @@
 #include "memory-util.h"
 #include "microhttpd-util.h"
 #include "os-util.h"
+#include "output-mode.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "signal-util.h"

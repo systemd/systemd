@@ -9,6 +9,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "fs-util.h"
+#include "label-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir-label.h"

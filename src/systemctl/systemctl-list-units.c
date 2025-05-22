@@ -20,6 +20,7 @@
 #include "systemctl.h"
 #include "systemctl-list-units.h"
 #include "systemctl-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 
 static int get_unit_list_recursive(

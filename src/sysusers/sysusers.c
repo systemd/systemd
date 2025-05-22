@@ -21,6 +21,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "image-policy.h"
+#include "label-util.h"
 #include "libaudit-util.h"
 #include "libcrypt-util.h"
 #include "log.h"

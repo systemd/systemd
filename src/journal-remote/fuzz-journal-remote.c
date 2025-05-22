@@ -11,6 +11,7 @@
 #include "journal-remote.h"
 #include "logs-show.h"
 #include "memfd-util.h"
+#include "output-mode.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "tests.h"

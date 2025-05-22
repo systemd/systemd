@@ -4,6 +4,7 @@
 ***/
 
 #include <errno.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
 #include "libudev.h"
