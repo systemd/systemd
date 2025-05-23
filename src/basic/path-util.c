@@ -456,11 +456,11 @@ char* path_startswith_full(const char *original_path, const char *prefix, PathSt
                 const char *p, *q;
                 int m, n;
 
-                m = path_find_first_component(&path, FLAGS_SET(flags, PATH_STARTSWITH_ACCEPT_DOT_DOT), &p);
+                m = path_find_first_component(&path, !FLAGS_SET(flags, PATH_STARTSWITH_REFUSE_DOT_DOT), &p);
                 if (m < 0)
                         return NULL;
 
-                n = path_find_first_component(&prefix, FLAGS_SET(flags, PATH_STARTSWITH_ACCEPT_DOT_DOT), &q);
+                n = path_find_first_component(&prefix, !FLAGS_SET(flags, PATH_STARTSWITH_REFUSE_DOT_DOT), &q);
                 if (n < 0)
                         return NULL;
 

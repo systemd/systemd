@@ -2811,7 +2811,7 @@ static int unit_prune_cgroup_via_bus(Unit *u) {
         const char *pp = path_startswith_full(
                         crt->cgroup_path,
                         u->manager->cgroup_root,
-                        PATH_STARTSWITH_RETURN_LEADING_SLASH);
+                        PATH_STARTSWITH_RETURN_LEADING_SLASH|PATH_STARTSWITH_REFUSE_DOT_DOT);
         if (!pp)
                 return -EINVAL;
 
