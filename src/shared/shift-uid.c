@@ -1,16 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/statvfs.h>
+#include <unistd.h>
 
 #include "acl-util.h"
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "missing_magic.h"
 #include "shift-uid.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "user-util.h"
 
 /* While we are chmod()ing a directory tree, we set the top-level UID base to this "busy" base, so that we can always

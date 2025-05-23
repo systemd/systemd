@@ -2,13 +2,10 @@
 #pragma once
 
 #include <linux/if_link.h>
+#include <net/ethernet.h>
 
-#include "sd-device.h"
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
-#include "ether-addr-util.h"
-#include "hashmap.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 
 typedef enum SRIOVAttribute {
         SR_IOV_VF_MAC,
