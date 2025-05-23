@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -11,7 +10,6 @@
 #include "log.h"
 #include "memstream-util.h"
 #include "parse-util.h"
-#include "process-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"

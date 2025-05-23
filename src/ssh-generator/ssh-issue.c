@@ -7,7 +7,6 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "build.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/audit.h>
+#include <linux/audit.h>        /* IWYU pragma: keep */
 #include <math.h>
 #include <sys/stat.h>
 #include <unistd.h>

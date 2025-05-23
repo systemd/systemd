@@ -13,7 +13,6 @@
 #include "cpu-set-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
-#include "env-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "nspawn-mount.h"
