@@ -1669,11 +1669,6 @@ static int verify_arguments(void) {
         if (has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts))
                 arg_read_only = true;
 
-        if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0)
-                /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
-                 * The latter is not technically a user session, but we don't need to labour the point. */
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--keep-unit --register=yes may not be used when invoked from a user session.");
-
         if (arg_directory && arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--directory= and --image= may not be combined.");
 
@@ -5138,7 +5133,6 @@ static int run_container(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ uid_t *bind_user_uid = NULL;
         size_t n_bind_user_uid = 0;
         ContainerStatus container_status = 0;
@@ -5461,19 +5455,35 @@ static int run_container(
                         return r;
         }
 
-        if (arg_register || !arg_keep_unit) {
-                if (arg_privileged || arg_register)
-                        r = sd_bus_default_system(&bus);
-                else
-                        r = sd_bus_default_user(&bus);
+        /* Registration always happens on the system bus */
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
+        if (arg_register || arg_privileged) {
+                r = sd_bus_default_system(&system_bus);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open bus: %m");
+                        return log_error_errno(r, "Failed to open system bus: %m");
 
-                r = sd_bus_set_close_on_exit(bus, false);
+                r = sd_bus_set_close_on_exit(system_bus, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
 
-                (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+                (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
+        }
+
+        /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
+        if (arg_privileged && !arg_keep_unit)
+                runtime_bus = sd_bus_ref(system_bus);
+        else {
+                r = sd_bus_default_user(&user_bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open system bus: %m");
+
+                r = sd_bus_set_close_on_exit(user_bus, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
+
+                runtime_bus = sd_bus_ref(user_bus);
         }
 
         if (!arg_keep_unit) {
@@ -5482,7 +5492,7 @@ static int run_container(
                  * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
 
                 r = sd_bus_match_signal_async(
-                                bus,
+                                runtime_bus,
                                 NULL,
                                 "org.freedesktop.systemd1",
                                 NULL,
@@ -5495,11 +5505,32 @@ static int run_container(
                         return log_error_errno(r, "Failed to request RequestStop match: %m");
         }
 
+        bool scope_allocated = false;
+        if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
+                AllocateScopeFlags flags = ALLOCATE_SCOPE_ALLOW_PIDFD;
+                r = allocate_scope(
+                                runtime_bus,
+                                arg_machine,
+                                pid,
+                                arg_slice,
+                                arg_custom_mounts, arg_n_custom_mounts,
+                                arg_kill_signal,
+                                arg_property,
+                                arg_property_message,
+                                arg_start_mode,
+                                flags);
+                if (r < 0)
+                        return r;
+
+                scope_allocated = true;
+        }
+
+        bool registered = false;
         if (arg_register) {
                 RegisterMachineFlags flags = 0;
-                SET_FLAG(flags, REGISTER_MACHINE_KEEP_UNIT, arg_keep_unit);
+                SET_FLAG(flags, REGISTER_MACHINE_KEEP_UNIT, arg_keep_unit || !arg_privileged);
                 r = register_machine(
-                                bus,
+                                system_bus,
                                 arg_machine,
                                 pid,
                                 arg_directory,
@@ -5516,23 +5547,10 @@ static int run_container(
                 if (r < 0)
                         return r;
 
-        } else if (!arg_keep_unit) {
-                AllocateScopeFlags flags = ALLOCATE_SCOPE_ALLOW_PIDFD;
-                r = allocate_scope(
-                                bus,
-                                arg_machine,
-                                pid,
-                                arg_slice,
-                                arg_custom_mounts, arg_n_custom_mounts,
-                                arg_kill_signal,
-                                arg_property,
-                                arg_property_message,
-                                arg_start_mode,
-                                flags);
-                if (r < 0)
-                        return r;
+                registered = true;
+        }
 
-        } else if (arg_slice || arg_property)
+        if (arg_keep_unit && (arg_slice || arg_property))
                 log_notice("Machine and scope registration turned off, --slice= and --property= settings will have no effect.");
 
         r = create_subcgroup(
@@ -5563,10 +5581,16 @@ static int run_container(
 
         (void) sd_event_set_watchdog(event, true);
 
-        if (bus) {
-                r = sd_bus_attach_event(bus, event, 0);
+        if (system_bus) {
+                r = sd_bus_attach_event(system_bus, event, 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to attach bus to event loop: %m");
+                        return log_error_errno(r, "Failed to attach system bus to event loop: %m");
+        }
+
+        if (user_bus) {
+                r = sd_bus_attach_event(user_bus, event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach user bus to event loop: %m");
         }
 
         r = setup_notify_parent(event, notify_socket, pid, &notify_event_source);
@@ -5712,8 +5736,8 @@ static int run_container(
                 return log_error_errno(r, "Failed to run event loop: %m");
 
         /* Kill if it is not dead yet anyway */
-        if (!arg_register && !arg_keep_unit && bus)
-                terminate_scope(bus, arg_machine);
+        if (scope_allocated)
+                terminate_scope(runtime_bus, arg_machine);
 
         /* Normally redundant, but better safe than sorry */
         (void) pidref_kill(pid, SIGKILL);
@@ -5733,8 +5757,8 @@ static int run_container(
         r = wait_for_container(pid, &container_status);
 
         /* Tell machined that we are gone. */
-        if (arg_register && bus)
-                (void) unregister_machine(bus, arg_machine);
+        if (registered)
+                (void) unregister_machine(system_bus, arg_machine);
 
         if (r < 0)
                 /* We failed to wait for the container, or the container exited abnormally. */
