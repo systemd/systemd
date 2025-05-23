@@ -19,6 +19,9 @@
 #include "tests.h"
 #include "tpm2-util.h"
 
+#define ASSERT_DLOPEN(func, cond) \
+        cond ? ASSERT_OK(func()) : ASSERT_ERROR(func(), EOPNOTSUPP)
+
 static int run(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
@@ -26,78 +29,25 @@ static int run(int argc, char **argv) {
          * where .so versions change and distributions update, but systemd doesn't have the new so names
          * around yet. */
 
-#if HAVE_LIBIDN2 || HAVE_LIBIDN
-        assert_se(dlopen_idn() >= 0);
-#endif
-
-#if HAVE_LIBCRYPTSETUP
-        assert_se(dlopen_cryptsetup() >= 0);
-#endif
-
-#if HAVE_PASSWDQC
-        assert_se(dlopen_passwdqc() >= 0);
-#endif
-
-#if HAVE_PWQUALITY
-        assert_se(dlopen_pwquality() >= 0);
-#endif
-
-#if HAVE_QRENCODE
-        assert_se(dlopen_qrencode() >= 0);
-#endif
-
-#if HAVE_TPM2
-        assert_se(dlopen_tpm2() >= 0);
-#endif
-
-#if HAVE_LIBFIDO2
-        assert_se(dlopen_libfido2() >= 0);
-#endif
-
-#if HAVE_LIBBPF
-        assert_se(dlopen_bpf() >= 0);
-#endif
-
-#if HAVE_ELFUTILS
-        assert_se(dlopen_dw() >= 0);
-        assert_se(dlopen_elf() >= 0);
-#endif
-
-#if HAVE_PCRE2
-        assert_se(dlopen_pcre2() >= 0);
-#endif
-
-#if HAVE_P11KIT
-        assert_se(dlopen_p11kit() >= 0);
-#endif
-
-#if HAVE_LIBARCHIVE
-        assert_se(dlopen_libarchive() >= 0);
-#endif
-
-#if HAVE_LZ4
-        assert_se(dlopen_lz4() >= 0);
-#endif
-
-#if HAVE_ZSTD
-        assert_se(dlopen_zstd() >= 0);
-#endif
-
-#if HAVE_XZ
-        assert_se(dlopen_lzma() >= 0);
-#endif
-
-#if HAVE_GCRYPT
-        assert_se(initialize_libgcrypt(/* secmem= */ false) >= 0);
-#endif
-
-#if HAVE_KMOD
-        assert_se(dlopen_libkmod() >= 0);
-#endif
-
-#if HAVE_APPARMOR
-        assert_se(dlopen_libapparmor() >= 0);
-#endif
+        ASSERT_DLOPEN(dlopen_idn, HAVE_LIBIDN2 || HAVE_LIBIDN);
+        ASSERT_DLOPEN(dlopen_cryptsetup, HAVE_LIBCRYPTSETUP);
+        ASSERT_DLOPEN(dlopen_passwdqc, HAVE_PASSWDQC);
+        ASSERT_DLOPEN(dlopen_pwquality, HAVE_PWQUALITY);
+        ASSERT_DLOPEN(dlopen_qrencode, HAVE_QRENCODE);
+        ASSERT_DLOPEN(dlopen_tpm2, HAVE_TPM2);
+        ASSERT_DLOPEN(dlopen_libfido2, HAVE_LIBFIDO2);
+        ASSERT_DLOPEN(dlopen_bpf, HAVE_LIBBPF);
+        ASSERT_DLOPEN(dlopen_dw, HAVE_ELFUTILS);
+        ASSERT_DLOPEN(dlopen_elf, HAVE_ELFUTILS);
+        ASSERT_DLOPEN(dlopen_pcre2, HAVE_PCRE2);
+        ASSERT_DLOPEN(dlopen_p11kit, HAVE_P11KIT);
+        ASSERT_DLOPEN(dlopen_libarchive, HAVE_LIBARCHIVE);
+        ASSERT_DLOPEN(dlopen_lz4, HAVE_LZ4);
+        ASSERT_DLOPEN(dlopen_zstd, HAVE_ZSTD);
+        ASSERT_DLOPEN(dlopen_lzma, HAVE_XZ);
+        ASSERT_DLOPEN(dlopen_gcrypt, HAVE_GCRYPT);
+        ASSERT_DLOPEN(dlopen_libkmod, HAVE_KMOD);
+        ASSERT_DLOPEN(dlopen_libapparmor, HAVE_APPARMOR);
 
         return 0;
 }
