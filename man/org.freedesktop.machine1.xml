@@ -46,7 +46,6 @@ node /org/freedesktop/machine1 {
                       out o machine);
       ListMachines(out a(ssso) machines);
       ListImages(out a(ssbttto) images);
-      @org.freedesktop.systemd1.Privileged("true")
       CreateMachine(in  s name,
                     in  ay id,
                     in  s service,
@@ -55,7 +54,6 @@ node /org/freedesktop/machine1 {
                     in  s root_directory,
                     in  a(sv) scope_properties,
                     out o path);
-      @org.freedesktop.systemd1.Privileged("true")
       CreateMachineWithNetwork(in  s name,
                                in  ay id,
                                in  s service,
@@ -65,7 +63,6 @@ node /org/freedesktop/machine1 {
                                in  ai ifindices,
                                in  a(sv) scope_properties,
                                out o path);
-      @org.freedesktop.systemd1.Privileged("true")
       RegisterMachine(in  s name,
                       in  ay id,
                       in  s service,
@@ -73,7 +70,6 @@ node /org/freedesktop/machine1 {
                       in  u leader,
                       in  s root_directory,
                       out o path);
-      @org.freedesktop.systemd1.Privileged("true")
       RegisterMachineWithNetwork(in  s name,
                                  in  ay id,
                                  in  s service,
