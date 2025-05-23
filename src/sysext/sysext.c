@@ -54,7 +54,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "user-util.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"
 #include "verbs.h"
