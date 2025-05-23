@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
 #include <sys/types.h>
@@ -23,6 +24,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "sd-journal.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -49,20 +51,102 @@ static clockid_t map_clock_id(clockid_t c) {
         }
 }
 
+static usec_t get_timesyncd_clock_timestamp(void) {
+        struct stat st;
+
+        if (stat("/var/lib/systemd/timesync/clock", &st) == -1)
+                return USEC_INFINITY;
+
+        return (usec_t)(st.st_mtim.tv_sec * 1000000ULL +
+        st.st_mtim.tv_nsec / 1000ULL);
+}
+
+static usec_t get_journald_lastlog_timestamp(void) {
+        sd_journal *j = NULL;
+        usec_t timestamp;
+        int ret;
+
+        ret = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+        if (ret < 0)
+                goto error;
+
+        ret = sd_journal_seek_tail(j);
+        if (ret < 0)
+                goto error;
+
+        ret = sd_journal_previous(j);
+        if (ret < 0)
+                goto error;
+
+        ret = sd_journal_get_realtime_usec(j, &timestamp);
+        if (ret < 0)
+                goto error;
+
+        sd_journal_close(j);
+        return timestamp;
+
+error:
+        sd_journal_close(j);
+        return USEC_INFINITY;
+
+}
+
+static usec_t get_recent_timestamp(void) {
+        usec_t timesyncd_ts = get_timesyncd_clock_timestamp();
+
+        return (timesyncd_ts != USEC_INFINITY) ?
+        timesyncd_ts : get_journald_lastlog_timestamp();
+}
+
 usec_t now(clockid_t clock_id) {
         struct timespec ts;
+        clockid_t clock_id_mapped = map_clock_id(clock_id);
 
-        assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
+        assert_se(clock_gettime(clock_id_mapped, &ts) == 0);
 
-        return timespec_load(&ts);
+        usec_t now_timestamp = timespec_load(&ts);
+
+        /* Devices that lack a hardware RTC will yield an incorrect time when clock_gettime() is
+         * called without the system clock being synced by time-sync services. This is especially
+         * a problem during the early boot phase when systemd has just initiated itself and no such
+         * services have been loaded yet. This may cause /run/systemd/systemd-units-load to have
+         * an extremely old epoch timestamp. The function get_recent_timestamp() loads a recent
+         * timestamp from (1) /var/lib/systemd/timesync/clock, and if it is absent then (2) from
+         * the timestamp of the last journald log. Only after these two cases fail (possible when
+         * the system boots for the first time), the ancient timestamp is used.
+         */
+
+        if (clock_id_mapped == CLOCK_REALTIME) {
+                usec_t recent_timestamp = get_recent_timestamp();
+
+                if (recent_timestamp != USEC_INFINITY &&
+                now_timestamp < recent_timestamp)
+                        now_timestamp = recent_timestamp;
+        }
+
+        return now_timestamp;
 }
 
 nsec_t now_nsec(clockid_t clock_id) {
         struct timespec ts;
+        clockid_t clock_id_mapped = map_clock_id(clock_id);
 
-        assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
+        assert_se(clock_gettime(clock_id_mapped, &ts) == 0);
 
-        return timespec_load_nsec(&ts);
+        nsec_t now_nsec_timestamp = timespec_load_nsec(&ts);
+
+        if (clock_id_mapped == CLOCK_REALTIME) {
+                usec_t recent_timestamp = get_recent_timestamp();
+
+                nsec_t recent_nsec_timestamp = (recent_timestamp != USEC_INFINITY) ?
+                (nsec_t)(recent_timestamp * 1000ULL) : NSEC_INFINITY;
+
+                if (recent_nsec_timestamp != NSEC_INFINITY &&
+                now_nsec_timestamp < recent_nsec_timestamp)
+                        now_nsec_timestamp = recent_nsec_timestamp;
+        }
+
+        return now_nsec_timestamp;
 }
 
 dual_timestamp* dual_timestamp_now(dual_timestamp *ts) {
