@@ -5,6 +5,7 @@
 
 #include "blockdev-util.h"
 #include "capability-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "loop-util.h"
 #include "memfd-util.h"

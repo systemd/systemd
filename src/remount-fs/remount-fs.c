@@ -14,7 +14,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "mount-setup.h"
-#include "mount-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
