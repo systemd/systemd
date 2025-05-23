@@ -485,7 +485,8 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshPrivateKeyPath", m->ssh_private_key_path),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("addresses", addr_array),
                         JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY("OSRelease", os_release),
-                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("UIDShift", shift, UID_INVALID));
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("UIDShift", shift, UID_INVALID),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", m->uid));
         if (r < 0)
                 return r;
 
