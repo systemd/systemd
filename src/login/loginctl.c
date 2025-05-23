@@ -436,7 +436,6 @@ static int show_unit_cgroup(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cgroup = NULL;
-        unsigned c;
         int r;
 
         assert(bus);
@@ -450,10 +449,7 @@ static int show_unit_cgroup(
         if (isempty(cgroup))
                 return 0;
 
-        c = columns();
-        if (c > 18)
-                c -= 18;
-
+        unsigned c = MAX(LESS_BY(columns(), 18U), 10U);
         r = unit_show_processes(bus, unit, cgroup, prefix, c, get_output_flags(), &error);
         if (r == -EBADR) {
                 if (arg_transport == BUS_TRANSPORT_REMOTE)
@@ -905,10 +901,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
                 return table_log_print_error(r);
 
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                unsigned c = columns();
-                if (c > 21)
-                        c -= 21;
-
+                unsigned c = MAX(LESS_BY(columns(), 21U), 10U);
                 show_sysfs(i.id, strrepa(" ", STRLEN("Sessions:")), c, get_output_flags());
         }
 
