@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdio.h>
 #include <string.h>
 
 #include "ansi-color.h"
-#include "assert-util.h"
 #include "fileio.h"
+#include "forward.h"
 #include "glyph-util.h"
-#include "terminal-util.h"
 
 #define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))
 

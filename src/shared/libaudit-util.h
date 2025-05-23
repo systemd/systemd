@@ -2,10 +2,10 @@
 #pragma once
 
 #if HAVE_AUDIT
-#  include <libaudit.h>
+#  include <libaudit.h>         /* IWYU pragma: export */
 #endif
 
-#include <stdbool.h>
+#include "forward.h"
 
 bool use_audit(void);
 
