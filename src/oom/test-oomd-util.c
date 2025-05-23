@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "oomd-util.h"
