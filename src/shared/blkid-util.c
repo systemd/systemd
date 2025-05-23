@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/syslog.h>
+
 #include "sd-id128.h"
 
 #include "blkid-util.h"
-#include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
 

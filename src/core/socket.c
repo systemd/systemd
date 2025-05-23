@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <linux/sctp.h>
 #include <mqueue.h>
