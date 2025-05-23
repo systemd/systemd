@@ -5,7 +5,7 @@
 #include "nspawn-settings.h"
 
 int create_subcgroup(
-                pid_t pid,
+                const PidRef *pid,
                 bool keep_unit,
                 uid_t uid_shift,
                 int userns_fd,
