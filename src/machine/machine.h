@@ -38,6 +38,8 @@ typedef struct Machine {
         char *name;
         sd_id128_t id;
 
+        uid_t uid;
+
         MachineClass class;
 
         char *state_file;

@@ -300,6 +300,16 @@ static int method_create_or_register_machine(
         if (hashmap_get(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+        if (r < 0)
+                return r;
+
+        uid_t uid;
+        r = sd_bus_creds_get_euid(creds, &uid);
+        if (r < 0)
+                return r;
+
         const char *details[] = {
                 "name",  name,
                 "class", machine_class_to_string(c),
@@ -324,6 +334,7 @@ static int method_create_or_register_machine(
         m->leader = TAKE_PIDREF(pidref);
         m->class = c;
         m->id = id;
+        m->uid = uid;
 
         if (!isempty(service)) {
                 m->service = strdup(service);
