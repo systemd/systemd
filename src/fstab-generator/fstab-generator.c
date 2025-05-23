@@ -414,13 +414,18 @@ static int write_mounts_for(
         return 0;
 }
 
-static int write_extra_dependencies(FILE *f, const char *where, const char *opts) {
+static bool has_pre_dependencies(const char *opts) {
+        return fstab_test_option(
+                        opts,
+                        "x-systemd.after\0"
+                        "x-systemd.requires\0"
+                        "x-systemd.wants\0"
+                        "x-systemd.requires-mounts-for\0"
+                        "x-systemd.wants-mounts-for\0");
+}
+
+static int write_pre_dependencies(FILE *f, const char *where, const char *opts) {
         int r;
-
-        assert(f);
-
-        if (isempty(opts))
-                return 0;
 
         r = write_after(f, where, opts);
         if (r < 0)
@@ -434,10 +439,6 @@ static int write_extra_dependencies(FILE *f, const char *where, const char *opts
         if (r < 0)
                 return r;
 
-        r = write_before(f, where, opts);
-        if (r < 0)
-                return r;
-
         r = write_mounts_for(f, where, opts,
                              "x-systemd.requires-mounts-for\0", "RequiresMountsFor");
         if (r < 0)
@@ -447,6 +448,52 @@ static int write_extra_dependencies(FILE *f, const char *where, const char *opts
                              "x-systemd.wants-mounts-for\0", "WantsMountsFor");
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+static int write_extra_dependencies(
+                const char *source, const char *dest, FILE *f, const char *where, const char *opts) {
+        int r;
+
+        assert(f);
+
+        if (isempty(opts))
+                return 0;
+
+        r = write_before(f, where, opts);
+        if (r < 0)
+                return r;
+
+        r = has_pre_dependencies(opts);
+        if (r <= 0)
+                return r;
+
+        _cleanup_free_ char *pre_name = NULL;
+        _cleanup_fclose_ FILE *pre_f = NULL;
+
+        r = unit_name_from_path_instance("fs-pre", where, ".target", &pre_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
+
+        fprintf(f,
+                "Requires=%s\n"
+                "After=%s\n",
+                pre_name,
+                pre_name);
+
+        r = generator_open_unit_file(dest, source, pre_name, &pre_f);
+        if (r < 0)
+                return r;
+
+        fprintf(pre_f,
+                "[Unit]\n"
+                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n"
+                "SourcePath=%s\n",
+                source);
+        r = write_pre_dependencies(pre_f, where, opts);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write pre dependencies: %m");
 
         return 0;
 }
@@ -582,7 +629,7 @@ static int add_mount(
                       f);
         }
 
-        r = write_extra_dependencies(f, where, opts);
+        r = write_extra_dependencies(source, dest, f, where, opts);
         if (r < 0)
                 return r;
 
