@@ -1627,6 +1627,8 @@ static int unit_validate_on_termination_job_modes(Unit *u) {
 
 int unit_load(Unit *u) {
         int r;
+        CGroupContext *cc;
+        Unit *parent_slice;
 
         assert(u);
 
@@ -1687,6 +1689,19 @@ int unit_load(Unit *u) {
 
                 /* We finished loading, let's ensure our parents recalculate the members mask */
                 unit_invalidate_cgroup_members_masks(u);
+        }
+
+        /* For top-level cgroups, initialize allowed CPUs based on manager value */
+        if (!cpu_set_is_empty(&u->manager->defaults.allowed_cpus) && UNIT_HAS_CGROUP_CONTEXT(u)) {
+                parent_slice = UNIT_GET_SLICE(u);
+                if (parent_slice && streq(parent_slice->id, "-.slice")) {
+                        cc = unit_get_cgroup_context(u);
+                        if (!cc)
+                                goto fail;
+
+                        if (cpu_set_is_empty(&cc->cpuset_cpus))
+                                cpu_set_copy(&cc->cpuset_cpus, &u->manager->defaults.allowed_cpus);
+                }
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);
