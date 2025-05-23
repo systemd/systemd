@@ -2,7 +2,9 @@
 
 #include "alloc-util.h"
 #include "bus-label.h"
+#include "glyph-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 

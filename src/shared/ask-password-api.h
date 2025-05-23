@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "time-util.h"
+#include "forward.h"
 
 typedef enum AskPasswordFlags {
         ASK_PASSWORD_ACCEPT_CACHED = 1 << 0,  /* read from kernel keyring */

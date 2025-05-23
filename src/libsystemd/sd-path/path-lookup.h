@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-path.h"
 
+#include "forward.h"
 #include "runtime-scope.h"
 
 typedef enum LookupPathsFlags {

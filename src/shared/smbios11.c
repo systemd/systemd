@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
-#include "assert-util.h"
 #include "fileio.h"
-#include "macro.h"
 #include "smbios11.h"
 #include "virt.h"
 

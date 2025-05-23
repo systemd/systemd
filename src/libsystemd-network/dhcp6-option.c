@@ -3,10 +3,10 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <netinet/in.h>
 
 #include "sd-dhcp6-client.h"
+#include "sd-dhcp6-option.h"
 
 #include "alloc-util.h"
 #include "dhcp6-internal.h"
@@ -14,10 +14,11 @@
 #include "dhcp6-protocol.h"
 #include "dns-def.h"
 #include "dns-domain.h"
-#include "errno-util.h"
 #include "escape.h"
 #include "memory-util.h"
 #include "network-common.h"
+#include "ordered-set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
 

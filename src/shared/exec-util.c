@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <dirent.h>
-#include <errno.h>
 #include <stdio.h>
-#include <sys/prctl.h>
-#include <sys/types.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -18,18 +15,16 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
-#include "macro.h"
-#include "missing_syscall.h"
+#include "log.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
-#include "set.h"
-#include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 
 #define EXIT_SKIP_REMAINING 77
 

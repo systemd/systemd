@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/in.h>
 #include <sys/sysmacros.h>
 
 #include "alloc-util.h"
@@ -8,15 +9,16 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
-#include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"

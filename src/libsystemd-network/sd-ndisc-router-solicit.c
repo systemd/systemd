@@ -2,13 +2,16 @@
 
 #include <netinet/icmp6.h>
 
+#include "sd-ndisc-protocol.h"
+#include "sd-ndisc-router-solicit.h"
 #include "sd-radv.h"
 
 #include "alloc-util.h"
-#include "in-addr-util.h"
+#include "icmp6-packet.h"
 #include "ndisc-option.h"
 #include "ndisc-router-solicit-internal.h"
 #include "radv-internal.h"
+#include "set.h"
 
 static sd_ndisc_router_solicit* ndisc_router_solicit_free(sd_ndisc_router_solicit *rs) {
         if (!rs)

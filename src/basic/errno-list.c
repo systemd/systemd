@@ -1,18 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <string.h>
 
-#include "assert-util.h"
 #include "errno-list.h"
-#include "macro.h"
 
 static const struct errno_name* lookup_errno(register const char *str,
                                              register GPERF_LEN_TYPE len);
 
 #include "errno-from-name.inc"
 
-#if !HAVE_STRERRORNAME_NP
+#if HAVE_STRERRORNAME_NP
+const char* errno_to_name(int id) {
+        if (id == 0) /* To stay in line with our own impl */
+                return NULL;
+
+        return strerrorname_np(ABS(id));
+}
+#else
 #include "errno-to-name.inc"
 
 const char* errno_to_name(int id) {

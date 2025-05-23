@@ -52,7 +52,7 @@
 #include "install.h"
 #include "io-util.h"
 #include "iovec-util.h"
-#include "libaudit-util.h"
+#include "libaudit-util.h"              /* IWYU pragma: keep */
 #include "locale-setup.h"
 #include "log.h"
 #include "manager-dump.h"

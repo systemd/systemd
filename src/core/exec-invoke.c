@@ -3,7 +3,6 @@
 #include <grp.h>
 #include <linux/ioprio.h>
 #include <linux/prctl.h>
-#include <linux/sched.h>
 #include <linux/securebits.h>
 #include <poll.h>
 #include <sys/eventfd.h>
@@ -17,7 +16,7 @@
 
 #include "sd-messages.h"
 
-#include "apparmor-util.h"
+#include "apparmor-util.h"      /* IWYU pragma: keep */
 #include "argv-util.h"
 #include "ask-password-api.h"
 #include "barrier.h"

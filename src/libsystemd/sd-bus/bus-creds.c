@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/capability.h>
-#include <stdlib.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "audit-util.h"
@@ -17,6 +18,7 @@
 #include "hexdecoct.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"

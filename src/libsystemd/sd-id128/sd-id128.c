@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <threads.h>
-#include <unistd.h>
 
 #include "sd-id128.h"
 
@@ -13,10 +12,7 @@
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "id128-util.h"
-#include "io-util.h"
 #include "keyring-util.h"
-#include "log.h"
-#include "macro.h"
 #include "missing_syscall.h"
 #include "path-util.h"
 #include "random-util.h"

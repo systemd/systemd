@@ -10,7 +10,7 @@
 #include "resolved-dns-delegate.h"
 #include "resolved-dns-delegate-bus.h"
 #include "resolved-dns-search-domain.h"
-#include "resolved-dns-server.h"
+#include "resolved-dns-server.h"        /* IWYU pragma: keep */
 #include "resolved-manager.h"
 #include "strv.h"
 

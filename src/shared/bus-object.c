@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-introspect.h"
 #include "bus-object.h"
 #include "log.h"
-#include "macro.h"
+#include "ordered-set.h"
 #include "string-util.h"
 #include "strv.h"
 

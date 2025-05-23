@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-event.h"
 
-#include "hash-funcs.h"
-#include "pidref.h"
+#include "forward.h"
 
 extern const struct hash_ops event_source_hash_ops;
 

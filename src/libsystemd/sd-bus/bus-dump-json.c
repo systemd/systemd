@@ -6,8 +6,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "json-util.h"
-#include "macro.h"
-#include "memory-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 static int json_transform_one(sd_bus_message *m, sd_json_variant **ret);

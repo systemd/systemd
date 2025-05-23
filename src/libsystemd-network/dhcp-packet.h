@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
 #include "dhcp-protocol.h"
+#include "forward.h"
 
 int dhcp_message_init(
                 DHCPMessage *message,

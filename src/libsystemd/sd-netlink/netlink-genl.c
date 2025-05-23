@@ -5,10 +5,12 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
+#include "string-util.h"
 
 typedef struct GenericNetlinkFamily {
         sd_netlink *genl;

@@ -6,6 +6,8 @@
  * fine given that LGPL-2.1-or-later downgrades to GPL if needed.
  */
 
+#include "bpf-dlopen.h"
+
 /* libbpf is used via dlopen(), so rename symbols */
 #define bpf_object__open_skeleton sym_bpf_object__open_skeleton
 #define bpf_object__load_skeleton sym_bpf_object__load_skeleton

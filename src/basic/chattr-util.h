@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <stdbool.h>
-#include <stddef.h>
-
+#include "forward.h"
 #include "missing_fs.h"
 
 /* The chattr() flags to apply when creating a new file *before* writing to it. In particular, flags such as

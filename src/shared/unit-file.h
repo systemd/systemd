@@ -1,16 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
+#include "unit-def.h"
 
-#include "hashmap.h"
-#include "path-lookup.h"
-#include "time-util.h"
-#include "unit-name.h"
-
-typedef enum UnitFileState UnitFileState;
-
-enum UnitFileState {
+typedef enum UnitFileState {
         UNIT_FILE_ENABLED,
         UNIT_FILE_ENABLED_RUNTIME,
         UNIT_FILE_LINKED,
@@ -26,7 +20,7 @@ enum UnitFileState {
         UNIT_FILE_BAD,
         _UNIT_FILE_STATE_MAX,
         _UNIT_FILE_STATE_INVALID = -EINVAL,
-};
+} UnitFileState;
 
 static inline bool unit_type_may_alias(UnitType type) {
         return IN_SET(type,

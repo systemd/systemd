@@ -2,15 +2,7 @@
 
 #pragma once
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "sd-json.h"
-
-#include "set.h"
-#include "string-util.h"
+#include "forward.h"
 
 typedef enum BootEntryType {
         BOOT_ENTRY_CONF,        /* Boot Loader Specification Type #1 entries: *.conf files */

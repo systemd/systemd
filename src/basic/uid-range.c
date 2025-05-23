@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "log.h"
-#include "macro.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -207,6 +203,30 @@ int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_rang
                 *ret_range = uid_range;
 
         return 0;
+}
+
+unsigned uid_range_size(const UIDRange *range) {
+        if (!range)
+                return 0;
+
+        unsigned n = 0;
+
+        FOREACH_ARRAY(e, range->entries, range->n_entries)
+                n += e->nr;
+
+        return n;
+}
+
+bool uid_range_is_empty(const UIDRange *range) {
+
+        if (!range)
+                return true;
+
+        FOREACH_ARRAY(e, range->entries, range->n_entries)
+                if (e->nr > 0)
+                        return false;
+
+        return true;
 }
 
 int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **ret) {

@@ -7,6 +7,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "chattr-util.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"
@@ -18,6 +19,7 @@
 #include "rm-rf.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 /* This program tests skipping around in a multi-file journal. */

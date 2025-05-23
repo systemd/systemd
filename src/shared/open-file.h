@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
+#include "forward.h"
 #include "list.h"
-#include "macro.h"
-#include "memory-util.h"
 
 typedef enum OpenFileFlag {
         OPENFILE_READ_ONLY = 1 << 0,

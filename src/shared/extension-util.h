@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "os-util.h"
+#include "forward.h"
 
 /* Given an image name (for logging purposes), a set of os-release values from the host and a key-value pair
  * vector of extension-release variables, check that the distro and (system extension level or distro

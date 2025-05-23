@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fnmatch.h>
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -15,7 +13,6 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "log.h"
-#include "macro.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"

@@ -3,7 +3,7 @@
 
 #include <endian.h>
 
-#include "macro.h"
+#include "forward.h"
 
 /* Packet header */
 

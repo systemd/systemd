@@ -3,7 +3,7 @@
 
 #include <linux/if_link.h>
 
-#include "conf-parser.h"
+#include "forward.h"
 
 typedef enum GeneveDF {
         NETDEV_GENEVE_DF_UNSET    = GENEVE_DF_UNSET,

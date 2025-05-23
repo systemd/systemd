@@ -10,6 +10,7 @@
 #include "hashmap.h"
 #include "netlink-util.h"
 #include "network-util.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-route-util.h"

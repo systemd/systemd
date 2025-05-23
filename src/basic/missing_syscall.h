@@ -3,22 +3,18 @@
 
 /* Missing glibc definitions to access certain kernel APIs */
 
-#include <errno.h>
-#include <linux/time_types.h>
 #include <signal.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include <sys/syscall.h> /* IWYU pragma: export */
 #include <unistd.h>
 
 #ifdef ARCH_MIPS
 #include <asm/sgidefs.h>
 #endif
 
-#include "macro.h"
+#include "forward.h"
 #include "missing_keyctl.h"
 #include "missing_sched.h"
-#include "missing_syscall_def.h"
+#include "missing_syscall_def.h" /* IWYU pragma: export */
 
 /* ======================================================================= */
 

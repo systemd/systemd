@@ -8,10 +8,10 @@
 #include "sd-ndisc.h"
 
 #include "icmp6-packet.h"
+#include "iterator.h"
 #include "ndisc-option.h"
-#include "time-util.h"
 
-struct sd_ndisc_router {
+typedef struct sd_ndisc_router {
         unsigned n_ref;
 
         ICMP6Packet *packet;
@@ -28,7 +28,7 @@ struct sd_ndisc_router {
         Set *options;
         Iterator iterator;
         sd_ndisc_option *current_option;
-};
+} sd_ndisc_router;
 
 sd_ndisc_router* ndisc_router_new(ICMP6Packet *packet);
 int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt);

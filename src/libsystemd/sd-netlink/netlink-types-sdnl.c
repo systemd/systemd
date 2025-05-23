@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/netlink.h>
 #include <linux/sock_diag.h>
 #include <linux/unix_diag.h>
 
-#include "missing_network.h"
 #include "netlink-types-internal.h"
 #include "netlink-types.h"
 

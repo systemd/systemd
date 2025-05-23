@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/ioprio.h>
+#include <linux/ioprio.h>       /* IWYU pragma: export */
 
-#include "macro.h"
+#include "forward.h"
 
 static inline int ioprio_prio_class(int value) {
         return IOPRIO_PRIO_CLASS(value);

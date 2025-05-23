@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <malloc.h>
-#include <stdint.h>
-#include <string.h>
 
 #include "alloc-util.h"
-#include "macro.h"
 
 void* memdup(const void *p, size_t l) {
         void *ret;
@@ -130,4 +127,18 @@ void* greedy_realloc_append(
 
 void *expand_to_usable(void *ptr, size_t newsize _unused_) {
         return ptr;
+}
+
+size_t malloc_sizeof_safe(void **xp) {
+        if (_unlikely_(!xp || !*xp))
+                return 0;
+
+        size_t sz = malloc_usable_size(*xp);
+        *xp = expand_to_usable(*xp, sz);
+        /* GCC doesn't see the _returns_nonnull_ when built with ubsan, so yet another hint to make it doubly
+         * clear that expand_to_usable won't return NULL.
+         * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79265 */
+        if (!*xp)
+                assert_not_reached();
+        return sz;
 }

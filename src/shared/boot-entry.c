@@ -5,7 +5,6 @@
 #include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "id128-util.h"
 #include "log.h"
 #include "os-util.h"
 #include "path-util.h"

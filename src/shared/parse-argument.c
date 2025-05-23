@@ -7,7 +7,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "signal-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 

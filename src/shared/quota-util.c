@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdint.h>
 #include <sys/quota.h>
 #include <sys/stat.h>
 

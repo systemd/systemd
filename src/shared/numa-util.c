@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sched.h>
 
 #include "alloc-util.h"
@@ -9,7 +8,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_syscall.h"
 #include "numa-util.h"
 #include "parse-util.h"

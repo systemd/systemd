@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "hashmap.h"
-#include "user-util.h"
+#include "forward.h"
 
 typedef enum PolkitFlags {
         POLKIT_ALLOW_INTERACTIVE = 1 << 0, /* Allow interactive auth (typically not required, because can be derived from bus message/link automatically) */

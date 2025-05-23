@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "in-addr-util.h"
-#include "macro.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 
 /* 127.0.0.53 in native endian (The IP address we listen on with the full DNS stub, i.e. that does LLMNR/mDNS, and stuff) */
 #define INADDR_DNS_STUB ((in_addr_t) 0x7f000035U)
@@ -14,30 +13,24 @@
 /* 127.0.0.2 is an address we always map to the local hostname. This is different from 127.0.0.1 which maps to "localhost" */
 #define INADDR_LOCALADDRESS ((in_addr_t) 0x7f000002U)
 
-typedef enum DnsCacheMode DnsCacheMode;
-
-enum DnsCacheMode {
+typedef enum DnsCacheMode {
         DNS_CACHE_MODE_NO,
         DNS_CACHE_MODE_YES,
         DNS_CACHE_MODE_NO_NEGATIVE,
         _DNS_CACHE_MODE_MAX,
         _DNS_CACHE_MODE_INVALID = -EINVAL,
-};
-
-typedef enum ResolveSupport ResolveSupport;
-typedef enum DnssecMode DnssecMode;
-typedef enum DnsOverTlsMode DnsOverTlsMode;
+} DnsCacheMode;
 
 /* Do not change the order, see link_get_llmnr_support() or link_get_mdns_support(). */
-enum ResolveSupport {
+typedef enum ResolveSupport {
         RESOLVE_SUPPORT_NO,
         RESOLVE_SUPPORT_RESOLVE,
         RESOLVE_SUPPORT_YES,
         _RESOLVE_SUPPORT_MAX,
         _RESOLVE_SUPPORT_INVALID = -EINVAL,
-};
+} ResolveSupport;
 
-enum DnssecMode {
+typedef enum DnssecMode {
         /* No DNSSEC validation is done */
         DNSSEC_NO,
 
@@ -53,9 +46,9 @@ enum DnssecMode {
 
         _DNSSEC_MODE_MAX,
         _DNSSEC_MODE_INVALID = -EINVAL,
-};
+} DnssecMode;
 
-enum DnsOverTlsMode {
+typedef enum DnsOverTlsMode {
         /* No connection is made for DNS-over-TLS */
         DNS_OVER_TLS_NO,
 
@@ -68,7 +61,7 @@ enum DnsOverTlsMode {
 
         _DNS_OVER_TLS_MODE_MAX,
         _DNS_OVER_TLS_MODE_INVALID = -EINVAL,
-};
+} DnsOverTlsMode;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);

@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <linux/veth.h>
-#include <net/if.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <net/ethernet.h>
 
 #include "sd-event.h"
 #include "sd-ipv4ll.h"
 #include "sd-netlink.h"
 
-#include "alloc-util.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "parse-util.h"

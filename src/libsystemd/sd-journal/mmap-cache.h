@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <sys/stat.h>
-
+#include "forward.h"
 #include "journal-def.h"
-#include "memory-util.h"
 
 typedef struct MMapCache MMapCache;
 typedef struct MMapFileDescriptor MMapFileDescriptor;

@@ -3,31 +3,29 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
 #include <linux/ipv6.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
 
+#include "sd-ndisc-protocol.h"
+#include "sd-ndisc-router-solicit.h"
 #include "sd-radv.h"
 
 #include "alloc-util.h"
-#include "dns-domain.h"
-#include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "icmp6-packet.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
-#include "iovec-util.h"
-#include "macro.h"
 #include "memory-util.h"
+#include "ndisc-option.h"
 #include "ndisc-router-solicit-internal.h"
 #include "network-common.h"
 #include "radv-internal.h"
 #include "random-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "strv.h"
-#include "unaligned.h"
 
 int sd_radv_new(sd_radv **ret) {
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;

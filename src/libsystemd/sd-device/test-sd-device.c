@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "device-enumerator-private.h"
+#include "sd-event.h"
+
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -15,10 +15,10 @@
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "time-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
 

@@ -4,7 +4,7 @@
 #include "sd-varlink.h"
 #include "sd-varlink-idl.h"
 
-#include "memory-util.h"
+#include "forward.h"
 
 bool varlink_idl_field_name_is_valid(const char *name);
 bool varlink_idl_symbol_name_is_valid(const char *name);

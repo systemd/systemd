@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <security/pam_ext.h>
-#include <stdlib.h>
 #include <syslog.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-internal.h"
@@ -10,7 +11,6 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "macro.h"
 #include "pam-util.h"
 #include "process-util.h"
 #include "stdio-util.h"

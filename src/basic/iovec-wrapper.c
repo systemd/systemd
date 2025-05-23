@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <limits.h>
-
 #include "alloc-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
@@ -60,6 +57,17 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
 
         iovw->iovec[iovw->count++] = IOVEC_MAKE(data, len);
         return 0;
+}
+
+int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
+        /* Move data into iovw or free on error */
+        int r;
+
+        r = iovw_put(iovw, data, len);
+        if (r < 0)
+                free(data);
+
+        return r;
 }
 
 int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {

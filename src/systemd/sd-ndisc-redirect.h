@@ -17,16 +17,13 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
-#include <netinet/ip6.h>
-#include <sys/types.h>
-#include <time.h>
-
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct ether_addr;
+struct in6_addr;
+struct ip6_hdr;
 
 typedef struct sd_ndisc_redirect sd_ndisc_redirect;
 

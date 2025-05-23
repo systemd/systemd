@@ -3,20 +3,18 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <linux/filter.h>
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
-#include <net/ethernet.h>
-#include <net/if.h>
 #include <net/if_arp.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "dhcp-network.h"
 #include "dhcp-protocol.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
-#include "log.h"
+#include "socket-util.h"
 #include "unaligned.h"
 
 static int _bind_raw_socket(

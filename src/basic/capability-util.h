@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/capability.h>
-#include <sys/types.h>
+#include <sys/capability.h>     /* IWYU pragma: export */
 
-#include "macro.h"
-#include "pidref.h"
+#include "forward.h"
 
 /* Special marker used when storing a capabilities mask as "unset". This would need to be updated as soon as
  * Linux learns more than 63 caps. */

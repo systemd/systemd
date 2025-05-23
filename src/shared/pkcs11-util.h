@@ -3,20 +3,16 @@
 
 #if HAVE_OPENSSL
 #  include <openssl/evp.h>
-#  include <openssl/x509.h>
 #endif
-#include <stdbool.h>
 
 #if HAVE_P11KIT
-#  include <p11-kit/p11-kit.h>
-#  include <p11-kit/uri.h>
+#  include <p11-kit/p11-kit.h>  /* IWYU pragma: export */
+#  include <p11-kit/uri.h>      /* IWYU pragma: export */
 #endif
 
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
-#include "log.h"
-#include "memory-util.h"
-#include "time-util.h"
+#include "forward.h"
 
 bool pkcs11_uri_valid(const char *uri);
 
@@ -97,15 +93,9 @@ int pkcs11_crypt_device_callback(
                 P11KitUri *uri,
                 void *userdata);
 
-int dlopen_p11kit(void);
-
-#else
-
-static inline int dlopen_p11kit(void) {
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "p11kit support is not compiled in.");
-}
-
 #endif
+
+int dlopen_p11kit(void);
 
 typedef struct {
         const char *friendly_name;

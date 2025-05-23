@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <linux/keyctl.h>
+#include <linux/keyctl.h> /* IWYU pragma: export */
 
-#include "macro.h"
+#include "forward.h"
 
 /* From linux/key.h */
 #ifndef KEY_POS_VIEW

@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-#include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "macro.h"
 #include "mmap-cache.h"
 #include "tests.h"
 #include "tmpfile-util.h"

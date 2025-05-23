@@ -2841,6 +2841,10 @@ alias_target('gensources', generated_sources)
 clang_tidy = find_program('clang-tidy', required : false)
 if meson.version().version_compare('>=1.4.0')
         foreach source : sources
+                if systemd_headers.contains(source)
+                        continue
+                endif
+
                 if not source.full_path().endswith('.c') and not source.full_path().endswith('.h')
                         continue
                 endif
@@ -2848,7 +2852,7 @@ if meson.version().version_compare('>=1.4.0')
                 inputs = [source]
 
                 header = source.full_path().replace('.c', '.h')
-                if fs.exists(header) and header != source.full_path()
+                if fs.exists(header) and header != source.full_path() and header != libudev_h_path
                         inputs += header
                 endif
 

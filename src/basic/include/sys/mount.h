@@ -2,6 +2,7 @@
 #pragma once
 
 #include <features.h>
+#include <linux/mount.h> /* IWYU pragma: export */
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/ioctl.h>

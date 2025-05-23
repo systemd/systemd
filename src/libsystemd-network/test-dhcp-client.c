@@ -3,10 +3,9 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <net/if.h>
 #include <net/if_arp.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
@@ -14,6 +13,7 @@
 #endif
 
 #include "sd-dhcp-client.h"
+#include "sd-dhcp-lease.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -24,7 +24,6 @@
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "random-util.h"
 #include "tests.h"
 
 static struct hw_addr_data hw_addr = {

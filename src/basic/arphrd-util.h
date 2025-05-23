@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stddef.h>
+#include "forward.h"
 
 const char* arphrd_to_name(int id);
 int arphrd_from_name(const char *name);

@@ -3,19 +3,16 @@
   Copyright © 2018 Dell Inc.
 ***/
 
+#include <linux/fiemap.h>
 #include <linux/magic.h>
-#include <stddef.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
-#include "device-util.h"
 #include "devnum-util.h"
 #include "efivars.h"
 #include "env-util.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hibernate-util.h"
@@ -25,8 +22,6 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "stat-util.h"
-#include "string-util.h"
-#include "strv.h"
 
 #define HIBERNATION_SWAP_THRESHOLD 0.98
 

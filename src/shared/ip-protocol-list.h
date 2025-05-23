@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
 
 const char* ip_protocol_to_name(int id);
 int ip_protocol_from_name(const char *name);

@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <pthread.h>
+#include <sched.h>
+#include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -8,10 +11,7 @@
 
 #include "alloc-util.h"
 #include "bus-internal.h"
-#include "bus-kernel.h"
-#include "constants.h"
 #include "fd-util.h"
-#include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
 

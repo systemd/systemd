@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
 
 int keymap_directories(char ***ret);
 int get_keymaps(char ***ret);

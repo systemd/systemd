@@ -4,6 +4,7 @@
 #include "hashmap.h"
 #include "libudev-list-internal.h"
 #include "list.h"
+#include "string-util.h"
 
 /**
  * SECTION:libudev-list

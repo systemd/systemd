@@ -9,7 +9,6 @@
 #include "bus-print-properties.h"
 #include "bus-util.h"
 #include "capsule-util.h"
-#include "dissect-image.h"
 #include "extract-word.h"
 #include "image-policy.h"
 #include "install.h"

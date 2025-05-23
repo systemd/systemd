@@ -76,7 +76,6 @@
 #include "tmpfile-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
-#include "user-util.h"
 #include "utf8.h"
 #include "xattr-util.h"
 

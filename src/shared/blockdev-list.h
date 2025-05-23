@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
+
 typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_SHOW_SYMLINKS              = 1 << 0,
         BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING = 1 << 1,

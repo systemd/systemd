@@ -71,7 +71,7 @@ jobs:
           fi
 
       - name: Configure meson
-        run: mkosi sandbox -- env CC=clang CXX=clang++ meson setup build
+        run: mkosi sandbox -- env CC=clang CXX=clang++ meson setup -Dlocalegen-path=/usr/bin/locale-gen -Dcompat-mutable-uid-boundaries=true build
 
       - name: Run clang-tidy
         run: mkosi sandbox -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit

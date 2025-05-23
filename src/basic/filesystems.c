@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "filesystems-gperf.h"
+#include "nulstr-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 
 const char* fs_type_to_string(statfs_f_type_t magic) {
 

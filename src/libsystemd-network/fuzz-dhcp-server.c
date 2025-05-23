@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <net/if_arp.h>
 
 #include "fuzz.h"
-#include "path-util.h"
 #include "rm-rf.h"
 #include "sd-dhcp-server.c"
 #include "tmpfile-util.h"

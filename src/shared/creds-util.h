@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
 
 #include "fd-util.h"
-#include "time-util.h"
+#include "forward.h"
 
 #define CREDENTIAL_NAME_MAX FDNAME_MAX
 

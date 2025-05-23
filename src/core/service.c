@@ -31,7 +31,7 @@
 #include "image-policy.h"
 #include "log.h"
 #include "manager.h"
-#include "missing_audit.h"
+#include "missing_audit.h"              /* IWYU pragma: keep */
 #include "mount-util.h"
 #include "namespace.h"
 #include "open-file.h"

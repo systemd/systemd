@@ -17,18 +17,21 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <linux/filter.h>
-#include <linux/neighbour.h>
-#include <linux/rtnetlink.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
+#include <linux/rtnetlink.h> /* IWYU pragma: export */
 
 #include "_sd-common.h"
-#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct ether_addr;
+struct in_addr;
+struct in6_addr;
+struct sockaddr_in;
+struct sockaddr_in6;
+struct sock_filter;
+struct ifa_cacheinfo;
+
+typedef struct sd_event sd_event;
 
 typedef struct sd_netlink sd_netlink;
 typedef struct sd_netlink_message sd_netlink_message;

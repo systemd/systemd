@@ -11,7 +11,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "unaligned.h"
+#include "unaligned.h"          /* IWYU pragma: keep */
 #include "virt.h"
 
 static const char *const coredump_filter_table[_COREDUMP_FILTER_MAX] = {

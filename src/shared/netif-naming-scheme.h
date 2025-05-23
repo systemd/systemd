@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-device.h"
-
-#include "macro.h"
+#include "forward.h"
 
 /* So here's the deal: net_id is supposed to be an exercise in providing stable names for network devices. However, we
  * also want to keep updating the naming scheme used in future versions of net_id. These two goals of course are

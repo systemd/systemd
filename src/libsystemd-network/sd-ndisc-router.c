@@ -8,12 +8,11 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
-#include "dns-domain.h"
-#include "dns-resolver-internal.h"
 #include "ndisc-internal.h"
 #include "ndisc-router-internal.h"
+#include "set.h"
 #include "string-table.h"
-#include "unaligned.h"
+#include "string-util.h"
 
 static sd_ndisc_router* ndisc_router_free(sd_ndisc_router *rt) {
         if (!rt)

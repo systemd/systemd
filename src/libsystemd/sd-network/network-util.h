@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <netinet/in.h>
-#include <stdbool.h>
+#include <sys/socket.h>
 
 #include "constants.h"
-#include "macro.h"
+#include "forward.h"
 
 #define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
 #define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")

@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "libudev.h"
+
+#include "forward.h"
 #include "device-nodes.h"
-#include "libudev-util.h"
 
 /**
  * SECTION:libudev-util

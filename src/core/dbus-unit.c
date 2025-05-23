@@ -30,7 +30,7 @@
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
-#include "transaction.h"
+#include "transaction.h"                /* IWYU pragma: keep */
 #include "unit-name.h"
 #include "web-util.h"
 

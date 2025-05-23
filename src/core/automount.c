@@ -2,7 +2,7 @@
 
 #include <fcntl.h>
 #include <linux/auto_dev-ioctl.h>
-#include <sys/mount.h>
+#include <sys/mount.h>                  /* IWYU pragma: keep */
 #include <sys/stat.h>
 #include <unistd.h>
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -14,12 +15,10 @@
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir-label.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "special.h"
 #include "specifier.h"
 #include "string-util.h"

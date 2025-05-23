@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <dirent.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "glob-util.h"
 #include "log.h"
-#include "macro.h"
-#include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 static void closedir_wrapper(void* v) {
@@ -103,4 +100,9 @@ int glob_non_glob_prefix(const char *path, char **ret) {
                 return -ENOMEM;
         *ret = ans;
         return 0;
+}
+
+bool string_is_glob(const char *p) {
+        /* Check if a string contains any glob patterns. */
+        return !!strpbrk(p, GLOB_CHARS);
 }

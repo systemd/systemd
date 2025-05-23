@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "macro.h"
+#include "forward.h"
 
 bool bus_type_is_valid(char c) _const_;
 bool bus_type_is_basic(char c) _const_;

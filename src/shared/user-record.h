@@ -1,18 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
-#include "sd-json.h"
 
 #include "bitfield.h"
-#include "hashmap.h"
 #include "rlimit-util.h"
-#include "strv.h"
-#include "time-util.h"
-#include "user-util.h"
+#include "forward.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -184,10 +177,7 @@ static inline UserRecordMask USER_RECORD_STRIP_MASK(UserRecordLoadFlags f) {
         return (f >> 21) & _USER_RECORD_MASK_MAX;
 }
 
-static inline sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags) {
-        return (FLAGS_SET(flags, USER_RECORD_LOG) ? SD_JSON_LOG : 0) |
-                (FLAGS_SET(flags, USER_RECORD_PERMISSIVE) ? SD_JSON_PERMISSIVE : 0);
-}
+sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags);
 
 typedef struct Pkcs11EncryptedKey {
         /* The encrypted passphrase, which can be decrypted with the private key indicated below */
@@ -541,22 +531,11 @@ typedef struct UserDBMatch {
                         INDEXES_TO_MASK(uint64_t, USER_INTRINSIC, USER_SYSTEM), \
                 .uid_min = 0,                                   \
                 .uid_max = UID_NOBODY - 1,                      \
-       }
+        }
 
-static inline bool userdb_match_is_set(const UserDBMatch *match) {
-        if (!match)
-                return false;
+bool userdb_match_is_set(const UserDBMatch *match);
 
-        return !strv_isempty(match->fuzzy_names) ||
-                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
-                match->uid_min > 0 ||
-                match->uid_max < UID_INVALID-1;
-}
-
-static inline void userdb_match_done(UserDBMatch *match) {
-        assert(match);
-        strv_free(match->fuzzy_names);
-}
+void userdb_match_done(UserDBMatch *match);
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 bool user_record_match(UserRecord *u, const UserDBMatch *match);

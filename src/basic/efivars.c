@@ -1,26 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
-
-#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "chattr-util.h"
 #include "efivars.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
-#include "missing_fs.h"
-#include "stdio-util.h"
-#include "strv.h"
+#include "string-util.h"
 #include "time-util.h"
 #include "utf8.h"
 #include "virt.h"
@@ -389,3 +382,7 @@ SecureBootMode efi_get_secure_boot_mode(void) {
         return (cache = decode_secure_boot_mode(secure, audit > 0, deployed > 0, setup > 0));
 }
 #endif
+
+char *efi_tilt_backslashes(char *s) {
+        return string_replace_char(s, '\\', '/');
+}

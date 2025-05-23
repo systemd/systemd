@@ -1,20 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
-#include "sd-journal.h"
 
-#include "macro.h"
-#include "output-mode.h"
-#include "rlimit-util.h"
-#include "set.h"
-#include "sigbus.h"
-#include "time-util.h"
+#include "forward.h"
 
 typedef struct LogId {
         sd_id128_t id; /* boot ID or invocation ID */
@@ -135,10 +124,4 @@ static inline int journal_get_boots(
                                    ret_ids, ret_n_ids);
 }
 
-static inline void journal_browse_prepare(void) {
-        /* Increase max number of open files if we can, we might needs this when browsing journal files,
-         * which might be split up into many files. */
-        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
-
-        sigbus_install();
-}
+void journal_browse_prepare(void);

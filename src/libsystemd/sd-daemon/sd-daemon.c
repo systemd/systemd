@@ -1,14 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <limits.h>
 #include <mqueue.h>
 #include <netinet/in.h>
 #include <poll.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -16,6 +11,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"

@@ -31,7 +31,7 @@
 #include "hashmap.h"
 #include "image-policy.h"
 #include "initrd-util.h"
-#include "label-util.h"
+#include "label-util.h"                 /* IWYU pragma: keep */
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
@@ -54,7 +54,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "user-util.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"
 #include "verbs.h"

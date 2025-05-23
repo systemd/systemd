@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <syslog.h>
 
+#include "log.h"
 #include "module-util.h"
 #include "proc-cmdline.h"
 #include "strv.h"

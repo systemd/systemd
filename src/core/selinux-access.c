@@ -13,7 +13,7 @@
 #include "audit-fd.h"
 #include "errno-util.h"
 #include "format-util.h"
-#include "libaudit-util.h"
+#include "libaudit-util.h"      /* IWYU pragma: keep */
 #include "log.h"
 #include "selinux-util.h"
 #include "stdio-util.h"

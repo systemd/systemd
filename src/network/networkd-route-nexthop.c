@@ -9,6 +9,7 @@
 #include "conf-parser.h"
 #include "extract-word.h"
 #include "netlink-util.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"

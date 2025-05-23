@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <linux/magic.h>
 #include <poll.h>
-#include <stddef.h>
+#include <stdlib.h>
 #include <sys/inotify.h>
 #include <sys/vfs.h>
 #include <unistd.h>
@@ -14,14 +11,13 @@
 
 #include "alloc-util.h"
 #include "catalog.h"
-#include "compress.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "id128-util.h"
@@ -31,19 +27,21 @@
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "list.h"
+#include "log.h"
 #include "lookup3.h"
 #include "nulstr-util.h"
 #include "origin-id.h"
 #include "path-util.h"
 #include "prioq.h"
-#include "process-util.h"
 #include "replace-var.h"
+#include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "uid-classification.h"
 
 #define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)

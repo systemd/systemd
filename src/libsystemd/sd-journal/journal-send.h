@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-
-#include "syslog-util.h"
+#include "syslog-util.h"        /* IWYU pragma: keep */
 
 int journal_fd_nonblock(bool nonblock);
 void close_journal_fd(void);

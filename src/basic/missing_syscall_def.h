@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "macro.h"
+#include "forward.h"
 
 /* Note: if this code looks strange, this is because it is derived from the same
  * template as the per-syscall blocks below. */

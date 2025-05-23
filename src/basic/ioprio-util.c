@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
-#include "assert-util.h"
 #include "ioprio-util.h"
 #include "parse-util.h"
 #include "string-table.h"

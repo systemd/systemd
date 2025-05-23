@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
-#include <linux/sockios.h>
-#include <sys/ioctl.h>
-
 #include "sd-event.h"
 #include "sd-id128.h"
 #include "sd-lldp-tx.h"

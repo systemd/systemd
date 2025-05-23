@@ -50,7 +50,6 @@
 #include "virt.h"
 
 #if BPF_FRAMEWORK
-#include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "bpf-restrict-fs.h"
 #include "bpf/restrict_fs/restrict-fs-skel.h"

@@ -3,7 +3,21 @@
 Checks: '
     -*,
     misc-header-include-cycle,
+    misc-include-cleaner,
     readability-duplicate-include
+'
+CheckOptions:
+  misc-include-cleaner.MissingIncludes: 'false'
+  misc-include-cleaner.IgnoreHeaders: '
+    endian.h;
+    getopt\.h;
+    sys/uio\.h;
+    netinet/in\.h;
+    net/if\.h;
+    net/if_arp\.h;
+    runtime-scope\.h;
+    varlink-io\.systemd\..*;
+    varlink-idl-common\.h
 '
 WarningsAsErrors: '*'
 HeaderFileExtensions:

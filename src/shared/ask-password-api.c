@@ -1,20 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#include <poll.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/uio.h>
-#include <sys/un.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -22,7 +13,6 @@
 #include "ansi-color.h"
 #include "ask-password-api.h"
 #include "creds-util.h"
-#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -33,10 +23,7 @@
 #include "iovec-util.h"
 #include "keyring-util.h"
 #include "log.h"
-#include "macro.h"
-#include "memory-util.h"
 #include "missing_syscall.h"
-#include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"

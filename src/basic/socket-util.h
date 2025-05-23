@@ -1,27 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
 #include <linux/if_ether.h>
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
 #include <linux/netlink.h>
 #include <linux/vm_sockets.h>
 #include <netinet/in.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/un.h>
 
-#include "errno-util.h"
-#include "in-addr-util.h"
-#include "macro.h"
+#include "forward.h"
+#include "memory-util.h"
 #include "missing_network.h"
 #include "missing_socket.h"
-#include "pidref.h"
-#include "sparse-endian.h"
 
 union sockaddr_union {
         /* The minimal, abstract version */
@@ -261,7 +253,7 @@ static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
         socklen_t sl = sizeof(v);
 
         if (getsockopt(fd, level, optname, &v, &sl) < 0)
-                return negative_errno();
+                return -errno;
         if (sl != sizeof(v))
                 return -EIO;
 

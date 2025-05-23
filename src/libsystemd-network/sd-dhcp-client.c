@@ -3,13 +3,9 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <linux/if_infiniband.h>
-#include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/ioctl.h>
 
 #include "sd-dhcp-client.h"
 
@@ -22,6 +18,7 @@
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -31,12 +28,12 @@
 #include "network-common.h"
 #include "random-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "utf8.h"
 #include "web-util.h"
 
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)

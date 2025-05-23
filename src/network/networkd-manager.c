@@ -30,6 +30,7 @@
 #include "networkd-address.h"
 #include "networkd-address-label.h"
 #include "networkd-address-pool.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager-varlink.h"

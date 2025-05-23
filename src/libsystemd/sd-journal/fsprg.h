@@ -7,10 +7,7 @@
  * Contact: fsprg@point-at-infinity.org
  */
 
-#include <inttypes.h>
-#include <sys/types.h>
-
-#include "macro.h"
+#include "forward.h"
 
 #ifdef __cplusplus
 extern "C" {

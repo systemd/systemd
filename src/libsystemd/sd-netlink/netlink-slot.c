@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "log.h"
+#include "hashmap.h"
 #include "netlink-internal.h"
 #include "netlink-slot.h"
+#include "prioq.h"
 #include "string-util.h"
 
 int netlink_slot_allocate(

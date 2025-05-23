@@ -17,7 +17,6 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
 #include <stdio.h>
 
 #include "_sd-common.h"

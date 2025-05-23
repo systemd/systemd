@@ -22,13 +22,12 @@
    <https://www.gnu.org/licenses/>.  */
 
 #if SD_BOOT
-#  include "efi-string.h"
+#  include "efi-string.h"       /* IWYU pragma: keep */
 #else
 #  include <string.h>
 #endif
 
 #include "assert-fundamental.h"
-#include "macro-fundamental.h"
 #include "memory-util-fundamental.h"
 #include "sha256-fundamental.h"
 #include "unaligned-fundamental.h"

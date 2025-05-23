@@ -1,17 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-json.h"
-
 #include "bitfield.h"
-#include "io-util.h"
-#include "macro.h"
+#include "forward.h"
 #include "openssl-util.h"
-#include "ordered-set.h"
-#include "sha256.h"
-#include "tpm2-pcr.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN     = 1 << 0,
@@ -47,13 +39,13 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 #define TPM2_N_HASH_ALGORITHMS 4U
 
+int dlopen_tpm2(void);
+
 #if HAVE_TPM2
 
-#include <tss2/tss2_esys.h>
-#include <tss2/tss2_mu.h>
-#include <tss2/tss2_rc.h>
-
-int dlopen_tpm2(void);
+#include <tss2/tss2_esys.h>     /* IWYU pragma: export */
+#include <tss2/tss2_mu.h>       /* IWYU pragma: export */
+#include <tss2/tss2_rc.h>       /* IWYU pragma: export */
 
 typedef struct Tpm2Context {
         unsigned n_ref;

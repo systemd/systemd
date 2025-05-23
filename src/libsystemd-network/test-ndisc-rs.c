@@ -3,7 +3,6 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
 #include <netinet/icmp6.h>
 #include <unistd.h>
 
@@ -14,8 +13,8 @@
 #include "hexdecoct.h"
 #include "icmp6-packet.h"
 #include "icmp6-test-util.h"
+#include "in-addr-util.h"
 #include "ndisc-internal.h"
-#include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
 

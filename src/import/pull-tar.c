@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <dirent.h>
+#include <dirent.h>             /* IWYU pragma: keep */
 
 #include "sd-daemon.h"
 #include "sd-event.h"

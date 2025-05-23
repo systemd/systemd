@@ -1,22 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
+#include "sd-bus.h" /* IWYU pragma: export */
 
-#include "sd-bus.h"
-#include "sd-event.h"
-
-#include "errno-util.h"
 #include "log.h"
-#include "macro.h"
-#include "pidref.h"
-#include "runtime-scope.h"
-#include "set.h"
-#include "string-util.h"
-#include "time-util.h"
+#include "forward.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,
@@ -50,9 +38,7 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, Runt
 
 int bus_log_address_error(int r, BusTransport transport);
 int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeScope scope);
-static inline int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope) {
-        return bus_log_connect_full(LOG_ERR, r, transport, scope);
-}
+int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope);
 
 #define bus_log_parse_error(r)                                  \
         log_error_errno(r, "Failed to parse bus message: %m")

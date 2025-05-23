@@ -2,11 +2,16 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-message-util.h"
 #include "bus-util.h"
 #include "copy.h"
+#include "in-addr-util.h"
 #include "resolve-util.h"
+#include "set.h"
+#include "socket-netlink.h"
 
 int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret) {
         const void *a;

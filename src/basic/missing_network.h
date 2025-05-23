@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <netinet/in.h>
+#include <netinet/in.h> /* IWYU pragma: export */
 
 /* linux/in.h or netinet/in.h (since glibc-2.32) */
 #ifndef IPPROTO_MPTCP

@@ -21,6 +21,7 @@
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-ipv4acd.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-netlabel.h"

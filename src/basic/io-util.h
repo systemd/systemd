@@ -1,14 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <poll.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
-
-#include "macro.h"
-#include "time-util.h"
+#include "forward.h"
 
 int flush_fd(int fd);
 

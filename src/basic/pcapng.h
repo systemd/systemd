@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
+#include "forward.h"
 
 /*
  * For details about the file format see RFC:

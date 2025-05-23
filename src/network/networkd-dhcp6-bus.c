@@ -8,6 +8,7 @@
 #include "dhcp6-protocol.h"
 #include "networkd-dhcp6-bus.h"
 #include "networkd-link-bus.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 
 static int property_get_dhcp6_client_state(

@@ -3,19 +3,15 @@
   Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <netinet/if_ether.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-ipv4ll.h"
 
 #include "arp-util.h"
 #include "fd-util.h"
-#include "log.h"
-#include "socket-util.h"
+#include "in-addr-util.h"
 #include "tests.h"
 
 static bool verbose = false;

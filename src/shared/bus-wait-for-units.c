@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
@@ -7,7 +9,6 @@
 #include "hashmap.h"
 #include "log.h"
 #include "string-util.h"
-#include "strv.h"
 #include "unit-def.h"
 
 typedef struct WaitForItem {

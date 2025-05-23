@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stddef.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <sys/un.h>
 #include <syslog.h>
 
@@ -21,12 +18,11 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "label.h"
+#include "label-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mallinfo-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
 

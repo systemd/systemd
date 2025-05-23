@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
-#include <stddef.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -13,7 +10,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "path-util.h"

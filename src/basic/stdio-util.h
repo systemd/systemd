@@ -2,12 +2,9 @@
 #pragma once
 
 #include <printf.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <sys/types.h>
 
-#include "assert-util.h"
-#include "macro.h"
+#include "forward.h"
 
 _printf_(3, 4)
 static inline char* snprintf_ok(char *buf, size_t len, const char *format, ...) {

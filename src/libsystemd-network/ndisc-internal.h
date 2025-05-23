@@ -5,8 +5,13 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include "sd-ndisc.h"
+#include <net/ethernet.h>
+#include <netinet/in.h>
 
+#include "sd-event.h"
+#include "sd-ndisc.h" /* IWYU pragma: export */
+
+#include "forward.h"
 #include "network-common.h"
 #include "time-util.h"
 
@@ -14,7 +19,7 @@
 #define NDISC_MAX_ROUTER_SOLICITATION_INTERVAL (3600U * USEC_PER_SEC)
 #define NDISC_MAX_ROUTER_SOLICITATIONS 3U
 
-struct sd_ndisc {
+typedef struct sd_ndisc {
         unsigned n_ref;
 
         int ifindex;
@@ -35,7 +40,7 @@ struct sd_ndisc {
 
         sd_ndisc_callback_t callback;
         void *userdata;
-};
+} sd_ndisc;
 
 const char* ndisc_event_to_string(sd_ndisc_event_t e) _const_;
 sd_ndisc_event_t ndisc_event_from_string(const char *s) _pure_;

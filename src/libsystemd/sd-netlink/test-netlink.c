@@ -6,27 +6,27 @@
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
 #include <linux/unix_diag.h>
+#include <net/ethernet.h>
 #include <net/if.h>
-#include <netinet/ether.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "ether-addr-util.h"
 #include "fd-util.h"
-#include "macro.h"
+#include "missing_network.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-sock-diag.h"
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(message_newlink_bridge) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;

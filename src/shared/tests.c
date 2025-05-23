@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <signal.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <sys/mount.h>
+#include <sys/prctl.h>
 #include <sys/wait.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
@@ -18,15 +19,17 @@
 #include "cgroup-util.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "log.h"
-#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "rlimit-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"

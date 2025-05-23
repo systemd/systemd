@@ -5,23 +5,20 @@
 
 #include <net/ethernet.h>
 #include <net/if_arp.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <sys/types.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-dhcp6-client.h"
+#include "sd-dhcp6-protocol.h"
 #include "sd-event.h"
 
-#include "dhcp-duid-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
 #include "fd-util.h"
-#include "macro.h"
+#include "in-addr-util.h"
 #include "memory-util.h"
-#include "socket-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"

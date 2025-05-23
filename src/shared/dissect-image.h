@@ -1,29 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "env-util.h"
+#include "forward.h"
 #include "gpt.h"
 #include "list.h"
-#include "loop-util.h"
-#include "macro.h"
-#include "os-util.h"
-#include "strv.h"
 
-typedef struct DissectedImage DissectedImage;
-typedef struct DissectedPartition DissectedPartition;
 typedef struct DecryptedImage DecryptedImage;
-typedef struct MountOptions MountOptions;
-typedef struct VeritySettings VeritySettings;
-typedef struct ImageFilter ImageFilter;
-typedef struct ImagePolicy ImagePolicy;
-typedef struct ExtensionReleaseData ExtensionReleaseData;
 
-struct DissectedPartition {
+typedef struct DissectedPartition {
         bool found:1;
         bool ignored:1;
         bool rw:1;
@@ -42,7 +29,7 @@ struct DissectedPartition {
         uint64_t offset;
         uint64_t gpt_flags;
         int fsmount_fd;
-};
+} DissectedPartition;
 
 #define DISSECTED_PARTITION_NULL                                        \
         ((DissectedPartition) {                                         \
@@ -96,7 +83,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
 } DissectImageFlags;
 
-struct DissectedImage {
+typedef struct DissectedImage {
         bool encrypted:1;
         bool has_verity:1;         /* verity available in image, but not necessarily used */
         bool has_verity_sig:1;     /* pkcs#7 signature embedded in image */
@@ -123,15 +110,15 @@ struct DissectedImage {
         char **confext_release;
         char **sysext_release;
         int has_init_system;
-};
+} DissectedImage;
 
-struct MountOptions {
+typedef struct MountOptions {
         PartitionDesignator partition_designator;
         char *options;
         LIST_FIELDS(MountOptions, mount_options);
-};
+} MountOptions;
 
-struct VeritySettings {
+typedef struct VeritySettings {
         /* Binary root hash for the Verity Merkle tree */
         void *root_hash;
         size_t root_hash_size;
@@ -145,24 +132,24 @@ struct VeritySettings {
 
         /* PARTITION_ROOT or PARTITION_USR, depending on what these Verity settings are for */
         PartitionDesignator designator;
-};
+} VeritySettings;
 
 #define VERITY_SETTINGS_DEFAULT (VeritySettings) {              \
                 .designator = _PARTITION_DESIGNATOR_INVALID     \
         }
 
-struct ImageFilter {
+typedef struct ImageFilter {
         /* A per designator glob matching against the partition label */
         char *pattern[_PARTITION_DESIGNATOR_MAX];
-};
+} ImageFilter;
 
-struct ExtensionReleaseData {
+typedef struct ExtensionReleaseData {
         char *os_release_id;
         char *os_release_version_id;
         char *os_release_sysext_level;
         char *os_release_confext_level;
         char *os_release_extension_scope;
-};
+} ExtensionReleaseData;
 
 MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
@@ -200,13 +187,8 @@ static inline bool dissected_image_is_bootable_uefi(DissectedImage *m) {
         return m && m->partitions[PARTITION_ESP].found && dissected_image_is_bootable_os(m);
 }
 
-static inline bool dissected_image_is_portable(DissectedImage *m) {
-        return m && strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES");
-}
-
-static inline bool dissected_image_is_initrd(DissectedImage *m) {
-        return m && !strv_isempty(m->initrd_release);
-}
+bool dissected_image_is_portable(DissectedImage *m);
+bool dissected_image_is_initrd(DissectedImage *m);
 
 DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);

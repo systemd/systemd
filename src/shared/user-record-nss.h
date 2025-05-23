@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <grp.h>
-#include <gshadow.h>
-#include <pwd.h>
-#include <shadow.h>
-
-#include "group-record.h"
-#include "user-record.h"
+#include "forward.h"
 
 /* Synthesize UserRecord and GroupRecord objects from NSS data */
 

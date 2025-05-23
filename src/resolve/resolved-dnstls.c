@@ -7,7 +7,7 @@
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
-#include <sys/epoll.h>
+#include <sys/epoll.h>                  /* IWYU pragma: keep */
 
 #include "alloc-util.h"
 #include "openssl-util.h"

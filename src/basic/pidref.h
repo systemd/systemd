@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
 #include <signal.h>
 
-#include "macro.h"
-#include "memory-util.h"
+#include "forward.h"
 
 /* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes
  * continuously. This combines a PID, a modern Linux pidfd and the 64bit inode number of the pidfd into one

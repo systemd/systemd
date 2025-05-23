@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <uchar.h>
-
-#include "sd-gpt.h"
+#include "sd-gpt.h" /* IWYU pragma: export */
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "id128-util.h"
+#include "forward.h"
 #include "sparse-endian.h"
 
 /* maximum length of gpt label */

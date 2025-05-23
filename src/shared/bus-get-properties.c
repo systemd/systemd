@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "bus-get-properties.h"
 #include "bus-message-util.h"
-#include "log.h"
 #include "rlimit-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 
 BUS_DEFINE_PROPERTY_GET_GLOBAL(bus_property_get_bool_false, "b", 0);

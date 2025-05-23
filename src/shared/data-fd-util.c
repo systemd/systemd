@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "copy.h"
 #include "data-fd-util.h"
 #include "fd-util.h"
