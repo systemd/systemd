@@ -155,7 +155,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         r = varlink_verify_polkit_async(
                         link,
                         manager->bus,
-                        "org.freedesktop.machine1.create-machine",
+                        machine->allocate_unit ? "org.freedesktop.machine1.create-machine" : "org.freedesktop.machine1.register-machine",
                         (const char**) STRV_MAKE("name", machine->name,
                                                  "class", machine_class_to_string(machine->class)),
                         &manager->polkit_registry);
