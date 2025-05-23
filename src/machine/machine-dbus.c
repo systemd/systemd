@@ -60,10 +60,12 @@ int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bu
                 NULL
         };
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
                         "org.freedesktop.machine1.manage-machines",
                         details,
+                        m->uid,
+                        /* flags= */ 0,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -90,10 +92,12 @@ int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus
                 NULL
         };
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
                         "org.freedesktop.machine1.manage-machines",
                         details,
+                        m->uid,
+                        /* flags= */ 0,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -138,10 +142,12 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                 NULL
         };
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
                         "org.freedesktop.machine1.manage-machines",
                         details,
+                        m->uid,
+                        /* flags= */ 0,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -258,10 +264,12 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
                 NULL
         };
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
                         m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-open-pty" : "org.freedesktop.machine1.open-pty",
                         details,
+                        m->uid,
+                        /* flags= */ 0,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -299,10 +307,12 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
                 NULL
         };
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
                         m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-login" : "org.freedesktop.machine1.login",
                         details,
+                        m->uid,
+                        /* flags= */ 0,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -383,10 +393,12 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 NULL
         };
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
                         m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-shell" : "org.freedesktop.machine1.shell",
                         details,
+                        m->uid,
+                        /* flags= */ 0,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -446,6 +458,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 NULL
         };
 
+        /* NB: For now not opened up to owner of machine without auth */
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.machine1.manage-machines",
@@ -531,6 +544,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                 NULL
         };
 
+        /* NB: For now not opened up to owner of machine without auth */
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.machine1.manage-machines",
@@ -574,6 +588,7 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
                 NULL
         };
 
+        /* NB: For now not opened up to owner of machine without auth */
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.machine1.manage-machines",
@@ -727,6 +742,7 @@ static const sd_bus_vtable machine_vtable[] = {
         SD_BUS_PROPERTY("SSHAddress", "s", NULL, offsetof(Machine, ssh_address), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SSHPrivateKeyPath", "s", NULL, offsetof(Machine, ssh_private_key_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
+        SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Machine, uid), SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD("Terminate",
                       NULL,

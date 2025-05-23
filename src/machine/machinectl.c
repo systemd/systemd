@@ -514,6 +514,7 @@ typedef struct MachineStatusInfo {
         struct dual_timestamp timestamp;
         int *netif;
         size_t n_netif;
+        uid_t uid;
 } MachineStatusInfo;
 
 static void machine_status_info_clear(MachineStatusInfo *info) {
@@ -566,6 +567,9 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 putchar('\n');
         } else if (i->class)
                 printf("\t   Class: %s\n", i->class);
+
+        if (i->uid != 0)
+                printf("\t     UID: " UID_FMT "\n", i->uid);
 
         if (i->root_directory)
                 printf("\t    Root: %s\n", i->root_directory);
@@ -662,6 +666,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                 { "TimestampMonotonic", "t",  NULL,          offsetof(MachineStatusInfo, timestamp.monotonic) },
                 { "Id",                 "ay", bus_map_id128, offsetof(MachineStatusInfo, id)                  },
                 { "NetworkInterfaces",  "ai", map_netif,     0                                                },
+                { "UID",                "u",  NULL,          offsetof(MachineStatusInfo, uid)                 },
                 {}
         };
 
