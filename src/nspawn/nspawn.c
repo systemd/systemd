@@ -2881,13 +2881,17 @@ static int recursive_chown(const char *directory, uid_t shift, uid_t range) {
  * That is, success is indicated by a return value of zero, and an
  * error is indicated by a non-zero value.
  */
-static int wait_for_container(pid_t pid, ContainerStatus *container) {
+static int wait_for_container(PidRef *pid, ContainerStatus *container) {
         siginfo_t status;
         int r;
 
-        r = wait_for_terminate(pid, &status);
+        assert(pidref_is_set(pid));
+
+        r = pidref_wait_for_terminate(pid, &status);
         if (r < 0)
                 return log_warning_errno(r, "Failed to wait for container: %m");
+
+        pidref_done(pid);
 
         switch (status.si_code) {
 
@@ -2924,29 +2928,25 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
 }
 
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        pid_t pid;
+        PidRef *pid = ASSERT_PTR(userdata);
 
-        pid = PTR_TO_PID(userdata);
-        if (pid > 0) {
-                if (kill(pid, arg_kill_signal) >= 0) {
+        if (pidref_is_set(pid))
+                if (pidref_kill(pid, arg_kill_signal) >= 0) {
                         log_info("Trying to halt container. Send SIGTERM again to trigger immediate termination.");
                         sd_event_source_set_userdata(s, NULL);
                         return 0;
                 }
-        }
 
         sd_event_exit(sd_event_source_get_event(s), 0);
         return 0;
 }
 
 static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *ssi, void *userdata) {
-        pid_t pid;
 
         assert(s);
         assert(ssi);
 
-        pid = PTR_TO_PID(userdata);
-
+        PidRef *pid = ASSERT_PTR(userdata);
         for (;;) {
                 siginfo_t si = {};
 
@@ -2954,7 +2954,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *ssi, vo
                         return log_error_errno(errno, "Failed to waitid(): %m");
                 if (si.si_pid == 0) /* No pending children. */
                         break;
-                if (si.si_pid == pid) {
+                if (si.si_pid == pid->pid) {
                         /* The main process we care for has exited. Return from
                          * signal handler but leave the zombie. */
                         sd_event_exit(sd_event_source_get_event(s), 0);
@@ -2969,15 +2969,13 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *ssi, vo
 }
 
 static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        pid_t pid;
+        PidRef *pid = ASSERT_PTR(userdata);
 
         assert(m);
 
-        pid = PTR_TO_PID(userdata);
-
         if (arg_kill_signal > 0) {
                 log_info("Container termination requested. Attempting to halt container.");
-                (void) kill(pid, arg_kill_signal);
+                (void) pidref_kill(pid, arg_kill_signal);
         } else {
                 log_info("Container termination requested. Exiting.");
                 sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), 0);
@@ -3847,7 +3845,6 @@ static int outer_child(
         _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
         bool idmap = false;
-        pid_t pid;
         ssize_t l;
         int r;
 
@@ -4313,13 +4310,13 @@ static int outer_child(
         if (notify_fd < 0)
                 return notify_fd;
 
-        pid = raw_clone(SIGCHLD|CLONE_NEWNS|
+        pid_t _pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
                         (IN_SET(arg_userns_mode, USER_NAMESPACE_FIXED, USER_NAMESPACE_PICK) ? CLONE_NEWUSER : 0) |
                         ((arg_private_network && arg_userns_mode == USER_NAMESPACE_MANAGED) ? CLONE_NEWNET : 0));
-        if (pid < 0)
+        if (_pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
-        if (pid == 0) {
+        if (_pid == 0) {
                 fd_outer_socket = safe_close(fd_outer_socket);
 
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
@@ -4363,10 +4360,10 @@ static int outer_child(
                 _exit(EXIT_SUCCESS);
         }
 
-        l = send(fd_outer_socket, &pid, sizeof(pid), MSG_NOSIGNAL);
+        l = send(fd_outer_socket, &_pid, sizeof(_pid), MSG_NOSIGNAL);
         if (l < 0)
                 return log_error_errno(errno, "Failed to send PID: %m");
-        if (l != sizeof(pid))
+        if (l != sizeof(_pid))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short write while sending PID.");
 
@@ -4521,7 +4518,7 @@ static int make_uid_map_string(
 }
 
 static int setup_uid_map(
-                pid_t pid,
+                const PidRef *pid,
                 const uid_t bind_user_uid[],
                 size_t n_bind_user_uid) {
 
@@ -4529,13 +4526,14 @@ static int setup_uid_map(
         _cleanup_free_ char *s = NULL;
         int r;
 
-        assert(pid > 1);
+        assert(pidref_is_set(pid));
+        assert(pid->pid > 1);
 
         /* Build the UID map string */
         if (make_uid_map_string(bind_user_uid, n_bind_user_uid, 0, &s) < 0) /* offset=0 contains the UID pair */
                 return log_oom();
 
-        xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid);
+        xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid->pid);
         r = write_string_file(uid_map, s, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "Failed to write UID map: %m");
@@ -4545,7 +4543,7 @@ static int setup_uid_map(
         if (make_uid_map_string(bind_user_uid, n_bind_user_uid, 2, &s) < 0) /* offset=2 contains the GID pair */
                 return log_oom();
 
-        xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid);
+        xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid->pid);
         r = write_string_file(uid_map, s, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "Failed to write GID map: %m");
@@ -4554,7 +4552,7 @@ static int setup_uid_map(
 }
 
 static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        pid_t inner_child_pid = PTR_TO_PID(userdata);
+        PidRef *inner_child_pid = ASSERT_PTR(userdata);
         int r;
 
         assert(userdata);
@@ -4567,7 +4565,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         if (r < 0)
                 return r;
 
-        if (sender_pid.pid != inner_child_pid) {
+        if (!pidref_equal(&sender_pid, inner_child_pid)) {
                 log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
                 return 0;
         }
@@ -4596,7 +4594,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         return 0;
 }
 
-static int setup_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid, sd_event_source **notify_event_source) {
+static int setup_notify_parent(sd_event *event, int fd, PidRef *inner_child_pid, sd_event_source **notify_event_source) {
         int r;
 
         if (fd < 0)
@@ -4612,9 +4610,9 @@ static int setup_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid, 
 }
 
 static int ptyfwd_hotkey(PTYForward *f, char c, void *userdata) {
-        pid_t pid = PTR_TO_PID(userdata);
+        PidRef *pid = ASSERT_PTR(userdata);
         const char *word;
-        int sig = 0;
+        int sig = 0, r;
 
         assert(f);
 
@@ -4634,8 +4632,9 @@ static int ptyfwd_hotkey(PTYForward *f, char c, void *userdata) {
                 return 0;
         }
 
-        if (kill(pid, sig) < 0)
-                log_error_errno(errno, "Failed to send %s (%s request) to PID 1 of container: %m", signal_to_string(sig), word);
+        r = pidref_kill(pid, sig);
+        if (r < 0)
+                log_error_errno(r, "Failed to send %s (%s request) to PID 1 of container: %m", signal_to_string(sig), word);
         else
                 log_info("Sent %s (%s request) to PID 1 of container.", signal_to_string(sig), word);
 
@@ -5081,7 +5080,7 @@ static int run_container(
                 bool *veth_created,
                 struct ExposeArgs *expose_args,
                 int *master,
-                pid_t *pid,
+                PidRef *pid,
                 int *ret) {
 
         _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
@@ -5160,25 +5159,40 @@ static int run_container(
                                                "Path %s doesn't refer to a network namespace, refusing.", arg_network_namespace_path);
         }
 
+        bool in_child;
         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 assert(userns_fd < 0);
                 /* If we have no user namespace then we'll clone and create a new mount namespace right-away. */
 
-                *pid = raw_clone(SIGCHLD|CLONE_NEWNS);
-                if (*pid < 0)
+                pid_t _pid = raw_clone(SIGCHLD|CLONE_NEWNS);
+                if (_pid < 0)
                         return log_error_errno(errno, "clone() failed%s: %m",
                                                errno == EINVAL ?
                                                ", do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in)" : "");
+                if (_pid != 0) {
+                        r = pidref_set_pid(pid, _pid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate pidfd: %m");
+                }
+
+                in_child = _pid == 0;
         } else {
                 assert(userns_fd >= 0);
                 /* If we have a user namespace then we'll clone() first, and then join the user namespace,
                  * and then open the mount namespace, so that it is owned by the user namespace */
 
-                *pid = raw_clone(SIGCHLD);
-                if (*pid < 0)
+                pid_t _pid = raw_clone(SIGCHLD);
+                if (_pid < 0)
                         return log_error_errno(errno, "clone() failed: %m");
 
-                if (*pid == 0) {
+                if (_pid != 0) {
+                        r = pidref_set_pid(pid, _pid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate pidfd: %m");
+                }
+
+                in_child = _pid == 0;
+                if (in_child) {
                         if (setns(userns_fd, CLONE_NEWUSER) < 0) {
                                 log_error_errno(errno, "Failed to join allocate user namespace: %m");
                                 _exit(EXIT_FAILURE);
@@ -5197,7 +5211,7 @@ static int run_container(
                 }
         }
 
-        if (*pid == 0) {
+        if (in_child) {
                 /* The outer child only has a file system namespace. */
                 barrier_set_role(&barrier, BARRIER_CHILD);
 
@@ -5279,18 +5293,23 @@ static int run_container(
         }
 
         /* Wait for the outer child. */
-        r = wait_for_terminate_and_check("(sd-namespace)", *pid, WAIT_LOG_ABNORMAL);
+        r = pidref_wait_for_terminate_and_check("(sd-namespace)", pid, WAIT_LOG_ABNORMAL);
         if (r < 0)
                 return r;
         if (r != EXIT_SUCCESS)
                 return -EIO;
 
         /* And now retrieve the PID of the inner child. */
-        l = recv(fd_outer_socket_pair[0], pid, sizeof *pid, 0);
+        pid_t _pid;
+        l = recv(fd_outer_socket_pair[0], &_pid, sizeof _pid, 0);
         if (l < 0)
                 return log_error_errno(errno, "Failed to read inner child PID: %m");
-        if (l != sizeof *pid)
+        if (l != sizeof _pid)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading inner child PID.");
+
+        r = pidref_set_pid(pid, _pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate pidfd: %m");
 
         /* We also retrieve container UUID in case it was generated by outer child */
         l = recv(fd_outer_socket_pair[0], &arg_uuid, sizeof arg_uuid, 0);
@@ -5305,14 +5324,14 @@ static int run_container(
                 return log_error_errno(notify_socket,
                                        "Failed to receive notification socket from the outer child: %m");
 
-        log_debug("Init process invoked as PID "PID_FMT, *pid);
+        log_debug("Init process invoked as PID "PID_FMT, pid->pid);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 if (!barrier_place_and_sync(&barrier)) /* #1 */
                         return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
                 if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
-                        r = setup_uid_map(*pid, bind_user_uid, n_bind_user_uid);
+                        r = setup_uid_map(pid, bind_user_uid, n_bind_user_uid);
                         if (r < 0)
                                 return r;
                 }
@@ -5340,7 +5359,7 @@ static int run_container(
 
                 if (arg_network_veth) {
                         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
-                                r = setup_veth(arg_machine, *pid, veth_name,
+                                r = setup_veth(arg_machine, pid, veth_name,
                                                arg_network_bridge || arg_network_zone, &arg_network_provided_mac);
                                 if (r < 0)
                                         return r;
@@ -5380,7 +5399,7 @@ static int run_container(
                         }
                 }
 
-                r = setup_veth_extra(arg_machine, *pid, arg_network_veth_extra);
+                r = setup_veth_extra(arg_machine, pid, arg_network_veth_extra);
                 if (r < 0)
                         return r;
 
@@ -5390,11 +5409,11 @@ static int run_container(
                    remove them on its own, since they cannot be referenced by anything yet. */
                 *veth_created = true;
 
-                r = setup_macvlan(arg_machine, *pid, arg_network_macvlan);
+                r = setup_macvlan(arg_machine, pid, arg_network_macvlan);
                 if (r < 0)
                         return r;
 
-                r = setup_ipvlan(arg_machine, *pid, arg_network_ipvlan);
+                r = setup_ipvlan(arg_machine, pid, arg_network_ipvlan);
                 if (r < 0)
                         return r;
         }
@@ -5424,7 +5443,9 @@ static int run_container(
                                 NULL,
                                 "org.freedesktop.systemd1.Scope",
                                 "RequestStop",
-                                on_request_stop, NULL, PID_TO_PTR(*pid));
+                                on_request_stop,
+                                NULL,
+                                pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to request RequestStop match: %m");
         }
@@ -5435,7 +5456,7 @@ static int run_container(
                 r = register_machine(
                                 bus,
                                 arg_machine,
-                                *pid,
+                                pid,
                                 arg_directory,
                                 arg_uuid,
                                 ifi,
@@ -5455,7 +5476,7 @@ static int run_container(
                 r = allocate_scope(
                                 bus,
                                 arg_machine,
-                                *pid,
+                                pid,
                                 arg_slice,
                                 arg_custom_mounts, arg_n_custom_mounts,
                                 arg_kill_signal,
@@ -5470,7 +5491,7 @@ static int run_container(
                 log_notice("Machine and scope registration turned off, --slice= and --property= settings will have no effect.");
 
         r = create_subcgroup(
-                        *pid,
+                        pid,
                         arg_keep_unit,
                         arg_uid_shift,
                         userns_fd,
@@ -5503,7 +5524,7 @@ static int run_container(
                         return log_error_errno(r, "Failed to attach bus to event loop: %m");
         }
 
-        r = setup_notify_parent(event, notify_socket, PID_TO_PTR(*pid), &notify_event_source);
+        r = setup_notify_parent(event, notify_socket, pid, &notify_event_source);
         if (r < 0)
                 return r;
 
@@ -5530,7 +5551,7 @@ static int run_container(
 
         (void) sd_notifyf(false,
                           "STATUS=Container running.\n"
-                          "X_NSPAWN_LEADER_PID=" PID_FMT, *pid);
+                          "X_NSPAWN_LEADER_PID=" PID_FMT, pid->pid);
         if (!arg_notify_ready) {
                 r = sd_notify(false, "READY=1\n");
                 if (r < 0)
@@ -5543,8 +5564,8 @@ static int run_container(
 
         if (arg_kill_signal > 0) {
                 /* Try to kill the init system on SIGINT or SIGTERM */
-                (void) sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(*pid));
-                (void) sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(*pid));
+                (void) sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, pid);
+                (void) sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, pid);
         } else {
                 /* Immediately exit */
                 (void) sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
@@ -5558,7 +5579,7 @@ static int run_container(
                 log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
         /* Exit when the child exits */
-        (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
+        (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, pid);
 
         /* Retrieve the kmsg fifo allocated by inner child */
         fd_kmsg_fifo = receive_one_fd(fd_inner_socket_pair[0], 0);
@@ -5624,7 +5645,7 @@ static int run_container(
                         (void) pty_forward_set_window_title(forward, GLYPH_BLUE_CIRCLE, /* hostname = */ NULL,
                                                             STRV_MAKE("Container", arg_machine));
 
-                        pty_forward_set_hotkey_handler(forward, ptyfwd_hotkey, PID_TO_PTR(*pid));
+                        pty_forward_set_hotkey_handler(forward, ptyfwd_hotkey, pid);
                         break;
 
                 default:
@@ -5645,7 +5666,7 @@ static int run_container(
                 terminate_scope(bus, arg_machine);
 
         /* Normally redundant, but better safe than sorry */
-        (void) kill(*pid, SIGKILL);
+        (void) pidref_kill(pid, SIGKILL);
 
         fd_kmsg_fifo = safe_close(fd_kmsg_fifo);
 
@@ -5659,7 +5680,7 @@ static int run_container(
                         return r;
         }
 
-        r = wait_for_container(TAKE_PID(*pid), &container_status);
+        r = wait_for_container(pid, &container_status);
 
         /* Tell machined that we are gone. */
         if (arg_register && bus)
@@ -5864,7 +5885,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(fw_ctx_freep) FirewallContext *fw_ctx = NULL;
-        pid_t pid = 0;
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
 
         log_setup();
 
@@ -6372,8 +6393,8 @@ finish:
                          r == 0 && ret == EXIT_FORCE_RESTART ? "STOPPING=1\nSTATUS=Restarting..." :
                                                                "STOPPING=1\nSTATUS=Terminating...");
 
-        if (pid > 0)
-                (void) kill(pid, SIGKILL);
+        if (pidref_is_set(&pid))
+                (void) pidref_kill(&pid, SIGKILL);
 
         /* Try to flush whatever is still queued in the pty */
         if (master >= 0) {
@@ -6381,8 +6402,8 @@ finish:
                 master = safe_close(master);
         }
 
-        if (pid > 0)
-                (void) wait_for_terminate(pid, NULL);
+        if (pidref_is_set(&pid))
+                (void) pidref_wait_for_terminate(&pid, NULL);
 
         pager_close();
 
