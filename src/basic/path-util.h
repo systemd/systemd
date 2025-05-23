@@ -43,9 +43,15 @@ int safe_getcwd(char **ret);
 int path_make_absolute_cwd(const char *p, char **ret);
 int path_make_relative(const char *from, const char *to, char **ret);
 int path_make_relative_parent(const char *from_child, const char *to, char **ret);
-char* path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) _pure_;
+
+typedef enum PathStartWithFlags {
+        PATH_STARTSWITH_REFUSE_DOT_DOT       = 1U << 0,
+        PATH_STARTSWITH_RETURN_LEADING_SLASH = 1U << 1,
+} PathStartWithFlags;
+
+char* path_startswith_full(const char *path, const char *prefix, PathStartWithFlags flags) _pure_;
 static inline char* path_startswith(const char *path, const char *prefix) {
-        return path_startswith_full(path, prefix, true);
+        return path_startswith_full(path, prefix, 0);
 }
 
 int path_compare(const char *a, const char *b) _pure_;
