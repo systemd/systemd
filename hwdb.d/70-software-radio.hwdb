@@ -21,9 +21,9 @@
 # Allowed properties are:
 #   ID_SOFTWARE_RADIO=0|1
 
-################
+##########################################
 # Nuand
-################
+##########################################
 # bladeRF 1.x
 usb:v2CF0p5246*
  ID_SOFTWARE_RADIO=1
@@ -36,9 +36,9 @@ usb:v1D50p6066*
 usb:v2CF0p5250*
  ID_SOFTWARE_RADIO=1
 
-#################
+##########################################
 # Analog Devices
-#################
+##########################################
 # ADI pluto SDR
 usb:v0456pB673*
  ID_SOFTWARE_RADIO=1
@@ -48,9 +48,9 @@ usb:v0456pB673*
 usb:v0456pB674*
  ID_SOFTWARE_RADIO=1
 
-#################
+##########################################
 # Ettus Research
-#################
+##########################################
 # USRP1
 usb:vFFFEp0002*
  ID_SOFTWARE_RADIO=1
@@ -73,4 +73,175 @@ usb:v3923p7813*
  ID_SOFTWARE_RADIO=1
 
 usb:v3923p7814*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# RTL-SDR
+##########################################
+# original RTL2832U vid/pid (hama nano, for example)
+usb:v0BDAp2832*
+ ID_SOFTWARE_RADIO=1
+
+# RTL2832U OEM vid/pid, e.g. ezcap EzTV668 (E4000), Newsky TV28T (E4000/R820T) etc.
+usb:v0BDAp2838*
+ ID_SOFTWARE_RADIO=1
+
+# DigitalNow Quad DVB-T PCI-E card (4x FC0012?)
+usb:v0413p6680*
+ ID_SOFTWARE_RADIO=1
+
+# Leadtek WinFast DTV Dongle mini D (FC0012)
+usb:v0413p6F0F*
+ ID_SOFTWARE_RADIO=1
+
+# Genius TVGo DVB-T03 USB dongle (Ver. B)
+usb:v0458p707F*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec Cinergy T Stick Black (rev 1) (FC0012)
+usb:v0CCDp00A9*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec NOXON rev 1 (FC0013)
+usb:v0CCDp00B3*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec Deutschlandradio DAB Stick (FC0013)
+usb:v0CCDp00B4*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec NOXON DAB Stick - Radio Energy (FC0013)
+usb:v0CCDp00B5*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec Media Broadcast DAB Stick (FC0013)
+usb:v0CCDp00B7*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec BR DAB Stick (FC0013)
+usb:v0CCDp00B8*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec WDR DAB Stick (FC0013)
+usb:v0CCDp00B9*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec MuellerVerlag DAB Stick (FC0013)
+usb:v0CCDp00C0*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec Fraunhofer DAB Stick (FC0013)
+usb:v0CCDp00C6*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec Cinergy T Stick RC (Rev.3) (E4000)
+usb:v0CCDp00D3*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec T Stick PLUS (E4000)
+usb:v0CCDp00D7*
+ ID_SOFTWARE_RADIO=1
+
+# Terratec NOXON rev 2 (E4000)
+usb:v0CCDp00E0*
+ ID_SOFTWARE_RADIO=1
+
+# PixelView PV-DT235U(RN) (FC0012)
+usb:v1554p5020*
+ ID_SOFTWARE_RADIO=1
+
+# Astrometa DVB-T/DVB-T2 (R828D)
+usb:v15F4p0131*
+ ID_SOFTWARE_RADIO=1
+
+# HanfTek DAB+FM+DVB-T
+usb:v15F4p0133*
+ ID_SOFTWARE_RADIO=1
+
+# Compro Videomate U620F (E4000)
+usb:v185Bp0620*
+ ID_SOFTWARE_RADIO=1
+
+# Compro Videomate U650F (E4000)
+usb:v185Bp0650*
+ ID_SOFTWARE_RADIO=1
+
+# Compro Videomate U680F (E4000)
+usb:v185Bp0680*
+ ID_SOFTWARE_RADIO=1
+
+# GIGABYTE GT-U7300 (FC0012)
+usb:v1B80pD393*
+ ID_SOFTWARE_RADIO=1
+
+# DIKOM USB-DVBT HD
+usb:v1B80pD394*
+ ID_SOFTWARE_RADIO=1
+
+# Peak 102569AGPK (FC0012)
+usb:v1B80pD395*
+ ID_SOFTWARE_RADIO=1
+
+# KWorld KW-UB450-T USB DVB-T Pico TV (TUA9001)
+usb:v1B80pD397*
+ ID_SOFTWARE_RADIO=1
+
+# Zaapa ZT-MINDVBZP (FC0012)
+usb:v1B80pD398*
+ ID_SOFTWARE_RADIO=1
+
+# SVEON STV20 DVB-T USB & FM (FC0012)
+usb:v1B80pD39D*
+ ID_SOFTWARE_RADIO=1
+
+# Twintech UT-40 (FC0013)
+usb:v1B80pD3A4*
+ ID_SOFTWARE_RADIO=1
+
+# ASUS U3100MINI_PLUS_V2 (FC0013)
+usb:v1B80pD3A8*
+ ID_SOFTWARE_RADIO=1
+
+# SVEON STV27 DVB-T USB & FM (FC0013)
+usb:v1B80pD3AF*
+ ID_SOFTWARE_RADIO=1
+
+# SVEON STV21 DVB-T USB & FM
+usb:v1B80pD3B0*
+ ID_SOFTWARE_RADIO=1
+
+# Dexatek DK DVB-T Dongle (Logilink VG0002A) (FC2580)
+usb:v1D19p1101*
+ ID_SOFTWARE_RADIO=1
+
+# Dexatek DK DVB-T Dongle (MSI DigiVox mini II V3.0)
+usb:v1D19p1102*
+ ID_SOFTWARE_RADIO=1
+
+# Dexatek DK 5217 DVB-T Dongle (FC2580)
+usb:v1D19p1103*
+ ID_SOFTWARE_RADIO=1
+
+# MSI DigiVox Micro HD (FC2580)
+usb:v1D19p1104*
+ ID_SOFTWARE_RADIO=1
+
+# Sweex DVB-T USB (FC0012)
+usb:v1F4DpA803*
+ ID_SOFTWARE_RADIO=1
+
+# GTek T803 (FC0012)
+usb:v1F4DpB803*
+ ID_SOFTWARE_RADIO=1
+
+# Lifeview LV5TDeluxe (FC0012)
+usb:v1F4DpC803*
+ ID_SOFTWARE_RADIO=1
+
+# MyGica TD312 (FC0012)
+usb:v1F4DpD286*
+ ID_SOFTWARE_RADIO=1
+
+# PROlectrix DV107669 (FC0012)
+usb:v1F4DpD803*
  ID_SOFTWARE_RADIO=1
