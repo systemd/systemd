@@ -80,6 +80,11 @@ TEST(mount_option_mangle) {
         assert_se(f == 0);
         ASSERT_STREQ(opts, "mode=01777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"");
         opts = mfree(opts);
+
+        assert_se(mount_option_mangle("lower=/path/one/with/some\\:colons:/path/two", 0, &f, &opts) == 0);
+        assert_se(f == 0);
+        ASSERT_STREQ(opts, "lower=/path/one/with/some\\:colons:/path/two");
+        opts = mfree(opts);
 }
 
 static void test_mount_flags_to_string_one(unsigned long flags, const char *expected) {
