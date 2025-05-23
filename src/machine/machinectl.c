@@ -416,7 +416,6 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         _cleanup_free_ char *cgroup = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-        unsigned c;
 
         assert(bus);
         assert(unit);
@@ -428,12 +427,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         if (isempty(cgroup))
                 return 0;
 
-        c = columns();
-        if (c > 18)
-                c -= 18;
-        else
-                c = 0;
-
+        unsigned c = MAX(LESS_BY(columns(), 18U), 10U);
         r = unit_show_processes(bus, unit, cgroup, "\t\t  ", c, get_output_flags(), &error);
         if (r == -EBADR) {
 
