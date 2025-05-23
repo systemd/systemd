@@ -393,17 +393,16 @@ static int get_hardware_version(Context *c, char **ret) {
 
         /* Suppress reporting the version field, if it's the same string as the
          * model or sku field, which it appears to be on various systems */
-        for (int i = 0; i < 2; i++) {
+        int (*getter)(Context *c, char **ret);
+        FOREACH_ARGUMENT(getter, get_hardware_model, get_hardware_sku) {
                 _cleanup_free_ char *value = NULL;
 
-                if (i == 0)
-                        r = get_hardware_model(c, &value);
-                else
-                        r = get_hardware_sku(c, &value);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return r;
-                } else if (streq_ptr(version, value))
+                r = getter(c, &value);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+                if (streq_ptr(version, value))
                         return -ENOENT;
         }
 
