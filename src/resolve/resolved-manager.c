@@ -389,11 +389,19 @@ static int on_clock_change(sd_event_source *source, int fd, uint32_t revents, vo
          *
          * (Also, this is triggered after system suspend, which is also a good reason to drop caches, since
          * we might be connected to a different network now without this being visible in a dropped link
-         * carrier or so.) */
-
-        log_info("Clock change detected. Flushing caches.");
-        manager_flush_caches(m, LOG_DEBUG /* downgrade the functions own log message, since we already logged here at LOG_INFO level */);
-
+         * carrier or so.) 
+         * 
+         * That being said, old data isn't neccessarily invalid; so if we can't reach upstream DNS immediately,
+         * provide stale data if configured to.  */
+        
+        if(m->stale_retention_usec == 0){
+                log_info("Clock change detected. Flushing caches.");
+                manager_flush_caches(m, LOG_DEBUG /* downgrade the functions own log message, since we already logged here at LOG_INFO level */);
+        } else {
+                log_info("Clock change detected. Marking caches as stale.");
+                manager_force_caches_stale(m, LOG_DEBUG /* downgrade the functions own log message, since we already logged here at LOG_INFO level */);
+        }
+        
         /* The clock change timerfd is unusable after it triggered once, create a new one. */
         return manager_clock_change_listen(m);
 }
@@ -1799,6 +1807,17 @@ void manager_flush_caches(Manager *m, int log_level) {
                 dns_cache_flush(&scope->cache);
 
         log_full(log_level, "Flushed all caches.");
+}
+
+void manager_force_caches_stale(Manager *m, int log_level) {
+        assert(m);
+
+        LIST_FOREACH(scopes, scope, m->dns_scopes) {
+                dns_cache_force_stale(&scope->cache);
+                dns_cache_prune(&scope->cache); /* it is likley that pruning is needed*/
+        }
+
+        log_full(log_level, "All cached data marked stale.");
 }
 
 void manager_reset_server_features(Manager *m) {
