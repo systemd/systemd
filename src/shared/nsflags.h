@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "missing_sched.h"
 
 /* The combination of all namespace flags defined by the kernel. The right type for this isn't clear. setns() and

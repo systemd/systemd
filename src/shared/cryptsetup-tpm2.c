@@ -5,14 +5,16 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-tpm2.h"
+#include "cryptsetup-util.h"
 #include "env-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
-#include "parse-util.h"
+#include "log.h"
 #include "random-util.h"
-#include "sha256.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
+#if HAVE_LIBCRYPTSETUP && HAVE_TPM2
 static int get_pin(
                 usec_t until,
                 const char *askpw_credential,
@@ -59,6 +61,7 @@ static int get_pin(
 
         return r;
 }
+#endif
 
 int acquire_tpm2_key(
                 const char *volume_name,
@@ -86,6 +89,7 @@ int acquire_tpm2_key(
                 AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key) {
 
+#if HAVE_LIBCRYPTSETUP && HAVE_TPM2
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
         _cleanup_(iovec_done) struct iovec loaded_blob = {};
         _cleanup_free_ char *auto_device = NULL;
@@ -230,6 +234,9 @@ int acquire_tpm2_key(
 
                 return r;
         }
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support not available.");
+#endif
 }
 
 int find_tpm2_auto_data(
@@ -252,6 +259,7 @@ int find_tpm2_auto_data(
                 int *ret_keyslot,
                 int *ret_token) {
 
+#if HAVE_LIBCRYPTSETUP && HAVE_TPM2
         int r, token;
 
         assert(cd);
@@ -339,4 +347,7 @@ int find_tpm2_auto_data(
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No valid TPM2 token data found.");
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support not available.");
+#endif
 }

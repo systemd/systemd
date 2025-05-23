@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
-#include <stdlib.h>
 
 #include "sd-netlink.h"
 
+#include "errno-util.h"
 #include "log.h"
 #include "loopback-setup.h"
 #include "missing_network.h"
-#include "netlink-util.h"
 #include "time-util.h"
 
 #define LOOPBACK_SETUP_TIMEOUT_USEC (5 * USEC_PER_SEC)

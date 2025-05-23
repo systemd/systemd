@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "journal-file.h"
+#include "journal-file.h" /* IWYU pragma: export */
+#include "forward.h"
 
 int journal_file_set_offline(JournalFile *f, bool wait);
 bool journal_file_is_offlining(JournalFile *f);

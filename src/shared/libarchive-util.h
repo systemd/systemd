@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
 #include "dlfcn-util.h"
+#include "forward.h"
 
 #if HAVE_LIBARCHIVE
-#include <archive.h>
-#include <archive_entry.h>
-
-#include "memory-util.h"
+#include <archive.h>            /* IWYU pragma: export */
+#include <archive_entry.h>      /* IWYU pragma: export */
 
 extern DLSYM_PROTOTYPE(archive_entry_free);
 extern DLSYM_PROTOTYPE(archive_entry_new);
