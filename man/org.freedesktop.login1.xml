@@ -54,6 +54,7 @@ node /org/freedesktop/login1 {
               out o object_path);
       ListSessions(out a(susso) sessions);
       ListSessionsEx(out a(sussussbto) sessions);
+      ListSessionsExEx(out a(sussussbttttusbssssto) sessions);
       ListUsers(out a(uso) users);
       ListSeats(out a(so) seats);
       ListInhibitors(out a(ssssuu) inhibitors);
@@ -329,6 +330,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListSessionsEx()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="ListSessionsExEx()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ListUsers()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListSeats()"/>
@@ -584,6 +587,14 @@ node /org/freedesktop/login1 {
       <varname>tty name</varname>, <varname>idle hint</varname>, <varname>idle hint monotonic timestamp</varname>,
       and <varname>session object path</varname>. <varname>tty</varname> and <varname>seat id</varname> fields
       could be empty, if the session has no associated tty or session has no seat attached, respectively.</para>
+
+      <para><function>ListSessionsExEx()</function> is an extension of <function>ListSessionsEx()</function>,
+      and returns even more metadata. Specifically, this adds fields for: idle timestamp in
+      <constant>CLOCK_REALTIME</constant> clock (µs), session start time in both
+      <constant>CLOCK_MONOTONIC</constant> and <constant>CLOCK_REALTIME</constant> (both µs), the virtual
+      terminal number if applicable, the session type, an indicator whether the session is remote, plus the
+      remote user and host if known, the service identifier and the selected desktop, as well as the pidfd
+      inode id.</para>
 
       <para><function>ListUsers()</function> returns an array of all currently logged in users. The
       structures in the array consist of the following fields: user id, user name, user object path.</para>
@@ -1518,7 +1529,7 @@ node /org/freedesktop/login1/session/1 {
       <constant>CLOCK_MONOTONIC</constant>, respectively.</para>
 
       <para><varname>VTNr</varname> encodes the virtual terminal number of the session if there is any, 0
-      otherwise.</para>
+      otherwise. (For seats that have the Linux VT subsystem enabled, i.e. <literal>seat0</literal>.)</para>
 
       <para><varname>Seat</varname> encodes the seat this session belongs to if there is any. This is a
       structure consisting of the ID and the seat object path.</para>
@@ -1661,6 +1672,7 @@ node /org/freedesktop/login1/session/1 {
       <varname>PreparingForShutdownWithMetadata</varname>, <varname>DesignatedMaintenanceTime</varname>,
       <varname>CanIdle</varname>, <varname>CanLock</varname>,
       and <varname>BlockWeakInhibited</varname> were added in version 257.</para>
+      <para><function>ListSessionsExEx()</function> was added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
