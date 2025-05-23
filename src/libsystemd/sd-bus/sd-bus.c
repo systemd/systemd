@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/sysinfo.h>
 #include <sys/wait.h>
 #include <threads.h>
 #include <unistd.h>
@@ -2118,10 +2119,40 @@ static int bus_read_message(sd_bus *bus) {
         return bus_socket_read_message(bus);
 }
 
+static bool bus_queue_is_full(sd_bus *bus) {
+        static size_t bus_queue_max;
+
+        assert(bus);
+
+        if (_unlikely_(!bus_queue_max)) {
+                struct sysinfo info;
+                if (sysinfo(&info)) {
+                        bus_queue_max = 768 * 1024;
+                } else {
+                        // Assume avg. message size of 2k, allow 10% of RAM
+                        uint64_t count = info.totalram;
+                        assert_se(MUL_ASSIGN_SAFE(&count, info.mem_unit));
+                        count /= 10 * 2048;
+                        if (count >= SIZE_MAX/2)
+                                bus_queue_max = SIZE_MAX/2;
+                        else
+                                bus_queue_max = (size_t)count;
+                }
+        }
+
+        if (bus->rqueue_size + bus->wqueue_size >= bus_queue_max)
+                return true;
+
+        if (bus->rqueue_size + bus->wqueue_size < bus->wqueue_size)
+                return true;
+
+        return false;
+}
+
 int bus_rqueue_make_room(sd_bus *bus) {
         assert(bus);
 
-        if (bus->rqueue_size >= BUS_RQUEUE_MAX)
+        if (bus_queue_is_full(bus))
                 return -ENOBUFS;
 
         if (!GREEDY_REALLOC(bus->rqueue, bus->rqueue_size + 1))
@@ -2234,7 +2265,7 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *ret_cookie) 
         } else {
                 /* Just append it to the queue. */
 
-                if (bus->wqueue_size >= BUS_WQUEUE_MAX)
+                if (bus_queue_is_full(bus))
                         return -ENOBUFS;
 
                 if (!GREEDY_REALLOC(bus->wqueue, bus->wqueue_size + 1))
