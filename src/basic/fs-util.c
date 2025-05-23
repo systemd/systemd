@@ -67,7 +67,7 @@ int rmdir_parents(const char *path, const char *stop) {
                 assert(*slash == '/');
                 *slash = '\0';
 
-                if (path_startswith_full(stop, p, /* accept_dot_dot= */ false))
+                if (path_startswith_full(stop, p, PATH_STARTSWITH_REFUSE_DOT_DOT))
                         return 0;
 
                 if (rmdir(p) < 0 && errno != ENOENT)
