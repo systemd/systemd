@@ -167,8 +167,8 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
                 return r;
 
         r = sd_json_buildo(&v,
-                        SD_JSON_BUILD_PAIR_CALLBACK("Context", manager_context_build_json, manager),
-                        SD_JSON_BUILD_PAIR_CALLBACK("Runtime", manager_runtime_build_json, manager));
+                        SD_JSON_BUILD_PAIR_CALLBACK("context", manager_context_build_json, manager),
+                        SD_JSON_BUILD_PAIR_CALLBACK("runtime", manager_runtime_build_json, manager));
         if (r < 0)
                 return log_error_errno(r, "Failed to build manager JSON data: %m");
 
