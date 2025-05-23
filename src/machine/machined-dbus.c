@@ -228,6 +228,7 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
 static int method_create_or_register_machine(
                 Manager *manager,
                 sd_bus_message *message,
+                const char *polkit_action,
                 bool read_network,
                 Machine **ret,
                 sd_bus_error *error) {
@@ -318,7 +319,7 @@ static int method_create_or_register_machine(
 
         r = bus_verify_polkit_async(
                         message,
-                        "org.freedesktop.machine1.create-machine",
+                        polkit_action,
                         details,
                         &manager->polkit_registry,
                         error);
@@ -378,7 +379,7 @@ static int method_create_machine_internal(sd_bus_message *message, bool read_net
 
         assert(message);
 
-        r = method_create_or_register_machine(manager, message, read_network, &m, error);
+        r = method_create_or_register_machine(manager, message, "org.freedesktop.machine1.create-machine", read_network, &m, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -416,7 +417,7 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
 
         assert(message);
 
-        r = method_create_or_register_machine(manager, message, read_network, &m, error);
+        r = method_create_or_register_machine(manager, message, "org.freedesktop.machine1.register-machine", read_network, &m, error);
         if (r < 0)
                 return r;
         if (r == 0)
