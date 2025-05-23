@@ -17,7 +17,6 @@
 #include "errno-util.h"
 #include "exec-util.h"
 #include "exit-status.h"
-#include "extract-word.h"
 #include "format-util.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"

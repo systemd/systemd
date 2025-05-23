@@ -3,7 +3,7 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include <linux/major.h>
+#include <linux/major.h>        /* IWYU pragma: keep */
 #include <linux/raid/md_u.h>
 #include <sys/ioctl.h>
 
