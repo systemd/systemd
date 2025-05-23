@@ -183,8 +183,10 @@ int machine_save(Machine *m) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "NAME=%s\n",
-                m->name);
+                "NAME=%s\n"
+                "UID=" UID_FMT "\n",
+                m->name,
+                m->uid);
 
         /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
         env_file_fputs_assignment(f, "SCOPE=", m->unit);
@@ -261,7 +263,7 @@ static void machine_unlink(Machine *m) {
 
 int machine_load(Machine *m) {
         _cleanup_free_ char *name = NULL, *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *leader_pidfdid = NULL,
-                *class = NULL, *netif = NULL, *vsock_cid = NULL;
+                *class = NULL, *netif = NULL, *vsock_cid = NULL, *uid = NULL;
         int r;
 
         assert(m);
@@ -285,7 +287,8 @@ int machine_load(Machine *m) {
                            "NETIF",                &netif,
                            "VSOCK_CID",            &vsock_cid,
                            "SSH_ADDRESS",          &m->ssh_address,
-                           "SSH_PRIVATE_KEY_PATH", &m->ssh_private_key_path);
+                           "SSH_PRIVATE_KEY_PATH", &m->ssh_private_key_path,
+                           "UID",                  &uid);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -369,6 +372,10 @@ int machine_load(Machine *m) {
                         log_warning_errno(r, "Failed to parse AF_VSOCK CID, ignoring: %s", vsock_cid);
         }
 
+        r = parse_uid(uid, &m->uid);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse owning UID, ignoring: %s", uid);
+
         return r;
 }
 
@@ -426,13 +433,27 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)",
-                                  "Delegate", "b", 1,
-                                  "CollectMode", "s", "inactive-or-failed",
-                                  "AddRef", "b", 1,
-                                  "TasksMax", "t", UINT64_C(16384));
+        r = sd_bus_message_append(
+                        m, "(sv)(sv)(sv)(sv)",
+                        "Delegate", "b", 1,
+                        "CollectMode", "s", "inactive-or-failed",
+                        "AddRef", "b", 1,
+                        "TasksMax", "t", UINT64_C(16384));
         if (r < 0)
                 return r;
+
+        if (machine->uid != 0) {
+                _cleanup_free_ char *u = NULL;
+
+                if (asprintf(&u, UID_FMT, machine->uid) < 0)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(
+                                m, "(sv)",
+                                "User", "s", u);
+                if (r < 0)
+                        return r;
+        }
 
         if (more_properties) {
                 r = sd_bus_message_copy(m, more_properties, true);
