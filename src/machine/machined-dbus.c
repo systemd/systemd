@@ -300,6 +300,23 @@ static int method_create_or_register_machine(
         if (hashmap_get(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
+        const char *details[] = {
+                "name",  name,
+                "class", machine_class_to_string(c),
+                NULL
+        };
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.machine1.create-machine",
+                        details,
+                        &manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 0; /* Will call us back */
+
         r = manager_add_machine(manager, name, &m);
         if (r < 0)
                 return r;
@@ -353,6 +370,8 @@ static int method_create_machine_internal(sd_bus_message *message, bool read_net
         r = method_create_or_register_machine(manager, message, read_network, &m, error);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = sd_bus_message_enter_container(message, 'a', "(sv)");
         if (r < 0)
@@ -389,6 +408,8 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
         r = method_create_or_register_machine(manager, message, read_network, &m, error);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = cg_pidref_get_unit(&m->leader, &m->unit);
         if (r < 0) {
@@ -901,19 +922,23 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD_WITH_ARGS("CreateMachine",
                                 SD_BUS_ARGS("s", name, "ay", id, "s", service, "s", class, "u", leader, "s", root_directory, "a(sv)", scope_properties),
                                 SD_BUS_RESULT("o", path),
-                                method_create_machine, 0),
+                                method_create_machine,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CreateMachineWithNetwork",
                                 SD_BUS_ARGS("s", name, "ay", id, "s", service, "s", class, "u", leader, "s", root_directory, "ai", ifindices, "a(sv)", scope_properties),
                                 SD_BUS_RESULT("o", path),
-                                method_create_machine_with_network, 0),
+                                method_create_machine_with_network,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("RegisterMachine",
                                 SD_BUS_ARGS("s", name, "ay", id, "s", service, "s", class, "u", leader, "s", root_directory),
                                 SD_BUS_RESULT("o", path),
-                                method_register_machine, 0),
+                                method_register_machine,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("RegisterMachineWithNetwork",
                                 SD_BUS_ARGS("s", name, "ay", id, "s", service, "s", class, "u", leader, "s", root_directory, "ai", ifindices),
                                 SD_BUS_RESULT("o", path),
-                                method_register_machine_with_network, 0),
+                                method_register_machine_with_network,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("UnregisterMachine",
                                 SD_BUS_ARGS("s", name),
                                 SD_BUS_NO_RESULT,
