@@ -3,7 +3,7 @@
 
 #include "efi.h"
 #include "efi-string.h"
-#include "proto/simple-text-io.h"
+#include "proto/simple-text-io.h"       /* IWYU pragma: keep */
 
 #if defined __has_attribute
 #  if __has_attribute(no_stack_protector)

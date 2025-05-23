@@ -7,7 +7,7 @@
 
 #include "forward.h"
 #include "log.h"
-#include "string-util.h"
+#include "string-util.h"        /* IWYU pragma: keep */
 
 #define JSON_VARIANT_REPLACE(v, q)        \
         do {                              \

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
+#include "sd-bus.h"             /* IWYU pragma: keep */
 
 #include "core-forward.h"
 #include "string-util.h"

@@ -4,10 +4,10 @@
 #include "errno-util.h"
 #include "forward.h"
 #include "log.h"
-#include "static-destruct.h"
-#include "signal-util.h"
+#include "static-destruct.h"    /* IWYU pragma: keep */
+#include "signal-util.h"        /* IWYU pragma: keep */
 #include "stdio-util.h"
-#include "string-util.h"
+#include "string-util.h"        /* IWYU pragma: keep */
 
 static inline void log_set_assert_return_is_criticalp(bool *p) {
         log_set_assert_return_is_critical(*p);

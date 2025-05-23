@@ -8,7 +8,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
-#include "chase.h"
+#include "chase.h"                      /* IWYU pragma: keep */
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "confidential-virt.h"

@@ -5,7 +5,7 @@
 #include <sys/uio.h>
 #endif
 
-#include "assert-fundamental.h"
+#include "assert-fundamental.h"         /* IWYU pragma: keep */
 #include "macro-fundamental.h"
 
 #if SD_BOOT

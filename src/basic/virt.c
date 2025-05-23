@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "dirent-util.h"
+#include "dirent-util.h"        /* IWYU pragma: keep */
 #include "env-util.h"
 #include "extract-word.h"
 #include "fd-util.h"

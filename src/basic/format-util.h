@@ -3,7 +3,7 @@
 
 #include "cgroup-util.h"
 #include "forward.h"
-#include "stdio-util.h"
+#include "stdio-util.h"         /* IWYU pragma: keep */
 
 assert_cc(sizeof(pid_t) == sizeof(int32_t));
 #define PID_PRI PRIi32

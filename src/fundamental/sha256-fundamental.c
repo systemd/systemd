@@ -22,7 +22,7 @@
    <https://www.gnu.org/licenses/>.  */
 
 #if SD_BOOT
-#  include "efi-string.h"
+#  include "efi-string.h"       /* IWYU pragma: keep */
 #else
 #  include <string.h>
 #endif

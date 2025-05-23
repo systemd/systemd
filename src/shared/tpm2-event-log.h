@@ -2,7 +2,7 @@
 #pragma once
 
 #include "forward.h"
-#include "tpm2-util.h"
+#include "tpm2-util.h"  /* IWYU pragma: keep */
 
 /* Definitions as per "TCG PC Client Specific Platform Firmware Profile Specification"
  * (https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/),

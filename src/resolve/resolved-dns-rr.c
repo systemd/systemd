@@ -11,7 +11,7 @@
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "memory-util.h"
-#include "resolved-dns-answer.h"
+#include "resolved-dns-answer.h"        /* IWYU pragma: keep */
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"

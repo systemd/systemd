@@ -2,7 +2,7 @@
 #pragma once
 
 #include "forward.h"
-#include "static-destruct.h"
+#include "static-destruct.h"    /* IWYU pragma: keep */
 
 void main_prepare(int argc, char *argv[]);
 

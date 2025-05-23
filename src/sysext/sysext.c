@@ -31,7 +31,7 @@
 #include "hashmap.h"
 #include "image-policy.h"
 #include "initrd-util.h"
-#include "label-util.h"
+#include "label-util.h"                 /* IWYU pragma: keep */
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/statvfs.h>
+#include <sys/statvfs.h>        /* IWYU pragma: keep */
 #include <unistd.h>
 
 #include "acl-util.h"
