@@ -238,6 +238,7 @@ typedef struct Unit {
          * and whose value encodes why the dependency exists, using the UnitDependencyInfo type. i.e. a
          * Hashmap(UnitDependency → Hashmap(Unit* → UnitDependencyInfo)) */
         Hashmap *dependencies;
+        uint64_t dependency_generation;
 
         /* Similar, for RequiresMountsFor= and WantsMountsFor= path dependencies. The key is the path, the
          * value the UnitDependencyInfo type */
@@ -1157,21 +1158,37 @@ typedef struct UnitForEachDependencyData {
         void *current_type;
         Iterator by_type_iterator, by_unit_iterator;
         Unit **current_unit;
+        unsigned n_restart;
+        uint64_t generation;
 } UnitForEachDependencyData;
+
+/* Let's not restart the loop infinitely. */
+#define MAX_FOREACH_DEPENDENCY_RESTART 100000
 
 /* Iterates through all dependencies that have a specific atom in the dependency type set. This tries to be
  * smart: if the atom is unique, we'll directly go to right entry. Otherwise we'll iterate through the
  * per-dependency type hashmap and match all dep that have the right atom set. */
-#define _UNIT_FOREACH_DEPENDENCY(other, u, ma, data)                    \
+#define _UNIT_FOREACH_DEPENDENCY(other, u, ma, restart, data)           \
         for (UnitForEachDependencyData data = {                         \
                         .match_atom = (ma),                             \
                         .by_type = (u)->dependencies,                   \
                         .by_type_iterator = ITERATOR_FIRST,             \
                         .current_unit = &(other),                       \
+                        .generation = (u)->dependency_generation,       \
                 };                                                      \
              ({                                                         \
                      UnitDependency _dt = _UNIT_DEPENDENCY_INVALID;     \
                      bool _found;                                       \
+                                                                        \
+                     if (restart) {                                     \
+                             if (data.generation != (u)->dependency_generation) { \
+                                     /* Dependency list may be updated. Restart the loop. */ \
+                                     data.generation = (u)->dependency_generation; \
+                                     data.by_type_iterator = ITERATOR_FIRST; \
+                                     assert_se(data.n_restart++ < MAX_FOREACH_DEPENDENCY_RESTART); \
+                             }                                          \
+                     } else                                             \
+                             assert(data.generation == (u)->dependency_generation); \
                                                                         \
                      if (data.by_type && ITERATOR_IS_FIRST(data.by_type_iterator)) { \
                              _dt = unit_dependency_from_unique_atom(data.match_atom); \
@@ -1191,6 +1208,7 @@ typedef struct UnitForEachDependencyData {
              }); )                                                      \
                 if ((unit_dependency_to_atom(UNIT_DEPENDENCY_FROM_PTR(data.current_type)) & data.match_atom) != 0) \
                         for (data.by_unit_iterator = ITERATOR_FIRST;    \
+                             data.generation == u->dependency_generation && \
                                 hashmap_iterate(data.by_unit,           \
                                                 &data.by_unit_iterator, \
                                                 NULL,                   \
@@ -1198,7 +1216,9 @@ typedef struct UnitForEachDependencyData {
 
 /* Note: this matches deps that have *any* of the atoms specified in match_atom set */
 #define UNIT_FOREACH_DEPENDENCY(other, u, match_atom) \
-        _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, UNIQ_T(data, UNIQ))
+        _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, false, UNIQ_T(data, UNIQ))
+#define UNIT_FOREACH_DEPENDENCY_SAFE(other, u, match_atom) \
+        _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, true, UNIQ_T(data, UNIQ))
 
 #define _LOG_CONTEXT_PUSH_UNIT(unit, u, c)                                                              \
         const Unit *u = (unit);                                                                         \
