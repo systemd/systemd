@@ -8,6 +8,7 @@
 #include "hashmap.h"
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-link-bus.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 
 static int property_get_leases(
