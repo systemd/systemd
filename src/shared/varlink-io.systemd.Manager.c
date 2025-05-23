@@ -170,9 +170,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
                 SD_VARLINK_FIELD_COMMENT("Configuration of the manager"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Context, ManagerContext, 0),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, ManagerContext, 0),
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the manager"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Runtime, ManagerRuntime, 0));
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, ManagerRuntime, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Manager,
