@@ -8,6 +8,7 @@
 #include "dhcp-client-internal.h"
 #include "networkd-dhcp4-bus.h"
 #include "networkd-link-bus.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 
 static int property_get_dhcp_client_state(
