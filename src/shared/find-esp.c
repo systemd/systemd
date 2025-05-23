@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/magic.h>
+#include <stdlib.h>
 #include <sys/vfs.h>
+#include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-gpt.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -16,12 +19,12 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "find-esp.h"
-#include "gpt.h"
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 typedef enum VerifyESPFlags {
