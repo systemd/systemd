@@ -101,7 +101,7 @@ typedef struct Context {
 static void context_reset(Context *c, uint64_t mask) {
         assert(c);
 
-        for (int p = 0; p < _PROP_MAX; p++) {
+        for (HostProperty p = 0; p < _PROP_MAX; p++) {
                 if (!BIT_SET(mask, p))
                         continue;
 
@@ -845,7 +845,7 @@ static int context_write_data_machine_info(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        for (int p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
+        for (HostProperty p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
                 assert(name[p]);
 
                 r = strv_env_assign(&l, name[p], empty_to_null(c->data[p]));
