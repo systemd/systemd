@@ -5,9 +5,7 @@
 
 #include <blkid.h>
 
-#include "sd-id128.h"
-
-#include "memory-util.h"
+#include "forward.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(blkid_probe, blkid_free_probe, NULL);
 

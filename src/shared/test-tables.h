@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
+#include "forward.h"
 #include "string-util.h"
 
 #define _test_table(type, name, lookup, reverse, size, sparse)          \

@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "install.h"
-#include "pidref.h"
-#include "unit-def.h"
+#include "forward.h"
 
 typedef enum ExecDirectoryFlags {
         EXEC_DIRECTORY_READ_ONLY      = 1 << 0, /* Public API via DBUS, do not change */
