@@ -2,7 +2,6 @@
 #pragma once
 
 #if !SD_BOOT
-#include <stdlib.h>
 #include <sys/uio.h>
 #endif
 
@@ -15,10 +14,6 @@ struct iovec {
         void *iov_base;
         size_t iov_len;
 };
-
-DISABLE_WARNING_REDUNDANT_DECLS;
-void free(void *p);
-REENABLE_WARNING;
 #endif
 
 /* This accepts both const and non-const pointers */
