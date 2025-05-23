@@ -8,8 +8,7 @@
 #  include <stringprep.h>
 #endif
 
-#include <errno.h>
-#include <inttypes.h>
+#include "forward.h"
 
 #if HAVE_LIBIDN2 || HAVE_LIBIDN
 #include "dlfcn-util.h"

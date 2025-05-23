@@ -1,19 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <unistd.h>
+#include "forward.h"
 
 int fd_acl_make_read_only_fallback(int fd);
 int fd_acl_make_writable_fallback(int fd);
 
 #if HAVE_ACL
-#include <acl/libacl.h>
-#include <stdbool.h>
-#include <sys/acl.h>
-
-#include "macro.h"
-#include "memory-util.h"
+#include <acl/libacl.h> /* IWYU pragma: export */
+#include <sys/acl.h>    /* IWYU pragma: export */
 
 int calc_acl_mask_if_needed(acl_t *acl_p);
 int add_base_acls_if_needed(acl_t *acl_p, const char *path);

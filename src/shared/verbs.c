@@ -1,14 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stdbool.h>
-#include <stddef.h>
 
 #include "env-util.h"
 #include "log.h"
-#include "macro.h"
-#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "verbs.h"

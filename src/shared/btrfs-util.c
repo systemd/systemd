@@ -1,37 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <linux/btrfs.h>
 #include <linux/btrfs_tree.h>
-#include <linux/loop.h>
 #include <linux/magic.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "chase.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
-#include "io-util.h"
 #include "log.h"
-#include "macro.h"
-#include "missing_fs.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#include "smack-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -1902,6 +1891,16 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
         }
 
         return -ENXIO;
+}
+
+bool btrfs_might_be_subvol(const struct stat *st) {
+        if (!st)
+                return false;
+
+        /* Returns true if this 'struct stat' looks like it could refer to a btrfs subvolume. To make a final
+         * decision, needs to be combined with an fstatfs() check to see if this is actually btrfs. */
+
+        return S_ISDIR(st->st_mode) && st->st_ino == 256;
 }
 
 int btrfs_forget_device(const char *path) {
