@@ -8,9 +8,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Virtual Machine and Containers
+Description=Virtual Machine and Container Slice
 Documentation=man:systemd.special(7)
-Before=multi-user.target
-
-[Install]
-WantedBy=multi-user.target

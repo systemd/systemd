@@ -8,9 +8,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Virtual Machine and Containers
-Documentation=man:systemd.special(7)
-Before=multi-user.target
+Description=Virtual Machine %i
+Documentation=man:systemd-vmspawn(1)
+PartOf=machines.target
+Before=machines.target
+
+[Service]
+ExecStart=systemd-vmspawn --quiet --keep-unit --register=yes --network-tap --machine=%i
+KillMode=mixed
+Type=notify
+Slice=machine.slice
+{{SERVICE_WATCHDOG}}
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=machines.target
