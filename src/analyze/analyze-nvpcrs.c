@@ -7,7 +7,6 @@
 #include "constants.h"
 #include "format-table.h"
 #include "hexdecoct.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tpm2-util.h"
 

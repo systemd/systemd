@@ -5,6 +5,7 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "bpf-dlopen.h"
 #include "conf-parser.h"
 #include "alloc-util.h"
 #include "cgroup-util.h"

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_APPARMOR
+
 #include <syslog.h>
 
 #include "alloc-util.h"
@@ -8,7 +10,6 @@
 #include "log.h"
 #include "parse-util.h"
 
-#if HAVE_APPARMOR
 static void *libapparmor_dl = NULL;
 
 DLSYM_PROTOTYPE(aa_change_onexec) = NULL;

@@ -4,7 +4,8 @@
 /* sched.h includes linux/sched/types.h since glibc-2.41 (21571ca0d70302909cf72707b2a7736cf12190a0),
  * to make struct sched_attr being defined.
  * Note, this must be included before sched.h, otherwise the headers conflict with each other. */
-#include <linux/sched/types.h>
+#include <linux/sched.h>        /* IWYU pragma: export */
+#include <linux/sched/types.h>  /* IWYU pragma: export */
 
 #include_next <sched.h>         /* IWYU pragma: export */
 
