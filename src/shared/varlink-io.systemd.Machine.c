@@ -98,7 +98,9 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Return the base UID/GID of the machine"),
                 SD_VARLINK_DEFINE_OUTPUT(UIDShift, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Subcgroup path of the machine, relative to the unit's cgroup path"),
-                SD_VARLINK_DEFINE_OUTPUT(Subgroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_OUTPUT(Subgroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID of the user who registered the machine"),
+                SD_VARLINK_DEFINE_OUTPUT(UID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 MachineOpenMode,
