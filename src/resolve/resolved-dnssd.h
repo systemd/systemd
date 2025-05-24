@@ -19,7 +19,7 @@ typedef struct DnssdTxtData {
         LIST_FIELDS(DnssdTxtData, items);
 } DnssdTxtData;
 
-typedef struct DnssdService {
+typedef struct DnssdRegisteredService {
         char *path;
         char *id;
         char *name_template;
@@ -44,26 +44,26 @@ typedef struct DnssdService {
 
         bool withdrawn:1;
         uid_t originator;
-} DnssdService;
+} DnssdRegisteredService;
 
-DnssdService *dnssd_service_free(DnssdService *service);
+DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *service);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
 DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
-void dnssd_service_clear_on_reload(Hashmap *services);
+void dnssd_registered_service_clear_on_reload(Hashmap *services);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdService*, dnssd_service_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdRegisteredService*, dnssd_registered_service_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);
 
-int dnssd_render_instance_name(Manager *m, DnssdService *s, char **ret);
+int dnssd_render_instance_name(Manager *m, DnssdRegisteredService *s, char **ret);
 int dnssd_load(Manager *manager);
 int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item);
 int dnssd_txt_item_new_from_data(const char *key, const void *value, const size_t size, DnsTxtItem **ret_item);
-int dnssd_update_rrs(DnssdService *s);
+int dnssd_update_rrs(DnssdRegisteredService *s);
 int dnssd_signal_conflict(Manager *manager, const char *name);
 
 const struct ConfigPerfItem* resolved_dnssd_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_name);
-CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_subtype);
-CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_registered_service_name);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_registered_service_subtype);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_registered_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_txt);

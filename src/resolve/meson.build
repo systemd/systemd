@@ -12,6 +12,7 @@ systemd_resolved_extract_sources = files(
         'resolved-bus.c',
         'resolved-conf.c',
         'resolved-dns-answer.c',
+        'resolved-dns-browse-services.c',
         'resolved-dns-cache.c',
         'resolved-dns-delegate.c',
         'resolved-dns-delegate-bus.c',
@@ -206,6 +207,9 @@ executables += [
         },
         resolve_fuzz_template + {
                 'sources' : files('fuzz-resource-record.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-browse-services.c'),
         },
 ]
 
