@@ -302,9 +302,9 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n"
-               "\n%sListen on sockets and launch child on connection.%s\n"
-               "\nOptions:\n"
+        printf("%1$s [OPTIONS...]\n"
+               "\n%2$sListen on sockets and launch child on connection.\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                  Show this help and exit\n"
                "     --version               Print version string and exit\n"
                "  -l --listen=ADDR           Listen for raw connections at ADDR\n"
@@ -315,11 +315,12 @@ static int help(void) {
                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
                "     --inetd                 Enable inetd file descriptor passing protocol\n"
                "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               link);
+               "\nSee the %5$s for details.\n",
+                program_invocation_short_name,
+                ansi_highlight(),
+                ansi_underline(),
+                ansi_normal(),
+                link);
 
         return 0;
 }
