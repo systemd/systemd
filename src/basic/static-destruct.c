@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "memory-util.h"
 #include "static-destruct.h"
 
 void static_destruct_impl(const StaticDestructor *start, const StaticDestructor *end) {

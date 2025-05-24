@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <arpa/inet.h>
 #include <netinet/in.h>
-#include <stddef.h>
-#include <sys/socket.h>
 
-#include "hash-funcs.h"
-#include "macro.h"
+#include "forward.h"
 
 union in_addr_union {
         struct in_addr in;
@@ -92,15 +88,9 @@ static inline int in6_addr_to_string(const struct in6_addr *u, char **ret) {
         return in_addr_to_string(AF_INET6, (const union in_addr_union*) u, ret);
 }
 
-static inline const char* typesafe_inet_ntop(int family, const union in_addr_union *a, char *buf, size_t len) {
-        return inet_ntop(family, a, buf, len);
-}
-static inline const char* typesafe_inet_ntop4(const struct in_addr *a, char *buf, size_t len) {
-        return inet_ntop(AF_INET, a, buf, len);
-}
-static inline const char* typesafe_inet_ntop6(const struct in6_addr *a, char *buf, size_t len) {
-        return inet_ntop(AF_INET6, a, buf, len);
-}
+const char* typesafe_inet_ntop(int family, const union in_addr_union *a, char *buf, size_t len);
+const char* typesafe_inet_ntop4(const struct in_addr *a, char *buf, size_t len);
+const char* typesafe_inet_ntop6(const struct in6_addr *a, char *buf, size_t len);
 
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and
@@ -187,8 +177,14 @@ static inline int in_addr_prefix_from_string_auto(const char *p, int *ret_family
 }
 
 static inline size_t FAMILY_ADDRESS_SIZE(int family) {
-        assert(IN_SET(family, AF_INET, AF_INET6));
-        return family == AF_INET6 ? 16 : 4;
+        switch (family) {
+                case AF_INET:
+                        return 4;
+                case AF_INET6:
+                        return 16;
+                default:
+                        assert_not_reached();
+        }
 }
 
 #define FAMILY_ADDRESS_SIZE_SAFE(f)                                     \

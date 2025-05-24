@@ -1,20 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <unistd.h>
+#include "forward.h"
 
-#include "assert-util.h"
-#include "macro.h"
-#include "string.h"
-
-static inline size_t sc_arg_max(void) {
-        long l = sysconf(_SC_ARG_MAX);
-        assert(l > 0);
-        return (size_t) l;
-}
+size_t sc_arg_max(void);
 
 bool env_name_is_valid(const char *e);
 bool env_value_is_valid(const char *e);

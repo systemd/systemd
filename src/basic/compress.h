@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <unistd.h>
-
-#include "dlfcn-util.h"
+#include "forward.h"
 
 typedef enum Compression {
         COMPRESSION_NONE,

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "macro.h"
+#include "forward.h"
 
 /* Limits the use of ANSI colors to a subset. */
 typedef enum ColorMode {

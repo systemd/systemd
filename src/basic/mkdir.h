@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <sys/types.h>
-
-#include "time-util.h"
+#include "forward.h"
 
 typedef enum MkdirFlags {
         MKDIR_FOLLOW_SYMLINK  = 1 << 0,

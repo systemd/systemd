@@ -1,18 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
-#include <limits.h>
 #include <linux/oom.h>
 #include <pthread.h>
 #include <spawn.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <syslog.h>
 #include <threads.h>
@@ -29,7 +23,6 @@
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "env-file.h"
-#include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -40,7 +33,6 @@
 #include "iovec-util.h"
 #include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"
@@ -50,6 +42,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
@@ -59,10 +52,8 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
-#include "utf8.h"
 
 /* The kernel limits userspace processes to TASK_COMM_LEN (16 bytes), but allows higher values for its own
  * workers, e.g. "kworker/u9:3-kcryptd/253:0". Let's pick a fixed smallish limit that will work for the kernel.
@@ -396,6 +387,10 @@ int container_get_leader(const char *machine, pid_t *pid) {
 
         *pid = leader;
         return 0;
+}
+
+bool SIGINFO_CODE_IS_DEAD(int code) {
+        return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
 }
 
 int pid_is_kernel_thread(pid_t pid) {
@@ -1362,6 +1357,18 @@ void valgrind_summary_hack(void) {
 int pid_compare_func(const pid_t *a, const pid_t *b) {
         /* Suitable for usage in qsort() */
         return CMP(*a, *b);
+}
+
+bool nice_is_valid(int n) {
+        return n >= PRIO_MIN && n < PRIO_MAX;
+}
+
+bool sched_policy_is_valid(int i) {
+        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
+}
+
+bool sched_priority_is_valid(int i) {
+        return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
 }
 
 /* The cached PID, possible values:

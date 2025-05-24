@@ -1,14 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <alloca.h>
-#include <malloc.h>
-#include <stddef.h>
-#include <string.h>
+#include <stdlib.h>
 
-#include "assert-util.h"
-#include "cleanup-util.h"
-#include "macro.h"
+#include "forward.h"
 #include "memory-util.h"
 
 #if HAS_FEATURE_MEMORY_SANITIZER
@@ -191,19 +186,7 @@ void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_fr
  * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=96503 */
 void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_ _noinline_;
 
-static inline size_t malloc_sizeof_safe(void **xp) {
-        if (_unlikely_(!xp || !*xp))
-                return 0;
-
-        size_t sz = malloc_usable_size(*xp);
-        *xp = expand_to_usable(*xp, sz);
-        /* GCC doesn't see the _returns_nonnull_ when built with ubsan, so yet another hint to make it doubly
-         * clear that expand_to_usable won't return NULL.
-         * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79265 */
-        if (!*xp)
-                assert_not_reached();
-        return sz;
-}
+size_t malloc_sizeof_safe(void **xp);
 
 /* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), which may
  * return a value larger than the size that was actually allocated. Access to that additional memory is

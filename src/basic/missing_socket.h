@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/socket.h>
+#include <sys/socket.h> /* IWYU pragma: export */
 
 /* Supported since kernel v6.5 (5e2ff6704a275be009be8979af17c52361b79b89) */
 #ifndef SO_PASSPIDFD

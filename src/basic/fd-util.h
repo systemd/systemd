@@ -2,16 +2,10 @@
 #pragma once
 
 #include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <sys/socket.h>
 
-#include "macro.h"
-#include "memory-util.h"
+#include "forward.h"
 #include "missing_fcntl.h"
-#include "stdio-util.h"
 
 /* maximum length of fdname */
 #define FDNAME_MAX 255
@@ -42,6 +36,7 @@ void close_many_and_free(int *fds, size_t n_fds);
 int fclose_nointr(FILE *f);
 FILE* safe_fclose(FILE *f);
 DIR* safe_closedir(DIR *f);
+void* close_fd_ptr(void *p);
 
 static inline void closep(int *fd) {
         safe_close(*fd);
@@ -53,11 +48,6 @@ static inline void close_pairp(int (*p)[2]) {
 
 static inline void fclosep(FILE **f) {
         safe_fclose(*f);
-}
-
-static inline void* close_fd_ptr(void *p) {
-        safe_close(PTR_TO_FD(p));
-        return NULL;
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, pclose, NULL);
@@ -144,12 +134,7 @@ int fds_are_same_mount(int fd1, int fd2);
 #define PROC_FD_PATH_MAX \
         (STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int))
 
-static inline char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
-        assert(buf);
-        assert(fd >= 0);
-        assert_se(snprintf_ok(buf, PROC_FD_PATH_MAX, "/proc/self/fd/%i", fd));
-        return buf;
-}
+char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd);
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))

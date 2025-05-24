@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/prctl.h>
 #include <stdatomic.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/prctl.h>
-#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -17,7 +14,6 @@
 #include "fileio.h"
 #include "log.h"
 #include "logarithm.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "process-util.h"

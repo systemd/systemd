@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
 #include <string.h>
-#include <sys/types.h>
 
 #include "alloc-util.h"
-#include "macro.h"
-#include "string-util-fundamental.h"
+#include "forward.h"
+#include "string-util-fundamental.h" /* IWYU pragma: export */
 
 static inline char* strstr_ptr(const char *haystack, const char *needle) {
         if (!haystack || !needle)

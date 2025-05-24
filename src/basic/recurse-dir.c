@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "mountpoint-util.h"
+#include "path-util.h"
 #include "recurse-dir.h"
 #include "sort-util.h"
 

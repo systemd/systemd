@@ -2,9 +2,9 @@
 
 #if HAVE_GCRYPT
 
+#include <sys/syslog.h>
+
 #include "gcrypt-util.h"
-#include "hexdecoct.h"
-#include "log.h"
 
 static void *gcrypt_dl = NULL;
 

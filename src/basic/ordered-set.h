@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdio.h>
-
+#include "forward.h"
 #include "hashmap.h"
 
 typedef struct OrderedSet OrderedSet;
