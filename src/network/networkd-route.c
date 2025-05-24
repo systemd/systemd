@@ -14,6 +14,7 @@
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv4ll.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
