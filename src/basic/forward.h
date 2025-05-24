@@ -83,6 +83,7 @@ union sockaddr_union;
 
 typedef enum CGroupFlags CGroupFlags;
 typedef enum CGroupMask CGroupMask;
+typedef enum ChaseFlags ChaseFlags;
 typedef enum ExtractFlags ExtractFlags;
 typedef enum ImageClass ImageClass;
 typedef enum JobMode JobMode;

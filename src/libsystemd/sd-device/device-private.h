@@ -5,8 +5,6 @@
 
 #include "forward.h"
 
-typedef enum ChaseFlags ChaseFlags;
-
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum);
 int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len);
 int device_new_from_strv(sd_device **ret, char **strv);
