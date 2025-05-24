@@ -848,7 +848,7 @@ static int lease_parse_6rd(sd_dhcp_lease *lease, const uint8_t *option, size_t l
         return 0;
 }
 
-int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void *userdata) {
+int dhcp_lease_parse_options(uint8_t code, size_t len, const void *option, void *userdata) {
         sd_dhcp_lease *lease = ASSERT_PTR(userdata);
         int r;
 
@@ -1174,7 +1174,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
         return cnt;
 }
 
-int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const void *data, uint8_t len) {
+int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const void *data, size_t len) {
         struct sd_dhcp_raw_option *option, *before = NULL;
 
         assert(lease);
