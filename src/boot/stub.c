@@ -1137,10 +1137,17 @@ static void settle_command_line(
          * if there is any.
          *
          * We'll suppress the custom cmdline if we are in Secure Boot mode, and if either there is already
-         * a cmdline baked into the UKI or we are in confidential VM mode. */
+         * a cmdline baked into the UKI or we are in confidential VM mode.
+         * We also drop custom cmdline if the one provided in UKI contains string "cmdline=keep" */
 
         if (!isempty(*cmdline)) {
-                if (secure_boot_enabled() && (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) || is_confidential_vm()))
+                bool keep_flag = false;
+                if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
+                        keep_flag = efi_fnmatch(L"*cmdline=keep*",
+                                mangle_stub_cmdline(pe_section_to_str16(loaded_image, sections + UNIFIED_SECTION_CMDLINE)));
+                }
+                if ((secure_boot_enabled() || keep_flag) &&
+                    (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) || is_confidential_vm()))
                         /* Drop the custom cmdline */
                         *cmdline = mfree(*cmdline);
                 else {
