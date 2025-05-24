@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -1612,7 +1613,7 @@ int get_timezone(char **ret) {
 
         assert(ret);
 
-        r = readlink_malloc("/etc/localtime", &t);
+        r = readlink_malloc(etc_localtime(), &t);
         if (r == -ENOENT)
                 /* If the symlink does not exist, assume "UTC", like glibc does */
                 return strdup_to(ret, "UTC");
@@ -1626,6 +1627,15 @@ int get_timezone(char **ret) {
                 return -EINVAL;
 
         return strdup_to(ret, e);
+}
+
+const char* etc_localtime(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_LOCALTIME") ?: "/etc/localtime";
+
+        return cached;
 }
 
 int mktime_or_timegm_usec(

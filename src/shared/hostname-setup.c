@@ -139,7 +139,7 @@ int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret) {
         assert(ret);
 
         if (!path)
-                path = "/etc/hostname";
+                path = etc_hostname();
 
         f = fopen(path, "re");
         if (!f)
