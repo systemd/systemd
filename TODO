@@ -133,9 +133,6 @@ Features:
 
 * loginctl: show argv[] of "leader" process in tabular list-sessions output
 
-* loginctl: show "service identifier" in tabular list-sessions output, to make
-  run0 sessions easily visible.
-
 * run0: maybe enable utmp for run0 sessions, so that they are easily visible.
 
 * maybe beef up sd-event: optionally, allow sd-event to query the timestamp of

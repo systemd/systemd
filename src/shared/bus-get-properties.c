@@ -188,3 +188,23 @@ int bus_property_get_string_set(
 
         return bus_message_append_string_set(reply, *s);
 }
+
+int bus_property_get_pidfdid(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        PidRef *pidref = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(property);
+        assert(reply);
+
+        pidref_acquire_pidfd_id(pidref);
+
+        return sd_bus_message_append(reply, "t", pidref->fd_id);
+}
