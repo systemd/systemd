@@ -18,6 +18,7 @@
     <refname>sd_device_enumerator_new</refname>
     <refname>sd_device_enumerator_ref</refname>
     <refname>sd_device_enumerator_unref</refname>
+    <refname>sd_device_enumerator_unrefp</refname>
     <refpurpose>Create, reference, and release a device enumerator object</refpurpose>
   </refnamediv>
 
@@ -39,6 +40,11 @@
         <funcdef>sd_device_enumerator* <function>sd_device_enumerator_unref</function></funcdef>
         <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_device_enumerator_unrefp</function></funcdef>
+        <paramdef>sd_device_enumerator **<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -58,11 +64,35 @@
 
     <para><function>sd_device_enumerator_unref()</function> decreases the reference count of the
     <parameter>enumerator</parameter> by one. When the reference count reaches zero, the enumerator
-    object is freed.</para>
+    object is destroyed and cannot be used anymore, so further calls to <function>sd_device_enumerator_unref()
+    </function>or <function>sd_device_enumerator_unrefp()</function> are illegal.</para>
+
+    <para><function>sd_device_enumerator_unrefp()</function> is similar to
+    <function>sd_device_enumerator_unref()</function> but takes a pointer to a
+    pointer to an <type>sd_device_enumerator</type> object. This call is useful in
+    conjunction with GCC's and LLVM's <ulink
+    url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
+    Variable Attribute</ulink>. Note that this function is defined as an
+    inline function. Use a declaration like the following, in order to
+    allocate a <type>sd_device_enumerator</type> object that is freed automatically as the code
+    block is left:</para>
+
+    <programlisting>{
+  __attribute__((cleanup(sd_device_enumerator_unrefp))) sd_device_enumerator *enumerator = NULL;
+  int r;
+  …
+  r = sd_device_enumerator_new(&amp;enumerator);
+  if (r &lt; 0) {
+    fprintf(stderr, "Failed to allocate sd_device_enumerator: %m\n", strerror(-r));
+  }
+  …
+}</programlisting>
 
     <para><function>sd_device_enumerator_ref()</function> and <function>sd_device_enumerator_unref()</function>
-    execute no operation if the <parameter>enumerator</parameter> is <constant>NULL</constant>.</para>
-
+    execute no operation if the <parameter>enumerator</parameter> is <constant>NULL</constant>.
+    <function>sd_device_enumerator_unrefp()</function> will first dereference
+    its argument, which must not be <constant>NULL</constant>, and will execute no operation if
+    <emphasis>that</emphasis> is <constant>NULL</constant>.</para>
   </refsect1>
 
   <refsect1>
@@ -88,7 +118,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>enumerator</parameter> argument is invalid.</para></listitem>
+          <listitem><para>The argument is invalid.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
