@@ -159,8 +159,6 @@ enum {
         SECCOMP_ERROR_NUMBER_KILL = INT_MAX - 1,
 };
 
-bool seccomp_errno_or_action_is_valid(int n);
-
-int seccomp_parse_errno_or_action(const char *p);
-
-const char* seccomp_errno_or_action_to_string(int num);
+bool seccomp_errno_or_action_is_valid(int n) _const_;
+int seccomp_parse_errno_or_action(const char *p) _pure_;
+const char* seccomp_errno_or_action_to_string(int num) _const_;

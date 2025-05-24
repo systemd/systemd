@@ -27,6 +27,7 @@
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "log.h"
+#include "log-ratelimit.h"
 #include "lookup3.h"
 #include "memory-util.h"
 #include "missing_fs.h"

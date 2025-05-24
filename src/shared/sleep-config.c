@@ -181,7 +181,7 @@ int parse_sleep_config(SleepConfig **ret) {
         return 0;
 }
 
-bool SLEEP_NEEDS_MEM_SLEEP(const SleepConfig *sc, SleepOperation operation) {
+bool sleep_needs_mem_sleep(const SleepConfig *sc, SleepOperation operation) {
         assert(sc);
         assert(operation >= 0 && operation < _SLEEP_OPERATION_CONFIG_MAX);
 
@@ -354,7 +354,7 @@ static int sleep_supported_internal(
                 return false;
         }
 
-        if (SLEEP_NEEDS_MEM_SLEEP(sleep_config, operation)) {
+        if (sleep_needs_mem_sleep(sleep_config, operation)) {
                 r = sleep_mode_supported("/sys/power/mem_sleep", sleep_config->mem_modes);
                 if (r < 0)
                         return r;

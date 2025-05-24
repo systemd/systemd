@@ -127,7 +127,7 @@ int btrfs_qgroup_get_quota(const char *path, uint64_t qgroupid, BtrfsQuotaInfo *
 
 int btrfs_log_dev_root(int level, int ret, const char *p);
 
-bool btrfs_might_be_subvol(const struct stat *st);
+bool btrfs_might_be_subvol(const struct stat *st) _pure_;
 
 int btrfs_forget_device(const char *path);
 
