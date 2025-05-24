@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "sd-netlink.h"
+#include "forward.h"
 
 typedef enum NLAType {
         NETLINK_TYPE_UNSPEC,                    /* NLA_UNSPEC */

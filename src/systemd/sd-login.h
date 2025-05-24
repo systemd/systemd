@@ -17,9 +17,6 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <sys/types.h>
-
 #include "_sd-common.h"
 
 /*

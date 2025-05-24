@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-dhcp6-client.h"
 #include "sd-event.h"
 
 #include "dhcp6-internal.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "fuzz.h"
 

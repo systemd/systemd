@@ -1,15 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
 #include "sd-device.h"
 
-#include "alloc-util.h"
+#include "forward.h"
 #include "log.h"
-#include "macro.h"
 
 #define device_unref_and_replace(a, b)                                  \
         unref_and_replace_full(a, b, sd_device_ref, sd_device_unref)
@@ -95,10 +90,7 @@
 #define log_device_error_errno(device, error, ...)   log_device_full_errno(device, LOG_ERR,     error, __VA_ARGS__)
 
 int devname_from_devnum(mode_t mode, dev_t devnum, char **ret);
-static inline int devname_from_stat_rdev(const struct stat *st, char **ret) {
-        assert(st);
-        return devname_from_devnum(st->st_mode, st->st_rdev, ret);
-}
+int devname_from_stat_rdev(const struct stat *st, char **ret);
 int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_devname);
 
 char** device_make_log_fields(sd_device *device);

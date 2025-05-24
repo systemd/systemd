@@ -3,11 +3,13 @@
 #include "sd-login.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "format-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "tests.h"
 
 static const char *arg_verb = NULL;  /* NULL means all */
 static pid_t arg_pid = 0;            /* 0 == self */

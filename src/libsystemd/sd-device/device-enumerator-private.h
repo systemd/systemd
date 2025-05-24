@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-device.h"
+#include "forward.h"
 
 typedef enum MatchInitializedType {
         MATCH_INITIALIZED_NO,     /* only devices without a db entry */

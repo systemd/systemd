@@ -4,18 +4,11 @@
 #include <linux/if_addrlabel.h>
 #include <linux/if_bridge.h>
 #include <linux/nexthop.h>
-#include <netinet/in.h>
-#include <stdbool.h>
-#include <unistd.h>
 
 #include "sd-netlink.h"
 
-#include "format-util.h"
-#include "log.h"
+#include "in-addr-util.h"
 #include "netlink-internal.h"
-#include "netlink-types.h"
-#include "netlink-util.h"
-#include "socket-util.h"
 
 static bool rtnl_message_type_is_neigh(uint16_t type) {
         return IN_SET(type, RTM_NEWNEIGH, RTM_GETNEIGH, RTM_DELNEIGH);

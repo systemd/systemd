@@ -4,12 +4,12 @@
 #include <linux/fou.h>
 #include <linux/genetlink.h>
 #include <linux/if.h>
+#include <linux/if_ether.h>
 #include <linux/if_macsec.h>
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
 #include <linux/wireguard.h>
 #include <netinet/in.h>
-#include <sys/socket.h>
 
 #include "missing_network.h"
 #include "netlink-genl.h"

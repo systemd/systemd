@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
@@ -27,6 +26,11 @@ int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
                 return r;
 
         return strdup_to(ret, devname);
+}
+
+int devname_from_stat_rdev(const struct stat *st, char **ret) {
+        assert(st);
+        return devname_from_devnum(st->st_mode, st->st_rdev, ret);
 }
 
 int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_devname) {

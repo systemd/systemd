@@ -1,19 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
 #include <net/ethernet.h>
-#include <netinet/icmp6.h>
-#include <netinet/in.h>
 #include <netinet/ip6.h>
-#include <sys/uio.h>
 
 #include "sd-dns-resolver.h"
-#include "sd-ndisc-protocol.h"
 
-#include "icmp6-packet.h"
-#include "macro.h"
-#include "set.h"
 #include "time-util.h"
 
 typedef struct sd_ndisc_raw {
@@ -131,17 +123,11 @@ int ndisc_option_parse(
 
 int ndisc_parse_options(ICMP6Packet *p, Set **ret_options);
 
-static inline sd_ndisc_option* ndisc_option_get(Set *options, const sd_ndisc_option *p) {
-        return set_get(options, ASSERT_PTR(p));
-}
-static inline sd_ndisc_option* ndisc_option_get_by_type(Set *options, uint8_t type) {
-        return ndisc_option_get(options, &(const sd_ndisc_option) { .type = type });
-}
+sd_ndisc_option* ndisc_option_get(Set *options, const sd_ndisc_option *p);
+sd_ndisc_option* ndisc_option_get_by_type(Set *options, uint8_t type);
 int ndisc_option_get_mac(Set *options, uint8_t type, struct ether_addr *ret);
 
-static inline void ndisc_option_remove(Set *options, const sd_ndisc_option *p) {
-        ndisc_option_free(set_remove(options, ASSERT_PTR(p)));
-}
+void ndisc_option_remove(Set *options, const sd_ndisc_option *p);
 static inline void ndisc_option_remove_by_type(Set *options, uint8_t type) {
         ndisc_option_remove(options, &(const sd_ndisc_option) { .type = type });
 }

@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-match.h"
 #include "env-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "fuzz.h"
 #include "memstream-util.h"
 
