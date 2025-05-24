@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-
 #pragma once
 
 #if HAVE_LIBBPF
 
-#include <stdio.h>
 #include <bpf/libbpf.h>
 
-#include "fdset.h"
-#include "macro.h"
+#include "forward.h"
 
 bool bpf_can_link_program(struct bpf_program *prog);
 

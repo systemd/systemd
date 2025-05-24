@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <security/pam_modules.h>
+#include <security/pam_modules.h> /* IWYU pragma: export */
 #include <syslog.h>
 
-#include "sd-bus.h"
-
-#include "macro.h"
+#include "forward.h"
 
 void pam_log_setup(void);
 

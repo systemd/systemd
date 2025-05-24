@@ -19,7 +19,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(str = memdup_suffix0(data, size));
 
-        r = sd_varlink_idl_parse(str, /* ret_line= */ NULL, /* column= */ NULL, &vi);
+        r = sd_varlink_idl_parse(str, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &vi);
         if (r < 0) {
                 log_debug_errno(r, "Failed to parse varlink interface definition: %m");
                 return 0;

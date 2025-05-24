@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
+#include "forward.h"
 
 typedef enum PathSimplifyWarnFlags {
         PATH_CHECK_FATAL              = 1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
