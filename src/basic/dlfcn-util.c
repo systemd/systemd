@@ -1,7 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <dlfcn.h>
+
 #include "dlfcn-util.h"
 #include "log.h"
+
+void* safe_dlclose(void *dl) {
+        if (!dl)
+                return NULL;
+
+        assert_se(dlclose(dl) == 0);
+        return NULL;
+}
 
 static int dlsym_many_or_warnv(void *dl, int log_level, va_list ap) {
         void (**fn)(void);

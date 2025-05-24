@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <limits.h>
 #include <signal.h>
-#include <stddef.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/utsname.h>
 #include <sys/xattr.h>
 #include <threads.h>
 #include <unistd.h>
@@ -14,7 +9,6 @@
 #include "alloc-util.h"
 #include "capsule-util.h"
 #include "cgroup-util.h"
-#include "constants.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -24,23 +18,35 @@
 #include "fs-util.h"
 #include "log.h"
 #include "login-util.h"
-#include "macro.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
-#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "set.h"
 #include "special.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "xattr-util.h"
+
+/* The structure to pass to name_to_handle_at() on cgroupfs2 */
+typedef union {
+        struct file_handle file_handle;
+        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
+} cg_file_handle;
+
+#define CG_FILE_HANDLE_INIT                                     \
+        (cg_file_handle) {                                      \
+                .file_handle.handle_bytes = sizeof(uint64_t),   \
+                .file_handle.handle_type = FILEID_KERNFS,       \
+        }
+
+#define CG_FILE_HANDLE_CGROUPID(fh) (*CAST_ALIGN_PTR(uint64_t, (fh).file_handle.f_handle))
 
 int cg_path_open(const char *controller, const char *path) {
         _cleanup_free_ char *fs = NULL;
