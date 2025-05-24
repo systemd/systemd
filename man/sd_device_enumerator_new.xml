@@ -45,9 +45,9 @@
   <refsect1>
     <title>Description</title>
     <para>The <function>sd_device_enumerator</function> family of functions provides a way to iterate
-    over devices recognized by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8
-    </manvolnum></citerefentry>. The enumerator allows filtering and matching devices by subsystem,
-    properties and other attributes.</para>
+    over devices recognized by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum>
+    </citerefentry>. The enumerator allows filtering and matching devices by subsystem, properties and
+    other attributes.</para>
 
     <para><function>sd_device_enumerator_new()</function> creates a new device enumerator object and
     stores the result in the pointer referenced by <parameter>ret</parameter>. Returns 0 on success,
@@ -60,6 +60,9 @@
     <parameter>enumerator</parameter> by one. When the reference count reaches zero, the enumerator
     object is freed.</para>
 
+    <para><function>sd_device_enumerator_ref()</function> and <function>sd_device_enumerator_unref()</function>
+    execute no operation if the <parameter>enumerator</parameter> is <constant>NULL</constant>.</para>
+
   </refsect1>
 
   <refsect1>
@@ -68,17 +71,34 @@
     <para><function>sd_device_enumerator_new()</function> returns 0 on success or a negative
     errno-style error code on failure.</para>
 
-    <para><function>sd_device_enumerator_ref()</function> and <function>sd_device_enumerator_unref()
-    </function>return the enumerator pointer, or NULL if the last reference is dropped and the object
-    is destroyed.</para>
+    <para><function>sd_device_enumerator_ref()</function> always returns the enumerator pointer.</para>
+    <para><function>sd_device_enumerator_unref()</function> always returns <constant>NULL</constant>.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The <parameter>enumerator</parameter> argument is invalid.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
     <title>Example</title>
     <example>
       <title>Using sd_device_enumerator_new()</title>
-      <programlisting><xi:include href="sd_device_enumerator_new-example.c" parse="text"/>
-      </programlisting>
+      <programlisting><xi:include href="sd_device_enumerator_new-example.c" parse="text"/></programlisting>
     </example>
   </refsect1>
 
