@@ -152,6 +152,17 @@
 
     <variablelist>
       <varlistentry>
+        <term><uri>/boots</uri></term>
+
+        <listitem><para>Return JSON containing an array of JSON objects,
+        each one containing boot number, its ID and the timestamps of
+        the first and last message. The output has the same schema as
+        <command>journalctl --list-boots --output json</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><uri>/browse</uri></term>
 
         <listitem><para>Interactive browsing.</para>
