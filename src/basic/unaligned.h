@@ -2,9 +2,9 @@
 #pragma once
 
 #include <endian.h>
-#include <stdint.h>
 
-#include "unaligned-fundamental.h"
+#include "forward.h"
+#include "unaligned-fundamental.h" /* IWYU pragma: export */
 
 /* BE */
 

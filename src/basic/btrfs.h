@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
+#include "forward.h"
 
 int btrfs_validate_subvolume_name(const char *name);
 

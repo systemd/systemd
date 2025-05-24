@@ -1,18 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dlfcn.h>
+#include "dlfcn.h"      /* IWYU pragma: export */
+#include "forward.h"
 
-#include "assert-util.h"
-#include "macro.h"
-
-static inline void* safe_dlclose(void *dl) {
-        if (!dl)
-                return NULL;
-
-        assert_se(dlclose(dl) == 0);
-        return NULL;
-}
+void* safe_dlclose(void *dl);
 
 static inline void dlclosep(void **dlp) {
         safe_dlclose(*dlp);
