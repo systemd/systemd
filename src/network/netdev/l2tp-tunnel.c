@@ -12,6 +12,7 @@
 #include "l2tp-tunnel.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-route-util.h"
 #include "set.h"

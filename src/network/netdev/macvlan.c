@@ -7,6 +7,7 @@
 #include "conf-parser.h"
 #include "macvlan.h"
 #include "macvlan-util.h"
+#include "networkd-link.h"
 #include "networkd-network.h"
 #include "parse-util.h"
 #include "set.h"

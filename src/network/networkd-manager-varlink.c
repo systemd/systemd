@@ -12,6 +12,7 @@
 #include "lldp-rx-internal.h"
 #include "network-util.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
 #include "stat-util.h"

@@ -7,6 +7,7 @@
 
 #include "conf-parser.h"
 #include "ipoib.h"
+#include "networkd-link.h"
 #include "networkd-network.h"
 #include "parse-util.h"
 #include "string-table.h"

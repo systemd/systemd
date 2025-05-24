@@ -3,7 +3,6 @@
 #include <grp.h>
 #include <linux/ioprio.h>
 #include <linux/prctl.h>
-#include <linux/sched.h>
 #include <linux/securebits.h>
 #include <poll.h>
 #include <sys/eventfd.h>

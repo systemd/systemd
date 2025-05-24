@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "dissect-image.h"
 #include "forward.h"
 #include "runtime-scope.h"
 #include "string-util.h"

@@ -9,16 +9,18 @@
 #include "ipoib.h"
 #include "net-condition.h"
 #include "network-util.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
 #include "networkd-dns.h"
 #include "networkd-forward.h"
-#include "networkd-link.h"
+#include "networkd-ipv6ll.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
 #include "networkd-sysctl.h"
+#include "resolve-util.h"
 
 typedef enum KeepConfiguration {
         KEEP_CONFIGURATION_NO               = 0,

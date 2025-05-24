@@ -10,6 +10,7 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "hashmap.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-wiphy.h"
 #include "path-util.h"

@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "networkd-address.h"
 #include "networkd-address-pool.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "ordered-set.h"

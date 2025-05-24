@@ -6,6 +6,7 @@
 #include "extract-word.h"
 #include "hostname-util.h"
 #include "networkd-dns.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "ordered-set.h"
