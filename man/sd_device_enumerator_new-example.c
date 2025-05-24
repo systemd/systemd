@@ -11,10 +11,10 @@ int main(void) {
         return 1;
     }
 
-    sd_device_enumerator_ref(enumerator);   // increase ref count
+    sd_device_enumerator_ref(enumerator);
+    sd_device_enumerator_unref(enumerator);
 
-    sd_device_enumerator_unref(enumerator); // decrease ref count
-    sd_device_enumerator_unref(enumerator); // free the object when last ref dropped
+    sd_device_enumerator_unref(enumerator);
 
     return 0;
 }

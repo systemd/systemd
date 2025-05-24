@@ -40,6 +40,16 @@
         <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <function>sd_device_enumerator</function> family of functions provides a way to iterate over
+      devices recognized by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>. The enumerator allows filtering and matching devices by subsystem, properties,
+       and other attributes.
+    </para>
 
     <para>
       <function>sd_device_enumerator_new()</function> creates a new device enumerator object and
@@ -58,16 +68,6 @@
       object is freed.
     </para>
 
-  </refsynopsisdiv>
-
-  <refsect1>
-    <title>Description</title>
-    <para>
-      The <function>sd_device_enumerator</function> family of functions provides a way to iterate over
-      devices recognized by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum>
-      </citerefentry>. The enumerator allows filtering and matching devices by subsystem, properties,
-       and other attributes.
-    </para>
   </refsect1>
 
   <refsect1>
@@ -90,8 +90,8 @@
   <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
-      <member><citerefentry><refentrytitle>sd_device</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>sd_device_enumerator_add_match_subsystem</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_enumerator_add_match_parent</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
