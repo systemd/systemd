@@ -1321,7 +1321,7 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in our cgroup */
-                (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids=*/ NULL, /* kill_log= */ NULL, /* userdata= */ NULL);
+                (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids=*/ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
 
         return 0;
 }
