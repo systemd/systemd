@@ -19,7 +19,9 @@ def process_sym_file(file: IO[str]) -> None:
                 print(f'        {{ "{m[1]}", {m[1]} }},')
 
 
-def process_header_file(file: IO[str]) -> None:
+def process_header_file(file: IO[str]) -> str:
+    text = ''
+
     for line in file:
         if (
             line.startswith('#')
@@ -43,21 +45,23 @@ def process_header_file(file: IO[str]) -> None:
         # Functions
         m = re.search(r'^(\S+\s+)+\**(\w+)\s*\(', line)
         if m:
-            print(f'        {{ "{m[2]}", {m[2]} }},')
+            text += f'        {{ "{m[2]}", {m[2]} }},\n'
             continue
 
         # Variables
         m = re.search(r'^extern\s', line)
         if m:
             n = line.split()[-1].rstrip(';')
-            print(f'        {{ "{n}", &{n} }},')
+            text += f'        {{ "{n}", &{n} }},\n'
             continue
 
         # Functions defined by macro
         m = re.search(r'_SD_DEFINE_POINTER_CLEANUP_FUNC\(\w+,\s*(\w+)\)', line)
         if m:
-            print(f'        {{ "{m[1]}", {m[1]} }},')
+            text += f'        {{ "{m[1]}", {m[1]} }},\n'
             continue
+
+    return text
 
 
 def process_source_file(file: IO[str]) -> None:
@@ -107,7 +111,9 @@ print("""/* SPDX-License-Identifier: LGPL-2.1-or-later */
 """)
 
 for header in sys.argv[3:]:
-    print('#include "{}"'.format(header.split('/')[-1]))
+    with open(header, 'r') as f:
+        if process_header_file(f):
+            print('#include "{}"'.format(header.split('/')[-1]))
 
 print("""
 /* We want to check deprecated symbols too, without complaining */
@@ -129,7 +135,7 @@ print("""        {}
 
 for header in sys.argv[3:]:
     with open(header, 'r') as f:
-        process_header_file(f)
+        print(process_header_file(f), end='')
 
 print("""        {}
 }, symbols_from_source[] = {""")

@@ -396,6 +396,10 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
  */
 #define STRLEN(x) (sizeof(""x"") - sizeof(typeof(x[0])))
 
+DISABLE_WARNING_REDUNDANT_DECLS;
+void free(void *p);
+REENABLE_WARNING;
+
 #define mfree(memory)                           \
         ({                                      \
                 free(memory);                   \
