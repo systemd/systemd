@@ -2786,6 +2786,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly as ExtraFileDescriptorNames = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i ReloadSignal = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b ReloadSignalRequireHandler = ...;
       readonly t ExecMainStartTimestamp = ...;
       readonly t ExecMainStartTimestampMonotonic = ...;
       readonly t ExecMainExitTimestamp = ...;
@@ -3451,6 +3453,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property ReloadSignal is not documented!-->
 
+    <!--property ReloadSignalRequireHandler is not documented!-->
+
     <!--property ExecCondition is not documented!-->
 
     <!--property ExecConditionEx is not documented!-->
@@ -4068,6 +4072,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ExtraFileDescriptorNames"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadSignal"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ReloadSignalRequireHandler"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainStartTimestamp"/>
 
@@ -12046,7 +12052,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PrivateUsersEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
-      <varname>DelegateNamespaces</varname>, and
+      <varname>DelegateNamespaces</varname>,
+      <varname>ReloadSignalRequireHandler</varname>, and
       <function>RemoveSubGroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>

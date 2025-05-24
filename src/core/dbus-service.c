@@ -372,6 +372,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("OpenFile", "a(sst)", property_get_open_files, offsetof(Service, open_files), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtraFileDescriptorNames", "as", property_get_extra_file_descriptors, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReloadSignal", "i", bus_property_get_int, offsetof(Service, reload_signal), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ReloadSignalRequireHandler", "b", bus_property_get_int, offsetof(Service, reload_signal_require_handler), SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecCondition", offsetof(Service, exec_command[SERVICE_EXEC_CONDITION]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -749,6 +750,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "ReloadSignal"))
                 return bus_set_transient_reload_signal(u, name, &s->reload_signal, message, flags, error);
+
+        if (streq(name, "ReloadSignalRequireHandler"))
+                return bus_set_transient_bool(u, name, &s->reload_signal_require_handler, message, flags, error);
 
         if (streq(name, "ExtraFileDescriptors")) {
                 r = sd_bus_message_enter_container(message, 'a', "(hs)");

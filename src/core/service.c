@@ -972,7 +972,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sNotifyAccess: %s\n"
                 "%sNotifyState: %s\n"
                 "%sOOMPolicy: %s\n"
-                "%sReloadSignal: %s\n",
+                "%sReloadSignal: %s\n"
+                "%sReloadSignalRequireHandler: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, service_result_to_string(s->result),
                 prefix, service_result_to_string(s->reload_result),
@@ -987,7 +988,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, notify_access_to_string(service_get_notify_access(s)),
                 prefix, notify_state_to_string(s->notify_state),
                 prefix, oom_policy_to_string(s->oom_policy),
-                prefix, signal_to_string(s->reload_signal));
+                prefix, signal_to_string(s->reload_signal),
+                prefix, yes_no(s->reload_signal_require_handler));
 
         if (pidref_is_set(&s->control_pid))
                 fprintf(f,
@@ -2702,6 +2704,27 @@ static void service_enter_reload_signal_exec(Service *s) {
         usec_t ts = now(CLOCK_MONOTONIC);
 
         if (s->type == SERVICE_NOTIFY_RELOAD && pidref_is_set(&s->main_pid)) {
+                if (s->reload_signal_require_handler) {
+                        r = pidref_has_sigcgt(&s->main_pid, s->reload_signal);
+                        if (r < 0) {
+                                if (r != -ESRCH)
+                                        log_unit_warning_errno(
+                                                        UNIT(s),
+                                                        r,
+                                                        "Failed to check for reload signal handler: %m");
+                                goto fail;
+                        }
+                        if (r == 0) {
+                                log_unit_warning(
+                                                UNIT(s),
+                                                "Process " PID_FMT
+                                                " does not have a handler for signal %s, refusing to reload",
+                                                s->main_pid.pid,
+                                                signal_to_string(s->reload_signal));
+                                goto fail;
+                        }
+                }
+
                 r = pidref_kill_and_sigcont(&s->main_pid, s->reload_signal);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to send reload signal: %m");
