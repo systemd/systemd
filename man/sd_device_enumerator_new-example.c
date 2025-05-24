@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: MIT-0 */
 
-#include <systemd/sd-device.h>
 #include <stdio.h>
+#include <systemd/sd-device.h>
 
 int main(void) {
-    sd_device_enumerator *enumerator = NULL;
-    int r = sd_device_enumerator_new(&enumerator);
+    sd_device_enumerator *enumerator;
+    int r;
+    r = sd_device_enumerator_new(&enumerator);
     if (r < 0) {
-        fprintf(stderr, "Failed to create enumerator: %d\n", r);
+        fprintf(stderr, "Failed to create enumerator: %s\n", strerror(-r));
         return 1;
     }
 
