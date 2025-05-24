@@ -745,6 +745,8 @@ Unit* unit_free(Unit *u) {
         if (!MANAGER_IS_RELOADING(u->manager))
                 unit_remove_transient(u);
 
+        hashmap_free(u->transient_owners);
+
         bus_unit_send_removed_signal(u);
 
         unit_done(u);
@@ -4762,6 +4764,106 @@ int unit_make_transient(Unit *u) {
         fputs("# This is a transient unit file, created programmatically via the systemd API. Do not edit.\n",
               u->transient_file);
 
+        return 0;
+}
+
+UnitTransientOwner* unit_transient_owner_free(UnitTransientOwner *o) {
+        if (!o)
+                return NULL;
+
+        if (o->unit && pidref_is_set(&o->pidref)) {
+                if (o->stop_on_exit) {
+                        assert(o->unit->n_bound_transient_owners > 0);
+                        o->unit->n_bound_transient_owners--;
+                }
+
+                (void) hashmap_remove_value(o->unit->transient_owners, &o->pidref, o);
+        }
+
+        sd_event_source_disable_unref(o->event_source);
+        pidref_done(&o->pidref);
+
+        return mfree(o);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(unit_transient_owner_hash_ops,
+                                              PidRef, pidref_hash_func, pidref_compare_func,
+                                              UnitTransientOwner, unit_transient_owner_free);
+
+static int unit_dispatch_transient_owner(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        UnitTransientOwner *owner = ASSERT_PTR(userdata);
+
+        assert(owner->unit);
+        assert(source == owner->event_source);
+        assert(fd == owner->pidref.fd);
+        assert(revents & EPOLLIN);
+
+        if (owner->stop_on_exit && owner->unit->n_bound_transient_owners <= 1) {
+                log_unit_notice(owner->unit, "Last bound owner of transient unit exited, enqueuing stop job: " PID_FMT,
+                                owner->pidref.pid);
+                (void) manager_add_job(owner->unit->manager, JOB_STOP, owner->unit, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
+        } else
+                log_unit_debug(owner->unit, "Owner of transient unit exited: " PID_FMT, owner->pidref.pid);
+
+        unit_transient_owner_free(owner);
+        return 0;
+}
+
+int unit_transient_add_owner(Unit *u, PidRef pidref_consume, UnitTransientOwnerFlags flags) {
+        _cleanup_(pidref_done) PidRef pidref = pidref_consume;
+        int r;
+
+        assert(u);
+        assert(pidref_is_set(&pidref));
+
+        if (!u->transient)
+                return -EINVAL;
+
+        if (pidref.fd < 0)
+                return -ENOMEDIUM;
+
+        if ((flags & ~TRANSIENT_OWNER_STOP_ON_EXIT) != 0)
+                return -EINVAL;
+
+        if (hashmap_contains(u->transient_owners, &pidref))
+                return -EEXIST;
+
+        _cleanup_(unit_transient_owner_freep) UnitTransientOwner *owner = new(UnitTransientOwner, 1);
+        if (!owner)
+                return -ENOMEM;
+
+        *owner = (UnitTransientOwner) {
+                .pidref = TAKE_PIDREF(pidref),
+                .stop_on_exit = FLAGS_SET(flags, TRANSIENT_OWNER_STOP_ON_EXIT),
+        };
+
+        r = sd_event_add_io(u->manager->event, &owner->event_source, owner->pidref.fd, EPOLLIN,
+                            unit_dispatch_transient_owner, owner);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(owner->event_source, EVENT_PRIORITY_TRANSIENT_OWNER);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(owner->event_source, "unit-transient-owner");
+
+        r = hashmap_ensure_put(&u->transient_owners, &unit_transient_owner_hash_ops, &owner->pidref, owner);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+
+        owner->unit = u;
+        if (owner->stop_on_exit)
+                u->n_bound_transient_owners++;
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *comm = NULL;
+                (void) pidref_get_comm(&owner->pidref, &comm);
+                log_unit_debug(u, "Watching " PID_FMT " (%s) as transient owner", owner->pidref.pid, strna(comm));
+        }
+
+        TAKE_PTR(owner);
         return 0;
 }
 

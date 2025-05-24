@@ -60,6 +60,52 @@ static int deserialize_markers(Unit *u, const char *value) {
         }
 }
 
+static int serialize_transient_owners(FILE *f, FDSet *fds, Hashmap *owners) {
+        int r;
+
+        assert(f);
+        assert(fds);
+
+        UnitTransientOwner *o;
+        HASHMAP_FOREACH(o, owners) {
+                int pidfd = fdset_put_dup(fds, o->pidref.fd);
+                if (pidfd < 0)
+                        return log_error_errno(pidfd, "Failed to add pidfd to serialization set: %m");
+
+                r = serialize_item_format(f, "transient-owner", "@%i:" PID_FMT " %s",
+                                          pidfd, o->pidref.pid, yes_no(o->stop_on_exit));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int deserialize_transient_owner_one(Unit *u, FDSet *fds, const char *value) {
+        _cleanup_free_ char *pidstr = NULL, *stop_on_exit = NULL;
+        int r;
+
+        assert(u);
+        assert(value);
+
+        r = extract_many_words(&value, " ", /* flags = */ 0, &pidstr, &stop_on_exit);
+        if (r < 0)
+                return r;
+        if (r != 2)
+                return -EINVAL;
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = deserialize_pidref(fds, pidstr, &pidref);
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(stop_on_exit);
+        if (r < 0)
+                return r;
+
+        return unit_transient_add_owner(u, TAKE_PIDREF(pidref), r ? TRANSIENT_OWNER_STOP_ON_EXIT : 0);
+}
+
 int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         int r;
 
@@ -129,6 +175,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_item(f, "freezer-state", freezer_state_to_string(u->freezer_state));
 
         (void) serialize_markers(f, u->markers);
+        (void) serialize_transient_owners(f, fds, u->transient_owners);
 
         bus_track_serialize(u->bus_track, f, "ref");
 
@@ -337,6 +384,11 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
 
                 else if (streq(l, "markers")) {
                         r = deserialize_markers(u, v);
+                        if (r < 0)
+                                log_unit_debug_errno(u, r, "Failed to deserialize \"%s=%s\", ignoring: %m", l, v);
+                        continue;
+                } else if (streq(l, "transient-owner")) {
+                        r = deserialize_transient_owner_one(u, fds, v);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to deserialize \"%s=%s\", ignoring: %m", l, v);
                         continue;

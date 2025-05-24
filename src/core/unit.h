@@ -202,6 +202,18 @@ static inline const ActivationDetailsVTable* ACTIVATION_DETAILS_VTABLE(const Act
         return activation_details_vtable[a->trigger_unit_type];
 }
 
+typedef struct UnitTransientOwner {
+        Unit *unit;
+
+        PidRef pidref;
+        sd_event_source *event_source;
+
+        bool stop_on_exit;
+} UnitTransientOwner;
+
+UnitTransientOwner* unit_transient_owner_free(UnitTransientOwner *o);
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTransientOwner*, unit_transient_owner_free);
+
 /* Newer LLVM versions don't like implicit casts from large pointer types to smaller enums, hence let's add
  * explicit type-safe helpers for that. */
 static inline UnitDependency UNIT_DEPENDENCY_FROM_PTR(const void *p) {
@@ -262,6 +274,16 @@ typedef struct Unit {
 
         /* If this is a transient unit we are currently writing, this is where we are writing it to */
         FILE *transient_file;
+
+        /* "Owners" of a transient unit, i.e. a special polkit action is queried for them when trying to
+         * enqueue stop job, which defaults to allow. This enables clients who started transient units
+         * with polkit auth to stop them again without privilege.
+         *
+         * Additionally, monitor the processes and automatically stop the unit when all "bound" owners exit.
+         * Useful in interactive transient sessions (e.g. run0), where the unit's lifetime shall be bound
+         * to pty forwarder/leader. */
+        Hashmap *transient_owners;
+        unsigned n_bound_transient_owners;
 
         /* Freezer state */
         sd_bus_message *pending_freezer_invocation;
@@ -958,6 +980,8 @@ int unit_write_settingf(Unit *u, UnitWriteFlags mode, const char *name, const ch
 int unit_kill_context(Unit *u, KillOperation k);
 
 int unit_make_transient(Unit *u);
+
+int unit_transient_add_owner(Unit *u, PidRef pidref_consume, UnitTransientOwnerFlags flags);
 
 int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, UnitMountDependencyType type);
 
