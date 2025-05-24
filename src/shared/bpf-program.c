@@ -49,6 +49,7 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(bpf_program_hash_ops, void, trivial_hash_fun
 
 int bpf_program_supported(void) {
         static int cached = 0;
+        int r;
 
         if (cached != 0)
                 return cached;
@@ -57,10 +58,26 @@ int bpf_program_supported(void) {
          * - BPF_PROG_TYPE_CGROUP_SKB, supported since kernel v4.10 (0e33661de493db325435d565a4a722120ae4cbf3),
          * - BPF_PROG_TYPE_CGROUP_DEVICE, supported since kernel v4.15 (ebc614f687369f9df99828572b1d85a7c2de3d92),
          * - BPF_PROG_TYPE_CGROUP_SOCK_ADDR, supported since kernel v4.17 (4fbac77d2d092b475dda9eea66da674369665427).
-         * Hence, as our baseline on the kernel is v5.4, it is not necessary to check if we can create BPF
-         * programs of hthese types.
-         *
-         * However, unfortunately the kernel allows us to create BPF_PROG_TYPE_CGROUP_SKB (maybe also other types)
+         * As our baseline on the kernel is v5.4, it is enough to check if one BPF program can be created and loaded. */
+
+        _cleanup_(bpf_program_freep) BPFProgram *program = NULL;
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, /* prog_name = */ NULL, &program);
+        if (r < 0)
+                return cached = log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, assuming BPF is not supported: %m");
+
+        static const struct bpf_insn trivial[] = {
+                BPF_MOV64_IMM(BPF_REG_0, 1),
+                BPF_EXIT_INSN()
+        };
+        r = bpf_program_add_instructions(program, trivial, ELEMENTSOF(trivial));
+        if (r < 0)
+                return cached = log_debug_errno(r, "Can't add trivial instructions to CGROUP SKB BPF program, assuming BPF is not supported: %m");
+
+        r = bpf_program_load_kernel(program, /* log_buf = */ NULL, /* log_size = */ 0);
+        if (r < 0)
+                return cached = log_debug_errno(r, "Can't load kernel CGROUP SKB BPF program, assuming BPF is not supported: %m");
+
+        /* Unfortunately the kernel allows us to create BPF_PROG_TYPE_CGROUP_SKB (maybe also other types)
          * programs even when CONFIG_CGROUP_BPF is turned off at kernel compilation time. This sucks of course:
          * why does it allow us to create a cgroup BPF program if we can't do a thing with it later?
          *

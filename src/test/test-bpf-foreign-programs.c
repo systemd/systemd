@@ -280,9 +280,6 @@ int main(int argc, char *argv[]) {
         if (detect_container() > 0)
                 return log_tests_skipped("test-bpf fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
-        if (getuid() != 0)
-                return log_tests_skipped("not running as root");
-
         r = bpf_program_supported();
         if (r < 0)
                 return log_tests_skipped_errno(r, "BPF programs not supported");
