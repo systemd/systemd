@@ -268,7 +268,7 @@ static int execute(
         if (state_fd < 0)
                 return log_error_errno(errno, "Failed to open /sys/power/state: %m");
 
-        if (SLEEP_NEEDS_MEM_SLEEP(sleep_config, operation)) {
+        if (sleep_needs_mem_sleep(sleep_config, operation)) {
                 r = write_mode("/sys/power/mem_sleep", sleep_config->mem_modes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write mode to /sys/power/mem_sleep: %m");

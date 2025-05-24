@@ -41,7 +41,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, sleep_config_free);
 
 int parse_sleep_config(SleepConfig **sleep_config);
 
-bool SLEEP_NEEDS_MEM_SLEEP(const SleepConfig *sc, SleepOperation operation);
+bool sleep_needs_mem_sleep(const SleepConfig *sc, SleepOperation operation) _pure_;
 
 typedef enum SleepSupport {
         SLEEP_SUPPORTED,

@@ -851,7 +851,7 @@ int config_section_new(const char *filename, unsigned line, ConfigSection **ret)
         return 0;
 }
 
-int _hashmap_by_section_find_unused_line(
+static int _hashmap_by_section_find_unused_line(
                 HashmapBase *entries_by_section,
                 const char *filename,
                 unsigned *ret) {

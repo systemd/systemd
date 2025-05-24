@@ -66,7 +66,7 @@ int mac_smack_read_at(int fd, const char *path, SmackAttr attr, char **ret) {
 
         return getxattr_at_malloc(fd, path, smack_attr_to_string(attr), /* at_flags = */ 0, ret, /* ret_size= */ NULL);
 #else
-return -EOPNOTSUPP;
+        return -EOPNOTSUPP;
 #endif
 }
 
