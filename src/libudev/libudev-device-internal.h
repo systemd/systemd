@@ -2,7 +2,8 @@
 #pragma once
 
 #include "libudev.h"
-#include "sd-device.h"
+
+#include "forward.h"
 
 struct udev_device;
 

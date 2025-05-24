@@ -187,8 +187,8 @@ static inline bool dissected_image_is_bootable_uefi(DissectedImage *m) {
         return m && m->partitions[PARTITION_ESP].found && dissected_image_is_bootable_os(m);
 }
 
-bool dissected_image_is_portable(DissectedImage *m);
-bool dissected_image_is_initrd(DissectedImage *m);
+bool dissected_image_is_portable(DissectedImage *m) _pure_;
+bool dissected_image_is_initrd(DissectedImage *m) _pure_;
 
 DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);

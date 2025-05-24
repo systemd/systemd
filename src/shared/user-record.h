@@ -177,7 +177,7 @@ static inline UserRecordMask USER_RECORD_STRIP_MASK(UserRecordLoadFlags f) {
         return (f >> 21) & _USER_RECORD_MASK_MAX;
 }
 
-sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags);
+sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags) _const_;
 
 typedef struct Pkcs11EncryptedKey {
         /* The encrypted passphrase, which can be decrypted with the private key indicated below */
@@ -533,7 +533,7 @@ typedef struct UserDBMatch {
                 .uid_max = UID_NOBODY - 1,                      \
         }
 
-bool userdb_match_is_set(const UserDBMatch *match);
+bool userdb_match_is_set(const UserDBMatch *match) _pure_;
 
 void userdb_match_done(UserDBMatch *match);
 
