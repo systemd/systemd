@@ -133,6 +133,13 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_device_enumerator_new()</function>, <function>sd_device_enumerator_ref()</function>,
+    <function>sd_device_enumerator_unref()</function>, and <function>sd_device_enumerator_unrefp()</function>
+    were added in version 220.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>sd_device_ref</refentrytitle><manvolnum>3</manvolnum>
