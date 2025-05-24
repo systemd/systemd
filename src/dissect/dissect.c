@@ -1293,7 +1293,7 @@ static const char *pick_color_for_uid_gid(uid_t uid) {
                 return ansi_highlight_yellow4(); /* files should never be owned by 'nobody' (but might happen due to userns mapping) */
         if (uid_is_system(uid))
                 return ansi_normal();            /* files in disk images are typically owned by root and other system users, no issue there */
-        if (uid_is_dynamic(uid))
+        if (uid_is_dynamic(uid) || uid_is_greeter(uid))
                 return ansi_highlight_red();     /* files should never be owned persistently by dynamic users, and there are just no excuses */
         if (uid_is_container(uid) || uid_is_foreign(uid))
                 return ansi_highlight_cyan();
