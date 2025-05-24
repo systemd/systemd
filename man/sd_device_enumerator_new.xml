@@ -44,54 +44,51 @@
 
   <refsect1>
     <title>Description</title>
-    <para>
-      The <function>sd_device_enumerator</function> family of functions provides a way to iterate over
-      devices recognized by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum>
-      </citerefentry>. The enumerator allows filtering and matching devices by subsystem, properties,
-       and other attributes.
-    </para>
+    <para>The <function>sd_device_enumerator</function> family of functions provides a way to iterate
+    over devices recognized by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8
+    </manvolnum></citerefentry>. The enumerator allows filtering and matching devices by subsystem,
+    properties and other attributes.</para>
 
-    <para>
-      <function>sd_device_enumerator_new()</function> creates a new device enumerator object and
-      stores the result in the pointer referenced by <parameter>ret</parameter>. Returns 0 on success,
-      or a negative errno-style error code on failure.
-    </para>
+    <para><function>sd_device_enumerator_new()</function> creates a new device enumerator object and
+    stores the result in the pointer referenced by <parameter>ret</parameter>. Returns 0 on success,
+    or a negative errno-style error code on failure.</para>
 
-    <para>
-      <function>sd_device_enumerator_ref()</function> increases the reference count of the specified
-      <parameter>enumerator</parameter> by one.
-    </para>
+    <para><function>sd_device_enumerator_ref()</function> increases the reference count of the
+    specified <parameter>enumerator</parameter> by one.</para>
 
-    <para>
-      <function>sd_device_enumerator_unref()</function> decreases the reference count of the
-      <parameter>enumerator</parameter> by one. When the reference count reaches zero, the enumerator
-      object is freed.
-    </para>
+    <para><function>sd_device_enumerator_unref()</function> decreases the reference count of the
+    <parameter>enumerator</parameter> by one. When the reference count reaches zero, the enumerator
+    object is freed.</para>
 
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
-    <para><function>sd_device_enumerator_new()</function> returns 0 on success or a negative errno-style
-    error code on failure.</para>
 
-    <para><function>sd_device_enumerator_ref()</function> and <function>sd_device_enumerator_unref()</function>
-    return the enumerator pointer, or NULL if the last reference is dropped and the object is destroyed.</para>
+    <para><function>sd_device_enumerator_new()</function> returns 0 on success or a negative
+    errno-style error code on failure.</para>
+
+    <para><function>sd_device_enumerator_ref()</function> and <function>sd_device_enumerator_unref()
+    </function>return the enumerator pointer, or NULL if the last reference is dropped and the object
+    is destroyed.</para>
   </refsect1>
 
   <refsect1>
     <title>Example</title>
     <example>
       <title>Using sd_device_enumerator_new()</title>
-      <programlisting><xi:include href="sd_device_enumerator_new-example.c" parse="text"/></programlisting>
+      <programlisting><xi:include href="sd_device_enumerator_new-example.c" parse="text"/>
+      </programlisting>
     </example>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
-      <member><citerefentry><refentrytitle>sd_device_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>sd_device_enumerator_add_match_parent</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_ref</refentrytitle><manvolnum>3</manvolnum>
+      </citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_enumerator_add_match_parent</refentrytitle>
+      <manvolnum>3</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
