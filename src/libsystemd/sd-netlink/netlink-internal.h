@@ -135,7 +135,10 @@ int message_new_full(
 int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type, uint16_t flags);
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
 
-uint32_t message_get_serial(sd_netlink_message *m);
+static inline uint32_t message_get_serial(sd_netlink_message *m) {
+        assert(m);
+        return ASSERT_PTR(m->hdr)->nlmsg_seq;
+}
 
 void message_seal(sd_netlink_message *m);
 
