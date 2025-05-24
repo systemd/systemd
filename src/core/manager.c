@@ -1878,6 +1878,9 @@ static void manager_setup_bus(Manager *m) {
 
 static void manager_preset_all(Manager *m) {
         int r;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         assert(m);
 
@@ -1894,7 +1897,9 @@ static void manager_preset_all(Manager *m) {
         UnitFilePresetMode mode =
                 ENABLE_FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
 
-        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, mode, NULL, NULL);
+        log_info("Applying preset policy.");
+        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, mode, &changes, &n_changes);
+        install_changes_dump(r, "preset", changes, n_changes, /* quiet = */ false);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
