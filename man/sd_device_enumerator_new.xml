@@ -65,7 +65,7 @@
     <para><function>sd_device_enumerator_unref()</function> decreases the reference count of the
     <parameter>enumerator</parameter> by one. When the reference count reaches zero, the enumerator
     object is destroyed and cannot be used anymore, so further calls to <function>sd_device_enumerator_unref()
-    </function>or <function>sd_device_enumerator_unrefp()</function> are illegal.</para>
+    </function> or <function>sd_device_enumerator_unrefp()</function> are illegal.</para>
 
     <para><function>sd_device_enumerator_unrefp()</function> is similar to
     <function>sd_device_enumerator_unref()</function> but takes a pointer to a
@@ -82,9 +82,8 @@
   int r;
   …
   r = sd_device_enumerator_new(&amp;enumerator);
-  if (r &lt; 0) {
-    fprintf(stderr, "Failed to allocate sd_device_enumerator: %m\n", strerror(-r));
-  }
+  if (r &lt; 0)
+    fprintf(stderr, "Failed to allocate sd_device_enumerator: %s\n", strerror(-r));
   …
 }</programlisting>
 
@@ -136,7 +135,7 @@
     <title>History</title>
     <para><function>sd_device_enumerator_new()</function>, <function>sd_device_enumerator_ref()</function>,
     <function>sd_device_enumerator_unref()</function>, and <function>sd_device_enumerator_unrefp()</function>
-    were added in version 220.</para>
+    were added in version 240.</para>
   </refsect1>
 
   <refsect1>

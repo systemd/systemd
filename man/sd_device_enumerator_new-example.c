@@ -6,6 +6,7 @@
 int main(void) {
     sd_device_enumerator *enumerator;
     int r;
+
     r = sd_device_enumerator_new(&enumerator);
     if (r < 0) {
         fprintf(stderr, "Failed to create enumerator: %s\n", strerror(-r));
