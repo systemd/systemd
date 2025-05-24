@@ -292,7 +292,7 @@ int cg_kill(
                 const char *path,
                 int sig,
                 CGroupFlags flags,
-                Set *s,
+                Set *killed_pids,
                 cg_kill_log_func_t log_kill,
                 void *userdata) {
 
@@ -312,9 +312,9 @@ int cg_kill(
          *
          * When sending SIGKILL, prefer cg_kill_kernel_sigkill(), which is fully atomic. */
 
-        if (!s) {
-                s = allocated_set = set_new(NULL);
-                if (!s)
+        if (!killed_pids) {
+                killed_pids = allocated_set = set_new(NULL);
+                if (!killed_pids)
                         return -ENOMEM;
         }
 
@@ -343,7 +343,7 @@ int cg_kill(
                         if ((flags & CGROUP_IGNORE_SELF) && pidref_is_self(&pidref))
                                 continue;
 
-                        if (set_contains(s, PID_TO_PTR(pidref.pid)))
+                        if (set_contains(killed_pids, PID_TO_PTR(pidref.pid)))
                                 continue;
 
                         /* Ignore kernel threads to mimic the behavior of cgroup.kill. */
@@ -373,7 +373,7 @@ int cg_kill(
 
                         done = false;
 
-                        r = set_put(s, PID_TO_PTR(pidref.pid));
+                        r = set_put(killed_pids, PID_TO_PTR(pidref.pid));
                         if (r < 0)
                                 return RET_GATHER(ret, r);
                 }
@@ -390,7 +390,7 @@ int cg_kill_recursive(
                 const char *path,
                 int sig,
                 CGroupFlags flags,
-                Set *s,
+                Set *killed_pids,
                 cg_kill_log_func_t log_kill,
                 void *userdata) {
 
@@ -401,13 +401,13 @@ int cg_kill_recursive(
         assert(path);
         assert(sig >= 0);
 
-        if (!s) {
-                s = allocated_set = set_new(NULL);
-                if (!s)
+        if (!killed_pids) {
+                killed_pids = allocated_set = set_new(NULL);
+                if (!killed_pids)
                         return -ENOMEM;
         }
 
-        ret = cg_kill(path, sig, flags, s, log_kill, userdata);
+        ret = cg_kill(path, sig, flags, killed_pids, log_kill, userdata);
 
         r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
         if (r < 0) {
@@ -432,7 +432,7 @@ int cg_kill_recursive(
                 if (!p)
                         return -ENOMEM;
 
-                r = cg_kill_recursive(p, sig, flags, s, log_kill, userdata);
+                r = cg_kill_recursive(p, sig, flags, killed_pids, log_kill, userdata);
                 if (r < 0)
                         log_debug_errno(r, "Failed to recursively kill processes in cgroup '%s': %m", p);
                 if (r != 0 && ret >= 0)

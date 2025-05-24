@@ -4928,7 +4928,7 @@ int unit_kill_context(Unit *u, KillOperation k) {
                                                 SIGHUP,
                                                 CGROUP_IGNORE_SELF,
                                                 pid_set,
-                                                /* kill_log= */ NULL,
+                                                /* log_kill= */ NULL,
                                                 /* userdata= */ NULL);
                         }
                 }
@@ -6008,7 +6008,7 @@ int unit_warn_leftover_processes(Unit *u, bool start) {
                         crt->cgroup_path,
                         /* sig= */ 0,
                         /* flags= */ 0,
-                        /* set= */ NULL,
+                        /* killed_pids= */ NULL,
                         start ? unit_log_leftover_process_start : unit_log_leftover_process_stop,
                         u);
 }
