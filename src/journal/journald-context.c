@@ -19,6 +19,7 @@
 #include "journald-context.h"
 #include "journald-manager.h"
 #include "log.h"
+#include "log-ratelimit.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"

@@ -26,6 +26,7 @@
 #include "journald-syslog.h"
 #include "journald-wall.h"
 #include "log.h"
+#include "log-ratelimit.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"

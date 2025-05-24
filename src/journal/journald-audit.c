@@ -12,6 +12,7 @@
 #include "journald-audit.h"
 #include "journald-manager.h"
 #include "log.h"
+#include "log-ratelimit.h"
 #include "missing_audit.h"
 #include "stdio-util.h"
 #include "string-util.h"
