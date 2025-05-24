@@ -17,9 +17,6 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <stdarg.h>
-#include <sys/types.h>
 #include <sys/uio.h>
 #include <syslog.h>
 

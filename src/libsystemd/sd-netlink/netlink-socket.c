@@ -1,19 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
-#include <netinet/in.h>
-#include <stdbool.h>
-#include <unistd.h>
-
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "fd-util.h"
-#include "format-util.h"
+#include "errno-util.h"
+#include "hashmap.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
+#include "ordered-set.h"
 #include "socket-util.h"
 
 static int broadcast_groups_get(sd_netlink *nl) {

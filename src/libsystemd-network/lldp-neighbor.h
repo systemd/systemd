@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
+#include <net/ethernet.h>
 
-#include "sd-json.h"
 #include "sd-lldp-rx.h"
 
-#include "hash-funcs.h"
-#include "lldp-rx-internal.h"
+#include "forward.h"
+#include "memory-util.h"
 #include "time-util.h"
 
 typedef struct LLDPNeighborID {

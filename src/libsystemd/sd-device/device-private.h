@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include "sd-device.h" /* IWYU pragma: export */
 
-#include "sd-device.h"
+#include "forward.h"
 
-#include "chase.h"
-#include "macro.h"
+typedef enum ChaseFlags ChaseFlags;
 
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum);
 int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len);

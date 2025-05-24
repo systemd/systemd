@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -8,8 +7,6 @@
 
 #include "fileio.h"
 #include "journal-send.h"
-#include "macro.h"
-#include "memory-util.h"
 #include "tests.h"
 
 TEST(journal_print) {

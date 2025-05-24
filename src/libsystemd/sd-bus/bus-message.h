@@ -2,15 +2,14 @@
 #pragma once
 
 #include <byteswap.h>
-#include <stdbool.h>
-#include <sys/socket.h>
+#include <sys/uio.h>
 
-#include "sd-bus.h"
+#include "sd-bus-protocol.h"
 
 #include "bus-creds.h"
 #include "bus-protocol.h"
-#include "macro.h"
-#include "time-util.h"
+#include "forward.h"
+#include "memory-util.h"
 
 struct bus_container {
         char enclosing;
@@ -42,7 +41,7 @@ struct bus_body_part {
         bool is_zero:1;
 };
 
-struct sd_bus_message {
+typedef struct sd_bus_message {
         /* Caveat: a message can be referenced in two different ways: the main (user-facing) way will also
          * pin the bus connection object the message is associated with. The secondary way ("queued") is used
          * when a message is in the read or write queues of the bus connection object, which will not pin the
@@ -119,7 +118,7 @@ struct sd_bus_message {
         unsigned n_header_offsets;
 
         uint64_t read_counter;
-};
+} sd_bus_message;
 
 static inline bool BUS_MESSAGE_NEED_BSWAP(sd_bus_message *m) {
         return m->header->endian != BUS_NATIVE_ENDIAN;
