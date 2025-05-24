@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <stdbool.h>
-#include <sys/types.h>
+#include "forward.h"
+#include "label.h"      /* IWYU pragma: export */
 
 typedef enum LabelFixFlags {
         LABEL_IGNORE_ENOENT = 1 << 0,

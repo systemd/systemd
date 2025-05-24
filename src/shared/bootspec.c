@@ -3,16 +3,18 @@
 #include <fnmatch.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "bootspec.h"
 #include "bootspec-fundamental.h"
 #include "chase.h"
-#include "conf-files.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-file.h"
-#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
@@ -22,13 +24,13 @@
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
+#include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "uki.h"
-#include "unaligned.h"
 
 static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",

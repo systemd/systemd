@@ -4,20 +4,11 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "constants.h"
-#include "device-util.h"
-#include "devnum-util.h"
-#include "errno-util.h"
 #include "extract-word.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "hibernate-util.h"
 #include "log.h"
-#include "macro.h"
-#include "path-util.h"
 #include "sleep-config.h"
-#include "stat-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -188,6 +179,18 @@ int parse_sleep_config(SleepConfig **ret) {
 
         *ret = TAKE_PTR(sc);
         return 0;
+}
+
+bool SLEEP_NEEDS_MEM_SLEEP(const SleepConfig *sc, SleepOperation operation) {
+        assert(sc);
+        assert(operation >= 0 && operation < _SLEEP_OPERATION_CONFIG_MAX);
+
+        /* As per https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation,
+        * /sys/power/mem_sleep is honored if /sys/power/state is set to "mem" (common for suspend)
+        * or /sys/power/disk is set to "suspend" (hybrid-sleep). */
+
+        return strv_contains(sc->states[operation], "mem") ||
+               strv_contains(sc->modes[operation], "suspend");
 }
 
 int sleep_state_supported(char * const *states) {

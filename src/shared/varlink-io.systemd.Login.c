@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-polkit.h"
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Login.h"
 

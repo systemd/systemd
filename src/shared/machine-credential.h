@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/types.h>
+#include "forward.h"
 
 typedef struct MachineCredential {
         char *id;
