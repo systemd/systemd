@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro-fundamental.h"
+#include "macro-fundamental.h" /* IWYU pragma: export */
 
 #if !defined(HAS_FEATURE_MEMORY_SANITIZER)
 #  if defined(__has_feature)
