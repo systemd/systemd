@@ -22,6 +22,7 @@
 #include "journald-sync.h"
 #include "journald-syslog.h"
 #include "log.h"
+#include "log-ratelimit.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "stdio-util.h"

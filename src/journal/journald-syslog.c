@@ -19,6 +19,7 @@
 #include "journald-syslog.h"
 #include "journald-wall.h"
 #include "log.h"
+#include "log-ratelimit.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
