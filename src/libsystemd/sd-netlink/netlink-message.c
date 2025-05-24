@@ -111,11 +111,6 @@ int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_n
         return 0;
 }
 
-uint32_t message_get_serial(sd_netlink_message *m) {
-        assert(m);
-        return ASSERT_PTR(m->hdr)->nlmsg_seq;
-}
-
 int sd_netlink_message_set_request_dump(sd_netlink_message *m, int dump) {
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
