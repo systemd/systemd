@@ -150,11 +150,6 @@ void config_section_hash_func(const ConfigSection *c, struct siphash *state);
 int config_section_compare_func(const ConfigSection *x, const ConfigSection *y);
 extern const struct hash_ops config_section_hash_ops;
 
-int _hashmap_by_section_find_unused_line(
-                HashmapBase *entries_by_section,
-                const char *filename,
-                unsigned *ret);
-
 int hashmap_by_section_find_unused_line(Hashmap *entries_by_section, const char *filename, unsigned *ret);
 int ordered_hashmap_by_section_find_unused_line(OrderedHashmap *entries_by_section, const char *filename, unsigned *ret);
 
