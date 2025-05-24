@@ -1,0 +1,98 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_device_enumerator_new" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_device_enumerator_new</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_device_enumerator_new</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_device_enumerator_new</refname>
+    <refname>sd_device_enumerator_ref</refname>
+    <refname>sd_device_enumerator_unref</refname>
+    <refpurpose>Create, reference, and release a device enumerator object</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-device.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_enumerator_new</function></funcdef>
+        <paramdef>sd_device_enumerator **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device_enumerator* <function>sd_device_enumerator_ref</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device_enumerator* <function>sd_device_enumerator_unref</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+
+    <para>
+      <function>sd_device_enumerator_new()</function> creates a new device enumerator object and
+      stores the result in the pointer referenced by <parameter>ret</parameter>. Returns 0 on success,
+      or a negative errno-style error code on failure.
+    </para>
+
+    <para>
+      <function>sd_device_enumerator_ref()</function> increases the reference count of the specified
+      <parameter>enumerator</parameter> by one.
+    </para>
+
+    <para>
+      <function>sd_device_enumerator_unref()</function> decreases the reference count of the
+      <parameter>enumerator</parameter> by one. When the reference count reaches zero, the enumerator
+      object is freed.
+    </para>
+
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <function>sd_device_enumerator</function> family of functions provides a way to iterate over
+      devices recognized by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>. The enumerator allows filtering and matching devices by subsystem, properties,
+       and other attributes.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+    <para><function>sd_device_enumerator_new()</function> returns 0 on success or a negative errno-style
+    error code on failure.</para>
+
+    <para><function>sd_device_enumerator_ref()</function> and <function>sd_device_enumerator_unref()</function>
+    return the enumerator pointer, or NULL if the last reference is dropped and the object is destroyed.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+    <example>
+      <title>Using sd_device_enumerator_new()</title>
+      <programlisting><xi:include href="sd_device_enumerator_new-example.c" parse="text"/></programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>sd_device</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_enumerator_add_match_subsystem</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
