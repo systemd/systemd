@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/magic.h>
+#include <linux/magic.h> /* IWYU pragma: export */
 
 /* Not exposed yet (4.20). Defined at ipc/mqueue.c */
 #ifndef MQUEUE_MAGIC

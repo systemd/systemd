@@ -7,17 +7,14 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "log.h"
-#include "macro.h"
-#include "memory-util.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "pidfd-util.h"
 #include "process-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 static int have_pidfs = -1;

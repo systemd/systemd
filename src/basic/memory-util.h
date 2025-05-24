@@ -1,16 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <limits.h>
-#include <malloc.h>
-#include <stdbool.h>
 #include <string.h>
-#include <sys/types.h>
 
-#include "cleanup-util.h"
-#include "macro.h"
-#include "memory-util-fundamental.h"
+#include "forward.h"
+#include "memory-util-fundamental.h" /* IWYU pragma: export */
 
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l)          ALIGN_TO(l, page_size())

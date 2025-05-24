@@ -1,15 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <inttypes.h>
 #include <net/ethernet.h>
 #include <stdio.h>
-#include <sys/types.h>
 
 #include "ether-addr-util.h"
+#include "hash-funcs.h"
 #include "hexdecoct.h"
-#include "log.h"
-#include "macro.h"
+#include "in-addr-util.h"
+#include "memory-util.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 char* hw_addr_to_string_full(
@@ -64,6 +63,11 @@ void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *state) {
         siphash24_compress_safe(p->bytes, p->length, state);
 }
 
+bool hw_addr_is_null(const struct hw_addr_data *addr) {
+        assert(addr);
+        return addr->length == 0 || memeqzero(addr->bytes, addr->length);
+}
+
 DEFINE_HASH_OPS(hw_addr_hash_ops, struct hw_addr_data, hw_addr_hash_func, hw_addr_compare);
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(hw_addr_hash_ops_free, struct hw_addr_data, hw_addr_hash_func, hw_addr_compare, free);
 
@@ -92,6 +96,11 @@ int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b) {
 
 static void ether_addr_hash_func(const struct ether_addr *p, struct siphash *state) {
         siphash24_compress_typesafe(*p, state);
+}
+
+bool ether_addr_is_broadcast(const struct ether_addr *addr) {
+        assert(addr);
+        return memeqbyte(0xff, addr->ether_addr_octet, ETH_ALEN);
 }
 
 DEFINE_HASH_OPS(ether_addr_hash_ops, struct ether_addr, ether_addr_hash_func, ether_addr_compare);
