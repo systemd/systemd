@@ -8,15 +8,14 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "missing_fs.h"
 #include "missing_magic.h"
 #include "missing_namespace.h"
 #include "missing_sched.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -359,6 +358,14 @@ int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type) {
         return fd_inode_same(ns1, ns2);
 }
 
+int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
+        assert(pid1 >= 0);
+        assert(pid2 >= 0);
+        return pidref_in_same_namespace(pid1 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid1),
+                                        pid2 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid2),
+                                        type);
+}
+
 int namespace_get_leader(PidRef *pidref, NamespaceType type, PidRef *ret) {
         int r;
 
@@ -642,6 +649,10 @@ int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
 
         *ret_pid = TAKE_PID(pid);
         return 0;
+}
+
+bool userns_supported(void) {
+        return access("/proc/self/uid_map", F_OK) >= 0;
 }
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {

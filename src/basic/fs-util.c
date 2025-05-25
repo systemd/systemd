@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/falloc.h>
-#include <linux/magic.h>
-#include <stddef.h>
 #include <stdlib.h>
 #include <sys/file.h>
 #include <unistd.h>
@@ -14,30 +11,24 @@
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "label.h"
 #include "lock-util.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_fcntl.h"
-#include "missing_fs.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "ratelimit.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
-#include "user-util.h"
 
 int rmdir_parents(const char *path, const char *stop) {
         char *p;
@@ -692,6 +683,16 @@ char *rmdir_and_free(char *p) {
                 return NULL;
 
         (void) rmdir(p);
+        return mfree(p);
+}
+
+char* unlink_and_free(char *p) {
+        PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
+        (void) unlink(p);
         return mfree(p);
 }
 

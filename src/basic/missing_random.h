@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/random.h>
+#include <sys/random.h> /* IWYU pragma: export */
 
-#include "macro.h"
+#include "forward.h"
 
 /* Defined since glibc-2.32. */
 #ifndef GRND_INSECURE

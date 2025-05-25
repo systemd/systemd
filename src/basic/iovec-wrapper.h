@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-#include <sys/uio.h>
-
-#include "macro.h"
-#include "memory-util.h"
+#include "forward.h"
 
 struct iovec_wrapper {
         struct iovec *iovec;

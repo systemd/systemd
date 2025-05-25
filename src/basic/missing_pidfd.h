@@ -3,7 +3,7 @@
 
 #include <linux/types.h>
 #if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
+#include <sys/pidfd.h> /* IWYU pragma: export */
 #endif
 
 #ifndef PIDFS_IOCTL_MAGIC

@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
-#include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "log.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
@@ -143,6 +139,10 @@ int sysctl_write_ip_property(int af, const char *ifname, const char *property, c
         return sysctl_write_full(p, value, shadow);
 }
 
+int sysctl_write_ip_property_boolean(int af, const char *ifname, const char *property, bool value, Hashmap **shadow) {
+        return sysctl_write_ip_property(af, ifname, property, one_zero(value), shadow);
+}
+
 int sysctl_write_ip_neighbor_property(int af, const char *ifname, const char *property, const char *value, Hashmap **shadow) {
         const char *p;
 
@@ -161,6 +161,12 @@ int sysctl_write_ip_neighbor_property(int af, const char *ifname, const char *pr
                 p = strjoina("net/", af_to_ipv4_ipv6(af), "/neigh/default/", property);
 
         return sysctl_write_full(p, value, shadow);
+}
+
+int sysctl_write_ip_neighbor_property_uint32(int af, const char *ifname, const char *property, uint32_t value, Hashmap **shadow) {
+        char buf[DECIMAL_STR_MAX(uint32_t)];
+        xsprintf(buf, "%u", value);
+        return sysctl_write_ip_neighbor_property(af, ifname, property, buf, shadow);
 }
 
 int sysctl_read(const char *property, char **ret) {
