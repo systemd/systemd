@@ -6,7 +6,8 @@
 
 
 int main(void) {
-    __attribute__((cleanup(sd_device_enumerator_unrefp))) sd_device_enumerator *enumerator = NULL;
+    __attribute__((cleanup(sd_device_enumerator_unrefp))) sd_device_enumerator *enumerator;
+    sd_device *device;
     int r;
 
     /* Create a new device enumerator */
@@ -34,7 +35,7 @@ int main(void) {
     }
 
     /* Begin enumerating matching devices */
-    for (sd_device *device = sd_device_enumerator_get_device_first(enumerator);
+    for (device = sd_device_enumerator_get_device_first(enumerator);
      device;
      device = sd_device_enumerator_get_device_next(enumerator)) {
         const char *syspath;

@@ -101,46 +101,46 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <function>sd_device_enumerator_add_all_parents</function> function adds a filter to the
+    <para>The <function>sd_device_enumerator_add_all_parents()</function> function adds a filter to the
     <parameter>enumerator</parameter> so that all parent devices of the devices already added to the
     <parameter>enumerator</parameter> are included in the enumeration. This is useful for cases where
     you want to include all parent devices in the enumeration, such as when you are interested in the
     entire device tree leading up to a specific device.</para>
 
-    <para>The <function>sd_device_enumerator_add_match_parent</function> function adds a filter to the
+    <para>The <function>sd_device_enumerator_add_match_parent()</function> function adds a filter to the
     <parameter>enumerator</parameter> so that only devices whose parent matches the specified
     <parameter>parent</parameter> device are enumerated.</para>
 
-    <para>The <function>sd_device_enumerator_add_match_property</function> function adds a filter to
+    <para>The <function>sd_device_enumerator_add_match_property()</function> function adds a filter to
     the <parameter>enumerator</parameter> so that only devices with the specified property
     <parameter>property</parameter> equal to <parameter>value</parameter> are enumerated.</para>
 
-    <para>The <function>sd_device_enumerator_add_match_property_required</function> function adds a
+    <para>The <function>sd_device_enumerator_add_match_property_required()</function> function adds a
     filter to the <parameter>enumerator</parameter> so that only devices with the specified property
     <parameter>property</parameter> equal to <parameter>value</parameter> are enumerated. This
     function is similar to <function>sd_device_enumerator_add_match_property</function>, but it
     requires that the property must exist on the device, not just match a value.</para>
 
-    <para>The <function>sd_device_enumerator_add_match_subsystem</function> function adds a filter to
+    <para>The <function>sd_device_enumerator_add_match_subsystem()</function> function adds a filter to
     the <parameter>enumerator</parameter> so that only devices in the specified
     <parameter>subsystem</parameter> are enumerated. The <parameter>match</parameter> parameter is a
     boolean flag (0 = exclude, 1 = include).</para>
 
-    <para>The <function>sd_device_enumerator_add_match_sysattr</function> function adds a filter on
+    <para>The <function>sd_device_enumerator_add_match_sysattr()</function> function adds a filter on
     the sysfs attribute <parameter>sysattr</parameter> matching <parameter>value</parameter>. The
     <parameter>match</parameter> parameter is boolean (0 = exclude, 1 = include).</para>
 
-    <para>The <function>sd_device_enumerator_add_match_sysname</function> function adds a filter so
+    <para>The <function>sd_device_enumerator_add_match_sysname()</function> function adds a filter so
     that only devices whose sysname equals <parameter>sysname</parameter> are enumerated.</para>
 
-    <para>The <function>sd_device_enumerator_add_match_tag</function> function adds a filter so that
+    <para>The <function>sd_device_enumerator_add_match_tag()</function> function adds a filter so that
     only devices tagged with <parameter>tag</parameter> are enumerated.</para>
 
-    <para>The <function>sd_device_enumerator_add_nomatch_sysname</function> function adds a filter so
+    <para>The <function>sd_device_enumerator_add_nomatch_sysname()</function> function adds a filter so
     that devices whose sysname equals <parameter>sysname</parameter> are excluded from the
     enumeration. This is useful for excluding specific devices from the enumeration process.</para>
 
-    <para>The <function>sd_device_enumerator_allow_uninitialized</function> function allows devices
+    <para>The <function>sd_device_enumerator_allow_uninitialized()</function> function allows devices
     that have not yet been initialized by udev to be included in the enumeration.</para>
   </refsect1>
 
@@ -180,16 +180,16 @@
   <refsect1>
     <title>History</title>
 
-    <para>The functions <function>sd_device_enumerator_add_all_parents</function>,
-    <function>sd_device_enumerator_add_match_parent</function>,
-    <function>sd_device_enumerator_add_match_property</function>,
-    <function>sd_device_enumerator_add_match_property_required</function>,
-    <function>sd_device_enumerator_add_match_subsystem</function>,
-    <function>sd_device_enumerator_add_match_sysattr</function>,
-    <function>sd_device_enumerator_add_match_sysname</function>,
-    <function>sd_device_enumerator_add_match_tag</function>,
-    <function>sd_device_enumerator_add_nomatch_sysname</function>, and
-    <function>sd_device_enumerator_allow_uninitialized</function> were added in version 240.</para>
+    <para><function>sd_device_enumerator_add_all_parents()</function>,
+    <function>sd_device_enumerator_add_match_parent()</function>,
+    <function>sd_device_enumerator_add_match_property()</function>,
+    <function>sd_device_enumerator_add_match_property_required()</function>,
+    <function>sd_device_enumerator_add_match_subsystem()</function>,
+    <function>sd_device_enumerator_add_match_sysattr()</function>,
+    <function>sd_device_enumerator_add_match_sysname()</function>,
+    <function>sd_device_enumerator_add_match_tag()</function>,
+    <function>sd_device_enumerator_add_nomatch_sysname()</function>, and
+    <function>sd_device_enumerator_allow_uninitialized()</function> were added in version 240.</para>
   </refsect1>
 
   <refsect1>
