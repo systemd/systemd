@@ -37,8 +37,8 @@ int main(void) {
     for (sd_device *device = sd_device_enumerator_get_device_first(enumerator);
      device;
      device = sd_device_enumerator_get_device_next(enumerator)) {
-        const char *syspath = NULL;
-        const char *devname = NULL;
+        const char *syspath;
+        const char *devname;
 
         /* Get syspath and devname for the device */
         if (sd_device_get_syspath(device, &syspath) >= 0 &&

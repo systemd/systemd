@@ -102,29 +102,29 @@
     <title>Description</title>
 
     <para>The <function>sd_device_enumerator_add_all_parents</function> function adds a filter to the
-    enumerator so that all parent devices of the specified <parameter>enumerator</parameter> are
-    enumerated. This is useful for cases where you want to include all parent devices in the
-    enumeration, such as when you are interested in the entire device tree leading up to a specific
-    device.</para>
+    <parameter>enumerator</parameter> so that all parent devices of the devices already added to the
+    <parameter>enumerator</parameter> are included in the enumeration. This is useful for cases where
+    you want to include all parent devices in the enumeration, such as when you are interested in the
+    entire device tree leading up to a specific device.</para>
 
     <para>The <function>sd_device_enumerator_add_match_parent</function> function adds a filter to the
-    enumerator so that only devices whose parent matches the specified <parameter>parent</parameter>
-    device are enumerated.</para>
+    <parameter>enumerator</parameter> so that only devices whose parent matches the specified
+    <parameter>parent</parameter> device are enumerated.</para>
 
     <para>The <function>sd_device_enumerator_add_match_property</function> function adds a filter to
-    the enumerator so that only devices with the specified property <parameter>property</parameter>
-    equal to <parameter>value</parameter> are enumerated.</para>
+    the <parameter>enumerator</parameter> so that only devices with the specified property
+    <parameter>property</parameter> equal to <parameter>value</parameter> are enumerated.</para>
 
     <para>The <function>sd_device_enumerator_add_match_property_required</function> function adds a
-    filter to the enumerator so that only devices with the specified property
+    filter to the <parameter>enumerator</parameter> so that only devices with the specified property
     <parameter>property</parameter> equal to <parameter>value</parameter> are enumerated. This
     function is similar to <function>sd_device_enumerator_add_match_property</function>, but it
     requires that the property must exist on the device, not just match a value.</para>
 
     <para>The <function>sd_device_enumerator_add_match_subsystem</function> function adds a filter to
-    the enumerator so that only devices in the specified <parameter>subsystem</parameter> are
-    enumerated. The <parameter>match</parameter> parameter is a boolean flag
-    (0 = exclude, 1 = include).</para>
+    the <parameter>enumerator</parameter> so that only devices in the specified
+    <parameter>subsystem</parameter> are enumerated. The <parameter>match</parameter> parameter is a
+    boolean flag (0 = exclude, 1 = include).</para>
 
     <para>The <function>sd_device_enumerator_add_match_sysattr</function> function adds a filter on
     the sysfs attribute <parameter>sysattr</parameter> matching <parameter>value</parameter>. The
@@ -147,10 +147,7 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para> All functions return 0 on success or a negative errno-style error code on failure.
-    The error codes may include <code>ENODEV</code> if the specified device does not exist,
-    <code>ENOMEM</code> if memory allocation fails, or other standard error codes.</para>
-
+    <para> All functions return 0 on success or a negative errno-style error code on failure.</para>
     <refsect2>
     <title>Errors</title>
 
@@ -176,7 +173,7 @@
 
   <example>
     <title>Detect Removable USB Devices (Using Match and Exclude)</title>
-    <programlisting><xi:include href="sd_device_enumerate_add_match_parent-example.c" parse="text"/></programlisting>
+    <programlisting><xi:include href="sd_device_enumerator_add_all_parents-example.c" parse="text"/></programlisting>
   </example>
   </refsect1>
 
