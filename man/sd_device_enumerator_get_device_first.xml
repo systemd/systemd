@@ -1,0 +1,96 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_device_enumerator_get_device_first" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_device_enumerator_get_device_first</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_device_enumerator_get_device_first</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_device_enumerator_get_device_first</refname>
+    <refname>sd_device_enumerator_get_device_next</refname>
+    <refname>sd_device_enumerator_get_subsystem_first</refname>
+    <refname>sd_device_enumerator_get_subsystem_next</refname>
+
+    <refpurpose>Get the first or next device or subsystem from a device enumerator</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-device.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>sd_device *<function>sd_device_enumerator_get_device_first</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device *<function>sd_device_enumerator_get_device_next</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device *<function>sd_device_enumerator_get_subsystem_first</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device *<function>sd_device_enumerator_get_subsystem_next</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>The <function>sd_device_enumerator_get_device_first()</function> function retrieves the first device
+    from the enumerator <parameter>enumerator</parameter>. If no devices are available, NULL is returned.
+    Otherwise, a pointer to the first device is returned.</para>
+
+    <para>The <function>sd_device_enumerator_get_device_next()</function> function retrieves the next device
+    from the enumerator. It should be called after <function>sd_device_enumerator_get_device_first()</function>
+    or after a previous call to this function. If no more devices are available, NULL is returned.</para>
+
+    <para>The <function>sd_device_enumerator_get_subsystem_first()</function> function retrieves the first
+    subsystem from the enumerator. If no subsystems are available, NULL is returned. Otherwise, a pointer
+    to the first subsystem is returned.</para>
+
+    <para>The <function>sd_device_enumerator_get_subsystem_next()</function> function retrieves the next
+    subsystem from the enumerator. It should be called after <function>sd_device_enumerator_get_subsystem_first()</function>
+    or after a previous call to this function. If no more subsystems are available, NULL is returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+    <para>All functions return a pointer to the requested device or subsystem, or NULL if no more devices
+    or subsystems are available. The returned pointers are owned by the enumerator and should not be freed
+    by the caller.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_device_enumerator_get_device_first()</function>, <function>sd_device_enumerator_get_device_next()</function>,
+    <function>sd_device_enumerator_get_subsystem_first()</function>, and <function>sd_device_enumerator_get_subsystem_next()</function>
+    were introduced in systemd version 240.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>sd_device_enumerator_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_enumerator_add_all_parents</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
