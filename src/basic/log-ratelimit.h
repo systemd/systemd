@@ -4,6 +4,12 @@
 #include "log.h"
 #include "ratelimit.h"
 
+typedef struct LogRateLimit {
+        int error;
+        int level;
+        RateLimit ratelimit;
+} LogRateLimit;
+
 #define log_ratelimit_internal(_level, _error, _ratelimit, _file, _line, _func, _format, ...)        \
 ({                                                                              \
         int _log_ratelimit_error = (_error);                                    \
