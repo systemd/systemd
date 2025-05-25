@@ -644,6 +644,10 @@ int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
         return 0;
 }
 
+bool userns_supported(void) {
+        return access("/proc/self/uid_map", F_OK) >= 0;
+}
+
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         int r;

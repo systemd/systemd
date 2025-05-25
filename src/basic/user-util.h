@@ -106,10 +106,6 @@ int take_etc_passwd_lock(const char *root);
 #define PTR_TO_GID(p) ((gid_t) (((uintptr_t) (p))-1))
 #define GID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
 
-static inline bool userns_supported(void) {
-        return access("/proc/self/uid_map", F_OK) >= 0;
-}
-
 typedef enum ValidUserFlags {
         VALID_USER_RELAX         = 1 << 0,
         VALID_USER_WARN          = 1 << 1,
