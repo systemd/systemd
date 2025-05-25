@@ -284,7 +284,7 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
         } else if (type > OBJECT_UNUSED && o->object.type != type)
                 return -EBADMSG;
 
-        sym_gcry_md_write(f->hmac, o, offsetof(ObjectHeader, payload));
+        sym_gcry_md_write(f->hmac, o, sizeof(ObjectHeader));
 
         switch (o->object.type) {
 

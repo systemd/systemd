@@ -220,10 +220,6 @@ struct inotify_data {
         Hashmap *inodes; /* The inode_data structures keyed by dev+ino */
         Hashmap *wd;     /* The inode_data structures keyed by the watch descriptor for each */
 
-        /* The buffer we read inotify events into */
-        union inotify_event_buffer buffer;
-        size_t buffer_filled; /* fill level of the buffer */
-
         /* How many event sources are currently marked pending for this inotify. We won't read new events off the
          * inotify fd as long as there are still pending events on the inotify (because we have no strategy of queuing
          * the events locally if they can't be coalesced). */
@@ -237,4 +233,9 @@ struct inotify_data {
         /* A linked list of all inotify objects with data already read, that still need processing. We keep this list
          * to make it efficient to figure out what inotify objects to process data on next. */
         LIST_FIELDS(struct inotify_data, buffered);
+
+        /* The buffer we read inotify events into */
+        size_t buffer_filled; /* fill level of the buffer */
+        union inotify_event_buffer buffer; /* struct inotify_event in union inotify_event_buffer has flex
+                                            * array. Hence, this must be at the end. */
 };
