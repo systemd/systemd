@@ -1422,4 +1422,53 @@ TEST(fd_info) {
         pidref_done(&pidref);
 }
 
+TEST(unit_name) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        assert_se(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR_STRING("plain", "myservice.service"),
+                                 SD_JSON_BUILD_PAIR_STRING("instance", "myservice@instance1.service"),
+                                 SD_JSON_BUILD_PAIR_STRING("template", "myservice@.service")) >= 0);
+
+        sd_json_variant_dump(v, SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_PRETTY, NULL, NULL);
+
+        struct {
+                const char *plain, *instance, *template;
+        } data = {};
+
+        assert_se(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "plain",    SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, plain),    SD_JSON_STRICT },
+                                          { "instance", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, instance), 0              },
+                                          { "template", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, template), SD_JSON_RELAX  },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data) >= 0);
+
+        ASSERT_STREQ(data.plain, "myservice.service");
+        ASSERT_STREQ(data.instance, "myservice@instance1.service");
+        ASSERT_STREQ(data.template, "myservice@.service");
+
+        assert_se(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          // instance value is not allowed with SD_JSON_STRICT
+                                          { "instance", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, instance), SD_JSON_STRICT },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data) < 0);
+
+        assert_se(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          // template value is not allowed by default
+                                          { "template", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, template), 0 },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data) < 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
