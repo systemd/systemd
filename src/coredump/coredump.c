@@ -82,7 +82,7 @@
  * size. See DATA_SIZE_MAX in journal-importer.h. */
 assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
-enum {
+typedef enum {
         /* We use these as array indexes for our process metadata cache.
          *
          * The first indices of the cache stores the same metadata as the ones passed by
@@ -98,9 +98,9 @@ enum {
         _META_ARGV_REQUIRED,
         /* The fields below were added to kernel/core_pattern at later points, so they might be missing. */
         META_ARGV_HOSTNAME = _META_ARGV_REQUIRED,  /* %h: hostname */
-        _META_ARGV_MAX,
         /* If new fields are added, they should be added here, to maintain compatibility
          * with callers which don't know about the new fields. */
+        _META_ARGV_MAX,
 
         /* The following indexes are cached for a couple of special fields we use (and
          * thereby need to be retrieved quickly) for naming coredump files, and attaching
@@ -108,16 +108,15 @@ enum {
          * environment. */
 
         META_COMM = _META_ARGV_MAX,
-        _META_MANDATORY_MAX,
 
         /* The rest are similar to the previous ones except that we won't fail if one of
          * them is missing in a message sent over the socket. */
 
-        META_EXE = _META_MANDATORY_MAX,
+        META_EXE,
         META_UNIT,
         META_PROC_AUXV,
         _META_MAX
-};
+} meta_argv_t;
 
 static const char * const meta_field_names[_META_MAX] = {
         [META_ARGV_PID]       = "COREDUMP_PID=",
@@ -1083,12 +1082,24 @@ static int process_socket(int fd) {
         if (r < 0)
                 goto finish;
 
-        /* Make sure we received at least all fields we need. */
-        for (int i = 0; i < _META_MANDATORY_MAX; i++)
+        /* Make sure we received all the expected fields. We support being called by an *older*
+         * systemd-coredump from the outside, so we require only the basic set of fields that
+         * was being sent when the support for sending to containers over a socket was added
+         * in a108c43e36d3ceb6e34efe37c014fc2cda856000. */
+        meta_argv_t i;
+        FOREACH_ARGUMENT(i,
+                         META_ARGV_PID,
+                         META_ARGV_UID,
+                         META_ARGV_GID,
+                         META_ARGV_SIGNAL,
+                         META_ARGV_TIMESTAMP,
+                         META_ARGV_RLIMIT,
+                         META_ARGV_HOSTNAME,
+                         META_COMM)
                 if (!context.meta[i]) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                            "A mandatory argument (%i) has not been sent, aborting.",
-                                            i);
+                                            "Mandatory argument %s not received on socket, aborting.",
+                                            meta_field_names[i]);
                         goto finish;
                 }
 
