@@ -116,4 +116,27 @@
 
                 <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.mount-directory-privately</annotate>
         </action>
+
+        <!-- Allow making foreign UID range owned directories -->
+        <action id="io.systemd.mount-file-system.make-directory">
+                <description gettext-domain="systemd">Allow creating directory owned by the foreign UID range</description>
+                <message gettext-domain="systemd">Authentication is required for an application to create $(directory) owned by the foreign UID range.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.make-directory-untrusted">
+                <description gettext-domain="systemd">Allow creating directory owned by the foreign UID range below directory not owned by the user</description>
+                <message gettext-domain="systemd">Authentication is required for an application to create $(directory) owned by the foreign UID range, below a directory not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.make-directory</annotate>
+        </action>
 </policyconfig>
