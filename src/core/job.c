@@ -1016,6 +1016,8 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
         j->result = result;
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         log_unit_debug(u, "Job %" PRIu32 " %s/%s finished, result=%s",
                        j->id, u->id, job_type_to_string(t), job_result_to_string(result));
 
