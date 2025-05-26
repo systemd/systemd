@@ -29,6 +29,11 @@ static inline int safe_close_above_stdio(int fd) {
         return safe_close(fd);
 }
 
+static inline void* close_fd_ptr(void *p) {
+        safe_close(PTR_TO_FD(p));
+        return NULL;
+}
+
 void close_many(const int fds[], size_t n_fds);
 void close_many_unset(int fds[], size_t n_fds);
 void close_many_and_free(int *fds, size_t n_fds);
@@ -36,10 +41,6 @@ void close_many_and_free(int *fds, size_t n_fds);
 int fclose_nointr(FILE *f);
 FILE* safe_fclose(FILE *f);
 DIR* safe_closedir(DIR *f);
-static inline void* close_fd_ptr(void *p) {
-        safe_close(PTR_TO_FD(p));
-        return NULL;
-}
 
 static inline void closep(int *fd) {
         safe_close(*fd);

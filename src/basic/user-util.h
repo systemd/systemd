@@ -18,7 +18,7 @@
 #define MAP_UID_MIN ((uid_t) 60514)
 #define MAP_UID_MAX ((uid_t) 60577)
 
-bool uid_is_valid(uid_t uid);
+bool uid_is_valid(uid_t uid) _const_;
 
 static inline bool gid_is_valid(gid_t gid) {
         return uid_is_valid((uid_t) gid);
@@ -37,8 +37,7 @@ char* getusername_malloc(void);
 const char* default_root_shell_at(int rfd);
 const char* default_root_shell(const char *root);
 
-bool is_nologin_shell(const char *shell);
-
+bool is_nologin_shell(const char *shell) _pure_;
 bool shell_is_placeholder(const char *shell) _pure_;
 
 typedef enum UserCredsFlags {

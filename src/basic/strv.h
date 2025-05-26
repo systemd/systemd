@@ -80,14 +80,14 @@ int strv_consume_prepend(char ***l, char *value);
 
 char** strv_remove(char **l, const char *s);
 char** strv_uniq(char **l);
-bool strv_is_uniq(char * const *l);
+bool strv_is_uniq(char * const *l) _pure_;
 
-int strv_compare(char * const *a, char * const *b);
+int strv_compare(char * const *a, char * const *b) _pure_;
 static inline bool strv_equal(char * const *a, char * const *b) {
         return strv_compare(a, b) == 0;
 }
 
-bool strv_equal_ignore_order(char * const *a, char * const *b);
+bool strv_equal_ignore_order(char * const *a, char * const *b) _pure_;
 
 char** strv_new_internal(const char *x, ...) _sentinel_;
 char** strv_new_ap(const char *x, va_list ap);

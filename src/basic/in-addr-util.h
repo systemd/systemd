@@ -16,15 +16,15 @@ struct in_addr_data {
         union in_addr_union address;
 };
 
-bool in4_addr_is_null(const struct in_addr *a);
+bool in4_addr_is_null(const struct in_addr *a) _pure_;
 static inline bool in4_addr_is_set(const struct in_addr *a) {
         return !in4_addr_is_null(a);
 }
-bool in6_addr_is_null(const struct in6_addr *a);
+bool in6_addr_is_null(const struct in6_addr *a) _pure_;
 static inline bool in6_addr_is_set(const struct in6_addr *a) {
         return !in6_addr_is_null(a);
 }
-int in_addr_is_null(int family, const union in_addr_union *u);
+int in_addr_is_null(int family, const union in_addr_union *u) _pure_;
 static inline bool in_addr_is_set(int family, const union in_addr_union *u) {
         return in_addr_is_null(family, u) == 0;
 }
@@ -36,43 +36,43 @@ static inline bool in_addr_data_is_set(const struct in_addr_data *a) {
         return in_addr_data_is_null(a);
 }
 
-bool in4_addr_is_multicast(const struct in_addr *a);
-bool in6_addr_is_multicast(const struct in6_addr *a);
-int in_addr_is_multicast(int family, const union in_addr_union *u);
+bool in4_addr_is_multicast(const struct in_addr *a) _pure_;
+bool in6_addr_is_multicast(const struct in6_addr *a) _pure_;
+int in_addr_is_multicast(int family, const union in_addr_union *u) _pure_;
 
-bool in4_addr_is_link_local(const struct in_addr *a);
-bool in4_addr_is_link_local_dynamic(const struct in_addr *a);
-bool in6_addr_is_link_local(const struct in6_addr *a);
-int in_addr_is_link_local(int family, const union in_addr_union *u);
-bool in6_addr_is_link_local_all_nodes(const struct in6_addr *a);
+bool in4_addr_is_link_local(const struct in_addr *a) _pure_;
+bool in4_addr_is_link_local_dynamic(const struct in_addr *a) _pure_;
+bool in6_addr_is_link_local(const struct in6_addr *a) _pure_;
+int in_addr_is_link_local(int family, const union in_addr_union *u) _pure_;
+bool in6_addr_is_link_local_all_nodes(const struct in6_addr *a) _pure_;
 
-bool in4_addr_is_localhost(const struct in_addr *a);
-int in_addr_is_localhost(int family, const union in_addr_union *u);
-int in_addr_is_localhost_one(int family, const union in_addr_union *u);
+bool in4_addr_is_localhost(const struct in_addr *a) _pure_;
+int in_addr_is_localhost(int family, const union in_addr_union *u) _pure_;
+int in_addr_is_localhost_one(int family, const union in_addr_union *u) _pure_;
 
-bool in4_addr_is_local_multicast(const struct in_addr *a);
-bool in4_addr_is_non_local(const struct in_addr *a);
-bool in6_addr_is_ipv4_mapped_address(const struct in6_addr *a);
+bool in4_addr_is_local_multicast(const struct in_addr *a) _pure_;
+bool in4_addr_is_non_local(const struct in_addr *a) _pure_;
+bool in6_addr_is_ipv4_mapped_address(const struct in6_addr *a) _pure_;
 
-bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b);
-bool in6_addr_equal(const struct in6_addr *a, const struct in6_addr *b);
-int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b);
+bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b) _pure_;
+bool in6_addr_equal(const struct in6_addr *a, const struct in6_addr *b) _pure_;
+int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b) _pure_;
 bool in4_addr_prefix_intersect(
                 const struct in_addr *a,
                 unsigned aprefixlen,
                 const struct in_addr *b,
-                unsigned bprefixlen);
+                unsigned bprefixlen) _pure_;
 bool in6_addr_prefix_intersect(
                 const struct in6_addr *a,
                 unsigned aprefixlen,
                 const struct in6_addr *b,
-                unsigned bprefixlen);
+                unsigned bprefixlen) _pure_;
 int in_addr_prefix_intersect(
                 int family,
                 const union in_addr_union *a,
                 unsigned aprefixlen,
                 const union in_addr_union *b,
-                unsigned bprefixlen);
+                unsigned bprefixlen) _pure_;
 int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
 int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, uint64_t nth);
 int in_addr_random_prefix(int family, union in_addr_union *u, unsigned prefixlen_fixed_part, unsigned prefixlen);

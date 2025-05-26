@@ -124,11 +124,11 @@ static inline char* skip_leading_chars(const char *s, const char *bad) {
         return (char*) s + strspn(s, bad);
 }
 
-char ascii_tolower(char x);
+char ascii_tolower(char x) _const_;
 char* ascii_strlower(char *s);
 char* ascii_strlower_n(char *s, size_t n);
 
-char ascii_toupper(char x);
+char ascii_toupper(char x) _const_;
 char* ascii_strupper(char *s);
 
 int ascii_strcasecmp_n(const char *a, const char *b, size_t n);
@@ -257,7 +257,7 @@ typedef enum MakeCStringMode {
 
 int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret);
 
-size_t strspn_from_end(const char *str, const char *accept);
+size_t strspn_from_end(const char *str, const char *accept) _pure_;
 
 char* strdupspn(const char *a, const char *accept);
 char* strdupcspn(const char *a, const char *reject);
@@ -279,12 +279,11 @@ char* find_line_startswith(const char *haystack, const char *needle);
 char* find_line(const char *haystack, const char *needle);
 char* find_line_after(const char *haystack, const char *needle);
 
-bool version_is_valid(const char *s);
-
-bool version_is_valid_versionspec(const char *s);
+bool version_is_valid(const char *s) _pure_;
+bool version_is_valid_versionspec(const char *s) _pure_;
 
 ssize_t strlevenshtein(const char *x, const char *y);
 
-char* strrstr(const char *haystack, const char *needle);
+char* strrstr(const char *haystack, const char *needle) _pure_;
 
-size_t str_common_prefix(const char *a, const char *b);
+size_t str_common_prefix(const char *a, const char *b) _pure_;
