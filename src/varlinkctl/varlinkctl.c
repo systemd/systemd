@@ -18,6 +18,7 @@
 #include "memfd-util.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -29,6 +30,11 @@
 #include "verbs.h"
 #include "version.h"
 
+typedef struct PushFds {
+        int *fds;
+        size_t n_fds;
+} PushFds;
+
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static sd_varlink_method_flags_t arg_method_flags = 0;
@@ -37,8 +43,20 @@ static bool arg_quiet = false;
 static char **arg_graceful = NULL;
 static usec_t arg_timeout = 0;
 static bool arg_exec = false;
+static PushFds arg_push_fds = {};
+
+static void push_fds_done(PushFds *p) {
+        assert(p);
+
+        FOREACH_ARRAY(f, p->fds, p->n_fds)
+                safe_close(*f);
+
+        p->fds = mfree(p->fds);
+        p->n_fds = 0;
+}
 
 STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_push_fds, push_fds_done);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -80,6 +98,7 @@ static int help(void) {
                "     --graceful=ERROR    Treat specified Varlink error as success\n"
                "     --timeout=SECS      Maximum time to wait for method call completion\n"
                "  -E                     Short for --more --timeout=infinity\n"
+               "     --push-fd=FD        Pass the specified fd along with method call\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -107,6 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GRACEFUL,
                 ARG_TIMEOUT,
                 ARG_EXEC,
+                ARG_PUSH_FD,
         };
 
         static const struct option options[] = {
@@ -121,6 +141,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "graceful", required_argument, NULL, ARG_GRACEFUL },
                 { "timeout",  required_argument, NULL, ARG_TIMEOUT  },
                 { "exec",     no_argument,       NULL, ARG_EXEC     },
+                { "push-fd",  required_argument, NULL, ARG_PUSH_FD  },
                 {},
         };
 
@@ -204,6 +225,34 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_EXEC:
                         arg_exec = true;
                         break;
+
+                case ARG_PUSH_FD: {
+                        if (!GREEDY_REALLOC(arg_push_fds.fds, arg_push_fds.n_fds + 1))
+                                return log_oom();
+
+                        _cleanup_close_ int add_fd = -EBADF;
+                        if (STARTSWITH_SET(optarg, "/", "./")) {
+                                /* We usually expect a numeric fd spec, but as an extension let's treat this
+                                 * as a path to open in read-only mode in case this is clearly an absolute or
+                                 * relative path */
+                                add_fd = open(optarg, O_CLOEXEC|O_RDONLY);
+                                if (add_fd < 0)
+                                        return log_error_errno(errno, "Failed to open '%s': %m", optarg);
+                        } else {
+                                int parsed_fd = parse_fd(optarg);
+                                if (parsed_fd < 0)
+                                        return log_error_errno(parsed_fd, "Failed to parse --push-fd= parameter: %s", optarg);
+
+                                /* Make a copy, so that the same fd could be used multiple times in a reasonable
+                                 * way. This also validates the fd early */
+                                add_fd = fcntl(parsed_fd, F_DUPFD_CLOEXEC, 3);
+                                if (add_fd < 0)
+                                        return log_error_errno(errno, "Failed to duplicate file descriptor %i: %m", parsed_fd);
+                        }
+
+                        arg_push_fds.fds[arg_push_fds.n_fds++] = TAKE_FD(add_fd);
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -609,6 +658,20 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         r = varlink_connect_auto(&vl, url);
         if (r < 0)
                 return r;
+
+        if (arg_push_fds.n_fds > 0) {
+                r = sd_varlink_set_allow_fd_passing_output(vl, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed ot enable fd passing: %m");
+
+                FOREACH_ARRAY(f, arg_push_fds.fds, arg_push_fds.n_fds) {
+                        r = sd_varlink_push_fd(vl, *f);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to push file descriptor: %m");
+
+                        TAKE_FD(*f); /* we passed ownership away */
+                }
+        }
 
         if (arg_collect) {
                 sd_json_variant *reply = NULL;
