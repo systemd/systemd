@@ -532,8 +532,14 @@ static int reply_callback(
                                  "Method call returned expected error: %s", error);
 
                         r = 0;
-                } else
-                        r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
+                } else {
+                        /* If we can translate this to an errno, let's print that as errno and return it, otherwise, return a generic error code */
+                        r = sd_varlink_error_to_errno(error, parameters);
+                        if (r != -EBADR)
+                                *ret = log_error_errno(r, "Method call failed: %m");
+                        else
+                                r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
+                }
         } else
                 r = 0;
 
@@ -626,8 +632,13 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                          "Method call %s() returned expected error: %s", method, error);
 
                                 r = 0;
-                        } else
-                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        } else {
+                                r = sd_varlink_error_to_errno(error, reply);
+                                if (r != -EBADR)
+                                        log_error_errno(r, "Method call %s() failed: %m", method);
+                                else
+                                        r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        }
                 } else
                         r = 0;
 
@@ -706,8 +717,13 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                          "Method call %s() returned expected error: %s", method, error);
 
                                 r = 0;
-                        } else
-                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        } else {
+                                r = sd_varlink_error_to_errno(error, reply);
+                                if (r != -EBADR)
+                                        log_error_errno(r, "Method call %s() failed: %m", method);
+                                else
+                                        r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        }
                 } else
                         r = 0;
 
