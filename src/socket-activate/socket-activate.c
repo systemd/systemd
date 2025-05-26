@@ -30,6 +30,7 @@ static int arg_socket_type = SOCK_STREAM;
 static char **arg_setenv = NULL;
 static char **arg_fdnames = NULL;
 static bool arg_inetd = false;
+static bool arg_now = false;
 
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
@@ -129,10 +130,6 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
         assert(start_fd >= 0);
         assert(n_fds > 0);
 
-        if (arg_inetd && n_fds != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--inetd only supported for single file descriptors.");
-
         FOREACH_STRING(var, "TERM", "COLORTERM", "NO_COLOR", "PATH", "USER", "HOME") {
                 const char *n;
 
@@ -181,8 +178,6 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
                                         if (r < 0)
                                                 return log_oom();
                                 }
-                        else if (len != n_fds)
-                                log_warning("The number of fd names is different than number of fds: %zu vs %zu", len, n_fds);
 
                         names = strv_join(arg_fdnames, ":");
                         if (!names)
@@ -314,6 +309,7 @@ static int help(void) {
                "  -E --setenv=NAME[=VALUE]   Pass an environment variable to children\n"
                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
                "     --inetd                 Enable inetd file descriptor passing protocol\n"
+               "     --now                   Start instantly instead of waiting for connection\n"
                "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -330,6 +326,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FDNAME,
                 ARG_SEQPACKET,
                 ARG_INETD,
+                ARG_NOW,
         };
 
         static const struct option options[] = {
@@ -343,9 +340,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "environment", required_argument, NULL, 'E'           }, /* legacy alias */
                 { "fdname",      required_argument, NULL, ARG_FDNAME    },
                 { "inetd",       no_argument,       NULL, ARG_INETD     },
+                { "now",         no_argument,       NULL, ARG_NOW       },
                 {}
         };
 
+        size_t n_fds = 0, n_fdnames = 0;
         int c, r;
 
         assert(argc >= 0);
@@ -366,6 +365,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = strv_extend(&arg_listen, optarg);
                         if (r < 0)
                                 return log_oom();
+
+                        n_fds++;
 
                         break;
 
@@ -416,11 +417,18 @@ static int parse_argv(int argc, char *argv[]) {
                                              false);
                         if (r < 0)
                                 return log_error_errno(r, "strv_extend_strv: %m");
+
+                        n_fdnames++;
+
                         break;
                 }
 
                 case ARG_INETD:
                         arg_inetd = true;
+                        break;
+
+                case ARG_NOW:
+                        arg_now = true;
                         break;
 
                 case '?':
@@ -439,6 +447,24 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Datagram sockets do not accept connections. "
                                        "The --datagram and --accept options may not be combined.");
+
+        if (n_fds > 1 && !arg_accept && arg_inetd)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inetd only supported with a single file descriptor, "
+                                       "or with --accept.");
+
+        if (arg_accept && arg_now)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--accept implies that processes are spawned off as connections come "
+                                       "in, but this conflicts with --now.");
+
+        if (arg_fdnames && n_fdnames != n_fds)
+                log_warning("The number of fd names is different than number of fds: %zu vs %zu",
+                            n_fdnames,
+                            n_fds);
+
+        if (arg_fdnames && arg_inetd)
+                log_warning("--fdname has no effect with --inetd present.");
 
         return 1 /* work to do */;
 }
@@ -481,14 +507,16 @@ static int run(int argc, char **argv) {
         for (;;) {
                 struct epoll_event event;
 
-                if (epoll_wait(epoll_fd, &event, 1, -1) < 0) {
-                        if (errno == EINTR)
-                                continue;
+                if (!arg_now) {
+                        if (epoll_wait(epoll_fd, &event, 1, -1) < 0) {
+                                if (errno == EINTR)
+                                        continue;
 
-                        return log_error_errno(errno, "epoll_wait() failed: %m");
+                                return log_error_errno(errno, "epoll_wait() failed: %m");
+                        }
+
+                        log_info("Communication attempt on fd %i.", event.data.fd);
                 }
-
-                log_info("Communication attempt on fd %i.", event.data.fd);
 
                 if (!arg_accept)
                         return exec_process(exec_argv, SD_LISTEN_FDS_START, (size_t) n);
