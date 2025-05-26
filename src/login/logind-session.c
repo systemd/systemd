@@ -341,11 +341,12 @@ int session_save(Session *s) {
         env_file_fputs_assignment(f, "SERVICE=", s->service);
         env_file_fputs_assignment(f, "DESKTOP=", s->desktop);
 
-        if (s->seat && seat_has_vts(s->seat))
-                fprintf(f, "VTNR=%u\n", s->vtnr);
-
-        if (!s->vtnr)
-                fprintf(f, "POSITION=%u\n", s->position);
+        if (s->seat) {
+                if (seat_has_vts(s->seat))
+                        fprintf(f, "VTNR=%u\n", s->vtnr);
+                else
+                        fprintf(f, "POSITION=%u\n", s->position);
+        }
 
         if (pidref_is_set(&s->leader)) {
                 fprintf(f, "LEADER="PID_FMT"\n", s->leader.pid);
@@ -495,7 +496,7 @@ int session_load(Session *s) {
         }
 
         if (vtnr)
-                safe_atou(vtnr, &s->vtnr);
+                (void) safe_atou(vtnr, &s->vtnr);
 
         if (seat && !s->seat) {
                 Seat *o;
@@ -513,7 +514,7 @@ int session_load(Session *s) {
         if (position && s->seat) {
                 unsigned npos;
 
-                safe_atou(position, &npos);
+                (void) safe_atou(position, &npos);
                 seat_claim_position(s->seat, s, npos);
         }
 
