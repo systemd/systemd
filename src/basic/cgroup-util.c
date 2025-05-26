@@ -792,81 +792,21 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
 }
 
 int cg_is_empty(const char *controller, const char *path) {
-        _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid;
+        _cleanup_free_ char *t = NULL;
         int r;
+
+        /* Check if the cgroup hierarchy under 'path' is empty. On cgroup v2 it's exposed via the "populated"
+         * attribute of "cgroup.events". */
 
         assert(path);
 
-        r = cg_enumerate_processes(controller, path, &f);
+        r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.events", STRV_MAKE("populated"), &t);
         if (r == -ENOENT)
                 return true;
         if (r < 0)
                 return r;
 
-        r = cg_read_pid(f, &pid, CGROUP_DONT_SKIP_UNMAPPED);
-        if (r < 0)
-                return r;
-
-        return r == 0;
-}
-
-int cg_is_empty_recursive(const char *controller, const char *path) {
-        int r;
-
-        assert(path);
-
-        /* The root cgroup is always populated */
-        if (controller && empty_or_root(path))
-                return false;
-
-        r = cg_unified_controller(controller);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                _cleanup_free_ char *t = NULL;
-
-                /* On the unified hierarchy we can check empty state
-                 * via the "populated" attribute of "cgroup.events". */
-
-                r = cg_read_event(controller, path, "populated", &t);
-                if (r == -ENOENT)
-                        return true;
-                if (r < 0)
-                        return r;
-
-                return streq(t, "0");
-        } else {
-                _cleanup_closedir_ DIR *d = NULL;
-                char *fn;
-
-                r = cg_is_empty(controller, path);
-                if (r <= 0)
-                        return r;
-
-                r = cg_enumerate_subgroups(controller, path, &d);
-                if (r == -ENOENT)
-                        return true;
-                if (r < 0)
-                        return r;
-
-                while ((r = cg_read_subgroup(d, &fn)) > 0) {
-                        _cleanup_free_ char *p = NULL;
-
-                        p = path_join(path, fn);
-                        free(fn);
-                        if (!p)
-                                return -ENOMEM;
-
-                        r = cg_is_empty_recursive(controller, p);
-                        if (r <= 0)
-                                return r;
-                }
-                if (r < 0)
-                        return r;
-
-                return true;
-        }
+        return streq(t, "0");
 }
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
