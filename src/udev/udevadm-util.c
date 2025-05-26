@@ -152,8 +152,9 @@ int parse_resolve_name_timing(const char *str, ResolveNameTiming *ret) {
         return 1;
 }
 
-int parse_key_value_argument(const char *s, bool require_value, char **key, char **value) {
+int parse_key_value_argument(const char *str, bool require_value, char **key, char **value) {
         _cleanup_free_ char *k = NULL, *v = NULL;
+        const char *s = str;
         int r;
 
         assert(s);
@@ -162,9 +163,9 @@ int parse_key_value_argument(const char *s, bool require_value, char **key, char
 
         r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse key/value pair %s: %m", s);
+                return log_error_errno(r, "Failed to parse key/value pair %s: %m", str);
         if (require_value && r < 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in key/value pair %s.", s);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in key/value pair %s.", str);
 
         if (!filename_is_valid(k))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid key name", k);
