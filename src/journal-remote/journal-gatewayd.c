@@ -64,6 +64,9 @@ typedef struct RequestMeta {
         uint64_t n_entries;
         bool n_entries_set, since_set, until_set;
 
+        sd_id128_t previous_boot_id;
+        int boot_index;
+
         FILE *tmp;
         uint64_t delta, size;
 
@@ -886,6 +889,139 @@ static int request_handler_machine(
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
+static int output_boot(FILE *f, LogId boot, int boot_display_index) {
+        int r;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+
+        r = sd_json_build(
+                        &json,
+                        SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR("index", SD_JSON_BUILD_INTEGER(boot_display_index)),
+                                        SD_JSON_BUILD_PAIR_ID128("boot_id", boot.id),
+                                        SD_JSON_BUILD_PAIR("first_entry", SD_JSON_BUILD_UNSIGNED(boot.first_usec)),
+                                        SD_JSON_BUILD_PAIR("last_entry", SD_JSON_BUILD_UNSIGNED(boot.last_usec))));
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_dump(json, SD_JSON_FORMAT_SEQ, f, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static ssize_t request_reader_boots(
+                void *cls,
+                uint64_t pos,
+                char *buf,
+                size_t max) {
+
+        RequestMeta *m = ASSERT_PTR(cls);
+        int r;
+        size_t n, k;
+        LogId boot;
+
+        assert(buf);
+        assert(max > 0);
+        assert(pos >= m->delta);
+
+        pos -= m->delta;
+
+        while (pos >= m->size) {
+                off_t sz;
+
+                /* We're seeking from tail (newest boot) so advance to older. */
+                r = discover_next_id(
+                                m->journal,
+                                LOG_BOOT_ID,
+                                /* boot_id */ SD_ID128_NULL,
+                                /* unit = */ NULL,
+                                m->previous_boot_id,
+                                /* advance_older = */ true,
+                                &boot);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to advance boot index: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+                if (r == 0)
+                        return MHD_CONTENT_READER_END_OF_STREAM;
+
+                pos -= m->size;
+                m->delta += m->size;
+
+                r = request_meta_ensure_tmp(m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary file: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                r = output_boot(m->tmp, boot, m->boot_index);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to serialize boot: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                sz = ftello(m->tmp);
+                if (sz < 0) {
+                        log_error_errno(errno, "Failed to retrieve file position: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                m->size = (uint64_t) sz;
+
+                m->previous_boot_id = boot.id;
+                m->boot_index -= 1;
+        }
+
+        if (fseeko(m->tmp, pos, SEEK_SET) < 0) {
+                log_error_errno(errno, "Failed to seek to position: %m");
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+        }
+
+        n = m->size - pos;
+        if (n > max)
+                n = max;
+
+        errno = 0;
+        k = fread(buf, 1, n, m->tmp);
+        if (k != n) {
+                log_error("Failed to read from file: %s", STRERROR_OR_EOF(errno));
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+        }
+
+        return (ssize_t) k;
+}
+
+static int request_handler_boots(
+                struct MHD_Connection *connection,
+                void *connection_cls) {
+
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        RequestMeta *m = ASSERT_PTR(connection_cls);
+        int r;
+
+        assert(connection);
+
+        r = open_journal(m);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+
+        m->previous_boot_id = SD_ID128_NULL;
+        r = sd_journal_seek_tail(m->journal); /* seek to newest */
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to seek in journal: %m");
+
+
+        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_boots, m, NULL);
+        if (!response)
+                return respond_oom(connection);
+
+        if (MHD_add_response_header(response, "Content-Type", "application/json-seq") == MHD_NO)
+                return respond_oom(connection);
+
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
+}
+
 static mhd_result request_handler(
                 void *cls,
                 struct MHD_Connection *connection,
@@ -931,6 +1067,9 @@ static mhd_result request_handler(
 
         if (streq(url, "/machine"))
                 return request_handler_machine(connection, *connection_cls);
+
+        if (streq(url, "/boots"))
+                return request_handler_boots(connection, *connection_cls);
 
         return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
 }
