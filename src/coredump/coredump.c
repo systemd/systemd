@@ -960,7 +960,6 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
 
         assert(context);
         assert(iovw);
-        assert(iovw->count >= _META_ARGV_MAX);
 
         /* The context does not allocate any memory on its own */
 
