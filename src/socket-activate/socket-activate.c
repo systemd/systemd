@@ -102,6 +102,21 @@ static int open_sockets(int *ret_epoll_fd) {
                 log_set_open_when_needed(false);
         }
 
+        if (count > 1 && !arg_accept && arg_inetd)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inetd only supported with a single file descriptor, or with --accept.");
+
+        if (arg_fdnames && !arg_inetd) {
+                size_t n_fdnames = strv_length(arg_fdnames);
+
+                if (!arg_accept && n_fdnames != (size_t) count)
+                        log_warning("The number of fd names is different from the number of fds: %zu vs %i",
+                                    n_fdnames, count);
+
+                if (arg_accept && n_fdnames > 1)
+                        log_warning("More than one fd name specified with --accept.");
+        }
+
         epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (epoll_fd < 0)
                 return log_error_errno(errno, "Failed to create epoll object: %m");
@@ -128,10 +143,6 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
         assert(!strv_isempty(argv));
         assert(start_fd >= 0);
         assert(n_fds > 0);
-
-        if (arg_inetd && n_fds != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--inetd only supported for single file descriptors.");
 
         FOREACH_STRING(var, "TERM", "COLORTERM", "NO_COLOR", "PATH", "USER", "HOME") {
                 const char *n;
@@ -181,8 +192,6 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
                                         if (r < 0)
                                                 return log_oom();
                                 }
-                        else if (len != n_fds)
-                                log_warning("The number of fd names is different than number of fds: %zu vs %zu", len, n_fds);
 
                         names = strv_join(arg_fdnames, ":");
                         if (!names)
@@ -439,6 +448,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Datagram sockets do not accept connections. "
                                        "The --datagram and --accept options may not be combined.");
+
+        if (arg_fdnames && arg_inetd)
+                log_warning("--fdname= has no effect with --inetd present.");
 
         return 1 /* work to do */;
 }
