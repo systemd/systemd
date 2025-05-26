@@ -188,7 +188,6 @@ typedef enum CGroupFlags {
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
 int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags);
 int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags);
-int cg_read_event(const char *controller, const char *path, const char *event, char **ret);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret);
 int cg_read_subgroup(DIR *d, char **ret);
@@ -233,7 +232,6 @@ int cg_get_xattr_bool(const char *path, const char *name);
 int cg_remove_xattr(const char *path, const char *name);
 
 int cg_is_empty(const char *controller, const char *path);
-int cg_is_empty_recursive(const char *controller, const char *path);
 
 int cg_get_root_path(char **path);
 
