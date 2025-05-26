@@ -198,47 +198,6 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
         }
 }
 
-int cg_read_event(
-                const char *controller,
-                const char *path,
-                const char *event,
-                char **ret) {
-
-        _cleanup_free_ char *events = NULL, *content = NULL;
-        int r;
-
-        r = cg_get_path(controller, path, "cgroup.events", &events);
-        if (r < 0)
-                return r;
-
-        r = read_full_virtual_file(events, &content, NULL);
-        if (r < 0)
-                return r;
-
-        for (const char *p = content;;) {
-                _cleanup_free_ char *line = NULL, *key = NULL;
-                const char *q;
-
-                r = extract_first_word(&p, &line, "\n", 0);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENOENT;
-
-                q = line;
-                r = extract_first_word(&q, &key, " ", 0);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -EINVAL;
-
-                if (!streq(key, event))
-                        continue;
-
-                return strdup_to(ret, q);
-        }
-}
-
 bool cg_kill_supported(void) {
         static thread_local int supported = -1;
 
