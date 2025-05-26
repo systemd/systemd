@@ -774,7 +774,7 @@ static int prepare_nocow(int fdf, const char *from, int fdt, unsigned *chattr_ma
                 return 0;
 
         r = read_attr_at(fdf, from, &attrs);
-        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP) /* If the source is a symlink we get ELOOP */
+        if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r) && r != -ELOOP) /* If the source is a symlink we get ELOOP */
                 return r;
 
         if (FLAGS_SET(attrs, FS_NOCOW_FL)) {

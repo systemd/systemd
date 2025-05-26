@@ -1653,7 +1653,7 @@ static int fd_set_attribute(
                                     "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
                                     path, previous, current, (previous & ~item->attribute_mask) | (f & item->attribute_mask));
                 else if (r < 0)
-                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(ERRNO_IS_IOCTL_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Cannot set file attributes for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
                                        path, item->attribute_value, item->attribute_mask);
         }
