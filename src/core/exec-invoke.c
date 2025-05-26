@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sysexits.h>
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
@@ -2244,6 +2245,120 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
+_noreturn_ static void bpffs_helper(
+                int parent_fd,
+                uint64_t delegate_cmds,
+                uint64_t delegate_maps,
+                uint64_t delegate_progs,
+                uint64_t delegate_attachs) {
+
+        _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+        char number[STRLEN("0x") + sizeof(uint64_t) * 2 + 1];
+        int r;
+
+        fs_fd = receive_one_fd(parent_fd, 0);
+        if (fs_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        bpf_delegate_to_string(delegate_cmds, number);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        mnt_fd = fsmount(fs_fd, 0, 0);
+        if (mnt_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        r = send_one_fd(parent_fd, mnt_fd, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        _exit(EXIT_SUCCESS);
+}
+
+_noreturn_ static void sd_userns(int errno_pipe[2], int unshare_ready_fd,
+                                 char *uid_map, char *gid_map, bool allow_setgroups) {
+        _cleanup_close_ int fd = -EBADF;
+        uint64_t c = 1;
+        const char *a;
+        pid_t ppid;
+        int r;
+
+        /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
+         * here, after the parent opened its own user namespace. */
+
+        ppid = getppid();
+        errno_pipe[0] = safe_close(errno_pipe[0]);
+
+        /* Wait until the parent unshared the user namespace */
+        if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
+                report_errno_and_exit(errno_pipe[1], -errno);
+
+        /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
+         * and using the system service manager. */
+        a = procfs_file_alloca(ppid, "setgroups");
+        fd = open(a, O_WRONLY|O_CLOEXEC);
+        if (fd < 0) {
+                r = log_debug_errno(errno, "Failed to open %s: %m", a);
+                report_errno_and_exit(errno_pipe[1], r);
+        } else {
+                const char *setgroups = allow_setgroups ? "allow\n" : "deny\n";
+                if (write(fd, setgroups, strlen(setgroups)) < 0) {
+                        r = log_debug_errno(errno, "Failed to write '%s' to %s: %m", setgroups, a);
+                        report_errno_and_exit(errno_pipe[1], r);
+                }
+
+                fd = safe_close(fd);
+        }
+
+        /* First write the GID map */
+        a = procfs_file_alloca(ppid, "gid_map");
+        fd = open(a, O_WRONLY|O_CLOEXEC);
+        if (fd < 0) {
+                r = log_debug_errno(errno, "Failed to open %s: %m", a);
+                report_errno_and_exit(errno_pipe[1], r);
+        }
+
+        if (write(fd, gid_map, strlen(gid_map)) < 0) {
+                r = log_debug_errno(errno, "Failed to write GID map to %s: %m", a);
+                report_errno_and_exit(errno_pipe[1], r);
+        }
+
+        fd = safe_close(fd);
+
+        /* Then write the UID map */
+        a = procfs_file_alloca(ppid, "uid_map");
+        fd = open(a, O_WRONLY|O_CLOEXEC);
+        if (fd < 0) {
+                r = log_debug_errno(errno, "Failed to open %s: %m", a);
+                report_errno_and_exit(errno_pipe[1], r);
+        }
+
+        if (write(fd, uid_map, strlen(uid_map)) < 0) {
+                r = log_debug_errno(errno, "Failed to write UID map to %s: %m", a);
+                report_errno_and_exit(errno_pipe[1], r);
+        }
+
+        _exit(EXIT_SUCCESS);
+}
+
 static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
@@ -2348,72 +2463,8 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         r = safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pid);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                _cleanup_close_ int fd = -EBADF;
-                const char *a;
-                pid_t ppid;
-
-                /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
-                 * here, after the parent opened its own user namespace. */
-
-                ppid = getppid();
-                errno_pipe[0] = safe_close(errno_pipe[0]);
-
-                /* Wait until the parent unshared the user namespace */
-                if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
-                        report_errno_and_exit(errno_pipe[1], -errno);
-
-                /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
-                 * and using the system service manager. */
-                a = procfs_file_alloca(ppid, "setgroups");
-                fd = open(a, O_WRONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        if (errno != ENOENT) {
-                                r = log_debug_errno(errno, "Failed to open %s: %m", a);
-                                report_errno_and_exit(errno_pipe[1], r);
-                        }
-
-                        /* If the file is missing the kernel is too old, let's continue anyway. */
-                } else {
-                        const char *setgroups = allow_setgroups ? "allow\n" : "deny\n";
-                        if (write(fd, setgroups, strlen(setgroups)) < 0) {
-                                r = log_debug_errno(errno, "Failed to write '%s' to %s: %m", setgroups, a);
-                                report_errno_and_exit(errno_pipe[1], r);
-                        }
-
-                        fd = safe_close(fd);
-                }
-
-                /* First write the GID map */
-                a = procfs_file_alloca(ppid, "gid_map");
-                fd = open(a, O_WRONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
-                        report_errno_and_exit(errno_pipe[1], r);
-                }
-
-                if (write(fd, gid_map, strlen(gid_map)) < 0) {
-                        r = log_debug_errno(errno, "Failed to write GID map to %s: %m", a);
-                        report_errno_and_exit(errno_pipe[1], r);
-                }
-
-                fd = safe_close(fd);
-
-                /* The write the UID map */
-                a = procfs_file_alloca(ppid, "uid_map");
-                fd = open(a, O_WRONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
-                        report_errno_and_exit(errno_pipe[1], r);
-                }
-
-                if (write(fd, uid_map, strlen(uid_map)) < 0) {
-                        r = log_debug_errno(errno, "Failed to write UID map to %s: %m", a);
-                        report_errno_and_exit(errno_pipe[1], r);
-                }
-
-                _exit(EXIT_SUCCESS);
-        }
+        if (r == 0)
+                sd_userns(errno_pipe, unshare_ready_fd, uid_map, gid_map, allow_setgroups);
 
         errno_pipe[1] = safe_close(errno_pipe[1]);
 
@@ -3628,6 +3679,7 @@ static int apply_mount_namespace(
                 .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
+                .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4636,6 +4688,8 @@ int exec_invoke(
         int ngids = 0, ngids_after_pam = 0;
         int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
         size_t n_storage_fds, n_socket_fds, n_extra_fds;
+        _cleanup_close_pair_ int token_fds[2] = EBADF_PAIR;
+        _cleanup_(pidref_done_sigkill_wait) PidRef bpftoken_pid = PIDREF_NULL;
 
         assert(command);
         assert(context);
@@ -5328,6 +5382,24 @@ int exec_invoke(
                 }
         }
 
+        if (context->private_bpf) {
+                r = socketpair(AF_UNIX, SOCK_SEQPACKET, 0, token_fds);
+                if (r < 0)
+                        return r;
+
+                r = pidref_safe_fork("(bpffs)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &bpftoken_pid);
+                if (r < 0) {
+                        *exit_status = EX_OSERR;
+                        return r;
+                }
+                if (r == 0)
+                        bpffs_helper(token_fds[1],
+                                     context->bpf_delegate_commands,
+                                     context->bpf_delegate_maps,
+                                     context->bpf_delegate_programs,
+                                     context->bpf_delegate_attachments);
+        }
+
         if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
@@ -5428,6 +5500,45 @@ int exec_invoke(
                         exit_status);
         if (r < 0)
                 return r;
+
+        if (context->private_bpf) {
+                _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+
+                fs_fd = fsopen("bpf", 0);
+                if (fs_fd < 0) {
+                        *exit_status = EX_OSERR;
+                        return fs_fd;
+                }
+
+                r = send_one_fd(token_fds[0], fs_fd, 0);
+                if (r < 0) {
+                        *exit_status = EX_IOERR;
+                        return r;
+                }
+
+                r = wait_for_terminate_and_check("(bpffs)", TAKE_PIDREF(bpftoken_pid).pid, 0);
+                if (r < 0) {
+                        *exit_status = EX_OSERR;
+                        return r;
+                }
+                if (r != EXIT_SUCCESS) {
+                        /* If something strange happened with the child, let's consider this fatal, too */
+                        *exit_status = EX_OSERR;
+                        return -EIO;
+                }
+
+                mnt_fd = receive_one_fd(token_fds[0], 0);
+                if (mnt_fd < 0) {
+                        *exit_status = EX_IOERR;
+                        return fs_fd;
+                }
+
+                r = move_mount(mnt_fd, "", AT_FDCWD, "/sys/fs/bpf", MOVE_MOUNT_F_EMPTY_PATH);
+                if (r < 0) {
+                        *exit_status = EX_OSERR;
+                        return r;
+                }
+        }
 
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */
