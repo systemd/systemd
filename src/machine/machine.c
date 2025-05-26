@@ -145,8 +145,6 @@ Machine* machine_free(Machine *m) {
 }
 
 int machine_save(Machine *m) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(m);
@@ -157,63 +155,47 @@ int machine_save(Machine *m) {
         if (!m->started)
                 return 0;
 
+        _cleanup_(unlink_and_freep) char *sl = NULL; /* auto-unlink! */
+        if (m->unit) {
+                sl = strjoin("/run/systemd/machines/unit:", m->unit);
+                if (!sl)
+                        return log_oom();
+        }
+
         r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/machines/: %m");
 
-        r = fopen_temporary(m->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(m->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", m->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", m->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "NAME=%s\n",
                 m->name);
 
-        if (m->unit) {
-                _cleanup_free_ char *escaped = NULL;
+        /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
+        env_file_fputs_assignment(f, "SCOPE=", m->unit);
+        env_file_fputs_assignment(f, "SCOPE_JOB=", m->scope_job);
 
-                escaped = cescape(m->unit);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "SCOPE=%s\n", escaped); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
-        }
-
-        if (m->scope_job)
-                fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
-
-        if (m->service) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(m->service);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-                fprintf(f, "SERVICE=%s\n", escaped);
-        }
-
-        if (m->root_directory) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(m->root_directory);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-                fprintf(f, "ROOT=%s\n", escaped);
-        }
+        env_file_fputs_assignment(f, "SERVICE=", m->service);
+        env_file_fputs_assignment(f, "ROOT=", m->root_directory);
 
         if (!sd_id128_is_null(m->id))
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
 
-        if (pidref_is_set(&m->leader))
+        if (pidref_is_set(&m->leader)) {
                 fprintf(f, "LEADER="PID_FMT"\n", m->leader.pid);
+                (void) pidref_acquire_pidfd_id(&m->leader);
+                if (m->leader.fd_id != 0)
+                        fprintf(f, "LEADER_PIDFDID=%" PRIu64 "\n", m->leader.fd_id);
+        }
 
         if (m->class != _MACHINE_CLASS_INVALID)
                 fprintf(f, "CLASS=%s\n", machine_class_to_string(m->class));
@@ -226,56 +208,44 @@ int machine_save(Machine *m) {
                         m->timestamp.monotonic);
 
         if (m->n_netif > 0) {
-                size_t i;
-
-                fputs("NETIF=", f);
-
-                for (i = 0; i < m->n_netif; i++) {
-                        if (i != 0)
+                fputs("NETIF=\"", f);
+                FOREACH_ARRAY(ifi, m->netif, m->n_netif) {
+                        if (*ifi != 0)
                                 fputc(' ', f);
-
-                        fprintf(f, "%i", m->netif[i]);
+                        fprintf(f, "%i", *ifi);
                 }
-
-                fputc('\n', f);
+                fputs("\"\n", f);
         }
 
-        r = fflush_and_check(f);
+        if (m->vsock_cid != 0)
+                fprintf(f, "VSOCK_CID=%u\n", m->vsock_cid);
+
+        env_file_fputs_assignment(f, "SSH_ADDRESS=", m->ssh_address);
+        env_file_fputs_assignment(f, "SSH_PRIVATE_KEY_PATH=", m->ssh_private_key_path);
+
+        r = flink_tmpfile(f, temp_path, m->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", m->state_file);
 
-        if (rename(temp_path, m->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
 
-        temp_path = mfree(temp_path);
-
-        if (m->unit) {
-                char *sl;
-
-                /* Create a symlink from the unit name to the machine
-                 * name, so that we can quickly find the machine for
-                 * each given unit. Ignore error. */
-                sl = strjoina("/run/systemd/machines/unit:", m->unit);
+        if (sl) {
+                /* Create a symlink from the unit name to the machine name, so that we can quickly find the machine
+                 * for each given unit. Ignore error. */
                 (void) symlink(m->name, sl);
+
+                /* disarm auto-removal */
+                sl = mfree(sl);
         }
 
         return 0;
-
-fail:
-        (void) unlink(m->state_file);
-
-        return log_error_errno(r, "Failed to save machine data %s: %m", m->state_file);
 }
 
 static void machine_unlink(Machine *m) {
         assert(m);
 
         if (m->unit) {
-                char *sl;
-
-                sl = strjoina("/run/systemd/machines/unit:", m->unit);
+                const char *sl = strjoina("/run/systemd/machines/unit:", m->unit);
                 (void) unlink(sl);
         }
 
@@ -284,7 +254,8 @@ static void machine_unlink(Machine *m) {
 }
 
 int machine_load(Machine *m) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *class = NULL, *netif = NULL;
+        _cleanup_free_ char *name = NULL, *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *leader_pidfdid = NULL,
+                *class = NULL, *netif = NULL, *vsock_cid = NULL;
         int r;
 
         assert(m);
@@ -293,35 +264,55 @@ int machine_load(Machine *m) {
                 return 0;
 
         r = parse_env_file(NULL, m->state_file,
-                           "SCOPE",     &m->unit,
-                           "SCOPE_JOB", &m->scope_job,
-                           "SERVICE",   &m->service,
-                           "ROOT",      &m->root_directory,
-                           "ID",        &id,
-                           "LEADER",    &leader,
-                           "CLASS",     &class,
-                           "REALTIME",  &realtime,
-                           "MONOTONIC", &monotonic,
-                           "NETIF",     &netif);
+                           "NAME",                 &name,
+                           "SCOPE",                &m->unit,
+                           "SCOPE_JOB",            &m->scope_job,
+                           "SERVICE",              &m->service,
+                           "ROOT",                 &m->root_directory,
+                           "ID",                   &id,
+                           "LEADER",               &leader,
+                           "LEADER_PIDFDID",       &leader_pidfdid,
+                           "CLASS",                &class,
+                           "REALTIME",             &realtime,
+                           "MONOTONIC",            &monotonic,
+                           "NETIF",                &netif,
+                           "VSOCK_CID",            &vsock_cid,
+                           "SSH_ADDRESS",          &m->ssh_address,
+                           "SSH_PRIVATE_KEY_PATH", &m->ssh_private_key_path);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", m->state_file);
 
+        if (!streq_ptr(name, m->name))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "State file '%s' for machine '%s' reports a different name '%s', refusing", m->state_file, m->name, name);
+
         if (id)
                 (void) sd_id128_from_string(id, &m->id);
 
+        pidref_done(&m->leader);
         if (leader) {
-                pidref_done(&m->leader);
                 r = pidref_set_pidstr(&m->leader, leader);
                 if (r < 0)
                         log_debug_errno(r, "Failed to set leader PID to '%s', ignoring: %m", leader);
+                else if (leader_pidfdid) {
+                        uint64_t fd_id;
+                        r = safe_atou64(leader_pidfdid, &fd_id);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse leader pidfd ID, ignoring: %s", leader_pidfdid);
+                        else {
+                                (void) pidref_acquire_pidfd_id(&m->leader);
+
+                                if (fd_id != m->leader.fd_id) {
+                                        log_debug("Leader PID got recycled, ignoring.");
+                                        pidref_done(&m->leader);
+                                }
+                        }
+                }
         }
 
         if (class) {
-                MachineClass c;
-
-                c = machine_class_from_string(class);
+                MachineClass c = machine_class_from_string(class);
                 if (c >= 0)
                         m->class = c;
         }
@@ -331,13 +322,13 @@ int machine_load(Machine *m) {
         if (monotonic)
                 (void) deserialize_usec(monotonic, &m->timestamp.monotonic);
 
+        m->netif = mfree(m->netif);
+        m->n_netif = 0;
         if (netif) {
                 _cleanup_free_ int *ni = NULL;
                 size_t nr = 0;
-                const char *p;
 
-                p = netif;
-                for (;;) {
+                for (const char *p = netif;;) {
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, 0);
@@ -360,8 +351,15 @@ int machine_load(Machine *m) {
                         ni[nr++] = r;
                 }
 
-                free_and_replace(m->netif, ni);
+                m->netif = TAKE_PTR(ni);
                 m->n_netif = nr;
+        }
+
+        m->vsock_cid = 0;
+        if (vsock_cid) {
+                r = safe_atou(vsock_cid, &m->vsock_cid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse AF_VSOCK CID, ignoring: %s", vsock_cid);
         }
 
         return r;
@@ -574,7 +572,7 @@ int machine_stop(Machine *m) {
 
                 r = manager_stop_unit(m->manager, m->unit, &error, &job);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to stop machine unit: %s", bus_error_message(&error, r));
 
                 free_and_replace(m->scope_job, job);
         }
@@ -611,22 +609,43 @@ int machine_finalize(Machine *m) {
 }
 
 bool machine_may_gc(Machine *m, bool drop_not_started) {
+        int r;
+
         assert(m);
 
         if (m->class == MACHINE_HOST)
                 return false;
 
-        if (!pidref_is_set(&m->leader))
-                return true;
-
         if (drop_not_started && !m->started)
                 return true;
 
-        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+        r = pidref_is_alive(&m->leader);
+        if (r == -ESRCH)
+                return true;
+        if (r < 0)
+                log_debug_errno(r, "Unable to determine if leader PID " PID_FMT " is still alive, assuming not: %m", m->leader.pid);
+        if (r > 0)
                 return false;
 
-        if (m->unit && manager_unit_is_active(m->manager, m->unit))
-                return false;
+        if (m->scope_job) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = manager_job_is_active(m->manager, m->scope_job, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether job '%s' is pending, ignoring: %s", m->scope_job, bus_error_message(&error, r));
+                if (r != 0)
+                        return false;
+        }
+
+        if (m->unit) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = manager_unit_is_active(m->manager, m->unit, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether unit '%s' is active, ignoring: %s", m->unit, bus_error_message(&error, r));
+                if (r != 0)
+                        return false;
+        }
 
         return true;
 }
