@@ -136,7 +136,7 @@ void valgrind_summary_hack(void);
 
 int pid_compare_func(const pid_t *a, const pid_t *b);
 
-bool nice_is_valid(int n);
+bool nice_is_valid(int n) _const_;
 
 bool sched_policy_is_valid(int i) _const_;
 bool sched_priority_is_valid(int i) _const_;
