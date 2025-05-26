@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/fsverity.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
@@ -589,6 +591,125 @@ TEST(copy_verify_linked) {
 
         assert_se(copy_file_at(fd_2, NULL, tfd, "to_2", O_EXCL, 0644, COPY_VERIFY_LINKED) == -EIDRM);
         assert_se(faccessat(tfd, "to_2", F_OK, AT_SYMLINK_NOFOLLOW) < 0 && errno == ENOENT);
+}
+
+static bool enable_fsverity(int dirfd, const char *name, int algo, const char *salt, size_t salt_size) {
+        _cleanup_close_ int fd = openat(dirfd, name, O_RDONLY | O_CLOEXEC | O_NOCTTY);
+        assert_se(fd >= 0);
+
+        struct fsverity_enable_arg enable_arg = {
+                .version = 1,
+                .hash_algorithm = algo,
+                .block_size = 4096,
+                .salt_size = salt_size,
+                .salt_ptr = (uintptr_t) salt
+        };
+
+        if (ioctl(fd, FS_IOC_ENABLE_VERITY, &enable_arg) == 0)
+                return true;
+
+        // We might get this if we're on a filesystem without support.
+        assert_se(errno == ENOTSUP || errno == ENOTTY);
+        return false;
+}
+
+static struct fsverity_digest *alloc_fsverity_digest(size_t digest_size) {
+        struct fsverity_digest *digest = malloc(sizeof (struct fsverity_digest) + digest_size);
+        digest->digest_size = digest_size;
+        return digest;
+}
+
+static bool measure_fsverity(int dirfd, const char *name, struct fsverity_digest *digest) {
+        _cleanup_close_ int fd = openat(dirfd, name, O_RDONLY | O_CLOEXEC | O_NOCTTY);
+        if (ioctl(fd, FS_IOC_MEASURE_VERITY, digest) == 0) {
+                return true;
+        }
+
+        // Make sure that the error is caused by the file simply not having fs-verity.
+        assert_se(errno == ENODATA);
+        return false;
+}
+
+static void assert_no_fsverity(int dirfd, const char *name) {
+        _cleanup_free_ struct fsverity_digest *digest = alloc_fsverity_digest(0);
+        assert_se(!measure_fsverity(dirfd, name, digest));
+}
+
+static void assert_fsverity_eq(int dirfd_a, int dirfd_b, const char *name) {
+        _cleanup_free_ struct fsverity_digest *digest_a = alloc_fsverity_digest(64);
+        _cleanup_free_ struct fsverity_digest *digest_b = alloc_fsverity_digest(64);
+
+        bool enabled_a = measure_fsverity(dirfd_a, name, digest_a);
+        bool enabled_b = measure_fsverity(dirfd_b, name, digest_b);
+        assert_se(enabled_a == enabled_b);
+        if (enabled_a) {
+                assert_se(digest_a->digest_algorithm == digest_b->digest_algorithm);
+                assert_se(digest_a->digest_size == digest_b->digest_size);
+                assert_se(memcmp(digest_a->digest, digest_b->digest, digest_a->digest_size) == 0);
+        }
+}
+
+TEST_RET(copy_with_verity) {
+        _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *dstp = NULL, *badsrcp = NULL, *baddstp = NULL;
+        const char *files[] = { "disabled", "simple", "bigsha", "salty" };
+        _cleanup_close_ int src = -EBADF, dst = -EBADF, badsrc = -EBADF, baddst = -EBADF;
+
+        // We're more likely to hit a filesystem with fs-verity enabled on /var/tmp than on /tmp (tmpfs)
+        assert_se((src = mkdtemp_open("/var/tmp/test-copy_file-src.XXXXXX", 0, &srcp)) >= 0);
+        assert_se((dst = mkdtemp_open("/var/tmp/test-copy_file-dst.XXXXXX", 0, &dstp)) >= 0);
+
+        /* Populate some data to differentiate the files. */
+        FOREACH_ELEMENT(file, files)
+                assert_se(write_string_file_at(src, *file, "src file", WRITE_STRING_FILE_CREATE) >= 0);
+
+        /* Enable on some file using a range of options */
+        if (!enable_fsverity(src, "simple", FS_VERITY_HASH_ALG_SHA256, NULL, 0))
+                return log_tests_skipped_errno(errno, "/var/tmp: fs-verity is not supported here, so we can't test");
+        enable_fsverity(src, "bigsha", FS_VERITY_HASH_ALG_SHA512, NULL, 0);
+        enable_fsverity(src, "salty", FS_VERITY_HASH_ALG_SHA512, "edamame", 8);
+
+        /* Copy without fs-verity enabled and make sure nothing is set on the destination */
+        int r = copy_tree_at(src, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REPLACE|COPY_MERGE, NULL, NULL);
+        if (r == -ENOTTY)
+                /* This can happen on some versions of btrfs, for example */
+                return log_tests_skipped_errno(errno, "/var/tmp: fs-verity supported, but not reading metadata");
+        assert (r >= 0);
+
+        assert_se(copy_tree_at(src, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REPLACE|COPY_MERGE, NULL, NULL) >= 0);
+        FOREACH_ELEMENT(file, files)
+                assert_no_fsverity(dst, *file);
+
+        /* Copy *with* fs-verity enabled and make sure it works properly */
+        assert_se(copy_tree_at(src, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL) >= 0);
+        FOREACH_ELEMENT(file, files)
+                assert_fsverity_eq(src, dst, *file);
+
+        /* Now try to create files where we know fs-verity doesn't work: tmpfs */
+        assert_se((badsrc = mkdtemp_open("/tmp/test-copy_file-src.XXXXXX", 0, &badsrcp)) >= 0);
+        assert_se((baddst = mkdtemp_open("/tmp/test-copy_file-src.XXXXXX", 0, &baddstp)) >= 0);
+
+        /* Populate the source, same as before */
+        FOREACH_ELEMENT(file, files)
+                assert_se(write_string_file_at(badsrc, *file, "src file", WRITE_STRING_FILE_CREATE) >= 0);
+
+        /* Ensure the attempting to enable fs-verity here will fail */
+        if (enable_fsverity(badsrc, "simple", FS_VERITY_HASH_ALG_SHA256, NULL, 0))
+                return log_tests_skipped_errno(errno, "/tmp: fs-verity *is* unexpectedly supported here, so we can't test");
+
+        /* Copy from our non-verity filesystem into dst, requesting verity and making sure we notice that
+         * we failed to read verity from the source.
+         */
+        assert_se(copy_tree_at(badsrc, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL) == -ENOTTY);
+
+        /* Copy from our verity filesystem into our baddst, requesting verity and making sure we notice that
+         * we failed to set verity on the destination.
+         */
+        assert_se(copy_tree_at(src, ".", baddst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL) == -ENOTTY);
+
+        /* Of course this should fail too... */
+        assert_se(copy_tree_at(badsrc, ".", baddst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL) == -ENOTTY);
+
+        return 0;
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
