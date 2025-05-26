@@ -65,6 +65,7 @@ libcore_sources = files(
         'varlink.c',
         'varlink-common.c',
         'varlink-manager.c',
+        'varlink-unit.c',
 )
 
 subdir('bpf/socket_bind')
