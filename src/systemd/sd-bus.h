@@ -374,8 +374,8 @@ int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_
 int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_move(sd_bus_error *dest, sd_bus_error *e);
-int sd_bus_error_is_set(const sd_bus_error *e);
-int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
+_sd_pure_ int sd_bus_error_is_set(const sd_bus_error *e);
+_sd_pure_ int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
 int sd_bus_error_has_names_sentinel(const sd_bus_error *e, ...) _sd_sentinel_;
 #define sd_bus_error_has_names(e, ...) sd_bus_error_has_names_sentinel(e, __VA_ARGS__, NULL)
 
