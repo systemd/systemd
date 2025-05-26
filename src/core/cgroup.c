@@ -3626,8 +3626,6 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         uint64_t us;
 
         r = cg_get_keyed_attribute("cpu", crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
-        if (IN_SET(r, -ENOENT, -ENXIO))
-                return -ENODATA;
         if (r < 0)
                 return r;
 
@@ -4082,8 +4080,6 @@ static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
                         "cgroup.events",
                         STRV_MAKE("frozen"),
                         &val);
-        if (IN_SET(r, -ENOENT, -ENXIO))
-                return -ENODATA;
         if (r < 0)
                 return r;
 
