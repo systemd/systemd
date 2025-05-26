@@ -1,17 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-
-#include "alloc-util.h"
-#include "hashmap.h"
-#include "memory-util.h"
-#include "strv-fundamental.h"
-
-typedef enum ExtractFlags ExtractFlags;
+#include "forward.h"
+#include "strv-fundamental.h"   /* IWYU pragma: export */
 
 char* strv_find(char * const *l, const char *name) _pure_;
 char* strv_find_case(char * const *l, const char *name) _pure_;
@@ -216,13 +207,9 @@ int fputstrv(FILE *f, char * const *l, const char *separator, bool *space);
         free_and_replace_full(a, b, strv_free)
 
 void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value);
-static inline void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value) {
-        string_strv_hashmap_remove(PLAIN_HASHMAP(h), key, value);
-}
-int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value);
-int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value);
-#define string_strv_hashmap_put(h, k, v) _string_strv_hashmap_put(h, k, v)
-#define string_strv_ordered_hashmap_put(h, k, v) _string_strv_ordered_hashmap_put(h, k, v)
+void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value);
+int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value);
+int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value);
 
 int strv_rebreak_lines(char **l, size_t width, char ***ret);
 

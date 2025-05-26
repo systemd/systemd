@@ -1,21 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "glyph-util.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
