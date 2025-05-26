@@ -129,10 +129,6 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
         assert(start_fd >= 0);
         assert(n_fds > 0);
 
-        if (arg_inetd && n_fds != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--inetd only supported for single file descriptors.");
-
         FOREACH_STRING(var, "TERM", "COLORTERM", "NO_COLOR", "PATH", "USER", "HOME") {
                 const char *n;
 
@@ -181,8 +177,6 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
                                         if (r < 0)
                                                 return log_oom();
                                 }
-                        else if (len != n_fds)
-                                log_warning("The number of fd names is different than number of fds: %zu vs %zu", len, n_fds);
 
                         names = strv_join(arg_fdnames, ":");
                         if (!names)
@@ -346,6 +340,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
+        size_t n_fds = 0, n_fdnames = 0;
         int c, r;
 
         assert(argc >= 0);
@@ -366,6 +361,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = strv_extend(&arg_listen, optarg);
                         if (r < 0)
                                 return log_oom();
+
+                        n_fds++;
 
                         break;
 
@@ -416,6 +413,9 @@ static int parse_argv(int argc, char *argv[]) {
                                              false);
                         if (r < 0)
                                 return log_error_errno(r, "strv_extend_strv: %m");
+
+                        n_fdnames++;
+
                         break;
                 }
 
@@ -439,6 +439,19 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Datagram sockets do not accept connections. "
                                        "The --datagram and --accept options may not be combined.");
+
+        if (n_fds > 1 && !arg_accept && arg_inetd)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inetd only supported with a single file descriptor, "
+                                       "or with --accept.");
+
+        if (arg_fdnames && n_fdnames != n_fds)
+                log_warning("The number of fd names is different than number of fds: %zu vs %zu",
+                            n_fdnames,
+                            n_fds);
+
+        if (arg_fdnames && arg_inetd)
+                log_warning("--fdname has no effect with --inetd present.");
 
         return 1 /* work to do */;
 }
