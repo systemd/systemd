@@ -1529,6 +1529,19 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
         }
 }
 
+int getsockopt_int(int fd, int level, int optname, int *ret) {
+        int v;
+        socklen_t sl = sizeof(v);
+
+        if (getsockopt(fd, level, optname, &v, &sl) < 0)
+                return negative_errno();
+        if (sl != sizeof(v))
+                return -EIO;
+
+        *ret = v;
+        return 0;
+}
+
 int socket_bind_to_ifname(int fd, const char *ifname) {
         assert(fd >= 0);
 
@@ -1684,7 +1697,7 @@ int socket_set_option(int fd, int af, int opt_ipv4, int opt_ipv6, int val) {
 }
 
 int socket_get_mtu(int fd, int af, size_t *ret) {
-        int mtu = 0, r; /* Avoid maybe-uninitialized false positive */
+        int mtu, r;
 
         if (af == AF_UNSPEC) {
                 af = socket_get_family(fd);
