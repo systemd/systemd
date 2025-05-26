@@ -2760,7 +2760,7 @@ int unit_cgroup_is_empty(Unit *u) {
         if (!crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path);
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", empty_to_root(crt->cgroup_path));
         return r;
@@ -3626,8 +3626,6 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         uint64_t us;
 
         r = cg_get_keyed_attribute("cpu", crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
-        if (IN_SET(r, -ENOENT, -ENXIO))
-                return -ENODATA;
         if (r < 0)
                 return r;
 
@@ -4082,8 +4080,6 @@ static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
                         "cgroup.events",
                         STRV_MAKE("frozen"),
                         &val);
-        if (IN_SET(r, -ENOENT, -ENXIO))
-                return -ENODATA;
         if (r < 0)
                 return r;
 
