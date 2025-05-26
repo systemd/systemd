@@ -232,7 +232,7 @@ int import_set_nocow_and_log(int fd, const char *path) {
         r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
                 return log_full_errno(
-                                ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
+                                ERRNO_IS_IOCTL_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
                                 r, "Failed to set file attributes on %s: %m", path);
 
         return 0;

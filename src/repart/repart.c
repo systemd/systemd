@@ -4368,7 +4368,7 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
 
         if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
                 r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
-                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
+                if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r))
                         return log_error_errno(r, "Failed to disable copy-on-write on %s: %m", temp);
         }
 
