@@ -3943,38 +3943,30 @@ int unit_reset_accounting(Unit *u) {
         return r;
 }
 
-void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
+bool unit_invalidate_cgroup(Unit *u, CGroupMask m) {
         assert(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
-                return;
+                return false;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt)
-                return;
+                return false;
 
         if (FLAGS_SET(crt->cgroup_invalidated_mask, m)) /* NOP? */
-                return;
+                return false;
 
         crt->cgroup_invalidated_mask |= m;
         unit_add_to_cgroup_realize_queue(u);
+
+        return true;
 }
 
-void unit_invalidate_cgroup_bpf(Unit *u) {
+void unit_invalidate_cgroup_bpf_firewall(Unit *u) {
         assert(u);
 
-        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+        if (!unit_invalidate_cgroup(u, CGROUP_MASK_BPF_FIREWALL))
                 return;
-
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt)
-                return;
-
-        if (crt->cgroup_invalidated_mask & CGROUP_MASK_BPF_FIREWALL) /* NOP? */
-                return;
-
-        crt->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
-        unit_add_to_cgroup_realize_queue(u);
 
         /* If we are a slice unit, we also need to put compile a new BPF program for all our children, as the IP access
          * list of our children includes our own. */
@@ -3982,7 +3974,7 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
                 Unit *member;
 
                 UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_SLICE_OF)
-                        unit_invalidate_cgroup_bpf(member);
+                        unit_invalidate_cgroup_bpf_firewall(member);
         }
 }
 
