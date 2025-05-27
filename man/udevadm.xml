@@ -30,12 +30,12 @@
     <cmdsynopsis>
       <command>udevadm info</command>
       <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
-      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>id</replaceable>|<replaceable>unit</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>udevadm trigger</command>
       <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
-      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>id</replaceable>|<replaceable>unit</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>udevadm settle</command>
@@ -52,13 +52,13 @@
     <cmdsynopsis>
       <command>udevadm test</command>
       <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
-      <arg choice="plain"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable></arg>
+      <arg choice="plain"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>id</replaceable>|<replaceable>unit</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>udevadm test-builtin</command>
       <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
       <arg choice="plain"><replaceable>command</replaceable></arg>
-      <arg choice="plain"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable></arg>
+      <arg choice="plain"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>id</replaceable>|<replaceable>unit</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>udevadm verify</command>
@@ -115,15 +115,17 @@
     <refsect2>
       <title>udevadm info
       <optional><replaceable>options</replaceable>…</optional>
-      <optional><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable>…</optional>
+      <optional><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>id</replaceable>|<replaceable>unit</replaceable>…</optional>
       </title>
 
       <para>Query the udev database for device information.</para>
 
       <para>Positional arguments should be used to specify one or more devices. Each one may be a device name
       (in which case it must start with <filename>/dev/</filename>), a sys path (in which case it must start
-      with <filename>/sys/</filename>), or a systemd device unit name (in which case it must end with
-      <literal>.device</literal>, see
+      with <filename>/sys/</filename>), a device ID (such as <literal>n1</literal>, <literal>c5:1</literal>,
+      or <literal>b259:1</literal>, see
+      <citerefentry><refentrytitle>sd_device_get_device_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+      or a systemd device unit name (in which case it must end with <literal>.device</literal>, see
       <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
       </para>
 
@@ -427,7 +429,7 @@
     <refsect2>
       <title>udevadm trigger
       <optional><replaceable>options</replaceable>…</optional>
-      <optional><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable>…</optional>
+      <optional><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>id</replaceable>|<replaceable>unit</replaceable>…</optional>
       </title>
 
       <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
@@ -902,7 +904,7 @@
     <refsect2>
       <title>udevadm test
       <optional><replaceable>options</replaceable>…</optional>
-      <replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable>
+      <replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>id</replaceable>|<replaceable>unit</replaceable>
       </title>
 
       <para>
