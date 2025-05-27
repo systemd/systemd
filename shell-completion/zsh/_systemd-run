@@ -29,16 +29,241 @@ __systemctl() {
         _values "${_modes[@]}"
     }
 
+(( $+functions[_systemd-run_properties] )) ||
+    _systemd-run_properties() {
+        local -a _properties=(
+            # man/systemd.exec.xml
+            ExecSearchPath=
+            WorkingDirectory=
+            RootDirectory=
+            RootImage=
+            RootImageOptions=
+            RootEphemeral=
+            RootHash=
+            RootHashSignature=
+            RootVerity=
+            RootImagePolicy=
+            MountImagePolicy=
+            ExtensionImagePolicy=
+            MountAPIVFS=
+            BindLogSockets=
+            ProtectProc=
+            ProcSubset=
+            BindPaths=
+            BindReadOnlyPaths=
+            MountImages=
+            ExtensionImages=
+            ExtensionDirectories=
+            User=
+            Group=
+            DynamicUser=
+            SupplementaryGroups=
+            SetLoginEnvironment=
+            PAMName=
+            CapabilityBoundingSet=
+            AmbientCapabilities=
+            NoNewPrivileges=
+            SecureBits=
+            SELinuxContext=
+            AppArmorProfile=
+            SmackProcessLabel=
+            LimitCPU=
+            LimitFSIZE=
+            LimitDATA=
+            LimitSTACK=
+            LimitCORE=
+            LimitRSS=
+            LimitNOFILE=
+            LimitAS=
+            LimitNPROC=
+            LimitMEMLOCK=
+            LimitLOCKS=
+            LimitSIGPENDING=
+            LimitMSGQUEUE=
+            LimitNICE=
+            LimitRTPRIO=
+            LimitRTTIME=
+            UMask=
+            CoredumpFilter=
+            KeyringMode=
+            OOMScoreAdjust=
+            TimerSlackNSec=
+            Personality=
+            IgnoreSIGPIPE=
+            Nice=
+            CPUSchedulingPolicy=
+            CPUSchedulingPriority=
+            CPUSchedulingResetOnFork=
+            CPUAffinity=
+            NUMAPolicy=
+            NUMAMask=
+            IOSchedulingClass=
+            IOSchedulingPriority=
+            ProtectSystem=
+            ProtectHome=
+            RuntimeDirectory=
+            StateDirectory=
+            CacheDirectory=
+            LogsDirectory=
+            ConfigurationDirectory=
+            RuntimeDirectoryMode=
+            StateDirectoryMode=
+            CacheDirectoryMode=
+            LogsDirectoryMode=
+            ConfigurationDirectoryMode=
+            RuntimeDirectoryPreserve=
+            TimeoutCleanSec=
+            ReadWritePaths=
+            ReadOnlyPaths=
+            InaccessiblePaths=
+            ExecPaths=
+            NoExecPaths=
+            TemporaryFileSystem=
+            PrivateTmp=
+            PrivateDevices=
+            PrivateNetwork=
+            NetworkNamespacePath=
+            PrivateIPC=
+            IPCNamespacePath=
+            MemoryKSM=
+            PrivatePIDs=
+            PrivateUsers=
+            ProtectHostname=
+            ProtectClock=
+            ProtectKernelTunables=
+            ProtectKernelModules=
+            ProtectKernelLogs=
+            ProtectControlGroups=
+            RestrictAddressFamilies=
+            RestrictFileSystems=
+            RestrictNamespaces=
+            DelegateNamespaces=
+            LockPersonality=
+            MemoryDenyWriteExecute=
+            RestrictRealtime=
+            RestrictSUIDSGID=
+            RemoveIPC=
+            PrivateMounts=
+            MountFlags=
+            SystemCallFilter=
+            SystemCallErrorNumber=
+            SystemCallArchitectures=
+            SystemCallLog=
+            Environment=
+            EnvironmentFile=
+            PassEnvironment=
+            UnsetEnvironment=
+            StandardInput=
+            StandardOutput=
+            StandardError=
+            StandardInputText=
+            StandardInputData=
+            LogLevelMax=
+            LogExtraFields=
+            LogRateLimitIntervalSec=
+            LogRateLimitBurst=
+            LogFilterPatterns=
+            LogNamespace=
+            SyslogIdentifier=
+            SyslogFacility=
+            SyslogLevel=
+            SyslogLevelPrefix=
+            TTYPath=
+            TTYReset=
+            TTYVHangup=
+            TTYColumns=
+            TTYRows=
+            TTYVTDisallocate=
+            LoadCredential=
+            LoadCredentialEncrypted=
+            ImportCredential=
+            SetCredential=
+            SetCredentialEncrypted=
+            UtmpIdentifier=
+            UtmpMode=
+
+            # man/systemd.kill.xml
+            KillMode=
+            KillSignal=
+            RestartKillSignal=
+            SendSIGHUP=
+            SendSIGKILL=
+            FinalKillSignal=
+            WatchdogSignal=
+
+            # man/systemd.resource-control.xml
+            CPUWeight=
+            StartupCPUWeight=
+            CPUQuota=
+            CPUQuotaPeriodSec=
+            AllowedCPUs=
+            StartupAllowedCPUs=
+            MemoryAccounting=
+            MemoryMin=
+            MemoryLow=
+            StartupMemoryLow=
+            DefaultStartupMemoryLow=
+            MemoryHigh=
+            StartupMemoryHigh=
+            MemoryMax=
+            StartupMemoryMax=
+            MemorySwapMax=
+            StartupMemorySwapMax=
+            MemoryZSwapMax=
+            StartupMemoryZSwapMax=
+            MemoryZSwapWriteback=
+            AllowedMemoryNodes=
+            StartupAllowedMemoryNodes=
+            TasksAccounting=
+            TasksMax=
+            IOAccounting=
+            IOWeight=
+            StartupIOWeight=
+            IODeviceWeight=
+            IOReadBandwidthMax=
+            IOWriteBandwidthMax=
+            IOReadIOPSMax=
+            IOWriteIOPSMax=
+            IODeviceLatencyTargetSec=
+            IPAccounting=
+            IPAddressAllow=
+            IPAddressDeny=
+            SocketBindAllow=
+            SocketBindDeny=
+            RestrictNetworkInterfaces=
+            NFTSet=
+            IPIngressFilterPath=
+            IPEgressFilterPath=
+            BPFProgram=
+            DeviceAllow=
+            DevicePolicy=
+            Slice=
+            Delegate=
+            DelegateSubgroup=
+            DisableControllers=
+            ManagedOOMSwap=
+            ManagedOOMMemoryPressure=
+            ManagedOOMMemoryPressureLimit=
+            ManagedOOMMemoryPressureDurationSec=
+            ManagedOOMPreference=
+            MemoryPressureWatch=
+            MemoryPressureThresholdSec=
+            CoredumpReceive=
+        )
+        _values 'NAME=VALUE' "${_properties[@]}"
+    }
+
 _arguments \
-    '(-G --collect)'{-G,--collect}'[Unload the transient unit after it completed]' \
+    '(-G --collect --shell)'{-G,--collect}'[Unload the transient unit after it completed]' \
     '--description=[Description for unit]:description' \
     '--gid=[Run as system group]:group:_groups' \
     '(- *)'{-h,--help}'[Show help message]' \
     '(-H --host)'{-H+,--host=}'[Operate on remote host]:[user@]host:_sd_hosts_or_user_at_host' \
     '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '(-C --capsule)'{-C,--capsule=}'[Operate on capsule]:capsule' \
     '--nice=[Nice level]:nice level' \
     '--no-ask-password[Do not query the user for authentication]' \
-    '--no-block[Do not synchronously wait for the unit start operation to finish]' \
+    '(--wait)--no-block[Do not synchronously wait for the unit start operation to finish]' \
     '--on-active=[Run after SEC seconds]:SEC' \
     '--on-boot=[Run SEC seconds after machine was booted up]:SEC' \
     '--on-calendar=[Realtime timer]:SPEC' \
@@ -49,42 +274,29 @@ _arguments \
     '--on-unit-inactive=[Run SEC seconds after the last deactivation]:SEC' \
     '--path-property=[Set path unit property]:NAME=VALUE' \
     '(-P --pipe)'{-P,--pipe}'[Inherit standard input, output, and error]' \
-    '(-p --property)'{-p+,--property=}'[Set unit property]:NAME=VALUE:(( \
-                CPUAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP= \
-                SendSIGKILL= MemoryLimit= CPUShares= BlockIOWeight= User= Group= \
-                DevicePolicy= KillMode= ExitType= DeviceAllow= BlockIOReadBandwidth= \
-                BlockIOWriteBandwidth= BlockIODeviceWeight= Nice= Environment= \
-                KillSignal= RestartKillSignal= FinalKillSignal= LimitCPU= LimitFSIZE= LimitDATA= \
-                LimitSTACK= LimitCORE= LimitRSS= LimitNOFILE= LimitAS= LimitNPROC= \
-                LimitMEMLOCK= LimitLOCKS= LimitSIGPENDING= LimitMSGQUEUE= \
-                LimitNICE= LimitRTPRIO= LimitRTTIME= PrivateTmp= PrivateDevices= \
-                PrivateNetwork= NoNewPrivileges= WorkingDirectory= RootDirectory= \
-                TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel= \
-                SyslogFacility= TimerSlackNSec= OOMScoreAdjust= ReadWritePaths= \
-                ReadOnlyPaths= InaccessiblePaths= EnvironmentFile= \
-                ProtectSystem= ProtectHome= RuntimeDirectory= PassEnvironment= \
-                ))' \
-    '(-t --pty)'{-t,--pty}'[The service connects to the terminal]' \
+    {'*-p+','*--property='}'[Set unit property]:NAME=VALUE:_systemd-run_properties' \
+    '(-t --pty --shell)'{-t,--pty}'[The service connects to the terminal]' \
     '(-q --quiet)'{-q,--quiet}'[Suppresses additional informational output]' \
     '--json=[Output as JSON]:JSON:(pretty short off)' \
     '--job-mode=[Specify how to deal with other jobs]:mode:_systemd-run_job_modes' \
     '(-r --remain-after-exit)'{-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
-    '(-d --same-dir)'{-d,--same-dir}'[Run on the current working directory]' \
+    '(-d --same-dir --working-directory --shell)'{-d,--same-dir}'[Run on the current working directory]' \
     '--scope[Run this as scope rather than service]' \
     '--send-sighup[Send SIGHUP when terminating]' \
-    '--service-type=[Service type]:type:(simple forking oneshot dbus notify idle)' \
-    '(-E --setenv)'{-E+,--setenv=}'[Set environment]:NAME=VALUE' \
-    '(-S --shell)'{-S,--shell}'[requests an interactive shell in the current working directory]' \
+    '(--shell)--service-type=[Service type]:type:(simple forking oneshot dbus notify idle)' \
+    {'*-E+','*--setenv='}'[Set environment]:NAME=VALUE' \
+    '(-S --shell --pty --same-dir --wait --collect --service-type)'{-S,--shell}'[requests an interactive shell in the current working directory]' \
     '--slice=[Run in the specified slice]:slices:__systemd-run_slices' \
     '--slice-inherit[Run in the inherited slice]' \
+    '--expand-environment=[Control expansion of environment variables]:bool:(yes no)' \
     '--socket-property=[Set socket unit property]:NAME=VALUE' \
-    '--system[Run as system unit]' \
+    '(--user)--system[Run as system unit]' \
     '--timer-property=[Set timer unit property]:NAME=VALUE' \
     '--uid=[Run as system user]:user:_users' \
     '(-u --unit)'{-u+,--unit=}'[Run under the specified unit name]:unit name' \
-    '--user[Run as user unit]' \
-    '--version[Show package version]' \
-    '--wait=[Wait until service stopped again]' \
-    '--working-directory=[Run with the specified working directory]' \
+    '(--system)--user[Run as user unit]' \
+    '(- *)--version[Show package version]' \
+    '(--no-block --shell)--wait[Wait until service stopped again]' \
+    '(--same-dir -d --shell)--working-directory=[Run with the specified working directory]:dir:_files -/' \
     '(-):command: _command_names -e' \
     '*::arguments:_normal'
