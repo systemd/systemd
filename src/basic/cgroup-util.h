@@ -219,14 +219,12 @@ int cg_get_attribute(const char *controller, const char *path, const char *attri
 int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char * const *keys, char **values);
 
 int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
-
-/* Does a parse_boolean() on the attribute contents and sets ret accordingly */
-int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute, bool *ret);
+int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 
 int cg_set_xattr(const char *path, const char *name, const void *value, size_t size, int flags);
-int cg_get_xattr_malloc(const char *path, const char *name, char **ret, size_t *ret_size);
+int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_size);
 /* Returns negative on error, and 0 or 1 on success for the bool value */
 int cg_get_xattr_bool(const char *path, const char *name);
 int cg_remove_xattr(const char *path, const char *name);

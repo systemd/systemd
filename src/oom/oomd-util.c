@@ -41,7 +41,7 @@ static int increment_oomd_xattr(const char *path, const char *xattr, uint64_t nu
         assert(path);
         assert(xattr);
 
-        r = cg_get_xattr_malloc(path, xattr, &value, /* ret_size= */ NULL);
+        r = cg_get_xattr(path, xattr, &value, /* ret_size= */ NULL);
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 return r;
 
