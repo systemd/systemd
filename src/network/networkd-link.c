@@ -2200,8 +2200,8 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 
         r = sd_netlink_message_read_u32(message, IFLA_MASTER, (uint32_t*) &master_ifindex);
         if (r == -ENODATA)
-                return 0;
-        if (r < 0)
+                master_ifindex = 0; /* no master interface */
+        else if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read master ifindex: %m");
 
         if (master_ifindex == link->ifindex)
