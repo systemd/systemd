@@ -76,6 +76,18 @@
  *
  */
 
+/* Special values for the cpu.shares attribute */
+#define CGROUP_CPU_SHARES_INVALID UINT64_MAX
+#define CGROUP_CPU_SHARES_MIN UINT64_C(2)
+#define CGROUP_CPU_SHARES_MAX UINT64_C(262144)
+#define CGROUP_CPU_SHARES_DEFAULT UINT64_C(1024)
+
+/* Special values for the blkio.weight attribute */
+#define CGROUP_BLKIO_WEIGHT_INVALID UINT64_MAX
+#define CGROUP_BLKIO_WEIGHT_MIN UINT64_C(10)
+#define CGROUP_BLKIO_WEIGHT_MAX UINT64_C(1000)
+#define CGROUP_BLKIO_WEIGHT_DEFAULT UINT64_C(500)
+
 static int oci_unexpected(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                         "Unexpected OCI element '%s' of type '%s'.", name, sd_json_variant_type_to_string(sd_json_variant_type(v)));
