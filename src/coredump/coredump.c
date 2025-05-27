@@ -155,6 +155,7 @@ typedef struct Context {
         uint64_t rlimit;
         bool is_pid1;
         bool is_journald;
+        bool got_pidfd;
         int mount_tree_fd;
 
         /* These point into external memory, are not owned by this object */
@@ -1403,6 +1404,8 @@ static int gather_pid_metadata_from_argv(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to initialize pidref from pidfd %d: %m", kernel_fd);
 
+                        context->got_pidfd = 1;
+
                         /* If there are containers involved with different versions of the code they might
                          * not be using pidfds, so it would be wrong to set the metadata, skip it. */
                         r = in_same_namespace(/* pid1 = */ 0, context->pidref.pid, NAMESPACE_PID);
@@ -1621,13 +1624,11 @@ static int can_forward_coredump(Context *context, pid_t pid) {
 
         assert(context);
 
-        /* We don't use %F/pidfd to pin down the crashed process yet. We need to avoid a situation where the
-         * attacker crashes a SUID process or a root daemon and quickly replaces it with a namespaced process
-         * and we forward the initial part of the coredump to the attacker, inside the namespace.
-         *
-         * TODO: relax this check when %F is implemented and used.
-         */
-        if (context->dumpable != 1)
+        /* We need to avoid a situation where the attacker crashes a SUID process or a root daemon and
+         * quickly replaces it with a namespaced process and we forward the coredump to the attacker, into
+         * the namespace. With %F/pidfd we can reliably check the namespace of the original process, hence we
+         * can allow forwarding. */
+        if (!context->got_pidfd && context->dumpable != 1)
                 return false;
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
