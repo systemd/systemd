@@ -226,7 +226,7 @@ int cg_pid_get_user_slice(pid_t pid, char **ret_slice);
 
 int cg_path_decode_unit(const char *cgroup, char **ret_unit);
 
-bool cg_needs_escape(const char *p);
+bool cg_needs_escape(const char *p) _pure_;
 int cg_escape(const char *p, char **ret);
 char* cg_unescape(const char *p) _pure_;
 
