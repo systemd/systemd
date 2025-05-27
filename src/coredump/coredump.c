@@ -446,7 +446,7 @@ static int grant_user_access(int core_fd, const Context *context) {
         /* We allow access if %d/dumpable on the command line was exactly 1, we got all the data,
          * at_secure is not set, and the uid/gid match euid/egid. */
         bool ret =
-                context->dumpable == 1 &&
+                context->dumpable == SUID_DUMP_USER &&
                 at_secure == 0 &&
                 uid != UID_INVALID && euid != UID_INVALID && uid == euid &&
                 gid != GID_INVALID && egid != GID_INVALID && gid == egid;
@@ -1094,13 +1094,13 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse resource limit \"%s\", ignoring: %m", context->meta[META_ARGV_RLIMIT]);
 
-        /* The value is set to contents of /proc/sys/fs/suid_dumpable, which we set to 2,
+        /* The value is set to contents of /proc/sys/fs/suid_dumpable, which we set to SUID_DUMP_SAFE (2),
          * if the process is marked as not dumpable, see PR_SET_DUMPABLE(2const). */
         if (context->meta[META_ARGV_DUMPABLE]) {
                 r = safe_atou(context->meta[META_ARGV_DUMPABLE], &context->dumpable);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse dumpable field \"%s\": %m", context->meta[META_ARGV_DUMPABLE]);
-                if (context->dumpable > 2)
+                if (context->dumpable > SUID_DUMP_SAFE)
                         log_notice("Got unexpected %%d/dumpable value %u.", context->dumpable);
         }
 
@@ -1634,7 +1634,7 @@ static int can_forward_coredump(Context *context, const PidRef *pid) {
          * quickly replaces it with a namespaced process and we forward the coredump to the attacker, into
          * the namespace. With %F/pidfd we can reliably check the namespace of the original process, hence we
          * can allow forwarding. */
-        if (!context->got_pidfd && context->dumpable != 1)
+        if (!context->got_pidfd && context->dumpable != SUID_DUMP_USER)
                 return false;
 
         r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
@@ -2024,7 +2024,7 @@ static int run(int argc, char *argv[]) {
         log_set_target_and_open(LOG_TARGET_KMSG);
 
         /* Make sure we never enter a loop */
-        (void) prctl(PR_SET_DUMPABLE, 0);
+        (void) prctl(PR_SET_DUMPABLE, SUID_DUMP_DISABLE);
 
         /* Ignore all parse errors */
         (void) parse_config();
