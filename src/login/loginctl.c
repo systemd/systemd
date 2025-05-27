@@ -1001,6 +1001,7 @@ static int show_properties(sd_bus *bus, const char *path) {
                         print_property,
                         arg_property,
                         arg_print_flags,
+                        NULL,
                         NULL);
         if (r < 0)
                 return bus_log_parse_error(r);

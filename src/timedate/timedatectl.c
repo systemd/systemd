@@ -233,6 +233,7 @@ static int show_properties(int argc, char **argv, void *userdata) {
                                      NULL,
                                      arg_property,
                                      arg_print_flags,
+                                     NULL,
                                      NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -666,8 +667,14 @@ static int show_timesync_status_once(sd_bus *bus) {
                                    &error,
                                    &m,
                                    &info);
-        if (r < 0)
+        if (r < 0) {
+                if (bus_error_is_unknown_service(&error))
+                        return log_error_errno(r,
+                                               "Command requires systemd-timesyncd.service, but it is not available: %s",
+                                               bus_error_message(&error, r));
+
                 return log_error_errno(r, "Failed to query server: %s", bus_error_message(&error, r));
+        }
 
         if (arg_monitor && !terminal_is_dumb())
                 fputs(ANSI_HOME_CLEAR, stdout);
@@ -798,6 +805,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
 }
 
 static int show_timesync(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -807,9 +815,16 @@ static int show_timesync(int argc, char **argv, void *userdata) {
                                      print_timesync_property,
                                      arg_property,
                                      arg_print_flags,
-                                     NULL);
-        if (r < 0)
+                                     NULL,
+                                     &error);
+
+        if (r < 0) {
+                if (bus_error_is_unknown_service(&error))
+                        return log_error_errno(r,
+                                               "Command requires systemd-timesyncd.service, but it is not available: %s",
+                                               bus_error_message(&error, r));
                 return bus_log_parse_error(r);
+        }
 
         return 0;
 }

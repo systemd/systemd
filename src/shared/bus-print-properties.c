@@ -428,7 +428,8 @@ int bus_print_all_properties(
                 bus_message_print_t func,
                 char **filter,
                 BusPrintPropertyFlags flags,
-                Set **found_properties) {
+                Set **found_properties,
+                sd_bus_error *ret_error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -445,6 +446,7 @@ int bus_print_all_properties(
                         &error,
                         &reply,
                         "s", "");
+        sd_bus_error_move(ret_error, &error);
         if (r < 0)
                 return r;
 
