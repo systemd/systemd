@@ -30,6 +30,7 @@ static int arg_socket_type = SOCK_STREAM;
 static char **arg_setenv = NULL;
 static char **arg_fdnames = NULL;
 static bool arg_inetd = false;
+static bool arg_now = false;
 
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
@@ -102,9 +103,22 @@ static int open_sockets(int *ret_epoll_fd) {
                 log_set_open_when_needed(false);
         }
 
-        epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-        if (epoll_fd < 0)
-                return log_error_errno(errno, "Failed to create epoll object: %m");
+        if (count > 1 && !arg_accept && arg_inetd)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inetd only supported with a single file descriptor, or with --accept.");
+
+        size_t n_fdnames = strv_length(arg_fdnames);
+        if (!arg_accept && arg_fdnames && n_fdnames != (size_t) count)
+                log_warning("The number of fd names is different from the number of fds: %zu vs %i",
+                            n_fdnames, count);
+        if (arg_accept && arg_fdnames && n_fdnames > 1)
+                log_warning("More than one fd name specified with --accept.");
+
+        if (!arg_now) {
+                epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+                if (epoll_fd < 0)
+                        return log_error_errno(errno, "Failed to create epoll object: %m");
+        }
 
         for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
                 _cleanup_free_ char *name = NULL;
@@ -112,9 +126,11 @@ static int open_sockets(int *ret_epoll_fd) {
                 getsockname_pretty(fd, &name);
                 log_info("Listening on %s as %i.", strna(name), fd);
 
-                r = add_epoll(epoll_fd, fd);
-                if (r < 0)
-                        return r;
+                if (epoll_fd >= 0) {
+                        r = add_epoll(epoll_fd, fd);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         *ret_epoll_fd = TAKE_FD(epoll_fd);
@@ -128,10 +144,6 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
         assert(!strv_isempty(argv));
         assert(start_fd >= 0);
         assert(n_fds > 0);
-
-        if (arg_inetd && n_fds != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--inetd only supported for single file descriptors.");
 
         FOREACH_STRING(var, "TERM", "COLORTERM", "NO_COLOR", "PATH", "USER", "HOME") {
                 const char *n;
@@ -181,8 +193,6 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
                                         if (r < 0)
                                                 return log_oom();
                                 }
-                        else if (len != n_fds)
-                                log_warning("The number of fd names is different than number of fds: %zu vs %zu", len, n_fds);
 
                         names = strv_join(arg_fdnames, ":");
                         if (!names)
@@ -314,6 +324,7 @@ static int help(void) {
                "  -E --setenv=NAME[=VALUE]   Pass an environment variable to children\n"
                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
                "     --inetd                 Enable inetd file descriptor passing protocol\n"
+               "     --now                   Start instantly instead of waiting for connection\n"
                "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -330,6 +341,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FDNAME,
                 ARG_SEQPACKET,
                 ARG_INETD,
+                ARG_NOW,
         };
 
         static const struct option options[] = {
@@ -343,6 +355,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "environment", required_argument, NULL, 'E'           }, /* legacy alias */
                 { "fdname",      required_argument, NULL, ARG_FDNAME    },
                 { "inetd",       no_argument,       NULL, ARG_INETD     },
+                { "now",         no_argument,       NULL, ARG_NOW       },
                 {}
         };
 
@@ -423,6 +436,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_inetd = true;
                         break;
 
+                case ARG_NOW:
+                        arg_now = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -439,6 +456,13 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Datagram sockets do not accept connections. "
                                        "The --datagram and --accept options may not be combined.");
+
+        if (arg_accept && arg_now)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--now cannot be used in conjunction with --accept.");
+
+        if (arg_fdnames && arg_inetd)
+                log_warning("--fdname has no effect with --inetd present.");
 
         return 1 /* work to do */;
 }
@@ -481,14 +505,16 @@ static int run(int argc, char **argv) {
         for (;;) {
                 struct epoll_event event;
 
-                if (epoll_wait(epoll_fd, &event, 1, -1) < 0) {
-                        if (errno == EINTR)
-                                continue;
+                if (epoll_fd >= 0) {
+                        if (epoll_wait(epoll_fd, &event, 1, -1) < 0) {
+                                if (errno == EINTR)
+                                        continue;
 
-                        return log_error_errno(errno, "epoll_wait() failed: %m");
+                                return log_error_errno(errno, "epoll_wait() failed: %m");
+                        }
+
+                        log_info("Communication attempt on fd %i.", event.data.fd);
                 }
-
-                log_info("Communication attempt on fd %i.", event.data.fd);
 
                 if (!arg_accept)
                         return exec_process(exec_argv, SD_LISTEN_FDS_START, (size_t) n);
