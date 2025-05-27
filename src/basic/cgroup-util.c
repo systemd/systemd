@@ -592,7 +592,7 @@ int cg_set_xattr(const char *path, const char *name, const void *value, size_t s
         return RET_NERRNO(setxattr(fs, name, value, size, flags));
 }
 
-int cg_get_xattr_malloc(const char *path, const char *name, char **ret, size_t *ret_size) {
+int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_size) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
@@ -1594,6 +1594,8 @@ int cg_set_attribute(const char *controller, const char *path, const char *attri
         _cleanup_free_ char *p = NULL;
         int r;
 
+        assert(attribute);
+
         r = cg_get_path(controller, path, attribute, &p);
         if (r < 0)
                 return r;
@@ -1604,6 +1606,8 @@ int cg_set_attribute(const char *controller, const char *path, const char *attri
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
+
+        assert(attribute);
 
         r = cg_get_path(controller, path, attribute, &p);
         if (r < 0)
@@ -1638,11 +1642,9 @@ int cg_get_attribute_as_uint64(const char *controller, const char *path, const c
         return 0;
 }
 
-int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute, bool *ret) {
+int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute) {
         _cleanup_free_ char *value = NULL;
         int r;
-
-        assert(ret);
 
         r = cg_get_attribute(controller, path, attribute, &value);
         if (r == -ENOENT)
@@ -1650,12 +1652,7 @@ int cg_get_attribute_as_bool(const char *controller, const char *path, const cha
         if (r < 0)
                 return r;
 
-        r = parse_boolean(value);
-        if (r < 0)
-                return r;
-
-        *ret = r;
-        return 0;
+        return parse_boolean(value);
 }
 
 int cg_get_owner(const char *path, uid_t *ret_uid) {
