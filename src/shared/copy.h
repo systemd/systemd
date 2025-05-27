@@ -32,6 +32,7 @@ typedef enum CopyFlags {
          * copy because reflinking from COW to NOCOW files is not supported.
          */
         COPY_NOCOW_AFTER                  = 1 << 20,
+        COPY_PRESERVE_FS_VERITY           = 1 << 21, /* Preserve fs-verity when copying. */
 } CopyFlags;
 
 typedef enum DenyType {
