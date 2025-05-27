@@ -179,9 +179,7 @@ int bus_property_get_triggered_unit(sd_bus *bus, const char *path, const char *i
                         sd_bus_error *error) {                          \
                                                                         \
                 const char *s;                                          \
-                /* Need to initialize this to avoid a false positive    \
-                 * ‘v’ may be used uninitialized [-Werror=maybe-uninitialized] */ \
-                type v = 0;                                             \
+                type v;                                                 \
                 int r;                                                  \
                                                                         \
                 assert(p);                                              \

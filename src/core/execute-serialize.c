@@ -1836,13 +1836,6 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        if (c->bpf_delegate_commands) {
-                r = serialize_item(f, "exec-context-bpf-delegate-commands",
-                                   BPF_DELEGATE_TO_STRING(c->bpf_delegate_commands));
-                if (r < 0)
-                        return r;
-        }
-
         r = serialize_item(f, "exec-context-runtime-directory-preserve-mode", exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
         if (r < 0)
                 return r;
@@ -2763,10 +2756,6 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         c->private_bpf = private_bpf_from_string(val);
                         if (c->private_bpf < 0)
                                 return -EINVAL;
-                } else if ((val = startswith(l, "exec-context-bpf-delegate-commands="))) {
-                        r = bpf_delegate_from_string(val, &c->bpf_delegate_commands);
-                        if (r < 0)
-                                return r;
                 } else if ((val = startswith(l, "exec-context-runtime-directory-preserve-mode="))) {
                         c->runtime_directory_preserve_mode = exec_preserve_mode_from_string(val);
                         if (c->runtime_directory_preserve_mode < 0)
