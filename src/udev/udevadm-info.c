@@ -1105,7 +1105,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (streq(optarg, "env")) /* deprecated */
                                         arg_query = QUERY_PROPERTY;
                                 else
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "unknown query type");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown query type '%s'", optarg);
                         }
                         break;
 
@@ -1185,7 +1185,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ATTR_MATCH:
                         if (!strchr(optarg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "expect <ATTR>=<value> instead of '%s'", optarg);
+                                                "Expected <ATTR>=<value> instead of '%s'", optarg);
 
                         r = strv_extend(&arg_attr_match, optarg);
                         if (r < 0)
@@ -1195,7 +1195,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ATTR_NOMATCH:
                         if (!strchr(optarg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "expect <ATTR>=<value> instead of '%s'", optarg);
+                                                "Expected <ATTR>=<value> instead of '%s'", optarg);
 
                         r = strv_extend(&arg_attr_nomatch, optarg);
                         if (r < 0)
@@ -1205,7 +1205,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PROPERTY_MATCH:
                         if (!strchr(optarg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "expect <PROPERTY>=<value> instead of '%s'", optarg);
+                                                "Expected <PROPERTY>=<value> instead of '%s'", optarg);
 
                         r = strv_extend(&arg_property_match, optarg);
                         if (r < 0)
