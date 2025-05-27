@@ -29,21 +29,6 @@ TEST(colors_enabled) {
         log_info("colors_enabled: %s", yes_no(colors_enabled()));
 }
 
-TEST(default_term_for_tty) {
-        puts(default_term_for_tty("/dev/tty23"));
-        puts(default_term_for_tty("/dev/ttyS23"));
-        puts(default_term_for_tty("/dev/tty0"));
-        puts(default_term_for_tty("/dev/pty0"));
-        puts(default_term_for_tty("/dev/pts/0"));
-        puts(default_term_for_tty("/dev/console"));
-        puts(default_term_for_tty("tty23"));
-        puts(default_term_for_tty("ttyS23"));
-        puts(default_term_for_tty("tty0"));
-        puts(default_term_for_tty("pty0"));
-        puts(default_term_for_tty("pts/0"));
-        puts(default_term_for_tty("console"));
-}
-
 TEST(read_one_char) {
         _cleanup_fclose_ FILE *file = NULL;
         char r;
