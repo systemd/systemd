@@ -143,7 +143,7 @@
 
     <para>The <function>sd_device_enumerator_add_match_sysname()</function> function adds a filter so
     that only devices whose sysname equals to <parameter>sysname</parameter> are enumerated.
-    <parameter>sysname</paramter> can be a glob pattern. When called multiple times, filters are ORed.</para>
+    <parameter>sysname</parameter> can be a glob pattern. When called multiple times, filters are ORed.</para>
 
     <para>The <function>sd_device_enumerator_add_nomatch_sysname()</function> function adds a filter
     so that devices whose sysname equals <parameter>sysname</parameter> are excluded from the
