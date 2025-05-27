@@ -174,23 +174,37 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
         return 0;
 }
 
-int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        char **s = ASSERT_PTR(userdata);
-        const char *n;
+int json_dispatch_const_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **n = ASSERT_PTR(userdata);
 
         if (sd_json_variant_is_null(variant)) {
-                *s = mfree(*s);
+                *n = NULL;
                 return 0;
         }
 
         if (!sd_json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        n = sd_json_variant_string(variant);
-        if (!filename_is_valid(n))
+        const char *filename = sd_json_variant_string(variant);
+        if (!filename_is_valid(filename))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid file name.", strna(name));
 
-        if (free_and_strdup(s, n) < 0)
+        *n = filename;
+        return 0;
+}
+
+int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **n = ASSERT_PTR(userdata);
+        const char *filename;
+        int r;
+
+        assert_return(variant, -EINVAL);
+
+        r = json_dispatch_const_filename(name, variant, flags, &filename);
+        if (r < 0)
+                return r;
+
+        if (free_and_strdup(n, filename) < 0)
                 return json_log_oom(variant, flags);
 
         return 0;
