@@ -1246,10 +1246,6 @@ bool tty_is_vc_resolve(const char *tty) {
         return tty_is_vc(tty);
 }
 
-const char* default_term_for_tty(const char *tty) {
-        return tty && tty_is_vc_resolve(tty) ? "linux" : "vt220";
-}
-
 int fd_columns(int fd) {
         struct winsize ws = {};
 
