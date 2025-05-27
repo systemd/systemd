@@ -513,6 +513,8 @@ node /org/freedesktop/machine1/machine/rawhide {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u Leader = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t LeaderPIDFDId = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Class = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootDirectory = '...';
@@ -603,6 +605,8 @@ node /org/freedesktop/machine1/machine/rawhide {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Leader"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="LeaderPIDFDId"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Class"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootDirectory"/>
@@ -649,6 +653,9 @@ node /org/freedesktop/machine1/machine/rawhide {
       <para><varname>Unit</varname> is the systemd scope or service unit name for the machine.</para>
 
       <para><varname>Leader</varname> is the PID of the leader process of the machine.</para>
+
+      <para><varname>LeaderPIDFDId</varname> encodes the Linux pidfd inode ID of the leader process of the
+      machine.</para>
 
       <para><varname>Class</varname> is the class of the machine and is either the string "vm" (for real VMs
       based on virtualized hardware) or "container" (for lightweight userspace virtualization sharing the
@@ -717,6 +724,7 @@ $ gdbus introspect --system \
       <function>CopyToWithFlags()</function> were added in version 252.</para>
       <para><function>GetSSHInfo()</function>, <varname>VSockCID</varname>, <varname>SSHAddress</varname>
       and <varname>SSHPrivateKeyPath</varname> were added in version 256.</para>
+      <para><varname>LeaderPIDFDId</varname> was added in version 258.</para>
     </refsect2>
   </refsect1>
 
