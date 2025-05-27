@@ -463,7 +463,8 @@ if cc.get_id() == 'gcc' and (not '02'.contains(get_option('optimization')) or
                              '-Os' in c_args or
                              '-O1' in c_args or
                              '-O3' in c_args or
-                             '-Og' in c_args)
+                             '-Og' in c_args or
+                             '-Ofast' in c_args)
         possible_common_cc_flags += '-Wno-maybe-uninitialized'
 endif
 
