@@ -1,15 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <signal.h>
-#include <stddef.h>
 #include <sys/mman.h>
 
-#include "log.h"
-#include "macro.h"
 #include "memory-util.h"
-#include "missing_syscall.h"
-#include "process-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
 

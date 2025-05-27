@@ -1,27 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
 #include <linux/if_ether.h>
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
 #include <linux/netlink.h>
 #include <linux/vm_sockets.h>
 #include <netinet/in.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/un.h>
 
-#include "errno-util.h"
-#include "in-addr-util.h"
-#include "macro.h"
+#include "forward.h"
+#include "memory-util.h"
 #include "missing_network.h"
 #include "missing_socket.h"
-#include "pidref.h"
-#include "sparse-endian.h"
 
 union sockaddr_union {
         /* The minimal, abstract version */
@@ -144,12 +136,12 @@ typedef enum {
         IFNAME_VALID_SPECIAL     = 1 << 2, /* Allow the special names "all" and "default" */
         _IFNAME_VALID_ALL        = IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC | IFNAME_VALID_SPECIAL,
 } IfnameValidFlags;
-bool ifname_valid_char(char a);
-bool ifname_valid_full(const char *p, IfnameValidFlags flags);
+bool ifname_valid_char(char a) _const_;
+bool ifname_valid_full(const char *p, IfnameValidFlags flags) _pure_;
 static inline bool ifname_valid(const char *p) {
         return ifname_valid_full(p, 0);
 }
-bool address_label_valid(const char *p);
+bool address_label_valid(const char *p) _pure_;
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
@@ -256,18 +248,7 @@ static inline int setsockopt_int(int fd, int level, int optname, int value) {
         return 0;
 }
 
-static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
-        int v;
-        socklen_t sl = sizeof(v);
-
-        if (getsockopt(fd, level, optname, &v, &sl) < 0)
-                return negative_errno();
-        if (sl != sizeof(v))
-                return -EIO;
-
-        *ret = v;
-        return 0;
-}
+int getsockopt_int(int fd, int level, int optname, int *ret);
 
 int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);

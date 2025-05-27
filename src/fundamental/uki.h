@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro-fundamental.h"
+#include <stdbool.h>
 
 /* List of PE sections that have special meaning for us in unified kernels. This is the canonical order in
  * which we measure the sections into TPM PCR 11. PLEASE DO NOT REORDER! */

@@ -125,6 +125,8 @@ Deprecations and removals:
 
 Features:
 
+* nspawn: map foreign UID range through 1:1
+
 * replace most calls to sd_bus_send() by sd_bus_message_send()
 
 * replace all uses of fopen_temporary() by fopen_tmpfile_linkable() +

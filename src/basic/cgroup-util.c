@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <limits.h>
 #include <signal.h>
-#include <stddef.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/utsname.h>
 #include <sys/xattr.h>
 #include <threads.h>
 #include <unistd.h>
@@ -14,7 +9,6 @@
 #include "alloc-util.h"
 #include "capsule-util.h"
 #include "cgroup-util.h"
-#include "constants.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -24,23 +18,35 @@
 #include "fs-util.h"
 #include "log.h"
 #include "login-util.h"
-#include "macro.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
-#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "set.h"
 #include "special.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "xattr-util.h"
+
+/* The structure to pass to name_to_handle_at() on cgroupfs2 */
+typedef union {
+        struct file_handle file_handle;
+        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
+} cg_file_handle;
+
+#define CG_FILE_HANDLE_INIT                                     \
+        (cg_file_handle) {                                      \
+                .file_handle.handle_bytes = sizeof(uint64_t),   \
+                .file_handle.handle_type = FILEID_KERNFS,       \
+        }
+
+#define CG_FILE_HANDLE_CGROUPID(fh) (*CAST_ALIGN_PTR(uint64_t, (fh).file_handle.f_handle))
 
 int cg_path_open(const char *controller, const char *path) {
         _cleanup_free_ char *fs = NULL;
@@ -189,47 +195,6 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
                         return r;
 
                 /* ESRCH → gone by now? just skip over it, read the next */
-        }
-}
-
-int cg_read_event(
-                const char *controller,
-                const char *path,
-                const char *event,
-                char **ret) {
-
-        _cleanup_free_ char *events = NULL, *content = NULL;
-        int r;
-
-        r = cg_get_path(controller, path, "cgroup.events", &events);
-        if (r < 0)
-                return r;
-
-        r = read_full_virtual_file(events, &content, NULL);
-        if (r < 0)
-                return r;
-
-        for (const char *p = content;;) {
-                _cleanup_free_ char *line = NULL, *key = NULL;
-                const char *q;
-
-                r = extract_first_word(&p, &line, "\n", 0);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENOENT;
-
-                q = line;
-                r = extract_first_word(&q, &key, " ", 0);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -EINVAL;
-
-                if (!streq(key, event))
-                        continue;
-
-                return strdup_to(ret, q);
         }
 }
 
@@ -786,81 +751,25 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
 }
 
 int cg_is_empty(const char *controller, const char *path) {
-        _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid;
+        _cleanup_free_ char *t = NULL;
         int r;
+
+        /* Check if the cgroup hierarchy under 'path' is empty. On cgroup v2 it's exposed via the "populated"
+         * attribute of "cgroup.events". */
 
         assert(path);
 
-        r = cg_enumerate_processes(controller, path, &f);
+        /* The root cgroup is always populated */
+        if (empty_or_root(path))
+                return false;
+
+        r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.events", STRV_MAKE("populated"), &t);
         if (r == -ENOENT)
                 return true;
         if (r < 0)
                 return r;
 
-        r = cg_read_pid(f, &pid, CGROUP_DONT_SKIP_UNMAPPED);
-        if (r < 0)
-                return r;
-
-        return r == 0;
-}
-
-int cg_is_empty_recursive(const char *controller, const char *path) {
-        int r;
-
-        assert(path);
-
-        /* The root cgroup is always populated */
-        if (controller && empty_or_root(path))
-                return false;
-
-        r = cg_unified_controller(controller);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                _cleanup_free_ char *t = NULL;
-
-                /* On the unified hierarchy we can check empty state
-                 * via the "populated" attribute of "cgroup.events". */
-
-                r = cg_read_event(controller, path, "populated", &t);
-                if (r == -ENOENT)
-                        return true;
-                if (r < 0)
-                        return r;
-
-                return streq(t, "0");
-        } else {
-                _cleanup_closedir_ DIR *d = NULL;
-                char *fn;
-
-                r = cg_is_empty(controller, path);
-                if (r <= 0)
-                        return r;
-
-                r = cg_enumerate_subgroups(controller, path, &d);
-                if (r == -ENOENT)
-                        return true;
-                if (r < 0)
-                        return r;
-
-                while ((r = cg_read_subgroup(d, &fn)) > 0) {
-                        _cleanup_free_ char *p = NULL;
-
-                        p = path_join(path, fn);
-                        free(fn);
-                        if (!p)
-                                return -ENOMEM;
-
-                        r = cg_is_empty_recursive(controller, p);
-                        if (r <= 0)
-                                return r;
-                }
-                if (r < 0)
-                        return r;
-
-                return true;
-        }
+        return streq(t, "0");
 }
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
