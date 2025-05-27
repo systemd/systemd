@@ -5583,6 +5583,21 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'master bond199')
 
+        # Test case for #37629
+        for _ in range(3):
+            # When a slave leaved from its master bonding interface, the kernel brings down the slave.
+            check_output('ip link set dummy98 nomaster')
+            self.wait_online('dummy98:off')
+
+            # Bring up the interface to check if networkd recognizes the interface has no master now.
+            check_output('ip link set dummy98 up')
+            self.wait_online('dummy98:carrier')
+
+            # We need to first bring down the interface to make it join a bonding interface.
+            check_output('ip link set dummy98 down')
+            check_output('ip link set dummy98 master bond199')
+            self.wait_online('dummy98:enslaved')
+
     def test_bond_active_slave(self):
         copy_network_unit('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
         start_networkd()
