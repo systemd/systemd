@@ -25,7 +25,7 @@ bool in4_addr_is_null(const struct in_addr *a) {
 bool in6_addr_is_null(const struct in6_addr *a) {
         assert(a);
 
-        return eqzero(a->in6_u.u6_addr32);
+        return eqzero(a->s6_addr32);
 }
 
 int in_addr_is_null(int family, const union in_addr_union *u) {
@@ -63,7 +63,7 @@ bool in4_addr_is_link_local_dynamic(const struct in_addr *a) {
 bool in6_addr_is_link_local(const struct in6_addr *a) {
         assert(a);
 
-        return (a->in6_u.u6_addr32[0] & htobe32(0xffc00000)) == htobe32(0xfe800000);
+        return (a->s6_addr32[0] & htobe32(0xffc00000)) == htobe32(0xfe800000);
 }
 
 int in_addr_is_link_local(int family, const union in_addr_union *u) {
@@ -97,7 +97,7 @@ bool in4_addr_is_multicast(const struct in_addr *a) {
 bool in6_addr_is_multicast(const struct in6_addr *a) {
         assert(a);
 
-        return a->in6_u.u6_addr8[0] == 0xff;
+        return a->s6_addr[0] == 0xff;
 }
 
 int in_addr_is_multicast(int family, const union in_addr_union *u) {
