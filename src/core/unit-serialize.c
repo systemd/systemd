@@ -376,7 +376,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         unit_release_cgroup(u, /* drop_cgroup_runtime = */ false);
                 else {
                         unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
-                        unit_invalidate_cgroup_bpf(u);
+                        unit_invalidate_cgroup_bpf_firewall(u);
                 }
         }
 

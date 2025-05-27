@@ -437,8 +437,8 @@ bool unit_has_host_root_cgroup(const Unit *u);
 
 bool unit_has_startup_cgroup_constraints(Unit *u);
 
-void unit_invalidate_cgroup(Unit *u, CGroupMask m);
-void unit_invalidate_cgroup_bpf(Unit *u);
+bool unit_invalidate_cgroup(Unit *u, CGroupMask m);
+void unit_invalidate_cgroup_bpf_firewall(Unit *u);
 
 void manager_invalidate_startup_units(Manager *m);
 
