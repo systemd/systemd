@@ -22,6 +22,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "unit-name.h"
 #include "user-util.h"
 
 int json_dispatch_unbase64_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -113,6 +114,33 @@ int json_dispatch_const_user_group_name(const char *name, sd_json_variant *varia
         n = sd_json_variant_string(variant);
         if (!valid_user_group_name(n, FLAGS_SET(flags, SD_JSON_RELAX) ? VALID_USER_RELAX : 0))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid user/group name.", strna(name));
+
+        *s = n;
+        return 0;
+}
+
+int json_dispatch_const_unit_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **s = ASSERT_PTR(userdata), *n;
+        UnitNameFlags unitname_flags;
+
+        if (sd_json_variant_is_null(variant)) {
+                *s = NULL;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        if (FLAGS_SET(flags, SD_JSON_STRICT))
+                unitname_flags = UNIT_NAME_PLAIN;
+        else if (FLAGS_SET(flags, SD_JSON_RELAX))
+                unitname_flags = UNIT_NAME_ANY;
+        else
+                unitname_flags = UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE;
+
+        n = sd_json_variant_string(variant);
+        if (!unit_name_is_valid(n, unitname_flags))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid unit name.", strna(name));
 
         *s = n;
         return 0;
