@@ -90,3 +90,8 @@ fi
 
 systemd-run -M testuser@ --user --pipe -p RootImage=/var/tmp/unpriv.raw -p PrivateUsers=1 --wait echo thisisatest >/tmp/unpriv.out3
 echo thisisatest | cmp /tmp/unpriv.out3 -
+
+# make sure MakeDirectory() works correctly
+assert_eq "$(run0 -u testuser varlinkctl --exec call  /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MakeDirectory --push-fd=./ '{ "parentFileDescriptor" : 0, "name" : "foreignuidowned" }' -- stat -Lc "%u" /proc/self/fd/3)" 2147352576
+assert_eq "$(stat -c "%u" ~testuser/foreignuidowned)" 2147352576
+rmdir ~testuser/foreignuidowned

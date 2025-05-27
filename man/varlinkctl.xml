@@ -338,6 +338,22 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--push-fd=</option></term>
+
+        <listitem>
+          <para>Takes a numeric file descriptor number as parameter. May be used to pass a file
+          descriptor along with the method call, if the underlying transport supports this. May be used
+          multiple times to pass multiple file descriptors, retaining the order in which they are
+          specified. The specified file descriptors must be passed to the <command>varlinkctl</command>
+          invocation. Optionally, in place of a numeric file descriptor number an absolute or relative file
+          system path (the latter must be prefixed with <literal>./</literal>) may be specified, which is
+          opened in read-only mode.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
