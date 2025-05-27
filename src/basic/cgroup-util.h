@@ -66,15 +66,6 @@ typedef enum CGroupMask {
         _CGROUP_MASK_ALL = CGROUP_CONTROLLER_TO_MASK(_CGROUP_CONTROLLER_MAX) - 1,
 } CGroupMask;
 
-static inline CGroupMask CGROUP_MASK_EXTEND_JOINED(CGroupMask mask) {
-        /* We always mount "cpu" and "cpuacct" in the same hierarchy. Hence, when one bit is set also set the other */
-
-        if (mask & (CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT))
-                mask |= (CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT);
-
-        return mask;
-}
-
 /* Special values for all weight knobs on unified hierarchy */
 #define CGROUP_WEIGHT_INVALID UINT64_MAX
 #define CGROUP_WEIGHT_IDLE UINT64_C(0)

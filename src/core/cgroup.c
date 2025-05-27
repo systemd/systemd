@@ -1727,7 +1727,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
             cgroup_tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
 
-        return CGROUP_MASK_EXTEND_JOINED(mask);
+        return mask;
 }
 
 static CGroupMask unit_get_bpf_mask(Unit *u) {
@@ -1778,7 +1778,7 @@ CGroupMask unit_get_delegate_mask(Unit *u) {
                 return 0;
 
         assert_se(c = unit_get_cgroup_context(u));
-        return CGROUP_MASK_EXTEND_JOINED(c->delegate_controllers);
+        return c->delegate_controllers;
 }
 
 static CGroupMask unit_get_subtree_mask(Unit *u) {
