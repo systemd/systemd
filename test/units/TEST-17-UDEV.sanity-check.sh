@@ -82,6 +82,9 @@ udevadm control --revert
 udevadm info /dev/null
 udevadm info /sys/class/net/$netdev
 udevadm info "$(systemd-escape -p --suffix device /sys/devices/virtual/net/$netdev)"
+[[ "$(udevadm info --json=short n1 | jq -r .DEVICE_ID)" == n1 ]]
+udevadm info "$(udevadm info --json=short /dev/null | jq -r .DEVICE_ID)"
+udevadm info "$(udevadm info --json=short /sys/class/net/$netdev | jq -r .DEVICE_ID)"
 udevadm info --property DEVNAME /sys/class/net/$netdev
 udevadm info --property DEVNAME --value /sys/class/net/$netdev
 udevadm info --property HELLO /sys/class/net/$netdev
