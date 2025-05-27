@@ -112,6 +112,11 @@ CHANGES WITH 258 in spe:
         * The meson option 'integration-tests' has been deprecated, and will be
           removed in a future release.
 
+        systemd-udevd and udevadm:
+
+        * 'udevadm info/trigger/test/test-builtin' commands now also take device
+          IDs to specify devices.
+
         systemd-networkd and networkctl:
 
         * systemd-networkd now supports configuring the timeout for IPv4
