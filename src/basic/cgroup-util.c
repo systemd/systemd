@@ -1594,6 +1594,8 @@ int cg_set_attribute(const char *controller, const char *path, const char *attri
         _cleanup_free_ char *p = NULL;
         int r;
 
+        assert(attribute);
+
         r = cg_get_path(controller, path, attribute, &p);
         if (r < 0)
                 return r;
@@ -1604,6 +1606,8 @@ int cg_set_attribute(const char *controller, const char *path, const char *attri
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
+
+        assert(attribute);
 
         r = cg_get_path(controller, path, attribute, &p);
         if (r < 0)
