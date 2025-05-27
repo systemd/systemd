@@ -19,14 +19,14 @@ void main_finalize(int r, int exit_status);
                 return result_to_return_value(r);                       \
         }
 
-int exit_failure_if_negative(int result);
+int exit_failure_if_negative(int result) _const_;
 
 /* Negative return values from impl are mapped to EXIT_FAILURE, and
  * everything else means success! */
 #define DEFINE_MAIN_FUNCTION(impl)                                      \
         _DEFINE_MAIN_FUNCTION(,impl(argc, argv), exit_failure_if_negative, exit_failure_if_negative)
 
-int exit_failure_if_nonzero(int result);
+int exit_failure_if_nonzero(int result) _const_;
 
 /* Zero is mapped to EXIT_SUCCESS, negative values are mapped to EXIT_FAILURE,
  * and positive values are propagated.

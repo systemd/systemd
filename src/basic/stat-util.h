@@ -85,15 +85,15 @@ bool statx_mount_same(const struct statx *a, const struct statx *b);
 
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
 
-usec_t statx_timestamp_load(const struct statx_timestamp *ts);
-nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts);
+usec_t statx_timestamp_load(const struct statx_timestamp *ts) _pure_;
+nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) _pure_;
 
 void inode_hash_func(const struct stat *q, struct siphash *state);
 int inode_compare_func(const struct stat *a, const struct stat *b);
 extern const struct hash_ops inode_hash_ops;
 
-const char* inode_type_to_string(mode_t m);
-mode_t inode_type_from_string(const char *s);
+const char* inode_type_to_string(mode_t m) _const_;
+mode_t inode_type_from_string(const char *s) _pure_;
 
 /* Macros that check whether the stat/statx structures have been initialized already. For "struct stat" we
  * use a check for .st_dev being non-zero, since the kernel unconditionally fills that in, mapping the file

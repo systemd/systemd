@@ -136,12 +136,12 @@ typedef enum {
         IFNAME_VALID_SPECIAL     = 1 << 2, /* Allow the special names "all" and "default" */
         _IFNAME_VALID_ALL        = IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC | IFNAME_VALID_SPECIAL,
 } IfnameValidFlags;
-bool ifname_valid_char(char a);
-bool ifname_valid_full(const char *p, IfnameValidFlags flags);
+bool ifname_valid_char(char a) _const_;
+bool ifname_valid_full(const char *p, IfnameValidFlags flags) _pure_;
 static inline bool ifname_valid(const char *p) {
         return ifname_valid_full(p, 0);
 }
-bool address_label_valid(const char *p);
+bool address_label_valid(const char *p) _pure_;
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
