@@ -2193,7 +2193,7 @@ static int build_environment(
         }
 
         assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
-        if (c->private_tmp != c->private_var_tmp) {
+        if (needs_sandboxing && c->private_tmp != c->private_var_tmp) {
                 assert(c->private_tmp == PRIVATE_TMP_DISCONNECTED);
                 assert(c->private_var_tmp == PRIVATE_TMP_NO);
 
