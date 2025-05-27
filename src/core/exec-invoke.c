@@ -141,17 +141,10 @@ static bool exec_context_needs_term(const ExecContext *c) {
         assert(c);
 
         /* Return true if the execution context suggests we should set $TERM to something useful. */
-
-        if (is_terminal_input(c->std_input))
-                return true;
-
-        if (is_terminal_output(c->std_output))
-                return true;
-
-        if (is_terminal_output(c->std_error))
-                return true;
-
-        return !!c->tty_path;
+        return is_terminal_input(c->std_input) ||
+               is_terminal_output(c->std_output) ||
+               is_terminal_output(c->std_error) ||
+               !!c->tty_path;
 }
 
 static int open_null_as(int flags, int nfd) {
@@ -2038,7 +2031,7 @@ static int build_environment(
         }
 
         if (exec_context_needs_term(c)) {
-                _cleanup_free_ char *cmdline = NULL;
+                _cleanup_free_ char *cmdline = NULL, *dcs_term = NULL;
                 const char *tty_path, *term = NULL;
 
                 tty_path = exec_context_tty_path(c);
@@ -2064,7 +2057,15 @@ static int build_environment(
                 }
 
                 if (!term) {
-                        /* If no precise $TERM is known and we pick a fallback default, then let's also set
+                        /* This handles real virtual terminals (returning "linux") and
+                         * any terminals which support the DCS +q query sequence. */
+                        r = query_term_for_tty(tty_path, &dcs_term);
+                        if (r >= 0)
+                                term = dcs_term;
+                }
+
+                if (!term) {
+                        /* If $TERM is not known and we pick a fallback default, then let's also set
                          * $COLORTERM=truecolor. That's because our fallback default is vt220, which is
                          * generally a safe bet (as it supports PageUp/PageDown unlike vt100, and is quite
                          * universally available in terminfo/termcap), except for the fact that real DEC
@@ -2083,7 +2084,7 @@ static int build_environment(
 
                         our_env[n_env++] = x;
 
-                        term = default_term_for_tty(tty_path);
+                        term = FALLBACK_TERM;
                 }
 
                 x = strjoin("TERM=", term);
