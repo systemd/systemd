@@ -28,41 +28,57 @@
       <arg><option>--help</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm info <optional>options</optional> <optional>devpath</optional></command>
+      <command>udevadm info</command>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm trigger <optional>options</optional> <optional>devpath</optional></command>
+      <command>udevadm trigger</command>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm settle <optional>options</optional></command>
+      <command>udevadm settle</command>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm control <replaceable>option</replaceable></command>
+      <command>udevadm control</command>
+      <arg choice="plain" rep="repeat"><replaceable>options</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm monitor <optional>options</optional></command>
+      <command>udevadm monitor</command>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm test <optional>options</optional> <replaceable>devpath</replaceable></command>
+      <command>udevadm test</command>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
+      <arg choice="plain"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm test-builtin <optional>options</optional> <replaceable>command</replaceable> <replaceable>devpath</replaceable></command>
+      <command>udevadm test-builtin</command>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
+      <arg choice="plain"><replaceable>command</replaceable></arg>
+      <arg choice="plain"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>udevadm verify</command>
-      <arg choice="opt" rep="repeat">options</arg>
-      <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>files</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>udevadm cat</command>
-      <arg choice="opt" rep="repeat">options</arg>
-      <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>files</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm wait <optional>options</optional> <replaceable>device|syspath</replaceable></command>
+      <command>udevadm wait</command>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm lock <optional>options</optional> <replaceable>command</replaceable></command>
+      <command>udevadm lock</command>
+      <arg choice="opt" rep="repeat"><replaceable>options</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>command</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -98,8 +114,8 @@
 
     <refsect2>
       <title>udevadm info
-      <optional><replaceable>options</replaceable></optional>
-      <optional><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></optional>
+      <optional><replaceable>options</replaceable>…</optional>
+      <optional><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable>…</optional>
       </title>
 
       <para>Query the udev database for device information.</para>
@@ -410,14 +426,14 @@
 
     <refsect2>
       <title>udevadm trigger
-      <optional><replaceable>options</replaceable></optional>
-      <optional><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></optional>
+      <optional><replaceable>options</replaceable>…</optional>
+      <optional><replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable>…</optional>
       </title>
 
       <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
 
-      <para>Takes device specifications as positional arguments. See the description of <command>info</command>
-      above.</para>
+      <para>Takes device specifications as positional arguments. See the description of
+      <command>udevadm info</command> above.</para>
 
       <variablelist>
         <varlistentry>
@@ -648,7 +664,7 @@
 
     <refsect2>
       <title>udevadm settle
-      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>options</replaceable>…</optional>
       </title>
 
       <para>Watches the udev event queue, and exits if all current events are handled.</para>
@@ -681,7 +697,7 @@
     </refsect2>
 
     <refsect2>
-      <title>udevadm control <replaceable>option</replaceable></title>
+      <title>udevadm control <replaceable>options</replaceable>…</title>
 
       <para>Modify the internal state of the running udev daemon.</para>
 
@@ -832,7 +848,7 @@
 
     <refsect2>
       <title>udevadm monitor
-      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>options</replaceable>…</optional>
       </title>
 
       <para>Listens to the kernel uevents and events sent out by a udev rule
@@ -885,8 +901,8 @@
 
     <refsect2>
       <title>udevadm test
-      <optional><replaceable>options</replaceable></optional>
-      <optional><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></optional>
+      <optional><replaceable>options</replaceable>…</optional>
+      <replaceable>devpath</replaceable>|<replaceable>syspath</replaceable>|<replaceable>unit</replaceable>
       </title>
 
       <para>
@@ -950,9 +966,9 @@
 
     <refsect2>
       <title>udevadm test-builtin
-      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>options</replaceable>…</optional>
       <replaceable>command</replaceable>
-      <optional><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></optional>
+      <replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable>
       </title>
 
       <para>Run a built-in command <replaceable>COMMAND</replaceable>
@@ -978,9 +994,8 @@
 
     <refsect2>
       <title>udevadm verify
-      <optional><replaceable>options</replaceable></optional>
-      <optional><replaceable>file</replaceable></optional>
-      …
+      <optional><replaceable>options</replaceable>…</optional>
+      <optional><replaceable>files</replaceable>…</optional>
       </title>
 
       <para>Verify syntactic, semantic, and stylistic correctness of udev rules files.</para>
@@ -1051,9 +1066,8 @@
 
     <refsect2>
       <title>udevadm cat
-      <optional><replaceable>options</replaceable></optional>
-      <optional><replaceable>file</replaceable></optional>
-      …
+      <optional><replaceable>options</replaceable>…</optional>
+      <optional><replaceable>file</replaceable>…</optional>
       </title>
 
       <para>Show udev rules files or udev.conf.</para>
@@ -1108,9 +1122,8 @@
 
     <refsect2>
       <title>udevadm wait
-      <optional><replaceable>options</replaceable></optional>
-      <optional><replaceable>device|syspath</replaceable></optional>
-      …
+      <optional><replaceable>options</replaceable>…</optional>
+      <replaceable>devpath|syspath</replaceable>…
       </title>
 
       <para>Wait for devices or device symlinks being created and initialized by
@@ -1170,9 +1183,8 @@
 
     <refsect2>
       <title>udevadm lock
-      <optional><replaceable>options</replaceable></optional>
-      <optional><replaceable>command</replaceable></optional>
-      …
+      <optional><replaceable>options</replaceable>…</optional>
+      <replaceable>command</replaceable>…
       </title>
 
       <para><command>udevadm lock</command> takes an (advisory) exclusive lock on a block device (or all
