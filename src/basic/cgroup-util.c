@@ -1638,11 +1638,9 @@ int cg_get_attribute_as_uint64(const char *controller, const char *path, const c
         return 0;
 }
 
-int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute, bool *ret) {
+int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute) {
         _cleanup_free_ char *value = NULL;
         int r;
-
-        assert(ret);
 
         r = cg_get_attribute(controller, path, attribute, &value);
         if (r == -ENOENT)
@@ -1650,12 +1648,7 @@ int cg_get_attribute_as_bool(const char *controller, const char *path, const cha
         if (r < 0)
                 return r;
 
-        r = parse_boolean(value);
-        if (r < 0)
-                return r;
-
-        *ret = r;
-        return 0;
+        return parse_boolean(value);
 }
 
 int cg_get_owner(const char *path, uid_t *ret_uid) {

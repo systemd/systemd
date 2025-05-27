@@ -228,7 +228,6 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
 
         do {
                 _cleanup_free_ char *cg_path = NULL;
-                bool oom_group;
 
                 cg_path = path_join(empty_to_root(path), subpath);
                 if (!cg_path)
@@ -236,7 +235,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
 
                 subpath = mfree(subpath);
 
-                r = cg_get_attribute_as_bool("memory", cg_path, "memory.oom.group", &oom_group);
+                r = cg_get_attribute_as_bool("memory", cg_path, "memory.oom.group");
                 /* The cgroup might be gone. Skip it as a candidate since we can't get information on it. */
                 if (r == -ENOMEM)
                         return r;
@@ -244,8 +243,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
                         log_debug_errno(r, "Failed to read memory.oom.group from %s, ignoring: %m", cg_path);
                         return 0;
                 }
-
-                if (oom_group)
+                if (r > 0)
                         r = oomd_insert_cgroup_context(NULL, new_h, cg_path);
                 else
                         r = recursively_get_cgroup_context(new_h, cg_path);

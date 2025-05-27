@@ -219,9 +219,7 @@ int cg_get_attribute(const char *controller, const char *path, const char *attri
 int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char * const *keys, char **values);
 
 int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
-
-/* Does a parse_boolean() on the attribute contents and sets ret accordingly */
-int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute, bool *ret);
+int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 
