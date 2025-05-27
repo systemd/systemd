@@ -232,7 +232,8 @@ static int show_properties(int argc, char **argv, void *userdata) {
                                      "/org/freedesktop/timedate1",
                                      NULL,
                                      arg_property,
-                                     arg_print_flags);
+                                     arg_print_flags,
+                                     NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -805,7 +806,8 @@ static int show_timesync(int argc, char **argv, void *userdata) {
                                      "/org/freedesktop/timesync1",
                                      print_timesync_property,
                                      arg_property,
-                                     arg_print_flags);
+                                     arg_print_flags,
+                                     NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
