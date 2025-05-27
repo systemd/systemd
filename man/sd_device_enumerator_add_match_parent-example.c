@@ -4,9 +4,8 @@
 #include <stdio.h>
 #include <systemd/sd-device.h>
 
-
 int main(void) {
-    __attribute__((cleanup(sd_device_enumerator_unrefp))) sd_device_enumerator *enumerator;
+    __attribute__((cleanup(sd_device_enumerator_unrefp))) sd_device_enumerator *enumerator = NULL;
     sd_device *device;
     int r;
 
@@ -18,7 +17,7 @@ int main(void) {
     }
 
     /* Include only devices from the "usb" subsystem */
-    r = sd_device_enumerator_add_match_subsystem(enumerator, "usb", 1);
+    r = sd_device_enumerator_add_match_subsystem(enumerator, "usb", true);
     if (r < 0) {
         fprintf(stderr, "Failed to add subsystem match: %s\n", strerror(-r));
         return 1;
@@ -36,16 +35,13 @@ int main(void) {
 
     /* Begin enumerating matching devices */
     for (device = sd_device_enumerator_get_device_first(enumerator);
-     device;
-     device = sd_device_enumerator_get_device_next(enumerator)) {
+        device;
+        device = sd_device_enumerator_get_device_next(enumerator)) {
         const char *syspath;
-        const char *devname;
 
         /* Get syspath and devname for the device */
-        if (sd_device_get_syspath(device, &syspath) >= 0 &&
-            sd_device_get_devname(device, &devname) >= 0) {
-            printf("Removable USB device found: %s (%s)\n", devname, syspath);
-        }
+        if (sd_device_get_syspath(device, &syspath) >= 0)
+            printf("Removable USB device found: %s\n",  syspath);
     }
     return 0;
 }
