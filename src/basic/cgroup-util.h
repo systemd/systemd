@@ -107,19 +107,7 @@ extern const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX];
 const char* cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
 CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
 
-/* Special values for the cpu.shares attribute */
-#define CGROUP_CPU_SHARES_INVALID UINT64_MAX
-#define CGROUP_CPU_SHARES_MIN UINT64_C(2)
-#define CGROUP_CPU_SHARES_MAX UINT64_C(262144)
-#define CGROUP_CPU_SHARES_DEFAULT UINT64_C(1024)
-
-static inline bool CGROUP_CPU_SHARES_IS_OK(uint64_t x) {
-        return
-            x == CGROUP_CPU_SHARES_INVALID ||
-            (x >= CGROUP_CPU_SHARES_MIN && x <= CGROUP_CPU_SHARES_MAX);
-}
-
-/* Special values for the special {blkio,io}.bfq.weight attribute */
+/* Special values for the io.bfq.weight attribute */
 #define CGROUP_BFQ_WEIGHT_INVALID UINT64_MAX
 #define CGROUP_BFQ_WEIGHT_MIN UINT64_C(1)
 #define CGROUP_BFQ_WEIGHT_MAX UINT64_C(1000)
@@ -131,18 +119,6 @@ static inline uint64_t BFQ_WEIGHT(uint64_t io_weight) {
             io_weight <= CGROUP_WEIGHT_DEFAULT ?
             CGROUP_BFQ_WEIGHT_DEFAULT - (CGROUP_WEIGHT_DEFAULT - io_weight) * (CGROUP_BFQ_WEIGHT_DEFAULT - CGROUP_BFQ_WEIGHT_MIN) / (CGROUP_WEIGHT_DEFAULT - CGROUP_WEIGHT_MIN) :
             CGROUP_BFQ_WEIGHT_DEFAULT + (io_weight - CGROUP_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_WEIGHT_MAX - CGROUP_WEIGHT_DEFAULT);
-}
-
-/* Special values for the blkio.weight attribute */
-#define CGROUP_BLKIO_WEIGHT_INVALID UINT64_MAX
-#define CGROUP_BLKIO_WEIGHT_MIN UINT64_C(10)
-#define CGROUP_BLKIO_WEIGHT_MAX UINT64_C(1000)
-#define CGROUP_BLKIO_WEIGHT_DEFAULT UINT64_C(500)
-
-static inline bool CGROUP_BLKIO_WEIGHT_IS_OK(uint64_t x) {
-        return
-            x == CGROUP_BLKIO_WEIGHT_INVALID ||
-            (x >= CGROUP_BLKIO_WEIGHT_MIN && x <= CGROUP_BLKIO_WEIGHT_MAX);
 }
 
 typedef enum CGroupUnified {
