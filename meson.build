@@ -442,11 +442,8 @@ possible_common_link_flags = [
 c_args = get_option('c_args')
 
 # Our json library does not support -ffinite-math-only, which is enabled by -Ofast or -ffast-math.
-if (
-  ('-Ofast' in c_args or '-ffast-math' in c_args or '-ffinite-math-only' in c_args) and
-  '-fno-fast-math' not in c_args and
-  '-fno-finite-math-only' not in c_args
-)
+if (('-Ofast' in c_args or '-ffast-math' in c_args or '-ffinite-math-only' in c_args) and
+    '-fno-fast-math' not in c_args and '-fno-finite-math-only' not in c_args)
   error('-Ofast, -ffast-math, or -ffinite-math-only is specified in c_args.')
 endif
 
