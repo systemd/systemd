@@ -25,6 +25,13 @@ typedef enum CoredumpFilter {
 /* The kernel doesn't like UINT64_MAX and returns ERANGE, use UINT32_MAX to support future new flags */
 #define COREDUMP_FILTER_MASK_ALL UINT32_MAX
 
+typedef enum SuidDumpMode {
+        SUID_DUMP_DISABLE = 0,  /* PR_SET_DUMPABLE(2const) */
+        SUID_DUMP_USER    = 1,  /* PR_SET_DUMPABLE(2const) */
+        SUID_DUMP_SAFE    = 2,  /* https://www.kernel.org/doc/html/latest/admin-guide/sysctl/fs.html#suid-dumpable */
+        _SUID_DUMP_MODE_MAX,
+} SuidDumpMode;
+
 const char* coredump_filter_to_string(CoredumpFilter i) _const_;
 CoredumpFilter coredump_filter_from_string(const char *s) _pure_;
 int coredump_filter_mask_from_string(const char *s, uint64_t *ret);
