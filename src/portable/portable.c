@@ -719,9 +719,9 @@ static int extract_image_and_extensions(
                         return r;
 
                 if (validate_extension) {
-                        r = extension_release_validate(ext->path, id, version_id, sysext_level, "portable", extension_release, IMAGE_SYSEXT);
+                        r = extension_release_validate(ext->path, id, /* host_os_release_id_like = */ NULL, version_id, sysext_level, "portable", extension_release, IMAGE_SYSEXT);
                         if (r < 0)
-                                r = extension_release_validate(ext->path, id, version_id, confext_level, "portable", extension_release, IMAGE_CONFEXT);
+                                r = extension_release_validate(ext->path, id, /* host_os_release_id_like = */ NULL, version_id, confext_level, "portable", extension_release, IMAGE_CONFEXT);
 
                         if (r == 0)
                                 return sd_bus_error_set_errnof(error, ESTALE, "Image %s extension-release metadata does not match the root's", ext->path);
