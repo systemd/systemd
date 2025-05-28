@@ -4,30 +4,31 @@
 # Pjotr Vertaalt <pjotrvertaalt@gmail.com>, 2021.
 # Richard E. van der Luit <fedoraproject@veneax.nl>, 2022.
 # Maarten <maarten@posteo.de>, 2023.
+# Tim Vangehugten <timvangehugten@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2023-08-21 17:21+0000\n"
-"Last-Translator: Maarten <maarten@posteo.de>\n"
+"PO-Revision-Date: 2025-05-28 09:31+0000\n"
+"Last-Translator: Tim Vangehugten <timvangehugten@gmail.com>\n"
 "Language-Team: Dutch <https://translate.fedoraproject.org/projects/systemd/"
-"master/nl/>\n"
+"main/nl/>\n"
 "Language: nl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.18.2\n"
+"X-Generator: Weblate 5.11.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
-msgstr "Stuur de wachtzin terug naar het systeem"
+msgstr "Stuur de wachtwoordzin terug naar het systeem"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
-"Authenticatie is vereist voor het terugsturen van de wachtzin naar het "
+"Authenticatie is vereist voor het terugsturen van de wachtwoordzin naar het "
 "systeem."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
@@ -121,9 +122,8 @@ msgstr ""
 "Authenticatie is vereist voor het bijwerken van een persoonlijke ruimte."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Werk een persoonlijke ruimte bij"
+msgstr "Werk je persoonlijke ruimte bij"
 
 #: src/home/org.freedesktop.home1.policy:54
 #, fuzzy
@@ -153,14 +153,14 @@ msgstr ""
 "persoonlijke ruimte."
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Maak een persoonlijke ruimte"
+msgstr "Activeer een persoonlijke ruimte"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "Authenticatie is vereist voor het maken van een persoonlijke ruimte."
+msgstr ""
+"Authenticatie is vereist voor het activeren van een gebruiker zijn "
+"persoonlijke ruimte."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -414,10 +414,8 @@ msgstr ""
 "Authenticatie is vereist voor het verkrijgen van de systeembeschrijving."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr ""
-"Importeer het schijfbestand van een virtuele machine of dat van een container"
+msgstr "Importeer een schijfbestand"
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
@@ -454,7 +452,7 @@ msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Overdracht van een disk image annuleren"
 
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
@@ -1169,13 +1167,15 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
-msgstr ""
+msgstr "Geef aan of persistente opslag voor systemd-networkd beschikbaar is"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Authenticatie is vereist om aan te geven of persistente opslag voor systemd-"
+"networkd beschikbaar is."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1214,20 +1214,18 @@ msgid "Register a DNS-SD service"
 msgstr "Registreer een DNS-SD-dienst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#, fuzzy
 msgid "Authentication is required to register a DNS-SD service."
-msgstr "Authenticatie is vereist voor het registreren van een DNS-SD-dienst"
+msgstr "Authenticatie is vereist voor het registreren van een DNS-SD dienst."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
 msgstr "Verwijder de registratie van een DNS-SD-dienst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
 msgid "Authentication is required to unregister a DNS-SD service."
 msgstr ""
 "Authenticatie is vereist voor het verwijderen van de registratie van een DNS-"
-"SD-dienst"
+"SD dienst."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1243,7 +1241,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Abonneer op queryresultaten"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
 #, fuzzy
@@ -1253,7 +1251,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Dump cache"
-msgstr ""
+msgstr "Dump cache"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 #, fuzzy
@@ -1262,7 +1260,7 @@ msgstr "Authenticatie is vereist voor het instellen van domeinen."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump server state"
-msgstr ""
+msgstr "Dump server status"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
 #, fuzzy
@@ -1271,7 +1269,7 @@ msgstr "Authenticatie is vereist voor het gebruiken van NTP-servers."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump statistics"
-msgstr ""
+msgstr "Dump statistieken"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 #, fuzzy
@@ -1280,7 +1278,7 @@ msgstr "Authenticatie is vereist voor het instellen van domeinen."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
-msgstr ""
+msgstr "Reset statistieken"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
 #, fuzzy
@@ -1290,7 +1288,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Controleer op systeemupdates"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
 #, fuzzy
@@ -1299,7 +1297,7 @@ msgstr "Authenticatie is vereist voor het instellen van de systeemtijd."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Installeer systeemupdates"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
 #, fuzzy
@@ -1308,7 +1306,7 @@ msgstr "Authenticatie is vereist voor het instellen van de systeemtijd."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Installeer specifieke systeem versie"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
 #, fuzzy
@@ -1321,7 +1319,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Oude systeemupdates opkuisen"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
 #, fuzzy
@@ -1330,7 +1328,7 @@ msgstr "Authenticatie is vereist voor het instellen van de systeemtijd."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Beheer optionele features"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
 #, fuzzy
