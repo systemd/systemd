@@ -832,6 +832,9 @@ static int context_apply(
 
         log_info("%s Successfully installed update '%s'.", special_glyph(SPECIAL_GLYPH_SPARKLES), us->version);
 
+        (void) sd_notifyf(/* unset_environment=*/ false,
+                          "STATUS=Installed '%s'.", us->version);
+
         if (ret_applied)
                 *ret_applied = us;
 
