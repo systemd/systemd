@@ -5246,7 +5246,7 @@ int exec_invoke(
                 *exit_status = EXIT_MEMORY;
                 return log_oom();
         }
-        accum_env = strv_env_clean(accum_env);
+        strv_env_clean(accum_env);
 
         (void) umask(context->umask);
 
