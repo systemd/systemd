@@ -1732,17 +1732,20 @@ LEGEND: M → sys_vendor (LENOVO) ┄ F → product_family (ThinkPad X1 Carbon G
   <refsect1>
     <title>Exit status</title>
 
-    <para>For most commands, 0 is returned on success, and a non-zero failure code otherwise.</para>
+    <para>For most verbs, <constant>0</constant> is returned on success, and a non-zero failure code
+    otherwise.</para>
 
-    <para>With the verb <command>compare-versions</command>, in the two-argument form,
-    <constant>12</constant>, <constant>0</constant>, <constant>11</constant> is returned if the second
-    version string is respectively larger, equal, or smaller to the first. In the three-argument form,
-    <constant>0</constant> or <constant>1</constant> if the condition is respectively true or false.</para>
+    <para>For the verb <command>compare-versions</command>, in the two-argument form,
+    <constant>12</constant>, <constant>0</constant>, or <constant>11</constant> are returned if the second
+    version string is respectively larger than, equal to, or smaller than the first. In the three-argument
+    form, <constant>0</constant> or <constant>1</constant> are returned when the condition is respectively
+    true or false.</para>
 
-    <para>In case of the <command>has-tpm2</command> command returns 0 if a TPM2 device is discovered,
-    supported and used by firmware, driver, and userspace (i.e. systemd). Otherwise, returns the OR
-    combination of the value 1 (in case firmware support is missing), 2 (in case driver support is missing)
-    and 4 (in case userspace support is missing). If no TPM2 support is available at all, value 7 is hence
+    <para>For the verb <command>has-tpm2</command>, <constant>0</constant> is returned if a TPM2 device is
+    discovered, supported, and used by firmware, driver, and userspace (i.e. <command>systemd</command>).
+    Otherwise, the OR combination of the value <constant>1</constant> (in case firmware support is missing),
+    <constant>2</constant> (in case driver support is missing), and <constant>4</constant> (in case userspace
+    support is missing). If no TPM2 support is available at all, value <constant>7</constant> is hence
     returned.</para>
   </refsect1>
 
