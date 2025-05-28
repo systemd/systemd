@@ -249,6 +249,7 @@ typedef enum CatFlags CatFlags;
 typedef enum CertificateSourceType CertificateSourceType;
 typedef enum DnsCacheMode DnsCacheMode;
 typedef enum DnsOverTlsMode DnsOverTlsMode;
+typedef enum DnsOverHttpsMode DnsOverHttpsMode;
 typedef enum DnssecMode DnssecMode;
 typedef enum Fido2EnrollFlags Fido2EnrollFlags;
 typedef enum KeySourceType KeySourceType;

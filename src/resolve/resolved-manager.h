@@ -24,6 +24,7 @@ typedef struct Manager {
         ResolveSupport mdns_support;
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
+        DnsOverHttpsMode dns_over_https_mode;
         DnsCacheMode enable_cache;
         bool cache_from_localhost;
         DnsStubListenerMode dns_stub_listener_mode;
@@ -201,6 +202,8 @@ DnssecMode manager_get_dnssec_mode(Manager *m);
 bool manager_dnssec_supported(Manager *m);
 
 DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m);
+
+DnsOverHttpsMode manager_get_dns_over_https_mode(Manager *m);
 
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);
 
