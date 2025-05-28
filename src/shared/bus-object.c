@@ -84,7 +84,7 @@ static const BusObjectImplementation* find_implementation(
 }
 
 static int bus_introspect_implementation(
-                struct introspect *intro,
+                BusIntrospect *intro,
                 const BusObjectImplementation *impl) {
         int r;
 
@@ -128,7 +128,7 @@ int bus_introspect_implementations(
                 return 0;
         }
 
-        struct introspect intro = {};
+        BusIntrospect intro = {};
         bool is_interface = sd_bus_interface_name_is_valid(pattern);
 
         impl = find_implementation(pattern, bus_objects);

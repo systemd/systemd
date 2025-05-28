@@ -522,7 +522,7 @@ static int synthesize_connected_signal(sd_bus *bus) {
         return 0;
 }
 
-void bus_set_state(sd_bus *bus, enum bus_state state) {
+void bus_set_state(sd_bus *bus, BusState state) {
         static const char* const table[_BUS_STATE_MAX] = {
                 [BUS_UNSET]          = "UNSET",
                 [BUS_WATCH_BIND]     = "WATCH_BIND",
@@ -616,7 +616,7 @@ static int bus_send_hello(sd_bus *bus) {
 }
 
 int bus_start_running(sd_bus *bus) {
-        struct reply_callback *c;
+        BusReplyCallback *c;
         usec_t n;
         int r;
 
@@ -2294,7 +2294,7 @@ static usec_t calc_elapse(sd_bus *bus, uint64_t usec) {
 }
 
 static int timeout_compare(const void *a, const void *b) {
-        const struct reply_callback *x = a, *y = b;
+        const BusReplyCallback *x = a, *y = b;
 
         if (x->timeout_usec != 0 && y->timeout_usec == 0)
                 return -1;
@@ -2347,7 +2347,7 @@ _public_ int sd_bus_call_async(
                 return r;
 
         if (slot || callback) {
-                s = bus_slot_allocate(bus, !slot, BUS_REPLY_CALLBACK, sizeof(struct reply_callback), userdata);
+                s = bus_slot_allocate(bus, !slot, BUS_REPLY_CALLBACK, sizeof(BusReplyCallback), userdata);
                 if (!s)
                         return -ENOMEM;
 
@@ -2622,7 +2622,7 @@ _public_ int sd_bus_get_events(sd_bus *bus) {
 }
 
 _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
-        struct reply_callback *c;
+        BusReplyCallback *c;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -2681,7 +2681,7 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
 static int process_timeout(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message* m = NULL;
-        struct reply_callback *c;
+        BusReplyCallback *c;
         sd_bus_slot *slot;
         bool is_hello;
         usec_t n;
@@ -2771,7 +2771,7 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
 static int process_reply(sd_bus *bus, sd_bus_message *m) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *synthetic_reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-        struct reply_callback *c;
+        BusReplyCallback *c;
         sd_bus_slot *slot;
         bool is_hello;
         int r;
@@ -3140,7 +3140,7 @@ static int bus_exit_now(sd_bus *bus, sd_event *event) {
         assert_not_reached();
 }
 
-static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c) {
+static int process_closing_reply_callback(sd_bus *bus, BusReplyCallback *c) {
         _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus_slot *slot;
@@ -3196,7 +3196,7 @@ static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c)
 static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        struct reply_callback *c;
+        BusReplyCallback *c;
         int r;
 
         assert(bus);
@@ -3480,7 +3480,7 @@ _public_ int sd_bus_add_filter(
         assert_return(callback, -EINVAL);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        s = bus_slot_allocate(bus, !slot, BUS_FILTER_CALLBACK, sizeof(struct filter_callback), userdata);
+        s = bus_slot_allocate(bus, !slot, BUS_FILTER_CALLBACK, sizeof(BusFilterCallback), userdata);
         if (!s)
                 return -ENOMEM;
 
@@ -3568,7 +3568,7 @@ int bus_add_match_full(
                 void *userdata,
                 uint64_t timeout_usec) {
 
-        struct bus_match_component *components = NULL;
+        BusMatchComponent *components = NULL;
         size_t n_components = 0;
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *s = NULL;
         int r;
@@ -3584,7 +3584,7 @@ int bus_add_match_full(
         if (r < 0)
                 return r;
 
-        s = bus_slot_allocate(bus, !slot, BUS_MATCH_CALLBACK, sizeof(struct match_callback), userdata);
+        s = bus_slot_allocate(bus, !slot, BUS_MATCH_CALLBACK, sizeof(BusMatchCallback), userdata);
         if (!s)
                 return -ENOMEM;
 
@@ -3592,7 +3592,7 @@ int bus_add_match_full(
         s->match_callback.install_callback = install_callback;
 
         if (bus->bus_client) {
-                enum bus_match_scope scope;
+                BusMatchScope scope;
 
                 scope = bus_match_get_scope(components, n_components);
 
