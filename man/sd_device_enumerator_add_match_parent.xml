@@ -33,8 +33,9 @@
     <funcsynopsisinfo>#include &lt;systemd/sd-device.h&gt;</funcsynopsisinfo>
 
     <funcprototype>
-      <funcdef>int <function>sd_device_enumerator_add_all_parents</function></funcdef>
+      <funcdef>int <function>sd_device_enumerator_add_match_parent</function></funcdef>
       <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>sd_device *<parameter>parent</parameter></paramdef>
     </funcprototype>
 
     <funcprototype>
@@ -90,9 +91,8 @@
     </funcprototype>
 
     <funcprototype>
-      <funcdef>int <function>sd_device_enumerator_add_match_parent</function></funcdef>
+      <funcdef>int <function>sd_device_enumerator_add_all_parents</function></funcdef>
       <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
-      <paramdef>sd_device *<parameter>parent</parameter></paramdef>
     </funcprototype>
 
     </funcsynopsis>
