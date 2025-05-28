@@ -1,13 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <elf.h>
+#include <sys/prctl.h>
 
 #include "coredump-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "string-table.h"
 #include "unaligned.h"
 #include "virt.h"
+
+int set_dumpable(SuidDumpMode mode) {
+        /* Cast mode explicitly to long, because prctl wants longs but is varargs. */
+        return RET_NERRNO(prctl(PR_SET_DUMPABLE, (long) mode));
+}
 
 static const char *const coredump_filter_table[_COREDUMP_FILTER_MAX] = {
         [COREDUMP_FILTER_PRIVATE_ANONYMOUS]   = "private-anonymous",

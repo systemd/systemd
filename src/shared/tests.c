@@ -16,6 +16,7 @@
 #include "bus-wait-for-jobs.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "coredump-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
