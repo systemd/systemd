@@ -456,7 +456,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         strv_uniq(arg_listen_extra);
 
         if (!arg_auto && strv_isempty(arg_listen_extra)) {
-                log_debug("Disabling SSH generator logic, because as it has been turned off explicitly.");
+                log_debug("Disabling SSH generator logic, because it has been turned off explicitly.");
                 return 0;
         }
 
