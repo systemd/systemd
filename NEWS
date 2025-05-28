@@ -101,6 +101,14 @@ CHANGES WITH 258 in spe:
           IPv4DuplicateAddressDetectionTimeoutSec=. The default timeout value
           has been changed from 7 seconds to 200 milliseconds.
 
+        * Support for the !! command line prefix on ExecStart= lines (and
+          related) has been removed, and if specified will be ignored. The
+          concept was supposed to provide compatibility with kernels that
+          predated the introduction of "ambient" process capabilities. However,
+          the kernel baseline of the systemd project is now far beyond any
+          kernels that lacked support for it, hence the prefix serves no
+          purpose anymore.
+
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
@@ -124,7 +132,7 @@ CHANGES WITH 258 in spe:
           of just the first 2¹⁶.
 
         * The ProtectHostname= unit setting now accepts a new value "private",
-          which is similar to "yes", but which allows the unit's processes to
+          which is similar to "yes", but allows the unit's processes to
           modify the hostname. Since a UTC namespace is allocated for the unit
           this hostname change remains local to the unit, and does not affect
           the system as a whole. Optionally, the "private" string may be
@@ -143,15 +151,7 @@ CHANGES WITH 258 in spe:
           built-in, while still providing support for kernels that have those
           subsystems built as loadable modules.
 
-        * Support for the !! command line prefix on ExecStart= lines (and
-          related) has been removed, and if specified will be ignored. The
-          concept was supposed to provide compatibility with kernels that
-          predated the introduction of "ambient" process capabilities. However,
-          the kernel baseline of the system project is now far beyond any
-          kernels that lacked support for it, hence the prefix serves no
-          purpose anymore.
-
-        * Enrypted systemd service credentials are now available for user
+        * Encrypted systemd service credentials are now available for user
           services too, including if locked to TPM. Previously, they could only
           be used for system services.
 
@@ -187,6 +187,9 @@ CHANGES WITH 258 in spe:
           example to include "usrquota" for tmpfs mount options where that's
           supported.
 
+        * Per-user quota is now enabled on /dev/shm/ and /tmp/ (the latter only
+          if backed by tmpfs).
+
         * If PAMName= is used for a service and the PAM session prompts for a
           password, it will not be queried via the systemd-ask-password
           logic. Previously the prompt would simply be denied, typically causing
@@ -195,9 +198,6 @@ CHANGES WITH 258 in spe:
           user the user's password will now be prompted at boot to unlock the
           user's home directory in order to be able to start the per-user
           service manager early, as requested.
-
-        * Per-user quota is now enabled on /dev/shm/ and /tmp/ (the latter only
-          if backed by tmpfs).
 
         * The $MAINPID and $MANAGERPID environment variables we pass to
           processes executed for service units are now paired with new
@@ -462,13 +462,6 @@ CHANGES WITH 258 in spe:
           returns the number of pending incoming file descriptors on the
           current message.
 
-        * varlinkctl gained a new --exec switch. When used a command line of a
-          command to execute once a Varlink method call reply has been received
-          may be specified. The command will receive the method call reply on
-          standard input in JSON format, and any passed file descriptors via
-          the $LISTEN_FDS protocol. This is useful for invoking method calls
-          that return file descriptors from shell scripts.
-
         * A new flag SD_VARLINK_SERVER_MODE_MKDIR_0755 may now be ORed into the
           mode parameter of sd_varlink_server_listen_address(). If specified
           then any leading directories in the provided AF_UNIX socket path are
@@ -477,6 +470,15 @@ CHANGES WITH 258 in spe:
 
         * sd_varlink_idl_parse() and sd_varlink_interface_free() have been
           added to sd-varlink, which can be used to parse Varlink IDL data.
+
+        varlinkctl:
+
+        * varlinkctl gained a new --exec switch. When used a command line of a
+          command to execute once a Varlink method call reply has been received
+          may be specified. The command will receive the method call reply on
+          standard input in JSON format, and any passed file descriptors via
+          the $LISTEN_FDS protocol. This is useful for invoking method calls
+          that return file descriptors from shell scripts.
 
         * varlinkctl gained a new --push-fd= switch which may be used to issue
           a Varlink method call and send along one or more file descriptors on
@@ -719,7 +721,7 @@ CHANGES WITH 258 in spe:
           of detached signatures).
 
         * systemd-sbsign learnt support for offline SecureBoot signing via
-        --prepare-offline-signing, --signed-data=, --signed-data-signature=.
+          --prepare-offline-signing, --signed-data=, --signed-data-signature=.
 
         TPM2:
 
@@ -1043,9 +1045,14 @@ CHANGES WITH 258 in spe:
         * The CopyFiles= setting now accepts a new option "fsverity" which will
           enable fsverity for all files copied into the new file system.
 
+        * systemd-repart has been updated to automatically generate the
+          extended attributes systemd-validatefs@.service understands, for all
+          partitions it recognizes. Controllable via the AddValidateFS=
+          partition setting (which defaults to true).
+
         Other:
 
-        * systemd-ask-ask-password now provides a small Varlink API to
+        * systemd-ask-password now provides a small Varlink API to
           interactively query the user for a password using the usual agent
           logic. This makes it easier for external programs (for example
           daemons) to query for boot-time passwords and similar, using
@@ -1175,11 +1182,6 @@ CHANGES WITH 258 in spe:
           x-systemd.validatefs for /etc/fstab entries. If specified an instance
           of systemd-validatefs@.service is automatically pulled in by the
           relevant mount.
-
-        * systemd-repart has been updated to automatically generate the
-          extended attributes systemd-validatefs@.service understands, for all
-          partitions it recognizes. Controllable via the AddValidateFS=
-          partition setting (which defaults to true).
 
         * systemd-fstab-auto-generator and systemd-gpt-auto-generator now
           understand root=off on the kernel command line which may be used to
