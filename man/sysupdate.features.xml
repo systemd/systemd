@@ -43,7 +43,9 @@
     downloading updates, when vacuuming, and in all other situations.
     In effect, transfers belonging to a feature will always be updated in lock-step with the rest of their
     target.
-    This is the primary difference an Optional Feature and a <command>systemd-sysupdate</command> component.
+    This is the primary difference an Optional Feature and a
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    component.
     When a feature is disabled, its transfers will not be considered when checking for and downloading updates,
     but <command>systemd-sysupdate</command> will still consider them while vacuuming and in other situations
     where it needs to determine ownership over previously downloaded system resources.
@@ -54,8 +56,8 @@
     defined below.
     Transfers can declare that they belong to a feature via the <varname>Features=</varname> setting.
     Feature definitions support drop-in files, which are most commonly used to override the
-    <varname>Enabled=</varname> setting).
-    They can also be masked out to hide the availability of the feature entirely.</para>
+    <varname>Enabled=</varname> setting.
+    They can also be masked to hide the availability of the feature entirely.</para>
 
     <para>Each <filename>*.feature</filename> file contains one section: [Feature].</para>
   </refsect1>

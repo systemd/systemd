@@ -131,11 +131,12 @@
     command line PE section in the kernel image file. If a command line is accepted via EFI invocation
     parameters to the EFI binary it is measured into TPM PCR 12 (if a TPM is present).</para> <para>If a
     DeviceTree is embedded in the <literal>.dtb</literal> section, it replaces an existing DeviceTree in the
-    corresponding EFI configuration table. systemd-stub will ask the firmware via the
-    <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para> <para>The
-    contents of 11 of these 12 sections are measured into TPM PCR 11. It is otherwise not used and thus the
-    result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section is not
-    included in this PCR measurement, since it is supposed to contain signatures for the output of the
+    corresponding EFI configuration table. <command>systemd-stub</command> will ask the firmware via the
+    <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para>
+
+    <para>The contents of 11 of these 12 sections are measured into TPM PCR 11. It is otherwise not used and
+    thus the result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section is
+    not included in this PCR measurement, since it is supposed to contain signatures for the output of the
     measurement operation, and thus cannot also be input to it. If an UKI contains multiple profiles, only
     the PE sections of the selected profile (and those of the base profile, except if overridden) are
     measured.</para>
@@ -278,19 +279,20 @@
     <literal>rd.systemd.unit=storagetm.target</literal>.</para>
 
     <para>A single UKI may support multiple profiles by means of the special <literal>.profile</literal> PE
-    section. This section acts as separator between the PE sections of the individual
-    profiles. <literal>.profile</literal> PE sections hence may appear multiple times in a single UKI, and
-    the other PE sections listed above may appear multiple times too, if <literal>.profile</literal> are
-    used, but only once before the first <literal>.profile</literal> section, once between each subsequent
-    pair, and once after the last appearance of <literal>.profile</literal>. The sections listed before the
-    first <literal>.profile</literal> are considered the "base" profile of the UKI. Each
-    <literal>.profile</literal> section then introduces a new profile, which are numbered starting from
-    zero. The PE sections following each <literal>.profile</literal> are specific to that profile. When
-    booting into a specific profile the base section's profiles are used in combination with the specific
-    profile's sections: if the same section is defined in both, the per-profile section overrides the base
-    profile's version, otherwise the per-profile sections is used together with the base profile
-    sections.</para> <para>A UKI that contains no <literal>.profile</literal> is consider equivalent to one
-    that just contains a single <literal>.profile</literal>, as having only a single profile @0.</para>
+    section. This section acts as separator between the PE sections of the individual profiles.
+    <literal>.profile</literal> PE sections hence may appear multiple times in a single UKI, and the other PE
+    sections listed above may appear multiple times too, if <literal>.profile</literal> are used, but only
+    once before the first <literal>.profile</literal> section, once between each subsequent pair, and once
+    after the last appearance of <literal>.profile</literal>. The sections listed before the first
+    <literal>.profile</literal> are considered the "base" profile of the UKI. Each
+    <literal>.profile</literal> section then introduces a new profile, which are numbered starting from zero.
+    The PE sections following each <literal>.profile</literal> are specific to that profile. When booting
+    into a specific profile, the base section's profiles are used in combination with the specific profile's
+    sections: if the same section is defined in both, the per-profile section overrides the base profile's
+    version, otherwise the base profile sections are used.</para>
+
+    <para>A UKI that contains no <literal>.profile</literal> is consider equivalent to one that just contains
+    a single <literal>.profile</literal>, as having only a single profile <literal>@0</literal>.</para>
 
     <para>Here's a simple example for a multi-profile UKI's sections, inspired by the setup suggested above:</para>
 

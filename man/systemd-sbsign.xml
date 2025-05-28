@@ -72,12 +72,12 @@
         <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
 
         <listitem><para>Set the Secure Boot private key and certificate for use with the
-        <command>sign</command>. The <option>--certificate=</option> option takes a path to a PEM encoded
-        X.509 certificate or a URI that's passed to the OpenSSL provider configured with
-        <option>--certificate-source</option>. The <option>--certificate-source</option> takes one of
+        <command>sign</command> verb. The <option>--certificate=</option> option takes a path to a
+        PEM-encoded X.509 certificate or a URI that's passed to the OpenSSL provider configured with
+        <option>--certificate-source</option>. The <option>--certificate-source</option> option takes one of
         <literal>file</literal> or <literal>provider</literal>, with the latter being followed by a specific
         provider identifier, separated with a colon, e.g. <literal>provider:pkcs11</literal>. The
-        <option>--private-key=</option> option can take a path or a URI that will be passed to the OpenSSL
+        <option>--private-key=</option> option takes a path or a URI that will be passed to the OpenSSL
         engine or provider, as specified by <option>--private-key-source=</option> as a
         <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>. The specified OpenSSL
         signing engine or provider will be used to sign the PE binary.</para>
