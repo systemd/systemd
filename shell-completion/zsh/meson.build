@@ -13,6 +13,21 @@ custom_target(
         install : zshcompletiondir != 'no',
         install_dir : zshcompletiondir)
 
+property_files = [
+        meson.project_source_root() + '/man/systemd.exec.xml',
+        meson.project_source_root() + '/man/systemd.kill.xml',
+        meson.project_source_root() + '/man/systemd.resource-control.xml',
+]
+
+custom_target(
+        '_systemd-run',
+        input : '_systemd-run.in',
+        output : '_systemd-run',
+        depend_files : property_files,
+        command : [extract_properties, '-i', '@INPUT@', '-o', '@OUTPUT@'] + property_files,
+        install : zshcompletiondir != 'no',
+        install_dir : zshcompletiondir)
+
 items = [['_busctl',                   ''],
          ['_journalctl',               ''],
          ['_systemd-analyze',          ''],
@@ -20,7 +35,6 @@ items = [['_busctl',                   ''],
          ['_systemd-nspawn',           ''],
          ['_systemd',                  ''],
          ['_systemd-path',             ''],
-         ['_systemd-run',              ''],
          ['_run0',                     ''],
          ['_udevadm',                  ''],
          ['_varlinkctl',               ''],
