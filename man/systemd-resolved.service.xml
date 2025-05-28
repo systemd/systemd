@@ -240,8 +240,8 @@
     ensure that other links will not be considered for these queries (unless they too carry such a routing
     domain). In order to route all such DNS queries to a specific link only if no other link is preferred,
     configure the link as the default route and do not configure a <literal>~.</literal> route-only domain on
-    it. Finally, in order to ensure that a specific link never receives any DNS traffic not matching any of
-    its configured routing domains, make it not the default route.</para>
+    it. Finally, in order to avoid a specific link receiving any DNS traffic not matching any of its
+    configured routing domains, do not make it a default route.</para>
 
     <para>See
     <citerefentry><refentrytitle>org.freedesktop.resolve1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -320,15 +320,15 @@ search foobar.com barbar.com
       <listitem><para>The <filename>nss-dns</filename> resolver maintains little state between subsequent DNS
       queries, and for each query always talks to the first listed DNS server from
       <filename>/etc/resolv.conf</filename> first, and on failure continues with the next until reaching the
-      end of the list which is when the query fails. The resolver in
-      <filename>systemd-resolved.service</filename> however maintains state, and will continuously talk to
-      the same server for all queries on a particular lookup scope until some form of error is seen at which
-      point it switches to the next, and then continuously stays with it for all queries on the scope until
-      the next failure, and so on, eventually returning to the first configured server. This is done to
-      optimize lookup times, in particular given that the resolver typically must first probe server feature
-      sets when talking to a server, which is time consuming. This different behaviour implies that listed
-      DNS servers per lookup scope must be equivalent in the zones they serve, so that sending a query to one
-      of them will yield the same results as sending it to another configured DNS server.</para></listitem>
+      end of the list which is when the query fails. The resolver in <command>systemd-resolved</command>
+      however maintains state, and will continuously talk to the same server for all queries in a particular
+      lookup scope until some form of error is seen at which point it will switch to the next server, and
+      then stay with it for all queries on the scope until the next failure, and so on, eventually returning
+      to the first configured server. This is done to optimize lookup times, in particular given that the
+      resolver typically must first probe server feature sets when talking to a server, which takes time.
+      This different behaviour implies that listed DNS servers per lookup scope must be equivalent in the
+      zones they serve, so that sending a query to one of them will yield the same results as sending it to
+      another configured DNS server.</para></listitem>
     </itemizedlist>
   </refsect1>
 

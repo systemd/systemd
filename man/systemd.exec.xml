@@ -3793,7 +3793,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <literal>my.renamed.xxx</literal> to the service.</para>
 
         <para>If <varname>ImportCredential=</varname> is specified multiple times and multiple credentials
-        end up with the same name after renaming, the first one is kept and later ones are dropped.</para>.
+        end up with the same name after renaming, the first one is kept and later ones are dropped.</para>
 
         <para>When multiple credentials of the same name are found, credentials found by
         <varname>LoadCredential=</varname> and <varname>LoadCredentialEncrypted=</varname> take priority over

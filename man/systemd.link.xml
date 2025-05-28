@@ -396,7 +396,8 @@
 
           <para>This setting is useful to configure the <literal>ID_NET_MANAGED_BY=</literal> property which
           declares which network management service shall manage the interface, which is respected by
-          <command>systemd-networkd</command> and others. Use
+          <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and others. Use
           <programlisting>Property=ID_NET_MANAGED_BY=io.systemd.Network</programlisting>
           to declare explicitly that <command>systemd-networkd</command> shall manage the interface, or set
           the property to something else to declare explicitly it shall not do so. See

@@ -516,7 +516,7 @@
         <literal>/</literal>, both the directory and its contents are excluded.</para>
 
         <para><varname>ExcludeFilesTarget=</varname> is like <varname>ExcludeFiles=</varname> except that
-        instead of excluding the path on the host from being copied into the partition, it exclude any files
+        instead of excluding the path on the host from being copied into the partition, it excludes any files
         and directories from being copied into the given path in the partition.</para>
 
         <para>When
@@ -612,10 +612,10 @@
         <varname>MakeDirectories=</varname> and <varname>CopyFiles=</varname>.</para>
 
         <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
-        <literal>btrfs</literal>.</para>
+        <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <para>Note that this option is only supported in combination with <option>--offline=yes</option>
-        since btrfs-progs 6.11 or newer.</para>
+        since <filename>btrfs-progs</filename> 6.11 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -632,7 +632,7 @@
         </para>
 
         <para>Note that this option is only supported in combination with <option>--offline=yes</option>
-        since btrfs-progs 6.11 or newer.</para>
+        since <filename>btrfs-progs</filename> 6.11 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -868,7 +868,9 @@
         <para>Note that this setting is only taken into account when the filesystem configured with
         <varname>Format=</varname> supports compression (
         <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        squashfs, erofs). Here's an incomplete list of compression algorithms supported by the filesystems
+        squashfs,
+        <citerefentry project='man-pages'><refentrytitle>erofs</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        Here's an incomplete list of compression algorithms supported by the filesystems
         known to <command>systemd-repart</command>:</para>
 
         <table>
@@ -954,29 +956,30 @@
         target for some other supplement definition. A target cannot have more than one supplement partition
         associated with it.</para>
 
-        <para>For example, distributions can use this to implement <varname>$BOOT</varname> as defined in
-        the <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader
+        <para>For example, distributions can use this to implement <varname>$BOOT</varname> as defined in the
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader
         Specification</ulink>. Distributions may prefer to use the ESP as <varname>$BOOT</varname> whenever
         possible, but to adhere to the spec XBOOTLDR must sometimes be used instead. So, they should create
         two definitions: the first defining an ESP big enough to hold just the bootloader, and a second for
         the XBOOTLDR that's sufficiently large to hold kernels and configured as a supplement for the ESP.
-        Whenever possible, <command>systemd-repart</command> will try to merge the two definitions to create
-        one large ESP, but if that's not allowable due to the existing conditions on disk a small ESP and a
-        large XBOOTLDR will be created instead.</para>
+        Whenever possible,
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        will try to merge the two definitions to create one large ESP, but if that's not allowable due to the
+        existing conditions on disk a small ESP and a large XBOOTLDR will be created instead.</para>
 
         <para>As another example, distributions can also use this to seamlessly share a single
         <filename>/home</filename> partition in a multi-boot scenario, while preferring to keep
         <filename>/home</filename> on the root partition by default. Having a <filename>/home</filename>
         partition separated from the root partition entails some extra complexity: someone has to decide how
         to split the space between the two partitions. On the other hand, it allows a user to share their
-        home area between multiple installed OSs (i.e. via <citerefentry><refentrytitle>systemd-homed.service
-        </refentrytitle><manvolnum>8</manvolnum></citerefentry>). Distributions should create two definitions:
-        the first for a root partition that takes up some relatively small percentage of the disk, and the
-        second as a supplement for the first to create a <filename>/home</filename> partition that takes up
-        all the remaining free space. On first boot, if <command>systemd-repart</command> finds an existing
-        <filename>/home</filename> partition on disk, it'll un-merge the definitions and create just a small
-        root partition. Otherwise, the definitions will be merged and a single large root partition will be
-        created.</para>
+        home area between multiple installed OSs (i.e. via
+        <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+        Distributions should create two definitions: the first for a root partition that takes up some
+        relatively small percentage of the disk, and the second as a supplement for the first to create a
+        <filename>/home</filename> partition that takes up all the remaining free space. On first boot, if
+        <command>systemd-repart</command> finds an existing <filename>/home</filename> partition on disk,
+        it'll un-merge the definitions and create just a small root partition. Otherwise, the definitions
+        will be merged and a single large root partition will be created.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>

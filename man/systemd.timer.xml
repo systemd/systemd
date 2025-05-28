@@ -299,7 +299,7 @@
         timer, reducing the jitter in firings of this timer, while still avoiding firing at the same time as
         other similarly configured timers.</para>
 
-        <para>This setting has no effect if <varname>RandomizedDelaySec=</varname> is set to 0. Defaults to
+        <para>This setting has an effect only if <varname>RandomizedDelaySec=</varname> is not 0. Defaults to
         <option>false</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
@@ -318,7 +318,7 @@
         time, and since the interval is shorter than the service runtime, that elapse will be in the past,
         causing it to immediately trigger once done.</para>
 
-        <para>This setting has no effect if a realtime timer has not been specified with
+        <para>This setting has an effect only if a realtime timer has been specified with
         <varname>OnCalendar=</varname>. Defaults to <option>false</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
