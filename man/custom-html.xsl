@@ -66,6 +66,18 @@
   </a>
 </xsl:template>
 
+<xsl:template match="citerefentry[@project='openssl']">
+  <a>
+    <xsl:attribute name="href">
+      <xsl:text>https://docs.openssl.org/master/man</xsl:text>
+      <xsl:value-of select="manvolnum"/>
+      <xsl:text>/</xsl:text>
+      <xsl:value-of select="refentrytitle"/>
+    </xsl:attribute>
+    <xsl:call-template name="inline.charseq"/>
+  </a>
+</xsl:template>
+
 <xsl:template match="citerefentry[@project='archlinux']">
   <a>
     <xsl:attribute name="href">

@@ -113,7 +113,8 @@
         <term><varname>EnterNamespace=</varname></term>
 
         <listitem><para>For processes belonging to a PID namespace, controls whether
-        <command>systemd-coredump</command> shall attempt to process core dumps on the host, using debug
+        <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        shall attempt to process core dumps on the host, using debug
         information from the file system hierarchy (i.e. the mount namespace) of the process that
         crashed. Access to the process' file system hierarchy might be necessary to generate a fully
         symbolized backtrace. If set to <literal>yes</literal>, <command>systemd-coredump</command> will
