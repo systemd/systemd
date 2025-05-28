@@ -21,7 +21,7 @@
     <refname>sd_device_enumerator_get_subsystem_first</refname>
     <refname>sd_device_enumerator_get_subsystem_next</refname>
 
-    <refpurpose>Get the first or next device or subsystem from a device enumerator</refpurpose>
+    <refpurpose>Enumerates devices and get the first or next device.</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -53,22 +53,25 @@
   <refsect1>
     <title>Description</title>
     <para>The <function>sd_device_enumerator_get_device_first()</function> function enumerates all
-    matching devices under <constant>/sys/bus/</constant><replaceable>SUBSYSTEM</replaceable><constant>/devices/</constant>
-    and <constant>/sys/class/</constant><replaceable>SUBSYSTEM</replaceable><constant>/devices/</constant>,
-    and returns a pointer to the first matching <type>sd_device</type>. If no devices are found,
+    matching devices under <filename>/sys/bus/<replaceable>SUBSYSTEM</replaceable>/devices/</filename>
+    and <filename>/sys/class/<replaceable>SUBSYSTEM</replaceable>/devices/</filename>,
+    and returns a pointer to the first <type>sd_device</type> object. If no devices are found,
     <constant>NULL</constant> is returned.</para>
 
     <para>The <function>sd_device_enumerator_get_device_next()</function> function returns the pointer
-    to the next matching <type>sd_device</type> from the <parameter>enumerator</parameter>. It should
+    to the next <type>sd_device</type> from the <parameter>enumerator</parameter>. It should
     be called after <function>sd_device_enumerator_get_device_first()</function> or after a previous
     call to this function. If no more devices are available, <constant>NULL</constant> is returned.</para>
 
     <para>The <function>sd_device_enumerator_get_subsystem_first()</function> function enumerates all
-    matching subsystem devices in <constant>/sys/module/</constant>, <constant>/sys/bus/</constant>,
-    and <constant>/sys/bus/</constant><replaceable>SUBSYSTEM</replaceable><constant>/drivers/</constant>
-    (such as <constant>/sys/bus/pci/drivers/</constant>). Note that this does not enumerate child
-    devices under <constant>/sys/bus/pci/devices/</constant>. It returns a pointer to the first
-    matching <type>sd_device</type>. If no devices are found <constant>NULL</constant> is returned.</para>
+    matching subsystem devices in <filename>/sys/module/</filename>, <filename>/sys/bus/</filename>,
+    and <filename>/sys/bus/<replaceable>SUBSYSTEM</replaceable>/drivers/</filename>
+    (such as <filename>/sys/bus/pci/drivers/</filename>). It returns a pointer to the first
+    <type>sd_device</type> object. If no devices are found <constant>NULL</constant> is returned.
+    Note that this does <emphasis>not</emphasis> enumerate devices provided by
+    <function>sd_device_enumerator_get_subsystem_first/next()</function>. Hence, e.g.
+    <filename>/sys/bus/pci/</filename>, <filename>/sys/bus/pci/drivers/ahci/</filename> and so on are
+    enumerated, but <filename>/sys/bus/pci/devices/0000:00:00.0/</filename> and so on are not.</para>
 
     <para>The <function>sd_device_enumerator_get_subsystem_next()</function> function returns the next
     subsystem device from the enumerator. It should be called after
