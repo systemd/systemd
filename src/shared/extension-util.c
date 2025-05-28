@@ -13,6 +13,7 @@
 int extension_release_validate(
                 const char *name,
                 const char *host_os_release_id,
+                const char *host_os_release_id_like,
                 const char *host_os_release_version_id,
                 const char *host_os_extension_release_level,
                 const char *host_extension_scope,
@@ -22,6 +23,8 @@ int extension_release_validate(
         const char *extension_release_id = NULL, *extension_release_level = NULL, *extension_architecture = NULL;
         const char *extension_level = image_class == IMAGE_CONFEXT ? "CONFEXT_LEVEL" : "SYSEXT_LEVEL";
         const char *extension_scope = image_class == IMAGE_CONFEXT ? "CONFEXT_SCOPE" : "SYSEXT_SCOPE";
+        _cleanup_strv_free_ char **id_like_l = NULL;
+        bool matches_id_like;
 
         assert(name);
         assert(!isempty(host_os_release_id));
@@ -78,7 +81,18 @@ int extension_release_validate(
                 return 1;
         }
 
-        if (!streq(host_os_release_id, extension_release_id)) {
+        /* Match extension OS ID against host OS ID or ID_LIKE */
+        if (host_os_release_id_like)
+                id_like_l = strv_split(host_os_release_id_like, WHITESPACE);
+
+        if (id_like_l) {
+                STRV_FOREACH(s, id_like_l) {
+                        if (streq(s, extension_release_id))
+                                matches_id_like = true;
+                }
+        }
+
+        if (!streq(host_os_release_id, extension_release_id) && !matches_id_like) {
                 log_debug("Extension '%s' is for OS '%s', but deployed on top of '%s'.",
                           name, extension_release_id, host_os_release_id);
                 return 0;
