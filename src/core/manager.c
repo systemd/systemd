@@ -1413,7 +1413,6 @@ good:
 
 static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
         unsigned n = 0, gc_marker;
-        Unit *u;
 
         assert(m);
 
@@ -1425,11 +1424,13 @@ static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
 
         gc_marker = m->gc_marker;
 
-        while ((u = LIST_POP(gc_queue, m->gc_unit_queue))) {
+        Unit *u;
+        while ((u = m->gc_unit_queue)) {
                 assert(u->in_gc_queue);
 
                 unit_gc_sweep(u, gc_marker);
 
+                LIST_REMOVE(gc_queue, m->gc_unit_queue, u);
                 u->in_gc_queue = false;
 
                 n++;
