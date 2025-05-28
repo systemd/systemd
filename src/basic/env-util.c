@@ -375,6 +375,7 @@ int strv_env_replace_consume(char ***l, char *p) {
         const char *t, *name;
         int r;
 
+        assert(l);
         assert(p);
 
         /* Replace first occurrence of the env var or add a new one in the string list. Drop other
@@ -408,6 +409,9 @@ int strv_env_replace_consume(char ***l, char *p) {
 int strv_env_replace_strdup(char ***l, const char *assignment) {
         /* Like strv_env_replace_consume(), but copies the argument. */
 
+        assert(l);
+        assert(assignment);
+
         char *p = strdup(assignment);
         if (!p)
                 return -ENOMEM;
@@ -416,10 +420,13 @@ int strv_env_replace_strdup(char ***l, const char *assignment) {
 }
 
 int strv_env_replace_strdup_passthrough(char ***l, const char *assignment) {
-        /* Like strv_env_replace_strdup(), but pulls the variable from the environment of
-         * the calling program, if a variable name without value is specified.
-         */
         char *p;
+
+        /* Like strv_env_replace_strdup(), but pulls the variable from the environment of
+         * the calling program, if a variable name without value is specified. */
+
+        assert(l);
+        assert(assignment);
 
         if (strchr(assignment, '=')) {
                 if (!env_assignment_is_valid(assignment))
@@ -442,6 +449,8 @@ int strv_env_replace_strdup_passthrough(char ***l, const char *assignment) {
 }
 
 int strv_env_assign(char ***l, const char *key, const char *value) {
+        assert(l);
+
         if (!env_name_is_valid(key))
                 return -EINVAL;
 
