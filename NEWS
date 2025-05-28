@@ -280,7 +280,7 @@ CHANGES WITH 258 in spe:
           receives SIGINT (for example because the user hits Ctrl-C), a
           synchronization request is enqueued to systemd-journald, and log
           output continues until it completes. Or in other words, when this
-          option is used any log output submited before the SIGINT is
+          option is used any log output submitted before the SIGINT is
           guaranteed to be shown before journactl exits.
 
         * systemd-journald's Synchronize() Varlink call has been reworked so
@@ -565,7 +565,7 @@ CHANGES WITH 258 in spe:
           Confidential Computing. The firmware is matched via CHIDs to the
           local invoking VM, in a fashion conceptually close to the DeviceTree
           selection already available since v257. If a suitable firmware image
-          is found at boot, and the system's firmware verion does not match it,
+          is found at boot, and the system's firmware version does not match it,
           the update is applied and the system is rebooted. If the firmware
           matches, boot proceeds as usual.
 
@@ -870,7 +870,7 @@ CHANGES WITH 258 in spe:
           regular users).
 
         * User/group records gained a new "uuid" field that may be used to
-          place an identifiying UUID in the record.
+          place an identifying UUID in the record.
 
         systemd-run and run0:
 
@@ -1029,7 +1029,7 @@ CHANGES WITH 258 in spe:
           added for explicitly requesting a factory reset. (Implemented via a
           new systemd-factory-reset-generator)
 
-        * A new document explaing the factory reset logic in detail has been
+        * A new document explaining the factory reset logic in detail has been
           added. It is available online here:
 
           https://systemd.io/FACTORY_RESET
@@ -1192,7 +1192,7 @@ CHANGES WITH 258 in spe:
         * systemd-ssh-proxy now supports an alternative syntax for connecting
           to SSH-over-AF_VSOCK, in order to support scp and rsync better: "scp
           foo.txt vsock%4711:" should work now. (The pre-existing syntaxed used
-          / instead of % as seperator, which is ambiguous in scp/rsync context,
+          / instead of % as separator, which is ambiguous in scp/rsync context,
           but not for ssh itself.)
 
         * "systemctl start" and related verbs now support a new --verbose
