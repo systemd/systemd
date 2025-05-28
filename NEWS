@@ -327,6 +327,9 @@ CHANGES WITH 258 in spe:
           gained a knob PartialGenericSegmentationOffload= for controlling
           Partial GSO support.
 
+        * 'udevadm info/trigger/test/test-builtin' commands now also take device
+          IDs to specify devices.
+
         * udevadm test gained a new "--verbose" switch for generating
           additional debug output for the test.
 
