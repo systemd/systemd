@@ -276,6 +276,7 @@ simple_examples = files(
         'sd-bus-container-read.c',
         'sd_bus_error-example.c',
         'sd_bus_service_reconnect.c',
+        'sd_device_enumerator_add_match_parent-example.c',
         'sd_device_enumerator_new-example.c',
         'send-unit-files-changed.c',
         'vtable-example.c',
