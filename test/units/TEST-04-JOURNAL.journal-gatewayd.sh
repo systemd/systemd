@@ -139,6 +139,12 @@ curl -LSfs http://localhost:19531/fields/_TRANSPORT
 (! curl -LSfs http://localhost:19531/fields)
 (! curl -LSfs http://localhost:19531/fields/foo-bar-baz)
 
+# /boots
+curl -LSfs http://localhost:19531/boots >"$LOG_FILE"
+jq --seq -s . "$LOG_FILE"
+LAST_BOOT_ID=$(journalctl --list-boots -ojson -n1 | jq -r '.[0].boot_id')
+jq --seq -se ".[0] | select(.boot_id == \"$LAST_BOOT_ID\")" "$LOG_FILE"
+
 systemctl stop systemd-journal-gatewayd.{socket,service}
 
 if ! command -v openssl >/dev/null; then
