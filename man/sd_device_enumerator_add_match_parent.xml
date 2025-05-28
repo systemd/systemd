@@ -104,7 +104,7 @@
     the <parameter>enumerator</parameter> so that only devices under the tree of the specified
     <parameter>parent</parameter> device are enumerated. If this is called multiple times the
     previously set <parameter>parent</parameter> device is cleared and only the last call takes an
-    effect</para>
+    effect.</para>
 
     <para>The <function>sd_device_enumerator_add_match_property()</function> function adds a filter to
     the <parameter>enumerator</parameter> so that only devices with the specified
@@ -124,7 +124,7 @@
     to the <parameter>enumerator</parameter> so that all devices in the specified
     <parameter>subsystem</parameter>, when <parameter>match</parameter> is <constant>true</constant>.
     When <parameter>match</parameter> is <constant>false</constant>, then all devices except those in
-    the specified <parameter>subsystem</parameter> are enumerated. When called multiple times</para>
+    the specified <parameter>subsystem</parameter> are enumerated. When called multiple times.</para>
 
     <para>The <function>sd_device_enumerator_add_match_sysattr()</function> function adds a filter on
     the sysfs attribute <parameter>sysattr</parameter> matching <parameter>value</parameter>.
