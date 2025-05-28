@@ -1046,9 +1046,9 @@ CHANGES WITH 258 in spe:
           enable fsverity for all files copied into the new file system.
 
         * systemd-repart has been updated to automatically generate the
-          extended attributes systemd-validatefs@.service understands, for all
-          partitions it recognizes. Controllable via the AddValidateFS=
-          partition setting (which defaults to true).
+          extended attributes systemd-validatefs@.service understands (see
+          below), for all partitions it recognizes. Controllable via the
+          AddValidateFS= partition setting (which defaults to true).
 
         Other:
 
@@ -1072,13 +1072,13 @@ CHANGES WITH 258 in spe:
           cover PE binaries (i.e. UEFI binaries), too.
 
         * New kernel command line parameters systemd.break= and
-          rd.systemd.break= have been introduced that insert interactive
-          "breakpoints" to boot process at various locations, in order to
-          simplify debugging. For now four breakpoints are defined: "pre-udev",
-          "pre-basic", "pre-mount", "pre-switch-root". Similar functionality
-          has previously existed in the Dracut initrd generator, but is
-          generalized with this new concept, and extended to the
-          post-switch-root boot phases.
+          rd.systemd.break= have been introduced that insert interactive (as
+          in: shell prompt) "breakpoints" into the boot process at various
+          locations, in order to simplify debugging. For now four breakpoints
+          are defined: "pre-udev", "pre-basic", "pre-mount",
+          "pre-switch-root". Similar functionality has previously existed in
+          the Dracut initrd generator, but is generalized with this new
+          concept, and extended to the post-switch-root boot phases.
 
         * The systemd-path tool now learnt new paths for the per-system and
           per-user credential store.
@@ -1087,7 +1087,7 @@ CHANGES WITH 258 in spe:
           TTY ("PTY") and invokes a process on it, forwarding any output to the
           TTY it is invoked on. It can optionally apply background coloring and
           suchlike, and is mostly just a separate tool that makes the PTY
-          forwarding logic used in systemd-nspawn, sytsemd-vmspawn, run0
+          forwarding logic used in systemd-nspawn, systemd-vmspawn, run0
           available separately.
 
         * systemd-oomd can now reload its configuration at runtime, following
@@ -1102,29 +1102,29 @@ CHANGES WITH 258 in spe:
         * systemd-firstboot's interactive prompts for locale or keymaps now
           support tab completion.
 
-        * systemd-mount gained support for a new --canonicalize= switch that be
-          used to turn off client-side path canonicalization before trying to
-          unmount some path.
+        * systemd-mount gained support for a new --canonicalize= switch that
+          may be used to turn off client-side path canonicalization before
+          trying to unmount some path.
 
         * systemd-notify gained a new --fork switch which inverts the role that
           systemd-notify plays in the sd_notify() protocol: instead of sending
           out notification messages, it will listen for them, forking off a
           command that is expected to send them. Once READY=1 is received
           systemd-notify will exit, leaving the child running. This is useful
-          for correctly forking off processes from shell scripts that implement
-          the sd_notify() protocol.
+          for correctly forking off processes that implement the sd_notify()
+          protocol from shell scripts.
 
         * systemd-fstab-generator now supports a root=bind:… syntax for
           creating bind mounts for the root file system. This is useful for
-          booting into tarballs downloaded at boot. Specifically a kernel
-          command line like this:
+          booting into tarballs downloaded at boot. As an example, consider a
+          kernel command line like this:
 
           rd.systemd.pull=tar,machine,verify=no:root:http://192.168.100.1:8081/image.tar root=bind:/run/machines/root ip=any
 
-        * libapparmor is now loaded via dlopen() instead of directly shared
+        * libapparmor is now loaded via dlopen() instead of using direct shared
           library linking. This allows downstream distributions to provide AA
           support as a runtime option instead of making the AA userspace a
-          mandatory dep.
+          mandatory dependency.
 
         * A new generic remote-integritysetup.target unit has been added that
           matches remote-veritysetup.target and remote-cryptsetup.target's role
@@ -1135,7 +1135,7 @@ CHANGES WITH 258 in spe:
 
           https://systemd.io/ROOTFS_DISCOVERY
 
-        * Whenever any systemd tool begin or end a new TTY context (i.e. take
+        * Whenever any systemd tool begins or ends a new TTY context (i.e. takes
           over a TTY for some time) a new OSC sequence is now emitted, with
           various details about the context. This new OSC sequence can be
           interpreted by terminal emulators to visualize the context/source TTY
@@ -1146,37 +1146,39 @@ CHANGES WITH 258 in spe:
 
           Contexts are generated for systemd-nspawn/systemd-vmspawn boots, for
           run0 or systemd-run sessions, whenever PAM TTY sessions start or end,
-          when shell command executions start and end.
+          and when shell command executions start and end. Metadata sent along
+          contains hostname, machine ID, boot ID, exit status, unit information
+          and more.
 
         * If PID 1 makes up a suitable $TERM for a TTY it activates a service
-          on, because there are no other hints on how to pick it, it will now
+          on (in case there are no other hints on how to choose it) it will now
           also set $COLORTERM=truecolor. Moreover, if $COLORTERM or $NO_COLOR
           are set on the kernel cmdline we'll now import them into PID1's
-          environment block, just like $TERM itself. Moreover systemd-nspawn
-          and run0 will now propagate $COLORTERM and $NO_COLOR to the target
-          environment, if set, just like $TERM is already handled. Or to say
-          this with different words: the triplet of $TERM, $COLORTERM,
-          $NO_COLOR is now processed together in similar ways wherever
-          appropriate.
+          environment block, just like $TERM itself. Moreover, systemd-nspawn
+          and run0 will now propagate $COLORTERM and $NO_COLOR from the calling
+          to the target environment, if set, just like $TERM is already
+          handled. Or to say this with different words: the triplet of $TERM,
+          $COLORTERM, $NO_COLOR is now processed jointly and in similar ways,
+          wherever appropriate.
 
         * systemd-update-done gained a new --root= switch to operate in
           "offline" mode on a specific file system tree.
 
         * A new template service systemd-validatefs@.service has been added
-          that can validate use of mounts. Specifically, it will look for
-          certain extended attributes stored on the top-level directory inode
-          of the mount, which may encode various constraints on use of the file
-          system. For example it may encode a directory path the file system
-          must be mounted to, a GPT type UUID that must be used for the
+          that can validate usage of file systems. Specifically, it will look
+          for certain extended attributes stored on the top-level directory
+          inode of the mount, which may encode various constraints on use of
+          the file system. For example, it may encode a directory path the file
+          system must be mounted to, a GPT type UUID that must be used for the
           partition the file system is located in and more. This provides
           protection in case GPT auto-discovery is used to discover the mounts,
           but essential metadata outside of the file system itself has been
-          tempered with. This operates under the assumption that the extended
+          tampered with. This operates under the assumption that the extended
           attributes on the root inode of the file system are protected by
           dm-verity or dm-crypt/dm-integrity, even if the GPT metadata has no
-          cryptographic protection. If a file system carries these extended
-          attributes but they do not match the current use and location of the
-          file system an immediate reboot is triggered.
+          equivalent cryptographic protection. If a file system carries these
+          extended attributes but they do not match the current use and
+          location of the file system an immediate reboot is triggered.
 
         * systemd-gpt-auto-generator now understands a new mount option
           x-systemd.validatefs for /etc/fstab entries. If specified an instance
@@ -1185,19 +1187,19 @@ CHANGES WITH 258 in spe:
 
         * systemd-fstab-auto-generator and systemd-gpt-auto-generator now
           understand root=off on the kernel command line which may be used to
-          turn off any automatic or non-automatic setup of the root file
+          turn off any automatic or non-automatic mounting of the root file
           system. This is useful in scenarios where a boot process shall never
           transition from initrd context into host context.
 
         * systemd-ssh-proxy now supports an alternative syntax for connecting
           to SSH-over-AF_VSOCK, in order to support scp and rsync better: "scp
-          foo.txt vsock%4711:" should work now. (The pre-existing syntaxed used
-          / instead of % as separator, which is ambiguous in scp/rsync context,
-          but not for ssh itself.)
+          foo.txt vsock%4711:" should work now. (The pre-existing syntax used
+          "/" instead of "%" as separator, which is ambiguous in scp/rsync
+          context even if not for ssh itself.)
 
         * "systemctl start" and related verbs now support a new --verbose
-          mode. If specified the log output of the units operated on is shown
-          as long as the operation lasts.
+          mode. If specified the live log output of the units operated on is
+          shown as long as the operation lasts.
 
         * sd-bus: a new API call sd_bus_message_dump_json() returns a JSON
           representation of a D-Bus message.
