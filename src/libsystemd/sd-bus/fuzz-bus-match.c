@@ -23,7 +23,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = sd_bus_new(&bus);
         assert_se(r >= 0);
 
-        _cleanup_(bus_match_free) struct bus_match_node root = {
+        _cleanup_(bus_match_free) BusMatchNode root = {
                 .type = BUS_MATCH_ROOT,
         };
 
@@ -50,7 +50,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
                 offset = end ? (size_t) (end - (char*) data + 1) : size;
 
-                struct bus_match_component *components;
+                BusMatchComponent *components;
                 size_t n_components;
                 r = bus_match_parse(line, &components, &n_components);
                 if (IN_SET(r, -EINVAL, -ENOMEM)) {
