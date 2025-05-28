@@ -6,12 +6,12 @@
 #include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
 #include <libelf.h>
-#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "coredump-util.h"
 #include "dlfcn-util.h"
 #include "elf-util.h"
 #include "errno-util.h"
@@ -826,7 +826,7 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
         if (r == 0) {
                 /* We want to avoid loops, given this can be called from systemd-coredump */
                 if (fork_disable_dump) {
-                        r = RET_NERRNO(prctl(PR_SET_DUMPABLE, 0));
+                        r = set_dumpable(SUID_DUMP_DISABLE);
                         if (r < 0)
                                 report_errno_and_exit(error_pipe[1], r);
                 }
