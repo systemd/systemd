@@ -4548,6 +4548,16 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                         if (r < 0)
                                 return r;
 
+                        FOREACH_STRING(i, "COLORTERM=", "NO_COLOR=") {
+                                const char *s = strv_find_prefix(environ, i);
+                                if (!s)
+                                        continue;
+
+                                r = strv_env_replace_strdup(env, s);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         return 1;
                 }
         }
