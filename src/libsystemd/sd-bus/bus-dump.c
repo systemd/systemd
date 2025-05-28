@@ -582,7 +582,7 @@ int bus_pcap_header(size_t snaplen, const char *os, const char *info, FILE *f) {
 }
 
 int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
-        struct bus_body_part *part;
+        BusMessageBodyPart *part;
         size_t msglen, caplen, pad;
         uint32_t length;
         uint64_t ts;
