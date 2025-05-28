@@ -1019,14 +1019,15 @@ DuplicateAddressDetection=none</programlisting></para>
           <filename>/proc/sys/net/ipv4/conf/<replaceable>INTERFACE</replaceable>/force_igmp_version</filename>.
           Takes one of <literal>no</literal>,
           <literal>v1</literal>, <literal>v2</literal>, or <literal>v3</literal>.
-          When <literal>no</literal>, no enforcement of an IGMP version will be applied, IGMPv1/v2 fallback are allowed, will back to
-          IGMPv3 mode again if all IGMPv1/v2 Querier Present timer expire.
-          When <literal>v1</literal>, use of IGMP version 1 will be enforced, and IGMPv1 report will be replied even if IGMPv2/v3
+          When <literal>no</literal>, no enforcement of an IGMP version is applied. IGMPv1/v2 fallbacks are allowed, and
+          <command>systemd-networkd</command> will return to
+          IGMPv3 mode after all IGMPv1/v2 Querier Present timers have expired.
+          When <literal>v1</literal>, use of IGMP version 1 is enforced. An IGMPv1 report will be returned even if IGMPv2/v3
           queries are received.
-          When <literal>v2</literal>, use of IGMP version 2 will be enforced, and IGMPv2 report will be replied if an IGMPv2/v3 query
-          is received, but fallback to IGMPv1 if an IGMPv1 query is received.
-          When <literal>v3</literal>, use of IGMP version 3 will be enforced, and the same reaction will be done as <literal>no</literal>.
-          Defaults to unset, and the sysctl value will be unchanged.
+          When <literal>v2</literal>, use of IGMP version 2 is enforced. An IGMPv2 report will be returned if an IGMPv2/v3 query
+          is received. <command>systemd-networkd</command> will fall back to IGMPv1 if an IGMPv1 query is received.
+          When <literal>v3</literal>, use of IGMP version 3 is enforced, and the response is the same as with <literal>no</literal>.
+          Defaults to unset — the sysctl is not set.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
