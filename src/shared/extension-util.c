@@ -13,6 +13,7 @@
 int extension_release_validate(
                 const char *name,
                 const char *host_os_release_id,
+                const char *host_os_release_id_like,
                 const char *host_os_release_version_id,
                 const char *host_os_extension_release_level,
                 const char *host_extension_scope,
@@ -78,7 +79,8 @@ int extension_release_validate(
                 return 1;
         }
 
-        if (!streq(host_os_release_id, extension_release_id)) {
+        /* Match extension OS ID against host OS ID or ID_LIKE */
+        if (!streq(host_os_release_id, extension_release_id) && !streq(host_os_release_id_like, extension_release_id)) {
                 log_debug("Extension '%s' is for OS '%s', but deployed on top of '%s'.",
                           name, extension_release_id, host_os_release_id);
                 return 0;
