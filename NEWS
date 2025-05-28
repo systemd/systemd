@@ -181,7 +181,7 @@ CHANGES WITH 258 in spe:
           pseudo-mount option, which may be used to list additional mount
           options that shall be used for the mount when it is established,
           under the condition the local kernel supports them. If the local
-          kernel does not they are automatically removed from the option
+          kernel does not, they are automatically removed from the option
           string. This only works for kernel-level mount options, not for those
           implemented in userspace. This is useful for various purposes, for
           example to include "usrquota" for tmpfs mount options where that's
@@ -191,7 +191,7 @@ CHANGES WITH 258 in spe:
           if backed by tmpfs).
 
         * If PAMName= is used for a service and the PAM session prompts for a
-          password, it will not be queried via the systemd-ask-password
+          password, it will now be queried via the systemd-ask-password
           logic. Previously the prompt would simply be denied, typically causing
           the PAM session (and thus service activation) to fail. One effect of
           this change is that when lingering is enabled for a systemd-homed
@@ -220,7 +220,7 @@ CHANGES WITH 258 in spe:
           can.
 
         * If the service manager receives a RESTART_RESET=1 sd_notify() message
-          from a service it will now reset the automatic restart counter it
+          from a service, it will now reset the automatic restart counter it
           maintains for the service. This is useful to give services control
           over RestartMaxDelaySec=/RestartSteps= progress.
 
@@ -253,11 +253,11 @@ CHANGES WITH 258 in spe:
           invoked via a shell.
 
         * A basic Varlink API is now implemented in the service manager that
-          can be used to determine its current state and list units and their
-          state.
+          can be used to determine its current state, and list units and their
+          states.
 
         * Processes invoked via the .socket Accept=yes logic will now get an
-          environment variable $SO_COOKIE set that contains the Linux socket
+          environment variable $SO_COOKIE that contains the Linux socket
           cookie (which otherwise can be acquired via getsockopt()) of the
           connection socket, formatted in decimal.
 
@@ -505,7 +505,7 @@ CHANGES WITH 258 in spe:
           to disable allocation of a systemd-logind session for a specific
           session. Note that this is not a recommended mode of operation, as
           such "ghost" sessions will not be properly accounted for, and are
-          excluded of the per-user/per-session resource accounting.
+          excluded from the per-user/per-session resource accounting.
 
         * Two new session classes "user-light"/"user-early-light" have been
           added, that are just like the regular "user"/"user-early" session
@@ -523,7 +523,7 @@ CHANGES WITH 258 in spe:
         * When issuing parallel A and AAAA lookups for the same domain name,
           and one succeeds quickly, we'll now shorten the timeout for the
           other. This should improve behaviour with DNS servers whose IPv6
-          support is flaky and reply to A quickly but AAAA not at all.
+          support is flaky and reply to A quickly but not at all to AAAA.
 
         * The "Monitor" Varlink IPC API of systemd-resolved now gained support
           for a new SubscribeDNSConfiguration() call that enables subscription
@@ -798,7 +798,7 @@ CHANGES WITH 258 in spe:
           instead read it from the specified JSON file, and then present it in
           the usual, human readable fashion.
 
-        * systemd-homed gained bus API calls for listing, adding, removing and
+        * systemd-homed gained D-Bus API calls for listing, adding, removing and
           showing use record signing keys.
 
         * homectl gained the verbs "list-signing-keys", "get-signing-key",
@@ -963,7 +963,7 @@ CHANGES WITH 258 in spe:
 
         systemd-importd & importctl:
 
-        * systemd-pull/importctl now supports SuSE style *.asc gpg signatures.
+        * systemd-pull/importctl now supports ASCII armored (*.asc) GPG signatures.
 
         * The systemd.pull= and rd.systemd.pull= kernel command line switches
           (which may be used to automatically download a VM, container, confext,
