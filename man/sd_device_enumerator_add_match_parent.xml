@@ -16,7 +16,6 @@
 
   <refnamediv>
     <refname>sd_device_enumerator_add_match_parent</refname>
-    <refname>sd_device_enumerator_add_all_parents</refname>
     <refname>sd_device_enumerator_add_match_property</refname>
     <refname>sd_device_enumerator_add_match_property_required</refname>
     <refname>sd_device_enumerator_add_match_subsystem</refname>
@@ -25,18 +24,13 @@
     <refname>sd_device_enumerator_add_nomatch_sysname</refname>
     <refname>sd_device_enumerator_add_match_tag</refname>
     <refname>sd_device_enumerator_allow_uninitialized</refname>
+    <refname>sd_device_enumerator_add_all_parents</refname>
     <refpurpose>Add a filter to the device enumerator</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <funcsynopsis>
     <funcsynopsisinfo>#include &lt;systemd/sd-device.h&gt;</funcsynopsisinfo>
-
-    <funcprototype>
-      <funcdef>int <function>sd_device_enumerator_add_match_parent</function></funcdef>
-      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
-      <paramdef>sd_device *<parameter>parent</parameter></paramdef>
-    </funcprototype>
 
     <funcprototype>
       <funcdef>int <function>sd_device_enumerator_add_all_parents</function></funcdef>
@@ -95,6 +89,12 @@
       <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
     </funcprototype>
 
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_match_parent</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>sd_device *<parameter>parent</parameter></paramdef>
+    </funcprototype>
+
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -103,33 +103,28 @@
     <para>The <function>sd_device_enumerator_add_match_parent()</function> function adds a filter to
     the <parameter>enumerator</parameter> so that only devices under the tree of the specified
     <parameter>parent</parameter> device are enumerated. If this is called multiple times the
-    previously set <parameter>parent</parameter> device is cleared.</para>
-
-    <para>The <function>sd_device_enumerator_add_all_parents()</function> function adds a filter to the
-    <parameter>enumerator</parameter> so that parent devices of the matching devices are
-    also included in the enumeration. This is useful for cases where you want to include all parent
-    devices in the enumeration, such as when you are interested in the entire device tree leading up
-    to a specific device.</para>
+    previously set <parameter>parent</parameter> device is cleared and only the last call takes an
+    effect</para>
 
     <para>The <function>sd_device_enumerator_add_match_property()</function> function adds a filter to
     the <parameter>enumerator</parameter> so that only devices with the specified
-    <parameter>property</parameter> equals to the<parameter>value</parameter> are enumerated.
+    <parameter>property</parameter> equals to the <parameter>value</parameter> are enumerated.
     Both <parameter>property</parameter> and <parameter>value</parameter> can be a glob pattern.
-    When this is called multiple times, then devices that have at least one of the specified
-    properties with matching values are enumerated. That is, filters are ORed.q</para>
+    When this is called multiple times, devices that have at least one of the specified
+    properties with matching values are enumerated. That is, filters are ORed.</para>
 
     <para>The <function>sd_device_enumerator_add_match_property_required()</function> function adds a
     filter to the <parameter>enumerator</parameter> so that only devices with the specified
-    <parameter>property</parameter> equals to the<parameter>value</parameter> are enumerated. This
-    function is similar to <function>sd_device_enumerator_add_match_property</function>, but it
-    requires that the property must exist on the device, not just match a value.
-    When this is called multiple times, devices that have all specified properties with matching
-    values are enumerated. That is, filters are ANDed.</para>
+    <parameter>property</parameter> equals to the <parameter>value</parameter> are enumerated.
+    This function is similar to <function>sd_device_enumerator_add_match_property()</function>, but when
+    this is called multiple times, devices that have <emphasis>all</emphasis> specified properties
+    with matching values are enumerated. That is, filters are ANDed.</para>
 
-    <para>The <function>sd_device_enumerator_add_match_subsystem()</function>functions enumerates all
-    devices in the specified <parameter>subsystem</parameter>, when <parameter>match</parameter>
-    is <constant>true</constant>. When <parameter>match</parameter> is <constant>false</constant>,
-    then all devices except those in the specified <parameter>subsystem</parameter> are enumerated.</para>
+    <para>The <function>sd_device_enumerator_add_match_subsystem()</function> function adds a filter
+    to the <parameter>enumerator</parameter> so that all devices in the specified
+    <parameter>subsystem</parameter>, when <parameter>match</parameter> is <constant>true</constant>.
+    When <parameter>match</parameter> is <constant>false</constant>, then all devices except those in
+    the specified <parameter>subsystem</parameter> are enumerated. When called multiple times</para>
 
     <para>The <function>sd_device_enumerator_add_match_sysattr()</function> function adds a filter on
     the sysfs attribute <parameter>sysattr</parameter> matching <parameter>value</parameter>.
@@ -137,9 +132,9 @@
     <constant>NULL</constant>, devices that either have (if <parameter>match</parameter>
     is <constant>true</constant>) or do not have (if <parameter>match</parameter> is
     <constant>false</constant>) the specified <parameter>sysattr</parameter> are included, regardless
-    of the actual value - effectively treating <constant>NULL</constant> as "*". When this function is
-    called multiple times, only devices that match all specified <parameter>sysattr</parameter>
-    filters are included. These filters are ANDed.</para>
+    of its value.That is, <constant>NULL</constant> is mostly equivalent to <literal>*</literal>.
+    When this function is called multiple times, only devices that match all specified
+    <parameter>sysattr</parameter> filters are enumerated. That is, these filters are ANDed.</para>
 
     <para>The <function>sd_device_enumerator_add_match_sysname()</function> function adds a filter so
     that only devices whose sysname equals to <parameter>sysname</parameter> are enumerated.
@@ -156,12 +151,18 @@
 
     <para>The <function>sd_device_enumerator_allow_uninitialized()</function> function allows devices
     that have not yet been initialized by udev to be included in the enumeration.</para>
+
+    <para>The <function>sd_device_enumerator_add_all_parents()</function> function enumerates all parent
+    devices of the matching devices. This is useful for cases where you want to include all parent
+    devices in the enumeration, such as when you are interested in the entire device tree leading up
+    to a specific device.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para> All functions return <constant>0</constant> on success or a negative errno-style error code on failure.</para>
+    <para>All functions return <constant>0</constant> or a positive integer on success, or a negative
+    errno-style error code on failure.</para>
     <refsect2>
     <title>Errors</title>
 
@@ -176,7 +177,7 @@
       <varlistentry>
         <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The argument is invalid.</para></listitem>
+        <listitem><para>One of the arguments is invalid.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect2>

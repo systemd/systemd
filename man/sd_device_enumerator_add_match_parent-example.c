@@ -35,8 +35,8 @@ int main(void) {
 
     /* Begin enumerating matching devices */
     for (device = sd_device_enumerator_get_device_first(enumerator);
-        device;
-        device = sd_device_enumerator_get_device_next(enumerator)) {
+         device;
+         device = sd_device_enumerator_get_device_next(enumerator)) {
         const char *syspath;
 
         /* Get syspath and devname for the device */
