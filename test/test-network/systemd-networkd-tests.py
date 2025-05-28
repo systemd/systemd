@@ -5104,11 +5104,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 addr show dev dummy98')
         print(output)
-        self.assertRegex(output, 'inet 10\.234\.77\.111/32.*dummy98')
+        self.assertIn('inet 10.234.77.111/32', output)
 
         output = check_output('ip -6 addr show dev dummy98')
         print(output)
-        self.assertRegex(output, 'inet6 2222:3333::4444/64 scope global')
+        self.assertIn('inet6 2222:3333::4444/64 scope global', output)
 
     def check_nexthop(self, manage_foreign_nexthops, first):
         self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
@@ -5774,6 +5774,21 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show dummy98')
         print(output)
         self.assertRegex(output, 'master bond199')
+
+        # Test case for #37629
+        for _ in range(3):
+            # When a slave leaved from its master bonding interface, the kernel brings down the slave.
+            check_output('ip link set dummy98 nomaster')
+            self.wait_online('dummy98:off')
+
+            # Bring up the interface to check if networkd recognizes the interface has no master now.
+            check_output('ip link set dummy98 up')
+            self.wait_online('dummy98:carrier')
+
+            # We need to first bring down the interface to make it join a bonding interface.
+            check_output('ip link set dummy98 down')
+            check_output('ip link set dummy98 master bond199')
+            self.wait_online('dummy98:enslaved')
 
     def test_bond_active_slave(self):
         copy_network_unit('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
