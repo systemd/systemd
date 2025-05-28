@@ -107,10 +107,11 @@ static int make_sshd_template_unit(
                         "[Unit]\n"
                         "Description=OpenSSH Per-Connection Server Daemon\n"
                         "Documentation=man:systemd-ssh-generator(8) man:sshd(8)\n"
+                        "\n"
                         "[Service]\n"
                         "ExecStart=-%s -i -o \"AuthorizedKeysFile ${CREDENTIALS_DIRECTORY}/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys\"\n"
                         "StandardInput=socket\n"
-                        "ImportCredential=ssh.ephemeral-authorized_keys-all",
+                        "ImportCredential=ssh.ephemeral-authorized_keys-all\n",
                         sshd_binary);
 
                 r = fflush_and_check(f);
