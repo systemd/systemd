@@ -152,6 +152,17 @@
 
     <variablelist>
       <varlistentry>
+        <term><uri>/boots</uri></term>
+
+        <listitem><para>Returns json-seq (RFC 7464) response containing JSON objects, each one containing
+        boot number, its ID and the timestamps of the first and last message. Boots are returned starting
+        with the latest boot first and use the same schema as
+        <command>journalctl --list-boots --output json</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><uri>/browse</uri></term>
 
         <listitem><para>Interactive browsing.</para>
