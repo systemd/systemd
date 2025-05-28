@@ -19,7 +19,7 @@
   <refnamediv>
     <refname>systemd-repart</refname>
     <refname>systemd-repart.service</refname>
-    <refpurpose>Automatically grow and add partitions, and generate disk images (DDIs).</refpurpose>
+    <refpurpose>Automatically grow and add partitions, and generate disk images (DDIs)</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

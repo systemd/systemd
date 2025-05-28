@@ -58,7 +58,8 @@
     combined, synchronized operation, so that only a combined update of all three together constitutes a
     complete update.
     We'll call such a collection of transfers a target.
-    <command>systemd-sysupdate</command> always operates on a single target.</para>
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    always operates on a single target.</para>
 
     <para>Transfers may be grouped together into sets that can be individually enabled or disabled by the
     system administrator, called "Optional Features":
@@ -522,7 +523,9 @@
         XML file. This may be used by software centers (such as GNOME Software or KDE Discover) to present
         rich metadata about the resources being updated. This includes display names, changelogs, icons,
         and more. The specified catalog must include <ulink url="https://systemd.io/APPSTREAM_BUNDLE">special metadata</ulink>
-        to be correctly associated with <command>systemd-sysupdate</command> by the software centers.</para>
+        to be correctly associated with
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        by the software centers.</para>
 
         <para>This setting supports specifier expansion. See below for details on supported
         specifiers.</para>
@@ -688,7 +691,8 @@
 
         <para>If set to <constant>explicit</constant>, the specified <varname>Path=</varname> will be
         resolved relative to the directory specified with <option>--transfer-source=</option> when invoking
-        <command>systemd-sysupdate</command>.</para>
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
 
         <para>The values <constant>esp</constant>, <constant>xbootldr</constant>, and
         <constant>boot</constant> are only supported when <varname>Type=</varname> is set to

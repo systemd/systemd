@@ -89,10 +89,11 @@
     <para>Note that any network interfaces that have the <varname>ID_NET_MANAGED_BY=</varname> udev property
     set will never be matched by any .network files – unless the property's value is the string
     <literal>io.systemd.Network</literal> – even if the [Match] section would otherwise match. This may be
-    used to exclude specific network interfaces from <command>systemd-networkd</command>'s management, while
-    keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> property thus declares
-    intended <emphasis>ownership</emphasis> of the device, and permits ensuring that concurrent network
-    management implementations do not compete for management of specific devices.</para>
+    used to exclude specific network interfaces from
+    <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+    management, while keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> property
+    thus declares intended <emphasis>ownership</emphasis> of the device, and permits ensuring that concurrent
+    network management implementations do not compete for management of specific devices.</para>
 
     <para>A network file is said to match a network interface if all matches specified by the [Match]
     section are satisfied. When a network file does not contain valid settings in [Match] section, then
@@ -1802,8 +1803,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>GoTo=</varname></term>
         <listitem>
-          <para>Specifies the target priority used by <literal>goto</literal> type of rule. Takes an integer
-          in the range 1…4294967295. This must be larger than the priority of this rule specified in
+          <para>Specifies the target priority used by the <literal>goto</literal> type of rule. Takes an
+          integer in the range 1…4294967295. This must be larger than the priority of the rule specified in
           <varname>Priority=</varname>. When specified, <varname>Type=goto</varname> is implied. This is
           mandatory when <varname>Type=goto</varname>.</para>
 
@@ -2973,7 +2974,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are accepted.
           </para>
           <para>Note that this filters only DHCP offers, so the filtering might not work when
-          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> in the above.
+          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> above.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
