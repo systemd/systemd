@@ -132,7 +132,7 @@
     <constant>NULL</constant>, devices that either have (if <parameter>match</parameter>
     is <constant>true</constant>) or do not have (if <parameter>match</parameter> is
     <constant>false</constant>) the specified <parameter>sysattr</parameter> are included, regardless
-    of its value.That is, <constant>NULL</constant> is mostly equivalent to <literal>*</literal>.
+    of its value. That is, <constant>NULL</constant> is mostly equivalent to <literal>*</literal>.
     When this function is called multiple times, only devices that match all specified
     <parameter>sysattr</parameter> filters are enumerated. That is, these filters are ANDed.</para>
 
@@ -141,7 +141,7 @@
     <parameter>sysname</parameter> can be a glob pattern. When called multiple times, filters are ORed.</para>
 
     <para>The <function>sd_device_enumerator_add_nomatch_sysname()</function> function adds a filter
-    so that devices whose sysname equals <parameter>sysname</parameter> are excluded from the
+    so that devices whose sysname equals to <parameter>sysname</parameter> are excluded from the
     enumeration. This is useful for excluding specific devices from the enumeration process.
     When called multiple times, features are ANDed.</para>
 
