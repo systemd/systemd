@@ -152,6 +152,7 @@ static Manager* manager_free(Manager *m) {
         sd_device_monitor_unref(m->device_monitor);
         sd_device_monitor_unref(m->device_vcsa_monitor);
         sd_device_monitor_unref(m->device_button_monitor);
+        sd_device_monitor_unref(m->device_uaccess_monitor);
 
         if (m->unlink_nologin)
                 (void) unlink_or_warn("/run/nologin");
@@ -655,6 +656,35 @@ static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *d
         return 0;
 }
 
+static int manager_dispatch_uaccess_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(device);
+
+        /* If the device currently has "master-of-seat" tag, then it has been or will be processed by
+         * manager_dispatch_seat_udev(). */
+        r = sd_device_has_current_tag(device, "master-of-seat");
+        if (r < 0)
+                log_device_warning_errno(device, r, "Failed to check if the device currently has master-of-seat tag, ignoring: %m");
+        if (r != 0)
+                return 0;
+
+        /* If the device is in input, graphics, or drm, then the event has been or will be processed by
+         * manager_dispatch_device_udev(). */
+        r = device_in_subsystem(device, "input", "graphics", "drm");
+        if (r < 0)
+                log_device_warning_errno(device, r, "Failed to check device subsystem, ignoring: %m");
+        if (r != 0)
+                return 0;
+
+        r = manager_process_device_triggered_by_seat(m, device);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Failed to process seat device event triggered by us, ignoring: %m");
+
+        return 0;
+}
+
 static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -893,6 +923,7 @@ static int manager_connect_udev(Manager *m) {
         assert(m);
         assert(!m->device_seat_monitor);
         assert(!m->device_monitor);
+        assert(!m->device_uaccess_monitor);
         assert(!m->device_vcsa_monitor);
         assert(!m->device_button_monitor);
 
@@ -933,6 +964,24 @@ static int manager_connect_udev(Manager *m) {
                 return r;
 
         (void) sd_device_monitor_set_description(m->device_monitor, "input,graphics,drm");
+
+        r = sd_device_monitor_new(&m->device_uaccess_monitor);
+        if (r < 0)
+                return r;
+
+        r = sd_device_monitor_filter_add_match_tag(m->device_uaccess_monitor, "uaccess");
+        if (r < 0)
+                return r;
+
+        r = sd_device_monitor_attach_event(m->device_uaccess_monitor, m->event);
+        if (r < 0)
+                return r;
+
+        r = sd_device_monitor_start(m->device_uaccess_monitor, manager_dispatch_uaccess_udev, m);
+        if (r < 0)
+                return r;
+
+        (void) sd_device_monitor_set_description(m->device_uaccess_monitor, "uaccess");
 
         /* Don't watch keys if nobody cares */
         if (!manager_all_buttons_ignored(m)) {

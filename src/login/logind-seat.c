@@ -30,6 +30,7 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 #include "user-record.h"
 
 int seat_new(Manager *m, const char *id, Seat **ret) {
@@ -205,8 +206,10 @@ int seat_preallocate_vts(Seat *s) {
 static void seat_triggered_uevents_done(Seat *s) {
         assert(s);
 
-        if (!set_isempty(s->uevents))
+        if (!set_isempty(s->uevents)) {
+                log_debug("%s: waiting for %u events being processed by udevd.", s->id, set_size(s->uevents));
                 return;
+        }
 
         Session *session = s->active;
 
@@ -244,6 +247,7 @@ int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
         if (!s)
                 return 0;
 
+        log_device_uevent(dev, "Received event processed by udevd");
         free(ASSERT_PTR(set_remove(s->uevents, &uuid)));
         seat_triggered_uevents_done(s);
 
@@ -305,6 +309,8 @@ static int seat_trigger_devices(Seat *s) {
                         log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
                         continue;
                 }
+
+                log_device_debug(d, "Triggered synthetic event (ACTION=change, UUID=%s).", SD_ID128_TO_UUID_STRING(uuid));
 
                 _cleanup_free_ sd_id128_t *copy = newdup(sd_id128_t, &uuid, 1);
                 if (!copy)
