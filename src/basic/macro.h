@@ -154,6 +154,7 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
 #define STRV_MAKE_EMPTY ((char*[1]) { NULL })
 #define STRV_MAKE_CONST(...) ((const char* const*) ((const char*[]) { __VA_ARGS__, NULL }))
+#define STRV_EMPTY_CONST ((const char* const*) (const char*[1]) { NULL })
 
 /* Pointers range from NULL to POINTER_MAX */
 #define POINTER_MAX ((void*) UINTPTR_MAX)
