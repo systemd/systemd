@@ -20,7 +20,7 @@ CHANGES WITH 258 in spe:
           than "mesg y", see mesg(1) man page for help.)
 
         * systemd-run's --expand-environment= switch, which was disabled
-          by default when combined with --scope, has been changed to to be
+          by default when combined with --scope, has been changed to be
           enabled by default. This brings cmdline expansion of transient
           scopes on par with services.
 
@@ -112,7 +112,7 @@ CHANGES WITH 258 in spe:
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
-          removed in v258. Please make sure to update your software
+          removed in v259. Please make sure to update your software
           *now* to include a native systemd unit file instead of a legacy
           System V script to retain compatibility with future systemd releases.
 
@@ -603,7 +603,7 @@ CHANGES WITH 258 in spe:
           variables can be forced now in environments where we'd previously
           automatically turn this off (e.g. in choot() contexts).
 
-        * systemd-stub learnt supported for a couple of "extension" CHIDs, that
+        * systemd-stub learnt support for a couple of "extension" CHIDs, that
           are not part of the Microsoft's original spec, and which include EDID
           display identification information in the hash. This may be used to
           match Devicetree blobs in UKIs. "systemd-analyze chid" has been
@@ -633,7 +633,7 @@ CHANGES WITH 258 in spe:
           a userns can ultimately "just work".
 
         * A special, fixed UID/GID range has been defined called the "foreign"
-          UID/GID range. It's intended to be used to persistentatly own
+          UID/GID range. It's intended to be used to persistently own
           bootable OS/container images on disk (i.e. OS trees that use a
           UID/GID assignments not local to the host, but "foreign", i.e. they
           have their own /etc/passwd + /etc/group table or similar database),
@@ -708,7 +708,7 @@ CHANGES WITH 258 in spe:
           profile (to support multi-profile UKIs).
 
         * ukify gained a pair of --join-pcrsig= and --pcrsig= options which is
-          useful for offlining signing TPM PCR policies, as it allows inserting
+          useful for offline signing TPM PCR policies, as it allows inserting
           pre-prepared PCR signature blobs into a UKI.
 
         * ukify gained a new --pcr-certificate= switch that takes the path to
@@ -740,7 +740,7 @@ CHANGES WITH 258 in spe:
           reset is requested.
 
         * If systemd-pcrextend (i.e. the tool making the various userspace TPM
-          PCR measurements) fails to do its thing an immediate reboot is now
+          PCR measurements) fails to do its thing, an immediate reboot is now
           triggered, ensuring that somehow making PCR extensions fails cannot
           be used to gain access to TPM objects to which access should have
           been blocked already via PCR measurements.
@@ -813,7 +813,7 @@ CHANGES WITH 258 in spe:
           before it's submitted to systemd-homed. The tool will then terminate
           before the submission.
 
-        * User/group records's perMachine section now support negative matches
+        * User/group records' perMachine section now support negative matches
           too (i.e. for settings that apply to all systems but some selected
           few).
 
