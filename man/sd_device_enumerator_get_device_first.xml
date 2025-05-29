@@ -87,6 +87,15 @@
   </refsect1>
 
   <refsect1>
+  <title>Examples</title>
+
+  <example>
+    <title>Detect Removable USB Devices</title>
+    <programlisting><xi:include href="sd_device_enumerator_add_match_parent-example.c" parse="text"/></programlisting>
+  </example>
+  </refsect1>
+
+  <refsect1>
     <title>History</title>
     <para><function>sd_device_enumerator_get_device_first()</function>,
     <function>sd_device_enumerator_get_device_next()</function>,

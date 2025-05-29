@@ -89,10 +89,11 @@
     <para>Note that any network interfaces that have the <varname>ID_NET_MANAGED_BY=</varname> udev property
     set will never be matched by any .network files – unless the property's value is the string
     <literal>io.systemd.Network</literal> – even if the [Match] section would otherwise match. This may be
-    used to exclude specific network interfaces from <command>systemd-networkd</command>'s management, while
-    keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> property thus declares
-    intended <emphasis>ownership</emphasis> of the device, and permits ensuring that concurrent network
-    management implementations do not compete for management of specific devices.</para>
+    used to exclude specific network interfaces from
+    <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+    management, while keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> property
+    thus declares intended <emphasis>ownership</emphasis> of the device, and permits ensuring that concurrent
+    network management implementations do not compete for management of specific devices.</para>
 
     <para>A network file is said to match a network interface if all matches specified by the [Match]
     section are satisfied. When a network file does not contain valid settings in [Match] section, then
@@ -1035,14 +1036,15 @@ DuplicateAddressDetection=none</programlisting></para>
           <filename>/proc/sys/net/ipv4/conf/<replaceable>INTERFACE</replaceable>/force_igmp_version</filename>.
           Takes one of <literal>no</literal>,
           <literal>v1</literal>, <literal>v2</literal>, or <literal>v3</literal>.
-          When <literal>no</literal>, no enforcement of an IGMP version will be applied, IGMPv1/v2 fallback are allowed, will back to
-          IGMPv3 mode again if all IGMPv1/v2 Querier Present timer expire.
-          When <literal>v1</literal>, use of IGMP version 1 will be enforced, and IGMPv1 report will be replied even if IGMPv2/v3
+          When <literal>no</literal>, no enforcement of an IGMP version is applied. IGMPv1/v2 fallbacks are allowed, and
+          <command>systemd-networkd</command> will return to
+          IGMPv3 mode after all IGMPv1/v2 Querier Present timers have expired.
+          When <literal>v1</literal>, use of IGMP version 1 is enforced. An IGMPv1 report will be returned even if IGMPv2/v3
           queries are received.
-          When <literal>v2</literal>, use of IGMP version 2 will be enforced, and IGMPv2 report will be replied if an IGMPv2/v3 query
-          is received, but fallback to IGMPv1 if an IGMPv1 query is received.
-          When <literal>v3</literal>, use of IGMP version 3 will be enforced, and the same reaction will be done as <literal>no</literal>.
-          Defaults to unset, and the sysctl value will be unchanged.
+          When <literal>v2</literal>, use of IGMP version 2 is enforced. An IGMPv2 report will be returned if an IGMPv2/v3 query
+          is received. <command>systemd-networkd</command> will fall back to IGMPv1 if an IGMPv1 query is received.
+          When <literal>v3</literal>, use of IGMP version 3 is enforced, and the response is the same as with <literal>no</literal>.
+          Defaults to unset — the sysctl is not set.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
@@ -1801,8 +1803,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>GoTo=</varname></term>
         <listitem>
-          <para>Specifies the target priority used by <literal>goto</literal> type of rule. Takes an integer
-          in the range 1…4294967295. This must be larger than the priority of this rule specified in
+          <para>Specifies the target priority used by the <literal>goto</literal> type of rule. Takes an
+          integer in the range 1…4294967295. This must be larger than the priority of the rule specified in
           <varname>Priority=</varname>. When specified, <varname>Type=goto</varname> is implied. This is
           mandatory when <varname>Type=goto</varname>.</para>
 
@@ -2972,7 +2974,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are accepted.
           </para>
           <para>Note that this filters only DHCP offers, so the filtering might not work when
-          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> in the above.
+          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> above.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>

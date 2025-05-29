@@ -7,11 +7,23 @@
 #include "sd-bus-protocol.h"
 
 #include "bus-creds.h"
+#include "bus-forward.h"
 #include "bus-protocol.h"
-#include "forward.h"
 #include "memory-util.h"
 
-struct bus_container {
+typedef struct BusMessageHeader {
+        uint8_t endian;
+        uint8_t type;
+        uint8_t flags;
+        uint8_t version;
+        uint32_t body_size;
+        /* Note that what the bus spec calls "serial" we'll call "cookie" instead, because we don't
+         * want to imply that the cookie was in any way monotonically increasing. */
+        uint32_t serial;
+        uint32_t fields_size;
+} _packed_ BusMessageHeader;
+
+typedef struct BusMessageContainer {
         char enclosing;
 
         /* Indexes into the signature string */
@@ -24,10 +36,10 @@ struct bus_container {
         uint32_t *array_size;
 
         char *peeked_signature;
-};
+} BusMessageContainer;
 
-struct bus_body_part {
-        struct bus_body_part *next;
+typedef struct BusMessageBodyPart {
+        BusMessageBodyPart *next;
         void *data;
         void *mmap_begin;
         size_t size;
@@ -39,7 +51,7 @@ struct bus_body_part {
         bool munmap_this:1;
         bool sealed:1;
         bool is_zero:1;
-};
+} BusMessageBodyPart;
 
 typedef struct sd_bus_message {
         /* Caveat: a message can be referenced in two different ways: the main (user-facing) way will also
@@ -81,24 +93,24 @@ typedef struct sd_bus_message {
         bool sensitive:1;
 
         /* The first bytes of the message */
-        struct bus_header *header;
+        BusMessageHeader *header;
 
         size_t fields_size;
         size_t body_size;
         size_t user_body_size;
 
-        struct bus_body_part body;
-        struct bus_body_part *body_end;
+        BusMessageBodyPart body;
+        BusMessageBodyPart *body_end;
         unsigned n_body_parts;
 
         size_t rindex;
-        struct bus_body_part *cached_rindex_part;
+        BusMessageBodyPart *cached_rindex_part;
         size_t cached_rindex_part_begin;
 
         uint32_t n_fds;
         int *fds;
 
-        struct bus_container root_container, *containers;
+        BusMessageContainer root_container, *containers;
         size_t n_containers;
 
         struct iovec *iovec;
@@ -142,19 +154,19 @@ static inline uint64_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
 
 static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
         return
-                sizeof(struct bus_header) +
+                sizeof(BusMessageHeader) +
                 ALIGN8(m->fields_size) +
                 m->body_size;
 }
 
 static inline size_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
         return
-                sizeof(struct bus_header) +
+                sizeof(BusMessageHeader) +
                 ALIGN8(m->fields_size);
 }
 
 static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
-        return (uint8_t*) m->header + sizeof(struct bus_header);
+        return (uint8_t*) m->header + sizeof(BusMessageHeader);
 }
 
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
@@ -174,8 +186,8 @@ int bus_message_get_arg_strv(sd_bus_message *m, unsigned i, char ***strv);
 #define MESSAGE_FOREACH_PART(part, i, m) \
         for ((i) = 0, (part) = &(m)->body; (i) < (m)->n_body_parts; (i)++, (part) = (part)->next)
 
-int bus_body_part_map(struct bus_body_part *part);
-void bus_body_part_unmap(struct bus_body_part *part);
+int bus_body_part_map(BusMessageBodyPart *part);
+void bus_body_part_unmap(BusMessageBodyPart *part);
 
 int bus_message_new_synthetic_error(sd_bus *bus, uint64_t serial, const sd_bus_error *e, sd_bus_message **m);
 

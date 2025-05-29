@@ -61,7 +61,7 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
 
         _cleanup_free_ char *xattr = NULL;
         size_t xattr_size = 0;
-        r = cg_get_xattr_malloc(unit_cgroup, "user.journald_log_filter_patterns", &xattr, &xattr_size);
+        r = cg_get_xattr(unit_cgroup, "user.journald_log_filter_patterns", &xattr, &xattr_size);
         if (ERRNO_IS_NEG_XATTR_ABSENT(r)) {
                 client_set_filtering_patterns(c, /* allow_list= */ NULL, /* deny_list= */ NULL);
                 return 0;
