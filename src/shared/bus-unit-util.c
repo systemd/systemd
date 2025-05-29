@@ -565,6 +565,62 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
         return 1;
 }
 
+#define TRANSIENT_CGROUP_SETTINGS                 \
+        "DevicePolicy",                           \
+        "Slice",                                  \
+        "ManagedOOMSwap",                         \
+        "ManagedOOMMemoryPressure",               \
+        "ManagedOOMPreference",                   \
+        "MemoryPressureWatch",                    \
+        "DelegateSubgroup",                       \
+        "ManagedOOMMemoryPressureLimit",          \
+        "CPUAccounting",                          \
+        "MemoryAccounting",                       \
+        "MemoryZSwapWriteback",                   \
+        "IOAccounting",                           \
+        "TasksAccounting",                        \
+        "IPAccounting",                           \
+        "CoredumpReceive",                        \
+        "CPUWeight",                              \
+        "StartupCPUWeight",                       \
+        "IOWeight",                               \
+        "StartupIOWeight",                        \
+        "AllowedCPUs",                            \
+        "StartupAllowedCPUs",                     \
+        "AllowedMemoryNodes",                     \
+        "StartupAllowedMemoryNodes",              \
+        "DisableControllers",                     \
+        "Delegate",                               \
+        "MemoryMin",                              \
+        "DefaultMemoryLow",                       \
+        "DefaultMemoryMin",                       \
+        "MemoryLow",                              \
+        "MemoryHigh",                             \
+        "MemoryMax",                              \
+        "MemorySwapMax",                          \
+        "MemoryZSwapMax",                         \
+        "TasksMax",                               \
+        "CPUQuota",                               \
+        "CPUQuotaPeriodSec",                      \
+        "DeviceAllow",                            \
+        "IODeviceWeight",                         \
+        "IODeviceLatencyTargetSec",               \
+        "IPAddressAllow",                         \
+        "IPAddressDeny",                          \
+        "IPIngressFilterPath",                    \
+        "IPEgressFilterPath",                     \
+        "BPFProgram",                             \
+        "SocketBindAllow",                        \
+        "SocketBindDeny",                         \
+        "MemoryPressureThresholdSec",             \
+        "NFTSet",                                 \
+        "ManagedOOMMemoryPressureDurationSec",    \
+        /* cgroup_io_limit_type_from_string */    \
+        "IOReadBandwidthMax",                     \
+        "IOWriteBandwidthMax",                    \
+        "IOReadIOPSMax",                          \
+        "IOWriteIOPSMax"
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -739,40 +795,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         }
 
                         r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, path, strempty(rwm));
-                }
-
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
-
-        if (cgroup_io_limit_type_from_string(field) >= 0) {
-
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
-                else {
-                        const char *path, *bandwidth, *e;
-                        uint64_t bytes;
-
-                        e = strchr(eq, ' ');
-                        if (!e)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse %s value %s.",
-                                                       field, eq);
-
-                        path = strndupa_safe(eq, e - eq);
-                        bandwidth = e+1;
-
-                        if (streq(bandwidth, "infinity"))
-                                bytes = CGROUP_LIMIT_MAX;
-                        else {
-                                r = parse_size(bandwidth, 1000, &bytes);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse byte value %s: %m", bandwidth);
-                        }
-
-                        r = sd_bus_message_append(m, "(sv)", field, "a(st)", 1, path, bytes);
                 }
 
                 if (r < 0)
@@ -1029,8 +1051,48 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                  * means use the default memory pressure duration from oomd.conf. */
                 return bus_append_parse_sec_rename(m, field, isempty(eq) ? "infinity" : eq);
 
+        if (cgroup_io_limit_type_from_string(field) >= 0) {
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
+                else {
+                        const char *path, *bandwidth, *e;
+                        uint64_t bytes;
+
+                        e = strchr(eq, ' ');
+                        if (!e)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse %s value %s.",
+                                                       field, eq);
+
+                        path = strndupa_safe(eq, e - eq);
+                        bandwidth = e+1;
+
+                        if (streq(bandwidth, "infinity"))
+                                bytes = CGROUP_LIMIT_MAX;
+                        else {
+                                r = parse_size(bandwidth, 1000, &bytes);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse byte value %s: %m", bandwidth);
+                        }
+
+                        r = sd_bus_message_append(m, "(sv)", field, "a(st)", 1, path, bytes);
+                }
+
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         return 0;
 }
+
+#define TRANSIENT_AUTOMOUNT_SETTINGS              \
+        "Where",                                  \
+        "ExtraOptions",                           \
+        "DirectoryMode",                          \
+        "TimeoutIdleSec"
 
 static int bus_append_automount_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "Where",
@@ -1045,6 +1107,165 @@ static int bus_append_automount_property(sd_bus_message *m, const char *field, c
 
         return 0;
 }
+
+#define TRANSIENT_EXECUTE_SETTINGS                \
+        "User",                                   \
+        "Group",                                  \
+        "UtmpIdentifier",                         \
+        "UtmpMode",                               \
+        "PAMName",                                \
+        "TTYPath",                                \
+        "WorkingDirectory",                       \
+        "RootDirectory",                          \
+        "SyslogIdentifier",                       \
+        "ProtectSystem",                          \
+        "ProtectHome",                            \
+        "PrivateTmpEx",                           \
+        "PrivateUsersEx",                         \
+        "ProtectControlGroupsEx",                 \
+        "SELinuxContext",                         \
+        "RootImage",                              \
+        "RootVerity",                             \
+        "RuntimeDirectoryPreserve",               \
+        "Personality",                            \
+        "KeyringMode",                            \
+        "ProtectProc",                            \
+        "ProcSubset",                             \
+        "NetworkNamespacePath",                   \
+        "IPCNamespacePath",                       \
+        "LogNamespace",                           \
+        "RootImagePolicy",                        \
+        "MountImagePolicy",                       \
+        "ExtensionImagePolicy",                   \
+        "PrivatePIDs",                            \
+        "IgnoreSIGPIPE",                          \
+        "TTYVHangup",                             \
+        "TTYReset",                               \
+        "TTYVTDisallocate",                       \
+        "PrivateTmp",                             \
+        "PrivateDevices",                         \
+        "PrivateNetwork",                         \
+        "PrivateUsers",                           \
+        "PrivateMounts",                          \
+        "PrivateIPC",                             \
+        "NoNewPrivileges",                        \
+        "SyslogLevelPrefix",                      \
+        "MemoryDenyWriteExecute",                 \
+        "RestrictRealtime",                       \
+        "DynamicUser",                            \
+        "RemoveIPC",                              \
+        "ProtectKernelTunables",                  \
+        "ProtectKernelModules",                   \
+        "ProtectKernelLogs",                      \
+        "ProtectClock",                           \
+        "ProtectControlGroups",                   \
+        "MountAPIVFS",                            \
+        "BindLogSockets",                         \
+        "CPUSchedulingResetOnFork",               \
+        "LockPersonality",                        \
+        "ProtectHostname",                        \
+        "MemoryKSM",                              \
+        "RestrictSUIDSGID",                       \
+        "RootEphemeral",                          \
+        "SetLoginEnvironment",                    \
+        "ReadWriteDirectories",                   \
+        "ReadOnlyDirectories",                    \
+        "InaccessibleDirectories",                \
+        "ReadWritePaths",                         \
+        "ReadOnlyPaths",                          \
+        "InaccessiblePaths",                      \
+        "ExecPaths",                              \
+        "NoExecPaths",                            \
+        "ExecSearchPath",                         \
+        "ExtensionDirectories",                   \
+        "ConfigurationDirectory",                 \
+        "SupplementaryGroups",                    \
+        "SystemCallArchitectures",                \
+        "SyslogLevel",                            \
+        "LogLevelMax",                            \
+        "SyslogFacility",                         \
+        "SecureBits",                             \
+        "CPUSchedulingPolicy",                    \
+        "CPUSchedulingPriority",                  \
+        "OOMScoreAdjust",                         \
+        "CoredumpFilter",                         \
+        "Nice",                                   \
+        "SystemCallErrorNumber",                  \
+        "IOSchedulingClass",                      \
+        "IOSchedulingPriority",                   \
+        "RuntimeDirectoryMode",                   \
+        "StateDirectoryMode",                     \
+        "CacheDirectoryMode",                     \
+        "LogsDirectoryMode",                      \
+        "ConfigurationDirectoryMode",             \
+        "UMask",                                  \
+        "TimerSlackNSec",                         \
+        "LogRateLimitIntervalSec",                \
+        "LogRateLimitBurst",                      \
+        "TTYRows",                                \
+        "TTYColumns",                             \
+        "MountFlags",                             \
+        "Environment",                            \
+        "UnsetEnvironment",                       \
+        "PassEnvironment",                        \
+        "EnvironmentFile",                        \
+        "SetCredential",                          \
+        "SetCredentialEncrypted",                 \
+        "LoadCredential",                         \
+        "LoadCredentialEncrypted",                \
+        "ImportCredential",                       \
+        "ImportCredentialEx",                     \
+        "LogExtraFields",                         \
+        "LogFilterPatterns",                      \
+        "StandardInput",                          \
+        "StandardOutput",                         \
+        "StandardError",                          \
+        "StandardInputText",                      \
+        "StandardInputData",                      \
+        "AppArmorProfile",                        \
+        "SmackProcessLabel",                      \
+        "CapabilityBoundingSet",                  \
+        "AmbientCapabilities",                    \
+        "CPUAffinity",                            \
+        "NUMAPolicy",                             \
+        "NUMAMask",                               \
+        "RestrictAddressFamilies",                \
+        "RestrictFileSystems",                    \
+        "SystemCallFilter",                       \
+        "SystemCallLog",                          \
+        "RestrictNetworkInterfaces",              \
+        "RestrictNamespaces",                     \
+        "DelegateNamespaces",                     \
+        "BindPaths",                              \
+        "BindReadOnlyPaths",                      \
+        "TemporaryFileSystem",                    \
+        "RootHash",                               \
+        "RootHashSignature",                      \
+        "RootImageOptions",                       \
+        "MountImages",                            \
+        "ExtensionImages",                        \
+        "StateDirectory",                         \
+        "RuntimeDirectory",                       \
+        "CacheDirectory",                         \
+        "LogsDirectory",                          \
+        "ProtectHostnameEx",                      \
+        /* rlimit_from_string */                  \
+        "LimitAS",                                \
+        "LimitCORE",                              \
+        "LimitCPU",                               \
+        "LimitDATA",                              \
+        "LimitFSIZE",                             \
+        "LimitLOCKS",                             \
+        "LimitMEMLOCK",                           \
+        "LimitMSGQUEUE",                          \
+        "LimitNICE",                              \
+        "LimitNOFILE",                            \
+        "LimitNPROC",                             \
+        "LimitRSS",                               \
+        "LimitRTPRIO",                            \
+        "LimitRTTIME",                            \
+        "LimitSIGPENDING",                        \
+        "LimitSTACK"
 
 static int bus_append_execute_property(sd_bus_message *m, const char *field, const char *eq) {
         const char *suffix;
@@ -1478,31 +1699,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return log_error_errno(r, "Failed to decode base64 data '%s': %m", eq);
 
                 return bus_append_byte_array(m, field, decoded, sz);
-        }
-
-        if ((suffix = startswith(field, "Limit"))) {
-                int rl;
-
-                rl = rlimit_from_string(suffix);
-                if (rl >= 0) {
-                        const char *sn;
-                        struct rlimit l;
-
-                        r = rlimit_parse(rl, eq, &l);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse resource limit: %s", eq);
-
-                        r = sd_bus_message_append(m, "(sv)", field, "t", (uint64_t) l.rlim_max);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        sn = strjoina(field, "Soft");
-                        r = sd_bus_message_append(m, "(sv)", sn, "t", (uint64_t) l.rlim_cur);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        return 1;
-                }
         }
 
         if (STR_IN_SET(field, "AppArmorProfile",
@@ -2307,8 +2503,44 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                 return 1;
         }
+
+        if ((suffix = startswith(field, "Limit"))) {
+                int rl;
+
+                rl = rlimit_from_string(suffix);
+                if (rl >= 0) {
+                        const char *sn;
+                        struct rlimit l;
+
+                        r = rlimit_parse(rl, eq, &l);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse resource limit: %s", eq);
+
+                        r = sd_bus_message_append(m, "(sv)", field, "t", (uint64_t) l.rlim_max);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        sn = strjoina(field, "Soft");
+                        r = sd_bus_message_append(m, "(sv)", sn, "t", (uint64_t) l.rlim_cur);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        return 1;
+                }
+        }
+
         return 0;
 }
+
+#define TRANSIENT_KILL_SETTINGS                   \
+        "KillMode",                               \
+        "SendSIGHUP",                             \
+        "SendSIGKILL",                            \
+        "KillSignal",                             \
+        "RestartKillSignal",                      \
+        "FinalKillSignal",                        \
+        "WatchdogSignal",                         \
+        "ReloadSignal"
 
 static int bus_append_kill_property(sd_bus_message *m, const char *field, const char *eq) {
         if (streq(field, "KillMode"))
@@ -2327,6 +2559,18 @@ static int bus_append_kill_property(sd_bus_message *m, const char *field, const 
 
         return 0;
 }
+
+#define TRANSIENT_MOUNT_SETTINGS                  \
+        "What",                                   \
+        "Where",                                  \
+        "Options",                                \
+        "Type",                                   \
+        "TimeoutSec",                             \
+        "DirectoryMode",                          \
+        "SloppyOptions",                          \
+        "LazyUnmount",                            \
+        "ForceUnmount",                           \
+        "ReadwriteOnly"
 
 static int bus_append_mount_property(sd_bus_message *m, const char *field, const char *eq) {
 
@@ -2350,6 +2594,19 @@ static int bus_append_mount_property(sd_bus_message *m, const char *field, const
 
         return 0;
 }
+
+#define TRANSIENT_PATH_SETTINGS                   \
+        "MakeDirectory",                          \
+        "DirectoryMode",                          \
+        "PathExists",                             \
+        "PathExistsGlob",                         \
+        "PathChanged",                            \
+        "PathModified",                           \
+        "DirectoryNotEmpty",                      \
+        "TriggerLimitBurst",                      \
+        "PollLimitBurst",                         \
+        "TriggerLimitIntervalSec",                \
+        "PollLimitIntervalSec"
 
 static int bus_append_path_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
@@ -2384,6 +2641,14 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
         return 0;
 }
 
+#define TRANSIENT_SCOPE_SETTINGS                  \
+        "RuntimeMaxSec",                          \
+        "RuntimeRandomizedExtraSec",              \
+        "TimeoutStopSec",                         \
+        "User",                                   \
+        "Group",                                  \
+        "OOMPolicy"
+
 static int bus_append_scope_property(sd_bus_message *m, const char *field, const char *eq) {
         if (streq(field, "RuntimeMaxSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
@@ -2404,6 +2669,54 @@ static int bus_append_scope_property(sd_bus_message *m, const char *field, const
 
         return 0;
 }
+
+#define TRANSIENT_SERVICE_SETTINGS                \
+        "PIDFile",                                \
+        "Type",                                   \
+        "ExitType",                               \
+        "Restart",                                \
+        "RestartMode",                            \
+        "BusName",                                \
+        "NotifyAccess",                           \
+        "USBFunctionDescriptors",                 \
+        "USBFunctionStrings",                     \
+        "OOMPolicy",                              \
+        "TimeoutStartFailureMode",                \
+        "TimeoutStopFailureMode",                 \
+        "FileDescriptorStorePreserve",            \
+        "PermissionsStartOnly",                   \
+        "RootDirectoryStartOnly",                 \
+        "RemainAfterExit",                        \
+        "GuessMainPID",                           \
+        "RestartSec",                             \
+        "RestartMaxDelaySec",                     \
+        "TimeoutStartSec",                        \
+        "TimeoutStopSec",                         \
+        "TimeoutAbortSec",                        \
+        "RuntimeMaxSec",                          \
+        "RuntimeRandomizedExtraSec",              \
+        "WatchdogSec",                            \
+        "TimeoutSec",                             \
+        "FileDescriptorStoreMax",                 \
+        "RestartSteps",                           \
+        "ExecCondition",                          \
+        "ExecStartPre",                           \
+        "ExecStart",                              \
+        "ExecStartPost",                          \
+        "ExecConditionEx",                        \
+        "ExecStartPreEx",                         \
+        "ExecStartEx",                            \
+        "ExecStartPostEx",                        \
+        "ExecReload",                             \
+        "ExecStop",                               \
+        "ExecStopPost",                           \
+        "ExecReloadEx",                           \
+        "ExecStopEx",                             \
+        "ExecStopPostEx",                         \
+        "RestartPreventExitStatus",               \
+        "RestartForceExitStatus",                 \
+        "SuccessExitStatus",                      \
+        "OpenFile"
 
 static int bus_append_service_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
@@ -2554,6 +2867,70 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
         return 0;
 }
 
+#define TRANSIENT_SOCKET_SETTINGS                 \
+        "Accept",                                 \
+        "FlushPending",                           \
+        "Writable",                               \
+        "KeepAlive",                              \
+        "NoDelay",                                \
+        "FreeBind",                               \
+        "Transparent",                            \
+        "Broadcast",                              \
+        "PassCredentials",                        \
+        "PassFileDescriptorsToExec",              \
+        "PassSecurity",                           \
+        "PassPacketInfo",                         \
+        "ReusePort",                              \
+        "RemoveOnStop",                           \
+        "SELinuxContextFromNet",                  \
+        "Priority",                               \
+        "IPTTL",                                  \
+        "Mark",                                   \
+        "IPTOS",                                  \
+        "Backlog",                                \
+        "MaxConnections",                         \
+        "MaxConnectionsPerSource",                \
+        "KeepAliveProbes",                        \
+        "TriggerLimitBurst",                      \
+        "PollLimitBurst",                         \
+        "SocketMode",                             \
+        "DirectoryMode",                          \
+        "MessageQueueMaxMessages",                \
+        "MessageQueueMessageSize",                \
+        "TimeoutSec",                             \
+        "KeepAliveTimeSec",                       \
+        "KeepAliveIntervalSec",                   \
+        "DeferAcceptSec",                         \
+        "TriggerLimitIntervalSec",                \
+        "PollLimitIntervalSec",                   \
+        "ReceiveBuffer",                          \
+        "SendBuffer",                             \
+        "PipeSize",                               \
+        "ExecStartPre",                           \
+        "ExecStartPost",                          \
+        "ExecReload",                             \
+        "ExecStopPost",                           \
+        "SmackLabel",                             \
+        "SmackLabelIPIn",                         \
+        "SmackLabelIPOut",                        \
+        "TCPCongestion",                          \
+        "BindToDevice",                           \
+        "BindIPv6Only",                           \
+        "FileDescriptorName",                     \
+        "SocketUser",                             \
+        "SocketGroup",                            \
+        "Timestamping",                           \
+        "Symlinks",                               \
+        "SocketProtocol",                         \
+        "ListenStream",                           \
+        "ListenDatagram",                         \
+        "ListenSequentialPacket",                 \
+        "ListenNetlink",                          \
+        "ListenSpecial",                          \
+        "ListenMessageQueue",                     \
+        "ListenFIFO",                             \
+        "ListenUSBFunction"
+
 static int bus_append_socket_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -2655,6 +3032,24 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
 
         return 0;
 }
+
+#define TRANSIENT_TIMER_SETTINGS                  \
+        "WakeSystem",                             \
+        "RemainAfterElapse",                      \
+        "Persistent",                             \
+        "OnTimezoneChange",                       \
+        "OnClockChange",                          \
+        "FixedRandomDelay",                       \
+        "DeferReactivation",                      \
+        "AccuracySec",                            \
+        "RandomizedDelaySec",                     \
+        "OnActiveSec",                            \
+        "OnBootSec",                              \
+        "OnStartupSec",                           \
+        "OnUnitActiveSec",                        \
+        "OnUnitInactiveSec",                      \
+        "OnCalendar"
+
 static int bus_append_timer_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -2705,6 +3100,137 @@ static int bus_append_timer_property(sd_bus_message *m, const char *field, const
 
         return 0;
 }
+
+#define TRANSIENT_UNIT_SETTINGS                   \
+        "Description",                            \
+        "SourcePath",                             \
+        "OnFailureJobMode",                       \
+        "JobTimeoutAction",                       \
+        "JobTimeoutRebootArgument",               \
+        "StartLimitAction",                       \
+        "FailureAction",                          \
+        "SuccessAction",                          \
+        "RebootArgument",                         \
+        "CollectMode",                            \
+        "StopWhenUnneeded",                       \
+        "RefuseManualStart",                      \
+        "RefuseManualStop",                       \
+        "AllowIsolate",                           \
+        "IgnoreOnIsolate",                        \
+        "SurviveFinalKillSignal",                 \
+        "DefaultDependencies",                    \
+        "JobTimeoutSec",                          \
+        "JobRunningTimeoutSec",                   \
+        "StartLimitIntervalSec",                  \
+        "StartLimitBurst",                        \
+        "SuccessActionExitStatus",                \
+        "FailureActionExitStatus",                \
+        "Documentation",                          \
+        "RequiresMountsFor",                      \
+        "WantsMountsFor",                         \
+        "Markers",                                \
+        /* unit_dependency_from_string */         \
+        "Requires",                               \
+        "Requisite",                              \
+        "Wants",                                  \
+        "BindsTo",                                \
+        "PartOf",                                 \
+        "Upholds",                                \
+        "RequiredBy",                             \
+        "RequisiteOf",                            \
+        "WantedBy",                               \
+        "BoundBy",                                \
+        "UpheldBy",                               \
+        "ConsistsOf",                             \
+        "Conflicts",                              \
+        "ConflictedBy",                           \
+        "Before",                                 \
+        "After",                                  \
+        "OnSuccess",                              \
+        "OnSuccessOf",                            \
+        "OnFailure",                              \
+        "OnFailureOf",                            \
+        "Triggers",                               \
+        "TriggeredBy",                            \
+        "PropagatesReloadTo",                     \
+        "ReloadPropagatedFrom",                   \
+        "PropagatesStopTo",                       \
+        "StopPropagatedFrom",                     \
+        "JoinsNamespaceOf",                       \
+        "References",                             \
+        "ReferencedBy",                           \
+        "InSlice",                                \
+        "SliceOf",                                \
+        /* condition_type_from_string */          \
+        "ConditionArchitecture",                  \
+        "ConditionFirmware",                      \
+        "ConditionVirtualization",                \
+        "ConditionHost",                          \
+        "ConditionKernelCommandLine",             \
+        "ConditionVersion",                       \
+        "ConditionCredential",                    \
+        "ConditionSecurity",                      \
+        "ConditionCapability",                    \
+        "ConditionACPower",                       \
+        "ConditionNeedsUpdate",                   \
+        "ConditionFirstBoot",                     \
+        "ConditionPathExists",                    \
+        "ConditionPathExistsGlob",                \
+        "ConditionPathIsDirectory",               \
+        "ConditionPathIsSymbolicLink",            \
+        "ConditionPathIsMountPoint",              \
+        "ConditionPathIsReadWrite",               \
+        "ConditionPathIsEncrypted",               \
+        "ConditionDirectoryNotEmpty",             \
+        "ConditionFileNotEmpty",                  \
+        "ConditionFileIsExecutable",              \
+        "ConditionUser",                          \
+        "ConditionGroup",                         \
+        "ConditionControlGroupController",        \
+        "ConditionCPUs",                          \
+        "ConditionMemory",                        \
+        "ConditionEnvironment",                   \
+        "ConditionCPUFeature",                    \
+        "ConditionOSRelease",                     \
+        "ConditionMemoryPressure",                \
+        "ConditionCPUPressure",                   \
+        "ConditionIOPressure",                    \
+        "ConditionKernelModuleLoaded",            \
+        /* assert_type_from_string */             \
+        "AssertArchitecture",                     \
+        "AssertFirmware",                         \
+        "AssertVirtualization",                   \
+        "AssertHost",                             \
+        "AssertKernelCommandLine",                \
+        "AssertVersion",                          \
+        "AssertCredential",                       \
+        "AssertSecurity",                         \
+        "AssertCapability",                       \
+        "AssertACPower",                          \
+        "AssertNeedsUpdate",                      \
+        "AssertFirstBoot",                        \
+        "AssertPathExists",                       \
+        "AssertPathExistsGlob",                   \
+        "AssertPathIsDirectory",                  \
+        "AssertPathIsSymbolicLink",               \
+        "AssertPathIsMountPoint",                 \
+        "AssertPathIsReadWrite",                  \
+        "AssertPathIsEncrypted",                  \
+        "AssertDirectoryNotEmpty",                \
+        "AssertFileNotEmpty",                     \
+        "AssertFileIsExecutable",                 \
+        "AssertUser",                             \
+        "AssertGroup",                            \
+        "AssertControlGroupController",           \
+        "AssertCPUs",                             \
+        "AssertMemory",                           \
+        "AssertEnvironment",                      \
+        "AssertCPUFeature",                       \
+        "AssertOSRelease",                        \
+        "AssertMemoryPressure",                   \
+        "AssertCPUPressure",                      \
+        "AssertIOPressure",                       \
+        "AssertKernelModuleLoaded"
 
 static int bus_append_unit_property(sd_bus_message *m, const char *field, const char *eq) {
         ConditionType t = _CONDITION_TYPE_INVALID;
@@ -2759,11 +3285,11 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
                 return 1;
         }
 
-        if (unit_dependency_from_string(field) >= 0 ||
-            STR_IN_SET(field, "Documentation",
+        if (STR_IN_SET(field, "Documentation",
                               "RequiresMountsFor",
                               "WantsMountsFor",
-                              "Markers"))
+                              "Markers") ||
+            unit_dependency_from_string(field) >= 0)
                 return bus_append_strv(m, field, eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
 
         t = condition_type_from_string(field);
@@ -2796,6 +3322,41 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
         }
 
         return 0;
+}
+
+void bus_dump_transient_settings(FILE *out, UnitType t) {
+        STRV_FOREACH(s,
+                     t == UNIT_SERVICE ? STRV_MAKE_CONST(
+                                     TRANSIENT_CGROUP_SETTINGS,
+                                     TRANSIENT_EXECUTE_SETTINGS,
+                                     TRANSIENT_KILL_SETTINGS,
+                                     TRANSIENT_SERVICE_SETTINGS
+                     ) : t == UNIT_SOCKET ? STRV_MAKE_CONST(
+                                     TRANSIENT_CGROUP_SETTINGS,
+                                     TRANSIENT_EXECUTE_SETTINGS,
+                                     TRANSIENT_KILL_SETTINGS,
+                                     TRANSIENT_SOCKET_SETTINGS
+                     ) : t == UNIT_TIMER ? STRV_MAKE_CONST(
+                                     TRANSIENT_TIMER_SETTINGS
+                     ) : t == UNIT_PATH ? STRV_MAKE_CONST(
+                                     TRANSIENT_PATH_SETTINGS
+                     ) : t == UNIT_SLICE ? STRV_MAKE_CONST(
+                                     TRANSIENT_CGROUP_SETTINGS
+                     ) : t == UNIT_SCOPE ? STRV_MAKE_CONST(
+                                     TRANSIENT_CGROUP_SETTINGS,
+                                     TRANSIENT_KILL_SETTINGS,
+                                     TRANSIENT_SCOPE_SETTINGS
+                     ) : t == UNIT_MOUNT ? STRV_MAKE_CONST(
+                                     TRANSIENT_CGROUP_SETTINGS,
+                                     TRANSIENT_EXECUTE_SETTINGS,
+                                     TRANSIENT_KILL_SETTINGS,
+                                     TRANSIENT_MOUNT_SETTINGS
+                     ) : t == UNIT_AUTOMOUNT ? STRV_MAKE_CONST(
+                                     TRANSIENT_AUTOMOUNT_SETTINGS
+                     ) : t >= 0 ? STRV_EMPTY_CONST : STRV_MAKE_CONST(
+                                     TRANSIENT_UNIT_SETTINGS
+                     ))
+                fprintf(out, "%s\n", *s);
 }
 
 int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const char *assignment) {

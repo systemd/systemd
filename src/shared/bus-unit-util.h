@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdio.h>
+
 #include "forward.h"
 
 typedef enum ExecDirectoryFlags {
@@ -51,3 +53,5 @@ int unit_freezer_new(const char *name, UnitFreezer **ret);
 
 int unit_freezer_freeze(UnitFreezer *f);
 int unit_freezer_thaw(UnitFreezer *f);
+
+void bus_dump_transient_settings(FILE *out, UnitType t);
