@@ -59,6 +59,7 @@ simple_tests += files(
         'test-blockdev-util.c',
         'test-bootspec.c',
         'test-build-path.c',
+        'test-bus-unit-util.c',
         'test-bus-util.c',
         'test-calendarspec.c',
         'test-cgroup-util.c',
