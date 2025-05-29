@@ -708,7 +708,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         if (r < 0)
                                 return log_error_errno(r, "CPU quota '%s' invalid.", eq);
 
-                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", (((uint64_t) r * USEC_PER_SEC) / 10000U));
+                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", ((uint64_t) r * USEC_PER_SEC) / 10000U);
                 }
 
                 if (r < 0)
