@@ -1,18 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/statfs.h>
-#include <sys/types.h>
-
-#include "constants.h"
-#include "pidref.h"
-#include "set.h"
+#include "forward.h"
 
 #define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
 #define SYSTEMD_CGROUP_CONTROLLER_HYBRID "name=unified"
@@ -77,15 +66,6 @@ typedef enum CGroupMask {
         _CGROUP_MASK_ALL = CGROUP_CONTROLLER_TO_MASK(_CGROUP_CONTROLLER_MAX) - 1,
 } CGroupMask;
 
-static inline CGroupMask CGROUP_MASK_EXTEND_JOINED(CGroupMask mask) {
-        /* We always mount "cpu" and "cpuacct" in the same hierarchy. Hence, when one bit is set also set the other */
-
-        if (mask & (CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT))
-                mask |= (CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT);
-
-        return mask;
-}
-
 /* Special values for all weight knobs on unified hierarchy */
 #define CGROUP_WEIGHT_INVALID UINT64_MAX
 #define CGROUP_WEIGHT_IDLE UINT64_C(0)
@@ -118,19 +98,7 @@ extern const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX];
 const char* cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
 CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
 
-/* Special values for the cpu.shares attribute */
-#define CGROUP_CPU_SHARES_INVALID UINT64_MAX
-#define CGROUP_CPU_SHARES_MIN UINT64_C(2)
-#define CGROUP_CPU_SHARES_MAX UINT64_C(262144)
-#define CGROUP_CPU_SHARES_DEFAULT UINT64_C(1024)
-
-static inline bool CGROUP_CPU_SHARES_IS_OK(uint64_t x) {
-        return
-            x == CGROUP_CPU_SHARES_INVALID ||
-            (x >= CGROUP_CPU_SHARES_MIN && x <= CGROUP_CPU_SHARES_MAX);
-}
-
-/* Special values for the special {blkio,io}.bfq.weight attribute */
+/* Special values for the io.bfq.weight attribute */
 #define CGROUP_BFQ_WEIGHT_INVALID UINT64_MAX
 #define CGROUP_BFQ_WEIGHT_MIN UINT64_C(1)
 #define CGROUP_BFQ_WEIGHT_MAX UINT64_C(1000)
@@ -142,18 +110,6 @@ static inline uint64_t BFQ_WEIGHT(uint64_t io_weight) {
             io_weight <= CGROUP_WEIGHT_DEFAULT ?
             CGROUP_BFQ_WEIGHT_DEFAULT - (CGROUP_WEIGHT_DEFAULT - io_weight) * (CGROUP_BFQ_WEIGHT_DEFAULT - CGROUP_BFQ_WEIGHT_MIN) / (CGROUP_WEIGHT_DEFAULT - CGROUP_WEIGHT_MIN) :
             CGROUP_BFQ_WEIGHT_DEFAULT + (io_weight - CGROUP_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_WEIGHT_MAX - CGROUP_WEIGHT_DEFAULT);
-}
-
-/* Special values for the blkio.weight attribute */
-#define CGROUP_BLKIO_WEIGHT_INVALID UINT64_MAX
-#define CGROUP_BLKIO_WEIGHT_MIN UINT64_C(10)
-#define CGROUP_BLKIO_WEIGHT_MAX UINT64_C(1000)
-#define CGROUP_BLKIO_WEIGHT_DEFAULT UINT64_C(500)
-
-static inline bool CGROUP_BLKIO_WEIGHT_IS_OK(uint64_t x) {
-        return
-            x == CGROUP_BLKIO_WEIGHT_INVALID ||
-            (x >= CGROUP_BLKIO_WEIGHT_MIN && x <= CGROUP_BLKIO_WEIGHT_MAX);
 }
 
 typedef enum CGroupUnified {
@@ -199,7 +155,6 @@ typedef enum CGroupFlags {
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
 int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags);
 int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags);
-int cg_read_event(const char *controller, const char *path, const char *event, char **ret);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret);
 int cg_read_subgroup(DIR *d, char **ret);
@@ -231,20 +186,17 @@ int cg_get_attribute(const char *controller, const char *path, const char *attri
 int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char * const *keys, char **values);
 
 int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
-
-/* Does a parse_boolean() on the attribute contents and sets ret accordingly */
-int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute, bool *ret);
+int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 
 int cg_set_xattr(const char *path, const char *name, const void *value, size_t size, int flags);
-int cg_get_xattr_malloc(const char *path, const char *name, char **ret, size_t *ret_size);
+int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_size);
 /* Returns negative on error, and 0 or 1 on success for the bool value */
 int cg_get_xattr_bool(const char *path, const char *name);
 int cg_remove_xattr(const char *path, const char *name);
 
 int cg_is_empty(const char *controller, const char *path);
-int cg_is_empty_recursive(const char *controller, const char *path);
 
 int cg_get_root_path(char **path);
 
@@ -319,17 +271,3 @@ typedef enum ManagedOOMPreference {
 
 const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
 ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;
-
-/* The structure to pass to name_to_handle_at() on cgroupfs2 */
-typedef union {
-        struct file_handle file_handle;
-        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
-} cg_file_handle;
-
-#define CG_FILE_HANDLE_INIT                                     \
-        (cg_file_handle) {                                      \
-                .file_handle.handle_bytes = sizeof(uint64_t),   \
-                .file_handle.handle_type = FILEID_KERNFS,       \
-        }
-
-#define CG_FILE_HANDLE_CGROUPID(fh) (*CAST_ALIGN_PTR(uint64_t, (fh).file_handle.f_handle))

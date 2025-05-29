@@ -52,5 +52,5 @@ UserDisposition group_record_disposition(GroupRecord *h);
 
 bool group_record_matches_group_name(const GroupRecord *g, const char *groupname);
 
-bool group_record_is_root(const GroupRecord *g);
-bool group_record_is_nobody(const GroupRecord *g);
+bool group_record_is_root(const GroupRecord *g) _pure_;
+bool group_record_is_nobody(const GroupRecord *g) _pure_;

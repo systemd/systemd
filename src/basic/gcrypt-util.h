@@ -2,17 +2,12 @@
 
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stddef.h>
-
-#include "memory-util.h"
+#include "forward.h"
 
 #if HAVE_GCRYPT
-#include <gcrypt.h>
+#include <gcrypt.h> /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
-#include "macro.h"
 
 extern DLSYM_PROTOTYPE(gcry_md_close);
 extern DLSYM_PROTOTYPE(gcry_md_copy);

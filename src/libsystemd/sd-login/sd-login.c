@@ -10,7 +10,6 @@
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "env-file.h"
-#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -837,20 +836,7 @@ _public_ int sd_session_get_class(const char *session, char **class) {
 }
 
 _public_ int sd_session_get_desktop(const char *session, char **desktop) {
-        _cleanup_free_ char *escaped = NULL;
-        int r;
-        ssize_t l;
-
-        assert_return(desktop, -EINVAL);
-
-        r = session_get_string(session, "DESKTOP", &escaped);
-        if (r < 0)
-                return r;
-
-        l = cunescape(escaped, 0, desktop);
-        if (l < 0)
-                return l;
-        return 0;
+        return session_get_string(session, "DESKTOP", desktop);
 }
 
 _public_ int sd_session_get_display(const char *session, char **display) {

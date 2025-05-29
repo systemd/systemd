@@ -125,6 +125,11 @@ Deprecations and removals:
 
 Features:
 
+* maybe introduce a new per-unit drop-in directory .confext.d/ that may contain
+  symlinks to confext images to enable for the unit.
+
+* nspawn: map foreign UID range through 1:1
+
 * replace most calls to sd_bus_send() by sd_bus_message_send()
 
 * replace all uses of fopen_temporary() by fopen_tmpfile_linkable() +

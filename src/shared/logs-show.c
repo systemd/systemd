@@ -1993,7 +1993,7 @@ static int set_matches_for_discover_id(
         return -EINVAL;
 }
 
-static int discover_next_id(
+int discover_next_id(
                 sd_journal *j,
                 LogIdType type,
                 sd_id128_t boot_id,  /* optional, used when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */

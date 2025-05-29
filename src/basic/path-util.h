@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-
-#include "macro.h"
-#include "time-util.h"
+#include "forward.h"
 
 #define PATH_SPLIT_BIN(x) x "sbin:" x "bin"
 #define PATH_SPLIT_BIN_NULSTR(x) x "sbin\0" x "bin\0"
@@ -162,14 +158,14 @@ int file_in_same_dir(const char *path, const char *filename, char **ret);
 
 bool hidden_or_backup_file(const char *filename) _pure_;
 
-bool is_device_path(const char *path);
+bool is_device_path(const char *path) _pure_;
 
-bool valid_device_node_path(const char *path);
-bool valid_device_allow_pattern(const char *path);
+bool valid_device_node_path(const char *path) _pure_;
+bool valid_device_allow_pattern(const char *path) _pure_;
 
-bool dot_or_dot_dot(const char *path);
+bool dot_or_dot_dot(const char *path) _pure_;
 
-bool path_implies_directory(const char *path);
+bool path_implies_directory(const char *path) _pure_;
 
 static inline const char* skip_dev_prefix(const char *p) {
         const char *e;
@@ -181,7 +177,7 @@ static inline const char* skip_dev_prefix(const char *p) {
         return e ?: p;
 }
 
-bool empty_or_root(const char *path);
+bool empty_or_root(const char *path) _pure_;
 const char* empty_to_root(const char *path) _pure_;
 
 bool path_strv_contains(char * const *l, const char *path);

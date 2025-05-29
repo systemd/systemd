@@ -1727,7 +1727,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
             cgroup_tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
 
-        return CGROUP_MASK_EXTEND_JOINED(mask);
+        return mask;
 }
 
 static CGroupMask unit_get_bpf_mask(Unit *u) {
@@ -1778,7 +1778,7 @@ CGroupMask unit_get_delegate_mask(Unit *u) {
                 return 0;
 
         assert_se(c = unit_get_cgroup_context(u));
-        return CGROUP_MASK_EXTEND_JOINED(c->delegate_controllers);
+        return c->delegate_controllers;
 }
 
 static CGroupMask unit_get_subtree_mask(Unit *u) {
@@ -2760,7 +2760,7 @@ int unit_cgroup_is_empty(Unit *u) {
         if (!crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path);
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", empty_to_root(crt->cgroup_path));
         return r;
@@ -3020,7 +3020,7 @@ int unit_check_oomd_kill(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return 0;
 
-        r = cg_get_xattr_malloc(crt->cgroup_path, "user.oomd_ooms", &value, /* ret_size= */ NULL);
+        r = cg_get_xattr(crt->cgroup_path, "user.oomd_ooms", &value, /* ret_size= */ NULL);
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 return r;
 
@@ -3038,7 +3038,7 @@ int unit_check_oomd_kill(Unit *u) {
 
         n = 0;
         value = mfree(value);
-        r = cg_get_xattr_malloc(crt->cgroup_path, "user.oomd_kill", &value, /* ret_size= */ NULL);
+        r = cg_get_xattr(crt->cgroup_path, "user.oomd_kill", &value, /* ret_size= */ NULL);
         if (r >= 0 && !isempty(value))
                 (void) safe_atou64(value, &n);
 
@@ -3626,8 +3626,6 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         uint64_t us;
 
         r = cg_get_keyed_attribute("cpu", crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
-        if (IN_SET(r, -ENOENT, -ENXIO))
-                return -ENODATA;
         if (r < 0)
                 return r;
 
@@ -3982,16 +3980,6 @@ void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
         if (!crt)
                 return;
 
-        if (m == 0)
-                return;
-
-        /* always invalidate compat pairs together */
-        if (m & (CGROUP_MASK_IO | CGROUP_MASK_BLKIO))
-                m |= CGROUP_MASK_IO | CGROUP_MASK_BLKIO;
-
-        if (m & (CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT))
-                m |= CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT;
-
         if (FLAGS_SET(crt->cgroup_invalidated_mask, m)) /* NOP? */
                 return;
 
@@ -4082,8 +4070,6 @@ static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
                         "cgroup.events",
                         STRV_MAKE("frozen"),
                         &val);
-        if (IN_SET(r, -ENOENT, -ENXIO))
-                return -ENODATA;
         if (r < 0)
                 return r;
 

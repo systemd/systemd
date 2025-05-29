@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <inttypes.h>
 #include <string.h>
 
-#include "assert-util.h"
-#include "macro.h"
+#include "forward.h"
 
 /* strerror(3) says that glibc uses a maximum length of 1024 bytes. */
-#define ERRNO_BUF_LEN 1024
+#define ERRNO_BUF_LEN           1024
 
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and

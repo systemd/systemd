@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-control.h"
+#include "bus-internal.h"
 #include "bus-objects.h"
 #include "bus-slot.h"
 #include "prioq.h"
@@ -120,12 +121,12 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
                         const sd_bus_vtable *v;
 
                         for (v = slot->node_vtable.vtable; v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(slot->node_vtable.vtable, v)) {
-                                struct vtable_member *x = NULL;
+                                BusVTableMember *x = NULL;
 
                                 switch (v->type) {
 
                                 case _SD_BUS_VTABLE_METHOD: {
-                                        struct vtable_member key;
+                                        BusVTableMember key;
 
                                         key.path = slot->node_vtable.node->path;
                                         key.interface = slot->node_vtable.interface;
@@ -137,7 +138,7 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
 
                                 case _SD_BUS_VTABLE_PROPERTY:
                                 case _SD_BUS_VTABLE_WRITABLE_PROPERTY: {
-                                        struct vtable_member key;
+                                        BusVTableMember key;
 
                                         key.path = slot->node_vtable.node->path;
                                         key.interface = slot->node_vtable.interface;

@@ -343,7 +343,7 @@
             <listitem><para><literal>lts</literal> is for long term support releases of the system, suitable
             for production use and supported for an extended period of time. Generally, LTS releases
             continue to receive support even if newer major releases of the distribution are available.
-            Examples include Ubuntu 24.04, Debian 12 Bookworm and RHEL 9.4.</para></listitem>
+            Examples include Ubuntu 24.04, Debian 12 Bookworm, and RHEL 9.4.</para></listitem>
 
             <listitem><para><literal>development</literal> is for unstable versions of the system,
             unsuitable for production use, such as alpha, beta, or rolling unstable releases. Examples

@@ -2,23 +2,19 @@
 
 #include <arpa/inet.h>
 #include <endian.h>
-#include <errno.h>
-#include <net/if.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "hash-funcs.h"
 #include "in-addr-util.h"
 #include "logarithm.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "siphash24.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "strxcpyx.h"
 
 bool in4_addr_is_null(const struct in_addr *a) {
         assert(a);
@@ -29,7 +25,7 @@ bool in4_addr_is_null(const struct in_addr *a) {
 bool in6_addr_is_null(const struct in6_addr *a) {
         assert(a);
 
-        return eqzero(a->in6_u.u6_addr32);
+        return eqzero(a->s6_addr32);
 }
 
 int in_addr_is_null(int family, const union in_addr_union *u) {
@@ -67,7 +63,7 @@ bool in4_addr_is_link_local_dynamic(const struct in_addr *a) {
 bool in6_addr_is_link_local(const struct in6_addr *a) {
         assert(a);
 
-        return (a->in6_u.u6_addr32[0] & htobe32(0xffc00000)) == htobe32(0xfe800000);
+        return (a->s6_addr32[0] & htobe32(0xffc00000)) == htobe32(0xfe800000);
 }
 
 int in_addr_is_link_local(int family, const union in_addr_union *u) {
@@ -101,7 +97,7 @@ bool in4_addr_is_multicast(const struct in_addr *a) {
 bool in6_addr_is_multicast(const struct in6_addr *a) {
         assert(a);
 
-        return a->in6_u.u6_addr8[0] == 0xff;
+        return a->s6_addr[0] == 0xff;
 }
 
 int in_addr_is_multicast(int family, const union in_addr_union *u) {
@@ -491,6 +487,18 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
 
         *ret = TAKE_PTR(x);
         return 0;
+}
+
+const char* typesafe_inet_ntop(int family, const union in_addr_union *a, char *buf, size_t len) {
+        return inet_ntop(family, a, buf, len);
+}
+
+const char* typesafe_inet_ntop4(const struct in_addr *a, char *buf, size_t len) {
+        return inet_ntop(AF_INET, a, buf, len);
+}
+
+const char* typesafe_inet_ntop6(const struct in6_addr *a, char *buf, size_t len) {
+        return inet_ntop(AF_INET6, a, buf, len);
 }
 
 int in_addr_prefix_to_string(

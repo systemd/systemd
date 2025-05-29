@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "time-util.h"
+#include "forward.h"
 
 typedef struct RateLimit {
         usec_t interval; /* Keep those two fields first so they can be initialized easily: */
@@ -28,9 +26,3 @@ unsigned ratelimit_num_dropped(const RateLimit *rl);
 
 usec_t ratelimit_end(const RateLimit *rl);
 usec_t ratelimit_left(const RateLimit *rl);
-
-typedef struct LogRateLimit {
-        int error;
-        int level;
-        RateLimit ratelimit;
-} LogRateLimit;

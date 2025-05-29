@@ -5,7 +5,6 @@
 
 #include "dirent-util.h"
 #include "path-util.h"
-#include "stat-util.h"
 #include "string-util.h"
 
 int dirent_ensure_type(int dir_fd, struct dirent *de) {

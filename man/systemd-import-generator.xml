@@ -81,10 +81,11 @@
             <term>verify=</term>
 
             <listitem><para>Controls whether to cryptographically validate the download before installing it
-            in place. Takes one of <literal>no</literal>, <literal>checksum</literal> or
-            <literal>signature</literal> (the latter being the default if not specified). For details see the
+            in place. Takes one of <literal>no</literal>, <literal>checksum</literal>, or
+            <literal>signature</literal> (the default if not specified). For details see the
             <option>--verify=</option> of
-            <citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></para>
+            <citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+            </para>
 
             <xi:include href="version-info.xml" xpointer="v257"/></listitem>
           </varlistentry>
@@ -111,7 +112,8 @@
             <term>raw</term>
 
             <listitem><para>Controls the type of resource to download, i.e. a (possibly compressed) tarball
-            that needs to be unpacked into a file system tree, or (possibly compressed) raw disk image (DDI).</para>
+            that needs to be unpacked into a file system tree, or (possibly compressed) raw disk image (DDI).
+            </para>
 
             <para>Specification of exactly one of these options is mandatory.</para>
 

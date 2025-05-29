@@ -493,6 +493,10 @@ static void test_exec_privatetmp(Manager *m) {
                 test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
                 test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
+                (void) unlink("/tmp/test-exec_privatetmp_disconnected");
+                test(m, "exec-privatetmp-disconnected-nodefaultdeps-nor-sandboxing.service", 0, CLD_EXITED);
+                ASSERT_OK_ERRNO(access("/tmp/test-exec_privatetmp_disconnected", F_OK));
+
                 FOREACH_STRING(s,
                                "exec-privatetmp-disconnected.service",
                                "exec-privatetmp-disconnected-defaultdependencies-no.service",

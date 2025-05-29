@@ -46,8 +46,8 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
 int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_error *error);
 int manager_unref_unit(Manager *m, const char *unit, sd_bus_error *error);
-int manager_unit_is_active(Manager *manager, const char *unit);
-int manager_job_is_active(Manager *manager, const char *path);
+int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *reterr_errno);
+int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *reterr_errno);
 
 int manager_find_machine_for_uid(Manager *m, uid_t host_uid, Machine **ret_machine, uid_t *ret_internal_uid);
 int manager_find_machine_for_gid(Manager *m, gid_t host_gid, Machine **ret_machine, gid_t *ret_internal_gid);

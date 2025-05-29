@@ -2304,7 +2304,7 @@ int home_create_luks(
 
                 r = chattr_full(setup->image_fd, NULL, FS_NOCOW_FL|FS_NOCOMP_FL, FS_NOCOW_FL|FS_NOCOMP_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
                 if (r < 0 && r != -ENOANO) /* ENOANO → some bits didn't work; which we skip logging about because chattr_full() already debug logs about those flags */
-                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(ERRNO_IS_IOCTL_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set file attributes on %s, ignoring: %m", setup->temporary_image_path);
 
                 r = calculate_initial_image_size(h, setup->image_fd, fstype, &host_size);
@@ -2382,8 +2382,7 @@ int home_create_luks(
                             user_record_user_name_and_realm(h),
                             /* root = */ NULL,
                             fs_uuid,
-                            user_record_luks_discard(h),
-                            /* quiet = */ true,
+                            (user_record_luks_discard(h) ? MKFS_DISCARD : 0) | MKFS_QUIET,
                             /* sector_size = */ 0,
                             /* compression = */ NULL,
                             /* compression_level= */ NULL,

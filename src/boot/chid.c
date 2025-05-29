@@ -17,7 +17,9 @@
 #include "chid.h"
 #include "chid-fundamental.h"
 #include "edid.h"
+#if SD_BOOT
 #include "efi-log.h"
+#endif
 #include "efi-string.h"
 #include "smbios.h"
 #include "util.h"
