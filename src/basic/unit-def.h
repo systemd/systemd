@@ -302,6 +302,7 @@ const char* unit_dbus_interface_from_name(const char *name);
 
 const char* unit_type_to_string(UnitType i) _const_;
 UnitType unit_type_from_string(const char *s) _pure_;
+void unit_types_list(void);
 
 const char* unit_load_state_to_string(UnitLoadState i) _const_;
 UnitLoadState unit_load_state_from_string(const char *s) _pure_;

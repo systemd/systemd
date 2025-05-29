@@ -1402,6 +1402,11 @@ ConditionType condition_type_from_string(const char *s) {
         return _condition_type_from_string(s);
 }
 
+void condition_types_list(void) {
+        DUMP_STRING_TABLE(_condition_type, ConditionType, _CONDITION_TYPE_MAX);
+        puts("ConditionKernelVersion");
+}
+
 static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE]             = "AssertArchitecture",
         [CONDITION_FIRMWARE]                 = "AssertFirmware",
@@ -1451,6 +1456,11 @@ ConditionType assert_type_from_string(const char *s) {
                 return CONDITION_VERSION;
 
         return _assert_type_from_string(s);
+}
+
+void assert_types_list(void) {
+        DUMP_STRING_TABLE(_assert_type, ConditionType, _CONDITION_TYPE_MAX);
+        puts("AssertKernelVersion");
 }
 
 static const char* const condition_result_table[_CONDITION_RESULT_MAX] = {
