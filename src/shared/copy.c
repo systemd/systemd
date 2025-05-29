@@ -817,7 +817,10 @@ static int copy_fs_verity(int fdf, int *fdt) {
                  * so the correct thing to do is to do nothing at all. */
                 if (errno == ENODATA)
                         return 0;
-                return log_error_errno(errno, "Failed to read fs-verity metadata from source file: %m");
+                log_error_errno(errno, "Failed to read fs-verity metadata from source file: %m");
+                if (errno == ENOTTY || errno == EOPNOTSUPP)
+                        errno = ESOCKTNOSUPPORT;
+                return -errno;
         }
 
         /* Make sure that the descriptor is completely initialized */
@@ -844,8 +847,12 @@ static int copy_fs_verity(int fdf, int *fdt) {
                 .salt_ptr = (uintptr_t) &desc.salt,
         };
 
-        if (ioctl(*fdt, FS_IOC_ENABLE_VERITY, &enable_arg) < 0)
-                return log_error_errno(errno, "Failed to set fs-verity metadata: %m");
+        if (ioctl(*fdt, FS_IOC_ENABLE_VERITY, &enable_arg) < 0) {
+                log_error_errno(errno, "Failed to set fs-verity metadata: %m");
+                if (errno == ENOTTY || errno == EOPNOTSUPP)
+                        errno = ESOCKTNOSUPPORT;
+                return -errno;
+        }
 
         return 0;
 }
@@ -1222,7 +1229,8 @@ static int fd_copy_directory(
                                          denylist, subvolumes, hardlink_context, child_display_path, progress_path,
                                          progress_bytes, userdata);
 
-                if (IN_SET(r, -EINTR, -ENOSPC)) /* Propagate SIGINT/SIGTERM and ENOSPC up instantly */
+                /* Propagate SIGINT/SIGTERM, ENOSPC, and fs-verity fails up instantly */
+                if (IN_SET(r, -EINTR, -ENOSPC, -ESOCKTNOSUPPORT))
                         return r;
                 if (r == -EEXIST && (copy_flags & COPY_MERGE))
                         r = 0;
