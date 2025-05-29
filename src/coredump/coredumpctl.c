@@ -1170,7 +1170,9 @@ static void sigterm_handler(int signal, siginfo_t *info, void *ucontext) {
 
         /* If the sender is not us, propagate the signal to all processes in
          * the same process group */
-        if (pid_is_valid(info->si_pid) && info->si_pid != getpid_cached())
+        if (si_code_from_process(info->si_code) &&
+            pid_is_valid(info->si_pid) &&
+            info->si_pid != getpid_cached())
                 (void) kill(0, signal);
 }
 
