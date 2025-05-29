@@ -17,6 +17,7 @@
 #include "bus-wait-for-jobs.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "coredump-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -436,7 +437,8 @@ int assert_signal_internal(void) {
 
         if (r == 0) {
                 /* Speed things up by never even attempting to generate a coredump */
-                (void) prctl(PR_SET_DUMPABLE, 0);
+                (void) set_dumpable(SUID_DUMP_DISABLE);
+
                 /* But still set an rlimit just in case */
                 (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(0));
                 return 0;
