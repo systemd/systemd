@@ -39,9 +39,9 @@ int main(void) {
          device = sd_device_enumerator_get_device_next(enumerator)) {
         const char *syspath;
 
-        /* Get syspath and devname for the device */
+        /* Get syspath for the device */
         if (sd_device_get_syspath(device, &syspath) >= 0)
-            printf("Removable USB device found: %s\n",  syspath);
+            printf("Removable USB device found: %s\n", syspath);
     }
     return 0;
 }
