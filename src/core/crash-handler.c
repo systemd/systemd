@@ -104,7 +104,11 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                         siginfo_t status;
 
                         if (siginfo) {
-                                if (siginfo->si_pid == 0)
+                                if (!si_code_from_process(siginfo->si_code))
+                                        log_struct(LOG_EMERG,
+                                                   LOG_MESSAGE("Caught <%s>.", signal_to_string(sig)),
+                                                   LOG_MESSAGE_ID(SD_MESSAGE_CRASH_UNKNOWN_SIGNAL_STR));
+                                else if (siginfo->si_pid == 0)
                                         log_struct(LOG_EMERG,
                                                    LOG_MESSAGE("Caught <%s>, from unknown sender process.", signal_to_string(sig)),
                                                    LOG_MESSAGE_ID(SD_MESSAGE_CRASH_UNKNOWN_SIGNAL_STR));

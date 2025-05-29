@@ -1507,7 +1507,7 @@ DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
 void log_received_signal(int level, const struct signalfd_siginfo *si) {
         assert(si);
 
-        if (pid_is_valid(si->ssi_pid)) {
+        if (si_code_from_process(si->ssi_code) && pid_is_valid(si->ssi_pid)) {
                 _cleanup_free_ char *p = NULL;
 
                 (void) pid_get_comm(si->ssi_pid, &p);
