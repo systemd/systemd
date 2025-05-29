@@ -85,6 +85,7 @@ prepare_root() {
 
     {
         echo "ID=testtest"
+        echo "ID_LIKE=\"test_alike something_else\""
         echo "VERSION=1.2.3"
     } >"$root/usr/lib/os-release"
 
@@ -114,6 +115,54 @@ prepare_extension_image() {
     ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
     mkdir -p "${ext_release%/*}"
     echo "ID=_any" >"$ext_release"
+    mkdir -p "$ext_dir/$hierarchy"
+    touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
+
+    prepend_trap "rm -rf ${ext_dir@Q}"
+}
+
+prepare_extension_image_with_matching_id() {
+    local root=${1:-}
+    local hierarchy=${2:?}
+    local ext_dir ext_release name
+
+    name="test-extension-matching-id"
+    ext_dir="$root/var/lib/extensions/$name"
+    ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+    mkdir -p "${ext_release%/*}"
+    echo "ID=testtest" >"$ext_release"
+    mkdir -p "$ext_dir/$hierarchy"
+    touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
+
+    prepend_trap "rm -rf ${ext_dir@Q}"
+}
+
+prepare_extension_image_with_matching_id_like() {
+    local root=${1:-}
+    local hierarchy=${2:?}
+    local ext_dir ext_release name
+
+    name="test-extension-matching-id-like"
+    ext_dir="$root/var/lib/extensions/$name"
+    ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+    mkdir -p "${ext_release%/*}"
+    echo "ID=test_alike" >"$ext_release"
+    mkdir -p "$ext_dir/$hierarchy"
+    touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
+
+    prepend_trap "rm -rf ${ext_dir@Q}"
+}
+
+prepare_extension_image_without_matching_id() {
+    local root=${1:-}
+    local hierarchy=${2:?}
+    local ext_dir ext_release name
+
+    name="test-extension-non-matching-id"
+    ext_dir="$root/var/lib/extensions/$name"
+    ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+    mkdir -p "${ext_release%/*}"
+    echo "ID=something_else_entirely" >"$ext_release"
     mkdir -p "$ext_dir/$hierarchy"
     touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
 
@@ -979,6 +1028,58 @@ for mutable_mode in no yes ephemeral; do
     fi
     )
 done
+
+
+( init_trap
+: "Check if merging an extension with matching ID succeeds"
+fake_root=${roots_dir:+"$roots_dir/matching-id"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_with_matching_id "$fake_root" "$hierarchy"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
+
+( init_trap
+: "Check if merging an extension that matches host ID_LIKE succeeds"
+fake_root=${roots_dir:+"$roots_dir/matching-id-like"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_with_matching_id_like "$fake_root" "$hierarchy"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
+
+( init_trap
+: "Check if merging an extension with non-matching ID succeeds, expected failure"
+fake_root=${roots_dir:+"$roots_dir/non-matching-id"}
+hierarchy=/opt
+extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+extension_real_dir="$fake_root$hierarchy"
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_without_matching_id "$fake_root" "$hierarchy"
+prepare_extension_mutable_dir "$extension_real_dir"
+ln -sfTr "$extension_real_dir" "$extension_data_dir"
+prepend_trap "rm -f ${extension_data_dir@Q}"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+(! run_systemd_sysext "$fake_root" merge)
+)
 
 
 ( init_trap
