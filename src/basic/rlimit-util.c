@@ -343,6 +343,11 @@ static const char* const rlimit_table[_RLIMIT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
 
+void rlimits_list(const char *prefix) {
+        FOREACH_ARRAY(field, rlimit_table, ELEMENTSOF(rlimit_table))
+                printf("%s%s\n", prefix, *field);
+}
+
 int rlimit_from_string_harder(const char *s) {
         const char *suffix;
 

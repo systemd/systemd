@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "bus-label.h"
 #include "glyph-util.h"
@@ -329,6 +331,11 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
+
+void unit_types_list(void) {
+        FOREACH_ARRAY(field, unit_dependency_table, ELEMENTSOF(unit_dependency_table))
+                puts(*field);
+}
 
 static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
         [NOTIFY_NONE] = "none",
