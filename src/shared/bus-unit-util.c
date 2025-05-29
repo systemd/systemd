@@ -1309,6 +1309,10 @@ static int bus_try_append_resource_limit(sd_bus_message *m, const char *field, c
         return 1;
 }
 
+static void dump_resource_limits(void) {
+        rlimits_list("Limit");
+}
+
 static int bus_append_smack_stuff(sd_bus_message *m, const char *field, const char *eq) {
         int ignore = 0;
         const char *s = eq;
@@ -2286,6 +2290,11 @@ static int bus_try_append_condition(sd_bus_message *m, const char *field, const 
                                         field, trigger, negate, p);
 }
 
+static void dump_conditions(void) {
+        condition_types_list();
+        assert_types_list();
+}
+
 static int bus_try_append_unit_dependency(sd_bus_message *m, const char *field, const char *eq) {
         if (unit_dependency_from_string(field) < 0)
                 return 0;
@@ -2296,6 +2305,7 @@ static int bus_try_append_unit_dependency(sd_bus_message *m, const char *field, 
 typedef struct BusProperty {
         const char *name;
         int (*converter)(sd_bus_message *m, const char *field, const char *eq);
+        void (*dump)(void);
 } BusProperty;
 
 static const BusProperty cgroup_properties[] = {
@@ -2362,7 +2372,7 @@ static const BusProperty cgroup_properties[] = {
         { "BlockIOWriteBandwidth",                 warn_deprecated                               },
         { "CPUAccounting",                         warn_deprecated                               },
 
-        { NULL,                                    bus_try_append_parse_cgroup_io_limit          },
+        { NULL, bus_try_append_parse_cgroup_io_limit, cgroup_io_limits_list                      },
         {}
 };
 
@@ -2516,7 +2526,7 @@ static const BusProperty execute_properties[] = {
         { "ProtectHostname",                       bus_append_protect_hostname                   },
         { "ProtectHostnameEx",                     bus_append_protect_hostname                   },
 
-        { NULL,                                    bus_try_append_resource_limit                 },
+        { NULL, bus_try_append_resource_limit,     dump_resource_limits                          },
         {}
 };
 
@@ -2739,8 +2749,8 @@ static const BusProperty unit_properties[] = {
         { "WantsMountsFor",                        bus_append_strv                               },
         { "Markers",                               bus_append_strv                               },
 
-        { NULL,                                    bus_try_append_unit_dependency                },
-        { NULL,                                    bus_try_append_condition                      },
+        { NULL, bus_try_append_unit_dependency,    unit_types_list                               },
+        { NULL, bus_try_append_condition,          dump_conditions                               },
         {}
 };
 
@@ -2865,6 +2875,18 @@ int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char
         }
 
         return 0;
+}
+
+void bus_dump_transient_settings(UnitType t) {
+        for (const BusProperty** tables = ASSERT_PTR(unit_type_properties[t]); *tables; tables++)
+                for (const BusProperty *item = *tables; item->converter; item++) {
+                        assert(item->name || item->dump);
+
+                        if (item->name)
+                                puts(item->name);
+                        else
+                                item->dump();
+                }
 }
 
 int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref, bool allow_pidfd) {

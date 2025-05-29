@@ -2063,6 +2063,11 @@ static const char* const cgroup_io_limit_type_table[_CGROUP_IO_LIMIT_TYPE_MAX] =
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_io_limit_type, CGroupIOLimitType);
 
+void cgroup_io_limits_list(void) {
+        FOREACH_ARRAY(field, cgroup_io_limit_type_table, ELEMENTSOF(cgroup_io_limit_type_table))
+                puts(*field);
+}
+
 static const char *const cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_CPU]                             = "cpu",
         [CGROUP_CONTROLLER_CPUACCT]                         = "cpuacct",
