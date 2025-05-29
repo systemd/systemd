@@ -1063,6 +1063,7 @@ prepend_trap "chmod ${old_mode@Q} ${fake_root@Q}${hierarchy@Q}"
 chmod 0700 "$extension_data_dir"
 
 (! run_systemd_sysext "$fake_root" --mutable=yes merge)
+prepend_trap "rm -rf ${extension_data_dir@Q}"
 )
 
 ( init_trap
