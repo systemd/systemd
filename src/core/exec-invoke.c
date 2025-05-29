@@ -4540,7 +4540,11 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
         if (tty_path) {
                 /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try
                  * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
-                 * container manager passes to PID 1 ends up all the way in the console login shown. */
+                 * container manager passes to PID 1 ends up all the way in the console login shown.
+                 *
+                 * Note that if this doesn't work out we won't bother with querying systemd.tty.term.console
+                 * kernel cmdline option or DCS anymore either, because pid1 also imports $TERM based on those
+                 * and it should have showed up as our $TERM if there were anything. */
                 if (tty_is_console(tty_path) && getppid() == 1) {
                         const char *term = strv_find_prefix(environ, "TERM=");
                         if (term) {
@@ -4560,28 +4564,29 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
                                 return 1;
                         }
+
+                } else {
+                        if (in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
+                                _cleanup_free_ char *key = NULL, *cmdline = NULL;
+
+                                key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
+                                if (!key)
+                                        return -ENOMEM;
+
+                                r = proc_cmdline_get_key(key, /* flags = */ 0, &cmdline);
+                                if (r > 0)
+                                        return strv_env_assign(env, "TERM", cmdline);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
+                        }
+
+                        /* This handles real virtual terminals (returning "linux") and
+                         * any terminals which support the DCS +q query sequence. */
+                        _cleanup_free_ char *dcs_term = NULL;
+                        r = query_term_for_tty(tty_path, &dcs_term);
+                        if (r >= 0)
+                                return strv_env_assign(env, "TERM", dcs_term);
                 }
-
-                if (in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
-                        _cleanup_free_ char *key = NULL, *cmdline = NULL;
-
-                        key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
-                        if (!key)
-                                return -ENOMEM;
-
-                        r = proc_cmdline_get_key(key, /* flags = */ 0, &cmdline);
-                        if (r > 0)
-                                return strv_env_assign(env, "TERM", cmdline);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
-                }
-
-                /* This handles real virtual terminals (returning "linux") and
-                 * any terminals which support the DCS +q query sequence. */
-                _cleanup_free_ char *dcs_term = NULL;
-                r = query_term_for_tty(tty_path, &dcs_term);
-                if (r >= 0)
-                        return strv_env_assign(env, "TERM", dcs_term);
         }
 
         /* If $TERM is not known and we pick a fallback default, then let's also set
