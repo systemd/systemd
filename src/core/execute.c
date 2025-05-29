@@ -934,7 +934,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                                         .path = *path,
                                 };
 
-                                p = strv_env_clean_with_callback(p, invalid_env, &info);
+                                strv_env_clean_with_callback(p, invalid_env, &info);
                         }
 
                         if (!v)
