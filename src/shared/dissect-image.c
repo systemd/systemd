@@ -4421,6 +4421,7 @@ int verity_dissect_and_mount(
                         r = extension_release_validate(
                                         dissected_image->image_name,
                                         extension_release_data->os_release_id,
+                                        extension_release_data->os_release_id_like,
                                         extension_release_data->os_release_version_id,
                                         class == IMAGE_SYSEXT ? extension_release_data->os_release_sysext_level : extension_release_data->os_release_confext_level,
                                         extension_release_data->os_release_extension_scope,
@@ -4447,6 +4448,7 @@ void extension_release_data_done(ExtensionReleaseData *data) {
         assert(data);
 
         data->os_release_id = mfree(data->os_release_id);
+        data->os_release_id_like = mfree(data->os_release_id_like);
         data->os_release_version_id = mfree(data->os_release_version_id);
         data->os_release_sysext_level = mfree(data->os_release_sysext_level);
         data->os_release_confext_level = mfree(data->os_release_confext_level);
