@@ -69,7 +69,7 @@
     (such as <filename>/sys/bus/pci/drivers/</filename>). It returns a pointer to the first
     <type>sd_device</type> object. If no devices are found <constant>NULL</constant> is returned.
     Note that this does <emphasis>not</emphasis> enumerate devices provided by
-    <function>sd_device_enumerator_get_subsystem_first/next()</function>. Hence, e.g.
+    <function>sd_device_enumerator_get_device_first/next()</function>. Hence, e.g.
     <filename>/sys/bus/pci/</filename>, <filename>/sys/bus/pci/drivers/ahci/</filename> and so on are
     enumerated, but <filename>/sys/bus/pci/devices/0000:00:00.0/</filename> and so on are not.</para>
 
