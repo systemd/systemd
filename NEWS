@@ -1042,8 +1042,9 @@ CHANGES WITH 258 in spe:
         * systemd-repart gained a new switch --append-fstab= for controlling
           how to write or append automatically generated /etc/fstab entries.
 
-        * The CopyFiles= setting now accepts a new option "fsverity" which will
-          enable fsverity for all files copied into the new file system.
+        * `CopyFiles=` lines can now contain an `fsverity=copy` flag to
+          preserve the fs-verity status of the source files when populating the
+          filesystem.
 
         * systemd-repart has been updated to automatically generate the
           extended attributes systemd-validatefs@.service understands (see
