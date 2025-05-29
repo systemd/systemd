@@ -4540,7 +4540,11 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
         /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try
          * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
-         * container manager passes to PID 1 ends up all the way in the console login shown. */
+         * container manager passes to PID 1 ends up all the way in the console login shown.
+         *
+         * Note that if this doesn't work out we won't bother with querying systemd.tty.term.console
+         * kernel cmdline option anymore either, because pid1 also imports $TERM based on that and
+         * it should have showed up as our $TERM if there were anything. */
         if (path_equal(tty_path, "/dev/console") && getppid() == 1) {
                 const char *term = strv_find_prefix(environ, "TERM=");
                 if (term) {
@@ -4560,9 +4564,8 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
                         return 1;
                 }
-        }
 
-        if (tty_path && in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
+        } else if (tty_path && in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
                 _cleanup_free_ char *key = NULL, *cmdline = NULL;
 
                 key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
