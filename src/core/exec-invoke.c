@@ -137,23 +137,6 @@ static bool is_kmsg_output(ExecOutput o) {
                       EXEC_OUTPUT_KMSG_AND_CONSOLE);
 }
 
-static bool exec_context_needs_term(const ExecContext *c) {
-        assert(c);
-
-        /* Return true if the execution context suggests we should set $TERM to something useful. */
-
-        if (is_terminal_input(c->std_input))
-                return true;
-
-        if (is_terminal_output(c->std_output))
-                return true;
-
-        if (is_terminal_output(c->std_error))
-                return true;
-
-        return !!c->tty_path;
-}
-
 static int open_null_as(int flags, int nfd) {
         int fd;
 
@@ -1932,8 +1915,8 @@ static int build_environment(
         assert(cgroup_context);
         assert(ret);
 
-#define N_ENV_VARS 22
-        our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
+#define N_ENV_VARS 19
+        our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX + 1);
         if (!our_env)
                 return -ENOMEM;
 
@@ -2034,69 +2017,6 @@ static int build_environment(
                 if (!x)
                         return -ENOMEM;
 
-                our_env[n_env++] = x;
-        }
-
-        if (exec_context_needs_term(c)) {
-                _cleanup_free_ char *cmdline = NULL, *dcs_term = NULL;
-                const char *tty_path, *term = NULL;
-
-                tty_path = exec_context_tty_path(c);
-
-                /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try
-                 * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
-                 * container manager passes to PID 1 ends up all the way in the console login shown. */
-
-                if (path_equal(tty_path, "/dev/console") && getppid() == 1)
-                        term = getenv("TERM");
-                else if (tty_path && in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
-                        _cleanup_free_ char *key = NULL;
-
-                        key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
-                        if (!key)
-                                return -ENOMEM;
-
-                        r = proc_cmdline_get_key(key, 0, &cmdline);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to read %s from kernel cmdline, ignoring: %m", key);
-                        else if (r > 0)
-                                term = cmdline;
-                }
-
-                if (!term && tty_path) {
-                        /* This handles real virtual terminals (returning "linux") and
-                         * any terminals which support the DCS +q query sequence. */
-                        r = query_term_for_tty(tty_path, &dcs_term);
-                        if (r >= 0)
-                                term = dcs_term;
-                }
-
-                if (!term) {
-                        /* If $TERM is not known and we pick a fallback default, then let's also set
-                         * $COLORTERM=truecolor. That's because our fallback default is vt220, which is
-                         * generally a safe bet (as it supports PageUp/PageDown unlike vt100, and is quite
-                         * universally available in terminfo/termcap), except for the fact that real DEC
-                         * vt220 gear never actually supported color. Most tools these days generate color on
-                         * vt220 anyway, ignoring the physical capabilities of the real hardware, but some
-                         * tools actually believe in the historical truth. Which is unfortunate since *we*
-                         * *don't* care about the historical truth, we just want sane defaults if nothing
-                         * better is explicitly configured. It's 2025 after all, at the time of writing,
-                         * pretty much all terminal emulators actually *do* support color, hence if we don't
-                         * know any better let's explicitly claim color support via $COLORTERM. Or in other
-                         * words: we now explicitly claim to be connected to a franken-vt220 with true color
-                         * support. */
-                        x = strdup("COLORTERM=truecolor");
-                        if (!x)
-                                return -ENOMEM;
-
-                        our_env[n_env++] = x;
-
-                        term = FALLBACK_TERM;
-                }
-
-                x = strjoin("TERM=", term);
-                if (!x)
-                        return -ENOMEM;
                 our_env[n_env++] = x;
         }
 
@@ -2215,7 +2135,7 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        assert(n_env < N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
+        assert(n_env <= N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
 #undef N_ENV_VARS
 
         *ret = TAKE_PTR(our_env);
@@ -4599,6 +4519,96 @@ static void prepare_terminal(
                 (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
+static int setup_term_environment(const ExecContext *context, char ***env) {
+        int r;
+
+        assert(context);
+        assert(env);
+
+        /* Already specified by user? */
+        if (strv_env_get(*env, "TERM"))
+                return 0;
+
+        /* Do we need $TERM at all? */
+        if (!is_terminal_input(context->std_input) &&
+            !is_terminal_output(context->std_output) &&
+            !is_terminal_output(context->std_error) &&
+            !context->tty_path)
+                return 0;
+
+        const char *tty_path = exec_context_tty_path(context);
+        if (tty_path) {
+                /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try
+                 * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
+                 * container manager passes to PID 1 ends up all the way in the console login shown.
+                 *
+                 * Note that if this doesn't work out we won't bother with querying systemd.tty.term.console
+                 * kernel cmdline option or DCS anymore either, because pid1 also imports $TERM based on those
+                 * and it should have showed up as our $TERM if there were anything. */
+                if (tty_is_console(tty_path) && getppid() == 1) {
+                        const char *term = strv_find_prefix(environ, "TERM=");
+                        if (term) {
+                                r = strv_env_replace_strdup(env, term);
+                                if (r < 0)
+                                        return r;
+
+                                FOREACH_STRING(i, "COLORTERM=", "NO_COLOR=") {
+                                        const char *s = strv_find_prefix(environ, i);
+                                        if (!s)
+                                                continue;
+
+                                        r = strv_env_replace_strdup(env, s);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                return 1;
+                        }
+
+                } else {
+                        if (in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
+                                _cleanup_free_ char *key = NULL, *cmdline = NULL;
+
+                                key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
+                                if (!key)
+                                        return -ENOMEM;
+
+                                r = proc_cmdline_get_key(key, /* flags = */ 0, &cmdline);
+                                if (r > 0)
+                                        return strv_env_assign(env, "TERM", cmdline);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
+                        }
+
+                        /* This handles real virtual terminals (returning "linux") and
+                         * any terminals which support the DCS +q query sequence. */
+                        _cleanup_free_ char *dcs_term = NULL;
+                        r = query_term_for_tty(tty_path, &dcs_term);
+                        if (r >= 0)
+                                return strv_env_assign(env, "TERM", dcs_term);
+                }
+        }
+
+        /* If $TERM is not known and we pick a fallback default, then let's also set
+         * $COLORTERM=truecolor. That's because our fallback default is vt220, which is
+         * generally a safe bet (as it supports PageUp/PageDown unlike vt100, and is quite
+         * universally available in terminfo/termcap), except for the fact that real DEC
+         * vt220 gear never actually supported color. Most tools these days generate color on
+         * vt220 anyway, ignoring the physical capabilities of the real hardware, but some
+         * tools actually believe in the historical truth. Which is unfortunate since *we*
+         * *don't* care about the historical truth, we just want sane defaults if nothing
+         * better is explicitly configured. It's 2025 after all, at the time of writing,
+         * pretty much all terminal emulators actually *do* support color, hence if we don't
+         * know any better let's explicitly claim color support via $COLORTERM. Or in other
+         * words: we now explicitly claim to be connected to a franken-vt220 with true color
+         * support. */
+        r = strv_env_replace_strdup(env, "COLORTERM=truecolor");
+        if (r < 0)
+                return r;
+
+        return strv_env_replace_strdup(env, "TERM=" FALLBACK_TERM);
+}
+
 int exec_invoke(
                 const ExecCommand *command,
                 const ExecContext *context,
@@ -5254,9 +5264,15 @@ int exec_invoke(
                 *exit_status = EXIT_MEMORY;
                 return log_oom();
         }
-        accum_env = strv_env_clean(accum_env);
+        strv_env_clean(accum_env);
 
         (void) umask(context->umask);
+
+        r = setup_term_environment(context, &accum_env);
+        if (r < 0) {
+                *exit_status = EXIT_MEMORY;
+                return log_error_errno(r, "Failed to construct $TERM: %m");
+        }
 
         r = setup_keyring(context, params, uid, gid);
         if (r < 0) {
