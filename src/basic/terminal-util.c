@@ -48,6 +48,9 @@
         "\033?12l"     /* reset cursor blinking */ \
         "\033 1q"      /* reset cursor style */
 
+/* How much to wait for a reply to a terminal sequence */
+#define CONSOLE_REPLY_WAIT_USEC  (333 * USEC_PER_MSEC)
+
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
@@ -1243,10 +1246,6 @@ bool tty_is_vc_resolve(const char *tty) {
         return tty_is_vc(tty);
 }
 
-const char* default_term_for_tty(const char *tty) {
-        return tty && tty_is_vc_resolve(tty) ? "linux" : "vt220";
-}
-
 int fd_columns(int fd) {
         struct winsize ws = {};
 
@@ -2128,7 +2127,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (r < 0)
                 goto finish;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
         char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
         size_t buf_full = 0;
         BackgroundColorContext context = {};
@@ -2331,7 +2330,7 @@ int terminal_get_size_by_dsr(
         if (r < 0)
                 goto finish;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
         char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
         size_t buf_full = 0;
         CursorPositionContext context = {};
@@ -2458,6 +2457,178 @@ int terminal_fix_size(int input_fd, int output_fd) {
 
         log_debug("Fixed terminal dimensions to %ux%u based on ANSI sequence information.", columns, rows);
         return 1;
+}
+
+#define MAX_TERMINFO_LENGTH 64
+/* python -c 'print("".join(hex(ord(i))[2:] for i in "name").upper())' */
+#define DCS_TERMINFO_Q ANSI_DCS "+q" "6E616D65" ANSI_ST
+/* The answer is either 0+r… (invalid) or 1+r… (OK). */
+#define DCS_TERMINFO_R0 ANSI_DCS "0+r" ANSI_ST
+#define DCS_TERMINFO_R1 ANSI_DCS "1+r" "6E616D65" "=" /* This is followed by Pt ST. */
+assert_cc(STRLEN(DCS_TERMINFO_R0) <= STRLEN(DCS_TERMINFO_R1 ANSI_ST));
+
+static int scan_terminfo_response(
+                const char *buf,
+                size_t size,
+                char **ret_name) {
+        int r;
+
+        assert(buf);
+        assert(ret_name);
+
+        /* Check if we have enough space for the shortest possible answer. */
+        if (size < STRLEN(DCS_TERMINFO_R0))
+                return -EAGAIN;
+
+        /* Check if the terminating sequence is present */
+        if (memcmp(buf + size - STRLEN(ANSI_ST), ANSI_ST, STRLEN(ANSI_ST)) != 0)
+                return -EAGAIN;
+
+        if (size <= STRLEN(DCS_TERMINFO_R1 ANSI_ST))
+                return -EINVAL;  /* The answer is invalid or empty */
+
+        if (memcmp(buf, DCS_TERMINFO_R1, STRLEN(DCS_TERMINFO_R1)) != 0)
+                return -EINVAL;  /* The answer is not valid */
+
+        _cleanup_free_ void *dec = NULL;
+        size_t dec_size;
+        r = unhexmem_full(buf + STRLEN(DCS_TERMINFO_R1), size - STRLEN(DCS_TERMINFO_R1 ANSI_ST),
+                          /* secure= */ false,
+                          &dec, &dec_size);
+        if (r < 0)
+                return r;
+
+        assert(((const char *) dec)[dec_size] == '\0'); /* unhexmem appends NUL for our convenience */
+        if (memchr(dec, '\0', dec_size) || string_has_cc(dec, NULL) || !filename_is_valid(dec))
+                return -EUCLEAN;
+
+        *ret_name = TAKE_PTR(dec);
+        return 0;
+}
+
+int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
+        int r;
+
+        assert(fd >= 0);
+        assert(ret_name);
+
+        /* Note: fd must be in non-blocking read-write mode! */
+
+        struct termios old_termios;
+        if (tcgetattr(fd, &old_termios) < 0)
+                return -errno;
+
+        struct termios new_termios = old_termios;
+        termios_disable_echo(&new_termios);
+
+        if (tcsetattr(fd, TCSADRAIN, &new_termios) < 0)
+                return -errno;
+
+        r = loop_write(fd, DCS_TERMINFO_Q, SIZE_MAX);
+        if (r < 0)
+                goto finish;
+
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        char buf[STRLEN(DCS_TERMINFO_R1) + MAX_TERMINFO_LENGTH + STRLEN(ANSI_ST)];
+        size_t bytes = 0;
+
+        for (;;) {
+                usec_t n = now(CLOCK_MONOTONIC);
+                if (n >= end) {
+                        r = -EOPNOTSUPP;
+                        break;
+                }
+
+                r = fd_wait_for_event(fd, POLLIN, usec_sub_unsigned(end, n));
+                if (r < 0)
+                        break;
+                if (r == 0) {
+                        r = -EOPNOTSUPP;
+                        break;
+                }
+
+                /* On the first read, read multiple characters, i.e. the shortest valid reply. Afterwards
+                 * read byte by byte, since we don't want to read too much and drop characters from the input
+                 * queue. */
+                ssize_t l = read(fd, buf + bytes, bytes == 0 ? STRLEN(DCS_TERMINFO_R0) : 1);
+                if (l < 0) {
+                        if (errno == EAGAIN)
+                                continue;
+                        r = -errno;
+                        break;
+                }
+
+                assert((size_t) l <= sizeof(buf) - bytes);
+                bytes += l;
+
+                r = scan_terminfo_response(buf, bytes, ret_name);
+                if (r != -EAGAIN)
+                        break;
+
+                if (bytes == sizeof(buf)) {
+                        r = -EOPNOTSUPP; /* The response has the right prefix, but we didn't find a valid
+                                          * answer with a terminator in the alloted space. Something is
+                                          * wrong, possibly some unrelated bytes got injected into the
+                                          * answer. */
+                        break;
+                }
+        }
+
+finish:
+        /* We ignore failure here. We already got a reply and if cleanup fails, we can't help that. */
+        (void) tcsetattr(fd, TCSADRAIN, &old_termios);
+        return r;
+}
+
+int have_terminfo_file(const char *name) {
+        /* This is a heuristic check if we have the file, using the directory layout used on
+         * current Linux systems. Checks for other layouts can be added later if appropriate. */
+        int r;
+
+        assert(filename_is_valid(name));
+
+        _cleanup_free_ char *p = path_join("/usr/share/terminfo", CHAR_TO_STR(name[0]), name);
+        if (!p)
+                return log_oom_debug();
+
+        r = RET_NERRNO(access(p, F_OK));
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+        return true;
+}
+
+int query_term_for_tty(const char *tty, char **ret_term) {
+        _cleanup_free_ char *dcs_term = NULL;
+        int r;
+
+        assert(tty);
+        assert(ret_term);
+
+        if (tty_is_vc_resolve(tty))
+                return strdup_to(ret_term, "linux");
+
+        /* Try to query the terminal implementation that we're on. This will not work in all
+         * cases, which is fine, since this is intended to be used as a fallback. */
+
+        _cleanup_close_ int tty_fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (tty_fd < 0)
+                return log_debug_errno(tty_fd, "Failed to open %s to query terminfo: %m", tty);
+
+        r = terminal_get_terminfo_by_dcs(tty_fd, &dcs_term);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query %s for terminfo: %m", tty);
+
+        r = have_terminfo_file(dcs_term);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to look for terminfo %s: %m", dcs_term);
+        if (r == 0)
+                return log_info_errno(SYNTHETIC_ERRNO(ENODATA),
+                                      "Terminfo %s not found for %s.", dcs_term, tty);
+
+        *ret_term = TAKE_PTR(dcs_term);
+        return 0;
 }
 
 int terminal_is_pty_fd(int fd) {
