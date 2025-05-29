@@ -21,6 +21,11 @@ int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, vo
         assert(s);
         assert(si);
 
+        if (!si_code_from_process(si->ssi_code)) {
+                log_notice("Received control signal %s with unexpected .si_code, ignoring.", signal_to_string(si->ssi_signo));
+                return 0;
+        }
+
         (void) pid_get_comm(si->ssi_pid, &comm);
 
         if (si->ssi_code != SI_QUEUE) {
