@@ -4030,6 +4030,7 @@ int verity_dissect_and_mount(
                 const MountOptions *options,
                 const ImagePolicy *image_policy,
                 const char *required_host_os_release_id,
+                const char *required_host_os_release_id_like,
                 const char *required_host_os_release_version_id,
                 const char *required_host_os_release_sysext_level,
                 const char *required_host_os_release_confext_level,
@@ -4158,6 +4159,7 @@ int verity_dissect_and_mount(
                 r = extension_release_validate(
                                 dissected_image->image_name,
                                 required_host_os_release_id,
+                                required_host_os_release_id_like,
                                 required_host_os_release_version_id,
                                 class == IMAGE_SYSEXT ? required_host_os_release_sysext_level : required_host_os_release_confext_level,
                                 required_sysext_scope,

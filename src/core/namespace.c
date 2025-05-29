@@ -1516,7 +1516,7 @@ static int mount_image(
                 const char *root_directory,
                 const ImagePolicy *image_policy) {
 
-        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL, *host_os_release_version_id = NULL,
                             *host_os_release_sysext_level = NULL, *host_os_release_confext_level = NULL,
                             *extension_name = NULL;
         int r;
@@ -1531,6 +1531,7 @@ static int mount_image(
                 r = parse_os_release(
                                 empty_to_root(root_directory),
                                 "ID", &host_os_release_id,
+                                "ID_LIKE", &host_os_release_id_like,
                                 "VERSION_ID", &host_os_release_version_id,
                                 image_class_info[IMAGE_SYSEXT].level_env, &host_os_release_sysext_level,
                                 image_class_info[IMAGE_CONFEXT].level_env, &host_os_release_confext_level,
@@ -1548,6 +1549,7 @@ static int mount_image(
                         m->image_options_const,
                         image_policy,
                         host_os_release_id,
+                        host_os_release_id_like,
                         host_os_release_version_id,
                         host_os_release_sysext_level,
                         host_os_release_confext_level,
@@ -1558,9 +1560,10 @@ static int mount_image(
                 return 0;
         if (r == -ESTALE && host_os_release_id)
                 return log_error_errno(r, // FIXME: this should not be logged ad LOG_ERR, as it will result in duplicate logging.
-                                       "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s%s%s%s%s%s%s",
+                                       "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s ID_LIKE='%s'%s%s%s%s%s%s",
                                        mount_entry_source(m),
                                        host_os_release_id,
+                                       strempty(host_os_release_id_like),
                                        host_os_release_version_id ? " VERSION_ID=" : "",
                                        strempty(host_os_release_version_id),
                                        host_os_release_sysext_level ? image_class_info[IMAGE_SYSEXT].level_env_print : "",
@@ -1735,8 +1738,9 @@ static int apply_one_mount(
                 break;
 
         case MOUNT_EXTENSION_DIRECTORY: {
-                _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
-                                *host_os_release_level = NULL, *extension_name = NULL;
+                _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
+                                *host_os_release_version_id = NULL, *host_os_release_level = NULL,
+                                *extension_name = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
@@ -1768,6 +1772,7 @@ static int apply_one_mount(
                 r = parse_os_release(
                                 empty_to_root(root_directory),
                                 "ID", &host_os_release_id,
+                                "ID_LIKE", &host_os_release_id_like,
                                 "VERSION_ID", &host_os_release_version_id,
                                 image_class_info[class].level_env, &host_os_release_level,
                                 NULL);
@@ -1779,6 +1784,7 @@ static int apply_one_mount(
                 r = extension_release_validate(
                                 extension_name,
                                 host_os_release_id,
+                                host_os_release_id_like,
                                 host_os_release_version_id,
                                 host_os_release_level,
                                 /* host_extension_scope = */ NULL, /* Leave empty, we need to accept both system and portable */
