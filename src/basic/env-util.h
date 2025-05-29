@@ -22,12 +22,12 @@ static inline int replace_env(const char *format, char **env, ReplaceEnvFlags fl
 
 int replace_env_argv(char **argv, char **env, char ***ret, char ***ret_unset_variables, char ***ret_bad_variables);
 
-bool strv_env_is_valid(char **e);
-#define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
-char** strv_env_clean_with_callback(char **l, void (*invalid_callback)(const char *p, void *userdata), void *userdata);
+bool strv_env_is_valid(char * const *e);
+bool strv_env_name_is_valid(char * const *l);
+bool strv_env_name_or_assignment_is_valid(char * const *l);
 
-bool strv_env_name_is_valid(char **l);
-bool strv_env_name_or_assignment_is_valid(char **l);
+char** strv_env_clean_with_callback(char **l, void (*invalid_callback)(const char *p, void *userdata), void *userdata);
+#define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
 
 char** _strv_env_merge(char **first, ...);
 #define strv_env_merge(first, ...) _strv_env_merge(first, __VA_ARGS__, POINTER_MAX)
