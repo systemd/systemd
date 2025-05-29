@@ -33,7 +33,7 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
         if (n == SIZE_MAX)
                 n = strlen_ptr(e);
 
-        if (n <= 0)
+        if (n == 0)
                 return false;
 
         assert(e);
@@ -44,7 +44,7 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
         /* POSIX says the overall size of the environment block cannot be > ARG_MAX, an individual assignment
          * hence cannot be either. Discounting the equal sign and trailing NUL this hence leaves ARG_MAX-2 as
          * longest possible variable name. */
-        if (n > (size_t) sysconf(_SC_ARG_MAX) - 2)
+        if (_unlikely_(n > sc_arg_max() - 2))
                 return false;
 
         for (const char *p = e; p < e + n; p++)
@@ -55,7 +55,7 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
 }
 
 bool env_name_is_valid(const char *e) {
-        return env_name_is_valid_n(e, strlen_ptr(e));
+        return env_name_is_valid_n(e, SIZE_MAX);
 }
 
 bool env_value_is_valid(const char *e) {
@@ -72,7 +72,7 @@ bool env_value_is_valid(const char *e) {
         /* POSIX says the overall size of the environment block cannot be > ARG_MAX, an individual assignment
          * hence cannot be either. Discounting the shortest possible variable name of length 1, the equal
          * sign and trailing NUL this hence leaves ARG_MAX-3 as longest possible variable value. */
-        if (strlen(e) > sc_arg_max() - 3)
+        if (_unlikely_(strlen(e) > sc_arg_max() - 3))
                 return false;
 
         return true;
@@ -80,6 +80,8 @@ bool env_value_is_valid(const char *e) {
 
 bool env_assignment_is_valid(const char *e) {
         const char *eq;
+
+        assert(e);
 
         eq = strchr(e, '=');
         if (!eq)
@@ -93,13 +95,13 @@ bool env_assignment_is_valid(const char *e) {
 
         /* POSIX says the overall size of the environment block cannot be > ARG_MAX, hence the individual
          * variable assignments cannot be either, but let's leave room for one trailing NUL byte. */
-        if (strlen(e) > sc_arg_max() - 1)
+        if (_unlikely_(strlen(e) > sc_arg_max() - 1))
                 return false;
 
         return true;
 }
 
-bool strv_env_is_valid(char **e) {
+bool strv_env_is_valid(char * const *e) {
         STRV_FOREACH(p, e) {
                 size_t k;
 
@@ -116,7 +118,7 @@ bool strv_env_is_valid(char **e) {
         return true;
 }
 
-bool strv_env_name_is_valid(char **l) {
+bool strv_env_name_is_valid(char * const *l) {
         STRV_FOREACH(p, l) {
                 if (!env_name_is_valid(*p))
                         return false;
@@ -128,7 +130,7 @@ bool strv_env_name_is_valid(char **l) {
         return true;
 }
 
-bool strv_env_name_or_assignment_is_valid(char **l) {
+bool strv_env_name_or_assignment_is_valid(char * const *l) {
         STRV_FOREACH(p, l) {
                 if (!env_assignment_is_valid(*p) && !env_name_is_valid(*p))
                         return false;
@@ -373,6 +375,7 @@ int strv_env_replace_consume(char ***l, char *p) {
         const char *t, *name;
         int r;
 
+        assert(l);
         assert(p);
 
         /* Replace first occurrence of the env var or add a new one in the string list. Drop other
@@ -406,6 +409,9 @@ int strv_env_replace_consume(char ***l, char *p) {
 int strv_env_replace_strdup(char ***l, const char *assignment) {
         /* Like strv_env_replace_consume(), but copies the argument. */
 
+        assert(l);
+        assert(assignment);
+
         char *p = strdup(assignment);
         if (!p)
                 return -ENOMEM;
@@ -414,10 +420,13 @@ int strv_env_replace_strdup(char ***l, const char *assignment) {
 }
 
 int strv_env_replace_strdup_passthrough(char ***l, const char *assignment) {
-        /* Like strv_env_replace_strdup(), but pulls the variable from the environment of
-         * the calling program, if a variable name without value is specified.
-         */
         char *p;
+
+        /* Like strv_env_replace_strdup(), but pulls the variable from the environment of
+         * the calling program, if a variable name without value is specified. */
+
+        assert(l);
+        assert(assignment);
 
         if (strchr(assignment, '=')) {
                 if (!env_assignment_is_valid(assignment))
@@ -440,6 +449,8 @@ int strv_env_replace_strdup_passthrough(char ***l, const char *assignment) {
 }
 
 int strv_env_assign(char ***l, const char *key, const char *value) {
+        assert(l);
+
         if (!env_name_is_valid(key))
                 return -EINVAL;
 
