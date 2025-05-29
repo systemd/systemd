@@ -300,7 +300,6 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         project='man-pages'><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
 
