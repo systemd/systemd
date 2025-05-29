@@ -24,7 +24,7 @@ indent_style = space
 indent_size = 8
 max_line_length = 109
 
-[*.sh,mkosi.build,mkosi.prepare,mkosi.postinst]
+[{*.sh,mkosi.build,mkosi.prepare,mkosi.postinst,shell-completion/zsh/_*}]
 indent_style = space
 indent_size = 4
 
