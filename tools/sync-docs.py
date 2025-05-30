@@ -24,12 +24,17 @@ $(document).ready(function() {
 
         var items = [];
         $.each( data, function(_, version) {
-            if (version == dirname) {
-                items.push( "<option selected value='" + version + "'>" + "systemd " + version + "</option>");
-            } else if (dirname == "latest" && version == data[1]) {
-                items.push( "<option selected value='" + version + "'>" + "systemd " + version + "</option>");
+            if (version == data[1]) {
+                latest = " (latest)";
             } else {
-                items.push( "<option value='" + version + "'>" + "systemd " + version + "</option>");
+                latest = "";
+            }
+            if (version == dirname) {
+                items.push( "<option selected value='" + version + "'>" + "systemd " + version + latest + "</option>");
+            } else if (dirname == "latest" && version == data[1]) {
+                items.push( "<option selected value='" + version + "'>" + "systemd " + version + latest + "</option>");
+            } else {
+                items.push( "<option value='" + version + "'>" + "systemd " + version + latest + "</option>");
             }
         });
 
