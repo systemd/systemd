@@ -85,7 +85,7 @@ def get_latest_version():
     tags = subprocess.check_output(["git", "tag", "-l", "v*"], text=True).split()
     versions = []
     for tag in tags:
-        m = re.match("v?(\d+).*", tag)
+        m = re.match("v?([0-9]+).*", tag)
         if m:
             versions.append(int(m.group(1)))
     return max(versions)
