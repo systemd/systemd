@@ -1105,6 +1105,17 @@ else
     echo "have no tpm2"
 fi
 
+# Test "transient-settings" verb
+
+# shellcheck disable=SC2046
+systemd-analyze --no-pager transient-settings $(systemctl --no-legend --no-pager -t help)
+systemd-analyze transient-settings service | grep NoNewPrivileges
+systemd-analyze transient-settings mount | grep CPUQuotaPeriodSec
+# make sure deprecated names are not printed
+(! systemd-analyze transient-settings service | grep CPUAccounting )
+(! systemd-analyze transient-settings service | grep ConditionKernelVersion )
+(! systemd-analyze transient-settings service | grep AssertKernelVersion )
+
 systemd-analyze log-level info
 
 touch /testok
