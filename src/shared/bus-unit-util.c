@@ -71,6 +71,11 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                         &u->job_path);
 }
 
+static int warn_deprecated(const char *field, const char *eq) {
+        log_warning("DBus property %s is deprecated, ignoring assignment: %s=%s", field, field, eq);
+        return 1;
+}
+
 #define DEFINE_BUS_APPEND_PARSE_PTR(bus_type, cast_type, type, parse_func) \
         static int bus_append_##parse_func(                             \
                         sd_bus_message *m,                              \
@@ -590,8 +595,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (STR_IN_SET(field, "CPUAccounting",
-                              "MemoryAccounting",
+        if (STR_IN_SET(field, "MemoryAccounting",
                               "MemoryZSwapWriteback",
                               "IOAccounting",
                               "TasksAccounting",
@@ -1028,6 +1032,19 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 /* While infinity is disallowed in unit file, infinity is allowed in D-Bus API which
                  * means use the default memory pressure duration from oomd.conf. */
                 return bus_append_parse_sec_rename(m, field, isempty(eq) ? "infinity" : eq);
+
+        if (STR_IN_SET(field,
+                       "MemoryLimit",
+                       "CPUShares",
+                       "StartupCPUShares",
+                       "BlockIOAccounting",
+                       "BlockIOWeight",
+                       "StartupBlockIOWeight",
+                       "BlockIODeviceWeight",
+                       "BlockIOReadBandwidth",
+                       "BlockIOWriteBandwidth",
+                       "CPUAccounting"))
+                return warn_deprecated(field, eq);
 
         return 0;
 }
