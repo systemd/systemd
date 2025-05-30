@@ -4092,7 +4092,7 @@ static int parse_line(
         existing = ordered_hashmap_get(h, i.path);
         if (existing) {
                 if (is_duplicated_item(existing, &i)) {
-                        log_syntax(NULL, LOG_NOTICE, fname, line, 0,
+                        log_syntax(NULL, LOG_DEBUG, fname, line, 0,
                                    "Duplicate line for path \"%s\", ignoring.", i.path);
                         return 0;
                 }
