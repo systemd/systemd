@@ -173,6 +173,12 @@ static const struct {
                 .disposition = USER_SYSTEM,
         },
         {
+                .first = GREETER_UID_MIN,
+                .last = GREETER_UID_MAX,
+                .name = "dynamic greeter",
+                .disposition = USER_DYNAMIC,
+        },
+        {
                 .first = DYNAMIC_UID_MIN,
                 .last = DYNAMIC_UID_MAX,
                 .name = "dynamic system",
