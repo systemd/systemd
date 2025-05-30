@@ -202,7 +202,7 @@ journalctl -b -n 1 --output=export --output-fields=MESSAGE,COREDUMP COREDUMP_EXE
 journalctl -b -n 1 --output=export --output-fields=MESSAGE,COREDUMP COREDUMP_EXE="/usr/bin/test-dump" |
     /usr/lib/systemd/systemd-coredump --backtrace $$ 0 0 6 1679509902 12345 youmachine 1
 # Wait a bit for the coredumps to get processed
-timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -lt 2 ]]; do sleep 1; done"
+timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -lt 3 ]]; do sleep 1; done"
 coredumpctl info $$
 coredumpctl info COREDUMP_TIMESTAMP=1679509900000000
 coredumpctl info COREDUMP_TIMESTAMP=1679509901000000
