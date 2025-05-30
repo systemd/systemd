@@ -739,6 +739,10 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_F3, '\r'):   /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
                 case KEYPRESS(0, SCAN_SUSPEND, 0): /* Handle phones/tablets with only a power key + volume up/down rocker (and otherwise just touchscreen input) */
+                        if (config->entries[idx_highlight]->type == LOADER_MORE) {
+                                status = xstrdup16(u"Entry cannot be booted.");
+                                break;
+                        }
                         action = ACTION_RUN;
                         break;
 
@@ -758,6 +762,10 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, 'd'):
                 case KEYPRESS(0, 0, 'D'):
+                        if (config->entries[idx_highlight]->type == LOADER_MORE) {
+                                status = xstrdup16(u"Entry cannot be default boot entry.");
+                                break;
+                        }
                         if (config->idx_default_efivar != idx_highlight) {
                                 free(config->entry_default_efivar);
                                 config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
@@ -1769,13 +1777,18 @@ static bool entries_unique(BootEntry **entries, bool *unique, size_t n_entries) 
         assert(entries);
         assert(unique);
 
-        for (size_t i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++) {
+                if (entries[i]->type == LOADER_MORE)
+                        continue;
                 for (size_t k = i + 1; k < n_entries; k++) {
+                        if (entries[k]->type == LOADER_MORE)
+                                continue;
                         if (!streq16(entries[i]->title_show, entries[k]->title_show))
                                 continue;
 
                         is_unique = unique[i] = unique[k] = false;
                 }
+        }
 
         return is_unique;
 }
@@ -1846,13 +1859,32 @@ typedef struct {
 } Indices;
 
 static void config_copy_entries(
-                Config *config, BootEntry **entries, size_t start_index, size_t end_index) {
+                Config *config, BootEntry **entries, size_t start_index, size_t end_index, bool has_group_entry) {
         assert(config);
         assert(entries);
         _cleanup_(boot_entry_freep) BootEntry *group_entry = NULL;
         size_t old_default_index = IDX_INVALID;
 
+        if (config->idx_default >= start_index && config->idx_default <= end_index) {
+                config_add_entry(config, entries[config->idx_default]);
+                old_default_index = config->idx_default;
+                config->idx_default = config->n_entries - 1;
+                if (config->idx_default_efivar != IDX_INVALID)
+                        config->idx_default_efivar = config->n_entries - 1;
+                if (start_index == end_index)
+                        has_group_entry = false;
+        }
+        if (has_group_entry) {
+                group_entry = xnew(BootEntry, 1);
+                *group_entry = (BootEntry){ .title = xstrdup16(u"More..."),
+                                              .group_entry = NULL,
+                                              .type = LOADER_MORE,
+                                              .id = xstrdup16(u"More...") };
+                config_add_entry(config, group_entry);
+        }
         for (size_t i = start_index; i <= end_index; i++) {
+                if (i == old_default_index)
+                        continue;
                 config_add_entry(config, entries[i]);
                 config->entries[config->n_entries - 1]->group_entry = group_entry;
         }
@@ -2811,13 +2843,19 @@ static void config_write_entries_to_variable(Config *config) {
 
         assert(config);
 
-        for (size_t i = 0; i < config->n_entries; i++)
+        for (size_t i = 0; i < config->n_entries; i++) {
+                if (config->entries[i]->type == LOADER_MORE)
+                        continue;
                 sz += strsize16(config->entries[i]->id);
+        }
 
         p = buffer = xmalloc(sz);
 
-        for (size_t i = 0; i < config->n_entries; i++)
+        for (size_t i = 0; i < config->n_entries; i++) {
+                if (config->entries[i]->type == LOADER_MORE)
+                        continue;
                 p = mempcpy(p, config->entries[i]->id, strsize16(config->entries[i]->id));
+        }
 
         assert(p == buffer + sz);
 
@@ -3044,13 +3082,13 @@ static void config_load_all_entries(
 
         config_write_entries_to_variable(config);
 
-        generate_boot_entry_titles(config);
-
         /* Select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_select_default_entry(config);
 
         /* create the menu hierarchy */
         config_group_entries(config);
+
+        generate_boot_entry_titles(config);
 }
 
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
