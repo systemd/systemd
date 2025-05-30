@@ -2567,7 +2567,7 @@ int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
 
                 if (bytes == sizeof(buf)) {
                         r = -EOPNOTSUPP; /* The response has the right prefix, but we didn't find a valid
-                                          * answer with a terminator in the alloted space. Something is
+                                          * answer with a terminator in the allotted space. Something is
                                           * wrong, possibly some unrelated bytes got injected into the
                                           * answer. */
                         break;
