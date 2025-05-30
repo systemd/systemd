@@ -18,6 +18,10 @@ assert_cc((FOREIGN_UID_BASE & 0xFFFFU) == 0);
 bool uid_is_system(uid_t uid);
 bool gid_is_system(gid_t gid);
 
+static inline bool uid_is_greeter(uid_t uid) {
+        return GREETER_UID_MIN <= uid && uid <= GREETER_UID_MAX;
+}
+
 static inline bool uid_is_dynamic(uid_t uid) {
         return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
 }

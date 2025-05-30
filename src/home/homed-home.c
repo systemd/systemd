@@ -86,7 +86,8 @@ static int suitable_home_record(UserRecord *hr) {
 
         /* Insist we are outside of the dynamic and system range */
         if (uid_is_system(hr->uid) || gid_is_system(user_record_gid(hr)) ||
-            uid_is_dynamic(hr->uid) || gid_is_dynamic(user_record_gid(hr)))
+            uid_is_dynamic(hr->uid) || gid_is_dynamic(user_record_gid(hr)) ||
+            uid_is_greeter(hr->uid))
                 return -EADDRNOTAVAIL;
 
         /* Insist that GID and UID match */
