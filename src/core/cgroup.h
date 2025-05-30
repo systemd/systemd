@@ -104,7 +104,7 @@ typedef enum CGroupPressureWatch {
 } CGroupPressureWatch;
 
 /* The user-supplied cgroup-related configuration options. This remains mostly immutable while the service
- * manager is running (except for an occasional SetProperty() configuration change), outside of reload
+ * manager is running (except for an occasional SetProperties() configuration change), outside of reload
  * cycles. */
 typedef struct CGroupContext {
         bool io_accounting;
