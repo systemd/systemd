@@ -145,6 +145,7 @@ typedef struct ImageFilter {
 
 typedef struct ExtensionReleaseData {
         char *os_release_id;
+        char *os_release_id_like;
         char *os_release_version_id;
         char *os_release_sysext_level;
         char *os_release_confext_level;
