@@ -61,6 +61,7 @@ typedef enum LoaderType {
         LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
         LOADER_IGNORE,        /* Marker: this boot loader spec type #1 entry does not match local host */
         _LOADER_TYPE_MAX,
+        LOADER_MORE,
 } LoaderType;
 
 /* Which loader types permit command line editing */
@@ -96,7 +97,9 @@ static const char *reboot_on_error_table[_REBOOT_ON_ERROR_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(reboot_on_error, RebootOnError);
 
-typedef struct BootEntry {
+typedef struct BootEntry BootEntry;  /* Forward declaration */
+
+struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
@@ -120,7 +123,8 @@ typedef struct BootEntry {
         char16_t *current_name;
         char16_t *next_name;
         unsigned profile;
-} BootEntry;
+        BootEntry *group_entry;
+};
 
 typedef struct {
         BootEntry **entries;
@@ -1397,6 +1401,7 @@ static void boot_entry_add_type1(
         entry->device = device;
         entry->id = xstrdup16(file);
         strtolower16(entry->id);
+        entry->group_entry = NULL;
 
         config_add_entry(config, entry);
 
@@ -1833,6 +1838,86 @@ static void generate_boot_entry_titles(Config *config) {
                 _cleanup_free_ char16_t *t = config->entries[i]->title_show;
                 config->entries[i]->title_show = xasprintf("%ls (%ls)", t, config->entries[i]->id);
         }
+}
+
+typedef struct {
+        size_t start_index;
+        size_t end_index;
+} Indices;
+
+static void config_copy_entries(
+                Config *config, BootEntry **entries, size_t start_index, size_t end_index) {
+        assert(config);
+        assert(entries);
+        _cleanup_(boot_entry_freep) BootEntry *group_entry = NULL;
+        size_t old_default_index = IDX_INVALID;
+
+        for (size_t i = start_index; i <= end_index; i++) {
+                config_add_entry(config, entries[i]);
+                config->entries[config->n_entries - 1]->group_entry = group_entry;
+        }
+        TAKE_PTR(group_entry);
+}
+
+static void config_create_groups(Config *config, Indices *indices, size_t group_count) {
+        assert(config);
+
+        BootEntry **old_entries = config->entries;
+        BootEntry **entries = NULL;
+        size_t old_n_entries = config->n_entries;
+        config->entries = entries;
+        config->n_entries = 0;
+        TAKE_PTR(entries);
+        config_copy_entries(config, old_entries, 0, indices[0].start_index - 1, false);
+        size_t i = 0;
+        for (; i < group_count; i++) {
+                config_copy_entries(config, old_entries, indices[i].start_index, indices[i].end_index, true);
+                if (i + 1 < group_count)
+                        config_copy_entries(
+                                        config,
+                                        old_entries,
+                                        indices[i].end_index + 1,
+                                        indices[i + 1].start_index - 1,
+                                        false);
+        }
+        if (indices[i - 1].end_index != old_n_entries - 1)
+                config_copy_entries(
+                                config, old_entries, indices[i - 1].end_index + 1, old_n_entries - 1, false);
+        free(old_entries);
+}
+
+static void config_group_entries(Config *config) {
+        assert(config);
+
+        size_t group_count = 0;
+        _cleanup_free_ Indices *indices = NULL;
+        for (size_t i = 0; i < config->n_entries; i++) {
+                if (config->entries[i]->type == LOADER_MORE)
+                        continue;
+                if (!config->entries[i]->sort_key)
+                        continue;
+                size_t k = i;
+                for (; k < config->n_entries; k++) {
+                        if (config->entries[k]->type == LOADER_MORE)
+                                break;
+                        if (!config->entries[k]->sort_key)
+                                break;
+                        if (!streq16(config->entries[i]->sort_key, config->entries[k]->sort_key))
+                                break;
+                }
+                if (k >= i + 2) {
+                        indices = xrealloc(
+                                        indices,
+                                        sizeof(Indices) * group_count,
+                                        sizeof(Indices) * (group_count + 1));
+                        indices[group_count].start_index = i + 1;
+                        indices[group_count++].end_index = k - 1;
+                        i = k - 1;
+                }
+        }
+        if (group_count == 0)
+                return;
+        config_create_groups(config, indices, group_count);
 }
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
@@ -2963,6 +3048,9 @@ static void config_load_all_entries(
 
         /* Select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_select_default_entry(config);
+
+        /* create the menu hierarchy */
+        config_group_entries(config);
 }
 
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
