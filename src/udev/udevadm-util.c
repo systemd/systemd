@@ -75,6 +75,9 @@ int find_device(const char *id, const char *prefix, sd_device **ret) {
         assert(id);
         assert(ret);
 
+        if (sd_device_new_from_device_id(ret, id) >= 0)
+                return 0;
+
         if (sd_device_new_from_path(ret, id) >= 0)
                 return 0;
 

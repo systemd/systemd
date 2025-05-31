@@ -1276,7 +1276,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int info_main(int argc, char *argv[], void *userdata) {
-        int r, ret;
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1298,19 +1298,18 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return print_tree(NULL);
         }
 
-        ret = 0;
+        int ret = 0;
         STRV_FOREACH(p, arg_devices) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
 
-                r = find_device(*p, NULL, &device);
+                r = find_device(*p, /* prefix = */ NULL, &device);
                 if (r < 0) {
                         if (r == -EINVAL)
-                                log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys/ or a unit name: %m", *p);
+                                log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys/, device ID, or a unit name: %m", *p);
                         else
                                 log_error_errno(r, "Unknown device \"%s\": %m",  *p);
 
-                        if (ret == 0)
-                                ret = r;
+                        RET_GATHER(ret, r);
                         continue;
                 }
 
