@@ -162,6 +162,9 @@ typedef struct Socket {
 
         RateLimit trigger_limit;
         RateLimit poll_limit;
+
+        usec_t defer_trigger_max_usec;
+        bool defer_trigger;
 } Socket;
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
