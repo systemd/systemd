@@ -1619,7 +1619,7 @@ static void redirect_telinit(int argc, char *argv[]) {
                 return;
 
         execv(SYSTEMCTL_BINARY_PATH, argv);
-        log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
+        log_error_errno(errno, "Failed to execute %s: %m", SYSTEMCTL_BINARY_PATH);
         exit(EXIT_FAILURE);
 #endif
 }
@@ -2604,12 +2604,12 @@ static int do_queue_default_job(
                 /* Fall back to default.target, which we used to always use by default. Only do this if no
                  * explicit configuration was given. */
 
-                log_info("Falling back to " SPECIAL_DEFAULT_TARGET ".");
+                log_info("Falling back to %s.", SPECIAL_DEFAULT_TARGET);
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, &target);
         }
         if (r < 0) {
-                log_info("Falling back to " SPECIAL_RESCUE_TARGET ".");
+                log_info("Falling back to %s.", SPECIAL_RESCUE_TARGET);
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
                 if (r < 0) {
