@@ -102,12 +102,14 @@ static CreditEntropy may_credit(int seed_fd) {
 
 static int random_seed_size(int seed_fd, size_t *ret_size) {
         struct stat st;
+        int r;
 
         assert(ret_size);
         assert(seed_fd >= 0);
 
-        if (fstat(seed_fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
+        r = RET_NERRNO(fstat(seed_fd, &st));
+        if (r < 0)
+                return log_error_errno(r, "Failed to stat seed file %s: %m", RANDOM_SEED);
 
         /* If the seed file is larger than what the kernel expects, then honour the existing size and
          * save/restore as much as it says */
@@ -157,11 +159,11 @@ static int load_seed_file(
 
         k = loop_read(seed_fd, buf, seed_size, false);
         if (k < 0) {
-                log_warning_errno(k, "Failed to read seed from " RANDOM_SEED ": %m");
+                log_warning_errno(k, "Failed to read seed from %s: %m", RANDOM_SEED);
                 return 0;
         }
         if (k == 0) {
-                log_debug("Seed file " RANDOM_SEED " not yet initialized, proceeding.");
+                log_debug("Seed file %s not yet initialized, proceeding.", RANDOM_SEED);
                 return 0;
         }
 
@@ -384,11 +386,11 @@ static int run(int argc, char *argv[]) {
 
         r = mkdir_parents(RANDOM_SEED, 0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to create directory " RANDOM_SEED_DIR ": %m");
+                return log_error_errno(r, "Failed to create directory %s: %m", RANDOM_SEED);
 
         random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY);
         if (random_fd < 0)
-                return log_error_errno(errno, "Failed to open /dev/urandom: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/dev/urandom");
 
         /* When we load the seed we read it and write it to the device and then immediately update the saved
          * seed with new data, to make sure the next boot gets seeded differently. */
@@ -399,20 +401,20 @@ static int run(int argc, char *argv[]) {
                  * load_machine_id() for an explanation why. */
                 load_machine_id(random_fd);
 
-                seed_fd = open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
+                seed_fd = RET_NERRNO(open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600));
                 if (seed_fd < 0) {
-                        int open_rw_error = -errno;
+                        int open_rw_error = seed_fd;
 
                         write_seed_file = false;
 
-                        seed_fd = open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        seed_fd = RET_NERRNO(open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY));
                         if (seed_fd < 0) {
-                                bool missing = errno == ENOENT;
+                                bool missing = seed_fd == -ENOENT;
                                 int level = missing ? LOG_DEBUG : LOG_ERR;
 
-                                log_full_errno(level, open_rw_error, "Failed to open " RANDOM_SEED " for writing: %m");
-                                log_full_errno(level, errno, "Failed to open " RANDOM_SEED " for reading: %m");
-                                return missing ? 0 : -errno;
+                                log_full_errno(level, open_rw_error, "Failed to open %s for writing: %m", RANDOM_SEED);
+                                log_full_errno(level, seed_fd, "Failed to open %s for reading: %m", RANDOM_SEED);
+                                return missing ? 0 : seed_fd;
                         }
                 } else
                         write_seed_file = true;
@@ -422,9 +424,9 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ACTION_SAVE:
-                seed_fd = open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
+                seed_fd = RET_NERRNO(open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600));
                 if (seed_fd < 0)
-                        return log_error_errno(errno, "Failed to open " RANDOM_SEED ": %m");
+                        return log_error_errno(seed_fd, "Failed to open %s: %m", RANDOM_SEED);
 
                 read_seed_file = false;
                 write_seed_file = true;
