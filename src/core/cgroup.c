@@ -2573,6 +2573,8 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
 
         assert(u);
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         unit_remove_from_cgroup_realize_queue(u);
 
         target_mask = unit_get_target_mask(u);

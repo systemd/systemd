@@ -104,4 +104,53 @@ testcase_basic_strict() {
     test_basic "strict" "yes" true "$READ_ONLY_MOUNT_FLAG"
 }
 
+testcase_delegate_subgroup() {
+    # Make sure the service cgroup is the root of the cgroup namespace when we use DelegateSubgroup.
+    systemd-run \
+        -p ProtectControlGroupsEx=private \
+        -p PrivateMounts=yes \
+        -p Delegate=yes \
+        -p DelegateSubgroup=supervisor \
+        --wait \
+        --pipe \
+        ls /sys/fs/cgroup/supervisor
+}
+
+testcase_delegate_subgroup_control() {
+    # Make sure control processes are namespaced, are put in the .control cgroup, have the .control group as
+    # the root of their cgroup namespace and don't violate the no inner processes rule. To ensure we don't
+    # violate the no inner processes rule, we make sure to enable a cgroup controller so that
+    # cgroup.subtree_control for the main service cgroup is not empty which will make any attempt to spawn
+    # processes into that cgroup fail with EBUSY.
+    assert_eq "$(
+        systemd-run \
+            --service-type=notify \
+            -p ProtectControlGroupsEx=private \
+            -p PrivateMounts=yes \
+            -p Delegate=yes \
+            -p DelegateSubgroup=supervisor \
+            -p ExecStartPost='sh -c "cat /proc/self/cgroup; kill $MAINPID"' \
+            --unit delegate-subgroup-control \
+            --wait \
+            --pipe \
+            sh -c 'echo +pids >/sys/fs/cgroup/cgroup.subtree_control; systemd-notify --ready; sleep infinity'
+    )" "0::/"
+}
+
+testcase_delegate_subgroup_pam() {
+    # Make sure any pam processes we spawn don't violate the no inner processes rule.
+    systemd-run \
+        --service-type=oneshot \
+        -p ProtectControlGroupsEx=private \
+        -p PrivateMounts=yes \
+        -p Delegate=yes \
+        -p DelegateSubgroup=supervisor \
+        -p User=testuser \
+        -p PAMName=systemd-user \
+        --unit delegate-subgroup-pam \
+        --wait \
+        --pipe \
+        sh -c 'echo +pids >/sys/fs/cgroup/cgroup.subtree_control'
+}
+
 run_testcases
