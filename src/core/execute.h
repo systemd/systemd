@@ -302,6 +302,8 @@ typedef struct ExecContext {
         ProtectProc protect_proc;  /* hidepid= */
         ProcSubset proc_subset;    /* subset= */
 
+        PrivateBPF private_bpf;
+
         int private_mounts;
         int mount_apivfs;
         int bind_log_sockets;
