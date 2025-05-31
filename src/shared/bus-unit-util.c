@@ -565,6 +565,7 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
         return 1;
 }
 
+/* Deprecated properties should be commented out, here and below. */
 #define TRANSIENT_CGROUP_SETTINGS                 \
         "DevicePolicy",                           \
         "Slice",                                  \
@@ -574,7 +575,7 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
         "MemoryPressureWatch",                    \
         "DelegateSubgroup",                       \
         "ManagedOOMMemoryPressureLimit",          \
-        "CPUAccounting",                          \
+        /* "CPUAccounting" */                     \
         "MemoryAccounting",                       \
         "MemoryZSwapWriteback",                   \
         "IOAccounting",                           \
