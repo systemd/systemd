@@ -92,6 +92,9 @@ systemuidmax=${system_uid_max}
 system_gid_max={{SYSTEM_GID_MAX}}
 systemgidmax=${system_gid_max}
 
+greeter_uid_min={{GREETER_UID_MIN}}
+greeter_uid_max={{GREETER_UID_MAX}}
+
 dynamic_uid_min={{DYNAMIC_UID_MIN}}
 dynamicuidmin=${dynamic_uid_min}
 dynamic_uid_max={{DYNAMIC_UID_MAX}}

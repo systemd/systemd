@@ -100,7 +100,18 @@ possible.
    attempted to make UID assignments stable, by deriving them from a hash of
    the user name.
 
-2. 61184…65519 → UIDs for dynamic users are allocated from this range (see the
+2. 60578…60705 → UIDs for dynamic greeter users are allocated from this range.
+   In multiseat scenarios, multiple greeter sessions may be running at once.
+   However, systemd only permits one graphical session at a time per user
+   ([documentation](/DESKTOP_ENVIRONMENTS)). Thus, multiseat-enabled display
+   managers (like GDM) must run each greeter session under a unique user. To
+   make use of this UID range, the display manager should implement the
+   [userdb Varlink API](/USER_GROUP_API) and dynamically allocate users whenever
+   they are needed by the display manager. Display managers may also use these
+   UIDs for other purposes where dynamic users may be helpful (i.e. guest user
+   sessions or kiosk sessions)
+
+3. 61184…65519 → UIDs for dynamic users are allocated from this range (see the
    `DynamicUser=` documentation in
    [`systemd.exec(5)`](https://www.freedesktop.org/software/systemd/man/systemd.exec.html)).
    This range has been chosen so that it is below the 16-bit boundary
@@ -114,7 +125,7 @@ possible.
    for all currently allocated dynamic users from this range.
    Thus, NSS-based user record resolving works correctly without those users being in `/etc/passwd`.
 
-3. 524288…1879048191 → UID range for `systemd-nspawn`'s automatic allocation of
+4. 524288…1879048191 → UID range for `systemd-nspawn`'s automatic allocation of
    per-container UID ranges.
    When the `--private-users=pick` switch is used (or `-U`) then it will automatically find a so far unused 16-bit subrange of this
    range and assign it to the container.
@@ -129,7 +140,7 @@ possible.
    erroneously considers UIDs signed integers, and hence can't deal with values above 2^31.
    The `systemd-machined.service` service will synthesize user database records for all UIDs assigned to a running container from this range.
 
-4. 2147352576…2147418111 → UID range used for foreign OS images. For various
+5. 2147352576…2147418111 → UID range used for foreign OS images. For various
    usecases (primarily: containers) it makes sense to make foreign OS images
    available locally whose UID/GID ownerships do not make sense in the local
    context but only within the OS image itself. This 64K UID range can be used
@@ -157,6 +168,10 @@ The most important boundaries of the local system may be queried with
 ```sh
 $ pkg-config --variable=system_uid_max systemd
 999
+$ pkg-config --variable=greeter_uid_min systemd
+60578
+$ pkg-config --variable=greeter_uid_max systemd
+60705
 $ pkg-config --variable=dynamic_uid_min systemd
 61184
 $ pkg-config --variable=dynamic_uid_max systemd
@@ -263,7 +278,8 @@ i.e. somewhere below `/var/` or similar.
 |            1000…60000 | 0x000003E8…0x00001770 |      59000 | Regular users                     | Distributions | `/etc/passwd` + LDAP/NIS/…    |
 |           60001…60513 | 0x0000EA61…0x0000EC61 |        513 | Human users (homed)               | `systemd`     | `nss-systemd`                 |
 |           60514…60577 | 0x0000EC62…0x0000ECA1 |         64 | Host users mapped into containers | `systemd`     | `systemd-nspawn`              |
-|           60578…61183 | 0x0000ECA2…0x0000EEFF |        606 | *unused*                          |               |                               |
+|           60578…60705 | 0x0000ECA2…0x0000ED21 |        128 | Dynamic greeter users             | `systemd`     | `nss-systemd`                 |
+|           60706…61183 | 0x0000ED22…0x0000EEFF |        478 | *unused*                          |               |                               |
 |           61184…65519 | 0x0000EF00…0x0000FFEF |       4336 | Dynamic service users             | `systemd`     | `nss-systemd`                 |
 |           65520…65533 | 0x0000FFF0…0x0000FFFD |         13 | *unused*                          |               |                               |
 |                 65534 |            0x0000FFFE |          1 | `nobody` user                     | Linux         | `/etc/passwd` + `nss-systemd` |
@@ -279,7 +295,7 @@ i.e. somewhere below `/var/` or similar.
 Note that "Unused" in the table above doesn't mean that these ranges are really unused.
 It just means that these ranges have no well-established
 pre-defined purposes between Linux, generic low-level distributions and `systemd`.
-There might very well be other packages that allocate from theseranges.
+There might very well be other packages that allocate from these ranges.
 
 Note that the range 2147483648…4294967294 (i.e. 2^31…2^32-2) should be handled with care.
 Various programs (including kernel file systems — see `devpts` — or
