@@ -590,8 +590,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (STR_IN_SET(field, "CPUAccounting",
-                              "MemoryAccounting",
+        if (STR_IN_SET(field, "MemoryAccounting",
                               "MemoryZSwapWriteback",
                               "IOAccounting",
                               "TasksAccounting",
