@@ -23,6 +23,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "set.h"
+#include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-manager.h"
@@ -610,6 +611,11 @@ int manager_remove_watch(Manager *manager, sd_device *dev) {
 
 static int on_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         UdevWorker *worker = ASSERT_PTR(userdata);
+
+        if (!si_code_from_process(si->ssi_code)) {
+                log_debug("Received SIGUSR1 with unexpected .si_code %i, ignoring.", si->ssi_code);
+                return 0;
+        }
 
         if ((pid_t) si->ssi_pid != worker->manager_pid) {
                 log_debug("Received SIGUSR1 from unexpected process [%"PRIu32"], ignoring.", si->ssi_pid);

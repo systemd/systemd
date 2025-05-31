@@ -58,6 +58,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "set.h"
+#include "signal-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -1645,9 +1646,15 @@ void manager_full_flush(Manager *m) {
 
 static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        assert(si);
+
+        if (!si_code_from_process(si->ssi_code)) {
+                log_warning("Received SIGUSR1 with unexpected .si_code %i, ignoring.", si->ssi_code);
+                return 0;
+        }
 
         if (m->namespace) {
-                log_error("Received SIGUSR1 signal from PID %u, but flushing runtime journals not supported for namespaced instances.", si->ssi_pid);
+                log_warning("Received SIGUSR1 signal from PID %u, but flushing runtime journals not supported for namespaced instances, ignoring.", si->ssi_pid);
                 return 0;
         }
 
@@ -1681,6 +1688,12 @@ void manager_full_rotate(Manager *m) {
 
 static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        assert(si);
+
+        if (!si_code_from_process(si->ssi_code)) {
+                log_warning("Received SIGUSR2 with unexpected .si_code %i, ignoring.", si->ssi_code);
+                return 0;
+        }
 
         log_info("Received SIGUSR2 signal from PID %u, as request to rotate journal, rotating.", si->ssi_pid);
         manager_full_rotate(m);
@@ -1785,6 +1798,12 @@ void manager_full_sync(Manager *m, bool wait) {
 
 static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        assert(si);
+
+        if (!si_code_from_process(si->ssi_code)) {
+                log_warning("Received SIGRTMIN1 with unexpected .si_code %i, ignoring.", si->ssi_code);
+                return 0;
+        }
 
         log_debug("Received SIGRTMIN1 signal from PID %u, as request to sync.", si->ssi_pid);
         manager_full_sync(m, /* wait = */ false);

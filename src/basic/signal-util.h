@@ -71,3 +71,25 @@ extern const struct sigaction sigaction_default;
 extern const struct sigaction sigaction_nop_nocldstop;
 
 int parse_signo(const char *s, int *ret);
+
+static inline bool si_code_from_process(int si_code) {
+        /* Returns true if the .si_code field of siginfo_t or the .ssi_code field of struct signalfd_siginfo
+         * indicate that the signal originates from a userspace process, and hence the .si_pid/.ssi_pid field
+         * is valid. This check is not obvious, since on one hand SI_USER/SI_QUEUE are supposed to be the
+         * values that kill() and sigqueue() set, and that's documented in sigaction(2), but on the other
+         * hand rt_sigqueueinfo(2) says userspace can actually set any value below zero. Hence check for
+         * either.
+         *
+         * Also quoting POSIX:
+         *
+         * "On systems not supporting the XSI option, the si_pid and si_uid members of siginfo_t are only
+         * required to be valid when si_code is SI_USER or SI_QUEUE. On XSI-conforming systems, they are also
+         * valid for all si_code values less than or equal to 0; however, it is unspecified whether SI_USER
+         * and SI_QUEUE have values less than or equal to zero, and therefore XSI applications should check
+         * whether si_code has the value SI_USER or SI_QUEUE or is less than or equal to 0 to tell whether
+         * si_pid and si_uid are valid."
+         *
+         * From: https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/signal.h.html */
+
+        return si_code < 0 || IN_SET(si_code, SI_USER, SI_QUEUE);
+}
