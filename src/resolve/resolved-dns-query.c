@@ -509,6 +509,10 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         free(q->request_address_string);
 
+        dnssd_discovered_service_unref(q->dnsservice_request);
+
+        dns_service_browser_unref(q->service_browser_request);
+
         if (q->manager) {
                 LIST_REMOVE(queries, q->manager->dns_queries, q);
                 q->manager->n_dns_queries--;
