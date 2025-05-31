@@ -25,6 +25,7 @@ typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_UDP,
         DNS_SERVER_FEATURE_LEVEL_EDNS0,
         DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN,
+        DNS_SERVER_FEATURE_LEVEL_HTTPS_PLAIN,
         DNS_SERVER_FEATURE_LEVEL_DO,
         DNS_SERVER_FEATURE_LEVEL_TLS_DO,
         _DNS_SERVER_FEATURE_LEVEL_MAX,
@@ -36,6 +37,7 @@ typedef enum DnsServerFeatureLevel {
 #define DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
 #define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
 #define DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_DO)
+#define DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(x) ((x) == DNS_SERVER_FEATURE_LEVEL_HTTPS_PLAIN)
 #define DNS_SERVER_FEATURE_LEVEL_IS_UDP(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, DNS_SERVER_FEATURE_LEVEL_DO)
 
 const char* dns_server_feature_level_to_string(DnsServerFeatureLevel i) _const_;
@@ -162,6 +164,7 @@ void manager_next_dns_server(Manager *m, DnsServer *if_current);
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
 DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
+DnsOverHttpsMode dns_server_get_dns_over_https_mode(DnsServer *s);
 
 size_t dns_server_get_mtu(DnsServer *s);
 

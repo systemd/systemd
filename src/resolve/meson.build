@@ -107,6 +107,15 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
         )
 endif
 
+# if conf.get('ENABLE_DNS_OVER_HTTPS') == 1
+#         systemd_resolved_dependencies += libcurl
+# endif
+
+# link_with = [
+#         libshared,
+#         libsystemd_resolve_core,
+# ]
+
 resolve_common_template = {
         'dependencies' : [
                 libopenssl,
@@ -114,6 +123,12 @@ resolve_common_template = {
                 threads,
         ],
 }
+
+if conf.get('ENABLE_DNS_OVER_HTTPS') == 1
+   updated_dependencies_list = resolve_common_template['dependencies'] + [libcurl]
+   update_to_apply = {'dependencies': updated_dependencies_list}
+   resolve_common_template = resolve_common_template + update_to_apply
+endif
 
 resolve_test_template = test_template + resolve_common_template + {'objects' : ['systemd-resolved']}
 resolve_fuzz_template = fuzz_template + resolve_common_template + {'objects' : ['systemd-resolved']}
