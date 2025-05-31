@@ -676,7 +676,7 @@ TEST_RET(copy_with_verity) {
 
         /* Copy *with* fs-verity enabled and make sure it works properly */
         int r = copy_tree_at(src, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL);
-        if (r == -ENOTTY)
+        if (r == -ESOCKTNOSUPPORT)
                 /* This can happen on some versions of btrfs, for example */
                 return log_tests_skipped_errno(errno, "/var/tmp: fs-verity supported, but not reading metadata");
         ASSERT_OK(r);
@@ -697,14 +697,14 @@ TEST_RET(copy_with_verity) {
 
         /* Copy from our non-verity filesystem into dst, requesting verity and making sure we notice that
          * we failed to read verity from the source. */
-        ASSERT_ERROR(copy_tree_at(badsrc, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL), ENOTTY);
+        ASSERT_ERROR(copy_tree_at(badsrc, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL), ESOCKTNOSUPPORT);
 
         /* Copy from our verity filesystem into our baddst, requesting verity and making sure we notice that
          * we failed to set verity on the destination. */
-        ASSERT_ERROR(copy_tree_at(src, ".", baddst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL), ENOTTY);
+        ASSERT_ERROR(copy_tree_at(src, ".", baddst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL), ESOCKTNOSUPPORT);
 
         /* Of course this should fail too... */
-        ASSERT_ERROR(copy_tree_at(badsrc, ".", baddst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL), ENOTTY);
+        ASSERT_ERROR(copy_tree_at(badsrc, ".", baddst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL), ESOCKTNOSUPPORT);
 
         return 0;
 }
