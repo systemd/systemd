@@ -357,7 +357,7 @@ option('default-mdns', type : 'combo',
 option('default-llmnr', type : 'combo',
        choices : ['yes', 'resolve', 'no'],
        description : 'default LLMNR mode',
-       value : 'yes')
+       value : 'no')
 option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', 'true', 'false'],
        deprecated : { 'gnutls' : 'auto' },
        description : 'DNS-over-TLS support')
