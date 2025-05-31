@@ -2980,17 +2980,6 @@ static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
 
-/* This table maps ExecDirectoryType to the setting it is configured with in the unit */
-static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectory",
-        [EXEC_DIRECTORY_STATE]         = "StateDirectory",
-        [EXEC_DIRECTORY_CACHE]         = "CacheDirectory",
-        [EXEC_DIRECTORY_LOGS]          = "LogsDirectory",
-        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectory",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
-
 /* This table maps ExecDirectoryType to the symlink setting it is configured with in the unit */
 static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectorySymlink",

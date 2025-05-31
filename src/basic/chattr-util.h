@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdint.h>
+
 #include "forward.h"
 #include "missing_fs.h"
 
@@ -31,6 +33,11 @@
          FS_NOCOW_FL        |                   \
          FS_PROJINHERIT_FL)
 
+/* Project id range for disk quotas */
+#define PROJ_ID_MIN UINT32_C(2147483648)
+#define PROJ_ID_MAX UINT32_C(4294967294)
+#define PROJ_ID_CLAMP_INTO_QUOTA_RANGE(id) ((uint32_t) ((id) % (PROJ_ID_MAX - PROJ_ID_MIN + 1)) + PROJ_ID_MIN)
+
 typedef enum ChattrApplyFlags {
         CHATTR_FALLBACK_BITWISE       = 1 << 0,
         CHATTR_WARN_UNSUPPORTED_FLAGS = 1 << 1,
@@ -49,6 +56,10 @@ static inline int chattr_path(const char *path, unsigned value, unsigned mask) {
 
 int read_attr_fd(int fd, unsigned *ret);
 int read_attr_at(int dir_fd, const char *path, unsigned *ret);
+int read_fs_xattr_fd(int fd, uint32_t *ret_xflags, uint32_t *ret_projid);
+
+int set_proj_id(int fd, uint32_t proj_id);
+int set_proj_id_recursive(int fd, uint32_t proj_id);
 
 /* Combination of chattr flags, that should be appropriate for secrets stored on disk: Secure Remove +
  * Exclusion from Dumping + Synchronous Writing (i.e. not caching in memory) + In-Place Updating (i.e. not
