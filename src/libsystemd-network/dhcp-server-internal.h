@@ -85,7 +85,6 @@ typedef struct DHCPRequest {
         DHCPMessage *message;
 
         /* options */
-        sd_dhcp_client_id client_id;
         size_t max_optlen;
         be32_t server_id;
         be32_t requested_ip;
@@ -96,6 +95,7 @@ typedef struct DHCPRequest {
         size_t parameter_request_list_len;
         bool rapid_commit;
         triple_timestamp timestamp;
+        sd_dhcp_client_id client_id; /* This contains flex array, hence must be at the end. */
 } DHCPRequest;
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,

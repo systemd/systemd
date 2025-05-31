@@ -70,7 +70,6 @@ struct sd_dhcp_client {
         struct hw_addr_data hw_addr;
         struct hw_addr_data bcast_addr;
         uint16_t arp_type;
-        sd_dhcp_client_id client_id;
         char *hostname;
         char *vendor_class_identifier;
         char *mudurl;
@@ -102,6 +101,7 @@ struct sd_dhcp_client {
         int socket_priority;
         bool socket_priority_set;
         bool ipv6_acquired;
+        sd_dhcp_client_id client_id; /* This contains flex array, hence must be at the end. */
 };
 
 static const uint8_t default_req_opts[] = {

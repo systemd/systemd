@@ -70,8 +70,6 @@ struct sd_dhcp_lease {
         char *root_path;
         char *captive_portal;
 
-        sd_dhcp_client_id client_id;
-
         void *vendor_specific;
         size_t vendor_specific_len;
 
@@ -84,6 +82,8 @@ struct sd_dhcp_lease {
         size_t sixrd_n_br_addresses;
 
         LIST_HEAD(struct sd_dhcp_raw_option, private_options);
+
+        sd_dhcp_client_id client_id; /* This contains flex array, hence must be at the end. */
 };
 
 int dhcp_lease_new(sd_dhcp_lease **ret);

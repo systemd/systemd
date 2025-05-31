@@ -58,7 +58,6 @@ struct sd_dhcp6_client {
         DHCP6IA ia_na;
         DHCP6IA ia_pd;
         DHCP6RequestIA request_ia;
-        sd_dhcp_duid duid;
         be16_t *req_opts;
         size_t n_req_opts;
         char *fqdn;
@@ -76,6 +75,8 @@ struct sd_dhcp6_client {
         sd_dhcp6_client_callback_t state_callback;
         void *state_userdata;
         bool send_release;
+
+        sd_dhcp_duid duid; /* This contains flex array, hence must be at the end. */
 };
 
 int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *address);
