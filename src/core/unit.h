@@ -765,6 +765,11 @@ typedef struct UnitVTable {
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
 static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
+        assert(u);
+
+        if (u->type < 0 || u->type >= _UNIT_TYPE_MAX)
+                return NULL;
+
         return unit_vtable[u->type];
 }
 
