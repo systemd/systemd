@@ -536,7 +536,7 @@ static int boot_loader_read_conf_path(BootConfig *config, const char *root, cons
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to open '%s/%s': %m", root, path);
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, skip_leading_slash(path));
 
         return boot_loader_read_conf(config, f, full);
 }
@@ -648,7 +648,7 @@ static int boot_entries_find_type1(
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
-                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, dir);
+                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, skip_leading_slash(dir));
 
         r = readdir_all(dir_fd, RECURSE_DIR_IGNORE_DOT, &dentries);
         if (r < 0)
@@ -1111,7 +1111,7 @@ static int boot_entries_find_unified_addons(
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to open '%s/%s': %m", root, addon_dir);
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, skip_leading_slash(addon_dir));
 
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
                 _cleanup_free_ char *j = NULL, *cmdline = NULL, *location = NULL;
@@ -1173,7 +1173,7 @@ static int boot_entries_find_unified_global_addons(
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to open '%s/%s': %m", root, d_name);
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, skip_leading_slash(d_name));
 
         return boot_entries_find_unified_addons(config, dirfd(d), d_name, root, ret_addons);
 }
@@ -1213,7 +1213,7 @@ static int boot_entries_find_unified(
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to open '%s/%s': %m", root, dir);
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, skip_leading_slash(dir));
 
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
                 if (!dirent_is_file(de))

@@ -215,7 +215,7 @@ static int enumerate_binaries(
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to read \"%s/%s\": %m", esp_path, path);
+                return log_error_errno(r, "Failed to read \"%s/%s\": %m", esp_path, skip_leading_slash(path));
 
         FOREACH_DIRENT(de, d, break) {
                 _cleanup_free_ char *v = NULL, *filename = NULL;
@@ -855,7 +855,7 @@ static int cleanup_orphaned_files(
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
-                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, arg_entry_token);
+                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, skip_leading_slash(arg_entry_token));
 
         p = path_join("/", arg_entry_token);
         if (!p)
