@@ -1899,7 +1899,7 @@ static void manager_preset_all(Manager *m) {
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         log_info("Applying preset policy.");
-        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags = */ 0,
+        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* flags = */ 0,
                                  /* root_dir = */ NULL, mode, &changes, &n_changes);
         install_changes_dump(r, "preset", changes, n_changes, /* quiet = */ false);
         if (r < 0)
