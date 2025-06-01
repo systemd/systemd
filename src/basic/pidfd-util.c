@@ -17,16 +17,18 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
-static int have_pidfs = -1;
+static thread_local int have_pidfs = -1;
 
-static int pidfd_check_pidfs(int pid_fd) {
-
-        /* NB: the passed fd *must* be acquired via pidfd_open(), i.e. must be a true pidfd! */
+int pidfd_check_pidfs(void) {
 
         if (have_pidfs >= 0)
                 return have_pidfs;
 
-        return (have_pidfs = fd_is_fs_type(pid_fd, PID_FS_MAGIC));
+        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
+        if (fd < 0)
+                return -errno;
+
+        return (have_pidfs = fd_is_fs_type(fd, PID_FS_MAGIC));
 }
 
 int pidfd_get_namespace(int fd, unsigned long ns_type_cmd) {
@@ -220,17 +222,11 @@ int pidfd_get_cgroupid(int fd, uint64_t *ret) {
         return 0;
 }
 
-int pidfd_get_inode_id(int fd, uint64_t *ret) {
-        static bool file_handle_supported = true;
+int pidfd_get_inode_id_impl(int fd, uint64_t *ret) {
+        static thread_local bool file_handle_supported = true;
         int r;
 
         assert(fd >= 0);
-
-        r = pidfd_check_pidfs(fd);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EOPNOTSUPP;
 
         if (file_handle_supported) {
                 union {
@@ -273,6 +269,20 @@ int pidfd_get_inode_id(int fd, uint64_t *ret) {
 #else
 #  error Unsupported ino_t size
 #endif
+}
+
+int pidfd_get_inode_id(int fd, uint64_t *ret) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = pidfd_check_pidfs();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        return pidfd_get_inode_id_impl(fd, ret);
 }
 
 int pidfd_get_inode_id_self_cached(uint64_t *ret) {

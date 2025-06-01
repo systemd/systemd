@@ -1067,6 +1067,7 @@ global:
         sd_device_get_sysattr_value_with_size;
         sd_json_variant_type_from_string;
         sd_json_variant_type_to_string;
+        sd_pidfd_get_inode_id;
         sd_varlink_get_current_method;
         sd_varlink_get_description;
         sd_varlink_get_input_fd;
