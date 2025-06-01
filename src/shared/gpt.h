@@ -31,6 +31,10 @@ typedef enum PartitionDesignator {
 
 bool partition_designator_is_versioned(PartitionDesignator d) _const_;
 
+static inline bool partition_designator_is_verity_sig(PartitionDesignator d) {
+        return IN_SET(d, PARTITION_ROOT_VERITY_SIG, PARTITION_USR_VERITY_SIG);
+}
+
 PartitionDesignator partition_verity_of(PartitionDesignator p) _const_;
 PartitionDesignator partition_verity_sig_of(PartitionDesignator p) _const_;
 PartitionDesignator partition_verity_to_data(PartitionDesignator d) _const_;
