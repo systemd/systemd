@@ -7875,8 +7875,8 @@ static int context_minimize(Context *context) {
 
                 (void) partition_hint(p, context->node, &hint);
 
-                log_info("Pre-populating %s filesystem of partition %s twice to calculate minimal partition size",
-                         p->format, strna(hint));
+                log_info("Pre-populating %s filesystem of partition %s%s to calculate minimal partition size",
+                         p->format, strna(hint), fstype_is_ro(p->format) ? "" : " twice");
 
                 if (!vt) {
                         r = var_tmp_dir(&vt);
