@@ -14,6 +14,8 @@ int pidfd_get_ppid(int fd, pid_t *ret);
 int pidfd_get_uid(int fd, uid_t *ret);
 int pidfd_get_cgroupid(int fd, uint64_t *ret);
 
+int pidfd_get_inode_id_impl(int fd, uint64_t *ret);
 int pidfd_get_inode_id(int fd, uint64_t *ret);
-
 int pidfd_get_inode_id_self_cached(uint64_t *ret);
+
+int pidfd_check_pidfs(void);
