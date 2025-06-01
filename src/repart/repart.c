@@ -921,7 +921,7 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
                 return p->current_size;
         }
 
-        if (IN_SET(p->type.designator, PARTITION_ROOT_VERITY_SIG, PARTITION_USR_VERITY_SIG))
+        if (partition_designator_is_verity_sig(p->type.designator))
                 return VERITY_SIG_SIZE;
 
         sz = p->current_size != UINT64_MAX ? p->current_size : HARD_MIN_SIZE;
@@ -967,7 +967,7 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
                 return p->current_size;
         }
 
-        if (p->verity == VERITY_SIG)
+        if (partition_designator_is_verity_sig(p->type.designator))
                 return VERITY_SIG_SIZE;
 
         override_max = p->suppressing ? MIN(p->size_max, p->suppressing->size_max) : p->size_max;
