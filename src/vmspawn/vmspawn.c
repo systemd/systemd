@@ -1707,9 +1707,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", ovmf_vars_from, ovmf_vars_to);
 
-                /* These aren't always available so don't raise an error if they fail */
-                (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
-                (void) copy_access(source_fd, target_fd);
+                /* This isn't always available so don't raise an error if it fails */
                 (void) copy_times(source_fd, target_fd, 0);
 
                 r = strv_extend_many(
