@@ -26,6 +26,15 @@ static int pidfd_check_pidfs(int pid_fd) {
         if (have_pidfs >= 0)
                 return have_pidfs;
 
+        _cleanup_close_ int our_fd = -EBADF;
+        if (pid_fd < 0) {
+                our_fd = pidfd_open(getpid_cached(), /* flags = */ 0);
+                if (our_fd < 0)
+                        return -errno;
+
+                pid_fd = our_fd;
+        }
+
         return (have_pidfs = fd_is_fs_type(pid_fd, PID_FS_MAGIC));
 }
 
