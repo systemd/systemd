@@ -2706,7 +2706,7 @@ _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
         return 0;
 }
 
-_public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id128_t *ret_boot_id) {
+_public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret_monotonic, sd_id128_t *ret_boot_id) {
         JournalFile *f;
         Object *o;
         int r;
@@ -2739,8 +2739,8 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         if (!VALID_MONOTONIC(t))
                 return -EBADMSG;
 
-        if (ret)
-                *ret = t;
+        if (ret_monotonic)
+                *ret_monotonic = t;
         if (ret_boot_id)
                 *ret_boot_id = o->entry.boot_id;
 

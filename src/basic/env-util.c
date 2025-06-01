@@ -688,7 +688,7 @@ static int strv_env_get_n_validated(
 
 int replace_env_full(
                 const char *format,
-                size_t n,
+                size_t length,
                 char **env,
                 ReplaceEnvFlags flags,
                 char **ret,
@@ -714,13 +714,13 @@ int replace_env_full(
 
         assert(format);
 
-        if (n == SIZE_MAX)
-                n = strlen(format);
+        if (length == SIZE_MAX)
+                length = strlen(format);
 
         pu = ret_unset_variables ? &unset_variables : NULL;
         pb = ret_bad_variables ? &bad_variables : NULL;
 
-        for (e = format, i = 0; *e && i < n; e++, i++)
+        for (e = format, i = 0; *e && i < length; e++, i++)
                 switch (state) {
 
                 case WORD:

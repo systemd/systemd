@@ -1983,7 +1983,7 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
                 return r;
 
         _cleanup_free_ char *fstype = NULL, *options = NULL;
-        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &options, /* source = */ NULL);
+        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &options, /* ret_source = */ NULL);
         if (r < 0)
                 return r;
 
