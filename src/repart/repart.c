@@ -7243,13 +7243,19 @@ static int find_backing_devno(
                 dev_t *ret) {
 
         _cleanup_free_ char *resolved = NULL;
+        struct stat st;
         int r;
 
         assert(path);
 
-        r = chase(path, root, CHASE_PREFIX_ROOT, &resolved, NULL);
+        r = chase_and_stat(path, root, CHASE_PREFIX_ROOT, &resolved, &st);
         if (r < 0)
                 return r;
+
+        if (S_ISBLK(st.st_mode)) {
+                *ret = st.st_rdev;
+                return 0;
+        }
 
         r = path_is_mount_point(resolved);
         if (r < 0)
@@ -7293,6 +7299,10 @@ static int resolve_copy_blocks_auto(
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Automatic discovery of backing block devices not permitted in --root= mode, refusing.");
 
+        if (partition_designator_is_verity_sig(type.designator) && restrict_devno != (dev_t) -1)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Automatic discovery of verity signature partitions not supported in --root= or --image= mode.");
+
         /* Handles CopyBlocks=auto, and finds the right source partition to copy from. We look for matching
          * partitions in the host, using the appropriate directory as key and ensuring that the partition
          * type matches. */
@@ -7305,6 +7315,10 @@ static int resolve_copy_blocks_auto(
                 try1 = "/";
         else if (type.designator == PARTITION_USR_VERITY)
                 try1 = "/usr/";
+        else if (type.designator == PARTITION_ROOT_VERITY_SIG)
+                try1 = "/dev/disk/by-designator/root-verity-sig";
+        else if (type.designator == PARTITION_USR_VERITY_SIG)
+                try1 = "/dev/disk/by-designator/usr-verity-sig";
         else if (type.designator == PARTITION_ESP) {
                 try1 = "/efi/";
                 try2 = "/boot/";
