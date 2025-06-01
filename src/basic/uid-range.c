@@ -367,7 +367,7 @@ int uid_map_search_root(pid_t pid, UIDRangeUsernsMode mode, uid_t *ret) {
         for (;;) {
                 uid_t uid_base = UID_INVALID, uid_shift = UID_INVALID;
 
-                r = uid_map_read_one(f, &uid_base, &uid_shift, /* ret_uid_range= */ NULL);
+                r = uid_map_read_one(f, &uid_base, &uid_shift, /* ret_range= */ NULL);
                 if (r < 0)
                         return r;
 
