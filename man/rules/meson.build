@@ -882,6 +882,7 @@ manpages = [
    'sd_pidfd_get_user_slice',
    'sd_pidfd_get_user_unit'],
   'HAVE_PAM'],
+ ['sd_pidfd_get_inode_id', '3', [], ''],
  ['sd_seat_get_active',
   '3',
   ['sd_seat_can_graphical', 'sd_seat_can_tty', 'sd_seat_get_sessions'],

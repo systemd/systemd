@@ -1208,6 +1208,11 @@ CHANGES WITH 258 in spe:
         * sd-bus: a new API call sd_bus_message_dump_json() returns a JSON
           representation of a D-Bus message.
 
+        * sd-daemon: a new call sd_pidfd_get_inode_id() has been added
+          for acquiring the unique inode ID of a pidfd, coupling the
+          $MAINPIDFDID/$MANAGERPIDFDID and session/machine leader pidfd IDs
+          exposed as described above.
+
         — <place>, <date>
 
 CHANGES WITH 257:
