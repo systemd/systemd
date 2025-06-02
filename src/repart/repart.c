@@ -7124,7 +7124,7 @@ static int resolve_copy_blocks_auto_candidate(
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
-        const char *pttype, *t;
+        const char *pttype;
         sd_id128_t pt_parsed, u;
         blkid_partition pp;
         dev_t whole_devno;
@@ -7197,16 +7197,10 @@ static int resolve_copy_blocks_auto_candidate(
                 return false;
         }
 
-        t = blkid_partition_get_type_string(pp);
-        if (isempty(t)) {
-                log_debug("Partition %u:%u has no type on '%s'.",
-                          major(partition_devno), minor(partition_devno), p);
-                return false;
-        }
-
-        r = sd_id128_from_string(t, &pt_parsed);
+        r = blkid_partition_get_type_id128(pp, &pt_parsed);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse partition type \"%s\": %m", t);
+                log_debug_errno(r, "Failed to read partition type UUID of partition %u:%u: %m",
+                                major(partition_devno), minor(partition_devno));
                 return false;
         }
 
@@ -7297,23 +7291,34 @@ static int resolve_copy_blocks_auto(
          * partitions in the host, using the appropriate directory as key and ensuring that the partition
          * type matches. */
 
-        if (type.designator == PARTITION_ROOT)
+        switch (type.designator) {
+
+        case PARTITION_ROOT:
+        case PARTITION_ROOT_VERITY:
+        case PARTITION_ROOT_VERITY_SIG:
                 try1 = "/";
-        else if (type.designator == PARTITION_USR)
+                break;
+
+        case PARTITION_USR:
+        case PARTITION_USR_VERITY:
+        case PARTITION_USR_VERITY_SIG:
                 try1 = "/usr/";
-        else if (type.designator == PARTITION_ROOT_VERITY)
-                try1 = "/";
-        else if (type.designator == PARTITION_USR_VERITY)
-                try1 = "/usr/";
-        else if (type.designator == PARTITION_ESP) {
+                break;
+
+        case PARTITION_ESP:
                 try1 = "/efi/";
                 try2 = "/boot/";
-        } else if (type.designator == PARTITION_XBOOTLDR)
+                break;
+
+        case PARTITION_XBOOTLDR:
                 try1 = "/boot/";
-        else
+                break;
+
+        default:
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Partition type " SD_ID128_FORMAT_STR " not supported from automatic source block device discovery.",
                                        SD_ID128_FORMAT_VAL(type.uuid));
+        }
 
         r = find_backing_devno(try1, root, &devno);
         if (r == -ENOENT && try2)
