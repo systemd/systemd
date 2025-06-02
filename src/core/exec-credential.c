@@ -1041,6 +1041,15 @@ static int setup_credentials_internal(
                 return r;
         }
 
+        if (workspace_mounted && !final_mounted && dir_is_empty(where, /* ignore_hidden_or_backup = */ false) > 0) {
+                /* We actually did not produce any credentials in a new mount. Thus, we fall back
+                 * to the plain (empty) directory rather than leaving an empty mount behind. */
+                r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
+                if (r < 0)
+                        return r;
+                workspace_mounted = false;
+        }
+
         if (workspace_mounted) {
                 if (!final_mounted) {
                         /* Make workspace read-only now, so that any bind mount we make from it defaults to
