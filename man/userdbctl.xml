@@ -42,7 +42,9 @@
     url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and may also
     pick up drop-in JSON user and group records from <filename>/etc/userdb/</filename>,
     <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename>,
-    <filename>/usr/lib/userdb/</filename>.</para>
+    <filename>/usr/lib/userdb/</filename> (see
+    <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+    details about drop-in user records).</para>
   </refsect1>
 
   <refsect1>
