@@ -124,6 +124,11 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                 return 0;
         }
 
+        uint64_t diskseq;
+        r = sd_device_get_diskseq(dev, &diskseq);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get diskseq of '%s': %m", devnode);
+
         r = blockdev_partscan_enabled(dev);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to determine if block device '%s' supports partitions: %m", devnode);
@@ -262,11 +267,22 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                 /* Indicate whether this partition has verity protection */
                 PartitionDesignator dv = partition_verity_of(d);
                 if (dv >= 0 && image->partitions[dv].found) {
+                        /* Add one property that indicates as a boolean whether Verity is available at all for this */
                         _cleanup_free_ char *f = NULL;
                         if (asprintf(&f, "ID_DISSECT_PART%i_HAS_VERITY", p->partno) < 0)
                                 return log_oom_debug();
 
                         (void) udev_builtin_add_property(event, f, "1");
+
+                        /* Add a second property that indicates where the block device is found with the
+                         * Verity data. We maintain this in an independent property, since Verity data might
+                         * be available from other sources too, not just block devices, and we'd like to keep
+                         * the props somewhat open for that. */
+                        f = mfree(f);
+                        if (asprintf(&f, "ID_DISSECT_PART%i_VERITY_DEVICE", p->partno) < 0)
+                                return log_oom_debug();
+
+                        (void) udev_builtin_add_propertyf(event, f, "/dev/disk/by-diskseq/%" PRIu64 "-part%i", diskseq, image->partitions[dv].partno);
                 }
 
                 dv = partition_verity_sig_of(d);
@@ -276,6 +292,12 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                                 return log_oom_debug();
 
                         (void) udev_builtin_add_property(event, f, "1");
+
+                        f = mfree(f);
+                        if (asprintf(&f, "ID_DISSECT_PART%i_VERITY_SIG_DEVICE", p->partno) < 0)
+                                return log_oom_debug();
+
+                        (void) udev_builtin_add_propertyf(event, f, "/dev/disk/by-diskseq/%" PRIu64 "-part%i", diskseq, image->partitions[dv].partno);
                 }
 
                 if (d == verity.designator) {
@@ -344,7 +366,12 @@ static int verb_copy(UdevEvent *event, sd_device *dev) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get partition number of partition block device '%s': %m", devnode);
 
-        FOREACH_STRING(f, "_DESIGNATOR", "_ARCHITECTURE", "_HAS_VERITY", "_HAS_VERITY_SIG", "_ROOTHASH", "_ROOTHASH_SIG") {
+        FOREACH_STRING(f,
+                       "_DESIGNATOR", "_ARCHITECTURE",
+                       "_HAS_VERITY", "_HAS_VERITY_SIG",
+                       "_ROOTHASH", "_ROOTHASH_SIG",
+                       "_VERITY_DEVICE", "_VERITY_SIG_DEVICE") {
+
                 /* The property on the parent device contains the partition number */
                 _cleanup_free_ char *p = strjoin("ID_DISSECT_PART", partn, f);
                 if (!p)
