@@ -62,6 +62,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "ratelimit.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
 #include "set.h"
@@ -428,6 +429,9 @@ typedef struct Partition {
 
         PartitionEncryptedVolume *encrypted_volume;
 
+        unsigned last_percent;
+        RateLimit progress_ratelimit;
+
         char *supplement_for_name;
         struct Partition *supplement_for, *supplement_target_for;
         struct Partition *suppressing;
@@ -603,6 +607,8 @@ static Partition *partition_new(void) {
                 .verity_data_block_size = UINT64_MAX,
                 .verity_hash_block_size = UINT64_MAX,
                 .add_validatefs = -1,
+                .last_percent = UINT_MAX,
+                .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 
         return p;
@@ -5270,18 +5276,32 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
 static int progress_bytes(uint64_t n_bytes, void *userdata) {
         Partition *p = ASSERT_PTR(userdata);
+        unsigned percent;
 
         p->copy_blocks_done += n_bytes;
 
+        /* Catch division by zero. */
+        if (p->copy_blocks_done >= p->copy_blocks_size)
+                percent = 100;
+        else
+                percent = (unsigned) (100.0 * (double) p->copy_blocks_done / (double) p->copy_blocks_size);
+
+        if (percent == p->last_percent)
+                return 0;
+
+        if (!ratelimit_below(&p->progress_ratelimit))
+                return 0;
+
         (void) draw_progress_barf(
-                        p->copy_blocks_done >= p->copy_blocks_size ? 100.0 : /* catch division be zero */
-                        100.0 * (double) p->copy_blocks_done / (double) p->copy_blocks_size,
+                        percent,
                         "%s %s %s %s/%s",
                         strna(p->copy_blocks_path),
                         glyph(GLYPH_ARROW_RIGHT),
                         strna(p->definition_path),
                         FORMAT_BYTES(p->copy_blocks_done),
                         FORMAT_BYTES(p->copy_blocks_size));
+
+        p->last_percent = percent;
 
         return 0;
 }
