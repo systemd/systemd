@@ -7316,16 +7316,16 @@ static int resolve_copy_blocks_auto(
 
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Partition type " SD_ID128_FORMAT_STR " not supported from automatic source block device discovery.",
-                                       SD_ID128_FORMAT_VAL(type.uuid));
+                                       "Partition type %s not supported from automatic source block device discovery.",
+                                       strna(partition_designator_to_string(type.designator)));
         }
 
         r = find_backing_devno(try1, root, &devno);
         if (r == -ENOENT && try2)
                 r = find_backing_devno(try2, root, &devno);
         if (r < 0)
-                return log_error_errno(r, "Failed to resolve automatic CopyBlocks= path for partition type " SD_ID128_FORMAT_STR ", sorry: %m",
-                                       SD_ID128_FORMAT_VAL(type.uuid));
+                return log_error_errno(r, "Failed to resolve automatic CopyBlocks= path for partition type %s, sorry: %m",
+                                       partition_designator_to_string(type.designator));
 
         xsprintf_sys_block_path(p, "/slaves", devno);
         d = opendir(p);
@@ -7374,7 +7374,8 @@ static int resolve_copy_blocks_auto(
                                 /* We found a matching one! */
                                 if (found != 0)
                                         return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
-                                                               "Multiple matching partitions found, refusing.");
+                                                               "Multiple matching partitions found for partition type %s, refusing.",
+                                                               partition_designator_to_string(type.designator));
 
                                 found = sl;
                                 found_uuid = u;
@@ -7392,7 +7393,8 @@ static int resolve_copy_blocks_auto(
 
         if (found == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "Unable to automatically discover suitable partition to copy blocks from.");
+                                       "Unable to automatically discover suitable partition to copy blocks from for partition type %s.",
+                                       partition_designator_to_string(type.designator));
 
         if (ret_devno)
                 *ret_devno = found;
