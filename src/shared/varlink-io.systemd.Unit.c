@@ -396,6 +396,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupRuntime,
 
+                /* ID */
                 SD_VARLINK_FIELD_COMMENT("ID of the CGroup"),
                 SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path of the CGroup"),

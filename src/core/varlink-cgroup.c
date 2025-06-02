@@ -440,9 +440,9 @@ static int effective_cpuset_build_json(sd_json_variant **ret, const char *name, 
 
         r = unit_get_cpuset(u, &cpus, cpuset_name);
         if (r == -ENODATA)
-            return 0;
+                return 0;
         if (r < 0)
-            return log_debug_errno(r, "Failed to get cpu set '%s': %m", cpuset_name);
+                return log_debug_errno(r, "Failed to get cpu set '%s': %m", cpuset_name);
 
         return cpu_set_build_json(ret, name, &cpus);
 }
@@ -531,6 +531,8 @@ int unit_cgroup_runtime_build_json(sd_json_variant **ret, const char *name, void
 
     return sd_json_buildo(
             ASSERT_PTR(ret),
+
+            /* ID */
             JSON_BUILD_PAIR_CONDITION_UNSIGNED(crt, "ID", crt->cgroup_id),
             JSON_BUILD_PAIR_STRING_NON_EMPTY("Path", crt && crt->cgroup_path ? empty_to_root(crt->cgroup_path) : NULL),
             JSON_BUILD_PAIR_STRING_NON_EMPTY("Slice", unit_slice_name(u)),
