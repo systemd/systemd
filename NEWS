@@ -122,6 +122,19 @@ CHANGES WITH 258 in spe:
           GPG. The local keyring /etc/systemd/import-pubring.gpg is still parsed
           if present, to preserve backward compatibility.
 
+        * Normally, per-user encrypted credentials are decrypted via the the
+          systemd-creds.socket Varlink service, while the per-system ones are
+          directly encrypted within the execution context of the intended
+          service (which hence typically required access to /dev/tpmrm0). This
+          has been changed: units that enable either PrivateDevices= or use
+          DeviceAllow=/DevicePolicy= (and thus restrict access to device nodes)
+          will now also make use of the systemd-creds.socket Varlink
+          functionality, and will not attempt to decrypt the credentials
+          in-process (and attempt to try to talk to the TPM for
+          that). Previously, encrypted credentials for per-system services were
+          incompatible with PrivateDevices= and resulted in automatic extension
+          of the DeviceAllow= list. The latter behaviour has been removed.
+
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
