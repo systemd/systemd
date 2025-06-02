@@ -519,7 +519,7 @@ static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
         if (r < 0) {
                 /* if the path doesn't exist it is incompatible */
                 if (r != -ENOENT)
-                        log_debug_errno(r, "Failed to open() '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
+                        log_debug_errno(r, "Failed to open '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
                 return false;
         }
 

@@ -1634,7 +1634,7 @@ static int create_tap(
                 if (errno == ENOENT) /* Turn ENOENT → EOPNOTSUPP */
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Network tap device node /dev/net/tun not found, cannot create network interface.");
 
-                return log_error_errno(errno, "Failed to open /dev/net/tun: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/dev/net/tun");
         }
 
         if (ioctl(fd, TUNSETIFF, &ifr) < 0)

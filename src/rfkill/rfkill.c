@@ -291,7 +291,7 @@ static int run(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        return log_error_errno(errno, "Failed to open /dev/rfkill: %m");
+                        return log_error_errno(errno, "Failed to open %s: %m", "/dev/rfkill");
                 }
         } else {
                 c.rfkill_fd = SD_LISTEN_FDS_START;

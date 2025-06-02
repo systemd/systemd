@@ -365,7 +365,7 @@ static int manager_etc_hosts_read(Manager *m) {
         f = fopen("/etc/hosts", "re");
         if (!f) {
                 if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open /etc/hosts: %m");
+                        return log_error_errno(errno, "Failed to open %s: %m", "/etc/hosts");
 
                 manager_etc_hosts_flush(m);
                 return 0;

@@ -626,7 +626,7 @@ static int import_credentials_initrd(ImportCredentialContext *c) {
                 if (errno == ENOENT)
                         log_debug_errno(errno, "No credentials passed from initrd.");
                 else
-                        log_warning_errno(errno, "Failed to open '/run/credentials/@initrd', ignoring: %m");
+                        log_warning_errno(errno, "Failed to open '%s', ignoring: %m", "/run/credentials/@initrd");
                 return 0;
         }
 

@@ -466,7 +466,7 @@ static int load_unix_sockets(Context *c) {
         f = fopen("/proc/net/unix", "re");
         if (!f)
                 return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                      "Failed to open /proc/net/unix, ignoring: %m");
+                                      "Failed to open %s, ignoring: %m", "/proc/net/unix");
 
         /* Skip header */
         r = read_line(f, LONG_LINE_MAX, NULL);

@@ -256,7 +256,7 @@ static int manager_enumerate_seats(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/seats/: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/run/systemd/seats/");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -290,7 +290,7 @@ static int manager_enumerate_linger_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /var/lib/systemd/linger/: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/var/lib/systemd/linger/");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -329,7 +329,7 @@ static int manager_enumerate_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/users/: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/run/systemd/users/");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -537,7 +537,7 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/sessions/: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/run/systemd/sessions/");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -584,7 +584,7 @@ static int manager_enumerate_inhibitors(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/inhibit/: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/run/systemd/inhibit/");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -889,7 +889,7 @@ static int manager_connect_console(Manager *m) {
                         return 0;
                 }
 
-                return log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/sys/class/tty/tty0/active");
         }
 
         r = sd_event_add_io(m->event, &m->console_active_event_source, m->console_active_fd, 0, manager_dispatch_console, m);

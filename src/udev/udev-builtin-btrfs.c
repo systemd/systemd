@@ -43,7 +43,7 @@ static int builtin_btrfs(UdevEvent *event, int argc, char *argv[]) {
                         return 0;
                 }
 
-                return log_device_debug_errno(dev, errno, "Failed to open /dev/btrfs-control: %m");
+                return log_device_debug_errno(dev, errno, "Failed to open %s: %m", "/dev/btrfs-control");
         }
 
         struct btrfs_ioctl_vol_args args = {};

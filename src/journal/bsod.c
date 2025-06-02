@@ -156,7 +156,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         else {
                 fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
                 if (fd < 0)
-                        return log_error_errno(fd, "Failed to open /dev/tty1: %m");
+                        return log_error_errno(fd, "Failed to open %s: %m", "/dev/tty1");
 
                 r = find_next_free_vt(fd, &free_vt, &original_vt);
                 if (r < 0)

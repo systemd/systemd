@@ -245,7 +245,7 @@ static int console_setup(void) {
 
         tty_fd = open_terminal("/dev/console", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (tty_fd < 0)
-                return log_error_errno(tty_fd, "Failed to open /dev/console: %m");
+                return log_error_errno(tty_fd, "Failed to open %s: %m", "/dev/console");
 
         /* We don't want to force text mode. Plymouth may be showing pictures already from initrd. */
         reset_dev_console_fd(tty_fd, /* switch_to_text= */ false);

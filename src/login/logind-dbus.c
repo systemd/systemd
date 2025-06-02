@@ -1761,7 +1761,7 @@ static int flush_devices(Manager *m) {
         d = opendir("/etc/udev/rules.d");
         if (!d) {
                 if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open /etc/udev/rules.d: %m");
+                        log_warning_errno(errno, "Failed to open %s: %m", "/etc/udev/rules.d");
         } else
                 FOREACH_DIRENT_ALL(de, d, break) {
                         if (!dirent_is_file(de))

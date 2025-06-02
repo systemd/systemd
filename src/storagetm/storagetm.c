@@ -420,7 +420,7 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *devi
         _cleanup_close_ int subsystems_fd = -EBADF;
         subsystems_fd = RET_NERRNO(open("/sys/kernel/config/nvmet/subsystems", O_DIRECTORY|O_CLOEXEC|O_RDONLY));
         if (subsystems_fd < 0)
-                return log_error_errno(subsystems_fd, "Failed to open /sys/kernel/config/nvmet/subsystems: %m");
+                return log_error_errno(subsystems_fd, "Failed to open %s: %m", "/sys/kernel/config/nvmet/subsystems");
 
         _cleanup_close_ int subsystem_fd = -EBADF;
         subsystem_fd = open_mkdir_at(subsystems_fd, j, O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
@@ -635,7 +635,7 @@ static int nvme_port_add(const char *name, int ip_family, NvmePort **ret) {
         _cleanup_close_ int ports_fd = -EBADF;
         ports_fd = RET_NERRNO(open("/sys/kernel/config/nvmet/ports", O_DIRECTORY|O_RDONLY|O_CLOEXEC));
         if (ports_fd < 0)
-                return log_error_errno(ports_fd, "Failed to open /sys/kernel/config/nvmet/ports: %m");
+                return log_error_errno(ports_fd, "Failed to open %s: %m", "/sys/kernel/config/nvmet/ports");
 
         _cleanup_close_ int port_fd = -EBADF;
         uint16_t portnr = calculate_start_port(name, ip_family);

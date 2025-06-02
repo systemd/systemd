@@ -41,7 +41,7 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /proc/sysvipc/shm: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/proc/sysvipc/shm");
         }
 
         for (;;) {
@@ -105,7 +105,7 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /proc/sysvipc/sem: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/proc/sysvipc/sem");
         }
 
         for (;;) {
@@ -164,7 +164,7 @@ static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /proc/sysvipc/msg: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/proc/sysvipc/msg");
         }
 
         for (;;) {
@@ -302,7 +302,7 @@ static int clean_posix_shm(uid_t uid, gid_t gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /dev/shm: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/dev/shm");
         }
 
         return clean_posix_shm_internal("/dev/shm", dir, uid, gid, rm);
@@ -317,7 +317,7 @@ static int clean_posix_mq(uid_t uid, gid_t gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /dev/mqueue: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/dev/mqueue");
         }
 
         FOREACH_DIRENT_ALL(de, dir, goto fail) {

@@ -415,7 +415,7 @@ static int udev_watch_clear_by_wd(sd_device *dev, int dirfd, int wd) {
         if (dirfd < 0) {
                 dirfd_close = RET_NERRNO(open("/run/udev/watch/", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
                 if (dirfd_close < 0)
-                        return log_device_debug_errno(dev, dirfd_close, "Failed to open '/run/udev/watch/': %m");
+                        return log_device_debug_errno(dev, dirfd_close, "Failed to open %s: %m", "/run/udev/watch/");
 
                 dirfd = dirfd_close;
         }
@@ -595,7 +595,7 @@ int manager_remove_watch(Manager *manager, sd_device *dev) {
         if (dirfd == -ENOENT)
                 return 0;
         if (dirfd < 0)
-                return log_device_debug_errno(dev, dirfd, "Failed to open '/run/udev/watch/': %m");
+                return log_device_debug_errno(dev, dirfd, "Failed to open %s: %m", "/run/udev/watch/");
 
         /* First, clear symlinks. */
         r = udev_watch_clear(dev, dirfd, &wd);

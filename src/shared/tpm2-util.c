@@ -6029,7 +6029,7 @@ int tpm2_list_devices(bool legend, bool quiet) {
 
         d = opendir("/sys/class/tpmrm");
         if (!d) {
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno, "Failed to open /sys/class/tpmrm: %m");
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno, "Failed to open %s: %m", "/sys/class/tpmrm");
                 if (errno != ENOENT)
                         return -errno;
         } else {
@@ -6099,7 +6099,7 @@ int tpm2_find_device_auto(char **ret) {
 
         d = opendir("/sys/class/tpmrm");
         if (!d) {
-                log_debug_errno(errno, "Failed to open /sys/class/tpmrm: %m");
+                log_debug_errno(errno, "Failed to open %s: %m", "/sys/class/tpmrm");
                 if (errno != ENOENT)
                         return -errno;
         } else {

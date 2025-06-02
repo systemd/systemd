@@ -344,7 +344,7 @@ static int open_dev_autofs(Manager *m) {
 
         m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
         if (m->dev_autofs_fd < 0)
-                return log_error_errno(errno, "Failed to open /dev/autofs: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/dev/autofs");
 
         init_autofs_dev_ioctl(&param);
         r = RET_NERRNO(ioctl(m->dev_autofs_fd, AUTOFS_DEV_IOCTL_VERSION, &param));

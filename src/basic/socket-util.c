@@ -1930,7 +1930,7 @@ int vsock_get_local_cid(unsigned *ret) {
 
         vsock_fd = open("/dev/vsock", O_RDONLY|O_CLOEXEC);
         if (vsock_fd < 0)
-                return log_debug_errno(errno, "Failed to open /dev/vsock: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/dev/vsock");
 
         unsigned tmp;
         if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret ?: &tmp) < 0)

@@ -266,7 +266,7 @@ static int execute(
         /* This file is opened first, so that if we hit an error, we can abort before modifying any state. */
         state_fd = open("/sys/power/state", O_WRONLY|O_CLOEXEC);
         if (state_fd < 0)
-                return log_error_errno(errno, "Failed to open /sys/power/state: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/sys/power/state");
 
         if (sleep_needs_mem_sleep(sleep_config, operation)) {
                 r = write_mode("/sys/power/mem_sleep", sleep_config->mem_modes);

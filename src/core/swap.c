@@ -1317,7 +1317,7 @@ static void swap_enumerate(Manager *m) {
                         if (errno == ENOENT)
                                 log_debug_errno(errno, "Not swap enabled, skipping enumeration.");
                         else
-                                log_warning_errno(errno, "Failed to open /proc/swaps, ignoring: %m");
+                                log_warning_errno(errno, "Failed to open %s, ignoring: %m", "/proc/swaps");
 
                         return;
                 }
