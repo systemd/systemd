@@ -146,7 +146,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
                         r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to open '/etc/': %m");
+                                return log_error_errno(r, "Failed to open %s: %m", "/etc/");
 
                         etc_machine_id = path_join(etc, "machine-id");
                         if (!etc_machine_id)
@@ -251,7 +251,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
                 r = chase("/run/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, &run, &run_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open '/run/': %m");
+                        return log_error_errno(r, "Failed to open %s: %m", "/run/");
 
                 run_machine_id = path_join(run, "machine-id");
                 if (!run_machine_id)
@@ -269,7 +269,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         } else {
                 r = chase("/run/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &run_machine_id, /* ret_fd= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open '/run/machine-id': %m");
+                        return log_error_errno(r, "Failed to open %s: %m", "/run/machine-id");
         }
 
         /* And now, let's mount it over */
@@ -322,7 +322,7 @@ int machine_id_commit(const char *root) {
         _cleanup_free_ char *etc = NULL;
         r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to open /etc/: %m");
+                return log_error_errno(r, "Failed to open %s: %m", "/etc/");
 
         _cleanup_free_ char *etc_machine_id = path_join(etc, "machine-id");
         if (!etc_machine_id)
@@ -370,7 +370,7 @@ int machine_id_commit(const char *root) {
         _cleanup_close_ int etc_fd_again = -EBADF;
         r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &etc_fd_again);
         if (r < 0)
-                return log_error_errno(r, "Failed to open /etc/: %m");
+                return log_error_errno(r, "Failed to open %s: %m", "/etc/");
 
         r = umountat_detach_verbose(LOG_ERR, etc_fd_again, "machine-id");
         if (r < 0)

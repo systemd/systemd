@@ -2034,10 +2034,9 @@ static void mount_enumerate_perpetual(Manager *m) {
         u = manager_get_unit(m, SPECIAL_ROOT_MOUNT);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Mount), SPECIAL_ROOT_MOUNT, &u);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_MOUNT " unit: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to allocate the special %s unit: %m",
+                                                      SPECIAL_ROOT_MOUNT);
         }
 
         u->perpetual = true;

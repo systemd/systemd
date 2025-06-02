@@ -106,7 +106,7 @@ int manager_read_resolv_conf(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
+                r = log_warning_errno(errno, "Failed to open %s: %m", "/etc/resolv.conf");
                 goto clear;
         }
 

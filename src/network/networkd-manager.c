@@ -599,7 +599,7 @@ static int persistent_storage_open(void) {
 
         fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open /var/lib/systemd/network/, ignoring: %m");
+                return log_debug_errno(errno, "Failed to open %s, ignoring: %m", "/var/lib/systemd/network/");
 
         r = fd_is_read_only_fs(fd);
         if (r < 0)

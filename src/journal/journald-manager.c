@@ -2059,7 +2059,7 @@ static int manager_open_hostname(Manager *m) {
         m->hostname_fd = open("/proc/sys/kernel/hostname",
                               O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (m->hostname_fd < 0)
-                return log_error_errno(errno, "Failed to open /proc/sys/kernel/hostname: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/proc/sys/kernel/hostname");
 
         r = sd_event_add_io(m->event, &m->hostname_event_source, m->hostname_fd, 0, dispatch_hostname_change, m);
         if (r < 0)

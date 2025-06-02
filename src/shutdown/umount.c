@@ -188,7 +188,7 @@ static void log_umount_blockers(const char *mnt) {
 
         _cleanup_closedir_ DIR *dir = opendir("/proc");
         if (!dir)
-                return (void) log_warning_errno(errno, "Failed to open /proc/: %m");
+                return (void) log_warning_errno(errno, "Failed to open %s: %m", "/proc/");
 
         FOREACH_DIRENT_ALL(de, dir, break) {
                 if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
