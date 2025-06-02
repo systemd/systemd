@@ -4085,6 +4085,7 @@ _public_ int sd_bus_path_encode_many(char **out, const char *path_template, ...)
 
                 r = strv_consume(&labels, label);
                 if (r < 0) {
+                        free(label);
                         va_end(list);
                         return r;
                 }
@@ -4190,9 +4191,10 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
                         return -ENOMEM;
 
                 r = strv_consume(&labels, label);
-                if (r < 0)
+                if (r < 0) {
+                        free(label);
                         return r;
-
+                }
                 path_pos = sep; /* skip decoded label and suffix */
         }
 
