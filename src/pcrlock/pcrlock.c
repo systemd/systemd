@@ -4632,7 +4632,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                         &old_policy.prediction,
                                         old_policy.algorithm);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to submit super PCR policy: %m");
+                                return r;
 
                         r = tpm2_policy_authorize_nv(
                                         tc,
