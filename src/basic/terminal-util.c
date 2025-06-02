@@ -735,7 +735,7 @@ int acquire_terminal(
                                                 .fd = notify,
                                                 .events = POLLIN,
                                         },
-                                        /* n_pollfds = */ 1,
+                                        /* n_fds = */ 1,
                                         left,
                                         &poll_ss);
                         if (r < 0)

@@ -112,7 +112,7 @@ int unit_file_reenable(
                 size_t *n_changes);
 int unit_file_preset(
                 RuntimeScope scope,
-                UnitFileFlags flags,
+                UnitFileFlags file_flags,
                 const char *root_dir,
                 char * const *names,
                 UnitFilePresetMode mode,
@@ -120,7 +120,7 @@ int unit_file_preset(
                 size_t *n_changes);
 int unit_file_preset_all(
                 RuntimeScope scope,
-                UnitFileFlags flags,
+                UnitFileFlags file_flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 InstallChange **changes,
