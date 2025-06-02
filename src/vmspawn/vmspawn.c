@@ -1950,7 +1950,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 /* These aren't always available so don't raise an error if they fail */
                 (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
-                (void) copy_access(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
                 r = strv_extend_many(
