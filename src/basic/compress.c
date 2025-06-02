@@ -921,9 +921,12 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
         if (ret_uncompressed_size)
                 *ret_uncompressed_size = total_in;
 
-        log_debug("LZ4 compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
-                  total_in, total_out,
-                  (double) total_out / total_in * 100);
+        if (total_in == 0)
+                log_debug("LZ4 compression finished (no input data)");
+        else
+                log_debug("LZ4 compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                        total_in, total_out,
+                        (double) total_out / total_in * 100);
 
         return 0;
 #else
