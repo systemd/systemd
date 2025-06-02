@@ -1366,6 +1366,8 @@ int decrypt_credential_and_warn(
                                 &tpm2_key);
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
+                if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 #else

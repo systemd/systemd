@@ -2117,7 +2117,7 @@ int tpm2_create_primary(
                         /* creationHash= */ NULL,
                         /* creationTicket= */ NULL);
         if (rc == TPM2_RC_BAD_AUTH)
-                return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to enroll SRK into TPM.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to create primary key.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to generate primary key in TPM: %s",
@@ -3661,6 +3661,11 @@ int tpm2_policy_authorize_nv(
                         ESYS_TR_PASSWORD,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE);
+        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_VALUE) /* Return a recognizable error if the policy
+                                                                  * in the NV index does not match what we
+                                                                  * just put together */
+                return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                       "Submitted policy does not match policy stored in PolicyAuthorizeNV.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to add AuthorizeNV policy to TPM: %s",
@@ -3705,8 +3710,11 @@ int tpm2_policy_or(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         &hash_list);
+        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_VALUE) /* Return a recognizable error if none of the OR branches matched */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "None of the PolicyOR branches matched the current policy state.");
         if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to add OR policy to TPM: %s",
                                        sym_Tss2_RC_Decode(rc));
 
@@ -5500,6 +5508,20 @@ int tpm2_unseal(Tpm2Context *c,
                 const struct iovec *srk,
                 struct iovec *ret_secret) {
 
+        /* Returns the following errors:
+         *
+         *   -EREMOTE         → blob is from a different TPM2
+         *   -EDEADLK         → couldn't create primary key because authorization failure
+         *   -ENOLCK          → tpm2 is in dictionary lockout mode
+         *   -EREMCHG         → submitted policy doesn't match NV index stored policy (in case of PolicyAuthorizeNV)
+         *   -ENOANO          → none of the PolicyOR branches of a policy matched current state
+         *   -EUCLEAN         → PCR state doesn't match expectations
+         *   -EPERM           → stored policy has does not match TPM state
+         *   -ENOTRECOVERABLE → all other kinds of tpm error
+         *
+         * Of these all four of EREMCHG, ENOANO, EUCLEAN, EPERM can all mean that PCR state is not matching
+         * expectations. */
+
         TSS2_RC rc;
         int r;
 
@@ -6780,8 +6802,17 @@ int tpm2_policy_super_pcr(
                                 session,
                                 &pcr_selection,
                                 &current_policy_digest);
+                if (r == -EUCLEAN) {
+                        _cleanup_free_ char *j = NULL;
+
+                        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++)
+                                if (single_value_pcrs & (UINT32_C(1) << pcr))
+                                        (void) strextendf_with_separator(&j, ", ", "%" PRIu32, pcr);
+
+                        return log_error_errno(r, "Combined value for PCR(s) %s encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", strna(j));
+                }
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
                 previous_policy_digest = *current_policy_digest;
         }
@@ -6810,8 +6841,10 @@ int tpm2_policy_super_pcr(
                                 session,
                                 &pcr_selection,
                                 &current_policy_digest);
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "Value for PCR %" PRIu32 " encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", pcr);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
                 _cleanup_free_ TPM2B_DIGEST *branches = NULL;
                 branches = new0(TPM2B_DIGEST, n_branches);
@@ -6836,7 +6869,7 @@ int tpm2_policy_super_pcr(
                                         /* n_pcr_values= */ 1,
                                         &pcr_policy_digest);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to calculate PolicyPCR: %m");
 
                         branches[i++] = pcr_policy_digest;
                 }
@@ -6850,8 +6883,10 @@ int tpm2_policy_super_pcr(
                                 branches,
                                 n_branches,
                                 &current_policy_digest);
+                if (r == -ENOANO)
+                        return log_error_errno(r, "None of the alternative values for PCR %" PRIu32 " encoded in policy match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", pcr);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to submit OR policy to TPM: %m");
 
                 previous_policy_digest = *current_policy_digest;
         }
