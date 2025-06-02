@@ -188,10 +188,10 @@ int pipe_eof(int fd) {
         return !!(r & POLLHUP);
 }
 
-int ppoll_usec_full(struct pollfd *fds, size_t nfds, usec_t timeout, const sigset_t *ss) {
+int ppoll_usec_full(struct pollfd *fds, size_t n_fds, usec_t timeout, const sigset_t *ss) {
         int r;
 
-        assert(fds || nfds == 0);
+        assert(fds || n_fds == 0);
 
         /* This is a wrapper around ppoll() that does primarily two things:
          *
@@ -208,16 +208,16 @@ int ppoll_usec_full(struct pollfd *fds, size_t nfds, usec_t timeout, const sigse
          *  to handle signals, such as signalfd() or signal handlers. ⚠️ ⚠️ ⚠️
          */
 
-        if (nfds == 0 && timeout == 0)
+        if (n_fds == 0 && timeout == 0)
                 return 0;
 
-        r = ppoll(fds, nfds, timeout == USEC_INFINITY ? NULL : TIMESPEC_STORE(timeout), ss);
+        r = ppoll(fds, n_fds, timeout == USEC_INFINITY ? NULL : TIMESPEC_STORE(timeout), ss);
         if (r < 0)
                 return -errno;
         if (r == 0)
                 return 0;
 
-        for (size_t i = 0, n = r; i < nfds && n > 0; i++) {
+        for (size_t i = 0, n = r; i < n_fds && n > 0; i++) {
                 if (fds[i].revents == 0)
                         continue;
                 if (fds[i].revents & POLLNVAL)
