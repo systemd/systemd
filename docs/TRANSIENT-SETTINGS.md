@@ -21,88 +21,131 @@ Most generic unit settings are available for transient units.
 
 ```
 ✓ Description=
-✓ Documentation=
 ✓ SourcePath=
-✓ Requires=
-✓ Requisite=
-✓ Wants=
-✓ BindsTo=
-✓ Conflicts=
-✓ Before=
-✓ After=
-✓ OnFailure=
-✓ PropagatesReloadTo=
-✓ ReloadPropagatedFrom=
-✓ PartOf=
-✓ Upholds=
-✓ JoinsNamespaceOf=
-✓ RequiresMountsFor=
+✓ OnFailureJobMode=
+✓ JobTimeoutAction=
+✓ JobTimeoutRebootArgument=
+✓ StartLimitAction=
+✓ FailureAction=
+✓ SuccessAction=
+✓ RebootArgument=
+✓ CollectMode=
 ✓ StopWhenUnneeded=
 ✓ RefuseManualStart=
 ✓ RefuseManualStop=
 ✓ AllowIsolate=
-✓ DefaultDependencies=
-✓ OnFailureJobMode=
 ✓ IgnoreOnIsolate=
+✓ SurviveFinalKillSignal=
+✓ DefaultDependencies=
 ✓ JobTimeoutSec=
 ✓ JobRunningTimeoutSec=
-✓ JobTimeoutAction=
-✓ JobTimeoutRebootArgument=
 ✓ StartLimitIntervalSec=
 ✓ StartLimitBurst=
-✓ StartLimitAction=
-✓ FailureAction=
-✓ SuccessAction=
-✓ FailureActionExitStatus=
 ✓ SuccessActionExitStatus=
-✓ RebootArgument=
+✓ FailureActionExitStatus=
+✓ Documentation=
+✓ RequiresMountsFor=
+✓ WantsMountsFor=
+✓ Markers=
+✓ Requires=
+✓ Requisite=
+✓ Wants=
+✓ BindsTo=
+✓ PartOf=
+✓ Upholds=
+✓ RequiredBy=
+✓ RequisiteOf=
+✓ WantedBy=
+✓ BoundBy=
+✓ UpheldBy=
+✓ ConsistsOf=
+✓ Conflicts=
+✓ ConflictedBy=
+✓ Before=
+✓ After=
+✓ OnSuccess=
+✓ OnSuccessOf=
+✓ OnFailure=
+✓ OnFailureOf=
+✓ Triggers=
+✓ TriggeredBy=
+✓ PropagatesReloadTo=
+✓ ReloadPropagatedFrom=
+✓ PropagatesStopTo=
+✓ StopPropagatedFrom=
+✓ JoinsNamespaceOf=
+✓ References=
+✓ ReferencedBy=
+✓ InSlice=
+✓ SliceOf=
+✓ ConditionArchitecture=
+✓ ConditionFirmware=
+✓ ConditionVirtualization=
+✓ ConditionHost=
+✓ ConditionKernelCommandLine=
+✓ ConditionVersion=
+✓ ConditionCredential=
+✓ ConditionSecurity=
+✓ ConditionCapability=
+✓ ConditionACPower=
+✓ ConditionNeedsUpdate=
+✓ ConditionFirstBoot=
 ✓ ConditionPathExists=
 ✓ ConditionPathExistsGlob=
 ✓ ConditionPathIsDirectory=
 ✓ ConditionPathIsSymbolicLink=
 ✓ ConditionPathIsMountPoint=
 ✓ ConditionPathIsReadWrite=
+✓ ConditionPathIsEncrypted=
 ✓ ConditionDirectoryNotEmpty=
 ✓ ConditionFileNotEmpty=
 ✓ ConditionFileIsExecutable=
-✓ ConditionNeedsUpdate=
-✓ ConditionFirstBoot=
-✓ ConditionKernelCommandLine=
-✓ ConditionKernelVersion=
-✓ ConditionVersion=
-✓ ConditionArchitecture=
-✓ ConditionFirmware=
-✓ ConditionVirtualization=
-✓ ConditionSecurity=
-✓ ConditionCapability=
-✓ ConditionHost=
-✓ ConditionACPower=
 ✓ ConditionUser=
 ✓ ConditionGroup=
 ✓ ConditionControlGroupController=
+✓ ConditionCPUs=
+✓ ConditionMemory=
+✓ ConditionEnvironment=
+✓ ConditionCPUFeature=
+✓ ConditionOSRelease=
+✓ ConditionMemoryPressure=
+✓ ConditionCPUPressure=
+✓ ConditionIOPressure=
+✓ ConditionKernelModuleLoaded=
+✓ AssertArchitecture=
+✓ AssertFirmware=
+✓ AssertVirtualization=
+✓ AssertHost=
+✓ AssertKernelCommandLine=
+✓ AssertVersion=
+✓ AssertCredential=
+✓ AssertSecurity=
+✓ AssertCapability=
+✓ AssertACPower=
+✓ AssertNeedsUpdate=
+✓ AssertFirstBoot=
 ✓ AssertPathExists=
 ✓ AssertPathExistsGlob=
 ✓ AssertPathIsDirectory=
 ✓ AssertPathIsSymbolicLink=
 ✓ AssertPathIsMountPoint=
 ✓ AssertPathIsReadWrite=
+✓ AssertPathIsEncrypted=
 ✓ AssertDirectoryNotEmpty=
 ✓ AssertFileNotEmpty=
 ✓ AssertFileIsExecutable=
-✓ AssertNeedsUpdate=
-✓ AssertFirstBoot=
-✓ AssertKernelCommandLine=
-✓ AssertKernelVersion=
-✓ AssertArchitecture=
-✓ AssertVirtualization=
-✓ AssertSecurity=
-✓ AssertCapability=
-✓ AssertHost=
-✓ AssertACPower=
 ✓ AssertUser=
 ✓ AssertGroup=
 ✓ AssertControlGroupController=
-✓ CollectMode=
+✓ AssertCPUs=
+✓ AssertMemory=
+✓ AssertEnvironment=
+✓ AssertCPUFeature=
+✓ AssertOSRelease=
+✓ AssertMemoryPressure=
+✓ AssertCPUPressure=
+✓ AssertIOPressure=
+✓ AssertKernelModuleLoaded=
 ```
 
 ## Execution-Related Settings
@@ -236,55 +279,58 @@ All execution-related settings are available for transient units.
 All cgroup/resource control settings are available for transient units
 
 ```
-✓ CPUAccounting=
+✓ DevicePolicy=
+✓ Slice=
+✓ ManagedOOMSwap=
+✓ ManagedOOMMemoryPressure=
+✓ ManagedOOMPreference=
+✓ MemoryPressureWatch=
+✓ DelegateSubgroup=
+✓ ManagedOOMMemoryPressureLimit=
+✓ MemoryAccounting=
+✓ MemoryZSwapWriteback=
+✓ IOAccounting=
+✓ TasksAccounting=
+✓ IPAccounting=
+✓ CoredumpReceive=
 ✓ CPUWeight=
 ✓ StartupCPUWeight=
-✓ CPUShares=
-✓ StartupCPUShares=
-✓ CPUQuota=
-✓ CPUQuotaPeriodSec=
+✓ IOWeight=
+✓ StartupIOWeight=
 ✓ AllowedCPUs=
 ✓ StartupAllowedCPUs=
 ✓ AllowedMemoryNodes=
 ✓ StartupAllowedMemoryNodes=
-✓ MemoryAccounting=
-✓ DefaultMemoryMin=
+✓ DisableControllers=
+✓ Delegate=
 ✓ MemoryMin=
 ✓ DefaultMemoryLow=
+✓ DefaultMemoryMin=
 ✓ MemoryLow=
 ✓ MemoryHigh=
 ✓ MemoryMax=
 ✓ MemorySwapMax=
-✓ MemoryLimit=
+✓ MemoryZSwapMax=
+✓ TasksMax=
+✓ CPUQuota=
+✓ CPUQuotaPeriodSec=
 ✓ DeviceAllow=
-✓ DevicePolicy=
-✓ IOAccounting=
-✓ IOWeight=
-✓ StartupIOWeight=
 ✓ IODeviceWeight=
+✓ IODeviceLatencyTargetSec=
+✓ IPAddressAllow=
+✓ IPAddressDeny=
+✓ IPIngressFilterPath=
+✓ IPEgressFilterPath=
+✓ BPFProgram=
+✓ SocketBindAllow=
+✓ SocketBindDeny=
+✓ MemoryPressureThresholdSec=
+✓ NFTSet=
+✓ ManagedOOMMemoryPressureDurationSec=
 ✓ IOReadBandwidthMax=
 ✓ IOWriteBandwidthMax=
 ✓ IOReadIOPSMax=
 ✓ IOWriteIOPSMax=
-✓ BlockIOAccounting=
-✓ BlockIOWeight=
-✓ StartupBlockIOWeight=
-✓ BlockIODeviceWeight=
-✓ BlockIOReadBandwidth=
-✓ BlockIOWriteBandwidth=
-✓ TasksAccounting=
-✓ TasksMax=
-✓ Delegate=
-✓ DisableControllers=
-✓ IPAccounting=
-✓ IPAddressAllow=
-✓ IPAddressDeny=
-✓ ManagedOOMSwap=
-✓ ManagedOOMMemoryPressure=
-✓ ManagedOOMMemoryPressureLimit=
-✓ ManagedOOMMemoryPressureDurationSec=
-✓ ManagedOOMPreference=
-✓ CoredumpReceive=
 ```
 
 ## Process Killing Settings
@@ -292,13 +338,14 @@ All cgroup/resource control settings are available for transient units
 All process killing settings are available for transient units:
 
 ```
-✓ SendSIGKILL=
-✓ SendSIGHUP=
 ✓ KillMode=
+✓ SendSIGHUP=
+✓ SendSIGKILL=
 ✓ KillSignal=
 ✓ RestartKillSignal=
 ✓ FinalKillSignal=
 ✓ WatchdogSignal=
+✓ ReloadSignal=
 ```
 
 ## Service Unit Settings
@@ -306,41 +353,53 @@ All process killing settings are available for transient units:
 Most service unit settings are available for transient units.
 
 ```
-✓ BusName=
-✓ ExecCondition=
-✓ ExecReload=
-✓ ExecStart=
-✓ ExecStartPost=
-✓ ExecStartPre=
-✓ ExecStop=
-✓ ExecStopPost=
-✓ ExitType=
-✓ FileDescriptorStoreMax=
-✓ GuessMainPID=
-✓ NonBlocking=
-✓ NotifyAccess=
-✓ OOMPolicy=
 ✓ PIDFile=
-✓ RemainAfterExit=
-✓ Restart=
-✓ RestartForceExitStatus=
-✓ RestartPreventExitStatus=
-✓ RestartSec=
-✓ RootDirectoryStartOnly=
-✓ RuntimeMaxSec=
-✓ RuntimeRandomizedExtraSec=
-  Sockets=
-✓ SuccessExitStatus=
-✓ TimeoutAbortSec=
-✓ TimeoutSec=
-✓ TimeoutStartFailureMode=
-✓ TimeoutStartSec=
-✓ TimeoutStopFailureMode=
-✓ TimeoutStopSec=
 ✓ Type=
+✓ ExitType=
+✓ Restart=
+✓ RestartMode=
+✓ BusName=
+✓ NotifyAccess=
 ✓ USBFunctionDescriptors=
 ✓ USBFunctionStrings=
+✓ OOMPolicy=
+✓ TimeoutStartFailureMode=
+✓ TimeoutStopFailureMode=
+✓ FileDescriptorStorePreserve=
+✓ PermissionsStartOnly=
+✓ RootDirectoryStartOnly=
+✓ RemainAfterExit=
+✓ GuessMainPID=
+✓ RestartSec=
+✓ RestartMaxDelaySec=
+✓ TimeoutStartSec=
+✓ TimeoutStopSec=
+✓ TimeoutAbortSec=
+✓ RuntimeMaxSec=
+✓ RuntimeRandomizedExtraSec=
 ✓ WatchdogSec=
+✓ TimeoutSec=
+✓ FileDescriptorStoreMax=
+✓ RestartSteps=
+✓ ExecCondition=
+✓ ExecStartPre=
+✓ ExecStart=
+✓ ExecStartPost=
+✓ ExecConditionEx=
+✓ ExecStartPreEx=
+✓ ExecStartEx=
+✓ ExecStartPostEx=
+✓ ExecReload=
+✓ ExecStop=
+✓ ExecStopPost=
+✓ ExecReloadEx=
+✓ ExecStopEx=
+✓ ExecStopPostEx=
+✓ RestartPreventExitStatus=
+✓ RestartForceExitStatus=
+✓ SuccessExitStatus=
+✓ OpenFile=
+  Socket=
 ```
 
 ## Mount Unit Settings
@@ -357,7 +416,7 @@ All mount unit settings are available to transient units:
 ✓ SloppyOptions=
 ✓ LazyUnmount=
 ✓ ForceUnmount=
-✓ ReadWriteOnly=
+✓ ReadwriteOnly=
 ```
 
 ## Automount Unit Settings
@@ -366,6 +425,7 @@ All automount unit setting is available to transient units:
 
 ```
 ✓ Where=
+✓ ExtraOptions=
 ✓ DirectoryMode=
 ✓ TimeoutIdleSec=
 ```
@@ -375,21 +435,21 @@ All automount unit setting is available to transient units:
 Most timer unit settings are available to transient units.
 
 ```
-✓ OnActiveSec=
-✓ OnBootSec=
-✓ OnCalendar=
-✓ OnClockChange=
-✓ OnStartupSec=
-✓ OnTimezoneChange=
-✓ OnUnitActiveSec=
-✓ OnUnitInactiveSec=
-✓ Persistent=
 ✓ WakeSystem=
 ✓ RemainAfterElapse=
-✓ AccuracySec=
-✓ RandomizedDelaySec=
+✓ Persistent=
+✓ OnTimezoneChange=
+✓ OnClockChange=
 ✓ FixedRandomDelay=
 ✓ DeferReactivation=
+✓ AccuracySec=
+✓ RandomizedDelaySec=
+✓ OnActiveSec=
+✓ OnBootSec=
+✓ OnStartupSec=
+✓ OnUnitActiveSec=
+✓ OnUnitInactiveSec=
+✓ OnCalendar=
   Unit=
 ```
 
@@ -407,6 +467,9 @@ such).
 ✓ RuntimeMaxSec=
 ✓ RuntimeRandomizedExtraSec=
 ✓ TimeoutStopSec=
+✓ User=
+✓ Group=
+✓ OOMPolicy=
 ```
 
 ## Socket Unit Settings
@@ -414,65 +477,69 @@ such).
 Most socket unit settings are available to transient units.
 
 ```
-✓ ListenStream=
-✓ ListenDatagram=
-✓ ListenSequentialPacket=
-✓ ListenFIFO=
-✓ ListenNetlink=
-✓ ListenSpecial=
-✓ ListenMessageQueue=
-✓ ListenUSBFunction=
-✓ SocketProtocol=
-✓ BindIPv6Only=
-✓ Backlog=
-✓ BindToDevice=
-✓ ExecStartPre=
-✓ ExecStartPost=
-✓ ExecStopPre=
-✓ ExecStopPost=
-✓ TimeoutSec=
-✓ SocketUser=
-✓ SocketGroup=
-✓ SocketMode=
-✓ DirectoryMode=
 ✓ Accept=
 ✓ FlushPending=
 ✓ Writable=
-✓ MaxConnections=
-✓ MaxConnectionsPerSource=
 ✓ KeepAlive=
-✓ KeepAliveTimeSec=
-✓ KeepAliveIntervalSec=
-✓ KeepAliveProbes=
-✓ DeferAcceptSec=
 ✓ NoDelay=
-✓ Priority=
-✓ ReceiveBuffer=
-✓ SendBuffer=
-✓ IPTOS=
-✓ IPTTL=
-✓ Mark=
-✓ PipeSize=
 ✓ FreeBind=
 ✓ Transparent=
 ✓ Broadcast=
 ✓ PassCredentials=
+✓ PassFileDescriptorsToExec=
 ✓ PassSecurity=
 ✓ PassPacketInfo=
-✓ TCPCongestion=
 ✓ ReusePort=
+✓ RemoveOnStop=
+✓ SELinuxContextFromNet=
+✓ Priority=
+✓ IPTTL=
+✓ Mark=
+✓ IPTOS=
+✓ Backlog=
+✓ MaxConnections=
+✓ MaxConnectionsPerSource=
+✓ KeepAliveProbes=
+✓ TriggerLimitBurst=
+✓ PollLimitBurst=
+✓ SocketMode=
+✓ DirectoryMode=
 ✓ MessageQueueMaxMessages=
 ✓ MessageQueueMessageSize=
-✓ RemoveOnStop=
-✓ Symlinks=
-✓ FileDescriptorName=
-  Service=
+✓ TimeoutSec=
+✓ KeepAliveTimeSec=
+✓ KeepAliveIntervalSec=
+✓ DeferAcceptSec=
 ✓ TriggerLimitIntervalSec=
-✓ TriggerLimitBurst=
+✓ PollLimitIntervalSec=
+✓ ReceiveBuffer=
+✓ SendBuffer=
+✓ PipeSize=
+✓ ExecStartPre=
+✓ ExecStartPost=
+✓ ExecReload=
+✓ ExecStopPost=
 ✓ SmackLabel=
 ✓ SmackLabelIPIn=
 ✓ SmackLabelIPOut=
-✓ SELinuxContextFromNet=
+✓ TCPCongestion=
+✓ BindToDevice=
+✓ BindIPv6Only=
+✓ FileDescriptorName=
+✓ SocketUser=
+✓ SocketGroup=
+✓ Timestamping=
+✓ Symlinks=
+✓ SocketProtocol=
+✓ ListenStream=
+✓ ListenDatagram=
+✓ ListenSequentialPacket=
+✓ ListenNetlink=
+✓ ListenSpecial=
+✓ ListenMessageQueue=
+✓ ListenFIFO=
+✓ ListenUSBFunction=
+  Service=
 ```
 
 ## Swap Unit Settings
@@ -491,14 +558,18 @@ Swap units are currently not available at all as transient units:
 Most path unit settings are available to transient units.
 
 ```
+✓ MakeDirectory=
+✓ DirectoryMode=
 ✓ PathExists=
 ✓ PathExistsGlob=
 ✓ PathChanged=
 ✓ PathModified=
 ✓ DirectoryNotEmpty=
+✓ TriggerLimitBurst=
+✓ PollLimitBurst=
+✓ TriggerLimitIntervalSec=
+✓ PollLimitIntervalSec=
   Unit=
-✓ MakeDirectory=
-✓ DirectoryMode=
 ```
 
 ## Install Section
