@@ -52,6 +52,7 @@ set -e
 test $ret -eq 1
 
 SYSTEMD_COLORS=256 "$SD_PCRLOCK"
+"$SD_PCRLOCK" is-supported
 "$SD_PCRLOCK" cel --no-pager --json=pretty
 "$SD_PCRLOCK" log --pcr="$PCRS"
 "$SD_PCRLOCK" log --json=pretty --pcr="$PCRS"
