@@ -292,7 +292,7 @@ int verb_persistent_storage(int argc, char *argv[], void *userdata) {
 
                 fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
+                        return log_error_errno(errno, "Failed to open %s: %m", "/var/lib/systemd/network/");
 
                 r = sd_varlink_push_fd(vl, fd);
                 if (r < 0)

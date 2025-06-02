@@ -705,10 +705,9 @@ static void scope_enumerate_perpetual(Manager *m) {
         u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Scope), SPECIAL_INIT_SCOPE, &u);
-                if (r < 0)  {
-                        log_error_errno(r, "Failed to allocate the special " SPECIAL_INIT_SCOPE " unit: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to allocate the special %s unit: %m",
+                                                      SPECIAL_INIT_SCOPE);
         }
 
         u->transient = true;

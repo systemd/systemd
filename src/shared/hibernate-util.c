@@ -257,7 +257,7 @@ static int read_swap_entries(SwapEntries *ret) {
 
         f = fopen("/proc/swaps", "re");
         if (!f)
-                return log_debug_errno(errno, "Failed to open /proc/swaps: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/swaps");
 
         /* Remove header */
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");

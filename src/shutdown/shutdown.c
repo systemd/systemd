@@ -197,7 +197,7 @@ static int sync_making_progress(unsigned long long *prev_dirty) {
 
         f = fopen("/proc/meminfo", "re");
         if (!f)
-                return log_warning_errno(errno, "Failed to open /proc/meminfo: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/proc/meminfo");
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;

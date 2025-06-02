@@ -45,7 +45,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
 
         f = fopen("/proc/self/mountinfo", "re"); /* Pin the file, in case we unmount /proc/ as part of the logic here */
         if (!f)
-                return log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
 
         for (;;) {
                 _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
@@ -454,7 +454,7 @@ int bind_remount_one(const char *path, unsigned long new_flags, unsigned long fl
 
         proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
         if (!proc_self_mountinfo)
-                return log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
 
         return bind_remount_one_with_mountinfo(path, new_flags, flags_mask, proc_self_mountinfo);
 }

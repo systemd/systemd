@@ -235,7 +235,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
 
         r = proc_dir_open(&dir);
         if (r < 0)
-                return log_warning_errno(r, "Failed to open /proc/: %m");
+                return log_warning_errno(r, "Failed to open %s: %m", "/proc/");
 
         for (;;) {
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;

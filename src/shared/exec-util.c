@@ -590,7 +590,7 @@ int _fork_agent(const char *name, char * const *argv, const int except[], size_t
                  * stdin around. */
                 fd = open_terminal("/dev/tty", stdin_is_tty ? O_WRONLY : (stdout_is_tty && stderr_is_tty) ? O_RDONLY : O_RDWR);
                 if (fd < 0) {
-                        log_error_errno(fd, "Failed to open /dev/tty: %m");
+                        log_error_errno(fd, "Failed to open %s: %m", "/dev/tty");
                         _exit(EXIT_FAILURE);
                 }
 

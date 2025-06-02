@@ -72,7 +72,7 @@ static int locale_context_load_conf(LocaleContext *c, LocaleLoadFlag flag) {
         if (fd == -ENOENT)
                 return 0;
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open /etc/locale.conf: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/etc/locale.conf");
 
         if (fstat(fd, &st) < 0)
                 return log_debug_errno(errno, "Failed to stat /etc/locale.conf: %m");

@@ -2264,7 +2264,7 @@ static int apply_mounts(
                 if (reterr_path)
                         *reterr_path = strdup("/proc/self/mountinfo");
 
-                return log_debug_errno(r, "Failed to open /proc/self/mountinfo: %m");
+                return log_debug_errno(r, "Failed to open %s: %m", "/proc/self/mountinfo");
         }
 
         /* First round, establish all mounts we need */
