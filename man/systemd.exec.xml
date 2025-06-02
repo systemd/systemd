@@ -3680,7 +3680,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         in the same way a regular credential specified via <varname>LoadCredential=</varname> would be. A
         credential configured this way may be symmetrically encrypted/authenticated with a secret key derived
         from the system's TPM2 security chip, or with a secret key stored in
-        <filename>/var/lib/systemd/credentials.secret</filename>, or with both. Using encrypted and
+        <filename>/var/lib/systemd/credential.secret</filename>, or with both. Using encrypted and
         authenticated credentials improves security as credentials are not stored in plaintext and only
         authenticated and decrypted into plaintext the moment a service requiring them is started. Moreover,
         credentials may be bound to the local hardware and installations, so that they cannot easily be
