@@ -652,7 +652,8 @@ ExtensionDirectories=-${VDIR}
 NotifyAccess=all
 ExecStart=bash -c ' \
     trap '"'"' \
-        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${EPOCHREALTIME/[^0-9]/}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
+        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
         (ls /etc | grep marker) >/tmp/markers/50i; \
         (cat /usr/lib/os-release) >>/tmp/markers/50i; \
         echo -n "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -686,7 +687,8 @@ ExtensionDirectories=-${VDIR}
 NotifyAccess=all
 ExecStart=bash -c ' \
     trap '"'"' \
-        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${EPOCHREALTIME/[^0-9]/}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
+        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
         (ls /etc | grep marker) >/tmp/markers/50j; \
         (cat /usr/lib/os-release) >>/tmp/markers/50j; \
         echo -n "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -715,7 +717,8 @@ PrivateUsers=yes
 NotifyAccess=all
 ExecStart=bash -c ' \
     trap '"'"' \
-        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${EPOCHREALTIME/[^0-9]/}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
+        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
         (ls /etc | grep marker) >/tmp/markers/50k; \
         (cat /usr/lib/os-release) >>/tmp/markers/50k; \
         echo -n "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
