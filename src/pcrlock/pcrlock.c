@@ -4511,6 +4511,8 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
 
         if (!tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support PolicyAuthorizeNV command, refusing.");
+        if (!tpm2_supports_alg(tc, TPM2_ALG_SHA256))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support SHA-256 hash algorithm, refusing.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
 
