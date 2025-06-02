@@ -122,6 +122,11 @@ Deprecations and removals:
 
 Features:
 
+* repart: tweak CopyBlocks=auto so that if we operate on the booted system
+  (i.e. without --image= or --root= specified), we use the by-designator
+  symlinks, so that we definitely base or copy logic on the currently loaded
+  version of the OS, instead of just the "first".
+
 * maybe introduce a new per-unit drop-in directory .confext.d/ that may contain
   symlinks to confext images to enable for the unit.
 
