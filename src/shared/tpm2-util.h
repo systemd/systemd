@@ -450,12 +450,18 @@ typedef enum Tpm2Support {
         TPM2_SUPPORT_LIBRARIES    = 1 << 4,  /* we can dlopen the tpm2 libraries */
         TPM2_SUPPORT_API          = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
 
-        /* Flags below are not returned by systemd-analyze has-tpm2 as exit status. */
-        TPM2_SUPPORT_LIBTSS2_ESYS = 1 << 5,  /* we can dlopen libtss2-esys.so.0 */
-        TPM2_SUPPORT_LIBTSS2_RC   = 1 << 6,  /* we can dlopen libtss2-rc.so.0 */
-        TPM2_SUPPORT_LIBTSS2_MU   = 1 << 7,  /* we can dlopen libtss2-mu.so.0 */
+        /* Flags below are used by pcrlock, to indicate hardware specific features. It's not used by systemd-analyze has-tpm2. */
+        TPM2_SUPPORT_AUTHORIZE_NV = 1 << 5,  /* chip supports PolicyAuthorizeNV */
+        TPM2_SUPPORT_SHA256       = 1 << 6,  /* chip supports SHA-256 */
+        TPM2_SUPPORT_API_PCRLOCK  = TPM2_SUPPORT_API | TPM2_SUPPORT_AUTHORIZE_NV | TPM2_SUPPORT_SHA256,
+
+        /* Flags below are not returned by systemd-analyze has-tpm2 nor by systemd-pcrlock as exit status. */
+        TPM2_SUPPORT_LIBTSS2_ESYS = 1 << 7,  /* we can dlopen libtss2-esys.so.0 */
+        TPM2_SUPPORT_LIBTSS2_RC   = 1 << 8,  /* we can dlopen libtss2-rc.so.0 */
+        TPM2_SUPPORT_LIBTSS2_MU   = 1 << 9,  /* we can dlopen libtss2-mu.so.0 */
         TPM2_SUPPORT_LIBTSS2_ALL  = TPM2_SUPPORT_LIBTSS2_ESYS|TPM2_SUPPORT_LIBTSS2_RC|TPM2_SUPPORT_LIBTSS2_MU,
         TPM2_SUPPORT_FULL         = TPM2_SUPPORT_API|TPM2_SUPPORT_LIBTSS2_ALL,
+
 } Tpm2Support;
 
 Tpm2Support tpm2_support_full(Tpm2Support mask);
