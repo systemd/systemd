@@ -7701,6 +7701,10 @@ static int context_fstab(Context *context) {
                 assert_not_reached();
         }
 
+        r = fchmod_umask(fileno(f), 0666);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust access mode of generated fstab file: %m");
+
         r = flink_tmpfile(f, t, path, IN_SET(arg_append_fstab, APPEND_AUTO, APPEND_REPLACE) ? LINK_TMPFILE_REPLACE : 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
