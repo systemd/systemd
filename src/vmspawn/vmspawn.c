@@ -929,7 +929,8 @@ static int forward_signal_to_vm_pid1(sd_event_source *s, const struct signalfd_s
                         "GetUnitByPID",
                         &error,
                         NULL,
-                        "");
+                        "u",
+                        1);
         if (r < 0)
                 return log_error_errno(r, "Failed to get init process of VM: %s", bus_error_message(&error, r));
 
