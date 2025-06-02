@@ -394,6 +394,37 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupRuntime,
+
+                SD_VARLINK_FIELD_COMMENT("ID of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Path of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(Path, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Slice of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(Slice, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+
+                /* Memory */
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemoryCurrent, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemoryPeak, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemorySwapCurrent, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemorySwapPeak, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemoryZSwapCurrent, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemoryAvailable, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(EffectiveMemoryMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(EffectiveMemoryHigh, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(EffectiveMemoryNodes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                );
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitRuntime,
                 SD_VARLINK_FIELD_COMMENT("If not empty, the field contains the name of another unit that this unit follows in state"),
                 SD_VARLINK_DEFINE_FIELD(Following, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -450,7 +481,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Provides details about why a unit was activated"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ActivationDetails, ActivationDetails, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("When true, logs about this unit will be at debug level regardless of other log level settings"),
-                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0));
+                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The cgroup runtime of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
 
@@ -496,5 +529,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_CGroupDeviceAllow,
                 SD_VARLINK_SYMBOL_COMMENT("CGroup context of a unit"),
                 &vl_type_CGroupContext,
+                SD_VARLINK_SYMBOL_COMMENT("CGroup runtime of a unit"),
+                &vl_type_CGroupRuntime,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit);
