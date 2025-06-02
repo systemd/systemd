@@ -4799,6 +4799,7 @@ static void service_notify_message(
                 notify_dbus = true;
 
         } else if (strv_contains(tags, "READY=1")) {
+                log_unit_warning(UNIT(s), "DBG0: %s " USEC_FMT " " USEC_FMT, service_state_to_string(s->state), monotonic_usec, s->reload_begin_usec);
 
                 s->notify_state = NOTIFY_READY;
 
@@ -4835,6 +4836,7 @@ static void service_notify_message(
                 notify_dbus = true;
 
         } else if (strv_contains(tags, "RELOADING=1")) {
+                log_unit_warning(UNIT(s), "DBG1: %s " USEC_FMT " " USEC_FMT, service_state_to_string(s->state), monotonic_usec, s->reload_begin_usec);
 
                 s->notify_state = NOTIFY_RELOADING;
 
