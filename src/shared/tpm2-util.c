@@ -3661,6 +3661,11 @@ int tpm2_policy_authorize_nv(
                         ESYS_TR_PASSWORD,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE);
+        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_VALUE) /* Return a recognizable error if the policy
+                                                                  * in the NV index does not match what we
+                                                                  * just put together */
+                return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                       "Submitted policy does not match policy stored in PolicyAuthorizeNV.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to add AuthorizeNV policy to TPM: %s",
