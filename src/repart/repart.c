@@ -7124,7 +7124,7 @@ static int resolve_copy_blocks_auto_candidate(
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
-        const char *pttype, *t;
+        const char *pttype;
         sd_id128_t pt_parsed, u;
         blkid_partition pp;
         dev_t whole_devno;
@@ -7197,16 +7197,10 @@ static int resolve_copy_blocks_auto_candidate(
                 return false;
         }
 
-        t = blkid_partition_get_type_string(pp);
-        if (isempty(t)) {
-                log_debug("Partition %u:%u has no type on '%s'.",
-                          major(partition_devno), minor(partition_devno), p);
-                return false;
-        }
-
-        r = sd_id128_from_string(t, &pt_parsed);
+        r = blkid_partition_get_type_id128(pp, &pt_parsed);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse partition type \"%s\": %m", t);
+                log_debug_errno(r, "Failed to read partition type UUID of partition %u:%u: %m",
+                                major(partition_devno), minor(partition_devno));
                 return false;
         }
 
