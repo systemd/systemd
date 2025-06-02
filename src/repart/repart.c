@@ -7231,6 +7231,76 @@ static int resolve_copy_blocks_auto_candidate(
         return true;
 }
 
+static int resolve_copy_blocks_auto_candidate_harder(
+                dev_t start_devno,
+                GptPartitionType partition_type,
+                dev_t restrict_devno,
+                dev_t *ret_found_devno,
+                sd_id128_t *ret_uuid) {
+
+        int r;
+
+        /* A wrapper around resolve_copy_blocks_auto_candidate(), but looks for verity/verity-sig associated
+         * partitions, too. i.e. if the input is a data or verity partition, will try to find the
+         * verity/verity-sig partition for it, based on udev metadata. */
+
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        r = sd_device_new_from_devnum(&d, 'b', start_devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate device object for " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(start_devno));
+
+        const char *property;
+        if (partition_verity_to_data(partition_type.designator) >= 0)
+                property = "ID_DISSECT_PART_VERITY_DEVICE";
+        else if (partition_verity_sig_to_data(partition_type.designator) >= 0)
+                property = "ID_DISSECT_PART_VERITY_SIG_DEVICE";
+        else
+                goto not_found;
+
+        const char *node;
+        r = sd_device_get_property_value(d, property, &node);
+        if (r < 0)
+                goto not_found;
+
+        d = sd_device_unref(d);
+        r = sd_device_new_from_devname(&d, node);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to allocate device object for '%s', ignoring: %m", node);
+                goto not_found;
+        }
+
+        if (!device_is_subsystem_devtype(d, "block", /* devtype= */ NULL)) {
+                log_debug("Device referenced by %s property of %s does not refer to block device, refusing.", property, node);
+                goto not_found;
+        }
+
+        dev_t found_devno;
+        r = sd_device_get_devnum(d, &found_devno);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get device number for '%s', ignoring: %m", node);
+                goto not_found;
+        }
+
+        r = resolve_copy_blocks_auto_candidate(found_devno, partition_type, restrict_devno, ret_uuid);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                goto not_found;
+
+        if (ret_found_devno)
+                *ret_found_devno = found_devno;
+
+        return 1;
+
+not_found:
+        if (ret_found_devno)
+                *ret_found_devno = 0;
+
+        if (ret_uuid)
+                *ret_uuid = SD_ID128_NULL;
+        return 0;
+}
+
 static int find_backing_devno(
                 const char *path,
                 const char *root,
@@ -7377,6 +7447,20 @@ static int resolve_copy_blocks_auto(
                                                                "Multiple matching partitions found, refusing.");
 
                                 found = sl;
+                                found_uuid = u;
+                        }
+
+                        dev_t harder_devno;
+                        r = resolve_copy_blocks_auto_candidate_harder(sl, type, restrict_devno, &harder_devno, &u);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                /* We found a matching one! */
+                                if (found != 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                                               "Multiple matching partitions found, refusing.");
+
+                                found = harder_devno;
                                 found_uuid = u;
                         }
                 }
