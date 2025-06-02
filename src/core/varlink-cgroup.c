@@ -8,6 +8,7 @@
 #include "json-util.h"
 #include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
+#include "path-util.h"
 #include "set.h"
 #include "unit.h"
 #include "varlink-cgroup.h"
@@ -350,4 +351,262 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
 
                         /* Others */
                         SD_JSON_BUILD_PAIR_BOOLEAN("CoredumpReceive", c->coredump_receive));
+}
+
+static int memory_accounting_metric_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+        CGroupMemoryAccountingMetric metric;
+        uint64_t value;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        metric = cgroup_memory_accounting_metric_from_string(name);
+        assert(metric >= 0);
+
+        r = unit_get_memory_accounting(u, metric, &value);
+        if (r == -ENODATA)
+                goto empty;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get value for '%s': %m", name);
+
+        if (value == UINT64_MAX)
+                goto empty;
+
+        return sd_json_variant_new_unsigned(ret, value);
+
+empty:
+        *ret = NULL;
+        return 0;
+}
+
+static int memory_available_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+        uint64_t value;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        r = unit_get_memory_available(u, &value);
+        if (r == -ENODATA)
+                goto empty;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get value of available memory: %m");
+
+        if (value == UINT64_MAX)
+                goto empty;
+
+        return sd_json_variant_new_unsigned(ret, value);
+
+empty:
+        *ret = NULL;
+        return 0;
+}
+
+static int effective_limit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+        CGroupLimitType type;
+        uint64_t value;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        type = cgroup_effective_limit_type_from_string(name);
+        assert(type >= 0);
+
+        r = unit_get_effective_limit(u, type, &value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get value for '%s': %m", name);
+
+        if (value == UINT64_MAX) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return sd_json_variant_new_unsigned(ret, value);
+}
+
+static int cpu_usage_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+        nsec_t ns;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        r = unit_get_cpu_usage(u, &ns);
+        if (r == -ENODATA)
+                goto empty;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get cpu usage: %m");
+
+        if (ns == NSEC_INFINITY)
+                goto empty;
+
+        return sd_json_variant_new_unsigned(ret, ns);
+
+empty:
+        *ret = NULL;
+        return 0;
+}
+
+static int effective_cpuset_build_json(sd_json_variant **ret, const char *name, void *userdata, const char *cpuset_name) {
+        Unit *u = ASSERT_PTR(userdata);
+        _cleanup_(cpu_set_reset) CPUSet cpus = {};
+        int r;
+
+        assert(ret);
+        assert(name);
+        assert(cpuset_name);
+
+        r = unit_get_cpuset(u, &cpus, cpuset_name);
+        if (r == -ENODATA) {
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get cpu set '%s': %m", cpuset_name);
+
+        return cpu_set_build_json(ret, name, &cpus);
+}
+
+static inline int effective_cpus_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        return effective_cpuset_build_json(ret, name, userdata, "cpuset.cpus.effective");
+}
+
+static inline int effective_mems_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        return effective_cpuset_build_json(ret, name, userdata, "cpuset.mems.effective");
+}
+
+static int tasks_current_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+        uint64_t cn;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        r = unit_get_tasks_current(u, &cn);
+        if (r == -ENODATA)
+                goto empty;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get count of current tasks: %m");
+
+        if (cn == UINT64_MAX)
+                goto empty;
+
+        return sd_json_variant_new_unsigned(ret, cn);
+
+empty:
+        *ret = NULL;
+        return 0;
+}
+
+static int get_ip_counter_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+        CGroupIPAccountingMetric metric;
+        uint64_t value;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        metric = cgroup_ip_accounting_metric_from_string(name);
+        assert(metric >= 0);
+
+        r = unit_get_ip_accounting(u, metric, &value);
+        if (r == -ENODATA)
+                goto empty;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get value for '%s': %m", name);
+
+        if (value == UINT64_MAX)
+                goto empty;
+
+        return sd_json_variant_new_unsigned(ret, value);
+
+empty:
+        *ret = NULL;
+        return 0;
+}
+
+static int get_io_counter_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+        CGroupIOAccountingMetric metric;
+        uint64_t value;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        metric = cgroup_io_accounting_metric_from_string(name);
+        assert(metric >= 0);
+
+        r = unit_get_io_accounting(u, metric, &value);
+        if (r == -ENODATA)
+                goto empty;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get value for '%s': %m", name);
+
+        if (value == UINT64_MAX)
+                goto empty;
+
+        return sd_json_variant_new_unsigned(ret, value);
+
+empty:
+        *ret = NULL;
+        return 0;
+}
+
+int unit_cgroup_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(ret);
+        assert(name);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return sd_json_buildo(
+                        ret,
+
+                        /* ID */
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("ID", crt->cgroup_id),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Path", crt->cgroup_path ? empty_to_root(crt->cgroup_path) : NULL),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Slice", unit_slice_name(u)),
+
+                        /* Memory */
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("MemoryCurrent", memory_accounting_metric_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("MemoryPeak", memory_accounting_metric_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("MemorySwapCurrent", memory_accounting_metric_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("MemorySwapPeak", memory_accounting_metric_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("MemoryZSwapCurrent", memory_accounting_metric_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("MemoryAvailable", memory_available_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("EffectiveMemoryMax", effective_limit_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("EffectiveMemoryHigh", effective_limit_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("EffectiveMemoryNodes", effective_mems_build_json, u),
+
+                        /* CPU */
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CPUUsageNSec", cpu_usage_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("EffectiveCPUs", effective_cpus_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("TasksCurrent", tasks_current_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("EffectiveTasksMax", effective_limit_build_json, u),
+
+                        /* IP */
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IPIngressBytes", get_ip_counter_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IPIngressPackets", get_ip_counter_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IPEgressBytes", get_ip_counter_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IPEgressPackets", get_ip_counter_build_json, u),
+
+                        /* IO */
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOReadBytes", get_io_counter_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOReadOperations", get_io_counter_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOWriteBytes", get_io_counter_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOWriteOperations", get_io_counter_build_json, u));
 }
