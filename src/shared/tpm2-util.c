@@ -5508,6 +5508,20 @@ int tpm2_unseal(Tpm2Context *c,
                 const struct iovec *srk,
                 struct iovec *ret_secret) {
 
+        /* Returns the following errors:
+         *
+         *   -EREMOTE         → blob is from a different TPM
+         *   -EDEADLK         → couldn't create primary key because authorization failure
+         *   -ENOLCK          → TPM is in dictionary lockout mode
+         *   -EREMCHG         → submitted policy doesn't match NV index stored policy (in case of PolicyAuthorizeNV)
+         *   -ENOANO          → none of the PolicyOR branches of a policy matched current state
+         *   -EUCLEAN         → PCR state doesn't match expectations
+         *   -EPERM           → stored policy does not match TPM state
+         *   -ENOTRECOVERABLE → all other kinds of TPM errors
+         *
+         * Of these all four of EREMCHG, ENOANO, EUCLEAN, EPERM can all mean that PCR state is not matching
+         * expectations. */
+
         TSS2_RC rc;
         int r;
 
