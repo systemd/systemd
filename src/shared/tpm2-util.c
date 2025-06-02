@@ -2117,7 +2117,7 @@ int tpm2_create_primary(
                         /* creationHash= */ NULL,
                         /* creationTicket= */ NULL);
         if (rc == TPM2_RC_BAD_AUTH)
-                return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to enroll SRK into TPM.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to create primary key.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to generate primary key in TPM: %s",
