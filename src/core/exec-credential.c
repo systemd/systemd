@@ -473,20 +473,30 @@ static int maybe_decrypt_and_write_credential(
         assert(data || size == 0);
 
         if (args->encrypted) {
+                CredentialFlags flags = 0; /* only allow user creds in user scope */
+
                 switch (args->params->runtime_scope) {
 
                 case RUNTIME_SCOPE_SYSTEM:
-                        /* In system mode talk directly to the TPM */
-                        r = decrypt_credential_and_warn(
-                                        id,
-                                        now(CLOCK_REALTIME),
-                                        /* tpm2_device= */ NULL,
-                                        /* tpm2_signature_path= */ NULL,
-                                        getuid(),
-                                        &IOVEC_MAKE(data, size),
-                                        CREDENTIAL_ANY_SCOPE,
-                                        &plaintext);
-                        break;
+                        /* In system mode talk directly to the TPM – unless we live in a device sandbox
+                         * which might block TPM device access. */
+
+                        flags |= CREDENTIAL_ANY_SCOPE;
+
+                        if (!args->context->private_devices) {
+                                r = decrypt_credential_and_warn(
+                                                id,
+                                                now(CLOCK_REALTIME),
+                                                /* tpm2_device= */ NULL,
+                                                /* tpm2_signature_path= */ NULL,
+                                                getuid(),
+                                                &IOVEC_MAKE(data, size),
+                                                flags,
+                                                &plaintext);
+                                break;
+                        }
+
+                        _fallthrough_;
 
                 case RUNTIME_SCOPE_USER:
                         /* In per user mode we'll not have access to the machine secret, nor to the TPM (most
@@ -498,7 +508,7 @@ static int maybe_decrypt_and_write_credential(
                                         now(CLOCK_REALTIME),
                                         getuid(),
                                         &IOVEC_MAKE(data, size),
-                                        /* flags= */ 0, /* only allow user creds in user scope */
+                                        flags,
                                         &plaintext);
                         break;
 
