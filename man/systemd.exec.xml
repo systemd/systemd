@@ -3684,11 +3684,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         authenticated credentials improves security as credentials are not stored in plaintext and only
         authenticated and decrypted into plaintext the moment a service requiring them is started. Moreover,
         credentials may be bound to the local hardware and installations, so that they cannot easily be
-        analyzed offline, or be generated externally. When <varname>DevicePolicy=</varname> is set to
-        <literal>closed</literal> or <literal>strict</literal>, or set to <literal>auto</literal> and
-        <varname>DeviceAllow=</varname> is set, or <varname>PrivateDevices=</varname> is set, then this
-        setting adds <filename>/dev/tpmrm0</filename> with <constant>rw</constant> mode to
-        <varname>DeviceAllow=</varname>. See
+        analyzed offline, or be generated externally. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>.</para>
 
