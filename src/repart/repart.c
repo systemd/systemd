@@ -4806,7 +4806,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         r = tpm2_calculate_sealing_policy(
                                         arg_tpm2_hash_pcr_values,
                                         arg_tpm2_n_hash_pcr_values,
-                                        /* pubkey= */ NULL,      /* Turn this one off for the 2nd shard */
+                                        /* public= */ NULL,      /* Turn this one off for the 2nd shard */
                                         /* use_pin= */ false,
                                         &pcrlock_policy,         /* But turn this one on */
                                         policy_hash + 1);
