@@ -834,7 +834,8 @@ static int attach_mount_tree(int mount_tree_fd) {
 
         r = mount_setattr(mount_tree_fd, "", AT_EMPTY_PATH,
                                 &(struct mount_attr) {
-                                        .attr_set = MOUNT_ATTR_RDONLY|MOUNT_ATTR_NOSUID|MOUNT_ATTR_NODEV|MOUNT_ATTR_NOEXEC|MOUNT_ATTR_NOSYMFOLLOW,
+                                        /* MOUNT_ATTR_NOSYMFOLLOW is left out on purpose to allow libdwfl to resolve symlinks. */
+                                        .attr_set = MOUNT_ATTR_RDONLY|MOUNT_ATTR_NOSUID|MOUNT_ATTR_NODEV|MOUNT_ATTR_NOEXEC,
                                         .propagation = MS_SLAVE,
                                 }, sizeof(struct mount_attr));
         if (r < 0)
