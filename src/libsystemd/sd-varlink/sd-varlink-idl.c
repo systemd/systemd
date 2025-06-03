@@ -899,7 +899,7 @@ static int varlink_idl_subparse_field_type(
         } else {
                 _cleanup_free_ char *token = NULL;
 
-                r = varlink_idl_subparse_token(p, line, column, /* valid_tokens= */ NULL, VALID_CHARS_IDENTIFIER, &token);
+                r = varlink_idl_subparse_token(p, line, column, /* allowed_delimiters= */ NULL, VALID_CHARS_IDENTIFIER, &token);
                 if (r < 0)
                         return r;
                 if (!token)
