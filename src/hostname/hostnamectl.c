@@ -69,6 +69,7 @@ typedef struct StatusInfo {
         uint32_t vsock_cid;
         const char *hardware_sku;
         const char *hardware_version;
+        const char *ansi_color;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
@@ -128,14 +129,16 @@ static int print_status_info(StatusInfo *i) {
             !streq_ptr(i->hostname, i->static_hostname)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Transient hostname",
-                                   TABLE_STRING, i->hostname);
+                                   TABLE_STRING, i->hostname,
+                                   TABLE_SET_COLOR, i->ansi_color);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
         r = table_add_many(table,
                            TABLE_FIELD, "Static hostname",
-                           TABLE_STRING, i->static_hostname);
+                           TABLE_STRING, i->static_hostname,
+                           TABLE_SET_COLOR, i->ansi_color);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -434,6 +437,7 @@ static int show_all_names(sd_bus *bus) {
                 { "HardwareModel",               "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
                 { "HardwareSKU",                 "s",  NULL,          offsetof(StatusInfo, hardware_sku)     },
                 { "HardwareVersion",             "s",  NULL,          offsetof(StatusInfo, hardware_version) },
+                { "AnsiColor",                   "s",  NULL,          offsetof(StatusInfo, ansi_color)       },
                 { "FirmwareVersion",             "s",  NULL,          offsetof(StatusInfo, firmware_version) },
                 { "FirmwareDate",                "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
                 { "MachineID",                   "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
