@@ -760,7 +760,7 @@ int is_idmapping_supported(const char *path) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire new user namespace for checking if '%s' supports ID-mapping: %m", path);
 
-        dir_fd = r = RET_NERRNO(open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+        dir_fd = r = RET_NERRNO(open(path, O_RDONLY | O_CLOEXEC));
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return false;
         if (r < 0)
