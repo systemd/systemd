@@ -2236,21 +2236,25 @@ static int bpffs_prepare(
 
         r = socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pipe_fds);
         if (r < 0)
-                return r;
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
 
         r = pidref_safe_fork("(sd-bpffs)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, ret_pid);
         if (r < 0)
-                return r;
+                return log_debug_errno(errno, "Failed to fork: %m");
         if (r == 0) {
                 _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
 
                 fs_fd = receive_one_fd(pipe_fds[0], 0);
-                if (fs_fd < 0)
+                if (fs_fd < 0) {
+                        log_debug_errno(fs_fd, "Failed to receive_one_fd: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", BPF_DELEGATE_TO_STRING(delegate_cmds), 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to fsconfig FSCONFIG_SET_STRING: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
                 if (r < 0)
@@ -2265,16 +2269,22 @@ static int bpffs_prepare(
                         _exit(EXIT_FAILURE);
 
                 r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to FSCONFIG_CMD_CREATE: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 mnt_fd = fsmount(fs_fd, 0, 0);
-                if (mnt_fd < 0)
+                if (mnt_fd < 0) {
+                        log_debug_errno(mnt_fd, "Failed to receive_one_fd: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 r = send_one_fd(pipe_fds[0], mnt_fd, 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to send_one_fd: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 _exit(EXIT_SUCCESS);
         }
