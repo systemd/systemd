@@ -241,7 +241,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
 static int acquire_existing_password(
                 const char *user_name,
                 UserRecord *hr,
-                bool emphasize_current,
+                bool emphasize_current_password,
                 AskPasswordFlags flags) {
 
         _cleanup_strv_free_erase_ char **password = NULL;
@@ -271,7 +271,7 @@ static int acquire_existing_password(
         if (is_this_me(user_name) <= 0)
                 SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, false);
 
-        if (asprintf(&question, emphasize_current ?
+        if (asprintf(&question, emphasize_current_password ?
                      "Please enter current password for user %s:" :
                      "Please enter password for user %s:",
                      user_name) < 0)
@@ -1453,7 +1453,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                         r = acquire_existing_password(
                                         hr->user_name,
                                         hr,
-                                        /* emphasize_current= */ false,
+                                        /* emphasize_current_password= */ false,
                                         ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE);
                         if (r < 0)
                                 return r;
