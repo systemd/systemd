@@ -639,7 +639,7 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
         _cleanup_close_ int cgroup_fd = -EBADF, parent_fd = -EBADF;
         int r;
 
-        cgroup_fd = cg_cgroupid_open(/* cgroupfsfd= */ -EBADF, cgroup_id);
+        cgroup_fd = cg_cgroupid_open(/* cgroupfs_fd= */ -EBADF, cgroup_id);
         if (cgroup_fd == -ESTALE) {
                 log_debug_errno(cgroup_fd, "Control group %" PRIu64 " already gone, ignoring.", cgroup_id);
                 return 0;
