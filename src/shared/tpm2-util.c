@@ -2117,7 +2117,7 @@ int tpm2_create_primary(
                         /* creationHash= */ NULL,
                         /* creationTicket= */ NULL);
         if (rc == TPM2_RC_BAD_AUTH)
-                return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to enroll SRK into TPM.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to create primary key.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to generate primary key in TPM: %s",
@@ -3661,6 +3661,11 @@ int tpm2_policy_authorize_nv(
                         ESYS_TR_PASSWORD,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE);
+        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_VALUE) /* Return a recognizable error if the policy
+                                                                  * in the NV index does not match what we
+                                                                  * just put together */
+                return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                       "Submitted policy does not match policy stored in PolicyAuthorizeNV.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to add AuthorizeNV policy to TPM: %s",
@@ -3705,8 +3710,11 @@ int tpm2_policy_or(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         &hash_list);
+        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_VALUE) /* Return a recognizable error if none of the OR branches matched */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "None of the PolicyOR branches matched the current policy state.");
         if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to add OR policy to TPM: %s",
                                        sym_Tss2_RC_Decode(rc));
 
@@ -5500,6 +5508,20 @@ int tpm2_unseal(Tpm2Context *c,
                 const struct iovec *srk,
                 struct iovec *ret_secret) {
 
+        /* Returns the following errors:
+         *
+         *   -EREMOTE         → blob is from a different TPM
+         *   -EDEADLK         → couldn't create primary key because authorization failure
+         *   -ENOLCK          → TPM is in dictionary lockout mode
+         *   -EREMCHG         → submitted policy doesn't match NV index stored policy (in case of PolicyAuthorizeNV)
+         *   -ENOANO          → none of the PolicyOR branches of a policy matched current state
+         *   -EUCLEAN         → PCR state doesn't match expectations
+         *   -EPERM           → stored policy does not match TPM state
+         *   -ENOTRECOVERABLE → all other kinds of TPM errors
+         *
+         * Of these all four of EREMCHG, ENOANO, EUCLEAN, EPERM can all mean that PCR state is not matching
+         * expectations. */
+
         TSS2_RC rc;
         int r;
 
@@ -6649,14 +6671,11 @@ int tpm2_calculate_policy_super_pcr(
         /* First we look for all PCRs that have exactly one allowed hash value, and generate a single PolicyPCR policy from them */
         _cleanup_free_ Tpm2PCRValue *single_values = NULL;
         size_t n_single_values = 0;
-        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-                if (!BIT_SET(prediction->pcrs, pcr))
-                        continue;
-
+        BIT_FOREACH(pcr, prediction->pcrs) {
                 if (ordered_set_size(prediction->results[pcr]) != 1)
                         continue;
 
-                log_debug("Including PCR %" PRIu32 " in single value PolicyPCR expression", pcr);
+                log_debug("Including PCR %i in single value PolicyPCR expression", pcr);
 
                 Tpm2PCRPredictionResult *banks = ASSERT_PTR(ordered_set_first(prediction->results[pcr]));
 
@@ -6780,8 +6799,17 @@ int tpm2_policy_super_pcr(
                                 session,
                                 &pcr_selection,
                                 &current_policy_digest);
+                if (r == -EUCLEAN) {
+                        _cleanup_free_ char *j = NULL;
+
+                        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++)
+                                if (single_value_pcrs & (UINT32_C(1) << pcr))
+                                        (void) strextendf_with_separator(&j, ", ", "%" PRIu32, pcr);
+
+                        return log_error_errno(r, "Combined value for PCR(s) %s encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", strna(j));
+                }
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
                 previous_policy_digest = *current_policy_digest;
         }
@@ -6810,8 +6838,10 @@ int tpm2_policy_super_pcr(
                                 session,
                                 &pcr_selection,
                                 &current_policy_digest);
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "Value for PCR %" PRIu32 " encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", pcr);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
                 _cleanup_free_ TPM2B_DIGEST *branches = NULL;
                 branches = new0(TPM2B_DIGEST, n_branches);
@@ -6836,7 +6866,7 @@ int tpm2_policy_super_pcr(
                                         /* n_pcr_values= */ 1,
                                         &pcr_policy_digest);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to calculate PolicyPCR: %m");
 
                         branches[i++] = pcr_policy_digest;
                 }
@@ -6850,8 +6880,10 @@ int tpm2_policy_super_pcr(
                                 branches,
                                 n_branches,
                                 &current_policy_digest);
+                if (r == -ENOANO)
+                        return log_error_errno(r, "None of the alternative values for PCR %" PRIu32 " encoded in policy match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", pcr);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to submit OR policy to TPM: %m");
 
                 previous_policy_digest = *current_policy_digest;
         }
@@ -7809,6 +7841,8 @@ int verb_has_tpm2_generic(bool quiet) {
                 print_field("  ", "libtss2-rc.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_RC));
                 print_field("  ", "libtss2-mu.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_MU));
         }
+
+        assert_cc(TPM2_SUPPORT_API <= 255); /* make sure this is safe to use as process exit status */
 
         /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
          * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than

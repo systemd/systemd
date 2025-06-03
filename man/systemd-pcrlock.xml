@@ -184,6 +184,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>is-supported</command></term>
+
+        <listitem><para>Checks if the local TPM2 supports all functionality for
+        <command>systemd-pcrlock</command> to work correctly. This does similar tests as
+        <command>systemd-analyze has-tpm2</command>, but also checks for supported of the TPM2 operations
+        requires by <command>systemd-pcrlock</command>. Outputs one of <literal>no</literal>,
+        <literal>partial</literal> (in case some parts of TPM2 support are avaialable in hardware, firmware,
+        OS, but not complete), <literal>obsolete</literal> (if TPM2 support is available in hardware,
+        firmware and OS, but the operations required for <command>systemd-pcrlock</command> are missing),
+        <literal>yes</literal>. Returns an exit status of zero if full support is available, otherwise
+        non-zero.</para>
+
+        <para>If combined with <option>--quiet</option>, suppresses the output of the string.</para>
+
+        <para>Currently, this checks for support for the PolicAuthorizeNV TPM2 command, as well as for
+        support of the SHA-256 hash algorithm.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>lock-firmware-code</command></term>
         <term><command>unlock-firmware-code</command></term>
 
@@ -560,6 +582,15 @@
         <command>make-policy</command> command only.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>If specified suppresses output when invoked for
+        <command>is-supported</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="json" />

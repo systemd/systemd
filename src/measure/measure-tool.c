@@ -952,8 +952,10 @@ static int build_policy_digest(bool sign) {
                         size_t ss = 0;
                         if (privkey) {
                                 r = digest_and_sign(p->md, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
+                                if (r == -EADDRNOTAVAIL)
+                                        return log_error_errno(r, "Hash algorithm '%s' not available while signing. (Maybe OS security policy disables this algorithm?)", EVP_MD_name(p->md));
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to sign PCR policy: %m");
+                                        return log_error_errno(r, "Failed to sign PCR policy with hash algorithm '%s': %m", EVP_MD_name(p->md));
                         }
 
                         _cleanup_free_ void *pubkey_fp = NULL;
