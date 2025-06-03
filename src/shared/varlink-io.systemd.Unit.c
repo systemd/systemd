@@ -5,6 +5,236 @@
 #include "varlink-io.systemd.Unit.h"
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupTasksMax,
+                SD_VARLINK_FIELD_COMMENT("The maximum amount of tasks"),
+                SD_VARLINK_DEFINE_FIELD(value, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The scaling factor"),
+                SD_VARLINK_DEFINE_FIELD(scale, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupIODeviceWeight,
+                SD_VARLINK_FIELD_COMMENT("The device path"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The device IO weight"),
+                SD_VARLINK_DEFINE_FIELD(weight, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupIODeviceLimit,
+                SD_VARLINK_FIELD_COMMENT("The device path"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The device IO limit"),
+                SD_VARLINK_DEFINE_FIELD(limit, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupIODeviceLatency,
+                SD_VARLINK_FIELD_COMMENT("The device path"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The device target latency"),
+                SD_VARLINK_DEFINE_FIELD(targetUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupAddressPrefix,
+                SD_VARLINK_FIELD_COMMENT("The address family"),
+                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The address"),
+                SD_VARLINK_DEFINE_FIELD(address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("The address prefix length"),
+                SD_VARLINK_DEFINE_FIELD(prefixLen, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupSocketBind,
+                SD_VARLINK_FIELD_COMMENT("The address family"),
+                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The address protocol"),
+                SD_VARLINK_DEFINE_FIELD(protocol, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The number of ports"),
+                SD_VARLINK_DEFINE_FIELD(numberOfPorts, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The minimum port"),
+                SD_VARLINK_DEFINE_FIELD(minimumPort, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupRestrictNetworkInterfaces,
+                SD_VARLINK_FIELD_COMMENT("Whether this is an allow list"),
+                SD_VARLINK_DEFINE_FIELD(isAllowList, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The list of interfaces"),
+                SD_VARLINK_DEFINE_FIELD(interfaces, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupNFTSet,
+                SD_VARLINK_FIELD_COMMENT("The source of this NFT set"),
+                SD_VARLINK_DEFINE_FIELD(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The NFT protocol for this NFT set"),
+                SD_VARLINK_DEFINE_FIELD(protocol, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The NFT table associated with this NFT set"),
+                SD_VARLINK_DEFINE_FIELD(table, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The name of the NFT set"),
+                SD_VARLINK_DEFINE_FIELD(set, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupBPFProgram,
+                SD_VARLINK_FIELD_COMMENT("The BPF program attach type"),
+                SD_VARLINK_DEFINE_FIELD(attachType, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The path to the BPF program"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupDeviceAllow,
+                SD_VARLINK_FIELD_COMMENT("The device path"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The device permissions"),
+                SD_VARLINK_DEFINE_FIELD(permissions, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupContext,
+
+                /* CPU Accounting and Control
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#CPU%20Accounting%20and%20Control */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#CPUWeight=weight"),
+                SD_VARLINK_DEFINE_FIELD(CPUWeight, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#CPUWeight=weight"),
+                SD_VARLINK_DEFINE_FIELD(StartupCPUWeight, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#CPUQuota="),
+                SD_VARLINK_DEFINE_FIELD(CPUQuotaPerSecUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#CPUQuotaPeriodSec="),
+                SD_VARLINK_DEFINE_FIELD(CPUQuotaPeriodUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#AllowedCPUs="),
+                SD_VARLINK_DEFINE_FIELD(AllowedCPUs, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#AllowedCPUs="),
+                SD_VARLINK_DEFINE_FIELD(StartupAllowedCPUs, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* Memory Accounting and Control
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Memory%20Accounting%20and%20Control */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryAccounting="),
+                SD_VARLINK_DEFINE_FIELD(MemoryAccounting, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
+                SD_VARLINK_DEFINE_FIELD(MemoryMin, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
+                SD_VARLINK_DEFINE_FIELD(DefaultMemoryMin, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
+                SD_VARLINK_DEFINE_FIELD(MemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
+                SD_VARLINK_DEFINE_FIELD(DefaultMemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemorySwapMax=bytes"),
+                SD_VARLINK_DEFINE_FIELD(StartupMemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
+                SD_VARLINK_DEFINE_FIELD(DefaultStartupMemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryHigh=bytes"),
+                SD_VARLINK_DEFINE_FIELD(MemoryHigh, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryHigh=bytes"),
+                SD_VARLINK_DEFINE_FIELD(StartupMemoryHigh, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryMax=bytes"),
+                SD_VARLINK_DEFINE_FIELD(MemoryMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryMax=bytes"),
+                SD_VARLINK_DEFINE_FIELD(StartupMemoryMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemorySwapMax=bytes"),
+                SD_VARLINK_DEFINE_FIELD(MemorySwapMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemorySwapMax=bytes"),
+                SD_VARLINK_DEFINE_FIELD(StartupMemorySwapMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryZSwapMax=bytes"),
+                SD_VARLINK_DEFINE_FIELD(MemoryZSwapMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryZSwapMax=bytes"),
+                SD_VARLINK_DEFINE_FIELD(StartupMemoryZSwapMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryZSwapWriteback="),
+                SD_VARLINK_DEFINE_FIELD(MemoryZSwapWriteback, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#AllowedMemoryNodes="),
+                SD_VARLINK_DEFINE_FIELD(AllowedMemoryNodes, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#AllowedMemoryNodes="),
+                SD_VARLINK_DEFINE_FIELD(StartupAllowedMemoryNodes, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* Process Accounting and Control
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Process%20Accounting%20and%20Control */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#TasksAccounting="),
+                SD_VARLINK_DEFINE_FIELD(TasksAccounting, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#TasksMax=N"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(TasksMax, CGroupTasksMax, SD_VARLINK_NULLABLE),
+
+                /* IO Accounting and Control
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IO%20Accounting%20and%20Control */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IOAccounting="),
+                SD_VARLINK_DEFINE_FIELD(IOAccounting, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IOWeight=weight"),
+                SD_VARLINK_DEFINE_FIELD(IOWeight, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IOWeight=weight"),
+                SD_VARLINK_DEFINE_FIELD(StartupIOWeight, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IODeviceWeight=device%20weight"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IODeviceWeight, CGroupIODeviceWeight, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IOReadBandwidthMax=device%20bytes"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IOReadBandwidthMax, CGroupIODeviceLimit, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IOReadBandwidthMax=device%20bytes"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IOWriteBandwidthMax, CGroupIODeviceLimit, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IOReadIOPSMax=device%20IOPS"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IOReadIOPSMax, CGroupIODeviceLimit, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IOReadIOPSMax=device%20IOPS"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IOWriteIOPSMax, CGroupIODeviceLimit, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IODeviceLatencyTargetSec=device%20target"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IODeviceLatencyTargetUSec, CGroupIODeviceLatency, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* Network Accounting and Control
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Network%20Accounting%20and%20Control */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IPAccounting="),
+                SD_VARLINK_DEFINE_FIELD(IPAccounting, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IPAddressAllow=ADDRESS%5B/PREFIXLENGTH%5D%E2%80%A6"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IPAddressAllow, CGroupAddressPrefix, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IPAddressAllow=ADDRESS%5B/PREFIXLENGTH%5D%E2%80%A6"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IPAddressDeny, CGroupAddressPrefix, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#SocketBindAllow=bind-rule"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SocketBindAllow, CGroupSocketBind, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#SocketBindAllow=bind-rule"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SocketBindDeny, CGroupSocketBind, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#RestrictNetworkInterfaces="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestrictNetworkInterfaces, CGroupRestrictNetworkInterfaces, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#NFTSet=family:table:set"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(NFTSet, CGroupNFTSet, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* BPF programs
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#BPF%20Programs */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IPIngressFilterPath=BPF_FS_PROGRAM_PATH"),
+                SD_VARLINK_DEFINE_FIELD(IPIngressFilterPath, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IPIngressFilterPath=BPF_FS_PROGRAM_PATH"),
+                SD_VARLINK_DEFINE_FIELD(IPEgressFilterPath, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#BPFProgram=type:program-path"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(BPFProgram, CGroupBPFProgram, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* Device Access
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Device%20Access */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#DeviceAllow="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DeviceAllow, CGroupDeviceAllow, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#DevicePolicy=auto%7Cclosed%7Cstrict"),
+                SD_VARLINK_DEFINE_FIELD(DevicePolicy, SD_VARLINK_STRING, 0),
+
+                /* Control Group Management
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Control%20Group%20Management */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Delegate="),
+                SD_VARLINK_DEFINE_FIELD(Delegate, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#DelegateSubgroup="),
+                SD_VARLINK_DEFINE_FIELD(DelegateSubgroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#DisableControllers="),
+                SD_VARLINK_DEFINE_FIELD(DelegateControllers, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#DisableControllers="),
+                SD_VARLINK_DEFINE_FIELD(DisableControllers, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* Memory Pressure Control
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Memory%20Pressure%20Control */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#ManagedOOMSwap=auto%7Ckill"),
+                SD_VARLINK_DEFINE_FIELD(ManagedOOMSwap, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#ManagedOOMSwap=auto%7Ckill"),
+                SD_VARLINK_DEFINE_FIELD(ManagedOOMMemoryPressure, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#ManagedOOMMemoryPressureLimit="),
+                SD_VARLINK_DEFINE_FIELD(ManagedOOMMemoryPressureLimit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#ManagedOOMMemoryPressureDurationSec="),
+                SD_VARLINK_DEFINE_FIELD(ManagedOOMMemoryPressureDurationUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#ManagedOOMPreference=none%7Cavoid%7Comit"),
+                SD_VARLINK_DEFINE_FIELD(ManagedOOMPreference, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryPressureWatch="),
+                SD_VARLINK_DEFINE_FIELD(MemoryPressureWatch, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryPressureThresholdSec="),
+                SD_VARLINK_DEFINE_FIELD(MemoryPressureThresholdUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+
+                /* Others */
+                SD_VARLINK_FIELD_COMMENT("Reflects whether to forward coredumps for processes that crash within this cgroup"),
+                SD_VARLINK_DEFINE_FIELD(CoredumpReceive, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Condition,
                 SD_VARLINK_FIELD_COMMENT("The condition type"),
                 SD_VARLINK_DEFINE_FIELD(type, SD_VARLINK_STRING, 0),
@@ -152,7 +382,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Whether this unit is transient"),
                 SD_VARLINK_DEFINE_FIELD(Transient, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Whether this unit is perpetual"),
-                SD_VARLINK_DEFINE_FIELD(Perpetual, SD_VARLINK_BOOL, 0));
+                SD_VARLINK_DEFINE_FIELD(Perpetual, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -160,6 +392,38 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(type, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Trigger unit name"),
                 SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                CGroupRuntime,
+
+                /* ID */
+                SD_VARLINK_FIELD_COMMENT("ID of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Path of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(Path, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Slice of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(Slice, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+
+                /* Memory */
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemoryCurrent, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemoryPeak, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemorySwapCurrent, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemorySwapPeak, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemoryZSwapCurrent, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(MemoryAvailable, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(EffectiveMemoryMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(EffectiveMemoryHigh, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT(""),
+                SD_VARLINK_DEFINE_FIELD(EffectiveMemoryNodes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                );
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitRuntime,
@@ -218,7 +482,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Provides details about why a unit was activated"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ActivationDetails, ActivationDetails, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("When true, logs about this unit will be at debug level regardless of other log level settings"),
-                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0));
+                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The cgroup runtime of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
 
@@ -252,5 +518,19 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ActivationDetails,
                 SD_VARLINK_SYMBOL_COMMENT("An object for referencing UNIX processes"),
                 &vl_type_ProcessId,
+                &vl_type_CGroupTasksMax,
+                &vl_type_CGroupIODeviceWeight,
+                &vl_type_CGroupIODeviceLimit,
+                &vl_type_CGroupIODeviceLatency,
+                &vl_type_CGroupAddressPrefix,
+                &vl_type_CGroupSocketBind,
+                &vl_type_CGroupRestrictNetworkInterfaces,
+                &vl_type_CGroupNFTSet,
+                &vl_type_CGroupBPFProgram,
+                &vl_type_CGroupDeviceAllow,
+                SD_VARLINK_SYMBOL_COMMENT("CGroup context of a unit"),
+                &vl_type_CGroupContext,
+                SD_VARLINK_SYMBOL_COMMENT("CGroup runtime of a unit"),
+                &vl_type_CGroupRuntime,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit);
