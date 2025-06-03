@@ -7842,6 +7842,8 @@ int verb_has_tpm2_generic(bool quiet) {
                 print_field("  ", "libtss2-mu.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_MU));
         }
 
+        assert_cc(TPM2_SUPPORT_API <= 255); /* make sure this is safe to use as process exit status */
+
         /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
          * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than
          * what is there, acknowledging the fact that for process exit statuses it is customary to return
