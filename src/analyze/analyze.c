@@ -166,6 +166,7 @@ static int verb_transient_settings(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
+        bool first = true;
         STRV_FOREACH(arg, strv_skip(argv, 1)) {
                 UnitType t;
 
@@ -177,7 +178,11 @@ static int verb_transient_settings(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(t, "Invalid unit type '%s'.", *arg);
                 }
 
+                if (!first)
+                        puts("");
+
                 bus_dump_transient_settings(stdout, t);
+                first = false;
         }
 
         return 0;
