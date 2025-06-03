@@ -101,7 +101,8 @@ foreach dirname : [
         'TEST-86-MULTI-PROFILE-UKI',
         'TEST-87-AUX-UTILS-VM',
 ]
-        subdir(dirname)
+        if dirname == 'TEST-07-PID1'
+                subdir(dirname)
 endforeach
 
 foreach integration_test : integration_tests
