@@ -293,8 +293,13 @@ test_syntax_error 'OWNER!="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER+="0"' "OWNER key takes '=' or ':=' operator, assuming '='."
 # numeric system UID is valid even if it does not exist
 SYS_UID_MAX=999
-if [[ -e /etc/login.defs ]]; then
+if command userdbctl >/dev/null; then
+    # For the case if non-default setting is used. E.g. OpenSUSE uses 499.
+    SYS_UID_MAX="$(userdbctl user -S --no-legend --no-pager | grep 'end system' | awk '{print $8}')"
+    echo "SYS_UID_MAX=$SYS_UID_MAX acquired from userdbctl"
+elif [[ -e /etc/login.defs ]]; then
     SYS_UID_MAX=$(awk '$1 == "SYS_UID_MAX" { print $2 }' /etc/login.defs)
+    echo "SYS_UID_MAX=$SYS_UID_MAX acquired from /etc/login.defs"
 fi
 for ((i=0;i<=SYS_UID_MAX;i++)); do
     echo "OWNER=\"$i\""
@@ -318,8 +323,13 @@ test_syntax_error 'GROUP!="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP+="0"' "GROUP key takes '=' or ':=' operator, assuming '='."
 # numeric system GID is valid even if it does not exist
 SYS_GID_MAX=999
-if [[ -e /etc/login.defs ]]; then
+if command userdbctl >/dev/null; then
+    # For the case if non-default setting is used. E.g. OpenSUSE uses 499.
+    SYS_GID_MAX="$(userdbctl group -S --no-legend --no-pager | grep 'end system' | awk '{print $8}')"
+    echo "SYS_GID_MAX=$SYS_GID_MAX acquired from userdbctl"
+elif [[ -e /etc/login.defs ]]; then
     SYS_GID_MAX=$(awk '$1 == "SYS_GID_MAX" { print $2 }' /etc/login.defs)
+    echo "SYS_GID_MAX=$SYS_GID_MAX acquired from /etc/login.defs"
 fi
 for ((i=0;i<=SYS_GID_MAX;i++)); do
     echo "GROUP=\"$i\""
