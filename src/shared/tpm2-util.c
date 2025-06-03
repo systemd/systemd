@@ -6671,14 +6671,11 @@ int tpm2_calculate_policy_super_pcr(
         /* First we look for all PCRs that have exactly one allowed hash value, and generate a single PolicyPCR policy from them */
         _cleanup_free_ Tpm2PCRValue *single_values = NULL;
         size_t n_single_values = 0;
-        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-                if (!BIT_SET(prediction->pcrs, pcr))
-                        continue;
-
+        BIT_FOREACH(pcr, prediction->pcrs) {
                 if (ordered_set_size(prediction->results[pcr]) != 1)
                         continue;
 
-                log_debug("Including PCR %" PRIu32 " in single value PolicyPCR expression", pcr);
+                log_debug("Including PCR %i in single value PolicyPCR expression", pcr);
 
                 Tpm2PCRPredictionResult *banks = ASSERT_PTR(ordered_set_first(prediction->results[pcr]));
 
