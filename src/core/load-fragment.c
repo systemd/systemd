@@ -132,6 +132,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGrou
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_private_bpf, private_bpf, PrivateBPF);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_tmp, private_tmp, PrivateTmp);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_users, private_users, PrivateUsers);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_pids, private_pids, PrivatePIDs);
@@ -158,6 +159,7 @@ DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagat
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat);
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping);
+DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate, bpf_delegate_from_string, uint64_t);
 
 bool contains_instance_specifier_superset(const char *s) {
         const char *p, *q;
@@ -6226,6 +6228,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_personality,           "PERSONALITY" },
                 { config_parse_log_filter_patterns,   "REGEX" },
                 { config_parse_mount_node,            "NODE" },
+                { config_parse_bpf_delegate,          "BPF_DELEGATE" },
         };
 
         const char *prev = NULL;
