@@ -935,7 +935,7 @@ int manager_create_session(
         }
 
         /* Check if we are already in a logind session, and if so refuse. */
-        r = manager_get_session_by_pidref(m, leader, /* ret_session= */ NULL);
+        r = manager_get_session_by_pidref(m, leader, /* ret= */ NULL);
         if (r < 0)
                 return log_debug_errno(
                                 r,

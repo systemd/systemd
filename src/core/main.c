@@ -2461,7 +2461,7 @@ static int initialize_runtime(
                         (void) machine_id_setup(/* root = */ NULL, arg_machine_id,
                                                 (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
                                                 (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0),
-                                                /* ret_machine_id = */ NULL);
+                                                /* ret = */ NULL);
                         (void) hostname_setup(/* really = */ true);
                         (void) loopback_setup();
 
