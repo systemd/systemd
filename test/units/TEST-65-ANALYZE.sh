@@ -1105,6 +1105,12 @@ else
     echo "have no tpm2"
 fi
 
+# Test "transient-settings" verb
+
+systemd-analyze --no-pager transient-settings $(systemctl --no-legend --no-pager -t help) unit
+systemd-analyze transient-settings service | grep NoNewPrivileges
+systemd-analyze transient-settings mount | grep CPUQuotaPeriodSec
+
 systemd-analyze log-level info
 
 touch /testok
