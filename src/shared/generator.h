@@ -85,7 +85,7 @@ int generator_write_cryptsetup_service_section(
                 FILE *f,
                 const char *name,
                 const char *what,
-                const char *password,
+                const char *key_file,
                 const char *options);
 
 int generator_write_veritysetup_unit_section(FILE *f, const char *source);
