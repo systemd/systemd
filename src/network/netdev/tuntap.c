@@ -236,7 +236,9 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         if (t->user_name) {
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                r = userdb_by_name(t->user_name, &USERDB_MATCH_ROOT_AND_SYSTEM, USERDB_PARSE_NUMERIC, &ur);
+                r = userdb_by_name(t->user_name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                                   USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC,
+                                   &ur);
                 if (r == -ENOEXEC)
                         log_netdev_warning_errno(netdev, r, "User %s is not a system user, ignoring.", t->user_name);
                 else if (r < 0)
@@ -248,7 +250,9 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         if (t->group_name) {
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                r = groupdb_by_name(t->group_name, &USERDB_MATCH_ROOT_AND_SYSTEM, USERDB_PARSE_NUMERIC, &gr);
+                r = groupdb_by_name(t->group_name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC,
+                                    &gr);
                 if (r == -ENOEXEC)
                         log_netdev_warning_errno(netdev, r, "Group %s is not a system group, ignoring.", t->group_name);
                 else if (r < 0)
