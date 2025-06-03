@@ -3757,7 +3757,7 @@ static int setup_unix_export_dir_outside(char **ret) {
          * itself is writable, but not through the mount accessible from the host. */
         r = mount_nofollow_verbose(
                         LOG_ERR,
-                        /* source= */ NULL,
+                        /* what= */ NULL,
                         w,
                         /* fstype= */ NULL,
                         MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported(),
@@ -3802,7 +3802,7 @@ static int setup_unix_export_host_inside(const char *directory, const char *unix
 
         r = mount_nofollow_verbose(
                         LOG_ERR,
-                        /* source= */ NULL,
+                        /* what= */ NULL,
                         p,
                         /* fstype= */ NULL,
                         MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported(),
