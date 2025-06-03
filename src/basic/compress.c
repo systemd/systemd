@@ -799,9 +799,12 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncom
                                 if (ret_uncompressed_size)
                                         *ret_uncompressed_size = s.total_in;
 
-                                log_debug("XZ compression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
-                                          s.total_in, s.total_out,
-                                          (double) s.total_out / s.total_in * 100);
+                                if (s.total_in == 0)
+                                        log_debug("XZ compression finished (no input data)");
+                                else
+                                        log_debug("XZ compression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
+                                                  s.total_in, s.total_out,
+                                                  (double) s.total_out / s.total_in * 100);
 
                                 return 0;
                         }
@@ -898,8 +901,8 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
                 log_debug("LZ4 compression finished (no input data)");
         else
                 log_debug("LZ4 compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
-                        total_in, total_out,
-                        (double) total_out / total_in * 100);
+                          total_in, total_out,
+                          (double) total_out / total_in * 100);
 
         return 0;
 #else
@@ -972,9 +975,12 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                 return k;
 
                         if (ret == LZMA_STREAM_END) {
-                                log_debug("XZ decompression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
-                                          s.total_in, s.total_out,
-                                          (double) s.total_out / s.total_in * 100);
+                                if (s.total_in == 0)
+                                        log_debug("XZ decompression finished (no input data)");
+                                else
+                                        log_debug("XZ decompression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
+                                                  s.total_in, s.total_out,
+                                                  (double) s.total_out / s.total_in * 100);
 
                                 return 0;
                         }
@@ -1042,9 +1048,12 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
                         goto cleanup;
         }
 
-        log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",
-                  total_in, total_out,
-                  total_in > 0 ? (double) total_out / total_in * 100 : 0.0);
+        if (total_in == 0)
+                log_debug("LZ4 decompression finished (no input data)");
+        else
+                log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",
+                          total_in, total_out,
+                          (double) total_out / total_in * 100);
         r = 0;
  cleanup:
         munmap(src, st.st_size);
@@ -1152,12 +1161,11 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unc
         if (ret_uncompressed_size)
                 *ret_uncompressed_size = in_bytes;
 
-        if (in_bytes > 0)
+        if (in_bytes == 0)
+                log_debug("ZSTD compression finished (no input data)");
+        else
                 log_debug("ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
                           in_bytes, max_bytes - left, (double) (max_bytes - left) / in_bytes * 100);
-        else
-                log_debug("ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes)",
-                          in_bytes, max_bytes - left);
 
         return 0;
 #else
@@ -1265,11 +1273,13 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
                 return zstd_ret_to_errno(last_result);
         }
 
-        log_debug(
-                "ZSTD decompression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
-                in_bytes,
-                max_bytes - left,
-                (double) (max_bytes - left) / in_bytes * 100);
+        if (in_bytes == 0)
+                log_debug("ZSTD decompression finished (no input data)");
+        else
+                log_debug("ZSTD decompression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                          in_bytes,
+                          max_bytes - left,
+                          (double) (max_bytes - left) / in_bytes * 100);
         return 0;
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
