@@ -1248,7 +1248,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                         link,
                         /* bus= */ NULL,
                         "io.systemd.namespace-resource.delegate-mount",
-                        /* polkit_details= */ NULL,
+                        /* details= */ NULL,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of mounts to registered userns */
                         &c->polkit_registry);
@@ -1401,7 +1401,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
                         link,
                         /* bus= */ NULL,
                         "io.systemd.namespace-resource.delegate-cgroup",
-                        /* polkit_details= */ NULL,
+                        /* details= */ NULL,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of cgroups to registered userns */
                         &c->polkit_registry);
