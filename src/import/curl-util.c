@@ -17,7 +17,7 @@ static void curl_glue_check_finished(CurlGlue *g) {
         assert(g);
 
         /* sd_event_get_exit_code() returns -ENODATA if no exit was scheduled yet */
-        r = sd_event_get_exit_code(g->event, /* ret_code= */ NULL);
+        r = sd_event_get_exit_code(g->event, /* ret= */ NULL);
         if (r >= 0)
                 return; /* exit scheduled? Then don't process this anymore */
         if (r != -ENODATA)

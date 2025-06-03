@@ -738,7 +738,7 @@ static int userns_destroy_netif(sd_netlink **rtnl, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(*rtnl, m, /* timeout_usec= */ 0, /* ret_reply= */ NULL);
+        r = sd_netlink_call(*rtnl, m, /* timeout_usec= */ 0, /* ret= */ NULL);
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) /* Already gone? */
                 return 0;
         if (r < 0)
