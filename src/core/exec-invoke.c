@@ -2236,45 +2236,61 @@ static int bpffs_prepare(
 
         r = socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pipe_fds);
         if (r < 0)
-                return r;
+                return log_error_errno(errno, "Failed to create socket pair: %m");
 
         r = pidref_safe_fork("(sd-bpffs)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, ret_pid);
         if (r < 0)
-                return r;
+                return log_error_errno(errno, "Failed to fork: %m");
         if (r == 0) {
                 _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
 
                 fs_fd = receive_one_fd(pipe_fds[0], 0);
-                if (fs_fd < 0)
+                if (fs_fd < 0) {
+                        log_error_errno(fs_fd, "Failed to receive_one_fd: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", BPF_DELEGATE_TO_STRING(delegate_cmds), 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to fsconfig FSCONFIG_SET_STRING: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to fsconfig FSCONFIG_SET_STRING: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to fsconfig FSCONFIG_SET_STRING: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to fsconfig FSCONFIG_SET_STRING: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to FSCONFIG_CMD_CREATE: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 mnt_fd = fsmount(fs_fd, 0, 0);
-                if (mnt_fd < 0)
+                if (mnt_fd < 0) {
+                        log_error_errno(mnt_fd, "Failed to receive_one_fd: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 r = send_one_fd(pipe_fds[0], mnt_fd, 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(errno, "Failed to send_one_fd: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 _exit(EXIT_SUCCESS);
         }
@@ -2292,25 +2308,39 @@ static int bpffs_finalize(int pipe_fd, PidRef *pid) {
         assert(pid);
 
         fs_fd = fsopen("bpf", 0);
-        if (fs_fd < 0)
+        if (fs_fd < 0) {
+                log_error_errno(errno, "Failed to fsopen: %m");
                 return -errno;
+        }
 
         r = send_one_fd(pipe_fd, fs_fd, /* flags = */ 0);
-        if (r < 0)
+        if (r < 0) {
+                log_error_errno(r, "Failed to send_one_fd: %m");
                 return r;
+        }
 
         r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pid, /* flags = */ 0);
-        if (r < 0)
+        if (r < 0) {
+                log_error_errno(r, "Failed to pidref_wait_for_terminate_and_check: %m");
                 return r;
+        }
         if (r != EXIT_SUCCESS)
                 /* If something strange happened with the child, let's consider this fatal, too */
                 return -EIO;
 
         mnt_fd = receive_one_fd(pipe_fd, /* flags = */ 0);
-        if (mnt_fd < 0)
-                return fs_fd;
+        if (mnt_fd < 0) {
+                log_error_errno(mnt_fd, "Failed to receive_one_fd: %m");
+                return mnt_fd;
+        }
 
-        return RET_NERRNO(move_mount(mnt_fd, "", AT_FDCWD, "/sys/fs/bpf", MOVE_MOUNT_F_EMPTY_PATH));
+        r = move_mount(mnt_fd, "", AT_FDCWD, "/sys/fs/bpf", MOVE_MOUNT_F_EMPTY_PATH);
+        if (r < 0) {
+                log_error_errno(errno, "Failed to receive_one_fd: %m");
+                return r;
+        }
+
+        return 0;
 }
 
 static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
@@ -5450,7 +5480,7 @@ int exec_invoke(
                                   context->bpf_delegate_programs, context->bpf_delegate_attachments);
                 if (r < 0) {
                         *exit_status = EXIT_BPF;
-                        return log_error_errno(r, "Failed to mount bpffs: %m");
+                        return log_error_errno(r, "Failed to mount bpffs in bpffs_prepare(): %m");
                 }
         }
 
@@ -5559,7 +5589,7 @@ int exec_invoke(
                 r = bpffs_finalize(bpffs_socket_fd, &bpffs_pid);
                 if (r < 0) {
                         *exit_status = EXIT_BPF;
-                        return log_error_errno(r, "Failed to mount bpffs: %m");
+                        return log_error_errno(r, "Failed to mount bpffs in bpffs_finalize(): %m");
                 }
                 TAKE_PIDREF(bpffs_pid);
         }
