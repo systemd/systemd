@@ -408,16 +408,33 @@ _public_ int sd_peer_get_user_slice(int fd, char **ret_slice) {
 }
 
 _public_ int sd_peer_get_cgroup(int fd, char **ret_cgroup) {
-        struct ucred ucred;
         int r;
 
         assert_return(fd >= 0, -EBADF);
 
-        r = getpeercred(fd, &ucred);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
         if (r < 0)
                 return r;
 
-        return sd_pid_get_cgroup(ucred.pid, ret_cgroup);
+        _cleanup_free_ char *c = NULL;
+        r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pidref, &c);
+        if (r < 0)
+                return r;
+
+        if (ret_cgroup) {
+                /* The internal APIs return the empty string for the root cgroup, let's return the "/" in the
+                 * public APIs instead, as that's easier and less ambiguous for people to grok. */
+                if (isempty(c)) {
+                        r = free_and_strdup(&c, "/");
+                        if (r < 0)
+                                return r;
+                }
+
+                *ret_cgroup = TAKE_PTR(c);
+        }
+
+        return 0;
 }
 
 static int file_of_uid(uid_t uid, char **ret) {
