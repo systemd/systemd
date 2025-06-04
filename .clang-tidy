@@ -3,7 +3,8 @@
 Checks: '
     -*,
     misc-header-include-cycle,
-    readability-duplicate-include
+    readability-duplicate-include,
+    bugprone-argument-comment
 '
 WarningsAsErrors: '*'
 HeaderFileExtensions:
