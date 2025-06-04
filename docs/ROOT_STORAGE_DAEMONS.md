@@ -191,4 +191,8 @@ few additional notes for supporting these setups:
   program consult this blog story: [Socket
   Activation](https://0pointer.de/blog/projects/socket-activation.html)
 
+* If systemd is used in the initrd, the storage daemon's systemd unit must
+  exist in both the initrd and the rootfs, so that cgroup-based tracking can
+  work across the "`switch_root`" operation.
+
 * Consider having a look at the [initrd Interface of systemd](/INITRD_INTERFACE).
