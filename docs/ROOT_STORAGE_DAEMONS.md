@@ -26,12 +26,13 @@ this needs to be set up by the initrd, i.e. on Fedora by Dracut. In newer
 systemd versions tear-down of the root file system backing is also done by the
 initrd: after terminating all remaining running processes and unmounting all
 file systems it can (which means excluding the root file system) systemd will
-jump back into the initrd code allowing it to unmount the final file systems
-(and its storage backing) that could not be unmounted as long as the OS was
-still running from the main root file system. The job of the initrd is to
-detach/unmount the root file system, i.e. inverting the exact commands it used
-to set them up in the first place. This is not only cleaner, but also allows
-for the first time arbitrary complex stacks of storage technology.
+jump back into the initrd code (this code shall hereby be called the *exitrd*)
+allowing it to unmount the final file systems (and its storage backing) that
+could not be unmounted as long as the OS was still running from the main root
+file system. The job of the exitrd is to detach/unmount the root file system,
+i.e. inverting the exact commands it used to set them up in the first
+place. This is not only cleaner, but also allows for the first time arbitrary
+complex stacks of storage technology.
 
 Previous attempts to handle root file system setups with complex storage as
 backing usually tried to maintain the root storage with program code stored on
