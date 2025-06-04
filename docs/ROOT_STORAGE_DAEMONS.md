@@ -26,12 +26,13 @@ this needs to be set up by the initrd, i.e. on Fedora by Dracut. In newer
 systemd versions tear-down of the root file system backing is also done by the
 initrd: after terminating all remaining running processes and unmounting all
 file systems it can (which means excluding the root file system) systemd will
-jump back into the initrd code allowing it to unmount the final file systems
-(and its storage backing) that could not be unmounted as long as the OS was
-still running from the main root file system. The job of the initrd is to
-detach/unmount the root file system, i.e. inverting the exact commands it used
-to set them up in the first place. This is not only cleaner, but also allows
-for the first time arbitrary complex stacks of storage technology.
+jump back into the initrd code (this code shall hereby be called the *exitrd*)
+allowing it to unmount the final file systems (and its storage backing) that
+could not be unmounted as long as the OS was still running from the main root
+file system. The job of the initrd is to detach/unmount the root file system,
+i.e. inverting the exact commands it used to set them up in the first
+place. This is not only cleaner, but also allows for the first time arbitrary
+complex stacks of storage technology.
 
 Previous attempts to handle root file system setups with complex storage as
 backing usually tried to maintain the root storage with program code stored on
@@ -139,6 +140,34 @@ Note that your code should only modify `argv[0][0]` and leave the comm name
 
 Since systemd v255, alternatively the `SurviveFinalKillSignal=yes` unit option
 can be set, and provides the equivalent functionality to modifying `argv[0][0]`.
+
+## Units
+
+Any process on modern Linux systems is part of a control group ("cgroup"), and
+so will be your storage daemon's processes. On systemd systems it's systemd
+that manages the top-level cgroup tree, and the basic hierarchy of it is a
+reflection of the running units, in particular slice and service units. This
+hence means that your root storage daemon should be placed in a cgroup and
+hence in a unit, and this unit should be defined both in the initrd and during
+the rest of the runtime, so that your processes always have a valid cgroup
+mapping to a valid unit.
+
+Hence, please make sure to wrap your storage daemon in a proper service unit,
+and ensure to set:
+
+```
+[Unit]
+…
+DefaultDependencies=no
+IgnoreOnIsolate=yes
+RefuseManualStop=yes
+SurviceFinalKillSignal=yes
+…
+```
+
+These settings will ensure the unit will stay around "forever", and neither be
+stopped automatically, nor manually. And again, make sure this unit is
+available both in the initrd and on the host.
 
 ## To which technologies does this apply?
 
