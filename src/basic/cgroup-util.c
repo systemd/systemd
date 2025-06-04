@@ -915,7 +915,6 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **ret_cgroup) {
 
 int cg_path_decode_unit(const char *cgroup, char **ret_unit) {
         assert(cgroup);
-        assert(ret_unit);
 
         size_t n = strcspn(cgroup, "/");
         if (n < 3)
@@ -927,7 +926,10 @@ int cg_path_decode_unit(const char *cgroup, char **ret_unit) {
         if (!unit_name_is_valid(c, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                 return -ENXIO;
 
-        return strdup_to(ret_unit, c);
+        if (ret_unit)
+                return strdup_to(ret_unit, c);
+
+        return 0;
 }
 
 static bool valid_slice_name(const char *p, size_t n) {
@@ -976,7 +978,6 @@ int cg_path_get_unit(const char *path, char **ret) {
         int r;
 
         assert(path);
-        assert(ret);
 
         e = skip_slices(path);
 
@@ -988,7 +989,8 @@ int cg_path_get_unit(const char *path, char **ret) {
         if (endswith(unit, ".slice"))
                 return -ENXIO;
 
-        *ret = TAKE_PTR(unit);
+        if (ret)
+                *ret = TAKE_PTR(unit);
         return 0;
 }
 
@@ -1157,7 +1159,6 @@ int cg_path_get_user_unit(const char *path, char **ret) {
         const char *t;
 
         assert(path);
-        assert(ret);
 
         t = skip_user_prefix(path);
         if (!t)
@@ -1171,8 +1172,6 @@ int cg_path_get_user_unit(const char *path, char **ret) {
 int cg_pid_get_user_unit(pid_t pid, char **ret_unit) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
-
-        assert(ret_unit);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
@@ -1197,8 +1196,6 @@ int cg_path_get_machine_name(const char *path, char **ret_machine) {
 int cg_pid_get_machine_name(pid_t pid, char **ret_machine) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
-
-        assert(ret_machine);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
@@ -1332,7 +1329,6 @@ int cg_path_get_slice(const char *p, char **ret_slice) {
         const char *e = NULL;
 
         assert(p);
-        assert(ret_slice);
 
         /* Finds the right-most slice unit from the beginning, but stops before we come to
          * the first non-slice unit. */
@@ -1353,14 +1349,15 @@ int cg_path_get_slice(const char *p, char **ret_slice) {
         if (e)
                 return cg_path_decode_unit(e, ret_slice);
 
-        return strdup_to(ret_slice, SPECIAL_ROOT_SLICE);
+        if (ret_slice)
+                return strdup_to(ret_slice, SPECIAL_ROOT_SLICE);
+
+        return 0;
 }
 
 int cg_pid_get_slice(pid_t pid, char **ret_slice) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
-
-        assert(ret_slice);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
@@ -1372,7 +1369,6 @@ int cg_pid_get_slice(pid_t pid, char **ret_slice) {
 int cg_path_get_user_slice(const char *p, char **ret_slice) {
         const char *t;
         assert(p);
-        assert(ret_slice);
 
         t = skip_user_prefix(p);
         if (!t)
@@ -1386,8 +1382,6 @@ int cg_path_get_user_slice(const char *p, char **ret_slice) {
 int cg_pid_get_user_slice(pid_t pid, char **ret_slice) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
-
-        assert(ret_slice);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
