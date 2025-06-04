@@ -376,15 +376,14 @@ int decompress_blob_xz(
                 size_t used;
 
                 ret = sym_lzma_code(&s, LZMA_FINISH);
-
                 if (ret == LZMA_STREAM_END)
                         break;
-                else if (ret != LZMA_OK)
+                if (ret != LZMA_OK)
                         return -ENOMEM;
 
                 if (dst_max > 0 && (space - s.avail_out) >= dst_max)
                         break;
-                else if (dst_max > 0 && space == dst_max)
+                if (dst_max > 0 && space == dst_max)
                         return -ENOBUFS;
 
                 used = space - s.avail_out;
@@ -510,20 +509,22 @@ int decompress_blob(
                 size_t* dst_size,
                 size_t dst_max) {
 
-        if (compression == COMPRESSION_XZ)
+        switch (compression) {
+        case COMPRESSION_XZ:
                 return decompress_blob_xz(
                                 src, src_size,
                                 dst, dst_size, dst_max);
-        else if (compression == COMPRESSION_LZ4)
+        case COMPRESSION_LZ4:
                 return decompress_blob_lz4(
                                 src, src_size,
                                 dst, dst_size, dst_max);
-        else if (compression == COMPRESSION_ZSTD)
+        case COMPRESSION_ZSTD:
                 return decompress_blob_zstd(
                                 src, src_size,
                                 dst, dst_size, dst_max);
-        else
+        default:
                 return -EPROTONOSUPPORT;
+        }
 }
 
 int decompress_startswith_xz(
@@ -734,27 +735,30 @@ int decompress_startswith(
                 size_t prefix_len,
                 uint8_t extra) {
 
-        if (compression == COMPRESSION_XZ)
+        switch (compression) {
+
+        case COMPRESSION_XZ:
                 return decompress_startswith_xz(
                                 src, src_size,
                                 buffer,
                                 prefix, prefix_len,
                                 extra);
 
-        else if (compression == COMPRESSION_LZ4)
+        case COMPRESSION_LZ4:
                 return decompress_startswith_lz4(
                                 src, src_size,
                                 buffer,
                                 prefix, prefix_len,
                                 extra);
-        else if (compression == COMPRESSION_ZSTD)
+        case COMPRESSION_ZSTD:
                 return decompress_startswith_zstd(
                                 src, src_size,
                                 buffer,
                                 prefix, prefix_len,
                                 extra);
-        else
+        default:
                 return -EBADMSG;
+        }
 }
 
 int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size) {
@@ -1318,10 +1322,10 @@ int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes
 
         if (endswith(filename, ".lz4"))
                 return decompress_stream_lz4(fdf, fdt, max_bytes);
-        else if (endswith(filename, ".xz"))
+        if (endswith(filename, ".xz"))
                 return decompress_stream_xz(fdf, fdt, max_bytes);
-        else if (endswith(filename, ".zst"))
+        if (endswith(filename, ".zst"))
                 return decompress_stream_zstd(fdf, fdt, max_bytes);
-        else
-                return -EPROTONOSUPPORT;
+
+        return -EPROTONOSUPPORT;
 }
