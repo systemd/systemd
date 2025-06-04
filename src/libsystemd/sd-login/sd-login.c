@@ -273,7 +273,7 @@ _public_ int sd_pidfd_get_owner_uid(int pidfd, uid_t *ret_uid) {
         pid_t pid;
         int r;
 
-        assert_return(pidfd >= 0, -EINVAL);
+        assert_return(pidfd >= 0, -EBADF);
 
         r = pidfd_get_pid(pidfd, &pid);
         if (r < 0)
