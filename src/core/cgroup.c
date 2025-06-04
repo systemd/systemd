@@ -1909,7 +1909,7 @@ void unit_invalidate_cgroup_members_masks(Unit *u) {
                 unit_invalidate_cgroup_members_masks(slice);
 }
 
-int unit_default_cgroup_path(const Unit *u, char **ret) {
+static int unit_default_cgroup_path(const Unit *u, char **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -1942,7 +1942,7 @@ int unit_default_cgroup_path(const Unit *u, char **ret) {
         return 0;
 }
 
-int unit_set_cgroup_path(Unit *u, const char *path) {
+static int unit_set_cgroup_path(Unit *u, const char *path) {
         _cleanup_free_ char *p = NULL;
         CGroupRuntime *crt;
         int r;
@@ -1986,7 +1986,7 @@ int unit_get_cgroup_path_with_fallback(const Unit *u, char **ret) {
         return strdup_to_full(ret, crt->cgroup_path); /* returns 1 -> cgroup_path is alive */
 }
 
-int unit_watch_cgroup(Unit *u) {
+static int unit_watch_cgroup(Unit *u) {
         _cleanup_free_ char *events = NULL;
         int r;
 
@@ -2031,7 +2031,7 @@ int unit_watch_cgroup(Unit *u) {
         return 0;
 }
 
-int unit_watch_cgroup_memory(Unit *u) {
+static int unit_watch_cgroup_memory(Unit *u) {
         _cleanup_free_ char *events = NULL;
         int r;
 
