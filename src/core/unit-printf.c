@@ -88,14 +88,10 @@ static void bad_specifier(const Unit *u, char specifier) {
 
 static int specifier_cgroup(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
 
         bad_specifier(u, specifier);
 
-        if (crt && crt->cgroup_path)
-                return strdup_to(ret, crt->cgroup_path);
-
-        return unit_default_cgroup_path(u, ret);
+        return unit_get_cgroup_path_with_fallback(u, ret);
 }
 
 static int specifier_cgroup_root(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
@@ -112,14 +108,8 @@ static int specifier_cgroup_slice(char specifier, const void *data, const char *
         bad_specifier(u, specifier);
 
         slice = UNIT_GET_SLICE(u);
-        if (slice) {
-                CGroupRuntime *crt = unit_get_cgroup_runtime(slice);
-
-                if (crt && crt->cgroup_path)
-                        return strdup_to(ret, crt->cgroup_path);
-
-                return unit_default_cgroup_path(slice, ret);
-        }
+        if (slice)
+                return unit_get_cgroup_path_with_fallback(slice, ret);
 
         return strdup_to(ret, u->manager->cgroup_root);
 }
