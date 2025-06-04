@@ -9,6 +9,7 @@
 #include "install.h"
 #include "json-util.h"
 #include "manager.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "set.h"
 #include "strv.h"
@@ -351,7 +352,7 @@ static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pid
 }
 
 typedef struct UnitLookupParameters {
-        const char *name;
+        const char *name, *cgroup;
         PidRef pidref;
 } UnitLookupParameters;
 
@@ -362,8 +363,9 @@ static void unit_lookup_parameters_done(UnitLookupParameters *p) {
 
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name", SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(UnitLookupParameters, name),   0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
-                { "pid",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref), SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
+                { "name",   SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(UnitLookupParameters, name),   0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
+                { "pid",    _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref), SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
+                { "cgroup", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(UnitLookupParameters, cgroup), 0                                                   },
                 {}
         };
 
@@ -401,7 +403,18 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 return list_unit_one(link, unit, /* more = */ false);
         }
 
-        // TODO lookup by invocationID, CGroup
+        if (p.cgroup) {
+                if (!path_is_safe(p.cgroup))
+                        return sd_varlink_error_invalid_parameter_name(link, "cgroup");
+
+                Unit *unit = manager_get_unit_by_cgroup(manager, p.cgroup);
+                if (!unit)
+                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT, NULL);
+
+                return list_unit_one(link, unit, /* more = */ false);
+        }
+
+        // TODO lookup by invocationID
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
