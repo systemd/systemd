@@ -595,7 +595,7 @@ static int journal_file_verify_header(JournalFile *f) {
                 return -ENODATA;
         if (header_size + arena_size < tail_object_offset)
                 return -ENODATA;
-        if (header_size + arena_size - tail_object_offset < sizeof(ObjectHeader))
+        if (header_size + arena_size - tail_object_offset < offsetof(ObjectHeader, payload))
                 return -ENODATA;
 
         if (!hash_table_is_valid(le64toh(f->header->data_hash_table_offset),
@@ -661,7 +661,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
         /* Verify number of objects */
         uint64_t n_objects = le64toh(f->header->n_objects);
-        if (n_objects > arena_size / sizeof(ObjectHeader))
+        if (n_objects > arena_size / offsetof(ObjectHeader, payload))
                 return -ENODATA;
 
         uint64_t n_entries = le64toh(f->header->n_entries);
@@ -883,7 +883,7 @@ static uint64_t minimum_header_size(JournalFile *f, Object *o) {
                 return journal_file_data_payload_offset(f);
 
         if (o->object.type >= ELEMENTSOF(table) || table[o->object.type] <= 0)
-                return sizeof(ObjectHeader);
+                return offsetof(ObjectHeader, payload);
 
         return table[o->object.type];
 }
@@ -900,7 +900,7 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
                                        "Attempt to move to uninitialized object: %" PRIu64,
                                        offset);
 
-        if (s < sizeof(ObjectHeader))
+        if (s < offsetof(ObjectHeader, payload))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Attempt to move to overly short object with size %"PRIu64": %" PRIu64,
                                        s, offset);
@@ -1106,7 +1106,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        journal_object_type_to_string(type),
                                        offset);
 
-        r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), (void**) &o);
+        r = journal_file_move_to(f, type, false, offset, offsetof(ObjectHeader, payload), (void**) &o);
         if (r < 0)
                 return r;
 
@@ -1238,7 +1238,7 @@ int journal_file_append_object(
         assert(f);
         assert(f->header);
         assert(type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX);
-        assert(size >= sizeof(ObjectHeader));
+        assert(size >= offsetof(ObjectHeader, payload));
 
         r = journal_file_set_online(f);
         if (r < 0)
