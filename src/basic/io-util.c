@@ -25,12 +25,10 @@ int flush_fd(int fd) {
                 int r;
 
                 r = fd_wait_for_event(fd, POLLIN, 0);
-                if (r < 0) {
-                        if (r == -EINTR)
-                                continue;
-
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
                         return r;
-                }
                 if (r == 0)
                         return count;
 
@@ -38,13 +36,15 @@ int flush_fd(int fd) {
                 if (l < 0) {
                         if (errno == EINTR)
                                 continue;
-
                         if (errno == EAGAIN)
                                 return count;
 
                         return -errno;
                 } else if (l == 0)
                         return count;
+
+                if (l > INT_MAX-count) /* On overflow terminate */
+                        return INT_MAX;
 
                 count += (int) l;
         }
