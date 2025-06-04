@@ -44,6 +44,7 @@ typedef struct LLDPNeighborInfo {
         const char *system_name;
         const char *system_description;
         uint16_t capabilities;
+        uint16_t vlan_id;
 } LLDPNeighborInfo;
 
 static const sd_json_dispatch_field lldp_neighbor_dispatch_table[] = {
@@ -53,6 +54,7 @@ static const sd_json_dispatch_field lldp_neighbor_dispatch_table[] = {
         { "SystemName",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LLDPNeighborInfo, system_name),        0 },
         { "SystemDescription",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LLDPNeighborInfo, system_description), 0 },
         { "EnabledCapabilities", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(LLDPNeighborInfo, capabilities),       0 },
+        { "VlanId",              _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(LLDPNeighborInfo, vlan_id),            0 },
         {},
 };
 
