@@ -1842,8 +1842,10 @@ static int journal_file_append_data(
 
         assert(f);
 
+        /* Return a recognizable error for submitted invalid data. Note that we leave EBADMSG for bad
+         * messages we read. EINVAL is too gernic an error. Hence use a separate EUCLEAN here. */
         if (!data || size == 0)
-                return -EINVAL;
+                return -EUCLEAN;
 
         hash = journal_file_hash_data(f, data, size);
 
@@ -1855,7 +1857,7 @@ static int journal_file_append_data(
 
         eq = memchr(data, '=', size);
         if (!eq)
-                return -EINVAL;
+                return -EUCLEAN;
 
         osize = journal_file_data_payload_offset(f) + size;
         r = journal_file_append_object(f, OBJECT_DATA, osize, &o, &p);
@@ -4456,10 +4458,11 @@ int journal_file_copy_entry(
                         return r;
                 assert(r > 0);
 
-                if (l == 0)
-                        return -EBADMSG;
-
                 r = journal_file_append_data(to, data, l, &u, &h);
+                if (r == -EUCLEAN) {
+                        log_debug_errno(r, "Entry item %"PRIu64" invalid, skipping over it: %m", i);
+                        continue;
+                }
                 if (r < 0)
                         return r;
 
