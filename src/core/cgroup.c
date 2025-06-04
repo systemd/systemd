@@ -3413,7 +3413,7 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
 
                 e = strrchr(p, '/');
                 if (!e || e == p)
-                        return hashmap_get(m->cgroup_unit, SPECIAL_ROOT_SLICE);
+                        return NULL; /* reached cgroup root? return NULL and possibly fall back to manager_get_unit_by_pidref_watching() */
 
                 *e = 0;
 
@@ -3423,7 +3423,7 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
         }
 }
 
-Unit *manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid) {
+Unit* manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid) {
         _cleanup_free_ char *cgroup = NULL;
 
         assert(m);
