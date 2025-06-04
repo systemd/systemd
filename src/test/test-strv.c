@@ -224,9 +224,9 @@ static void test_strv_unquote_one(const char *quoted, char **list) {
 
 TEST(strv_unquote) {
         test_strv_unquote_one("    foo=bar     \"waldo\"    zzz    ", STRV_MAKE("foo=bar", "waldo", "zzz"));
-        test_strv_unquote_one("", STRV_MAKE_EMPTY);
-        test_strv_unquote_one(" ", STRV_MAKE_EMPTY);
-        test_strv_unquote_one("   ", STRV_MAKE_EMPTY);
+        test_strv_unquote_one("", STRV_EMPTY);
+        test_strv_unquote_one(" ", STRV_EMPTY);
+        test_strv_unquote_one("   ", STRV_EMPTY);
         test_strv_unquote_one("   x", STRV_MAKE("x"));
         test_strv_unquote_one("x   ", STRV_MAKE("x"));
         test_strv_unquote_one("  x   ", STRV_MAKE("x"));
@@ -774,7 +774,7 @@ TEST(strv_foreach_backwards) {
         STRV_FOREACH_BACKWARDS(check, (char**) NULL)
                 assert_not_reached();
 
-        STRV_FOREACH_BACKWARDS(check, STRV_MAKE_EMPTY)
+        STRV_FOREACH_BACKWARDS(check, STRV_EMPTY)
                 assert_not_reached();
 
         unsigned count = 0;
@@ -1049,7 +1049,7 @@ TEST(strv_fnmatch) {
         _cleanup_strv_free_ char **v = NULL;
         size_t pos;
 
-        assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a"));
+        assert_se(!strv_fnmatch(STRV_EMPTY, "a"));
 
         v = strv_new("xxx", "*\\*", "yyy");
         assert_se(!strv_fnmatch_full(v, "\\", 0, NULL));
