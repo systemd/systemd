@@ -3413,7 +3413,7 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
 
                 e = strrchr(p, '/');
                 if (!e || e == p)
-                        return hashmap_get(m->cgroup_unit, SPECIAL_ROOT_SLICE);
+                        return manager_get_unit(m, SPECIAL_ROOT_SLICE);
 
                 *e = 0;
 
