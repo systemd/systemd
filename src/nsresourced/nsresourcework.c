@@ -379,13 +379,13 @@ static int uid_is_available(
         if (r > 0)
                 return false;
 
-        r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
+        r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
                 return r;
 
-        r = groupdb_by_gid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
+        r = groupdb_by_gid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
@@ -416,13 +416,13 @@ static int name_is_available(
         if (!user_name)
                 return -ENOMEM;
 
-        r = userdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
+        r = userdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
                 return r;
 
-        r = groupdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
+        r = groupdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
@@ -1248,7 +1248,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                         link,
                         /* bus= */ NULL,
                         "io.systemd.namespace-resource.delegate-mount",
-                        /* polkit_details= */ NULL,
+                        /* details= */ NULL,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of mounts to registered userns */
                         &c->polkit_registry);
@@ -1401,7 +1401,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
                         link,
                         /* bus= */ NULL,
                         "io.systemd.namespace-resource.delegate-cgroup",
-                        /* polkit_details= */ NULL,
+                        /* details= */ NULL,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of cgroups to registered userns */
                         &c->polkit_registry);

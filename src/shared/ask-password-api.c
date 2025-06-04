@@ -60,7 +60,7 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
         assert(keyname);
         assert(ret);
 
-        serial = request_key("user", keyname, /* callout_info= */ NULL, /* dest_keyring= */ 0);
+        serial = request_key("user", keyname, /* callout_info= */ NULL, /* destringid= */ 0);
         if (serial == -1)
                 return negative_errno();
 
