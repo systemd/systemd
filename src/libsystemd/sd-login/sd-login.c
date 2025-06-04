@@ -1142,32 +1142,22 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         if (fd < 0)
                 return -errno;
 
-        if (!category || streq(category, "seat")) {
-                k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0)
-                        return -errno;
+        static const struct {
+                const char *name;
+                const char *path;
+        } categories[] = {
+                { "seat",     "/run/systemd/seats/"    },
+                { "session",  "/run/systemd/sessions/" },
+                { "uid",      "/run/systemd/users/"    },
+                { "machine",  "/run/systemd/machines/" },
+        };
 
-                good = true;
-        }
+        FOREACH_ELEMENT(c, categories) {
 
-        if (!category || streq(category, "session")) {
-                k = inotify_add_watch(fd, "/run/systemd/sessions/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0)
-                        return -errno;
+                if (category && !streq(category, c->name))
+                        continue;
 
-                good = true;
-        }
-
-        if (!category || streq(category, "uid")) {
-                k = inotify_add_watch(fd, "/run/systemd/users/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0)
-                        return -errno;
-
-                good = true;
-        }
-
-        if (!category || streq(category, "machine")) {
-                k = inotify_add_watch(fd, "/run/systemd/machines/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, c->path, IN_MOVED_TO|IN_DELETE);
                 if (k < 0)
                         return -errno;
 
