@@ -325,7 +325,7 @@ static int manager_rtnl_listen(Manager *m) {
         return r;
 }
 
-static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_network_event(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
@@ -685,7 +685,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         /* The configuration has changed, so reload the per-interface configuration too in order to take
          * into account any changes (e.g.: enable/disable DNSSEC). */
-        r = on_network_event(/* sd_event_source= */ NULL, -EBADF, /* revents= */ 0, m);
+        r = on_network_event(/* source= */ NULL, -EBADF, /* revents= */ 0, m);
         if (r < 0)
                 log_warning_errno(r, "Failed to update network information: %m");
 
