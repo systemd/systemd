@@ -49,6 +49,7 @@ generated_sources += [test_libsystemd_sym_c, test_libudev_sym_c]
 
 simple_tests += files(
         'test-alloc-util.c',
+        'test-ansi-color.c',
         'test-architecture.c',
         'test-argv-util.c',
         'test-audit-util.c',
