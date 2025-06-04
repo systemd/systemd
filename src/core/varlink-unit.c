@@ -14,6 +14,7 @@
 #include "strv.h"
 #include "unit.h"
 #include "unit-name.h"
+#include "varlink-cgroup.h"
 #include "varlink-common.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
@@ -57,8 +58,10 @@ static int unit_mounts_for_build_json(sd_json_variant **ret, const char *name, v
         assert(ret);
         assert(name);
 
-        if (!mounts_for)
+        if (!mounts_for) {
+                *ret = NULL;
                 return 0;
+        }
 
         d = unit_mount_dependency_type_from_string(name);
         if (d < 0)
@@ -174,10 +177,12 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("DropInPaths", u->dropin_paths),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("UnitFilePreset", preset_action_past_tense_to_string(unit_get_unit_file_preset(u))),
                         SD_JSON_BUILD_PAIR_BOOLEAN("Transient", u->transient),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("Perpetual", u->perpetual));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Perpetual", u->perpetual),
+
+                        /* CGroup */
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, unit_get_cgroup_context(u)));
 
         // TODO follow up PRs:
-        // JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", cgroup_context_build_json, u)
         // JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u)
         // JSON_BUILD_PAIR_CALLBACK_NON_NULL("Kill", kill_context_build_json, u)
         // Mount/Automount context
@@ -295,7 +300,8 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(u->invocation_id), "InvocationID", SD_JSON_BUILD_UUID(u->invocation_id)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Markers", markers_build_json, &u->markers),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("ActivationDetails", activation_details_build_json, u->activation_details),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_runtime_build_json, u));
 }
 
 static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
