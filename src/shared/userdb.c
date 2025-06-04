@@ -605,12 +605,11 @@ static int userdb_start_query(
                 if (is_dropin && r >= 0)
                         iterator->dropin_covered = true;
 
-                if (ret == 0 && r < 0)
-                        ret = r;
+                RET_GATHER(ret, r);
         }
 
         if (set_isempty(iterator->links))
-                return ret < 0 ? ret : -ESRCH; /* propagate last error we saw if we couldn't connect to anything. */
+                return ret < 0 ? ret : -ESRCH; /* propagate the first error we saw if we couldn't connect to anything. */
 
         /* We connected to some services, in this case, ignore the ones we failed on */
         return 0;
