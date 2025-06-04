@@ -535,7 +535,7 @@ int mkfifoat_atomic(int atfd, const char *path, mode_t mode) {
         return 0;
 }
 
-int get_files_in_directory(const char *path, char ***list) {
+int get_files_in_directory(const char *path, char ***ret_list) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         size_t n = 0;
@@ -554,7 +554,7 @@ int get_files_in_directory(const char *path, char ***list) {
                 if (!dirent_is_file(de))
                         continue;
 
-                if (list) {
+                if (ret_list) {
                         /* one extra slot is needed for the terminating NULL */
                         if (!GREEDY_REALLOC(l, n + 2))
                                 return -ENOMEM;
@@ -568,8 +568,8 @@ int get_files_in_directory(const char *path, char ***list) {
                         n++;
         }
 
-        if (list)
-                *list = TAKE_PTR(l);
+        if (ret_list)
+                *ret_list = TAKE_PTR(l);
 
         return n;
 }
