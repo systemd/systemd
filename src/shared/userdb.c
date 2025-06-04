@@ -427,9 +427,12 @@ static int userdb_on_query_reply(
         }
 
 finish:
-        /* If we got one ESRCH or ENOEXEC, let that win. This way when we do a wild dump we won't be tripped
-         * up by bad errors – as long as at least one connection ended somewhat cleanly */
-        if (IN_SET(r, -ESRCH, -ENOEXEC) || iterator->error == 0)
+        /* If we got one ENOEXEC, let that win. Similarly, ESRCH wins except for ENOEXEC. This way when we do
+         * a wild dump we won't be tripped up by bad errors – as long as at least one connection ended
+         * somewhat cleanly. */
+        if (r == -ENOEXEC ||
+            (r == -ESRCH && iterator->error != ENOEXEC) ||
+            iterator->error == 0)
                 iterator->error = -r;
 
         assert_se(set_remove(iterator->links, link) == link);
@@ -605,12 +608,11 @@ static int userdb_start_query(
                 if (is_dropin && r >= 0)
                         iterator->dropin_covered = true;
 
-                if (ret == 0 && r < 0)
-                        ret = r;
+                RET_GATHER(ret, r);
         }
 
         if (set_isempty(iterator->links))
-                return ret < 0 ? ret : -ESRCH; /* propagate last error we saw if we couldn't connect to anything. */
+                return ret < 0 ? ret : -ESRCH; /* propagate the first error we saw if we couldn't connect to anything. */
 
         /* We connected to some services, in this case, ignore the ones we failed on */
         return 0;
