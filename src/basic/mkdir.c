@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -202,7 +203,7 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
         return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, char **subvolumes) {
+int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, Hashmap *subvolumes) {
         _cleanup_free_ char *pp = NULL, *bn = NULL;
         _cleanup_close_ int dfd = -EBADF;
         int r;
@@ -237,10 +238,17 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
         if (r < 0)
                 return r;
 
+        XOpenFlags flags = 0;
+        if (hashmap_contains(subvolumes, p)) {
+                flags = XO_SUBVOLUME;
+                if ((PTR_TO_INT(hashmap_get(subvolumes, p)) & BTRFS_SUBVOL_NODATACOW))
+                        flags |= XO_NOCOW;
+        }
+
         _cleanup_close_ int nfd = xopenat_full(
                                 dfd, bn,
                                 O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
-                                path_strv_contains(subvolumes, p) ? XO_SUBVOLUME : 0,
+                                flags,
                                 m);
         if (nfd == -EEXIST)
                 return 0;
