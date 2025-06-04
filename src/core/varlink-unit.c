@@ -354,6 +354,7 @@ static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pid
 typedef struct UnitLookupParameters {
         const char *name, *cgroup;
         PidRef pidref;
+        sd_id128_t invocation_id;
 } UnitLookupParameters;
 
 static void unit_lookup_parameters_done(UnitLookupParameters *p) {
@@ -363,9 +364,10 @@ static void unit_lookup_parameters_done(UnitLookupParameters *p) {
 
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",   SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(UnitLookupParameters, name),   0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
-                { "pid",    _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref), SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
-                { "cgroup", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(UnitLookupParameters, cgroup), 0                                                   },
+                { "name",         SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(UnitLookupParameters, name),          0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
+                { "pid",          _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref),        SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
+                { "cgroup",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(UnitLookupParameters, cgroup),        0                                                   },
+                { "invocationID", SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,        offsetof(UnitLookupParameters, invocation_id), 0                                                   },
                 {}
         };
 
@@ -414,7 +416,22 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 return list_unit_one(link, unit, /* more = */ false);
         }
 
-        // TODO lookup by invocationID
+        if (!sd_id128_is_null(p.invocation_id)) {
+                Unit *unit = hashmap_get(manager->units_by_invocation_id, &p.invocation_id);
+                if (!unit)
+                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT, NULL);
+
+                /* XXX DBus does the following here:
+                 * mac_selinux_unit_access_check(u, message, "status", error)
+                 *
+                 * Btw, same for GetUnitByPIDFD (which I missed in previous PR),
+                 * but it doesn't do it for GitUnitByPID.
+                 *
+                 * IMO there are inconsistencies. I'm not sure how to port it.
+                 * I'd appreciate some guidance. */
+
+                return list_unit_one(link, unit, /* more = */ false);
+        }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
