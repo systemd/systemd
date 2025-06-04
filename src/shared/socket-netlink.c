@@ -510,7 +510,7 @@ int af_unix_get_qlen(int fd, uint32_t *ret) {
                 return r;
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
-        r = sd_netlink_call(nl, message, /* usec= */ 0, &reply);
+        r = sd_netlink_call(nl, message, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
