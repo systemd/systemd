@@ -4,11 +4,12 @@
 
 #include "forward.h"
 
+int initialize_libgcrypt(bool secmem);
+
 #if HAVE_GCRYPT
 #include <gcrypt.h> /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
-
 extern DLSYM_PROTOTYPE(gcry_md_close);
 extern DLSYM_PROTOTYPE(gcry_md_copy);
 extern DLSYM_PROTOTYPE(gcry_md_ctl);
@@ -39,8 +40,6 @@ extern DLSYM_PROTOTYPE(gcry_mpi_sub_ui);
 extern DLSYM_PROTOTYPE(gcry_prime_check);
 extern DLSYM_PROTOTYPE(gcry_randomize);
 extern DLSYM_PROTOTYPE(gcry_strerror);
-
-int initialize_libgcrypt(bool secmem);
 
 /* Copied from gcry_md_putc from gcrypt.h due to the need to call the sym_ variant */
 #define sym_gcry_md_putc(h,c)                              \
