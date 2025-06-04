@@ -369,7 +369,7 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
                                         c->query->manager->event,
                                         &c->timeout_event_source,
                                         CLOCK_BOOTTIME,
-                                        CANDIDATE_EXPEDITED_TIMEOUT_USEC, /* accuracy_usec= */ 0,
+                                        CANDIDATE_EXPEDITED_TIMEOUT_USEC, /* accuracy= */ 0,
                                         on_candidate_timeout, c,
                                         /* priority= */ 0, "candidate-timeout",
                                         /* force_reset= */ false);
