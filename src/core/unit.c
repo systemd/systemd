@@ -3395,7 +3395,7 @@ int unit_set_slice(Unit *u, Unit *slice) {
         /* Disallow slice changes if @u is already bound to cgroups */
         if (UNIT_GET_SLICE(u)) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-                if (crt && crt->cgroup_realized)
+                if (crt && crt->cgroup_path)
                         return -EBUSY;
         }
 
@@ -6006,16 +6006,24 @@ static int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *user
 }
 
 int unit_warn_leftover_processes(Unit *u, bool start) {
+        _cleanup_free_ char *default_cgroup = NULL;
+        const char *cgroup;
+        int r;
+
         assert(u);
 
-        (void) unit_pick_cgroup_path(u);
-
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return 0;
+        if (!crt || !crt->cgroup_path) {
+                r = unit_default_cgroup_path(u, &default_cgroup);
+                if (r < 0)
+                        return r;
+
+                cgroup = default_cgroup;
+        } else
+                cgroup = crt->cgroup_path;
 
         return cg_kill_recursive(
-                        crt->cgroup_path,
+                        cgroup,
                         /* sig= */ 0,
                         /* flags= */ 0,
                         /* killed_pids= */ NULL,

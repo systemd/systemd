@@ -323,7 +323,6 @@ typedef struct CGroupRuntime {
         struct bpf_link *restrict_ifaces_egress_bpf_link;
 #endif
 
-        bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
 
         /* Reset cgroup accounting next time we fork something off */
@@ -331,6 +330,8 @@ typedef struct CGroupRuntime {
 
         /* Whether we warned about clamping the CPU quota period */
         bool warned_clamping_cpu_quota_period:1;
+
+        int deserialized_cgroup_realized; /* tristate, for backwards compat */
 } CGroupRuntime;
 
 uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
@@ -378,13 +379,9 @@ void unit_invalidate_cgroup_members_masks(Unit *u);
 void unit_add_family_to_cgroup_realize_queue(Unit *u);
 
 int unit_default_cgroup_path(const Unit *u, char **ret);
-int unit_set_cgroup_path(Unit *u, const char *path);
-int unit_pick_cgroup_path(Unit *u);
 
 int unit_realize_cgroup(Unit *u);
 void unit_prune_cgroup(Unit *u);
-int unit_watch_cgroup(Unit *u);
-int unit_watch_cgroup_memory(Unit *u);
 void unit_add_to_cgroup_realize_queue(Unit *u);
 
 int unit_cgroup_is_empty(Unit *u);
