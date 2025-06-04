@@ -7,13 +7,21 @@
 #
 # To run an individual test, specify it as a command line argument in the form
 # of <class>.<test_function>. E.g. the NetworkdMTUTests class has a test
-# function called test_ipv6_mtu().  To run just that test use:
+# function called test_ipv6_mtu(). To run just that test use:
 #
-#    sudo ./systemd-networkd-tests.py NetworkdMTUTests.test_ipv6_mtu
+#    run0 ./systemd-networkd-tests.py NetworkdMTUTests.test_ipv6_mtu
 #
-# Similarly, other individual tests can be run, eg.:
+# Similarly, other individual tests can be run, e.g.:
 #
-#    sudo ./systemd-networkd-tests.py NetworkdNetworkTests.test_ipv6_neigh_retrans_time
+#    run0 ./systemd-networkd-tests.py NetworkdNetworkTests.test_ipv6_neigh_retrans_time
+#
+# To run the test with the executables (systemd-networkd, networkctl, systemd-udevd and so on)
+# in your build directory, --build-dir=/path/to/build/ option can be used:
+#
+#    run0 ./systemd-networkd-tests.py --build-dir=/path/to/build NetworkdNetworkTests.test_address_static
+#
+# Note, unlike the long getopt option handling, the path must be specified after '=', rather than space.
+# Otherwise the path is recognized as a test case, and the test run will fail.
 
 import argparse
 import datetime
