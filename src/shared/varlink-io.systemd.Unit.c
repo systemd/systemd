@@ -526,6 +526,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(pid, ProcessId, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If non-null the cgroup of a unit"),
                 SD_VARLINK_DEFINE_INPUT(cgroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If non-null the invocation ID of a unit"),
+                SD_VARLINK_DEFINE_INPUT(invocationID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Configuration of the unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, 0),
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the unit"),
