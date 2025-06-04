@@ -43,7 +43,7 @@ TEST(verbs) {
         test_dispatch_one(STRV_MAKE("copy-to", "foo", "bar", "baz", "quux", "qaax"), verbs, -EINVAL);
 
         /* no verb, but a default is set */
-        test_dispatch_one(STRV_MAKE_EMPTY, verbs, 0);
+        test_dispatch_one(STRV_EMPTY, verbs, 0);
 }
 
 TEST(verbs_no_default) {
