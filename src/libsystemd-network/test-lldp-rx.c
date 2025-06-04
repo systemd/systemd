@@ -358,6 +358,54 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
         assert_se(stop_lldp_rx(lldp_rx) == 0);
 }
 
+static void test_receive_oui_vlanid_packet(sd_event *e) {
+        sd_lldp_rx *lldp_rx;
+        sd_lldp_neighbor **neighbors;
+        uint8_t frame[] = {
+                /* Ethernet header */
+                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
+                0x88, 0xcc,                             /* Ethertype */
+                /* LLDP mandatory TLVs */
+                0x02, 0x07, 0x04, 0x00, 0x01, 0x02,     /* Chassis: MAC, 00:01:02:03:04:05 */
+                0x03, 0x04, 0x05,
+                0x04, 0x04, 0x05, 0x31, 0x2f, 0x33,     /* Port TLV: interface name, "1/3" */
+                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
+                /* LLDP optional TLVs */
+                0xfe, 0x06, 0x00, 0x80, 0xc2, 0x01,     /* Port VLAN ID: 0x1234 */
+                0x12, 0x34,
+                0xfe, 0x07, 0x00, 0x80, 0xc2, 0x02,     /* Port and protocol: flag 1, PPVID 0x7788 */
+                0x01, 0x77, 0x88,
+                0xfe, 0x0d, 0x00, 0x80, 0xc2, 0x03,     /* VLAN Name: ID 0x1234, name "Vlan51" */
+                0x12, 0x34, 0x06, 0x56, 0x6c, 0x61,
+                0x6e, 0x35, 0x31,
+                0xfe, 0x06, 0x00, 0x80, 0xc2, 0x06,     /* Management VID: 0x0102 */
+                0x01, 0x02,
+                0xfe, 0x09, 0x00, 0x80, 0xc2, 0x07,     /* Link aggregation: status 1, ID 0x00140012 */
+                0x01, 0x00, 0x14, 0x00, 0x12,
+                0xfe, 0x07, 0x00, 0x12, 0x0f, 0x02,     /* 802.3 Power via MDI: PSE, MDI enabled */
+                0x07, 0x01, 0x00,
+                0x00, 0x00                              /* End of LLDPDU */
+        };
+        uint16_t vlanid;
+
+        lldp_rx_handler_calls = 0;
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, NULL) == 0);
+
+        assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
+        sd_event_run(e, 0);
+        assert_se(lldp_rx_handler_calls == 1);
+        assert_se(sd_lldp_rx_get_neighbors(lldp_rx, &neighbors) == 1);
+
+        assert_se(sd_lldp_neighbor_get_port_vlan_id(neighbors[0], &vlanid) >= 0);
+        assert_se(vlanid == 0x1234);
+
+        sd_lldp_neighbor_unref(neighbors[0]);
+        free(neighbors);
+
+        assert_se(stop_lldp_rx(lldp_rx) == 0);
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
@@ -369,6 +417,7 @@ int main(int argc, char *argv[]) {
         test_receive_incomplete_packet(e);
         test_receive_oui_packet(e);
         test_multiple_neighbors_sorted(e);
+        test_receive_oui_vlanid_packet(e);
 
         return 0;
 }
