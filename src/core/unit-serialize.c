@@ -364,14 +364,6 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 }
         }
 
-        /* Versions before 228 did not carry a state change timestamp. In this case, take the current
-         * time. This is useful, so that timeouts based on this timestamp don't trigger too early, and is
-         * in-line with the logic from before 228 where the base for timeouts was not persistent across
-         * reboots. */
-
-        if (!dual_timestamp_is_set(&u->state_change_timestamp))
-                dual_timestamp_now(&u->state_change_timestamp);
-
         /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings
          * applied after we are done. For that we invalidate anything already realized, so that we can
          * realize it again. */
