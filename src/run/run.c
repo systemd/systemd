@@ -36,6 +36,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hostname-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "osc-context.h"
@@ -2358,12 +2359,20 @@ static int start_transient_service(sd_bus *bus) {
 
                         (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
 
-                        r = bus_call_method(system_bus,
-                                            bus_machine_mgr,
-                                            "OpenMachinePTY",
-                                            &error,
-                                            &pty_reply,
-                                            "s", arg_host);
+                        /* Chop off a username prefix. We allow this for sd-bus machine connections, hence
+                         * support that here too. */
+                        _cleanup_free_ char *h = NULL;
+                        r = split_user_at_host(arg_host, /* ret_user= */ NULL, &h);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to split host specification '%s': %m", arg_host);
+
+                        r = bus_call_method(
+                                        system_bus,
+                                        bus_machine_mgr,
+                                        "OpenMachinePTY",
+                                        &error,
+                                        &pty_reply,
+                                        "s", h ?: ".host");
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get machine PTY: %s", bus_error_message(&error, r));
 
