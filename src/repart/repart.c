@@ -311,7 +311,9 @@ static void copy_files_free_many(CopyFiles *f, size_t n) {
 
 typedef enum SubvolumeFlags {
         SUBVOLUME_RO               = 1 << 0,
-        _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_RO,
+        SUBVOLUME_NODATACOW        = 1 << 1,
+        SUBVOLUME_NODATASUM        = 1 << 2,
+        _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_NODATASUM|SUBVOLUME_NODATACOW|SUBVOLUME_RO,
         _SUBVOLUME_FLAGS_INVALID   = -EINVAL,
         _SUBVOLUME_FLAGS_ERRNO_MAX = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
 } SubvolumeFlags;
@@ -323,6 +325,12 @@ static SubvolumeFlags subvolume_flags_from_string_one(const char *s) {
 
         if (streq(s, "ro"))
                 return SUBVOLUME_RO;
+
+        if (streq(s, "nodatacow"))
+                return SUBVOLUME_NODATACOW;
+
+        if (streq(s, "nodatasum"))
+                return SUBVOLUME_NODATASUM;
 
         return _SUBVOLUME_FLAGS_INVALID;
 }
@@ -6463,6 +6471,35 @@ static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const cha
         return 0;
 }
 
+static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
+        Subvolume *subvolume;
+        int r;
+
+        assert(l);
+
+        ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
+                _cleanup_free_ char *s = NULL;
+
+                if (FLAGS_SET(subvolume->flags, SUBVOLUME_NODATACOW) && !strextend_with_separator(&s, ",", "nodatacow"))
+                        return log_oom();
+
+                if (FLAGS_SET(subvolume->flags, SUBVOLUME_NODATASUM) && !strextend_with_separator(&s, ",", "nodatasum"))
+                        return log_oom();
+
+                if (!s)
+                        continue;
+
+                if (!strextend_with_separator(&s, ":", subvolume->path))
+                        return log_oom();
+
+                r = strv_extend_many(l, "--inode-flags", s);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
         _cleanup_strv_free_ char **sv = NULL;
         int r;
@@ -6470,7 +6507,7 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
         assert(p);
         assert(ret);
 
-        r = mkfs_options_from_env("REPART", p->format, &sv);
+        r = mkfs_options_from_env("REPART", p->format, &ops);
         if (r < 0)
                 return log_error_errno(r,
                                        "Failed to determine mkfs command line options for '%s': %m",
@@ -6481,8 +6518,16 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
                 if (r < 0)
                         return r;
 
+                r = append_btrfs_inode_flags(&sv, p->subvolumes);
+                if (r < 0)
+                        return r;
+
                 if (p->suppressing) {
                         r = append_btrfs_subvols(&sv, p->suppressing->subvolumes, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = append_btrfs_inode_flags(&sv, p->suppressing->subvolumes);
                         if (r < 0)
                                 return r;
                 }
