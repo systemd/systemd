@@ -489,7 +489,6 @@ endif
 if cc.get_id() == 'clang'
         possible_common_cc_flags += [
                 '-Wno-typedef-redefinition',
-                '-Wno-gnu-variable-sized-type-not-at-end',
         ]
 endif
 

@@ -32,7 +32,7 @@ typedef struct sd_dhcp_client_id {
                                 } _packed_ eth;
                                 struct {
                                         /* 2 - 254: ARP/Link-Layer (RFC 2132) */
-                                        uint8_t haddr[0];
+                                        uint8_t haddr[HW_ADDR_MAX_SIZE];
                                 } _packed_ ll;
                                 struct {
                                         /* 255: Node-specific (RFC 4361) */
@@ -45,6 +45,8 @@ typedef struct sd_dhcp_client_id {
                 uint8_t raw[MAX_CLIENT_ID_LEN];
         };
 } sd_dhcp_client_id;
+
+assert_cc(sizeof_field(sd_dhcp_client_id, id) <= MAX_CLIENT_ID_LEN);
 
 static inline bool client_id_size_is_valid(size_t size) {
         return size >= MIN_CLIENT_ID_LEN && size <= MAX_CLIENT_ID_LEN;
