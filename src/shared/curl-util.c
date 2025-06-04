@@ -317,6 +317,9 @@ void curl_glue_remove_and_free(CurlGlue *g, CURL *c) {
         if (g->curl)
                 curl_multi_remove_handle(g->curl, c);
 
+        if (g->resolve_rules)
+                curl_slist_free_all(g->resolve_rules);
+
         curl_easy_cleanup(c);
 }
 
