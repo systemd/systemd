@@ -687,13 +687,10 @@ int bpf_firewall_install(Unit *u) {
         cc = unit_get_cgroup_context(u);
         if (!cc)
                 return -EINVAL;
+
         crt = unit_get_cgroup_runtime(u);
-        if (!crt)
-                return -EINVAL;
-        if (!crt->cgroup_path)
-                return -EINVAL;
-        if (!crt->cgroup_realized)
-                return -EINVAL;
+        if (!crt || !crt->cgroup_path)
+                return -EOWNERDEAD;
 
         if (bpf_program_supported() <= 0)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
