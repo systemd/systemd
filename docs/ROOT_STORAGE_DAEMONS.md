@@ -141,6 +141,33 @@ Note that your code should only modify `argv[0][0]` and leave the comm name
 Since systemd v255, alternatively the `SurviveFinalKillSignal=yes` unit option
 can be set, and provides the equivalent functionality to modifying `argv[0][0]`.
 
+## Units
+
+Any process on modern Linux part of a control group ("cgroup"), and so will be
+your storage daemon. On systemd systems it's systemd that manages the top-level
+cgroup tree, and the basic hierarchy of it is a reflection of the running
+units, in particular slice and service units. This hence means that your root
+storage daemon should be placed in a cgroup and hence in a unit, and this unit
+should be defined both in the initrd and during the rest of the runtime, so
+that your processes always have a valid cgroup mapping to a valid unit.
+
+Hence, please make sure to wrap your storage daemon in a proper service unit,
+and ensure to set:
+
+```
+[Unit]
+…
+DefaultDependencies=no
+IgnoreOnIsolate=yes
+RefuseManualStop=yes
+SurviceFinalKillSignal=yes
+…
+```
+
+These settings will ensure the unit will stay around "forever", and neither be
+stopped automatically, nor manually. And again, make sure this unit is
+available both in the initrd and on the host.
+
 ## To which technologies does this apply?
 
 These recommendations apply to those storage daemons which need to stay around
