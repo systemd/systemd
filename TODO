@@ -122,10 +122,13 @@ Deprecations and removals:
 
 Features:
 
-* repart: tweak CopyBlocks=auto so that if we operate on the booted system
-  (i.e. without --image= or --root= specified), we use the by-designator
-  symlinks, so that we definitely base or copy logic on the currently loaded
-  version of the OS, instead of just the "first".
+* flush_fd() should probably try to be smart and stop reading once we know that
+  all further queued data was enqueued after flush_fd() was originally
+  called. For that, try SIOCINQ if fd refers to stream socket, and look at
+  timestamps for datagram sockets.
+
+* Similar flush_accept() should look at sockdiag queued sockets count and exit
+  once we flushed out the specified number of connections.
 
 * maybe introduce a new per-unit drop-in directory .confext.d/ that may contain
   symlinks to confext images to enable for the unit.
