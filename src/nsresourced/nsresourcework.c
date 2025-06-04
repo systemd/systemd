@@ -1683,7 +1683,7 @@ static int validate_netns(sd_varlink *link, int userns_fd, int netns_fd) {
         if (owner_userns_fd < 0)
                 return -errno;
 
-        r = inode_same_at(owner_userns_fd, /* path_a= */ NULL, userns_fd, /* path_b= */ NULL, AT_EMPTY_PATH);
+        r = inode_same_at(owner_userns_fd, /* filea= */ NULL, userns_fd, /* fileb= */ NULL, AT_EMPTY_PATH);
         if (r < 0)
                 return r;
         if (r == 0)
