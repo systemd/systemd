@@ -190,7 +190,7 @@
         <command>systemd-pcrlock</command> to work correctly. This does similar tests as
         <command>systemd-analyze has-tpm2</command>, but also checks for supported of the TPM2 operations
         requires by <command>systemd-pcrlock</command>. Outputs one of <literal>no</literal>,
-        <literal>partial</literal> (in case some parts of TPM2 support are avaialable in hardware, firmware,
+        <literal>partial</literal> (in case some parts of TPM2 support are available in hardware, firmware,
         OS, but not complete), <literal>obsolete</literal> (if TPM2 support is available in hardware,
         firmware and OS, but the operations required for <command>systemd-pcrlock</command> are missing),
         <literal>yes</literal>. Returns an exit status of zero if full support is available, otherwise
