@@ -57,8 +57,10 @@ static int unit_mounts_for_build_json(sd_json_variant **ret, const char *name, v
         assert(ret);
         assert(name);
 
-        if (!mounts_for)
+        if (!mounts_for) {
+                *ret = NULL;
                 return 0;
+        }
 
         d = unit_mount_dependency_type_from_string(name);
         if (d < 0)
