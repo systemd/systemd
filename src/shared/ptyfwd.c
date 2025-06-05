@@ -15,6 +15,8 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "glyph-util.h"
+#include "hostname-setup.h"
 #include "io-util.h"
 #include "log.h"
 #include "ptyfwd.h"
@@ -1253,4 +1255,46 @@ int pty_forward_set_title_prefix(PTYForward *f, const char *title_prefix) {
         assert(f);
 
         return free_and_strdup(&f->title_prefix, title_prefix);
+}
+
+int pty_forward_set_window_title(
+                PTYForward *f,
+                Glyph circle,           /* e.g. GLYPH_GREEN_CIRCLE */
+                const char *hostname,   /* Can be NULL, and obtained by gethostname_strict() in that case. */
+                char * const *msg) {
+
+        _cleanup_free_ char *hn = NULL, *dot = NULL, *joined = NULL;
+        int r;
+
+        assert(f);
+
+        if (!shall_set_terminal_title())
+                return 0;
+
+        if (!hostname) {
+                (void) gethostname_strict(&hn);
+                hostname = hn;
+        }
+
+        if (circle >= 0 && emoji_enabled()) {
+                dot = strjoin(glyph(circle), " ");
+                if (!dot)
+                        return -ENOMEM;
+        }
+
+        joined = strv_join(msg, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        r = pty_forward_set_titlef(f, "%s%s%s%s", strempty(dot), joined, hn ? " on " : "", strempty(hn));
+        if (r < 0)
+                return r;
+
+        if (dot) {
+                r = pty_forward_set_title_prefix(f, dot);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
