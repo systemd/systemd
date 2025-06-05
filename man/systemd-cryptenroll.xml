@@ -632,7 +632,7 @@
         added slot is always excluded from the wiping. Combining enrollment and slot wiping may thus be used to
         update existing enrollments:</para>
 
-        <programlisting>systemd-cryptenroll /dev/sda1 --wipe-slot=tpm2 --tpm2-device=auto</programlisting>
+        <programlisting>systemd-cryptenroll /dev/sda1 --wipe-slot=tpm2 --tpm2-device=auto --unlock-tpm2-device=auto</programlisting>
 
         <para>The above command will enroll the TPM2 chip, and then wipe all previously created TPM2
         enrollments on the LUKS2 volume, leaving only the newly created one. Combining wiping and enrollment
