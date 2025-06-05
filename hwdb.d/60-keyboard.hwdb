@@ -240,6 +240,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
  KEYBOARD_KEY_8a=micmute                                # Microphone mute button
  KEYBOARD_KEY_55=power
 
+# Nitro ANV15-51
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
+ KEYBOARD_KEY_66=micmute                                # Microphone mute button
+
 ###########################################################
 # Alienware
 ###########################################################
