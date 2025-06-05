@@ -141,7 +141,7 @@ static void test_receive_basic_packet(sd_event *e) {
 static void test_receive_incomplete_packet(sd_event *e) {
         sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
-        uint8_t frame[] = {
+        static const uint8_t frame[] = {
                 /* Ethernet header */
                 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
                 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
@@ -168,7 +168,7 @@ static void test_receive_incomplete_packet(sd_event *e) {
 static void test_receive_oui_packet(sd_event *e) {
         sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
-        uint8_t frame[] = {
+        static const uint8_t frame[] = {
                 /* Ethernet header */
                 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
                 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
