@@ -487,17 +487,21 @@ int manager_open_native_socket(Manager *m, const char *native_socket) {
 
         r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(r, "SO_PASSCRED failed: %m");
+                return log_error_errno(r, "Failed to enable SO_PASSCRED on journal native socket: %m");
+
+        r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        if (r < 0 && r != -ENOPROTOOPT)
+                log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS on journal native socket, ignoring: %m");
 
         if (mac_selinux_use()) {
                 r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_warning_errno(r, "SO_PASSSEC failed: %m");
+                        log_warning_errno(r, "Failed to enable SO_PASSSEC on journal native socket: %m");
         }
 
         r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
-                return log_error_errno(r, "SO_TIMESTAMP failed: %m");
+                return log_error_errno(r, "Failed to enable SO_TIMESTAMP on journal native socket: %m");
 
         r = sd_event_add_io(m->event, &m->native_event_source, m->native_fd, EPOLLIN, manager_process_datagram, m);
         if (r < 0)
