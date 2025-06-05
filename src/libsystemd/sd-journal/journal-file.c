@@ -1403,7 +1403,7 @@ static int journal_file_link_field(
         assert(offset > 0);
 
         if (o->object.type != OBJECT_FIELD)
-                return -EINVAL;
+                return -EBADMSG;
 
         m = le64toh(READ_NOW(f->header->field_hash_table_size)) / sizeof(HashItem);
         if (m <= 0)
@@ -1448,7 +1448,7 @@ static int journal_file_link_data(
         assert(offset > 0);
 
         if (o->object.type != OBJECT_DATA)
-                return -EINVAL;
+                return -EBADMSG;
 
         m = le64toh(READ_NOW(f->header->data_hash_table_size)) / sizeof(HashItem);
         if (m <= 0)
@@ -2229,7 +2229,7 @@ static int journal_file_link_entry(
         assert(offset > 0);
 
         if (o->object.type != OBJECT_ENTRY)
-                return -EINVAL;
+                return -EBADMSG;
 
         __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
