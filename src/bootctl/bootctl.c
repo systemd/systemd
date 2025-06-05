@@ -495,9 +495,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VARIABLES:
-                        r = parse_tristate_argument("--variables=", optarg, &arg_touch_variables);
+                        r = parse_tristate(optarg, &arg_touch_variables);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse --variables= argument: %s", optarg);
+
                         break;
 
                 case ARG_NO_VARIABLES:
