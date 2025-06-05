@@ -948,7 +948,7 @@ const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", name),
                                 SD_BUS_RESULT("h", pty, "s", pty_path),
                                 method_open_machine_pty,
-                                0),
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("OpenMachineLogin",
                                 SD_BUS_ARGS("s", name),
                                 SD_BUS_RESULT("h", pty, "s", pty_path),
