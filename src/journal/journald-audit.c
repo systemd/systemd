@@ -539,6 +539,10 @@ int manager_open_audit(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set SO_PASSCRED on audit socket: %m");
 
+        r = setsockopt_int(m->audit_fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        if (r < 0 && r != -ENOPROTOOPT)
+                log_debug_errno(m, r, "Failed to turn off SO_PASSRIGHTS on audit socket, ignoring: %m");
+
         r = sd_event_add_io(m->event, &m->audit_event_source, m->audit_fd, EPOLLIN, manager_process_datagram, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add audit fd to event loop: %m");
