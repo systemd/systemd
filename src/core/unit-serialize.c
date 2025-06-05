@@ -364,22 +364,20 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 }
         }
 
-        /* Versions before 228 did not carry a state change timestamp. In this case, take the current
-         * time. This is useful, so that timeouts based on this timestamp don't trigger too early, and is
-         * in-line with the logic from before 228 where the base for timeouts was not persistent across
-         * reboots. */
-
-        if (!dual_timestamp_is_set(&u->state_change_timestamp))
-                dual_timestamp_now(&u->state_change_timestamp);
-
         /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings
          * applied after we are done. For that we invalidate anything already realized, so that we can
          * realize it again. */
-        CGroupRuntime *crt;
-        crt = unit_get_cgroup_runtime(u);
-        if (crt && crt->cgroup_realized) {
-                unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
-                unit_invalidate_cgroup_bpf(u);
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (crt && crt->cgroup_path) {
+                /* Since v258, CGroupRuntime.cgroup_path is coupled with cgroup realized state, which however
+                 * wasn't the case in prior versions with the realized state tracked in a discrete field.
+                 * Patch cgroup_realized == 0 back to no cgroup_path here hence. */
+                if (crt->deserialized_cgroup_realized == 0)
+                        unit_release_cgroup(u, /* drop_cgroup_runtime = */ false);
+                else {
+                        unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
+                        unit_invalidate_cgroup_bpf(u);
+                }
         }
 
         return 0;
@@ -512,11 +510,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
                 fprintf(f,
                         "%s\tSlice: %s\n"
-                        "%s\tCGroup: %s\n"
-                        "%s\tCGroup realized: %s\n",
+                        "%s\tCGroup: %s\n",
                         prefix, strna(unit_slice_name(u)),
-                        prefix, strna(crt ? crt->cgroup_path : NULL),
-                        prefix, yes_no(crt ? crt->cgroup_realized : false));
+                        prefix, strna(crt ? crt->cgroup_path : NULL));
 
                 if (crt && crt->cgroup_realized_mask != 0) {
                         _cleanup_free_ char *s = NULL;
