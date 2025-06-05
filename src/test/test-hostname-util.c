@@ -89,4 +89,31 @@ TEST(hostname_cleanup) {
         ASSERT_STREQ(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 }
 
+static void test_split_user_at_host_one(const char *s, const char *expected_user, const char *expected_host, int ret) {
+        _cleanup_free_ char *u = NULL, *h = NULL;
+
+        ASSERT_OK_EQ(split_user_at_host(s, &u, &h), ret);
+        ASSERT_STREQ(u, expected_user);
+        ASSERT_STREQ(h, expected_host);
+
+        u = mfree(u);
+        h = mfree(h);
+
+        ASSERT_OK_EQ(split_user_at_host(s, &u, NULL), ret);
+        ASSERT_STREQ(u, expected_user);
+
+        ASSERT_OK_EQ(split_user_at_host(s, NULL, &h), ret);
+        ASSERT_STREQ(h, expected_host);
+}
+
+TEST(split_user_at_host) {
+        test_split_user_at_host_one("", NULL, NULL, 0);
+        test_split_user_at_host_one("@", NULL, NULL, 1);
+        test_split_user_at_host_one("a", NULL, "a", 0);
+        test_split_user_at_host_one("a@b", "a", "b", 1);
+        test_split_user_at_host_one("@b", NULL, "b", 1);
+        test_split_user_at_host_one("a@", "a", NULL, 1);
+        test_split_user_at_host_one("aa@@@bb", "aa", "@@bb", 1);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
