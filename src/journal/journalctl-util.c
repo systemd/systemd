@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "glob-util.h"
+#include "hostname-util.h"
 #include "id128-util.h"
 #include "journal-util.h"
 #include "journalctl.h"
@@ -43,9 +44,18 @@ int acquire_journal(sd_journal **ret) {
                 r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, arg_journal_additional_open_flags);
         else if (arg_file)
                 r = sd_journal_open_files(&j, (const char**) arg_file, arg_journal_additional_open_flags);
-        else if (arg_machine)
-                r = journal_open_machine(&j, arg_machine, arg_journal_additional_open_flags);
-        else
+        else if (arg_machine) {
+                _cleanup_free_ char *u = NULL, *h = NULL;
+
+                r = split_user_at_host(arg_machine, &u, &h);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to split machine specification '%s': %m", arg_machine);
+
+                if (!isempty(u) && !streq(u, "root"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Connecting to a machine as non-root not supported.");
+
+                r = journal_open_machine(&j, h ?: ".host", arg_journal_additional_open_flags);
+        } else
                 r = sd_journal_open_namespace(
                                 &j,
                                 arg_namespace,

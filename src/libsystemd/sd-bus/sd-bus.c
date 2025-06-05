@@ -1561,14 +1561,18 @@ _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
 
 int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *machine) {
         _cleanup_free_ char *a = NULL;
-        const char *rhs;
 
         assert(b);
         assert(machine);
 
-        rhs = strchr(machine, '@');
-        if (rhs || runtime_scope == RUNTIME_SCOPE_USER) {
-                _cleanup_free_ char *u = NULL, *eu = NULL, *erhs = NULL;
+        _cleanup_free_ char *u = NULL, *h = NULL;
+        int with_at;
+        with_at = split_user_at_host(machine, &u, &h);
+        if (with_at < 0)
+                return with_at;
+
+        if (with_at || runtime_scope == RUNTIME_SCOPE_USER) {
+                _cleanup_free_ char *eu = NULL, *eh = NULL;
 
                 /* If there's an "@" in the container specification, we'll connect as a user specified at its
                  * left hand side, which is useful in combination with user=true. This isn't as trivial as it
@@ -1578,43 +1582,38 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
                  * into the container and acquire a PAM session there, and then invoke systemd-stdio-bridge
                  * in it, which propagates the bus transport to us. */
 
-                if (rhs) {
-                        if (rhs > machine)
-                                u = strndup(machine, rhs - machine);
-                        else
+                if (with_at) {
+                        if (!u) {
                                 u = getusername_malloc(); /* Empty user name, let's use the local one */
-                        if (!u)
-                                return -ENOMEM;
+                                if (!u)
+                                        return -ENOMEM;
+                        }
 
                         eu = bus_address_escape(u);
                         if (!eu)
                                 return -ENOMEM;
-
-                        rhs++;
-                } else {
-                        /* No "@" specified but we shall connect to the user instance? Then assume root (and
-                         * not a user named identically to the calling one). This means:
-                         *
-                         *     --machine=foobar --user    → connect to user bus of root user in container "foobar"
-                         *     --machine=@foobar --user   → connect to user bus of user named like the calling user in container "foobar"
-                         *
-                         * Why? so that behaviour for "--machine=foobar --system" is roughly similar to
-                         * "--machine=foobar --user": both times we unconditionally connect as root user
-                         * regardless what the calling user is. */
-
-                        rhs = machine;
                 }
 
-                if (!isempty(rhs)) {
-                        erhs = bus_address_escape(rhs);
-                        if (!erhs)
+                /* No "@" specified but we shall connect to the user instance? Then assume root (and
+                 * not a user named identically to the calling one). This means:
+                 *
+                 *     --machine=foobar --user    → connect to user bus of root user in container "foobar"
+                 *     --machine=@foobar --user   → connect to user bus of user named like the calling user in container "foobar"
+                 *
+                 * Why? so that behaviour for "--machine=foobar --system" is roughly similar to
+                 * "--machine=foobar --user": both times we unconditionally connect as root user
+                 * regardless what the calling user is. */
+
+                if (h) {
+                        eh = bus_address_escape(h);
+                        if (!eh)
                                 return -ENOMEM;
                 }
 
                 /* systemd-run -M… -PGq --wait -pUser=… -pPAMName=login systemd-stdio-bridge */
 
                 a = strjoin("unixexec:path=systemd-run,"
-                            "argv1=-M", erhs ?: ".host", ","
+                            "argv1=-M", eh ?: ".host", ","
                             "argv2=-PGq,"
                             "argv3=--wait,"
                             "argv4=-pUser%3d", eu ?: "root", ",",
@@ -1637,7 +1636,7 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
                 /* Just a container name, we can go the simple way, and just join the container, and connect
                  * to the well-known path of the system bus there. */
 
-                e = bus_address_escape(machine);
+                e = bus_address_escape(h ?: ".host");
                 if (!e)
                         return -ENOMEM;
 
@@ -1693,7 +1692,7 @@ static int user_and_machine_equivalent(const char *user_and_machine) {
 
         /* Omitting the user name means that we shall use the same user name as we run as locally, which
          * means we'll end up on the same host, let's shortcut */
-        if (streq(user_and_machine, "@.host"))
+        if (STR_IN_SET(user_and_machine, "@.host", "@"))
                 return true;
 
         /* Otherwise, if we are root, then we can also allow the ".host" syntax, as that's the user this
