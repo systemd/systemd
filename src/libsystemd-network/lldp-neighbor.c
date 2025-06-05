@@ -315,6 +315,16 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                                 if (r < 0)
                                         return r;
                         }
+
+                        /* IEEE 802.1: VLAN ID */
+                        if (memcmp(p, SD_LLDP_OUI_802_1_VLAN_ID, sizeof(SD_LLDP_OUI_802_1_VLAN_ID)) == 0) {
+                                if (length != (sizeof(SD_LLDP_OUI_802_1_VLAN_ID) + sizeof(uint16_t)))
+                                        return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                                 "Found 802.1 VLAN ID TLV with wrong length, ignoring.");
+
+                                n->has_port_vlan_id = true;
+                                n->port_vlan_id = unaligned_read_be16(p + sizeof(SD_LLDP_OUI_802_1_VLAN_ID));
+                        }
                         break;
                 }
 
@@ -632,6 +642,17 @@ int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret
         return 0;
 }
 
+int sd_lldp_neighbor_get_port_vlan_id(sd_lldp_neighbor *n, uint16_t *ret) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!n->has_port_vlan_id)
+                return -ENODATA;
+
+        *ret = n->port_vlan_id;
+        return 0;
+}
+
 int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
         assert_return(n, -EINVAL);
 
@@ -769,6 +790,8 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret) {
                 *system_name = NULL, *system_description = NULL;
         uint16_t cc = 0;
         bool valid_cc;
+        uint16_t vlanid = 0;
+        bool valid_vlanid;
 
         assert(n);
         assert(ret);
@@ -780,6 +803,7 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret) {
         (void) sd_lldp_neighbor_get_system_description(n, &system_description);
 
         valid_cc = sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0;
+        valid_vlanid = sd_lldp_neighbor_get_port_vlan_id(n, &vlanid) >= 0;
 
         return sd_json_buildo(
                         ret,
@@ -790,5 +814,6 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret) {
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", port_description),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", system_name),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", system_description),
-                        SD_JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", SD_JSON_BUILD_UNSIGNED(cc)));
+                        SD_JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", SD_JSON_BUILD_UNSIGNED(cc)),
+                        SD_JSON_BUILD_PAIR_CONDITION(valid_vlanid, "VlanID", SD_JSON_BUILD_UNSIGNED(vlanid)));
 }
