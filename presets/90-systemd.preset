@@ -29,6 +29,7 @@ enable systemd-mountfsd.socket
 enable systemd-network-generator.service
 enable systemd-networkd.service
 enable systemd-networkd-wait-online.service
+enable systemd-devlinkd.service
 enable systemd-nsresourced.socket
 enable systemd-pstore.service
 enable systemd-resolved.service

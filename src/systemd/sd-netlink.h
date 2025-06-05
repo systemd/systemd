@@ -108,17 +108,20 @@ int sd_netlink_message_cancel_array(sd_netlink_message *m);
 int sd_netlink_message_read(sd_netlink_message *m, uint16_t attr_type, size_t size, void *ret);
 int sd_netlink_message_read_data(sd_netlink_message *m, uint16_t attr_type, size_t *ret_size, void **ret_data);
 int sd_netlink_message_read_string_strdup(sd_netlink_message *m, uint16_t attr_type, char **ret);
+int sd_netlink_message_read_string_indexed(sd_netlink_message *m, uint16_t attr_type, const char **ret, unsigned int index);
 int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, const char **ret);
 int sd_netlink_message_read_strv(sd_netlink_message *m, uint16_t container_type, uint16_t attr_type, char ***ret);
 int sd_netlink_message_read_u8(sd_netlink_message *m, uint16_t attr_type, uint8_t *ret);
 int sd_netlink_message_read_u16(sd_netlink_message *m, uint16_t attr_type, uint16_t *ret);
 int sd_netlink_message_read_u32(sd_netlink_message *m, uint16_t attr_type, uint32_t *ret);
 int sd_netlink_message_read_u64(sd_netlink_message *m, uint16_t attr_type, uint64_t *ret);
+int sd_netlink_message_read_s32(sd_netlink_message *m, uint16_t attr_type, int32_t *ret);
 int sd_netlink_message_read_ether_addr(sd_netlink_message *m, uint16_t attr_type, struct ether_addr *ret);
 int sd_netlink_message_read_cache_info(sd_netlink_message *m, uint16_t attr_type, struct ifa_cacheinfo *ret);
 int sd_netlink_message_read_in_addr(sd_netlink_message *m, uint16_t attr_type, struct in_addr *ret);
 int sd_netlink_message_read_in6_addr(sd_netlink_message *m, uint16_t attr_type, struct in6_addr *ret);
 int sd_netlink_message_has_flag(sd_netlink_message *m, uint16_t attr_type);
+int sd_netlink_message_enter_container_indexed(sd_netlink_message *m, uint16_t attr_type, unsigned int index);
 int sd_netlink_message_enter_container(sd_netlink_message *m, uint16_t attr_type);
 int sd_netlink_message_enter_array(sd_netlink_message *m, uint16_t attr_type);
 int sd_netlink_message_exit_container(sd_netlink_message *m);
@@ -137,6 +140,7 @@ int sd_netlink_message_get_type(sd_netlink_message *m, uint16_t *ret);
 int sd_netlink_message_set_flags(sd_netlink_message *m, uint16_t flags);
 int sd_netlink_message_is_broadcast(sd_netlink_message *m);
 int sd_netlink_message_get_max_attribute(sd_netlink_message *m, uint16_t *ret);
+int sd_netlink_message_get_attributes_count(sd_netlink_message *m, uint16_t attr_type, size_t *ret);
 
 /* rtnl */
 int sd_rtnl_message_get_family(sd_netlink_message *m, int *ret);
