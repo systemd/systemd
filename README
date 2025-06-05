@@ -71,7 +71,10 @@ REQUIREMENTS:
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.9 for pidfs
+                     ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
+                            and block device 'partscan' sysfs attribute
                      ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat()
+                     ≥ 6.16 for coredump pattern '%F' (pidfd) specifier
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
