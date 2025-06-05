@@ -59,9 +59,13 @@ int varlink_call_and_log(
         r = sd_varlink_call(v, method, parameters, &reply, &error_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue %s() varlink call: %m", method);
-        if (error_id)
-                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
-                                         "Failed to issue %s() varlink call: %s", method, error_id);
+        if (error_id) {
+                r = sd_varlink_error_to_errno(error_id, reply); /* If this is a system errno style error, output it with %m */
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to issue %s() varlink call: %m", method);
+
+                return log_error_errno(r, "Failed to issue %s() varlink call: %s", method, error_id);
+        }
 
         if (ret_parameters)
                 *ret_parameters = TAKE_PTR(reply);
