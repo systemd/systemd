@@ -2231,7 +2231,7 @@ static int journal_file_link_entry_item(JournalFile *f, uint64_t offset, uint64_
 
 static int journal_file_link_entry(
                 JournalFile *f,
-                Object *o,
+                const Object *o,
                 uint64_t offset,
                 const EntryItem items[],
                 size_t n_items) {
