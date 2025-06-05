@@ -1692,7 +1692,7 @@ static int user_and_machine_equivalent(const char *user_and_machine) {
 
         /* Omitting the user name means that we shall use the same user name as we run as locally, which
          * means we'll end up on the same host, let's shortcut */
-        if (streq(user_and_machine, "@.host"))
+        if (STR_IN_SET(user_and_machine, "@.host", "@"))
                 return true;
 
         /* Otherwise, if we are root, then we can also allow the ".host" syntax, as that's the user this
