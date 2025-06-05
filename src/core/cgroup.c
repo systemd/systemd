@@ -1993,8 +1993,7 @@ static int unit_watch_cgroup(Unit *u) {
 
         assert(u);
 
-        /* Watches the "cgroups.events" attribute of this unit's cgroup for "empty" events, but only if
-         * cgroupv2 is available. */
+        /* Watches the "cgroups.events" attribute of this unit's cgroup for "empty" events. */
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt || !crt->cgroup_path)
@@ -2038,8 +2037,7 @@ static int unit_watch_cgroup_memory(Unit *u) {
 
         assert(u);
 
-        /* Watches the "memory.events" attribute of this unit's cgroup for "oom_kill" events, but only if
-         * cgroupv2 is available. */
+        /* Watches the "memory.events" attribute of this unit's cgroup for "oom_kill" events. */
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt || !crt->cgroup_path)
