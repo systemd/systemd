@@ -103,9 +103,16 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
         assert(fd >= 0);
         assert(p);
 
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return r;
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return -errno;
+        /* Only support regular files and block devices. Let's use stat_verify_regular() here for the nice
+         * error numbers it generates. */
+        if (!S_ISBLK(st.st_mode)) {
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return r;
+        }
 
         fl = fd_verify_safe_flags(fd);
         if (fl < 0)
@@ -128,8 +135,6 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
 }
 
 static int verify_trusted_image_fd_by_path(int fd) {
-        _cleanup_free_ char *p = NULL;
-        struct stat sta;
         int r;
 
         assert(fd >= 0);
@@ -148,11 +153,18 @@ static int verify_trusted_image_fd_by_path(int fd) {
                 return false;
         }
 
+        _cleanup_free_ char *p = NULL;
         r = fd_get_path(fd, &p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get path of passed image file descriptor: %m");
+
+        struct stat sta;
         if (fstat(fd, &sta) < 0)
                 return log_debug_errno(errno, "Failed to stat() passed image file descriptor: %m");
+        if (!S_ISREG(sta.st_mode)) {
+                log_debug("Image '%s' is not a regular file, hence skipping trusted directory check.", p);
+                return false;
+        }
 
         log_debug("Checking if image '%s' is in trusted directories.", p);
 
