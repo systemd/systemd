@@ -335,7 +335,7 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
 #define DNS_RESOURCE_KEY_STRING_MAX (_DNS_CLASS_STRING_MAX + _DNS_TYPE_STRING_MAX + DNS_HOSTNAME_MAX + 1)
 
 char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size);
-ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out);
+ssize_t dns_resource_record_payload(DnsResourceRecord *rr, const void **ret);
 
 #define DNS_RESOURCE_KEY_TO_STRING(key) \
         dns_resource_key_to_string(key, (char[DNS_RESOURCE_KEY_STRING_MAX]) {}, DNS_RESOURCE_KEY_STRING_MAX)
