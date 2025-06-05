@@ -2736,7 +2736,9 @@ static int bump_entry_array(
 
         if (direction == DIRECTION_DOWN) {
                 assert(o);
-                assert(o->object.type == OBJECT_ENTRY_ARRAY);
+
+                if (o->object.type != OBJECT_ENTRY_ARRAY)
+                        return -EBADMSG;
 
                 *ret = le64toh(o->entry_array.next_entry_array_offset);
         } else {
@@ -3237,8 +3239,10 @@ static int generic_array_bisect_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
         assert(test_object);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         n = le64toh(d->data.n_entries);
         if (n <= 0)
@@ -3605,8 +3609,10 @@ int journal_file_move_to_entry_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
         assert(IN_SET(direction, DIRECTION_DOWN, DIRECTION_UP));
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         /* FIXME: fix return value assignment. */
 
@@ -3667,7 +3673,9 @@ int journal_file_move_to_entry_by_offset_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         return generic_array_bisect_for_data(
                         f,
@@ -3693,7 +3701,9 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         /* First, pin the given data object, before reading the _BOOT_ID= data object below. */
         r = journal_file_pin_object(f, d);
@@ -3759,7 +3769,9 @@ int journal_file_move_to_entry_by_seqnum_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         return generic_array_bisect_for_data(
                         f,
@@ -3779,7 +3791,9 @@ int journal_file_move_to_entry_by_realtime_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         return generic_array_bisect_for_data(
                         f,
