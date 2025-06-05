@@ -172,3 +172,36 @@ int get_pretty_hostname(char **ret) {
         *ret = TAKE_PTR(n);
         return 0;
 }
+
+int split_user_at_host(const char *s, char **ret_user, char **ret_host) {
+        _cleanup_free_ char *u = NULL, *h = NULL;
+
+        /* Splits a user@host expression (one of those we accept on --machine= and similar). Returns NULL in
+         * each of the two return parameters if that part was left empty. */
+
+        const char *rhs = strchr(s, '@');
+        if (rhs) {
+                if (ret_user && rhs > s) {
+                        u = strndup(s, rhs - s);
+                        if (!u)
+                                return -ENOMEM;
+                }
+
+                if (ret_host && rhs[1] != 0) {
+                        h = strdup(rhs + 1);
+                        if (!h)
+                                return -ENOMEM;
+                }
+        } else if (!isempty(s) && ret_host) {
+                h = strdup(s);
+                if (!h)
+                        return -ENOMEM;
+        }
+
+        if (ret_user)
+                *ret_user = TAKE_PTR(u);
+        if (ret_host)
+                *ret_host = TAKE_PTR(h);
+
+        return !!rhs; /* return > 0 if '@' was specified, 0 otherwise */
+}
