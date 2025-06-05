@@ -121,6 +121,21 @@ usb:v06F8pB107*
 usb:v0C26p001E*
  ID_AV_PRODUCTION_CONTROLLER=1
 
+####################
+# Loupedeck
+####################
+# CT
+usb:v2EC2p0003*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Live
+usb:v2EC2p0004*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Live S
+usb:v2EC2p0006*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
 #####################
 # Native Instruments
 #####################
@@ -198,6 +213,17 @@ usb:v17CCp1130*
 ####################
 # CDJ 2000 NXS 2
 usb:v2B73p0005*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+####################
+# Razer
+####################
+# Stream Controller
+usb:v1532p0D06*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Controller X
+usb:v1532p0D09*
  ID_AV_PRODUCTION_CONTROLLER=1
 
 ####################
