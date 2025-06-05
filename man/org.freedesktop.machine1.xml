@@ -94,7 +94,6 @@ node /org/freedesktop/machine1 {
                         out s ssh_private_key_path);
       GetMachineOSRelease(in  s name,
                           out a{ss} fields);
-      @org.freedesktop.systemd1.Privileged("true")
       OpenMachinePTY(in  s name,
                      out h pty,
                      out s pty_path);
