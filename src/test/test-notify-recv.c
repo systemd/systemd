@@ -88,7 +88,7 @@ TEST(notify_socket_prepare) {
                 .pidref = PIDREF_NULL,
         };
         _cleanup_free_ char *path = NULL;
-        ASSERT_OK(notify_socket_prepare(e, SD_EVENT_PRIORITY_NORMAL - 10, on_recv, &c, &path, /* ret_event_source= */ NULL));
+        ASSERT_OK(notify_socket_prepare_full(e, SD_EVENT_PRIORITY_NORMAL - 10, on_recv, &c, true, &path, NULL));
 
         ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
 

@@ -1066,8 +1066,7 @@ static int run_callout(
                         SD_EVENT_PRIORITY_NORMAL - 5,
                         helper_on_notify,
                         ctx,
-                        &bind_name,
-                        /* ret_event_source= */ NULL);
+                        &bind_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
