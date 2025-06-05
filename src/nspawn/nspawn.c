@@ -4611,28 +4611,6 @@ static int setup_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid, 
         return 0;
 }
 
-static void set_window_title(PTYForward *f) {
-        _cleanup_free_ char *hn = NULL, *dot = NULL;
-
-        assert(f);
-
-        if (!shall_set_terminal_title())
-                return;
-
-        (void) gethostname_strict(&hn);
-
-        if (emoji_enabled())
-                dot = strjoin(glyph(GLYPH_BLUE_CIRCLE), " ");
-
-        if (hn)
-                (void) pty_forward_set_titlef(f, "%sContainer %s on %s", strempty(dot), arg_machine, hn);
-        else
-                (void) pty_forward_set_titlef(f, "%sContainer %s", strempty(dot), arg_machine);
-
-        if (dot)
-                (void) pty_forward_set_title_prefix(f, dot);
-}
-
 static int ptyfwd_hotkey(PTYForward *f, char c, void *userdata) {
         pid_t pid = PTR_TO_PID(userdata);
         const char *word;
@@ -5643,7 +5621,8 @@ static int run_container(
                         } else if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(forward, arg_background);
 
-                        set_window_title(forward);
+                        (void) pty_forward_set_window_title(forward, GLYPH_BLUE_CIRCLE, /* hostname = */ NULL,
+                                                            STRV_MAKE("Container", arg_machine));
 
                         pty_forward_set_hotkey_handler(forward, ptyfwd_hotkey, PID_TO_PTR(*pid));
                         break;

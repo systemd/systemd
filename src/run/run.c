@@ -36,7 +36,6 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "hostname-setup.h"
 #include "log.h"
 #include "main-func.h"
 #include "osc-context.h"
@@ -2085,32 +2084,6 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         return r; /* Return true when we get a non-null invocation ID. */
 }
 
-static void set_window_title(PTYForward *f) {
-        _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
-
-        assert(f);
-
-        if (!shall_set_terminal_title())
-                return;
-
-        if (!arg_host)
-                (void) gethostname_strict(&hn);
-
-        cl = strv_join(arg_cmdline, " ");
-        if (!cl)
-                return (void) log_oom();
-
-        if (emoji_enabled())
-                dot = strjoin(glyph(privileged_execution() ? GLYPH_RED_CIRCLE : GLYPH_YELLOW_CIRCLE), " ");
-
-        if (arg_host || hn)
-                (void) pty_forward_set_titlef(f, "%s%s on %s", strempty(dot), cl, arg_host ?: hn);
-        else
-                (void) pty_forward_set_titlef(f, "%s%s", strempty(dot), cl);
-
-        (void) pty_forward_set_title_prefix(f, dot);
-}
-
 static int fchown_to_capsule(int fd, const char *capsule) {
         _cleanup_free_ char *p = NULL;
         int r;
@@ -2187,7 +2160,9 @@ static int run_context_setup_ptyfwd(RunContext *c) {
         if (!isempty(arg_background))
                 (void) pty_forward_set_background_color(c->forward, arg_background);
 
-        set_window_title(c->forward);
+        (void) pty_forward_set_window_title(c->forward,
+                                            privileged_execution() ? GLYPH_RED_CIRCLE : GLYPH_YELLOW_CIRCLE,
+                                            arg_host, arg_cmdline);
         return 0;
 }
 

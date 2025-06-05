@@ -49,4 +49,10 @@ int pty_forward_set_title_prefix(PTYForward *f, const char *prefix);
 
 bool shall_set_terminal_title(void);
 
+int pty_forward_set_window_title(
+                PTYForward *f,
+                Glyph circle,           /* e.g. GLYPH_GREEN_CIRCLE */
+                const char *hostname,   /* Can be NULL, and obtained by gethostname_strict() in that case. */
+                char * const *msg);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);

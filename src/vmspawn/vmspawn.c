@@ -1446,28 +1446,6 @@ static int merge_initrds(char **ret) {
         return 0;
 }
 
-static void set_window_title(PTYForward *f) {
-        _cleanup_free_ char *hn = NULL, *dot = NULL;
-
-        assert(f);
-
-        if (!shall_set_terminal_title())
-                return;
-
-        (void) gethostname_strict(&hn);
-
-        if (emoji_enabled())
-                dot = strjoin(glyph(GLYPH_GREEN_CIRCLE), " ");
-
-        if (hn)
-                (void) pty_forward_set_titlef(f, "%sVirtual Machine %s on %s", strempty(dot), arg_machine, hn);
-        else
-                (void) pty_forward_set_titlef(f, "%sVirtual Machine %s", strempty(dot), arg_machine);
-
-        if (dot)
-                (void) pty_forward_set_title_prefix(f, dot);
-}
-
 static int generate_ssh_keypair(const char *key_path, const char *key_type) {
         _cleanup_free_ char *ssh_keygen = NULL;
         _cleanup_strv_free_ char **cmdline = NULL;
@@ -2449,7 +2427,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 } else if (!isempty(arg_background))
                         (void) pty_forward_set_background_color(forward, arg_background);
 
-                set_window_title(forward);
+                (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname = */ NULL,
+                                                    STRV_MAKE("Virtual Machine", arg_machine));
         }
 
         r = sd_event_loop(event);
