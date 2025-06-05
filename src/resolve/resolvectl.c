@@ -489,7 +489,7 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
                         return r;
 
         } else if (arg_raw == RAW_PAYLOAD) {
-                void *data;
+                const void *data;
                 ssize_t k;
 
                 k = dns_resource_record_payload(rr, &data);
