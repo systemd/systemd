@@ -155,7 +155,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                         return log_oom();
 
                 r = userns_registry_load_by_name(
-                                /* registry_fd= */ -EBADF,
+                                /* dir_fd= */ -EBADF,
                                 n,
                                 &userns_info);
                 if (r == -ENOENT)
@@ -183,7 +183,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 offset = p.uid - start;
 
                 r = userns_registry_load_by_start_uid(
-                                /* registry_fd= */ -EBADF,
+                                /* dir_fd= */ -EBADF,
                                 start,
                                 &userns_info);
                 if (r == -ENOENT)
@@ -282,7 +282,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                         return log_oom();
 
                 r = userns_registry_load_by_name(
-                                /* registry_fd= */ -EBADF,
+                                /* dir_fd= */ -EBADF,
                                 n,
                                 &userns_info);
                 if (r == -ENOENT)
@@ -310,7 +310,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 offset = p.gid - start;
 
                 r = userns_registry_load_by_start_gid(
-                                /* registry_fd= */ -EBADF,
+                                /* dir_fd= */ -EBADF,
                                 start,
                                 &userns_info);
                 if (r == -ENOENT)
@@ -1683,7 +1683,7 @@ static int validate_netns(sd_varlink *link, int userns_fd, int netns_fd) {
         if (owner_userns_fd < 0)
                 return -errno;
 
-        r = inode_same_at(owner_userns_fd, /* path_a= */ NULL, userns_fd, /* path_b= */ NULL, AT_EMPTY_PATH);
+        r = inode_same_at(owner_userns_fd, /* filea= */ NULL, userns_fd, /* fileb= */ NULL, AT_EMPTY_PATH);
         if (r < 0)
                 return r;
         if (r == 0)
