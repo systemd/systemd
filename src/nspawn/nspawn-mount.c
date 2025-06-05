@@ -509,12 +509,14 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         if (rmdir(full) < 0)
                 return log_error_errno(errno, "Failed to remove %s: %m", full);
 
-        /* Create mountpoint for cgroups. Otherwise we are not allowed since we remount /sys/ read-only. */
-        _cleanup_free_ char *x = path_join(top, "/fs/cgroup");
-        if (!x)
-                return log_oom();
+        /* Create mountpoints. Otherwise we are not allowed since we remount /sys/ read-only. */
+        FOREACH_STRING(p, "/fs/cgroup", "/fs/bpf") {
+                _cleanup_free_ char *x = path_join(top, p);
+                if (!x)
+                        return log_oom();
 
-        (void) mkdir_p(x, 0755);
+                (void) mkdir_p(x, 0755);
+        }
 
         return mount_nofollow_verbose(LOG_ERR, NULL, top, NULL,
                                       MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
