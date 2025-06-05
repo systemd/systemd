@@ -1155,15 +1155,16 @@ static int manager_listen_notify(Manager *m) {
         assert(m);
         assert(!m->notify_socket_path);
 
-        r = notify_socket_prepare(
+        r = notify_socket_prepare_full(
                         m->event,
                         SD_EVENT_PRIORITY_NORMAL - 5, /* Make sure we process sd_notify() before SIGCHLD for
                                                        * any worker, so that we always know the error number
                                                        * of a client before it exits. */
                         on_notify_socket,
                         m,
+                        /* accept_fds = */ true,
                         &m->notify_socket_path,
-                        /* ret_event_source= */ NULL);
+                        /* ret_event_source = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
