@@ -1125,7 +1125,9 @@ else
 endif
 
 libmount = dependency('mount',
-                      version : fuzzer_build ? '>= 0' : '>= 2.30')
+                      version : fuzzer_build ? '>= 0' : '>= 2.30',
+                      disabler : true,
+                      required : get_option('libmount'))
 
 libfdisk = dependency('fdisk',
                       version : '>= 2.32',
