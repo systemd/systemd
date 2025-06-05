@@ -38,7 +38,7 @@ else
     # statically linking isn't viable for us for various reasons, we do a build with most features disabled
     # to link against as few libraries as possible. The libraries we do end up linking against happen (by
     # chance) to be installed in the oss-fuzz execution environment.
-    meson_args+=("-Doss-fuzz=true" "--auto-features=disabled" "-Dnspawn=enabled" "-Dresolve=true")
+    meson_args+=("-Doss-fuzz=true" "--auto-features=disabled" "-Dlibmount=enabled" "-Dnspawn=enabled" "-Dresolve=true")
 
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
