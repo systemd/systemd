@@ -1803,17 +1803,27 @@ static int journal_file_append_field(
         return 0;
 }
 
-static int maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *src, uint64_t size, size_t *rsize) {
+static int maybe_compress_payload(
+                JournalFile *f,
+                uint8_t *dst,
+                const uint8_t *src,
+                uint64_t size,
+                size_t *rsize,
+                Compression *ret_compression) {
+
         assert(f);
         assert(f->header);
+        assert(ret_compression);
 
 #if HAVE_COMPRESSION
         Compression c;
         int r;
 
         c = JOURNAL_FILE_COMPRESSION(f);
-        if (c == COMPRESSION_NONE || size < f->compress_threshold_bytes)
+        if (c == COMPRESSION_NONE || size < f->compress_threshold_bytes) {
+                *ret_compression = COMPRESSION_NONE;
                 return 0;
+        }
 
         r = compress_blob(c, src, size, dst, size - 1, rsize, /* level = */ -1);
         if (r < 0)
@@ -1821,8 +1831,10 @@ static int maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *s
 
         log_debug("Compressed data object %"PRIu64" -> %zu using %s", size, *rsize, compression_to_string(c));
 
+        *ret_compression = c;
         return 1; /* compressed */
 #else
+        *ret_compression = COMPRESSION_NONE;
         return 0;
 #endif
 }
@@ -1867,13 +1879,12 @@ static int journal_file_append_data(
 
         o->data.hash = htole64(hash);
 
-        r = maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize);
+        Compression c;
+        r = maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize, &c);
         if (r <= 0)
                 /* We don't really care failures, let's continue without compression */
                 memcpy_safe(journal_file_data_payload_field(f, o), data, size);
         else {
-                Compression c = JOURNAL_FILE_COMPRESSION(f);
-
                 assert(c >= 0 && c < _COMPRESSION_MAX && c != COMPRESSION_NONE);
 
                 o->object.size = htole64(journal_file_data_payload_offset(f) + rsize);
