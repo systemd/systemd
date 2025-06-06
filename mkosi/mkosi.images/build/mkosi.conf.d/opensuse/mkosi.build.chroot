@@ -71,7 +71,7 @@ fi
 # to adapt.
 #
 # TODO: remove manual default-hierarchy patch when the upstream spec is updated
-sed "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" -e '1062,1075d' -e '/integration-tests\/README/d' -e '/default-hierarchy/ d' >/tmp/systemd.spec
+sed "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" -e '/integration-tests\/README/d' -e '/default-hierarchy/ d' >/tmp/systemd.spec
 mount --bind /tmp/systemd.spec "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
 
 build() {
