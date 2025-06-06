@@ -27,6 +27,7 @@ ListenDatagram=/run/systemd/journal/syslog
 SocketMode=0666
 PassCredentials=yes
 PassSecurity=yes
+AllowFileDescriptorPassing=no
 ReceiveBuffer=8M
 
 # The default syslog implementation should make syslog.service a
