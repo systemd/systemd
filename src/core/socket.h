@@ -134,6 +134,7 @@ typedef struct Socket {
         bool pass_pidfd;
         bool pass_sec;
         bool pass_pktinfo;
+        bool pass_rights;
         SocketTimestamping timestamping;
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
