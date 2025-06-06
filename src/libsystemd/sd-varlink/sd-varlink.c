@@ -3296,7 +3296,8 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
                                  SD_VARLINK_SERVER_INHERIT_USERDATA|
                                  SD_VARLINK_SERVER_INPUT_SENSITIVE|
                                  SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|
-                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT)) == 0, -EINVAL);
+                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT|
+                                 SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -3631,6 +3632,13 @@ _public_ int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd) {
         if (r < 0)
                 return r;
 
+        /* If fd passing is disabled on server, and SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT flag is set,
+         * turn off SO_PASSRIGHTS immediately on listening socket. The conditionalization behind a flag
+         * is needed to retain backwards compat, where implementations would register a connection callback
+         * to enable fd passing after accept(), which might race with clients wrt SO_PASSRIGHTS state. */
+        if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT))
+                (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
+
         r = varlink_server_create_listen_fd_socket(s, fd, &ss);
         if (r < 0)
                 return r;
@@ -3671,6 +3679,10 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
                 return -errno;
 
         fd = fd_move_above_stdio(fd);
+
+        /* See the comment in sd_varlink_server_listen_fd() */
+        if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT))
+                (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
 
         (void) sockaddr_un_unlink(&sockaddr.un);
 
