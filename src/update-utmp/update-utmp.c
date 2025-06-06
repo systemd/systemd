@@ -115,10 +115,7 @@ static int get_current_runlevel(Context *c) {
                                         "ActiveState",
                                         &error,
                                         &state);
-                        if ((r == -ENOTCONN ||
-                             sd_bus_error_has_names(&error,
-                                                    SD_BUS_ERROR_NO_REPLY,
-                                                    SD_BUS_ERROR_DISCONNECTED)) &&
+                        if ((r == -ENOTCONN || bus_error_is_connection(&error)) &&
                             n_attempts < MAX_ATTEMPTS) {
                                 log_debug_errno(r, "Failed to get state of %s, retrying after a slight delay: %s",
                                                 e->special, bus_error_message(&error, r));
