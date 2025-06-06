@@ -398,6 +398,48 @@ static MountEntry* mount_list_extend(MountList *ml) {
         return ml->mounts + ml->n_mounts++;
 }
 
+static int bpffs_finalize(int pipe_fd, PidRef *pid) {
+        _cleanup_close_ int fs_fd = -EBADF, fs_fd2 = -EBADF, mnt_fd = -EBADF;
+        int r;
+
+        assert(pipe_fd >= 0);
+        assert(pid);
+
+        fs_fd = fsopen("bpf", 0);
+        if (fs_fd < 0)
+                return log_debug_errno(errno, "Failed to fsopen: %m");
+
+        r = send_one_fd(pipe_fd, fs_fd, /* flags = */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send_one_fd to child: %m");
+
+        r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pid, /* flags = */ 0);
+        TAKE_PIDREF(*pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to pidref_wait_for_terminate_and_check: %m");
+        if (r != EXIT_SUCCESS) {
+                /* If something strange happened with the child, let's consider this fatal, too */
+                log_debug("Bogus return code from child: %d", r);
+                return -EIO;
+        }
+
+        fs_fd2 = receive_one_fd(pipe_fd, /* flags = */ 0);
+        if (fs_fd2 < 0)
+                return log_debug_errno(fs_fd2, "Failed to receive_one_fd from child: %m");
+
+        mnt_fd = fsmount(fs_fd2, 0, 0);
+        if (mnt_fd < 0) {
+                log_debug_errno(errno, "Failed to fsmount: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        r = move_mount(mnt_fd, "", AT_FDCWD, "/sys/fs/bpf", MOVE_MOUNT_F_EMPTY_PATH);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to move_mount: %m");
+
+        return 0;
+}
+
 static int append_access_mounts(MountList *ml, char **strv, MountMode mode, bool forcibly_require_prefix) {
         assert(ml);
 
@@ -2565,6 +2607,26 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
         }
 
+        if (unshare(CLONE_NEWNS) < 0) {
+                r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
+
+                if (ERRNO_IS_PRIVILEGE(r) ||
+                    ERRNO_IS_NOT_SUPPORTED(r))
+                        /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
+                         * in place that doesn't allow us to create namespaces (or a missing cap), then
+                         * propagate a recognizable error back, which the caller can use to detect this case
+                         * (and only this) and optionally continue without namespacing applied. */
+                        return -ENOANO;
+
+                return r;
+        }
+
+        if (p->private_bpf != PRIVATE_BPF_NO) {
+                r = bpffs_finalize(p->bpffs_socket_fd, p->bpffs_pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mount bpffs in bpffs_finalize(): %m");
+        }
+
         r = append_access_mounts(&ml, p->read_write_paths, MOUNT_READ_WRITE, require_prefix);
         if (r < 0)
                 return r;
@@ -2843,20 +2905,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         sort_and_drop_unused_mounts(&ml, root);
 
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
-
-        if (unshare(CLONE_NEWNS) < 0) {
-                r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
-
-                if (ERRNO_IS_PRIVILEGE(r) ||
-                    ERRNO_IS_NOT_SUPPORTED(r))
-                        /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
-                         * in place that doesn't allow us to create namespaces (or a missing cap), then
-                         * propagate a recognizable error back, which the caller can use to detect this case
-                         * (and only this) and optionally continue without namespacing applied. */
-                        return -ENOANO;
-
-                return r;
-        }
 
         /* Create the source directory to allow runtime propagation of mounts */
         if (setup_propagate)

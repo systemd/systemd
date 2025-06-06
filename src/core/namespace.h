@@ -199,6 +199,9 @@ typedef struct NamespaceParameters {
         PrivateTmp private_tmp;
         PrivateTmp private_var_tmp;
         PrivatePIDs private_pids;
+
+        int bpffs_socket_fd;
+        PidRef *bpffs_pid;
 } NamespaceParameters;
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path);
