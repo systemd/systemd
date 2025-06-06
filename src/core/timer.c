@@ -408,7 +408,8 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                         b = trigger->inactive_enter_timestamp.realtime;
                         } else if (dual_timestamp_is_set(&t->last_trigger))
                                 b = t->last_trigger.realtime;
-                        else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
+                        else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp) &&
+                                        state_translation_table[t->state] == UNIT_ACTIVE)
                                 b = UNIT(t)->inactive_exit_timestamp.realtime;
                         else
                                 b = ts.realtime;
