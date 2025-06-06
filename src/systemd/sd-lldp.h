@@ -87,7 +87,13 @@ enum {
           SD_LLDP_SYSTEM_CAPABILITIES_SVLAN |                           \
           SD_LLDP_SYSTEM_CAPABILITIES_TPMR))
 
-#define SD_LLDP_OUI_802_1 (const uint8_t[]) { 0x00, 0x80, 0xc2 }
+#define _SD_LLDP_OUI_802_1 0x00, 0x80, 0xc2
+#define SD_LLDP_OUI_802_1 (const uint8_t[]) { _SD_LLDP_OUI_802_1 }
+
+#define SD_LLDP_OUI_802_1_SUBTYPE_VLAN_ID  0x01
+#define SD_LLDP_OUI_802_1_VLAN_ID                                       \
+        (const uint8_t[]) { _SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_VLAN_ID }
+
 #define SD_LLDP_OUI_802_3 (const uint8_t[]) { 0x00, 0x12, 0x0f }
 
 #define _SD_LLDP_OUI_IANA 0x00, 0x00, 0x5E
