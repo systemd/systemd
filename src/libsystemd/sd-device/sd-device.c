@@ -914,15 +914,24 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
         }
 
         case '+': {
-                const char *subsys, *sep;
-
-                sep = strchr(id + 1, ':');
-                if (!sep || sep - id - 1 > NAME_MAX)
+                const char *sep = strchr(id + 1, ':');
+                if (!sep || sep[1] == '\0')
                         return -EINVAL;
 
-                subsys = memdupa_suffix0(id + 1, sep - id - 1);
+                _cleanup_free_ char *subsystem = strndup(id + 1, sep - id - 1);
+                if (!subsystem)
+                        return -ENOMEM;
 
-                return sd_device_new_from_subsystem_sysname(ret, subsys, sep + 1);
+                _cleanup_free_ char *sysname = strdup(sep + 1);
+                if (!sysname)
+                        return -ENOMEM;
+
+                /* Device ID uses device directory name as is, hence may contain '!', but
+                 * sd_device_new_from_subsystem_sysname() expects that the input is sysname,
+                 * that is, '!' must be replaced with '/'. */
+                string_replace_char(sysname, '!', '/');
+
+                return sd_device_new_from_subsystem_sysname(ret, subsystem, sysname);
         }
 
         default:
