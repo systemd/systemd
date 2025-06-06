@@ -3716,6 +3716,10 @@ static int setup_notify_child(const void *directory) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable SO_PASSPIDFD, ignoring: %m");
 
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        if (r < 0)
+                log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
+
         return TAKE_FD(fd);
 }
 
