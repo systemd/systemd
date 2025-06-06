@@ -212,6 +212,13 @@ bool bus_error_is_unknown_service(const sd_bus_error *error) {
                                       BUS_ERROR_NO_SUCH_UNIT);
 }
 
+bool bus_error_is_connection(const sd_bus_error *error) {
+        return sd_bus_error_has_names(error,
+                                      SD_BUS_ERROR_NO_REPLY,
+                                      SD_BUS_ERROR_DISCONNECTED,
+                                      SD_BUS_ERROR_TIMED_OUT);
+}
+
 int bus_check_peercred(sd_bus *c) {
         struct ucred ucred;
         int fd, r;

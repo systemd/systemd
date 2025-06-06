@@ -1728,12 +1728,7 @@ static int run_context_reconnect(RunContext *c) {
                                /* reply = */ NULL, NULL);
         if (r < 0) {
                 /* Hmm, the service manager probably hasn't finished reexecution just yet? Try again later. */
-                if (sd_bus_error_has_names(&error,
-                                           SD_BUS_ERROR_NO_REPLY,
-                                           SD_BUS_ERROR_DISCONNECTED,
-                                           SD_BUS_ERROR_TIMED_OUT,
-                                           SD_BUS_ERROR_SERVICE_UNKNOWN,
-                                           SD_BUS_ERROR_NAME_HAS_NO_OWNER))
+                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error))
                         goto retry_timer;
 
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
@@ -1874,14 +1869,7 @@ static int run_context_update(RunContext *c) {
         if (r < 0) {
                 /* If this is a connection error, then try to reconnect. This might be because the service
                  * manager is being restarted. Handle this gracefully. */
-                if (sd_bus_error_has_names(
-                                    &error,
-                                    SD_BUS_ERROR_NO_REPLY,
-                                    SD_BUS_ERROR_DISCONNECTED,
-                                    SD_BUS_ERROR_TIMED_OUT,
-                                    SD_BUS_ERROR_SERVICE_UNKNOWN,
-                                    SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
-
+                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error)) {
                         log_info_errno(r, "Bus call failed due to connection problems. Trying to reconnect...");
                         /* Not propagating error, because we handled it already, by reconnecting. */
                         return run_context_reconnect(c);

@@ -1286,8 +1286,7 @@ int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret
                         &reply,
                         "s");
         if (r < 0) {
-                if (sd_bus_error_has_names(&error, SD_BUS_ERROR_NO_REPLY,
-                                                   SD_BUS_ERROR_DISCONNECTED))
+                if (bus_error_is_connection(&error))
                         return true;
 
                 if (sd_bus_error_has_names(&error, BUS_ERROR_NO_SUCH_UNIT,
@@ -1323,8 +1322,7 @@ int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *rete
                         &reply,
                         "s");
         if (r < 0) {
-                if (sd_bus_error_has_names(&error, SD_BUS_ERROR_NO_REPLY,
-                                                   SD_BUS_ERROR_DISCONNECTED))
+                if (bus_error_is_connection(&error))
                         return true;
 
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
