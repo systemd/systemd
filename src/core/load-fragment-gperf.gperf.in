@@ -510,6 +510,7 @@ Socket.FreeBind,                              config_parse_bool,                
 Socket.Transparent,                           config_parse_bool,                                  0,                                  offsetof(Socket, transparent)
 Socket.Broadcast,                             config_parse_bool,                                  0,                                  offsetof(Socket, broadcast)
 Socket.PassCredentials,                       config_parse_bool,                                  0,                                  offsetof(Socket, pass_cred)
+Socket.PassPIDFD,                             config_parse_bool,                                  0,                                  offsetof(Socket, pass_pidfd)
 Socket.PassSecurity,                          config_parse_bool,                                  0,                                  offsetof(Socket, pass_sec)
 Socket.PassPacketInfo,                        config_parse_bool,                                  0,                                  offsetof(Socket, pass_pktinfo)
 Socket.Timestamping,                          config_parse_socket_timestamping,                   0,                                  offsetof(Socket, timestamping)
