@@ -355,7 +355,7 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
 
         _cleanup_(PKCS7_freep) PKCS7 *pkcs7 = NULL;
         PKCS7_SIGNER_INFO *signer_info;
-        r = pkcs7_new(certificate, /* private_key= */ NULL, &pkcs7, &signer_info);
+        r = pkcs7_new(certificate, /* private_key= */ NULL, /* hash_algorithm= */ NULL, &pkcs7, &signer_info);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate PKCS#7 context: %m");
 
