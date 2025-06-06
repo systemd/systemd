@@ -89,6 +89,7 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("PassPIDFD", "b", bus_property_get_bool, offsetof(Socket, pass_pidfd), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassSecurity", "b", bus_property_get_bool, offsetof(Socket, pass_sec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassPacketInfo", "b", bus_property_get_bool, offsetof(Socket, pass_pktinfo), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("AllowFileDescriptorPassing", "b", bus_property_get_bool, offsetof(Socket, pass_rights), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Timestamping", "s", property_get_timestamping, offsetof(Socket, timestamping), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveOnStop", "b", bus_property_get_bool, offsetof(Socket, remove_on_stop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Listen", "a(ss)", property_get_listen, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -200,6 +201,9 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "PassPacketInfo"))
                 return bus_set_transient_bool(u, name, &s->pass_pktinfo, message, flags, error);
+
+        if (streq(name, "AllowFileDescriptorPassing"))
+                return bus_set_transient_bool(u, name, &s->pass_rights, message, flags, error);
 
         if (streq(name, "Timestamping"))
                 return bus_set_transient_socket_timestamping(u, name, &s->timestamping, message, flags, error);
