@@ -2612,9 +2612,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         }
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
-        if ((IN_SET(p->type.designator,
-                    PARTITION_ROOT_VERITY,
-                    PARTITION_USR_VERITY) || p->verity == VERITY_DATA) && p->read_only < 0)
+        if ((partition_designator_is_verity(p->type.designator) || p->verity == VERITY_DATA) && p->read_only < 0)
                 p->read_only = true;
 
         /* Default to "growfs" on, unless read-only */
@@ -5325,7 +5323,7 @@ static int context_copy_blocks(Context *context) {
                         continue;
 
                 /* For offline signing case */
-                if (!set_isempty(arg_verity_settings) && IN_SET(p->type.designator, PARTITION_ROOT_VERITY_SIG, PARTITION_USR_VERITY_SIG))
+                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator))
                         return partition_format_verity_sig(context, p);
 
                 if (p->copy_blocks_fd < 0)
@@ -6298,7 +6296,7 @@ static int context_mkfs(Context *context) {
                         continue;
 
                 /* For offline signing case */
-                if (!set_isempty(arg_verity_settings) && IN_SET(p->type.designator, PARTITION_ROOT_VERITY_SIG, PARTITION_USR_VERITY_SIG))
+                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator))
                         return partition_format_verity_sig(context, p);
 
                 /* Minimized partitions will use the copy blocks logic so skip those here. */
@@ -7250,6 +7248,82 @@ static int resolve_copy_blocks_auto_candidate(
         return true;
 }
 
+static int resolve_copy_blocks_auto_candidate_harder(
+                dev_t start_devno,
+                GptPartitionType partition_type,
+                dev_t restrict_devno,
+                dev_t *ret_found_devno,
+                sd_id128_t *ret_uuid) {
+
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL, *nd = NULL;
+        int r;
+
+        /* A wrapper around resolve_copy_blocks_auto_candidate(), but looks for verity/verity-sig associated
+         * partitions, too. i.e. if the input is a data or verity partition, will try to find the
+         * verity/verity-sig partition for it, based on udev metadata. */
+
+        const char *property;
+        if (partition_designator_is_verity(partition_type.designator))
+                property = "ID_DISSECT_PART_VERITY_DEVICE";
+        else if (partition_designator_is_verity_sig(partition_type.designator))
+                property = "ID_DISSECT_PART_VERITY_SIG_DEVICE";
+        else
+                goto not_found;
+
+        r = sd_device_new_from_devnum(&d, 'b', start_devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate device object for " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(start_devno));
+
+        const char *node;
+        r = sd_device_get_property_value(d, property, &node);
+        if (r == -ENOENT) {
+                log_debug_errno(r, "Property %s not set on " DEVNUM_FORMAT_STR ", skipping.", property, DEVNUM_FORMAT_VAL(start_devno));
+                goto not_found;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read property %s from device " DEVNUM_FORMAT_STR ": %m", property, DEVNUM_FORMAT_VAL(start_devno));
+
+        r = sd_device_new_from_devname(&nd, node);
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
+                log_debug_errno(r, "Device %s referenced in %s property not found, skipping: %m", node, property);
+                goto not_found;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate device object for '%s': %m", node);
+
+        r = device_in_subsystem(nd, "block");
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if '%s' is a block device: %m", node);
+        if (r == 0) {
+                log_debug("Device referenced by %s property of %s does not refer to block device, refusing.", property, node);
+                goto not_found;
+        }
+
+        dev_t found_devno = 0;
+        r = sd_device_get_devnum(nd, &found_devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device number for '%s': %m", node);
+
+        r = resolve_copy_blocks_auto_candidate(found_devno, partition_type, restrict_devno, ret_uuid);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                goto not_found;
+
+        if (ret_found_devno)
+                *ret_found_devno = found_devno;
+
+        return 1;
+
+not_found:
+        if (ret_found_devno)
+                *ret_found_devno = 0;
+        if (ret_uuid)
+                *ret_uuid = SD_ID128_NULL;
+
+        return 0;
+}
+
 static int find_backing_devno(
                 const char *path,
                 const char *root,
@@ -7391,12 +7465,26 @@ static int resolve_copy_blocks_auto(
                                 return r;
                         if (r > 0) {
                                 /* We found a matching one! */
-                                if (found != 0)
+                                if (found != 0 && found != sl)
                                         return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
                                                                "Multiple matching partitions found for partition type %s, refusing.",
                                                                partition_designator_to_string(type.designator));
 
                                 found = sl;
+                                found_uuid = u;
+                        }
+
+                        dev_t harder_devno = 0;
+                        r = resolve_copy_blocks_auto_candidate_harder(sl, type, restrict_devno, &harder_devno, &u);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                /* We found a matching one! */
+                                if (found != 0 && found != harder_devno)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                                               "Multiple matching partitions found, refusing.");
+
+                                found = harder_devno;
                                 found_uuid = u;
                         }
                 }
