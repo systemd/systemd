@@ -772,6 +772,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AcceptFileDescriptors=</varname></term>
+
+        <listitem><para>Takes a boolean value. This controls the <constant>SO_PASSRIGHTS</constant> socket
+        option, which when disabled prohibits the peer from sending <constant>SCM_RIGHTS</constant>
+        ancillary messages (aka file descriptors) via <constant>AF_UNIX</constant> sockets. Defaults to
+        <option>true</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Timestamping=</varname></term>
         <listitem><para>Takes one of <literal>off</literal>, <literal>us</literal> (alias:
         <literal>usec</literal>, <literal>μs</literal>) or <literal>ns</literal> (alias:
