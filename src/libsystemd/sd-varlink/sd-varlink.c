@@ -3250,17 +3250,12 @@ _public_ int sd_varlink_set_allow_fd_passing_input(sd_varlink *v, int b) {
         if (v->allow_fd_passing_input == !!b)
                 return 0;
 
-        if (!b) {
-                v->allow_fd_passing_input = false;
-                return 1;
-        }
-
         r = verify_unix_socket(v);
         if (r < 0)
                 return r;
 
-        v->allow_fd_passing_input = true;
-        return 0;
+        v->allow_fd_passing_input = !!b;
+        return 1;
 }
 
 _public_ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b) {
@@ -3271,17 +3266,12 @@ _public_ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b) {
         if (v->allow_fd_passing_output == !!b)
                 return 0;
 
-        if (!b) {
-                v->allow_fd_passing_output = false;
-                return 1;
-        }
-
         r = verify_unix_socket(v);
         if (r < 0)
                 return r;
 
-        v->allow_fd_passing_output = true;
-        return 0;
+        v->allow_fd_passing_output = !!b;
+        return 1;
 }
 
 _public_ int sd_varlink_set_input_sensitive(sd_varlink *v) {
