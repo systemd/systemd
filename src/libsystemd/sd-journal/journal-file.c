@@ -1404,7 +1404,7 @@ static int journal_file_link_field(
         assert(offset > 0);
 
         if (o->object.type != OBJECT_FIELD)
-                return -EINVAL;
+                return -EBADMSG;
 
         m = le64toh(READ_NOW(f->header->field_hash_table_size)) / sizeof(HashItem);
         if (m <= 0)
@@ -1449,7 +1449,7 @@ static int journal_file_link_data(
         assert(offset > 0);
 
         if (o->object.type != OBJECT_DATA)
-                return -EINVAL;
+                return -EBADMSG;
 
         m = le64toh(READ_NOW(f->header->data_hash_table_size)) / sizeof(HashItem);
         if (m <= 0)
@@ -1803,17 +1803,27 @@ static int journal_file_append_field(
         return 0;
 }
 
-static int maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *src, uint64_t size, size_t *rsize) {
+static int maybe_compress_payload(
+                JournalFile *f,
+                uint8_t *dst,
+                const uint8_t *src,
+                uint64_t size,
+                size_t *rsize,
+                Compression *ret_compression) {
+
         assert(f);
         assert(f->header);
+        assert(ret_compression);
 
 #if HAVE_COMPRESSION
         Compression c;
         int r;
 
         c = JOURNAL_FILE_COMPRESSION(f);
-        if (c == COMPRESSION_NONE || size < f->compress_threshold_bytes)
+        if (c == COMPRESSION_NONE || size < f->compress_threshold_bytes) {
+                *ret_compression = COMPRESSION_NONE;
                 return 0;
+        }
 
         r = compress_blob(c, src, size, dst, size - 1, rsize, /* level = */ -1);
         if (r < 0)
@@ -1821,8 +1831,10 @@ static int maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *s
 
         log_debug("Compressed data object %"PRIu64" -> %zu using %s", size, *rsize, compression_to_string(c));
 
+        *ret_compression = c;
         return 1; /* compressed */
 #else
+        *ret_compression = COMPRESSION_NONE;
         return 0;
 #endif
 }
@@ -1867,13 +1879,12 @@ static int journal_file_append_data(
 
         o->data.hash = htole64(hash);
 
-        r = maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize);
+        Compression c;
+        r = maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize, &c);
         if (r <= 0)
                 /* We don't really care failures, let's continue without compression */
                 memcpy_safe(journal_file_data_payload_field(f, o), data, size);
         else {
-                Compression c = JOURNAL_FILE_COMPRESSION(f);
-
                 assert(c >= 0 && c < _COMPRESSION_MAX && c != COMPRESSION_NONE);
 
                 o->object.size = htole64(journal_file_data_payload_offset(f) + rsize);
@@ -2220,7 +2231,7 @@ static int journal_file_link_entry_item(JournalFile *f, uint64_t offset, uint64_
 
 static int journal_file_link_entry(
                 JournalFile *f,
-                Object *o,
+                const Object *o,
                 uint64_t offset,
                 const EntryItem items[],
                 size_t n_items) {
@@ -2233,7 +2244,7 @@ static int journal_file_link_entry(
         assert(offset > 0);
 
         if (o->object.type != OBJECT_ENTRY)
-                return -EINVAL;
+                return -EBADMSG;
 
         __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
@@ -2729,7 +2740,9 @@ static int bump_entry_array(
 
         if (direction == DIRECTION_DOWN) {
                 assert(o);
-                assert(o->object.type == OBJECT_ENTRY_ARRAY);
+
+                if (o->object.type != OBJECT_ENTRY_ARRAY)
+                        return -EBADMSG;
 
                 *ret = le64toh(o->entry_array.next_entry_array_offset);
         } else {
@@ -3230,8 +3243,10 @@ static int generic_array_bisect_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
         assert(test_object);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         n = le64toh(d->data.n_entries);
         if (n <= 0)
@@ -3598,8 +3613,10 @@ int journal_file_move_to_entry_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
         assert(IN_SET(direction, DIRECTION_DOWN, DIRECTION_UP));
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         /* FIXME: fix return value assignment. */
 
@@ -3660,7 +3677,9 @@ int journal_file_move_to_entry_by_offset_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         return generic_array_bisect_for_data(
                         f,
@@ -3686,7 +3705,9 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         /* First, pin the given data object, before reading the _BOOT_ID= data object below. */
         r = journal_file_pin_object(f, d);
@@ -3752,7 +3773,9 @@ int journal_file_move_to_entry_by_seqnum_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         return generic_array_bisect_for_data(
                         f,
@@ -3772,7 +3795,9 @@ int journal_file_move_to_entry_by_realtime_for_data(
 
         assert(f);
         assert(d);
-        assert(d->object.type == OBJECT_DATA);
+
+        if (d->object.type != OBJECT_DATA)
+                return -EBADMSG;
 
         return generic_array_bisect_for_data(
                         f,
