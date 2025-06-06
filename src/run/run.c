@@ -2075,8 +2075,24 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
                                 &error,
                                 &reply,
                                 "ay");
-        if (r < 0)
+        if (r < 0) {
+               /* Let's ignore connection errors. This might be caused by that the service manager is being
+                * restarted. Handle handle this gracefully. */
+                if (sd_bus_error_has_names(
+                                    &error,
+                                    SD_BUS_ERROR_NO_REPLY,
+                                    SD_BUS_ERROR_DISCONNECTED,
+                                    SD_BUS_ERROR_TIMED_OUT,
+                                    SD_BUS_ERROR_SERVICE_UNKNOWN,
+                                    SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
+
+                        log_debug_errno(r, "Bus call failed due to connection problems. ignoring: %s", bus_error_message(&error, r));
+                        *ret = SD_ID128_NULL;
+                        return 0;
+                }
+
                 return log_error_errno(r, "Failed to request invocation ID for unit: %s", bus_error_message(&error, r));
+        }
 
         r = bus_message_read_id128(reply, ret);
         if (r < 0)
