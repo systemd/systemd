@@ -69,6 +69,7 @@ typedef struct StatusInfo {
         uint32_t vsock_cid;
         const char *hardware_sku;
         const char *hardware_version;
+        const char *ansi_color;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
@@ -109,6 +110,7 @@ static const char *os_support_end_color(usec_t n, usec_t eol) {
 }
 
 static int print_status_info(StatusInfo *i) {
+        _cleanup_free_ char *wrapped_color = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int r;
@@ -124,18 +126,21 @@ static int print_status_info(StatusInfo *i) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
 
+        wrapped_color = (i->ansi_color) ? strjoin("\x1B[", i->ansi_color, "m") : NULL; /* prefix/suffix ansi sequence */
         if (!isempty(i->hostname) &&
             !streq_ptr(i->hostname, i->static_hostname)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Transient hostname",
-                                   TABLE_STRING, i->hostname);
+                                   TABLE_STRING, i->hostname,
+                                   TABLE_SET_COLOR, wrapped_color);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
         r = table_add_many(table,
                            TABLE_FIELD, "Static hostname",
-                           TABLE_STRING, i->static_hostname);
+                           TABLE_STRING, i->static_hostname,
+                           TABLE_SET_COLOR, wrapped_color);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -143,7 +148,8 @@ static int print_status_info(StatusInfo *i) {
             !streq_ptr(i->pretty_hostname, i->static_hostname)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Pretty hostname",
-                                   TABLE_STRING, i->pretty_hostname);
+                                   TABLE_STRING, i->pretty_hostname,
+                                   TABLE_SET_COLOR, wrapped_color);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -434,6 +440,7 @@ static int show_all_names(sd_bus *bus) {
                 { "HardwareModel",               "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
                 { "HardwareSKU",                 "s",  NULL,          offsetof(StatusInfo, hardware_sku)     },
                 { "HardwareVersion",             "s",  NULL,          offsetof(StatusInfo, hardware_version) },
+                { "AnsiColor",                   "s",  NULL,          offsetof(StatusInfo, ansi_color)       },
                 { "FirmwareVersion",             "s",  NULL,          offsetof(StatusInfo, firmware_version) },
                 { "FirmwareDate",                "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
                 { "MachineID",                   "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
