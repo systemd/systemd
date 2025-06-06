@@ -610,13 +610,13 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
-                "%sPassFileDescriptorsToExec: %s\n"
                 "%sPassSecurity: %s\n"
                 "%sPassPacketInfo: %s\n"
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
                 "%sWritable: %s\n"
                 "%sFileDescriptorName: %s\n"
+                "%sPassFileDescriptorsToExec: %s\n"
                 "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -631,13 +631,13 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->transparent),
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
-                prefix, yes_no(s->pass_fds_to_exec),
                 prefix, yes_no(s->pass_sec),
                 prefix, yes_no(s->pass_pktinfo),
                 prefix, strna(s->tcp_congestion),
                 prefix, yes_no(s->remove_on_stop),
                 prefix, yes_no(s->writable),
                 prefix, socket_fdname(s),
+                prefix, yes_no(s->pass_fds_to_exec),
                 prefix, yes_no(s->selinux_context_from_net));
 
         if (s->timestamping != SOCKET_TIMESTAMPING_OFF)
