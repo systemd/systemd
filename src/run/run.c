@@ -1728,12 +1728,7 @@ static int run_context_reconnect(RunContext *c) {
                                /* reply = */ NULL, NULL);
         if (r < 0) {
                 /* Hmm, the service manager probably hasn't finished reexecution just yet? Try again later. */
-                if (sd_bus_error_has_names(&error,
-                                           SD_BUS_ERROR_NO_REPLY,
-                                           SD_BUS_ERROR_DISCONNECTED,
-                                           SD_BUS_ERROR_TIMED_OUT,
-                                           SD_BUS_ERROR_SERVICE_UNKNOWN,
-                                           SD_BUS_ERROR_NAME_HAS_NO_OWNER))
+                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error))
                         goto retry_timer;
 
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
@@ -1874,14 +1869,7 @@ static int run_context_update(RunContext *c) {
         if (r < 0) {
                 /* If this is a connection error, then try to reconnect. This might be because the service
                  * manager is being restarted. Handle this gracefully. */
-                if (sd_bus_error_has_names(
-                                    &error,
-                                    SD_BUS_ERROR_NO_REPLY,
-                                    SD_BUS_ERROR_DISCONNECTED,
-                                    SD_BUS_ERROR_TIMED_OUT,
-                                    SD_BUS_ERROR_SERVICE_UNKNOWN,
-                                    SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
-
+                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error)) {
                         log_info_errno(r, "Bus call failed due to connection problems. Trying to reconnect...");
                         /* Not propagating error, because we handled it already, by reconnecting. */
                         return run_context_reconnect(c);
@@ -2075,8 +2063,24 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
                                 &error,
                                 &reply,
                                 "ay");
-        if (r < 0)
+        if (r < 0) {
+               /* Let's ignore connection errors. This might be caused by that the service manager is being
+                * restarted. Handle this gracefully. */
+                if (bus_error_is_connection(&error)) {
+                        log_debug_errno(r, "Bus call failed due to connection problems. ignoring: %s", bus_error_message(&error, r));
+                        *ret = SD_ID128_NULL;
+                        return 0;
+                }
+
+                /* Maybe the service is already stopped and cleared? */
+                if (bus_error_is_unknown_service(&error)) {
+                        log_debug_errno(r, "Bus call failed. Maybe already stopped? ignoring: %s", bus_error_message(&error, r));
+                        *ret = SD_ID128_NULL;
+                        return 0;
+                }
+
                 return log_error_errno(r, "Failed to request invocation ID for unit: %s", bus_error_message(&error, r));
+        }
 
         r = bus_message_read_id128(reply, ret);
         if (r < 0)
