@@ -55,7 +55,8 @@ struct ObjectHeader {
         uint8_t flags;
         uint8_t reserved[6];
         le64_t size;
-        uint8_t payload[];
+        uint8_t payload[0]; /* The struct is embedded in other objects, hence flex array (i.e. payload[])
+                             * cannot be used. */
 } _packed_;
 
 #define DataObject__contents {                                          \
@@ -103,18 +104,13 @@ assert_cc(sizeof(struct FieldObject) == sizeof(struct FieldObject__packed));
         le64_t xor_hash;                               \
         union {                                        \
                 struct {                               \
-                        dummy_t __empty__regular;      \
-                        struct {                       \
-                                le64_t object_offset;  \
-                                le64_t hash;           \
-                        } regular[];                   \
-                };                                     \
+                        le64_t object_offset;          \
+                        le64_t hash;                   \
+                } regular[0]; /* this is an array; since we are not allowed to place a variable sized array
+                               * in a union, we just zero-size it, even if it is generally longer. */ \
                 struct {                               \
-                        dummy_t __empty_compact;       \
-                        struct {                       \
-                                le32_t object_offset;  \
-                        } compact[];                   \
-                };                                     \
+                        le32_t object_offset;          \
+                } compact[0];                          \
         } items;                                       \
 }
 
