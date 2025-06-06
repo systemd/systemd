@@ -649,7 +649,11 @@ int stdout_stream_install(Manager *m, int fd, StdoutStream **ret) {
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(r, "SO_PASSCRED failed: %m");
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
 
         if (mac_selinux_use()) {
                 r = getpeersec(fd, &stream->label);
