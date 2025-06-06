@@ -307,7 +307,12 @@ int execute_directories(
 
         assert(!strv_isempty((char* const*) directories));
 
-        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, directories);
+        r = conf_files_list_strv(
+                        &paths,
+                        /* suffix= */ NULL,
+                        /* root= */ NULL,
+                        CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                        directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate executables: %m");
 

@@ -3909,9 +3909,14 @@ static int manager_run_environment_generators(Manager *m) {
         };
 
         WITH_UMASK(0022)
-                r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
-                                        args, NULL, m->transient_environment,
-                                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
+                r = execute_directories(
+                                (const char* const*) paths,
+                                DEFAULT_TIMEOUT_USEC,
+                                gather_environment,
+                                args,
+                                /* argv[]= */ NULL,
+                                m->transient_environment,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
         return r;
 }
 
