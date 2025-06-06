@@ -53,6 +53,11 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
                         return log_error_errno(errno, "Failed to create socket: %m");
         }
 
+        /* enable receiving of the sender credentials in the messages */
+        r = setsockopt_int(fd >= 0 ? fd : sock, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set SO_PASSCRED, ignoring: %m");
+
         uctrl = new(UdevCtrl, 1);
         if (!uctrl)
                 return -ENOMEM;
@@ -239,11 +244,6 @@ static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents,
                 log_error("Invalid sender uid "UID_FMT", closing connection", ucred.uid);
                 return 0;
         }
-
-        /* enable receiving of the sender credentials in the messages */
-        r = setsockopt_int(sock, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set SO_PASSCRED, ignoring: %m");
 
         r = sd_event_add_io(uctrl->event, &uctrl->event_source_connect, sock, EPOLLIN, udev_ctrl_connection_event_handler, uctrl);
         if (r < 0) {

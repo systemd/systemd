@@ -15,11 +15,12 @@
 #include "socket-util.h"
 #include "strv.h"
 
-int notify_socket_prepare(
+int notify_socket_prepare_full(
                 sd_event *event,
                 int64_t priority,
                 sd_event_io_handler_t handler,
                 void *userdata,
+                bool accept_fds,
                 char **ret_path,
                 sd_event_source **ret_event_source) {
 
@@ -47,6 +48,13 @@ int notify_socket_prepare(
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
         if (r < 0)
                 log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring: %m");
+
+        if (!accept_fds) {
+                /* since kernel v6.16 */
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to disable SO_PASSRIGHTS on notification socket, ignoring: %m");
+        }
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         r = sd_event_add_io(event, &s, fd, EPOLLIN, handler, userdata);
