@@ -129,6 +129,7 @@ static void socket_init(Unit *u) {
 
         s->max_connections = 64;
 
+        s->pass_rights = true; /* defaults to enabled in kernel */
         s->priority = -1;
         s->ip_tos = -1;
         s->ip_ttl = -1;
@@ -613,6 +614,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPassPIDFD: %s\n"
                 "%sPassSecurity: %s\n"
                 "%sPassPacketInfo: %s\n"
+                "%sAllowFileDescriptorPassing: %s\n"
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
                 "%sWritable: %s\n"
@@ -635,6 +637,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->pass_pidfd),
                 prefix, yes_no(s->pass_sec),
                 prefix, yes_no(s->pass_pktinfo),
+                prefix, yes_no(s->pass_rights),
                 prefix, strna(s->tcp_congestion),
                 prefix, yes_no(s->remove_on_stop),
                 prefix, yes_no(s->writable),
@@ -1095,6 +1098,13 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
                 r = socket_set_recvpktinfo(fd, socket_address_family(&p->address), true);
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, SOCKET_OPTION_WARNING_FORMAT_STR, "packet info");
+        }
+
+        if (!s->pass_rights) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+                if (r < 0)
+                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            SOCKET_OPTION_WARNING_FORMAT_STR, "SO_PASSRIGHTS");
         }
 
         if (s->timestamping != SOCKET_TIMESTAMPING_OFF) {

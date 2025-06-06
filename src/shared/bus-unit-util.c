@@ -2586,6 +2586,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "PassPIDFD",
                               "PassSecurity",
                               "PassPacketInfo",
+                              "AllowFileDescriptorPassing",
                               "ReusePort",
                               "RemoveOnStop",
                               "PassFileDescriptorsToExec",
