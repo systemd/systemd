@@ -7,6 +7,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "manager.h"
+#include "path-util.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "unit.h"
@@ -37,10 +38,7 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                 return r;
 
         STRV_FOREACH(p, paths) {
-                _cleanup_free_ char *target = NULL;
-                const char *entry;
-
-                entry = basename(*p);
+                _cleanup_free_ char *target = NULL, *target_file = NULL, *entry = NULL;
 
                 if (null_or_empty_path(*p) > 0) {
                         /* an error usually means an invalid symlink, which is not a mask */
@@ -61,6 +59,13 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                         continue;
                 }
 
+                r = path_extract_filename(*p, &entry);
+                if (r < 0) {
+                        log_unit_warning_errno(u, r, "Failed to extract file name of %s dependency dropin %s, ignoring: %m",
+                                               unit_dependency_to_string(dependency), *p);
+                        continue;
+                }
+
                 if (!unit_name_is_valid(entry, UNIT_NAME_ANY)) {
                         log_unit_warning(u, "%s dependency dropin %s is not a valid unit name, ignoring.",
                                          unit_dependency_to_string(dependency), *p);
@@ -73,12 +78,19 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                         continue;
                 }
 
+                r = path_extract_filename(target, &target_file);
+                if (r < 0) {
+                        log_unit_warning_errno(u, r, "Failed to extract file name for dropin target %s, ignoring: %m",
+                                               target);
+                        continue;
+                }
+
                 /* We don't treat this as an error, especially because we didn't check this for a
                  * long time. Nevertheless, we warn, because such mismatch can be mighty confusing. */
-                r = unit_symlink_name_compatible(entry, basename(target), u->instance);
+                r = unit_symlink_name_compatible(entry, target_file, u->instance);
                 if (r < 0) {
                         log_unit_warning_errno(u, r, "Can't check if names %s and %s are compatible, ignoring: %m",
-                                               entry, basename(target));
+                                               entry, target_file);
                         continue;
                 }
                 if (r == 0)

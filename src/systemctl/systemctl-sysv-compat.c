@@ -150,7 +150,7 @@ int enable_sysv_units(const char *verb, char **args) {
                         NULL,
                 };
 
-                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL, *v = NULL;
+                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL, *v = NULL, *b = NULL;
                 bool found_native = false, found_sysv;
                 const char *name;
                 unsigned c = 1;
@@ -205,8 +205,12 @@ int enable_sysv_units(const char *verb, char **args) {
                 if (!v)
                         return log_oom();
 
+                j = path_extract_filename(p, &b);
+                if (j < 0)
+                        return log_error_errno(j, "Failed to extract file name from '%s': %m", p);
+
                 argv[c++] = v;
-                argv[c++] = basename(p);
+                argv[c++] = b;
                 argv[c] = NULL;
 
                 l = strv_join((char**)argv, " ");
