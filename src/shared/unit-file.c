@@ -572,17 +572,21 @@ int unit_file_build_name_map(
         /* Let's also put the names in the reverse db. */
         const char *dummy, *src;
         HASHMAP_FOREACH_KEY(dummy, src, ids) {
-                _cleanup_free_ char *inst = NULL, *dst_inst = NULL;
-                const char *dst;
+                _cleanup_free_ char *inst = NULL, *dst = NULL;
+                const char *dst_path;
 
-                r = unit_ids_map_get(ids, src, &dst);
+                r = unit_ids_map_get(ids, src, &dst_path);
                 if (r < 0)
                         continue;
 
-                if (null_or_empty_path(dst) != 0)
+                if (null_or_empty_path(dst_path) != 0)
                         continue;
 
-                dst = basename(dst);
+                r = path_extract_filename(dst_path, &dst);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to extract file name from %s, ignoring: %m", dst_path);
+                        continue;
+                }
 
                 /* If we have an symlink from an instance name to a template name, it is an alias just for
                  * this specific instance, foo@id.service ↔ template@id.service. */
@@ -591,6 +595,8 @@ int unit_file_build_name_map(
                         if (t < 0)
                                 return log_error_errno(t, "Failed to extract instance part from %s: %m", src);
                         if (t == UNIT_NAME_INSTANCE) {
+                                _cleanup_free_ char *dst_inst = NULL;
+
                                 r = unit_name_replace_instance(dst, inst, &dst_inst);
                                 if (r < 0) {
                                         /* This might happen e.g. if the combined length is too large.
@@ -600,7 +606,7 @@ int unit_file_build_name_map(
                                         continue;
                                 }
 
-                                dst = dst_inst;
+                                free_and_replace(dst, dst_inst);
                         }
                 }
 

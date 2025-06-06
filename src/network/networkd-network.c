@@ -28,6 +28,7 @@
 #include "networkd-routing-policy-rule.h"
 #include "ordered-set.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "qdisc.h"
 #include "radv-internal.h"
 #include "set.h"
@@ -341,9 +342,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         if (!fname)
                 return log_oom();
 
-        name = strdup(basename(filename));
-        if (!name)
-                return log_oom();
+        r = path_extract_filename(filename, &name);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to extract file name of \"%s\": %m", filename);
 
         d = strrchr(name, '.');
         if (!d)

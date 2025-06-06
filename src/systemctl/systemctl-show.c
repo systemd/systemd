@@ -410,7 +410,7 @@ static void print_status_info(
                 bool last = false;
 
                 STRV_FOREACH(dropin, i->dropin_paths) {
-                        _cleanup_free_ char *dropin_formatted = NULL;
+                        _cleanup_free_ char *dropin_formatted = NULL, *dropin_basename = NULL;
                         const char *df;
 
                         if (!dir || last) {
@@ -432,7 +432,13 @@ static void print_status_info(
 
                         last = ! (*(dropin + 1) && startswith(*(dropin + 1), dir));
 
-                        if (terminal_urlify_path(*dropin, basename(*dropin), &dropin_formatted) >= 0)
+                        r = path_extract_filename(*dropin, &dropin_basename);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to extract file name of '%s': %m", *dropin);
+                                break;
+                        }
+
+                        if (terminal_urlify_path(*dropin, dropin_basename, &dropin_formatted) >= 0)
                                 df = dropin_formatted;
                         else
                                 df = *dropin;

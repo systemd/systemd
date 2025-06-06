@@ -361,9 +361,16 @@ int verify_units(
          * its direct dependencies. Hence, search for any of the filenames in the set and if found,
          * return a non-zero process exit status. */
         if (recursive_errors == RECURSIVE_ERRORS_ONE)
-                STRV_FOREACH(filename, filenames)
-                        if (set_contains(s, basename(*filename)))
+                STRV_FOREACH(filename, filenames) {
+                        _cleanup_free_ char *unit_file = NULL;
+
+                        r = path_extract_filename(*filename, &unit_file);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", *filename);
+
+                        if (set_contains(s, unit_file))
                                 return -ENOTRECOVERABLE;
+                }
 
         return 0;
 }
