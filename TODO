@@ -122,6 +122,19 @@ Deprecations and removals:
 
 Features:
 
+* Add PassPidFileDescriptor= similar in style to PassCredentials= to .socket
+  units
+
+* automatically reset specific EFI vars on factory reset (make this generic
+  enough so that infrac can be used to erase shim's mok vars?)
+
+* similar: add a plugin for factory reset logic that erases certain parts of
+  the ESP, but leaves others in place.
+
+* systemd-repart: add --defer-partitions-factory-reset or so, as a flavour of
+  --defer-partitions= that picks all partitions that are marked for factory
+  reset. for an installer this is usually the partitions not to copy, too.
+
 * flush_fd() should probably try to be smart and stop reading once we know that
   all further queued data was enqueued after flush_fd() was originally
   called. For that, try SIOCINQ if fd refers to stream socket, and look at
