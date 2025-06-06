@@ -3254,17 +3254,18 @@ _public_ int sd_varlink_set_allow_fd_passing_input(sd_varlink *v, int b) {
         if (v->allow_fd_passing_input == !!b)
                 return 0;
 
-        if (!b) {
-                v->allow_fd_passing_input = false;
-                return 1;
-        }
-
         r = verify_unix_socket(v);
         if (r < 0)
                 return r;
 
-        v->allow_fd_passing_input = true;
-        return 0;
+        if (!v->server || FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT)) {
+                r = setsockopt_int(v->input_fd, SOL_SOCKET, SO_PASSRIGHTS, !!b);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_debug_errno(r, "Failed to set SO_PASSRIGHTS socket option: %m");
+        }
+
+        v->allow_fd_passing_input = !!b;
+        return 1;
 }
 
 _public_ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b) {
@@ -3275,17 +3276,12 @@ _public_ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b) {
         if (v->allow_fd_passing_output == !!b)
                 return 0;
 
-        if (!b) {
-                v->allow_fd_passing_output = false;
-                return 1;
-        }
-
         r = verify_unix_socket(v);
         if (r < 0)
                 return r;
 
-        v->allow_fd_passing_output = true;
-        return 0;
+        v->allow_fd_passing_output = !!b;
+        return 1;
 }
 
 _public_ int sd_varlink_set_input_sensitive(sd_varlink *v) {
@@ -3306,7 +3302,8 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
                                  SD_VARLINK_SERVER_INHERIT_USERDATA|
                                  SD_VARLINK_SERVER_INPUT_SENSITIVE|
                                  SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|
-                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT)) == 0, -EINVAL);
+                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT|
+                                 SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -3502,6 +3499,12 @@ _public_ int sd_varlink_server_add_connection_pair(
         if (r < 0)
                 return r;
 
+        /* Link up the server and the connection, and take reference in both directions. Note that the
+         * reference on the connection is left dangling. It will be dropped when the connection is closed,
+         * which happens in varlink_close(), including in the event loop quit callback. */
+        v->server = sd_varlink_server_ref(server);
+        sd_varlink_ref(v);
+
         v->input_fd = input_fd;
         v->output_fd = output_fd;
         if (server->flags & SD_VARLINK_SERVER_INHERIT_USERDATA)
@@ -3518,12 +3521,6 @@ _public_ int sd_varlink_server_add_connection_pair(
 
         (void) sd_varlink_set_allow_fd_passing_input(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
         (void) sd_varlink_set_allow_fd_passing_output(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
-
-        /* Link up the server and the connection, and take reference in both directions. Note that the
-         * reference on the connection is left dangling. It will be dropped when the connection is closed,
-         * which happens in varlink_close(), including in the event loop quit callback. */
-        v->server = sd_varlink_server_ref(server);
-        sd_varlink_ref(v);
 
         varlink_set_state(v, VARLINK_IDLE_SERVER);
 
@@ -3641,6 +3638,13 @@ _public_ int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd) {
         if (r < 0)
                 return r;
 
+        /* If fd passing is disabled on server, and SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT flag is set,
+         * turn off SO_PASSRIGHTS immediately on listening socket. The conditionalization behind a flag
+         * is needed to retain backwards compat, where implementations would register a connection callback
+         * to enable fd passing after accept(), which might race with clients wrt SO_PASSRIGHTS state. */
+        if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT))
+                (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
+
         r = varlink_server_create_listen_fd_socket(s, fd, &ss);
         if (r < 0)
                 return r;
@@ -3681,6 +3685,10 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
                 return -errno;
 
         fd = fd_move_above_stdio(fd);
+
+        /* See the comment in sd_varlink_server_listen_fd() */
+        if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT))
+                (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
 
         (void) sockaddr_un_unlink(&sockaddr.un);
 
