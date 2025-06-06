@@ -59,6 +59,10 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
         if (r < 0)
                 log_warning_errno(r, "Failed to set SO_PASSCRED, ignoring: %m");
 
+        r = setsockopt_int(fd >= 0 ? fd : sock, SOL_SOCKET, SO_PASSRIGHTS, false);
+        if (r < 0)
+                log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
+
         uctrl = new(UdevCtrl, 1);
         if (!uctrl)
                 return -ENOMEM;
