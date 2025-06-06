@@ -610,6 +610,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
+                "%sPassPIDFD: %s\n"
                 "%sPassSecurity: %s\n"
                 "%sPassPacketInfo: %s\n"
                 "%sTCPCongestion: %s\n"
@@ -631,6 +632,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->transparent),
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
+                prefix, yes_no(s->pass_pidfd),
                 prefix, yes_no(s->pass_sec),
                 prefix, yes_no(s->pass_pktinfo),
                 prefix, strna(s->tcp_congestion),
@@ -1011,6 +1013,10 @@ static void socket_close_fds(Socket *s) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket*, socket_close_fds, NULL);
 
+#define SOCKET_OPTION_WARNING_FORMAT_STR "Failed to set %s socket option, ignoring: %m"
+#define log_socket_option_warning_errno(s, error, option) \
+        log_unit_warning_errno(UNIT(s), (error), SOCKET_OPTION_WARNING_FORMAT_STR, STRINGIFY(option))
+
 static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         int r;
 
@@ -1021,67 +1027,74 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (s->keep_alive) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_KEEPALIVE, true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_KEEPALIVE failed: %m");
+                        log_socket_option_warning_errno(s, r, SO_KEEPALIVE);
         }
 
         if (timestamp_is_set(s->keep_alive_time)) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPIDLE, s->keep_alive_time / USEC_PER_SEC);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "TCP_KEEPIDLE failed: %m");
+                        log_socket_option_warning_errno(s, r, TCP_KEEPIDLE);
         }
 
         if (s->keep_alive_interval > 0) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPINTVL, s->keep_alive_interval / USEC_PER_SEC);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "TCP_KEEPINTVL failed: %m");
+                        log_socket_option_warning_errno(s, r, TCP_KEEPINTVL);
         }
 
         if (s->keep_alive_cnt > 0) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPCNT, s->keep_alive_cnt);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "TCP_KEEPCNT failed: %m");
+                        log_socket_option_warning_errno(s, r, TCP_KEEPCNT);
         }
 
         if (s->defer_accept > 0) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_DEFER_ACCEPT, s->defer_accept / USEC_PER_SEC);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "TCP_DEFER_ACCEPT failed: %m");
+                        log_socket_option_warning_errno(s, r, TCP_DEFER_ACCEPT);
         }
 
         if (s->no_delay) {
                 if (s->socket_protocol == IPPROTO_SCTP) {
                         r = setsockopt_int(fd, SOL_SCTP, SCTP_NODELAY, true);
                         if (r < 0)
-                                log_unit_warning_errno(UNIT(s), r, "SCTP_NODELAY failed: %m");
+                                log_socket_option_warning_errno(s, r, SCTP_NODELAY);
                 } else {
                         r = setsockopt_int(fd, SOL_TCP, TCP_NODELAY, true);
                         if (r < 0)
-                                log_unit_warning_errno(UNIT(s), r, "TCP_NODELAY failed: %m");
+                                log_socket_option_warning_errno(s, r, TCP_NODELAY);
                 }
         }
 
         if (s->broadcast) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_BROADCAST failed: %m");
+                        log_socket_option_warning_errno(s, r, SO_BROADCAST);
         }
 
         if (s->pass_cred) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_PASSCRED failed: %m");
+                        log_socket_option_warning_errno(s, r, SO_PASSCRED);
+        }
+
+        if (s->pass_pidfd) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+                if (r < 0)
+                        log_socket_option_warning_errno(s, r, SO_PASSPIDFD);
         }
 
         if (s->pass_sec) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r, "SO_PASSSEC failed: %m");
+                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            SOCKET_OPTION_WARNING_FORMAT_STR, "SO_PASSSEC");
         }
 
         if (s->pass_pktinfo) {
                 r = socket_set_recvpktinfo(fd, socket_address_family(&p->address), true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "Failed to enable packet info socket option: %m");
+                        log_unit_warning_errno(UNIT(s), r, SOCKET_OPTION_WARNING_FORMAT_STR, "packet info");
         }
 
         if (s->timestamping != SOCKET_TIMESTAMPING_OFF) {
@@ -1089,50 +1102,50 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
                                    s->timestamping == SOCKET_TIMESTAMPING_NS ? SO_TIMESTAMPNS : SO_TIMESTAMP,
                                    true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "Failed to enable timestamping socket option, ignoring: %m");
+                        log_unit_warning_errno(UNIT(s), r, SOCKET_OPTION_WARNING_FORMAT_STR, "timestamping");
         }
 
         if (s->priority >= 0) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PRIORITY, s->priority);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_PRIORITY failed: %m");
+                        log_socket_option_warning_errno(s, r, SO_PRIORITY);
         }
 
         if (s->receive_buffer > 0) {
                 r = fd_set_rcvbuf(fd, s->receive_buffer, false);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            "SO_RCVBUF/SO_RCVBUFFORCE failed: %m");
+                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            SOCKET_OPTION_WARNING_FORMAT_STR, "SO_RCVBUF/SO_RCVBUFFORCE");
         }
 
         if (s->send_buffer > 0) {
                 r = fd_set_sndbuf(fd, s->send_buffer, false);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            "SO_SNDBUF/SO_SNDBUFFORCE failed: %m");
+                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            SOCKET_OPTION_WARNING_FORMAT_STR, "SO_SNDBUF/SO_SNDBUFFORCE");
         }
 
         if (s->mark >= 0) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_MARK, s->mark);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_MARK failed: %m");
+                        log_socket_option_warning_errno(s, r, SO_MARK);
         }
 
         if (s->ip_tos >= 0) {
                 r = setsockopt_int(fd, IPPROTO_IP, IP_TOS, s->ip_tos);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "IP_TOS failed: %m");
+                        log_socket_option_warning_errno(s, r, IP_TOS);
         }
 
         if (s->ip_ttl >= 0) {
                 r = socket_set_ttl(fd, socket_address_family(&p->address), s->ip_ttl);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "IP_TTL/IPV6_UNICAST_HOPS failed: %m");
+                        log_unit_warning_errno(UNIT(s), r, SOCKET_OPTION_WARNING_FORMAT_STR, "IP_TTL/IPV6_UNICAST_HOPS");
         }
 
         if (s->tcp_congestion)
                 if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "TCP_CONGESTION failed: %m");
+                        log_socket_option_warning_errno(s, errno, TCP_CONGESTION);
 
         if (s->smack_ip_in) {
                 r = mac_smack_apply_fd(fd, SMACK_ATTR_IPIN, s->smack_ip_in);
