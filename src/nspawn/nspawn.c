@@ -93,6 +93,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -246,6 +247,7 @@ static ImagePolicy *arg_image_policy = NULL;
 static char *arg_background = NULL;
 static bool arg_privileged = false;
 static bool arg_cleanup = false;
+static bool arg_ask_password = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -339,6 +341,7 @@ static int help(void) {
                "     --settings=BOOLEAN     Load additional settings from .nspawn file\n"
                "     --cleanup              Clean up left-over mounts and underlying mount\n"
                "                            points used by the container\n"
+               "     --no-ask-password      Do not prompt for password\n"
                "\n%3$sImage:%4$s\n"
                "  -D --directory=PATH       Root directory for the container\n"
                "     --template=PATH        Initialize root directory from template directory,\n"
@@ -693,6 +696,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_POLICY,
                 ARG_BACKGROUND,
                 ARG_CLEANUP,
+                ARG_NO_ASK_PASSWORD,
         };
 
         static const struct option options[] = {
@@ -769,6 +773,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image-policy",           required_argument, NULL, ARG_IMAGE_POLICY           },
                 { "background",             required_argument, NULL, ARG_BACKGROUND             },
                 { "cleanup",                no_argument,       NULL, ARG_CLEANUP                },
+                { "no-ask-password",        no_argument,       NULL, ARG_NO_ASK_PASSWORD        },
                 {}
         };
 
@@ -1554,6 +1559,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CLEANUP:
                         arg_cleanup = true;
+                        break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
                         break;
 
                 case '?':
@@ -3828,7 +3837,7 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS) |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
-                (arg_console_mode == CONSOLE_INTERACTIVE ? DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH : 0) |
+                (arg_console_mode == CONSOLE_INTERACTIVE && arg_ask_password ? DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH : 0) |
                 ((arg_userns_ownership == USER_NAMESPACE_OWNERSHIP_FOREIGN) ? DISSECT_IMAGE_FOREIGN_UID :
                  (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
 }
@@ -5410,6 +5419,8 @@ static int run_container(
                 r = sd_bus_set_close_on_exit(bus, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
+
+                (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
         }
 
         if (!arg_keep_unit) {
@@ -5536,6 +5547,11 @@ static int run_container(
                 if (r < 0)
                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
         }
+
+        /* All operations that might need Polkit authorizations (i.e. userns registration, mounts, and
+         * machine registration are complete now, get rid of the agent again, so that we retain exclusive
+         * control of the TTY from now on. */
+        polkit_agent_close();
 
         /* Note: we do not use SD_EVENT_SIGNAL_PROCMASK or sd_event_set_signal_exit(), since we want the
          * signals to be block continuously, even if we destroy the event loop and allocate a new one on
@@ -5951,6 +5967,8 @@ static int run(int argc, char *argv[]) {
         if (arg_console_mode == CONSOLE_PIPE) /* if we pass STDERR on to the container, don't add our own logs into it too */
                 arg_quiet = true;
 
+        polkit_agent_open();
+
         if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                 /* Let's allocate a 64K userns first, if managed mode is chosen */
 
@@ -6353,6 +6371,7 @@ static int run(int argc, char *argv[]) {
                 }
                 expose_args.fw_ctx = fw_ctx;
         }
+
         for (;;) {
                 r = run_container(
                                 rootdir,

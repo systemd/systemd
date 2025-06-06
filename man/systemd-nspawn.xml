@@ -1857,6 +1857,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
     </variablelist>
    </refsect2>
   </refsect1>
