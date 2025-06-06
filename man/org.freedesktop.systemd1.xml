@@ -4907,11 +4907,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassCredentials = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b PassFileDescriptorsToExec = ...;
+      readonly b PassPIDFD = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassSecurity = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassPacketInfo = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b AllowFileDescriptorPassing = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Timestamping = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -4962,6 +4964,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly u PollLimitBurst = ...;
       readonly u UID = ...;
       readonly u GID = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PassFileDescriptorsToExec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasbttttuii) ExecStartPre = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
@@ -5576,11 +5580,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property PassCredentials is not documented!-->
 
-    <!--property PassFileDescriptorsToExec is not documented!-->
+    <!--property PassPIDFD is not documented!-->
 
     <!--property PassSecurity is not documented!-->
 
     <!--property PassPacketInfo is not documented!-->
+
+    <!--property AllowFileDescriptorPassing is not documented!-->
 
     <!--property Timestamping is not documented!-->
 
@@ -5623,6 +5629,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property UID is not documented!-->
 
     <!--property GID is not documented!-->
+
+    <!--property PassFileDescriptorsToExec is not documented!-->
 
     <!--property ExecStopPre is not documented!-->
 
@@ -6178,11 +6186,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PassCredentials"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="PassFileDescriptorsToExec"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="PassPIDFD"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PassSecurity"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PassPacketInfo"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="AllowFileDescriptorPassing"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Timestamping"/>
 
@@ -6237,6 +6247,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="GID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PassFileDescriptorsToExec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecStartPre"/>
 
@@ -12092,6 +12104,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
+      <varname>PassPIDFD</varname>,
+      <varname>AllowFileDescriptorPassing</varname>,
       <varname>DelegateNamespaces</varname>, and
       <function>RemoveSubgroup()</function> were added in version 258.</para>
     </refsect2>
