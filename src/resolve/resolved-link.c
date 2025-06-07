@@ -701,7 +701,7 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
                 return false;
 
         LIST_FOREACH(addresses, a, l->addresses)
-                if ((family == AF_UNSPEC || a->family == family) && link_address_relevant(a, local_multicast))
+                if ((family == AF_UNSPEC || a->family == family) && link_address_relevant(a))
                         return true;
 
         return false;
@@ -940,7 +940,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
         if (a->family == AF_INET) {
 
                 if (!force_remove &&
-                    link_address_relevant(a, true) &&
+                    link_address_relevant(a) &&
                     a->link->llmnr_ipv4_scope &&
                     link_get_llmnr_support(a->link) == RESOLVE_SUPPORT_YES) {
 
@@ -993,7 +993,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 }
 
                 if (!force_remove &&
-                    link_address_relevant(a, true) &&
+                    link_address_relevant(a) &&
                     a->link->mdns_ipv4_scope &&
                     link_get_mdns_support(a->link) == RESOLVE_SUPPORT_YES) {
                         if (!a->link->manager->mdns_host_ipv4_key) {
@@ -1048,7 +1048,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
         if (a->family == AF_INET6) {
 
                 if (!force_remove &&
-                    link_address_relevant(a, true) &&
+                    link_address_relevant(a) &&
                     a->link->llmnr_ipv6_scope &&
                     link_get_llmnr_support(a->link) == RESOLVE_SUPPORT_YES) {
 
@@ -1101,7 +1101,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 }
 
                 if (!force_remove &&
-                    link_address_relevant(a, true) &&
+                    link_address_relevant(a) &&
                     a->link->mdns_ipv6_scope &&
                     link_get_mdns_support(a->link) == RESOLVE_SUPPORT_YES) {
 
@@ -1179,13 +1179,13 @@ int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m) {
         return 0;
 }
 
-bool link_address_relevant(LinkAddress *a, bool local_multicast) {
+bool link_address_relevant(LinkAddress *a) {
         assert(a);
 
         if (a->flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE))
                 return false;
 
-        if (a->scope >= (local_multicast ? RT_SCOPE_HOST : RT_SCOPE_LINK))
+        if (a->scope > RT_SCOPE_LINK)
                 return false;
 
         return true;
