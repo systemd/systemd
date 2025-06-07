@@ -1127,8 +1127,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectHostname: %s%s%s\n"
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n"
-                "%sPrivateBPF: %s\n"
-                "%sBPFDelegateCommands: %s\n",
+                "%sPrivateBPF: %s\n",
                 prefix, c->umask,
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
@@ -1156,8 +1155,13 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset),
-                prefix, private_bpf_to_string(c->private_bpf),
-                prefix, BPF_DELEGATE_TO_STRING(c->bpf_delegate_commands));
+                prefix, private_bpf_to_string(c->private_bpf));
+
+        if (c->private_bpf == PRIVATE_BPF_YES) {
+                fprintf(f, "%sBPFDelegateCommands: ", prefix);
+                bpf_dump_delegate_commands(f, c->bpf_delegate_commands);
+                fprintf(f, "\n");
+        }
 
         if (c->set_login_environment >= 0)
                 fprintf(f, "%sSetLoginEnvironment: %s\n", prefix, yes_no(c->set_login_environment > 0));

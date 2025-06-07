@@ -2294,6 +2294,7 @@ static int bpffs_prepare(
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
                 _cleanup_close_ int fs_fd = -EBADF;
+                char number[STRLEN("0x") + sizeof(delegate_cmds) * 2 + 1];
 
                 fs_fd = receive_one_fd(pipe_fds[0], 0);
                 if (fs_fd < 0) {
@@ -2301,7 +2302,9 @@ static int bpffs_prepare(
                         _exit(EXIT_FAILURE);
                 }
 
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", BPF_DELEGATE_TO_STRING(delegate_cmds), 0);
+                xsprintf(number, "0x%"PRIx64, delegate_cmds);
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, 0);
                 if (r < 0) {
                         log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
                         _exit(EXIT_FAILURE);

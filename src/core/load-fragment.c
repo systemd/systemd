@@ -159,7 +159,6 @@ DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagat
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat);
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping);
-DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate, bpf_delegate_from_string, uint64_t);
 
 bool contains_instance_specifier_superset(const char *s) {
         const char *p, *q;
@@ -6645,5 +6644,37 @@ int config_parse_protect_hostname(
 
         c->protect_hostname = t;
         free_and_replace(c->private_hostname, h);
+        return 1;
+}
+
+int config_parse_bpf_delegate(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        uint64_t *number = data;
+
+        if (streq(lvalue, "BPFDelegateCommands"))
+                bpf_delegate_commands_from_string(rvalue, number);
+        else if (streq(lvalue, "BPFDelegateMaps"))
+                puts("BPF_DELEGATE_MAPS"); // WIP
+        else if (streq(lvalue, "BPFDelegatePrograms"))
+                puts("BPF_DELEGATE_PROGRAMS");
+        else if (streq(lvalue, "BPFDelegateAttachments")) // WIP
+                puts("BPF_DELEGATE_ATTACHMENTS"); // WIP
+        else
+                return 0;
+
         return 1;
 }

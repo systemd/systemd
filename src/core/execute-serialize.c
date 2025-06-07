@@ -1837,8 +1837,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 return r;
 
         if (c->bpf_delegate_commands != 0) {
-                r = serialize_item(f, "exec-context-bpf-delegate-commands",
-                                   BPF_DELEGATE_TO_STRING(c->bpf_delegate_commands));
+                r = serialize_item_format(f, "exec-context-bpf-delegate-commands", "0x%"PRIx64, c->bpf_delegate_commands);
                 if (r < 0)
                         return r;
         }
@@ -2764,7 +2763,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (c->private_bpf < 0)
                                 return -EINVAL;
                 } else if ((val = startswith(l, "exec-context-bpf-delegate-commands="))) {
-                        r = bpf_delegate_from_string(val, &c->bpf_delegate_commands);
+                        r = safe_atoux64(val, &c->bpf_delegate_commands);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-runtime-directory-preserve-mode="))) {
