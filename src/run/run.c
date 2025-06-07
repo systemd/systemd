@@ -986,9 +986,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case ARG_LIGHTWEIGHT:
-                        r = parse_tristate_argument("--lightweight=", optarg, &arg_lightweight);
+                        r = parse_tristate(optarg, &arg_lightweight);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to parse --lightweight= argument: %s", optarg);
+
                         break;
 
                 case ARG_AREA:
