@@ -959,6 +959,30 @@ void user_update_last_session_timer(User *u) {
                           FORMAT_TIMESPAN(user_stop_delay, USEC_PER_MSEC));
 }
 
+void user_flush_job(User *u) {
+        int r = 0;
+
+        if (!u)
+                return;
+
+        char **user_job;
+        FOREACH_ARGUMENT(user_job, &u->runtime_dir_job, &u->service_manager_job) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                if (!*user_job)
+                        continue;
+
+                r = manager_job_is_active(u->manager, *user_job, &error);
+                if (r < 0)
+                        log_debug_errno(r,
+                                        "Failed to determine whether job '%s' is pending, ignoring: %s",
+                                        *user_job,
+                                        bus_error_message(&error, r));
+                if (r == 0)
+                        *user_job = mfree(*user_job);
+        }
+}
+
 static const char* const user_state_table[_USER_STATE_MAX] = {
         [USER_OFFLINE]   = "offline",
         [USER_OPENING]   = "opening",
