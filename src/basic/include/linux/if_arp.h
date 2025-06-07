@@ -24,6 +24,12 @@
 #ifndef _LINUX_IF_ARP_H
 #define _LINUX_IF_ARP_H
 
+#include <features.h>
+
+#ifndef __GLIBC__
+#include <netinet/if_ether.h>
+#endif
+
 #include <linux/netdevice.h>
 
 /* ARP protocol HARDWARE identifiers. */
@@ -112,6 +118,7 @@
 #define	ARPOP_InREPLY	9		/* InARP reply			*/
 #define	ARPOP_NAK	10		/* (ATM)ARP NAK			*/
 
+#ifdef __GLIBC__
 
 /* ARP ioctl request. */
 struct arpreq {
@@ -129,6 +136,8 @@ struct arpreq_old {
 	struct sockaddr	arp_netmask;    /* netmask (only for proxy arps) */
 };
 
+#endif
+
 /* ARP Flag values. */
 #define ATF_COM		0x02		/* completed entry (ha valid)	*/
 #define	ATF_PERM	0x04		/* permanent entry		*/
@@ -141,6 +150,8 @@ struct arpreq_old {
 /*
  *	This structure defines an ethernet arp header.
  */
+
+#ifdef __GLIBC__
 
 struct arphdr {
 	__be16		ar_hrd;		/* format of hardware address	*/
@@ -161,5 +172,6 @@ struct arphdr {
 
 };
 
+#endif
 
 #endif /* _LINUX_IF_ARP_H */
