@@ -17,6 +17,7 @@
 #include "mkdir.h"
 #include "netif-util.h"
 #include "parse-util.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
@@ -176,6 +177,7 @@ void link_allocate_scopes(Link *l) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv4 scope, ignoring: %m");
+                        dns_browse_services_restart(l->manager);
                 }
         } else
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
@@ -186,6 +188,7 @@ void link_allocate_scopes(Link *l) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv6 scope, ignoring: %m");
+                        dns_browse_services_restart(l->manager);
                 }
         } else
                 l->mdns_ipv6_scope = dns_scope_free(l->mdns_ipv6_scope);
@@ -201,13 +204,13 @@ void link_add_rrs(Link *l, bool force_remove) {
             link_get_mdns_support(l) == RESOLVE_SUPPORT_YES) {
 
                 if (l->mdns_ipv4_scope) {
-                        r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
+                        r = dns_scope_add_dnssd_registered_services(l->mdns_ipv4_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to add IPv4 DNS-SD services, ignoring: %m");
                 }
 
                 if (l->mdns_ipv6_scope) {
-                        r = dns_scope_add_dnssd_services(l->mdns_ipv6_scope);
+                        r = dns_scope_add_dnssd_registered_services(l->mdns_ipv6_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to add IPv6 DNS-SD services, ignoring: %m");
                 }
@@ -215,13 +218,13 @@ void link_add_rrs(Link *l, bool force_remove) {
         } else {
 
                 if (l->mdns_ipv4_scope) {
-                        r = dns_scope_remove_dnssd_services(l->mdns_ipv4_scope);
+                        r = dns_scope_remove_dnssd_registered_services(l->mdns_ipv4_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to remove IPv4 DNS-SD services, ignoring: %m");
                 }
 
                 if (l->mdns_ipv6_scope) {
-                        r = dns_scope_remove_dnssd_services(l->mdns_ipv6_scope);
+                        r = dns_scope_remove_dnssd_registered_services(l->mdns_ipv6_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to remove IPv6 DNS-SD services, ignoring: %m");
                 }
