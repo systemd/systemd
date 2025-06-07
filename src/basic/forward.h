@@ -57,7 +57,6 @@ struct ucred;
  * used for C++ symbol name mangling, they're effectively part of the ABI and won't actually change. */
 typedef struct _IO_FILE FILE;
 typedef struct __dirstream DIR;
-typedef __socklen_t socklen_t;
 
 /* 3rd-party library forward declarations */
 
