@@ -88,7 +88,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse configuration file: %m");
 
-        r = manager_load_config(m);
+        r = manager_config_load(m);
         if (r < 0)
                 return log_error_errno(r, "Could not load configuration files: %m");
 
