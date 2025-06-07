@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "af-list.h"
@@ -9,13 +10,27 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "random-util.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-server.h"
+#include "resolved-dns-stream.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-dnstls.h"
+#include "resolved-link.h"
 #include "resolved-llmnr.h"
+#include "resolved-manager.h"
+#include "resolved-socket-graveyard.h"
 #include "resolved-timeouts.h"
+#include "set.h"
 #include "string-table.h"
+#include "string-util.h"
 
 #define TRANSACTIONS_MAX 4096
 
@@ -401,14 +416,14 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                 dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str);
 
                 log_struct(LOG_NOTICE,
-                           "MESSAGE_ID=" SD_MESSAGE_DNSSEC_FAILURE_STR,
+                           LOG_MESSAGE_ID(SD_MESSAGE_DNSSEC_FAILURE_STR),
                            LOG_MESSAGE("DNSSEC validation failed for question %s: %s",
                                        key_str, dnssec_result_to_string(t->answer_dnssec_result)),
-                           "DNS_TRANSACTION=%" PRIu16, t->id,
-                           "DNS_QUESTION=%s", key_str,
-                           "DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result),
-                           "DNS_SERVER=%s", strna(dns_server_string_full(t->server)),
-                           "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level));
+                           LOG_ITEM("DNS_TRANSACTION=%" PRIu16, t->id),
+                           LOG_ITEM("DNS_QUESTION=%s", key_str),
+                           LOG_ITEM("DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result)),
+                           LOG_ITEM("DNS_SERVER=%s", strna(dns_server_string_full(t->server))),
+                           LOG_ITEM("DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level)));
         }
 
         /* Note that this call might invalidate the query. Callers
@@ -464,7 +479,7 @@ static void dns_transaction_complete_errno(DnsTransaction *t, int error) {
         assert(t);
         assert(error != 0);
 
-        t->answer_errno = abs(error);
+        t->answer_errno = ABS(error);
         dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
 }
 
@@ -838,7 +853,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_rcode,
                       t->answer,
                       /* If neither DO nor EDE is set, the full packet isn't useful to cache */
-                      DNS_PACKET_DO(t->received) || t->answer_ede_rcode > 0 || t->answer_ede_msg ? t->received : NULL,
+                      dns_packet_do(t->received) || t->answer_ede_rcode > 0 || t->answer_ede_msg ? t->received : NULL,
                       t->answer_query_flags,
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
@@ -1080,7 +1095,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
          * server returns a failure response code. This ensures a more accurate count of the number of queries
          * that received a failure response code, as it doesn't consider retries. */
 
-        if (t->n_attempts == 1 && !IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
+        if (t->n_attempts == 1 && !IN_SET(dns_packet_rcode(p), DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN))
                 t->scope->manager->n_failure_responses_total++;
 
         /* Note that this call might invalidate the query. Callers
@@ -1089,7 +1104,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
         log_debug("Processing incoming packet of size %zu on transaction %" PRIu16" (rcode=%s).",
                   p->size,
-                  t->id, FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)));
+                  t->id, FORMAT_DNS_RCODE(dns_packet_rcode(p)));
 
         switch (t->scope->protocol) {
 
@@ -1239,16 +1254,16 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 (void) dns_packet_ede_rcode(p, &t->answer_ede_rcode, &t->answer_ede_msg);
 
                 if (!t->bypass &&
-                    IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
+                    IN_SET(dns_packet_rcode(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
                         /* If the server has replied with detailed error data, using a degraded feature set
                          * will likely not help anyone. Examine the detailed error to determine the best
                          * course of action. */
-                        if (t->answer_ede_rcode >= 0 && DNS_PACKET_RCODE(p) == DNS_RCODE_SERVFAIL) {
+                        if (t->answer_ede_rcode >= 0 && dns_packet_rcode(p) == DNS_RCODE_SERVFAIL) {
                                 /* These codes are related to DNSSEC configuration errors. If accurate,
                                  * this is the domain operator's problem, and retrying won't help. */
                                 if (dns_ede_rcode_is_dnssec(t->answer_ede_rcode)) {
                                         log_debug("Server returned error: %s (%s%s%s). Lookup failed.",
-                                                  FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                  FORMAT_DNS_RCODE(dns_packet_rcode(p)),
                                                   FORMAT_DNS_EDE_RCODE(t->answer_ede_rcode),
                                                   isempty(t->answer_ede_msg) ? "" : ": ",
                                                   strempty(t->answer_ede_msg));
@@ -1261,7 +1276,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 /* These codes probably indicate a transient error. Let's try again. */
                                 if (t->answer_ede_rcode == DNS_EDE_RCODE_NOT_READY) {
                                         log_debug("Server returned error: %s (%s%s%s), retrying transaction.",
-                                                  FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                  FORMAT_DNS_RCODE(dns_packet_rcode(p)),
                                                   FORMAT_DNS_EDE_RCODE(t->answer_ede_rcode),
                                                   isempty(t->answer_ede_msg) ? "" : ": ",
                                                   strempty(t->answer_ede_msg));
@@ -1272,7 +1287,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 /* OK, the query failed, but we still shouldn't degrade the feature set for
                                  * this server. */
                                 log_debug("Server returned error: %s (%s%s%s)",
-                                          FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                          FORMAT_DNS_RCODE(dns_packet_rcode(p)),
                                           FORMAT_DNS_EDE_RCODE(t->answer_ede_rcode),
                                           isempty(t->answer_ede_msg) ? "" : ": ",
                                           strempty(t->answer_ede_msg));
@@ -1294,7 +1309,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                         return;
 
                                 /* Give up, accept the rcode */
-                                log_debug("Server returned error: %s", FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)));
+                                log_debug("Server returned error: %s", FORMAT_DNS_RCODE(dns_packet_rcode(p)));
                                 break;
                         }
 
@@ -1304,11 +1319,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                          * first attempt to downgrade. If so, clamp to the current value so that the transaction
                          * is retried without actually downgrading. If the next try also fails we will downgrade by
                          * hitting the else branch below. */
-                        if (DNS_PACKET_RCODE(p) == DNS_RCODE_SERVFAIL &&
+                        if (dns_packet_rcode(p) == DNS_RCODE_SERVFAIL &&
                             t->clamp_feature_level_servfail < 0) {
                                 t->clamp_feature_level_servfail = t->current_feature_level;
                                 log_debug("Server returned error %s, retrying transaction.",
-                                          FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)));
+                                          FORMAT_DNS_RCODE(dns_packet_rcode(p)));
                         } else {
                                 /* Reduce this feature level by one and try again. */
                                 switch (t->current_feature_level) {
@@ -1324,7 +1339,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 }
 
                                 log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
-                                          FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                          FORMAT_DNS_RCODE(dns_packet_rcode(p)),
                                           dns_server_feature_level_to_string(t->clamp_feature_level_servfail));
                         }
 
@@ -1332,7 +1347,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                         return;
                 }
 
-                if (DNS_PACKET_RCODE(p) == DNS_RCODE_REFUSED) {
+                if (dns_packet_rcode(p) == DNS_RCODE_REFUSED) {
                         /* This server refused our request? If so, try again, use a different server */
                         if (t->answer_ede_rcode >= 0)
                                 log_debug("Server returned REFUSED (%s), switching servers, and retrying.",
@@ -1365,7 +1380,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 /* Report that we successfully received a valid packet with a good rcode after we initially got a bad
                  * rcode and subsequently downgraded the protocol */
 
-                if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN) &&
+                if (IN_SET(dns_packet_rcode(p), DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN) &&
                     t->clamp_feature_level_servfail != _DNS_SERVER_FEATURE_LEVEL_INVALID)
                         dns_server_packet_rcode_downgrade(t->server, t->clamp_feature_level_servfail);
 
@@ -1374,7 +1389,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                         dns_server_packet_bad_opt(t->server, t->current_feature_level);
 
                 /* Report that the server didn't copy our query DO bit from request to response */
-                if (DNS_PACKET_DO(t->sent) && !DNS_PACKET_DO(t->received))
+                if (dns_packet_do(t->sent) && !dns_packet_do(t->received))
                         dns_server_packet_do_off(t->server, t->current_feature_level);
 
                 /* Report that we successfully received a packet. We keep track of the largest packet
@@ -1408,7 +1423,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
          * original complete record set, including RRSIG and friends. We use this when passing data to
          * clients that ask for DNSSEC metadata. */
         DNS_ANSWER_REPLACE(t->answer, dns_answer_ref(p->answer));
-        t->answer_rcode = DNS_PACKET_RCODE(p);
+        t->answer_rcode = dns_packet_rcode(p);
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
         SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, encrypted);
@@ -2065,7 +2080,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
                 r = dns_packet_new_query(
                                 &p, t->scope->protocol,
                                 /* min_alloc_dsize = */ 0,
-                                /* dnssec_cd = */ !FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) &&
+                                /* dnssec_checking_disabled = */ !FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) &&
                                                   t->scope->dnssec_mode != DNSSEC_NO);
                 if (r < 0)
                         return r;
@@ -2772,7 +2787,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
 
                         log_debug("Requesting DS (%s %s) to validate transaction %" PRIu16 " (%s empty response).",
-                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id,
+                                  glyph(GLYPH_ARROW_RIGHT), name, t->id,
                                   dns_resource_key_name(dns_transaction_key(t)));
 
                         ds = dns_resource_key_new(dns_transaction_key(t)->class, DNS_TYPE_DS, name);
@@ -2786,6 +2801,20 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         }
 
         return dns_transaction_dnssec_is_live(t);
+}
+
+DnsResourceKey* dns_transaction_key(DnsTransaction *t) {
+        assert(t);
+
+        /* Return the lookup key of this transaction. Either takes the lookup key from the bypass packet if
+         * we are a bypass transaction. Or take the configured key for regular transactions. */
+
+        if (t->key)
+                return t->key;
+
+        assert(t->bypass);
+
+        return dns_question_first_key(t->bypass->question);
 }
 
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {

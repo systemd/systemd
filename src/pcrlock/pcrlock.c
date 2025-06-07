@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <math.h>
 #include <openssl/evp.h>
 #include <sys/file.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "bitfield.h"
 #include "blockdev-util.h"
@@ -19,22 +20,23 @@
 #include "conf-files.h"
 #include "creds-util.h"
 #include "efi-api.h"
+#include "efivars.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "find-esp.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
-#include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "initrd-util.h"
 #include "json-util.h"
+#include "list.h"
 #include "main-func.h"
 #include "mkdir-label.h"
-#include "openssl-util.h"
 #include "ordered-set.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -44,11 +46,13 @@
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
-#include "random-util.h"
 #include "recovery-key.h"
 #include "sort-util.h"
 #include "string-table.h"
-#include "terminal-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "unaligned.h"
 #include "unit-name.h"
@@ -81,6 +85,7 @@ static bool arg_force = false;
 static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 static char *arg_entry_token = NULL;
 static bool arg_varlink = false;
+static bool arg_quiet = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_components, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pcrlock_path, freep);
@@ -1667,7 +1672,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
                         path,
                         /* flags= */ 0,
                         &j,
-                        /* ret_line= */ NULL,
+                        /* reterr_line= */ NULL,
                         /* ret_column= */ NULL);
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse component file %s, ignoring: %m", path);
@@ -2115,7 +2120,7 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
 
                 r = table_add_many(table,
                                    TABLE_UINT32, record->pcr,
-                                   TABLE_STRING, special_glyph(SPECIAL_GLYPH_FULL_BLOCK),
+                                   TABLE_STRING, glyph(GLYPH_FULL_BLOCK),
                                    TABLE_SET_COLOR, color_for_pcr(el, record->pcr),
                                    TABLE_STRING, tpm2_pcr_index_to_string(record->pcr));
                 if (r < 0)
@@ -2260,15 +2265,15 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                 /* Whether any unmatched components touch this PCR */
                 bool missing_components = BIT_SET(el->missing_component_pcrs, pcr);
 
-                const char *emoji = special_glyph(
-                                !hash_match ? SPECIAL_GLYPH_DEPRESSED_SMILEY :
-                                !fully_recognized ? SPECIAL_GLYPH_UNHAPPY_SMILEY :
-                                missing_components ?  SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY :
-                                SPECIAL_GLYPH_HAPPY_SMILEY);
+                const char *emoji = glyph(
+                                !hash_match ? GLYPH_DEPRESSED_SMILEY :
+                                !fully_recognized ? GLYPH_UNHAPPY_SMILEY :
+                                missing_components ?  GLYPH_SLIGHTLY_HAPPY_SMILEY :
+                                GLYPH_HAPPY_SMILEY);
 
                 r = table_add_many(table,
                                    TABLE_UINT32, pcr,
-                                   TABLE_STRING, special_glyph(SPECIAL_GLYPH_FULL_BLOCK),
+                                   TABLE_STRING, glyph(GLYPH_FULL_BLOCK),
                                    TABLE_SET_COLOR, color_for_pcr(el, pcr),
                                    TABLE_STRING, emoji,
                                    TABLE_STRING, tpm2_pcr_index_to_string(pcr));
@@ -2614,10 +2619,10 @@ static int verb_list_components(int argc, char *argv[], void *userdata) {
                         case BEFORE_LOCATION:
                                 if (arg_location_end && strcmp((*c)->id, arg_location_end) >= 0) {
                                         loc = AFTER_LOCATION;
-                                        marker = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), " location '", arg_location_end, "' ", special_glyph(SPECIAL_GLYPH_ARROW_LEFT));
+                                        marker = strjoin(glyph(GLYPH_ARROW_RIGHT), " location '", arg_location_end, "' ", glyph(GLYPH_ARROW_LEFT));
                                 } else if (arg_location_start && strcmp((*c)->id, arg_location_start) >= 0) {
                                         loc = BETWEEN_LOCATION;
-                                        marker = strjoin(special_glyph(SPECIAL_GLYPH_TREE_TOP), " start location '", arg_location_start, "' ", special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                                        marker = strjoin(glyph(GLYPH_TREE_TOP), " start location '", arg_location_start, "' ", glyph(GLYPH_ARROW_DOWN));
                                 }
 
                                 break;
@@ -2625,7 +2630,7 @@ static int verb_list_components(int argc, char *argv[], void *userdata) {
                         case BETWEEN_LOCATION:
                                 if (arg_location_end && strcmp((*c)->id, arg_location_end) >= 0) {
                                         loc = AFTER_LOCATION;
-                                        marker = strjoin(special_glyph(SPECIAL_GLYPH_TREE_RIGHT), " end location '", arg_location_end, "' ", special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                                        marker = strjoin(glyph(GLYPH_TREE_RIGHT), " end location '", arg_location_end, "' ", glyph(GLYPH_ARROW_UP));
                                 }
                                 break;
 
@@ -4393,7 +4398,7 @@ static int write_boot_policy_file(const char *json_text) {
                         /* tpm2_device= */ NULL,
                         /* tpm2_hash_pcr_mask= */ 0,
                         /* tpm2_pubkey_path= */ NULL,
-                        /* tpm2_pubkey_path_mask= */ 0,
+                        /* tpm2_pubkey_pcr_mask= */ 0,
                         UID_INVALID,
                         &IOVEC_MAKE_STRING(json_text),
                         CREDENTIAL_ALLOW_NULL,
@@ -4506,6 +4511,8 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
 
         if (!tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support PolicyAuthorizeNV command, refusing.");
+        if (!tpm2_supports_alg(tc, TPM2_ALG_SHA256))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support SHA-256 hash algorithm, refusing.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
 
@@ -4577,7 +4584,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
 
                 if (recovery_pin_mode == RECOVERY_PIN_SHOW)
                         printf("%s Selected recovery PIN is: %s%s%s\n",
-                               special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY),
+                               glyph(GLYPH_LOCK_AND_KEY),
                                ansi_highlight_cyan(),
                                pin,
                                ansi_normal());
@@ -4627,7 +4634,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                         &old_policy.prediction,
                                         old_policy.algorithm);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to submit super PCR policy: %m");
+                                return r;
 
                         r = tpm2_policy_authorize_nv(
                                         tc,
@@ -4934,6 +4941,60 @@ static int verb_remove_policy(int argc, char *argv[], void *userdata) {
         return remove_policy();
 }
 
+static int test_tpm2_support_pcrlock(Tpm2Support *ret) {
+        int r;
+
+        assert(ret);
+
+        /* First check basic support */
+        Tpm2Support s = tpm2_support();
+
+        /* If basic support is available, let's also check the things we need for systemd-pcrlock */
+        if (s == TPM2_SUPPORT_FULL) {
+                _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+                r = tpm2_context_new_or_warn(/* device= */ NULL, &tc);
+                if (r < 0)
+                        return r;
+
+                /* We strictly need TPM2_CC_PolicyAuthorizeNV for systemd-pcrlock to work */
+                SET_FLAG(s, TPM2_SUPPORT_AUTHORIZE_NV, tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV));
+
+                log_debug("PolicyAuthorizeNV supported: %s", yes_no(FLAGS_SET(s, TPM2_SUPPORT_AUTHORIZE_NV)));
+
+                /* We also strictly need SHA-256 to work */
+                SET_FLAG(s, TPM2_SUPPORT_SHA256, tpm2_supports_alg(tc, TPM2_ALG_SHA256));
+
+                log_debug("SHA-256 supported: %s", yes_no(FLAGS_SET(s, TPM2_SUPPORT_SHA256)));
+        }
+
+        *ret = s;
+        return 0;
+}
+
+static int verb_is_supported(int argc, char *argv[], void *userdata) {
+        int r;
+
+        Tpm2Support s;
+        r = test_tpm2_support_pcrlock(&s);
+        if (r < 0)
+                return r;
+
+        if (!arg_quiet) {
+                if (s == (TPM2_SUPPORT_FULL|TPM2_SUPPORT_API_PCRLOCK))
+                        printf("%syes%s\n", ansi_green(), ansi_normal());
+                else if (FLAGS_SET(s, TPM2_SUPPORT_FULL))
+                        printf("%sobsolete%s\n", ansi_red(), ansi_normal());
+                else if (s == TPM2_SUPPORT_NONE)
+                        printf("%sno%s\n", ansi_red(), ansi_normal());
+                else
+                        printf("%spartial%s\n", ansi_yellow(), ansi_normal());
+        }
+
+        assert_cc(TPM2_SUPPORT_API_PCRLOCK <= 255); /* make sure this is safe to use as process exit status */
+
+        return ~s & TPM2_SUPPORT_API_PCRLOCK;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4951,6 +5012,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  predict                     Predict PCR values\n"
                "  make-policy                 Predict PCR values and generate TPM2 policy from it\n"
                "  remove-policy               Remove TPM2 policy\n"
+               "  is-supported                Tests if TPM2 supports necessary features\n"
                "\n%3$sProtections:%4$s\n"
                "  lock-firmware-code          Generate a .pcrlock file from current firmware code\n"
                "  unlock-firmware-code        Remove .pcrlock file for firmware code\n"
@@ -4993,6 +5055,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --force                  Write policy even if it matches existing policy\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                              Boot entry token to use for this installation\n"
+               "  -q --quiet                  Suppress unnecessary output\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -5036,6 +5099,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "policy",          required_argument, NULL, ARG_POLICY          },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "entry-token",     required_argument, NULL, ARG_ENTRY_TOKEN     },
+                { "quiet",           no_argument,       NULL, 'q'                 },
                 {}
         };
 
@@ -5045,7 +5109,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hq", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -5189,6 +5253,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -5253,6 +5321,7 @@ static int pcrlock_main(int argc, char *argv[]) {
                 { "unlock-raw",                  VERB_ANY, 1,        0,            verb_unlock_simple               },
                 { "make-policy",                 VERB_ANY, 1,        0,            verb_make_policy                 },
                 { "remove-policy",               VERB_ANY, 1,        0,            verb_remove_policy               },
+                { "is-supported",                VERB_ANY, 1,        0,            verb_is_supported                },
                 {}
         };
 
@@ -5316,7 +5385,7 @@ static int vl_method_make_policy(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
-        r = make_policy(p.force, /* recovery_key= */ RECOVERY_PIN_HIDE);
+        r = make_policy(p.force, /* recovery_pin_mode= */ RECOVERY_PIN_HIDE);
         if (r < 0)
                 return r;
         if (r == 0)

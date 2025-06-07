@@ -179,6 +179,66 @@
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--key-name=</option></term>
+
+        <listitem><para>When used with the <command>add-signing-key</command> command, specify or override
+        the name under which to store the public key being added. The specified name can be chosen freely,
+        but must be suffixed with <literal>.public</literal>. If this option is not used the name is derived
+        from the specified filename. If a key is read from standard input this option is mandatory in order
+        to provide a suitable name for the key being added.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--seize=</option></term>
+
+        <listitem><para>Takes a boolean argument. When used with <command>create</command> or
+        <command>register</command>, controls whether to strip cryptographic signatures from the provided
+        JSON user records, which has the effect of signing them with the local signing key
+        (<filename>local.public</filename>) instead. If this switch is set to true, added user records
+        hence become locally managed (and thus can be modified locally), while if it is set to false the user
+        records remain managed and owned by its origin (and thus cannot be modified locally). This switch
+        defaults to true for <command>create</command> and false for <command>register</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--match=</option></term>
+        <term><option>-A</option></term>
+        <term><option>-N</option></term>
+        <term><option>-T</option></term>
+
+        <listitem><para>Takes one of <literal>this</literal>, <literal>other</literal>,
+        <literal>any</literal> or <literal>auto</literal>. Some user record settings can be defined to match
+        only specific machines, or all machines but one, or all machines. With this switch it is possibly to
+        control to which machines to apply the settings appearing on the command line after it. If
+        <literal>this</literal> is specified the setting will only apply to the local system (positive
+        match), if <literal>other</literal> it will apply to all but the local system (negative match), if
+        <literal>any</literal> it will apply to all systems (unless there's a matching positive or negative
+        per-machine setting). If <literal>auto</literal> returns to the default logic: whether a setting
+        applies by default to the local system or all systems depends on the option in question.</para>
+
+        <para>Note that only some user record settings can be conditioned like this. This option has no
+        effect on the others and is ignored there. This option may appear multiple times in a single command
+        line to apply settings conditioned by different matches to the same user record. See <ulink
+        url="https://systemd.io/USER_RECORD">JSON User Records</ulink> for details on which settings may be
+        used with such per-machine matching and which ones may not.</para>
+
+        <para><option>-A</option> is a shortcut for <option>--match=any</option>, <option>-T</option> is
+        short for <option>--match=this</option> and <option>-N</option> is short for
+        <option>--match=other</option>.</para>
+
+        <para>Here's an example call that sets the storage field to <literal>luks</literal> on the local
+        system, but to <literal>cifs</literal> on all others:</para>
+
+        <programlisting># homectl update lennart -T --storage=luks -N --storage=cifs</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
@@ -911,7 +971,7 @@
 
         <listitem><para>Takes a string containing additional mount options to use when mounting the LUKS
         volume. If specified, this string will be appended to the default, built-in mount
-        options.</para>
+        options. Defaults to "compress=zstd:1,noacl,user_subvol_rm_allowed".</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -1173,6 +1233,68 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>adopt</command> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>…]</term>
+
+        <listitem><para>Adopts one or more existing home directories on the local system. Takes one or more paths to
+        <filename>*.home</filename> LUKS home directories or <filename>*.homedir/</filename> standalone home
+        directories or subvolumes previously created by <filename>systemd-homed</filename> and makes them
+        available locally for login. The referenced files are not moved. This is an alternative for moving
+        such home directories into <filename>/home/</filename> (where they would be picked up
+        automatically).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>register</command> <replaceable>FILE</replaceable> [<replaceable>FILE</replaceable>…]</term>
+
+        <listitem><para>Registers one or more users, without creating their home directories. Takes one or
+        more paths to JSON user record files. If the path is specified as <literal>-</literal> reads the
+        JSON user record from standard input.</para>
+
+        <para>Registering a user makes it accessible on the local system without creating a new home
+        directory. This is particularly useful for making a user accessible on a system it was not originally
+        created on.</para>
+
+        <para>Here's an example how to make a local user account with its home directory accessible on a
+        remote system, using SMB/CIFS file sharing. With Samba installed in its default configuration invoke
+        as <literal>root</literal>:</para>
+
+        <programlisting># smbpasswd -a lennart</programlisting>
+
+        <para>Continue as regular user <literal>lennart</literal>:</para>
+
+<programlisting>$ homectl update lennart --ssh-authorized-keys=… -N --storage=cifs --cifs-service="//$HOSTNAME/lennart"
+$ homectl get-signing-key | ssh targetsystem homectl add-signing-key --key-name="$HOSTNAME".public
+$ homectl inspect -E lennart | ssh targetsystem homectl register -
+$ ssh lennart@targetsystem</programlisting>
+
+        <para>This first ensures the user account <literal>lennart</literal> is known to and accessible by
+        Samba. It then registers a local SSH access that shall be used for accessing this user, and
+        configures CIFS as default storage for non-local systems on the account. It then adds the local
+        system's account signing key to the target system. Then it registers the local user account with the
+        target system. Finally it logs into the account on the target system. The target system will then
+        connect back via SMB/CIFS to access the home directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>unregister</command> <replaceable>USER</replaceable>…</term>
+
+        <listitem><para>Unregisters one or more user accounts. This only removes the user record from the
+        local system, it does not delete the home directory. The home directory can be readded via the
+        <command>register</command> or <command>adopt</command> command later, on this or another
+        system. Note that unregistering a user whose home directory is placed in <filename>/home/</filename>
+        will not make the user disappear from the local user database, as all supported home directories
+        placed there will show up in the user database. However, the user record will become "unfixated",
+        i.e. lose its binding to the local system. When logged into it will automatically regain the binding,
+        and acquire a local UID/GID pair.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>remove</command> <replaceable>USER</replaceable></term>
 
         <listitem><para>Remove a home directory/user account. This will remove both the home directory's user
@@ -1311,6 +1433,55 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>list-signing-keys</command></term>
+
+        <listitem><para>Show a list of public keys that home directories can be signed with to be allowed for
+        local login. One such key (<filename>local.public</filename>) will be generated automatically for
+        signing locally created home directories, but additional public keys may be registered to accept home
+        directories from other origins too (see <command>add-signing-key</command> below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>get-signing-key</command> [<replaceable>NAME…</replaceable>]</term>
+
+        <listitem><para>Write the public key identified by the specified name to standard output (in PEM
+        format). If no name is specified defaults to <filename>local.public</filename>, i.e. the
+        automatically generated key for locally created home directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>add-signing-key</command> [<replaceable>FILE…</replaceable>]</term>
+
+        <listitem><para>Add public key(s) from the specified PEM key file(s) to the list of keys that home
+        areas have to be signed by to be permitted for local login. If a path of <literal>-</literal> is
+        specified, or if no file is specified at all, the key will be read from standard input. The key file
+        name(s) must carry the <filename>.public</filename> suffix, and the file name(s) will be used to name
+        the key(s) once added, too. If a key is added from standard input the key name must be specified
+        explicitly via <option>--key-name=</option>, see above.</para>
+
+        <para>This command is useful for permitting local home directories to be used on a remote
+        system. Example:</para>
+
+        <programlisting>homectl get-signing-key | ssh myotherhost homectl add-signing-key --key-name="$HOSTNAME".public</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>remove-signing-key</command> <replaceable>NAME…</replaceable></term>
+
+        <listitem><para>Remove the public key identified by the specified name from the list of keys that
+        control from which origins to permit home directories for login.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

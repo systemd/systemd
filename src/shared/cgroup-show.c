@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <dirent.h>
-#include <errno.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -16,18 +15,18 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "hostname-util.h"
-#include "locale-util.h"
-#include "macro.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "output-mode.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
-#include "unit-name.h"
+#include "unit-def.h"
 #include "xattr-util.h"
 
 static void show_pid_array(
@@ -71,9 +70,9 @@ static void show_pid_array(
                                        &t);
 
                 if (extra)
-                        printf("%s%s ", prefix, special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                        printf("%s%s ", prefix, glyph(GLYPH_TRIANGULAR_BULLET));
                 else
-                        printf("%s%s", prefix, special_glyph(((more || i < n_pids-1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT)));
+                        printf("%s%s", prefix, glyph(((more || i < n_pids-1) ? GLYPH_TREE_BRANCH : GLYPH_TREE_RIGHT)));
 
                 printf("%s%*"PID_PRI" %s%s\n", ansi_grey(), (int) pid_width, pids[i], strna(t), ansi_normal());
         }
@@ -132,7 +131,7 @@ static int show_cgroup_one_by_path(
 static int show_cgroup_name(
                 const char *path,
                 const char *prefix,
-                SpecialGlyph glyph,
+                Glyph tree,
                 OutputFlags flags) {
 
         uint64_t cgroupid = UINT64_MAX;
@@ -161,7 +160,7 @@ static int show_cgroup_name(
                 return log_error_errno(r, "Failed to extract filename from cgroup path: %m");
 
         printf("%s%s%s%s%s",
-               prefix, special_glyph(glyph),
+               prefix, glyph(tree),
                delegate ? ansi_underline() : "",
                cg_unescape(b),
                delegate ? ansi_normal() : "");
@@ -169,7 +168,7 @@ static int show_cgroup_name(
         if (delegate)
                 printf(" %s%s%s",
                        ansi_highlight(),
-                       special_glyph(SPECIAL_GLYPH_ELLIPSIS),
+                       glyph(GLYPH_ELLIPSIS),
                        ansi_normal());
 
         if (cgroupid != UINT64_MAX)
@@ -186,13 +185,13 @@ static int show_cgroup_name(
 
                 NULSTR_FOREACH(xa, nl) {
                         _cleanup_free_ char *x = NULL, *y = NULL, *buf = NULL;
-                        int n;
 
                         if (!STARTSWITH_SET(xa, "user.", "trusted."))
                                 continue;
 
-                        n = fgetxattr_malloc(fd, xa, &buf);
-                        if (n < 0) {
+                        size_t buf_size;
+                        r = fgetxattr_malloc(fd, xa, &buf, &buf_size);
+                        if (r < 0) {
                                 log_debug_errno(r, "Failed to read xattr '%s' off '%s', ignoring: %m", xa, path);
                                 continue;
                         }
@@ -201,14 +200,14 @@ static int show_cgroup_name(
                         if (!x)
                                 return -ENOMEM;
 
-                        y = cescape_length(buf, n);
+                        y = cescape_length(buf, buf_size);
                         if (!y)
                                 return -ENOMEM;
 
                         printf("%s%s%s %s%s%s: %s\n",
                                prefix,
-                               glyph == SPECIAL_GLYPH_TREE_BRANCH ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                               tree == GLYPH_TREE_BRANCH ? glyph(GLYPH_TREE_VERTICAL) : "  ",
+                               glyph(GLYPH_ARROW_RIGHT),
                                ansi_blue(), x, ansi_normal(),
                                y);
                 }
@@ -252,7 +251,7 @@ int show_cgroup_by_path(
                 if (!k)
                         return -ENOMEM;
 
-                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty_recursive(NULL, k) > 0)
+                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty(NULL, k) > 0)
                         continue;
 
                 if (!shown_pids) {
@@ -261,12 +260,12 @@ int show_cgroup_by_path(
                 }
 
                 if (last) {
-                        r = show_cgroup_name(last, prefix, SPECIAL_GLYPH_TREE_BRANCH, flags);
+                        r = show_cgroup_name(last, prefix, GLYPH_TREE_BRANCH, flags);
                         if (r < 0)
                                 return r;
 
                         if (!p1) {
-                                p1 = strjoin(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
+                                p1 = strjoin(prefix, glyph(GLYPH_TREE_VERTICAL));
                                 if (!p1)
                                         return -ENOMEM;
                         }
@@ -285,7 +284,7 @@ int show_cgroup_by_path(
                 (void) show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
 
         if (last) {
-                r = show_cgroup_name(last, prefix, SPECIAL_GLYPH_TREE_RIGHT, flags);
+                r = show_cgroup_name(last, prefix, GLYPH_TREE_RIGHT, flags);
                 if (r < 0)
                         return r;
 

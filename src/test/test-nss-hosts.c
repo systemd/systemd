@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -11,7 +9,7 @@
 #include "errno-list.h"
 #include "format-ifname.h"
 #include "hexdecoct.h"
-#include "hostname-util.h"
+#include "hostname-setup.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "log.h"
@@ -21,7 +19,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"

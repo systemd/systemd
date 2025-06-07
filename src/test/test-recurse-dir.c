@@ -6,8 +6,10 @@
 #include "log.h"
 #include "missing_magic.h"
 #include "recurse-dir.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 
 static char **list_nftw = NULL;
 

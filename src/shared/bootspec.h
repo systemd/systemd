@@ -2,15 +2,7 @@
 
 #pragma once
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "sd-json.h"
-
-#include "set.h"
-#include "string-util.h"
+#include "forward.h"
 
 typedef enum BootEntryType {
         BOOT_ENTRY_CONF,        /* Boot Loader Specification Type #1 entries: *.conf files */
@@ -80,6 +72,7 @@ typedef struct BootConfig {
         char *entry_oneshot;
         char *entry_default;
         char *entry_selected;
+        char *entry_sysfail;
 
         BootEntry *entries;
         size_t n_entries;
@@ -131,7 +124,7 @@ int boot_config_load_type1(
 int boot_config_finalize(BootConfig *config);
 int boot_config_load(BootConfig *config, const char *esp_path, const char *xbootldr_path);
 int boot_config_load_auto(BootConfig *config, const char *override_esp_path, const char *override_xbootldr_path);
-int boot_config_augment_from_loader(BootConfig *config, char **list, bool only_auto);
+int boot_config_augment_from_loader(BootConfig *config, char **list, bool auto_only);
 
 int boot_config_select_special_entries(BootConfig *config, bool skip_efivars);
 

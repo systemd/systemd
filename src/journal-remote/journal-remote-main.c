@@ -4,29 +4,33 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "conf-parser.h"
-#include "constants.h"
 #include "daemon-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "journal-compression-util.h"
-#include "journal-remote-write.h"
 #include "journal-remote.h"
+#include "journal-remote-write.h"
 #include "logs-show.h"
 #include "main-func.h"
-#include "memory-util.h"
+#include "microhttpd-util.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
+#include "parse-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "rlimit-util.h"
-#include "signal-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
@@ -83,6 +87,38 @@ static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(journal_write_split_mode, JournalWriteSplitMode);
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_split_mode, JournalWriteSplitMode);
+
+#if HAVE_MICROHTTPD
+
+typedef struct MHDDaemonWrapper {
+        uint64_t fd;
+        struct MHD_Daemon *daemon;
+
+        sd_event_source *io_event;
+        sd_event_source *timer_event;
+} MHDDaemonWrapper;
+
+static MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
+        if (!d)
+                return NULL;
+
+        d->io_event = sd_event_source_unref(d->io_event);
+        d->timer_event = sd_event_source_unref(d->timer_event);
+
+        if (d->daemon)
+                MHD_stop_daemon(d->daemon);
+
+        return mfree(d);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(MHDDaemonWrapper*, MHDDaemonWrapper_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                mhd_daemon_hash_ops,
+                uint64_t, uint64_hash_func, uint64_compare_func,
+                MHDDaemonWrapper, MHDDaemonWrapper_free);
+
+#endif
 
 /**********************************************************************
  **********************************************************************
@@ -153,6 +189,8 @@ static int spawn_getter(const char *getter) {
 /**********************************************************************
  **********************************************************************
  **********************************************************************/
+
+#if HAVE_MICROHTTPD
 
 static int null_timer_event_handler(sd_event_source *s,
                                 uint64_t usec,
@@ -419,11 +457,15 @@ static mhd_result request_handler(
         return MHD_YES;
 }
 
+#endif
+
 static int setup_microhttpd_server(RemoteServer *s,
                                    int fd,
                                    const char *key,
                                    const char *cert,
                                    const char *trust) {
+
+#if HAVE_MICROHTTPD
         struct MHD_OptionItem opts[] = {
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
@@ -525,7 +567,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         if (r < 0)
                 return log_error_errno(r, "Failed to set source name: %m");
 
-        r = hashmap_ensure_put(&s->daemons, &uint64_hash_ops, &d->fd, d);
+        r = hashmap_ensure_put(&s->daemons, &mhd_daemon_hash_ops, &d->fd, d);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
@@ -534,6 +576,9 @@ static int setup_microhttpd_server(RemoteServer *s,
         TAKE_PTR(d);
         s->active++;
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "microhttpd support not compiled in");
+#endif
 }
 
 static int setup_microhttpd_socket(RemoteServer *s,
@@ -549,6 +594,8 @@ static int setup_microhttpd_socket(RemoteServer *s,
 
         return setup_microhttpd_server(s, fd, key, cert, trust);
 }
+
+#if HAVE_MICROHTTPD
 
 static int null_timer_event_handler(sd_event_source *timer_event,
                                     uint64_t usec,
@@ -584,6 +631,8 @@ static int dispatch_http_event(sd_event_source *event,
 
         return 1; /* work to do */
 }
+
+#endif
 
 /**********************************************************************
  **********************************************************************
@@ -1119,11 +1168,13 @@ static int run(int argc, char **argv) {
 
         journal_browse_prepare();
 
+#if HAVE_MICROHTTPD
         if (arg_listen_http || arg_listen_https) {
                 r = setup_gnutls_logger(arg_gnutls_log);
                 if (r < 0)
                         return r;
         }
+#endif
 
         if (arg_listen_https || https_socket >= 0) {
                 r = load_certificates(&key, &cert, &trust);
@@ -1152,7 +1203,7 @@ static int run(int argc, char **argv) {
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid_cached());
 
-        notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_message = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         while (s.active) {
                 r = sd_event_get_state(s.event);

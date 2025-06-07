@@ -1,24 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
+#include "sd-bus.h"
+
 #include "cgroup-setup.h"
 #include "dbus-scope.h"
 #include "dbus-unit.h"
 #include "exit-status.h"
-#include "load-dropin.h"
 #include "log.h"
-#include "process-util.h"
+#include "manager.h"
+#include "parse-util.h"
+#include "pidref.h"
 #include "random-util.h"
 #include "scope.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
 #include "unit.h"
 #include "user-util.h"
 
@@ -93,10 +94,8 @@ static void scope_set_state(Scope *s, ScopeState state) {
         if (!IN_SET(state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL, SCOPE_START_CHOWN, SCOPE_RUNNING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
-        if (!IN_SET(old_state, SCOPE_DEAD, SCOPE_FAILED) && IN_SET(state, SCOPE_DEAD, SCOPE_FAILED)) {
+        if (!IN_SET(old_state, SCOPE_DEAD, SCOPE_FAILED) && IN_SET(state, SCOPE_DEAD, SCOPE_FAILED))
                 unit_unwatch_all_pids(UNIT(s));
-                unit_dequeue_rewatch_pids(UNIT(s));
-        }
 
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s",
@@ -237,17 +236,13 @@ static int scope_coldplug(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED)) {
-                if (u->pids) {
-                        PidRef *pid;
-
-                        SET_FOREACH(pid, u->pids) {
-                                r = unit_watch_pidref(u, pid, /* exclusive= */ false);
-                                if (r < 0 && r != -EEXIST)
-                                        return r;
-                        }
-                } else
-                        (void) unit_enqueue_rewatch_pids(u);
+        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED) && u->pids) {
+                PidRef *pid;
+                SET_FOREACH(pid, u->pids) {
+                        r = unit_watch_pidref(u, pid, /* exclusive= */ false);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         bus_scope_track_controller(s);
@@ -296,13 +291,6 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
 
         if (s->result == SCOPE_SUCCESS)
                 s->result = f;
-
-        /* Before sending any signal, make sure we track all members of this cgroup */
-        (void) unit_watch_all_pids(UNIT(s));
-
-        /* Also, enqueue a job that we recheck all our PIDs a bit later, given that it's likely some processes have
-         * died now */
-        (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         /* If we have a controller set let's ask the controller nicely to terminate the scope, instead of us going
          * directly into SIGTERM berserk mode */
@@ -384,7 +372,7 @@ static int scope_enter_start_chown(Scope *s) {
                         }
                 }
 
-                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_runtime->cgroup_path, uid, gid);
+                r = cg_set_access(s->cgroup_runtime->cgroup_path, uid, gid);
                 if (r < 0) {
                         log_unit_error_errno(UNIT(s), r, "Failed to adjust control group access: %m");
                         _exit(EXIT_CGROUP);
@@ -435,14 +423,9 @@ static int scope_enter_running(Scope *s) {
         /* Set the maximum runtime timeout. */
         scope_arm_timer(s, /* relative= */ false, scope_running_timeout(s));
 
-        /* On unified we use proper notifications hence we can unwatch the PIDs
-         * we just attached to the scope. This can also be done on legacy as
-         * we're going to update the list of the processes we watch with the
-         * PIDs currently in the scope anyway. */
+        /* Unwatch all pids we've just added to cgroup. We rely on empty notifications there. */
         unit_unwatch_all_pids(u);
 
-        /* Start watching the PIDs currently in the scope (legacy hierarchy only) */
-        (void) unit_enqueue_rewatch_pids(u);
         return 1;
 
 fail:
@@ -635,12 +618,6 @@ static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         scope_enter_running(s);
                 return;
         }
-
-        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to
-         * watch, under the assumption that we'll sooner or later get a SIGCHLD for them, as the original
-         * process we watched was probably the parent of them, and they are hence now our children. */
-
-        (void) unit_enqueue_rewatch_pids(u);
 }
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
@@ -699,10 +676,6 @@ int scope_abandon(Scope *s) {
 
         scope_set_state(s, SCOPE_ABANDONED);
 
-        /* The client is no longer watching the remaining processes, so let's step in here, under the assumption that
-         * the remaining processes will be sooner or later reassigned to us as parent. */
-        (void) unit_enqueue_rewatch_pids(UNIT(s));
-
         return 0;
 }
 
@@ -732,10 +705,9 @@ static void scope_enumerate_perpetual(Manager *m) {
         u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Scope), SPECIAL_INIT_SCOPE, &u);
-                if (r < 0)  {
-                        log_error_errno(r, "Failed to allocate the special " SPECIAL_INIT_SCOPE " unit: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to allocate the special %s unit: %m",
+                                                      SPECIAL_INIT_SCOPE);
         }
 
         u->transient = true;

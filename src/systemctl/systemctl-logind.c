@@ -2,18 +2,28 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-login.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-util.h"
+#include "env-util.h"
+#include "errno-util.h"
+#include "format-util.h"
+#include "log.h"
 #include "login-util.h"
 #include "mountpoint-util.h"
 #include "process-util.h"
+#include "runtime-scope.h"
+#include "string-util.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-logind.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "user-util.h"
 
 static int logind_set_wall_message(sd_bus *bus) {
@@ -109,6 +119,12 @@ int logind_reboot(enum action a) {
         }
         if (r >= 0)
                 return 0;
+        if (geteuid() == 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
+                return log_error_errno(r,
+                                       "The current polkit policy does not allow root to ignore inhibitors without authentication in order to %s.\n"
+                                       "To allow this action, a new polkit rule is needed.\n"
+                                       "See " POLKIT_RULES_DIR "/10-systemd-logind-root-ignore-inhibitors.rules.example.",
+                                       action_table[a].verb);
         if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD) || a == ACTION_SLEEP)
                 return log_error_errno(r, "Call to %s failed: %s", actions[a], bus_error_message(&error, r));
 

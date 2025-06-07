@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
 #include "ether-addr-util.h"
-#include "hash-funcs.h"
 #include "list.h"
 #include "log-link.h"
 #include "netdev-util.h"
-#include "networkd-link.h"
-#include "time-util.h"
+#include "networkd-forward.h"
 
 /* Special hardware address value to suppress generating persistent hardware address for the netdev. */
 #define HW_ADDR_NONE ((struct hw_addr_data) { .length = 1, })
@@ -24,6 +19,7 @@
         "-Bridge\0"                               \
         "-FooOverUDP\0"                           \
         "-GENEVE\0"                               \
+        "-HSR\0"                                  \
         "-IPoIB\0"                                \
         "-IPVLAN\0"                               \
         "-IPVTAP\0"                               \
@@ -59,6 +55,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_GENEVE,
         NETDEV_KIND_GRE,
         NETDEV_KIND_GRETAP,
+        NETDEV_KIND_HSR,
         NETDEV_KIND_IFB,
         NETDEV_KIND_IP6GRE,
         NETDEV_KIND_IP6GRETAP,
@@ -71,7 +68,6 @@ typedef enum NetDevKind {
         NETDEV_KIND_MACSEC,
         NETDEV_KIND_MACVLAN,
         NETDEV_KIND_MACVTAP,
-        NETDEV_KIND_NETDEVSIM,
         NETDEV_KIND_NLMON,
         NETDEV_KIND_SIT,
         NETDEV_KIND_TAP,
@@ -108,9 +104,6 @@ typedef enum NetDevCreateType {
         _NETDEV_CREATE_MAX,
         _NETDEV_CREATE_INVALID = -EINVAL,
 } NetDevCreateType;
-
-typedef struct Manager Manager;
-typedef struct Condition Condition;
 
 typedef struct NetDev {
         Manager *manager;
@@ -165,7 +158,7 @@ typedef struct NetDevVTable {
         /* create netdev, if not done via rtnl */
         int (*create)(NetDev *netdev);
 
-        /* perform additional configuration after netdev has been createad */
+        /* perform additional configuration after netdev has been created */
         int (*post_create)(NetDev *netdev, Link *link);
 
         /* verify that compulsory configuration options were specified */

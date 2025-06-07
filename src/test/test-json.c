@@ -1,21 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <float.h>
+#include <sys/socket.h>
+#include <sys/sysmacros.h>
 
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fileio.h"
 #include "iovec-util.h"
 #include "json-internal.h"
 #include "json-util.h"
 #include "math-util.h"
 #include "ordered-set.h"
+#include "pidref.h"
+#include "set.h"
 #include "string-table.h"
-#include "string-util.h"
-#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -1417,6 +1420,59 @@ TEST(fd_info) {
                 v = sd_json_variant_unref(v);
         }
         pidref_done(&pidref);
+}
+
+TEST(unit_name) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ASSERT_OK(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR_STRING("plain", "myservice.service"),
+                                 SD_JSON_BUILD_PAIR_STRING("instance", "myservice@instance1.service"),
+                                 SD_JSON_BUILD_PAIR_STRING("template", "myservice@.service")));
+
+        sd_json_variant_dump(v, SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_PRETTY, NULL, NULL);
+
+        struct {
+                const char *plain, *instance, *template;
+        } data = {};
+
+        ASSERT_OK(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "plain",    SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, plain),    SD_JSON_STRICT },
+                                          { "instance", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, instance), 0              },
+                                          { "template", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, template), SD_JSON_RELAX  },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data));
+
+        ASSERT_STREQ(data.plain, "myservice.service");
+        ASSERT_STREQ(data.instance, "myservice@instance1.service");
+        ASSERT_STREQ(data.template, "myservice@.service");
+
+        ASSERT_ERROR(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "plain",    SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, plain),    SD_JSON_RELAX  },
+                                          /* instance value is not allowed with SD_JSON_STRICT */
+                                          { "instance", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, instance), SD_JSON_STRICT },
+                                          { "template", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, template), SD_JSON_RELAX  },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data), EINVAL);
+
+        ASSERT_ERROR(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "plain",    SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, plain),    SD_JSON_RELAX  },
+                                          { "instance", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, instance), SD_JSON_RELAX  },
+                                          /* template value is not allowed by default */
+                                          { "template", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, voffsetof(data, template), 0 },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data), EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

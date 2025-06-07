@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+
+#include "sd-event.h"
 
 #include "daemon-util.h"
-#include "userdbd-manager.h"
 #include "log.h"
 #include "main-func.h"
 #include "signal-util.h"
+#include "userdbd-manager.h"
 
 /* This service offers two Varlink services, both implementing io.systemd.UserDatabase:
  *
@@ -47,7 +49,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start up daemon: %m");
 
-        notify_stop = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_stop = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         r = sd_event_loop(m->event);
         if (r < 0)

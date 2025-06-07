@@ -1,18 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
-#include <unistd.h>
 
-#include "xdg-autostart-service.h"
-
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
+#include "glyph-util.h"
 #include "log.h"
-#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "specifier.h"
@@ -20,6 +18,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "xdg-autostart-service.h"
 
 XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
         if (!s)
@@ -502,7 +501,7 @@ static int xdg_autostart_generate_desktop_condition(
 
                 log_debug("%s: ExecCondition converted to %s --condition \"%s\"%s",
                           service->path, gnome_autostart_condition_path, e_autostart_condition,
-                          special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                          glyph(GLYPH_ELLIPSIS));
 
                 fprintf(f,
                          "ExecCondition=%s --condition \"%s\"\n",
@@ -690,6 +689,6 @@ int xdg_autostart_service_generate_unit(
                 return log_error_errno(r, "Failed to write unit %s: %m", service->name);
 
         log_debug("%s: symlinking %s in xdg-desktop-autostart.target/.wants%s",
-                  service->path, service->name, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                  service->path, service->name, glyph(GLYPH_ELLIPSIS));
         return generator_add_symlink(dest, "xdg-desktop-autostart.target", "wants", service->name);
 }

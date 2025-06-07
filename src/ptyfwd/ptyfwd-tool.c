@@ -7,10 +7,16 @@
 #include "build.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "main-func.h"
+#include "pidref.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "ptyfwd.h"
+#include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 static bool arg_quiet = false;
 static bool arg_read_only = false;
@@ -165,7 +171,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, /*ret_peer=*/ NULL);
+        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, /*ret_peer_path=*/ NULL);
         if (pty_fd < 0)
                 return log_error_errno(pty_fd, "Failed to acquire pseudo tty: %m");
 

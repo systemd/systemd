@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-daemon.h"
+
+#include "alloc-util.h"
 #include "daemon-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "time-util.h"
 
-static int notify_remove_fd_warn(const char *name) {
+int notify_remove_fd_warn(const char *name) {
         int r;
 
         assert(name);
@@ -55,6 +58,9 @@ int notify_push_fd(int fd, const char *name) {
                         "FDNAME=", name);
         if (!state)
                 return -ENOMEM;
+
+        /* Remove existing fds with the same name in fdstore. */
+        (void) notify_remove_fd_warn(name);
 
         return sd_pid_notify_with_fds(0, /* unset_environment = */ false, state, &fd, 1);
 }

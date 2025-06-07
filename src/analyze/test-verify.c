@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "analyze-verify-util.h"
+#include "execute.h"
 #include "tests.h"
 
 const char *arg_instance = "test_instance";

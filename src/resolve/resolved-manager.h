@@ -3,37 +3,21 @@
 
 #include <sys/stat.h>
 
-#include "sd-event.h"
-#include "sd-netlink.h"
-#include "sd-network.h"
-#include "sd-varlink.h"
-
 #include "common-signal.h"
-#include "hashmap.h"
+#include "forward.h"
 #include "list.h"
-#include "ordered-set.h"
 #include "resolve-util.h"
-
-typedef struct Manager Manager;
-
-#include "resolved-dns-query.h"
-#include "resolved-dns-search-domain.h"
+#include "resolved-dns-dnssec.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-stub.h"
 #include "resolved-dns-trust-anchor.h"
-#include "resolved-link.h"
-#include "resolved-socket-graveyard.h"
+#include "resolved-etc-hosts.h"
+#include "resolved-forward.h"
 
 #define MANAGER_SEARCH_DOMAINS_MAX 256
 #define MANAGER_DNS_SERVERS_MAX 256
 
-typedef struct EtcHosts {
-        Hashmap *by_address;
-        Hashmap *by_name;
-        Set *no_address;
-} EtcHosts;
-
-struct Manager {
+typedef struct Manager {
         sd_event *event;
 
         ResolveSupport llmnr_support;
@@ -86,6 +70,8 @@ struct Manager {
 
         LIST_HEAD(DnsScope, dns_scopes);
         DnsScope *unicast_scope;
+
+        Hashmap *delegates; /* id string → DnsDelegate objects */
 
         /* LLMNR */
         int llmnr_ipv4_udp_fd;
@@ -170,7 +156,7 @@ struct Manager {
         size_t n_socket_graveyard;
 
         struct sigrtmin18_info sigrtmin18_info;
-};
+} Manager;
 
 /* Manager */
 

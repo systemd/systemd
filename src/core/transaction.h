@@ -1,20 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Transaction Transaction;
-typedef enum TransactionAddFlags TransactionAddFlags;
+#include "core-forward.h"
 
-#include "hashmap.h"
-#include "job.h"
-#include "manager.h"
-#include "unit.h"
-
-struct Transaction {
+typedef struct Transaction {
         /* Jobs to be added */
         Hashmap *jobs;        /* Unit object => Job object list 1:1 */
         Job *anchor_job;      /* The job the user asked for */
         bool irreversible;
-};
+} Transaction;
 
 Transaction* transaction_new(bool irreversible);
 Transaction* transaction_free(Transaction *tr);

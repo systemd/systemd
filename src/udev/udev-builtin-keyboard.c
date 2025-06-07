@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
+#include <linux/input.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
-#include <linux/input.h>
 
 #include "device-util.h"
 #include "fd-util.h"
@@ -15,7 +14,7 @@
 #include "udev-builtin.h"
 
 static const struct key_name *keyboard_lookup_key(const char *str, GPERF_LEN_TYPE len);
-#include "keyboard-keys-from-name.h"
+#include "keyboard-keys-from-name.inc"
 
 static int install_force_release(sd_device *dev, const unsigned *release, unsigned release_count) {
         sd_device *atkbd;

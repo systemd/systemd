@@ -1,27 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/file.h>
-#include <sys/mount.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
 #include "bus-label.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
-#include "copy.h"
+#include "bus-util.h"
 #include "discover-image.h"
-#include "dissect-image.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "image-dbus.h"
+#include "image-policy.h"
 #include "io-util.h"
-#include "loop-util.h"
-#include "mount-util.h"
+#include "machined.h"
+#include "operation.h"
 #include "os-util.h"
 #include "process-util.h"
-#include "raw-clone.h"
 #include "strv.h"
-#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 

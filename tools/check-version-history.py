@@ -24,7 +24,7 @@ def find_undocumented_functions(pages, ignorelist):
 
         hist_section = pagetree.find("refsect1[title='History']")
         for func in pagetree.findall("//funcprototype/funcdef/function"):
-            path = f"/refsynopsisdiv/funcsynopsis/funcprototype/funcdef/function[.='{func.text}']"
+            path = f"./refsynopsisdiv/funcsynopsis/funcprototype/funcdef/function[.='{func.text}']"
             assert pagetree.findall(path) == [func]
 
             if (
@@ -40,7 +40,7 @@ def construct_path(element):
     tag = element.tag
 
     if tag == "refentry":
-        return ""
+        return "."
 
     predicate = ""
     if tag == "varlistentry":
@@ -75,9 +75,12 @@ def find_undocumented_commands(pages, ignorelist):
             parent = listitem if listitem is not None else varlistentry
 
             rev = parent.getchildren()[-1]
-            if rev.get("href") != "version-info.xml":
-                if (filename, path) not in ignorelist:
+            if (
+                rev.get("href") != "version-info.xml" and
+                not path.startswith(tuple(entry[1] for entry in ignorelist if entry[0] == filename))
+            ):
                     undocumented.append((filename, path))
+
     return undocumented
 
 

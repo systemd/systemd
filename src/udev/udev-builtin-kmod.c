@@ -5,11 +5,6 @@
  * Copyright © 2011 ProFUSION embedded systems
  */
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "device-util.h"
 #include "module-util.h"
 #include "string-util.h"
@@ -35,7 +30,10 @@ static int builtin_kmod(UdevEvent *event, int argc, char *argv[]) {
                                                 "%s: expected: load [module…]", argv[0]);
 
         char **modules = strv_skip(argv, 2);
-        if (strv_isempty(modules)) {
+        if (modules)
+                STRV_FOREACH(module, modules)
+                        (void) module_load_and_warn(ctx, *module, /* verbose = */ false);
+        else {
                 const char *modalias;
 
                 r = sd_device_get_property_value(dev, "MODALIAS", &modalias);
@@ -43,9 +41,7 @@ static int builtin_kmod(UdevEvent *event, int argc, char *argv[]) {
                         return log_device_warning_errno(dev, r, "Failed to read property \"MODALIAS\": %m");
 
                 (void) module_load_and_warn(ctx, modalias, /* verbose = */ false);
-        } else
-                STRV_FOREACH(module, modules)
-                        (void) module_load_and_warn(ctx, *module, /* verbose = */ false);
+        }
 
         return 0;
 }

@@ -1482,6 +1482,24 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionVersion=</varname></term>
+
+          <listitem><para><varname>ConditionVersion=</varname> may be used to check whether a software
+          version matches a certain expression, or if prefixed with the exclamation mark, does not match.
+          The first argument is the software whose version has to be checked. Currently
+          <literal>kernel</literal>, <literal>systemd</literal> and <literal>glibc</literal> are supported.
+          If this argument is omitted, <literal>kernel</literal> is implied. The second argument must be a
+          list of (potentially quoted) expressions. Each expression starts with one of <literal>=</literal>
+          or <literal>!=</literal> for string comparisons, <literal>&lt;</literal>, <literal>&lt;=</literal>,
+          <literal>==</literal>, <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>,
+          <literal>&gt;</literal> for version comparisons, or <literal>$=</literal>, <literal>!$=</literal>
+          for a shell-style glob match. If no operator is specified, <literal>$=</literal> is implied.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionCredential=</varname></term>
 
           <listitem><para><varname>ConditionCredential=</varname> may be used to check whether a credential
@@ -2008,6 +2026,7 @@
           <term><varname>AssertHost=</varname></term>
           <term><varname>AssertKernelCommandLine=</varname></term>
           <term><varname>AssertKernelVersion=</varname></term>
+          <term><varname>AssertVersion=</varname></term>
           <term><varname>AssertCredential=</varname></term>
           <term><varname>AssertEnvironment=</varname></term>
           <term><varname>AssertSecurity=</varname></term>

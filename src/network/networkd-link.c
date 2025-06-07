@@ -1,43 +1,42 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <netinet/in.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/if_link.h>
 #include <linux/netdevice.h>
+#include <net/if.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-dhcp-client.h"
+#include "sd-dhcp-server.h"
+#include "sd-dhcp6-client.h"
+#include "sd-dhcp6-lease.h"
+#include "sd-ipv4ll.h"
+#include "sd-lldp-rx.h"
+#include "sd-ndisc.h"
+#include "sd-netlink.h"
+#include "sd-radv.h"
+
 #include "alloc-util.h"
 #include "arphrd-util.h"
-#include "batadv.h"
 #include "bitfield.h"
-#include "bond.h"
-#include "bridge.h"
-#include "bus-util.h"
-#include "device-private.h"
 #include "device-util.h"
-#include "dhcp-lease-internal.h"
-#include "env-file.h"
+#include "errno-util.h"
 #include "ethtool-util.h"
 #include "event-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "format-ifname.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "logarithm.h"
-#include "missing_network.h"
+#include "netif-util.h"
 #include "netlink-util.h"
-#include "network-internal.h"
-#include "networkd-address-label.h"
 #include "networkd-address.h"
+#include "networkd-address-label.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-bridge-vlan.h"
-#include "networkd-can.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
@@ -45,8 +44,8 @@
 #include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
-#include "networkd-link-bus.h"
 #include "networkd-link.h"
+#include "networkd-link-bus.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
@@ -54,24 +53,23 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
-#include "networkd-route-util.h"
 #include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-setlink.h"
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
+#include "ordered-set.h"
+#include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tc.h"
-#include "tmpfile-util.h"
-#include "tuntap.h"
 #include "udev-util.h"
-#include "vrf.h"
 
 void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret) {
         assert(link);
@@ -231,7 +229,7 @@ void link_dns_settings_clear(Link *link) {
         link->dnssec_mode = _DNSSEC_MODE_INVALID;
         link->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
-        link->dnssec_negative_trust_anchors = set_free_free(link->dnssec_negative_trust_anchors);
+        link->dnssec_negative_trust_anchors = set_free(link->dnssec_negative_trust_anchors);
 }
 
 static void link_free_engines(Link *link) {
@@ -261,7 +259,7 @@ static void link_free_engines(Link *link) {
         link->radv = sd_radv_unref(link->radv);
 }
 
-static Link *link_free(Link *link) {
+static Link* link_free(Link *link) {
         assert(link);
 
         (void) link_clear_sysctl_shadows(link);
@@ -295,7 +293,7 @@ static Link *link_free(Link *link) {
         hashmap_free(link->bound_to_links);
         hashmap_free(link->bound_by_links);
 
-        set_free_with_destructor(link->slaves, link_unref);
+        set_free(link->slaves);
 
         network_unref(link->network);
 
@@ -306,6 +304,11 @@ static Link *link_free(Link *link) {
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link_free);
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                link_hash_ops,
+                void, trivial_hash_func, trivial_compare_func,
+                Link, link_unref);
 
 int link_get_by_index(Manager *m, int ifindex, Link **ret) {
         Link *link;
@@ -377,7 +380,7 @@ void link_set_state(Link *link, LinkState state) {
 
         link->state = state;
 
-        link_send_changed(link, "AdministrativeState", NULL);
+        link_send_changed(link, "AdministrativeState");
         link_dirty(link);
 }
 
@@ -723,11 +726,11 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                                 return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");
                 }
 
-                r = sd_ipv4ll_start(link->ipv4ll);
+                r = ipv4ll_start(link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-
-                log_link_debug(link, "Acquiring IPv4 link-local address.");
+                if (r > 0)
+                        log_link_debug(link, "Acquiring IPv4 link-local address.");
         }
 
         r = link_start_dhcp4_server(link);
@@ -985,7 +988,7 @@ static int link_append_to_master(Link *link) {
         if (link_get_master(link, &master) < 0)
                 return 0;
 
-        r = set_ensure_put(&master->slaves, NULL, link);
+        r = set_ensure_put(&master->slaves, &link_hash_ops, link);
         if (r <= 0)
                 return r;
 
@@ -1433,7 +1436,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
         } else {
                 /* Otherwise, stop DHCP client and friends unconditionally, and drop all dynamic
                  * configurations like DHCP address and routes. */
-                r = link_stop_engines(link, /* may_keep_dhcp = */ false);
+                r = link_stop_engines(link, /* may_keep_dynamic = */ false);
                 if (r < 0)
                         return r;
 
@@ -1742,6 +1745,8 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        log_link_info(link, "Gained carrier");
+
         r = event_source_disable(link->carrier_lost_timer);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable carrier lost timer, ignoring: %m");
@@ -1844,6 +1849,8 @@ static int link_carrier_lost(Link *link) {
 
         assert(link);
 
+        log_link_info(link, "Lost carrier");
+
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 usec = 0;
@@ -1897,6 +1904,8 @@ static int link_admin_state_up(Link *link) {
         /* This is called every time an interface admin state changes to up;
          * specifically, when IFF_UP flag changes from unset to set. */
 
+        log_link_info(link, "Link UP");
+
         if (!link->network)
                 return 0;
 
@@ -1914,6 +1923,8 @@ static int link_admin_state_up(Link *link) {
 
 static int link_admin_state_down(Link *link) {
         assert(link);
+
+        log_link_info(link, "Link DOWN");
 
         link_forget_nexthops(link);
         link_forget_routes(link);
@@ -2086,6 +2097,11 @@ void link_update_operstate(Link *link, bool also_update_master) {
         }
 }
 
+bool link_has_carrier(Link *link) {
+        assert(link);
+        return netif_has_carrier(link->kernel_operstate, link->flags);
+}
+
 #define FLAG_STRING(string, flag, old, new)                      \
         (((old ^ new) & flag)                                    \
          ? ((old & flag) ? (" -" string) : (" +" string))        \
@@ -2162,33 +2178,21 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
 
         link_update_operstate(link, true);
 
-        if (!link_was_admin_up && (link->flags & IFF_UP)) {
-                log_link_info(link, "Link UP");
+        r = 0;
 
+        if (!link_was_admin_up && (link->flags & IFF_UP))
                 r = link_admin_state_up(link);
-                if (r < 0)
-                        return r;
-        } else if (link_was_admin_up && !(link->flags & IFF_UP)) {
-                log_link_info(link, "Link DOWN");
-
+        else if (link_was_admin_up && !(link->flags & IFF_UP))
                 r = link_admin_state_down(link);
-                if (r < 0)
-                        return r;
-        }
+        if (r < 0)
+                return r;
 
-        if (!had_carrier && link_has_carrier(link)) {
-                log_link_info(link, "Gained carrier");
-
+        if (!had_carrier && link_has_carrier(link))
                 r = link_carrier_gained(link);
-                if (r < 0)
-                        return r;
-        } else if (had_carrier && !link_has_carrier(link)) {
-                log_link_info(link, "Lost carrier");
-
-                r = link_carrier_lost(link);
-                if (r < 0)
-                        return r;
-        }
+        else if (had_carrier && !link_has_carrier(link))
+                link_carrier_lost(link);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2201,8 +2205,8 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 
         r = sd_netlink_message_read_u32(message, IFLA_MASTER, (uint32_t*) &master_ifindex);
         if (r == -ENODATA)
-                return 0;
-        if (r < 0)
+                master_ifindex = 0; /* no master interface */
+        else if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read master ifindex: %m");
 
         if (master_ifindex == link->ifindex)
@@ -2215,10 +2219,13 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
                         log_link_debug(link, "Detached from master interface: %i", link->master_ifindex);
                 else
                         log_link_debug(link, "Master interface changed: %i %s %i", link->master_ifindex,
-                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), master_ifindex);
+                                       glyph(GLYPH_ARROW_RIGHT), master_ifindex);
 
                 link_drop_from_master(link);
                 link->master_ifindex = master_ifindex;
+
+                /* Updating master ifindex may cause operational state change, e.g. carrier <-> enslaved */
+                link_dirty(link);
         }
 
         r = link_append_to_master(link);
@@ -2358,7 +2365,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         else {
                 log_link_debug(link, "Hardware address is changed: %s %s %s",
                                HW_ADDR_TO_STR(&link->hw_addr),
-                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                               glyph(GLYPH_ARROW_RIGHT),
                                HW_ADDR_TO_STR(&addr));
 
                 hashmap_remove_value(link->manager->links_by_hw_addr, &link->hw_addr, link);
@@ -2456,7 +2463,7 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
 
         if (link->mtu != 0)
                 log_link_debug(link, "MTU is changed: %"PRIu32" %s %"PRIu32" (min: %"PRIu32", max: %"PRIu32")",
-                               link->mtu, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), mtu,
+                               link->mtu, glyph(GLYPH_ARROW_RIGHT), mtu,
                                link->min_mtu, link->max_mtu);
 
         link->mtu = mtu;
@@ -2746,7 +2753,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
         };
 
-        r = hashmap_ensure_put(&manager->links_by_index, NULL, INT_TO_PTR(link->ifindex), link);
+        r = hashmap_ensure_put(&manager->links_by_index, &link_hash_ops, INT_TO_PTR(link->ifindex), link);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to store link into manager: %m");
 
@@ -2915,7 +2922,7 @@ int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
-                log_link_message_warning_errno(link, m, r, error_msg);
+                log_link_message_warning_errno(link, m, r, "%s", error_msg);
                 link_enter_failed(link);
                 return 0;
         }

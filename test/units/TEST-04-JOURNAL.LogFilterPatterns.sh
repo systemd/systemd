@@ -3,13 +3,17 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 if ! cgroupfs_supports_user_xattrs; then
     echo "CGroup does not support user xattrs, skipping LogFilterPatterns= tests."
     exit 0
 fi
 
-# shellcheck source=test/units/util.sh
-. "$(dirname "$0")"/util.sh
+# Unfortunately, journalctl -I/--invocation= is unstable when debug logging is enabled on service manager.
+SAVED_LOG_LEVEL=$(systemctl log-level)
+systemctl log-level info
 
 NEEDS_RELOAD=
 
@@ -25,17 +29,15 @@ add_logs_filtering_override() {
 
 run_service_and_fetch_logs() {
     local unit="${1:?}"
-    local start
 
     if [[ -n "$NEEDS_RELOAD" ]]; then
         systemctl daemon-reload
         NEEDS_RELOAD=
     fi
 
-    journalctl --sync
-    start="$(date '+%Y-%m-%d %T.%6N')"
     systemctl start "$unit"
-    journalctl -q -u "$unit" -S "$start" -p notice
+    journalctl --sync
+    journalctl -q -u "$unit" -I -p notice
 }
 
 at_exit() {
@@ -91,3 +93,5 @@ add_logs_filtering_override "delegated-cgroup-filtering.service" "00-allow-all" 
 
 add_logs_filtering_override "delegated-cgroup-filtering.service" "01-discard-hello" "~hello"
 [[ -z $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
+
+systemctl log-level "$SAVED_LOG_LEVEL"

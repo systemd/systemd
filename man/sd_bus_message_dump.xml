@@ -18,6 +18,7 @@
 
   <refnamediv>
     <refname>sd_bus_message_dump</refname>
+    <refname>sd_bus_message_dump_json</refname>
 
     <refpurpose>Produce a string representation of a message for debugging purposes</refpurpose>
   </refnamediv>
@@ -32,12 +33,14 @@
         <paramdef>FILE *<parameter>f</parameter></paramdef>
         <paramdef>uint64_t <parameter>flags</parameter></paramdef>
       </funcprototype>
-    </funcsynopsis>
 
-    <para>
-      <constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant>,
-      <constant>SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY</constant>
-    </para>
+      <funcprototype>
+        <funcdef>int sd_bus_message_dump_json</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>uint64_t <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -49,16 +52,38 @@
     intended to be used for debugging purposes, and the output is neither stable nor designed to be machine
     readable.</para>
 
-    <para>The <parameter>flags</parameter> parameter may be used to modify the output. With
-    <constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant>, a header that specifies the message type and flags
-    and some additional metadata is printed. When <constant>SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY</constant> is
-    not passed, the contents of the whole message are printed. When it <emphasis>is</emphasis> passed,
-    only the current container in printed.</para>
+    <para>The <function>sd_bus_message_dump_json()</function> function converts the DBus message
+    <parameter>m</parameter> to a JSON variant and stores it in <parameter>ret</parameter>. The caller should
+    call <function>sd_json_variant_unref()</function> for the acquired JSON variant after use. Unlike
+    <function>sd_bus_message_dump()</function>, the function itself does not print anything. To print the
+    DBus message in the JSON format, please pass the returned JSON variant to
+    <function>sd_json_variant_dump()</function>.</para>
 
-    <para>Note that this function moves the read pointer of the message. It may be necessary to reset the
+    <para>The <parameter>flags</parameter> parameter may be used to modify the output, and is a combination
+    of zero or more of the following flags:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant></term>
+
+        <listitem><para>The header of the message that specifies the message type, flags, and several more
+        additional metadata will be printed or included in the resulting JSON object.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY</constant></term>
+
+        <listitem><para>Only the current container will be printed or converted. When the flag is
+        <emphasis>not</emphasis> specified, the contents of the whole message will be printed or converted.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that these functions move the read pointer of the message. It may be necessary to reset the
     position afterwards, for example with
     <citerefentry><refentrytitle>sd_bus_message_rewind</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
+
   </refsect1>
 
   <refsect1>
@@ -102,6 +127,7 @@
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

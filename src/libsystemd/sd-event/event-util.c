@@ -1,16 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include "sd-event.h"
 
-#include "errno-util.h"
+#include "alloc-util.h"
 #include "event-source.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "hash-funcs.h"
 #include "log.h"
+#include "pidref.h"
 #include "string-util.h"
+#include "time-util.h"
 
 #define SI_FLAG_FORWARD  (INT32_C(1) << 30)
 #define SI_FLAG_POSITIVE (INT32_C(1) << 29)
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                event_source_hash_ops,
+                void, trivial_hash_func, trivial_compare_func,
+                sd_event_source, sd_event_source_disable_unref);
 
 int event_reset_time(
                 sd_event *e,
@@ -158,19 +166,49 @@ int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handle
 
 int event_add_child_pidref(
                 sd_event *e,
-                sd_event_source **s,
+                sd_event_source **ret,
                 const PidRef *pid,
                 int options,
                 sd_event_child_handler_t callback,
                 void *userdata) {
 
+        int r;
+
+        assert(e);
+
         if (!pidref_is_set(pid))
                 return -ESRCH;
 
-        if (pid->fd >= 0)
-                return sd_event_add_child_pidfd(e, s, pid->fd, options, callback, userdata);
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
-        return sd_event_add_child(e, s, pid->pid, options, callback, userdata);
+        if (pid->fd < 0)
+                return sd_event_add_child(e, ret, pid->pid, options, callback, userdata);
+
+        _cleanup_close_ int copy_fd = fcntl(pid->fd, F_DUPFD_CLOEXEC, 3);
+        if (copy_fd < 0)
+                return -errno;
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_child_pidfd(e, &s, copy_fd, options, callback, userdata);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_child_pidfd_own(s, true);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(copy_fd);
+
+        if (ret)
+                *ret = TAKE_PTR(s);
+        else {
+                r = sd_event_source_set_floating(s, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int event_source_get_child_pidref(sd_event_source *s, PidRef *ret) {

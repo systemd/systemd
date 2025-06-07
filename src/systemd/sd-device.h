@@ -17,16 +17,12 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
-#include <sys/types.h>
-
-#include "sd-event.h"
-#include "sd-id128.h"
 
 #include "_sd-common.h"
+#include "sd-event.h"
+#include "sd-id128.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -109,7 +105,8 @@ int sd_device_has_tag(sd_device *device, const char *tag);
 int sd_device_has_current_tag(sd_device *device, const char *tag);
 int sd_device_get_property_value(sd_device *device, const char *key, const char **value);
 int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret);
-int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **_value);
+int sd_device_get_sysattr_value_with_size(sd_device *device, const char *sysattr, const char **ret_value, size_t *ret_size);
+int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **ret_value);
 
 int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *value);
 int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr, const char *format, ...) _sd_printf_(3, 4);

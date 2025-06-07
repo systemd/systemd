@@ -4,11 +4,14 @@
 #include <sys/quota.h>
 #include <sys/vfs.h>
 
+#include "sd-bus.h"
+
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
+#include "device-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
@@ -16,32 +19,35 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
-#include "fs-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "home-util.h"
 #include "homed-home.h"
 #include "homed-home-bus.h"
+#include "homed-manager.h"
+#include "homed-operation.h"
 #include "json-util.h"
+#include "log.h"
 #include "memfd-util.h"
-#include "missing_magic.h"
 #include "missing_mman.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
+#include "ordered-set.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "quota-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
-#include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "time-util.h"
 #include "uid-classification.h"
+#include "user-record.h"
 #include "user-record-password-quality.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
-#include "user-record.h"
 #include "user-util.h"
 
 /* Retry to deactivate home directories again and again every 15s until it works */
@@ -80,7 +86,8 @@ static int suitable_home_record(UserRecord *hr) {
 
         /* Insist we are outside of the dynamic and system range */
         if (uid_is_system(hr->uid) || gid_is_system(user_record_gid(hr)) ||
-            uid_is_dynamic(hr->uid) || gid_is_dynamic(user_record_gid(hr)))
+            uid_is_dynamic(hr->uid) || gid_is_dynamic(user_record_gid(hr)) ||
+            uid_is_greeter(hr->uid))
                 return -EADDRNOTAVAIL;
 
         /* Insist that GID and UID match */
@@ -530,7 +537,7 @@ static void home_set_state(Home *h, HomeState state) {
 
         log_info("%s: changing state %s %s %s", h->user_name,
                  home_state_to_string(old_state),
-                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                 glyph(GLYPH_ARROW_RIGHT),
                  home_state_to_string(new_state));
 
         home_update_pin_fd(h, new_state);
@@ -915,8 +922,7 @@ static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
          * partitions like USB sticks, or so). Sometimes these storage locations are among those we normally
          * automatically discover in /home or in udev. When such a home is deleted let's hence issue a rescan
          * after completion, so that "unfixated" entries are rediscovered.  */
-        if (!IN_SET(user_record_test_image_path(h->record), USER_TEST_UNDEFINED, USER_TEST_ABSENT))
-                manager_enqueue_rescan(m);
+        (void) manager_enqueue_rescan(m);
 
         /* The image is now removed from disk. Now also remove our stored record */
         r = home_unlink_record(h);
@@ -1310,21 +1316,9 @@ static int home_start_work(
         if (r < 0)
                 return r;
         if (r == 0) {
-                _cleanup_free_ char *joined = NULL;
-                const char *suffix, *unix_path;
-
                 /* Child */
 
-                suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
-                if (suffix) {
-                        joined = strjoin("/run/systemd/home/notify.", suffix);
-                        if (!joined)
-                                return log_oom();
-                        unix_path = joined;
-                } else
-                        unix_path = "/run/systemd/home/notify";
-
-                if (setenv("NOTIFY_SOCKET", unix_path, 1) < 0) {
+                if (setenv("NOTIFY_SOCKET", h->manager->notify_socket_path, /* overwrite = */ true) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -2063,12 +2057,17 @@ int home_unregister(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
         }
 
+        Manager *m = ASSERT_PTR(h->manager);
+
         r = home_unlink_record(h);
         if (r < 0)
                 return r;
 
         /* And destroy the whole entry. The caller needs to be prepared for that. */
         h = home_free(h);
+
+        /* Let's rescan, who knows, maybe this revealed a directory in /home/ that we should pick up now */
+        manager_enqueue_rescan(m);
         return 1;
 }
 
@@ -2415,6 +2414,7 @@ static int home_get_disk_status_directory(
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX,
                 disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
         mode_t access_mode = MODE_INVALID;
+        _cleanup_close_ int fd = -EBADF;
         statfs_f_type_t fstype = 0;
         struct statfs sfs;
         struct dqblk req;
@@ -2436,7 +2436,13 @@ static int home_get_disk_status_directory(
         if (!path)
                 goto finish;
 
-        if (statfs(path, &sfs) < 0)
+        fd = open(path, O_CLOEXEC|O_RDONLY);
+        if (fd < 0) {
+                log_debug_errno(errno, "Failed to open '%s', ignoring: %m", path);
+                goto finish;
+        }
+
+        if (fstatfs(fd, &sfs) < 0)
                 log_debug_errno(errno, "Failed to statfs() %s, ignoring: %m", path);
         else {
                 disk_free = sfs.f_bsize * sfs.f_bavail;
@@ -2450,13 +2456,13 @@ static int home_get_disk_status_directory(
 
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_SUBVOLUME)) {
 
-                r = btrfs_is_subvol(path);
+                r = btrfs_is_subvol_fd(fd);
                 if (r < 0)
                         log_debug_errno(r, "Failed to determine whether %s is a btrfs subvolume: %m", path);
                 else if (r > 0) {
                         BtrfsQuotaInfo qi;
 
-                        r = btrfs_subvol_get_subtree_quota(path, 0, &qi);
+                        r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &qi);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to query btrfs subtree quota, ignoring: %m");
                         else {
@@ -2489,13 +2495,12 @@ static int home_get_disk_status_directory(
         }
 
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_FSCRYPT)) {
-                r = quotactl_path(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), path, h->uid, &req);
+                r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_GETQUOTA, USRQUOTA), h->uid, &req);
                 if (r < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(r)) {
                                 log_debug_errno(r, "No UID quota support on %s.", path);
                                 goto finish;
                         }
-
                         if (r != -ESRCH) {
                                 log_debug_errno(r, "Failed to query disk quota for UID " UID_FMT ": %m", h->uid);
                                 goto finish;
@@ -3206,10 +3211,8 @@ static int home_get_image_path_seat(Home *h, char **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_device_get_property_value(d, "ID_SEAT", &seat);
-        if (r == -ENOENT) /* no property means seat0 */
-                seat = "seat0";
-        else if (r < 0)
+        r = device_get_seat(d, &seat);
+        if (r < 0)
                 return r;
 
         return strdup_to(ret, seat);

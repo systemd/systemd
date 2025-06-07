@@ -10,20 +10,24 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
-#include "copy.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
+#include "hexdecoct.h"
 #include "home-util.h"
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
@@ -32,7 +36,7 @@
 #include "libfido2-util.h"
 #include "locale-util.h"
 #include "main-func.h"
-#include "memory-util.h"
+#include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -46,9 +50,12 @@
 #include "process-util.h"
 #include "recurse-dir.h"
 #include "rlimit-util.h"
-#include "rm-rf.h"
+#include "runtime-scope.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
-#include "tmpfile-util.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "user-record.h"
 #include "user-record-password-quality.h"
@@ -68,6 +75,7 @@ static const char *arg_identity = NULL;
 static sd_json_variant *arg_identity_extra = NULL;
 static sd_json_variant *arg_identity_extra_privileged = NULL;
 static sd_json_variant *arg_identity_extra_this_machine = NULL;
+static sd_json_variant *arg_identity_extra_other_machines = NULL;
 static sd_json_variant *arg_identity_extra_rlimits = NULL;
 static char **arg_identity_filter = NULL; /* this one is also applied to 'privileged' and 'thisMachine' subobjects */
 static char **arg_identity_filter_rlimits = NULL;
@@ -96,9 +104,13 @@ static bool arg_prompt_new_user = false;
 static char *arg_blob_dir = NULL;
 static bool arg_blob_clear = false;
 static Hashmap *arg_blob_files = NULL;
+static char *arg_key_name = NULL;
+static bool arg_dry_run = false;
+static bool arg_seize = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
+STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_other_machines, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_privileged, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_rlimits, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter, strv_freep);
@@ -107,6 +119,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_blob_dir, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_blob_files, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key_name, freep);
 
 static const BusLocator *bus_mgr;
 
@@ -116,6 +129,7 @@ static bool identity_properties_specified(void) {
                 !sd_json_variant_is_blank_object(arg_identity_extra) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_privileged) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_this_machine) ||
+                !sd_json_variant_is_blank_object(arg_identity_extra_other_machines) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_rlimits) ||
                 !strv_isempty(arg_identity_filter) ||
                 !strv_isempty(arg_identity_filter_rlimits) ||
@@ -227,7 +241,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
 static int acquire_existing_password(
                 const char *user_name,
                 UserRecord *hr,
-                bool emphasize_current,
+                bool emphasize_current_password,
                 AskPasswordFlags flags) {
 
         _cleanup_strv_free_erase_ char **password = NULL;
@@ -257,7 +271,7 @@ static int acquire_existing_password(
         if (is_this_me(user_name) <= 0)
                 SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, false);
 
-        if (asprintf(&question, emphasize_current ?
+        if (asprintf(&question, emphasize_current_password ?
                      "Please enter current password for user %s:" :
                      "Please enter password for user %s:",
                      user_name) < 0)
@@ -483,7 +497,7 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED)) {
 
                 log_notice("%s%sPlease authenticate physically on security token.",
-                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
                 r = user_record_set_pkcs11_protected_authentication_path_permitted(hr, true);
@@ -493,7 +507,7 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
 
                 log_notice("%s%sPlease confirm presence on security token.",
-                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
                 r = user_record_set_fido2_user_presence_permitted(hr, true);
@@ -503,7 +517,7 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED)) {
 
                 log_notice("%s%sPlease verify user on security token.",
-                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
                 r = user_record_set_fido2_user_verification_permitted(hr, true);
@@ -701,114 +715,106 @@ static void dump_home_record(UserRecord *hr) {
         }
 }
 
-static char **mangle_user_list(char **list, char ***ret_allocated) {
-        _cleanup_free_ char *myself = NULL;
-        char **l;
+static int inspect_home(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        const char *json;
+        int incomplete;
+        uid_t uid;
+        int r;
 
-        if (!strv_isempty(list)) {
-                *ret_allocated = NULL;
-                return list;
-        }
+        r = parse_uid(name, &uid);
+        if (r < 0)
+                r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", name);
+        else
+                r = bus_call_method(bus, bus_mgr, "GetUserRecordByUID", &error, &reply, "u", (uint32_t) uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
 
-        myself = getusername_malloc();
-        if (!myself)
-                return NULL;
+        r = sd_bus_message_read(reply, "sbo", &json, &incomplete, NULL);
+        if (r < 0)
+                return bus_log_parse_error(r);
 
-        l = new(char*, 2);
-        if (!l)
-                return NULL;
+        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse JSON identity: %m");
 
-        l[0] = TAKE_PTR(myself);
-        l[1] = NULL;
+        hr = user_record_new();
+        if (!hr)
+                return log_oom();
 
-        *ret_allocated = l;
-        return l;
+        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
+        if (r < 0)
+                return r;
+
+        hr->incomplete = incomplete;
+        dump_home_record(hr);
+        return 0;
 }
 
-static int inspect_home(int argc, char *argv[], void *userdata) {
+static int inspect_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **mangled_list = NULL;
-        int r, ret = 0;
-        char **items;
-
-        pager_open(arg_pager_flags);
+        int r;
 
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
-        items = mangle_user_list(strv_skip(argv, 1), &mangled_list);
-        if (!items)
-                return log_oom();
+        pager_open(arg_pager_flags);
 
-        STRV_FOREACH(i, items) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-                const char *json;
-                int incomplete;
-                uid_t uid;
-
-                r = parse_uid(*i, &uid);
-                if (r < 0)
-                        r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", *i);
-                else
-                        r = bus_call_method(bus, bus_mgr, "GetUserRecordByUID", &error, &reply, "u", (uint32_t) uid);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
-                        if (ret == 0)
-                                ret = r;
-
-                        continue;
-                }
-
-                r = sd_bus_message_read(reply, "sbo", &json, &incomplete, NULL);
-                if (r < 0) {
-                        bus_log_parse_error(r);
-                        if (ret == 0)
-                                ret = r;
-
-                        continue;
-                }
-
-                r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse JSON identity: %m");
-                        if (ret == 0)
-                                ret = r;
-
-                        continue;
-                }
-
-                hr = user_record_new();
-                if (!hr)
+        char **args = strv_skip(argv, 1);
+        if (args) {
+                STRV_FOREACH(arg, args)
+                        RET_GATHER(r, inspect_home(bus, *arg));
+                return r;
+        } else {
+                _cleanup_free_ char *myself = getusername_malloc();
+                if (!myself)
                         return log_oom();
 
-                r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
-                if (r < 0) {
-                        if (ret == 0)
-                                ret = r;
-
-                        continue;
-                }
-
-                hr->incomplete = incomplete;
-                dump_home_record(hr);
+                return inspect_home(bus, myself);
         }
-
-        return ret;
 }
 
-static int authenticate_home(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **mangled_list = NULL;
-        int r, ret = 0;
-        char **items;
+static int authenticate_home(sd_bus *bus, const char *name) {
+        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        int r;
 
-        items = mangle_user_list(strv_skip(argv, 1), &mangled_list);
-        if (!items)
-                return log_oom();
+        r = acquire_passed_secrets(name, &secret);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "AuthenticateHome");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", name);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = bus_message_append_secret(m, secret);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                if (r < 0) {
+                        r = handle_generic_user_record_error(name, secret, &error, r, false);
+                        if (r >= 0)
+                                continue;
+                }
+                return r;
+        }
+}
+
+static int authenticate_homes(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -816,44 +822,19 @@ static int authenticate_home(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        STRV_FOREACH(i, items) {
-                _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        char **args = strv_skip(argv, 1);
+        if (args) {
+                STRV_FOREACH(arg, args)
+                        RET_GATHER(r, authenticate_home(bus, *arg));
 
-                r = acquire_passed_secrets(*i, &secret);
-                if (r < 0)
-                        return r;
+                return r;
+        } else {
+                _cleanup_free_ char *myself = getusername_malloc();
+                if (!myself)
+                        return log_oom();
 
-                for (;;) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-
-                        r = bus_message_new_method_call(bus, &m, bus_mgr, "AuthenticateHome");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append(m, "s", *i);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = bus_message_append_secret(m, secret);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
-                        if (r < 0) {
-                                r = handle_generic_user_record_error(*i, secret, &error, r, false);
-                                if (r < 0) {
-                                        if (ret == 0)
-                                                ret = r;
-
-                                        break;
-                                }
-                        } else
-                                break;
-                }
+                return authenticate_home(bus, myself);
         }
-
-        return ret;
 }
 
 static int update_last_change(sd_json_variant **v, bool with_password, bool override) {
@@ -926,7 +907,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to merge identities: %m");
 
-        if (arg_identity_extra_this_machine || !strv_isempty(arg_identity_filter)) {
+        if (arg_identity_extra_this_machine || arg_identity_extra_other_machines || !strv_isempty(arg_identity_filter)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *per_machine = NULL, *mmid = NULL;
                 sd_id128_t mid;
 
@@ -940,7 +921,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
 
                 per_machine = sd_json_variant_ref(sd_json_variant_by_key(v, "perMachine"));
                 if (per_machine) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *npm = NULL, *add = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *npm = NULL, *positive = NULL, *negative = NULL;
                         _cleanup_free_ sd_json_variant **array = NULL;
                         sd_json_variant *z;
                         size_t i = 0;
@@ -948,7 +929,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         if (!sd_json_variant_is_array(per_machine))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "perMachine field is not an array, refusing.");
 
-                        array = new(sd_json_variant*, sd_json_variant_elements(per_machine) + 1);
+                        array = new(sd_json_variant*, sd_json_variant_elements(per_machine) + 2);
                         if (!array)
                                 return log_oom();
 
@@ -961,31 +942,41 @@ static int apply_identity_changes(sd_json_variant **_v) {
                                 array[i++] = z;
 
                                 u = sd_json_variant_by_key(z, "matchMachineId");
-                                if (!u)
-                                        continue;
+                                if (u && sd_json_variant_equal(u, mmid))
+                                        r = sd_json_variant_merge_object(&positive, z);
+                                else {
+                                        u = sd_json_variant_by_key(z, "matchNotMachineId");
+                                        if (!u || !sd_json_variant_equal(u, mmid))
+                                                continue;
 
-                                if (!sd_json_variant_equal(u, mmid))
-                                        continue;
-
-                                r = sd_json_variant_merge_object(&add, z);
+                                        r = sd_json_variant_merge_object(&negative, z);
+                                }
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to merge perMachine entry: %m");
 
                                 i--;
                         }
 
-                        r = sd_json_variant_filter(&add, arg_identity_filter);
+                        r = sd_json_variant_filter(&positive, arg_identity_filter);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to filter perMachine: %m");
 
-                        r = sd_json_variant_merge_object(&add, arg_identity_extra_this_machine);
+                        r = sd_json_variant_filter(&negative, arg_identity_filter);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to filter perMachine: %m");
+
+                        r = sd_json_variant_merge_object(&positive, arg_identity_extra_this_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to merge in perMachine fields: %m");
+
+                        r = sd_json_variant_merge_object(&negative, arg_identity_extra_other_machines);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to merge in perMachine fields: %m");
 
                         if (arg_identity_filter_rlimits || arg_identity_extra_rlimits) {
                                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *rlv = NULL;
 
-                                rlv = sd_json_variant_ref(sd_json_variant_by_key(add, "resourceLimits"));
+                                rlv = sd_json_variant_ref(sd_json_variant_by_key(positive, "resourceLimits"));
 
                                 r = sd_json_variant_filter(&rlv, arg_identity_filter_rlimits);
                                 if (r < 0)
@@ -996,22 +987,30 @@ static int apply_identity_changes(sd_json_variant **_v) {
                                         return log_error_errno(r, "Failed to set resource limits: %m");
 
                                 if (sd_json_variant_is_blank_object(rlv)) {
-                                        r = sd_json_variant_filter(&add, STRV_MAKE("resourceLimits"));
+                                        r = sd_json_variant_filter(&positive, STRV_MAKE("resourceLimits"));
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to drop resource limits field from identity: %m");
                                 } else {
-                                        r = sd_json_variant_set_field(&add, "resourceLimits", rlv);
+                                        r = sd_json_variant_set_field(&positive, "resourceLimits", rlv);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to update resource limits of identity: %m");
                                 }
                         }
 
-                        if (!sd_json_variant_is_blank_object(add)) {
-                                r = sd_json_variant_set_field(&add, "matchMachineId", mmid);
+                        if (!sd_json_variant_is_blank_object(positive)) {
+                                r = sd_json_variant_set_field(&positive, "matchMachineId", mmid);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set matchMachineId field: %m");
 
-                                array[i++] = add;
+                                array[i++] = positive;
+                        }
+
+                        if (!sd_json_variant_is_blank_object(negative)) {
+                                r = sd_json_variant_set_field(&negative, "matchNotMachineId", mmid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set matchNotMachineId field: %m");
+
+                                array[i++] = negative;
                         }
 
                         r = sd_json_variant_new_array(&npm, array, i);
@@ -1021,21 +1020,34 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         sd_json_variant_unref(per_machine);
                         per_machine = TAKE_PTR(npm);
                 } else {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *item = sd_json_variant_ref(arg_identity_extra_this_machine);
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *positive = sd_json_variant_ref(arg_identity_extra_this_machine),
+                                *negative = sd_json_variant_ref(arg_identity_extra_other_machines);
 
                         if (arg_identity_extra_rlimits) {
-                                r = sd_json_variant_set_field(&item, "resourceLimits", arg_identity_extra_rlimits);
+                                r = sd_json_variant_set_field(&positive, "resourceLimits", arg_identity_extra_rlimits);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to update resource limits of identity: %m");
                         }
 
-                        r = sd_json_variant_set_field(&item, "matchMachineId", mmid);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set matchMachineId field: %m");
+                        if (positive) {
+                                r = sd_json_variant_set_field(&positive, "matchMachineId", mmid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set matchMachineId field: %m");
 
-                        r = sd_json_variant_append_array(&per_machine, item);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to append to perMachine array: %m");
+                                r = sd_json_variant_append_array(&per_machine, positive);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append to perMachine array: %m");
+                        }
+
+                        if (negative) {
+                                r = sd_json_variant_set_field(&negative, "matchNotMachineId", mmid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set matchNotMachineId field: %m");
+
+                                r = sd_json_variant_append_array(&per_machine, negative);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append to perMachine array: %m");
+                        }
                 }
 
                 r = sd_json_variant_set_field(&v, "perMachine", per_machine);
@@ -1178,7 +1190,7 @@ static int acquire_new_home_record(sd_json_variant *input, UserRecord **ret) {
                         USER_RECORD_ALLOW_PER_MACHINE|
                         USER_RECORD_STRIP_BINDING|
                         USER_RECORD_STRIP_STATUS|
-                        USER_RECORD_STRIP_SIGNATURE|
+                        (arg_seize ? USER_RECORD_STRIP_SIGNATURE : USER_RECORD_ALLOW_SIGNATURE) |
                         USER_RECORD_LOG|
                         USER_RECORD_PERMISSIVE);
         if (r < 0)
@@ -1441,7 +1453,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                         r = acquire_existing_password(
                                         hr->user_name,
                                         hr,
-                                        /* emphasize_current= */ false,
+                                        /* emphasize_current_password= */ false,
                                         ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE);
                         if (r < 0)
                                 return r;
@@ -1456,6 +1468,11 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                 r = user_record_check_password_quality(hr, hr, &error);
                 if (r < 0)
                         log_warning_errno(r, "Specified password does not pass quality checks (%s), proceeding anyway.", bus_error_message(&error, r));
+        }
+
+        if (arg_dry_run) {
+                sd_json_variant_dump(hr->json, SD_JSON_FORMAT_COLOR_AUTO|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_NEWLINE, stderr, /* prefix= */ NULL);
+                return 0;
         }
 
         r = acquire_bus(&bus);
@@ -1552,6 +1569,149 @@ static int create_home(int argc, char *argv[], void *userdata) {
         }
 
         return create_home_common(/* input= */ NULL, /* show_enforce_password_policy_hint= */ true);
+}
+
+static int verb_adopt_home(int argc, char *argv[], void *userdata) {
+        int r, ret = 0;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        STRV_FOREACH(i, strv_skip(argv, 1)) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "AdoptHome");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "st", *i, UINT64_C(0));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to adopt home: %s", bus_error_message(&error, r));
+                        if (ret == 0)
+                                ret = r;
+                }
+        }
+
+        return ret;
+}
+
+static int register_home_common(sd_bus *bus, sd_json_variant *v) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *_bus = NULL;
+        int r;
+
+        assert(v);
+
+        if (!bus) {
+                r = acquire_bus(&_bus);
+                if (r < 0)
+                        return r;
+                bus = _bus;
+        }
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        r = bus_message_new_method_call(bus, &m, bus_mgr, "RegisterHome");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        _cleanup_free_ char *formatted = NULL;
+        r = sd_json_variant_format(v, /* flags= */ 0, &formatted);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON record: %m");
+
+        r = sd_bus_message_append(m, "s", formatted);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register home: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
+        int r;
+
+        assert(bus);
+        assert(path);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        unsigned line = 0, column = 0;
+        r = sd_json_parse_file(f, path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        if (r < 0)
+                return log_error_errno(r, "[%s:%u:%u] Failed to parse user record: %m", path, line, column);
+
+        return register_home_common(bus, v);
+}
+
+static int verb_register_home(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        if (arg_identity) {
+                if (argc > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not accepting an arguments if --identity= is specified, refusing.");
+
+                return register_home_one(bus, /* f= */ NULL, arg_identity);
+        }
+
+        if (argc == 1 || (argc == 2 && streq(argv[1], "-")))
+                return register_home_one(bus, /* f= */ stdin, "<stdio>");
+
+        r = 0;
+        STRV_FOREACH(i, strv_skip(argv, 1)) {
+                if (streq(*i, "-"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing reading from standard input if multiple user records are specified.");
+
+                RET_GATHER(r, register_home_one(bus, /* f= */ NULL, *i));
+        }
+
+        return r;
+}
+
+static int verb_unregister_home(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        int ret = 0;
+        STRV_FOREACH(i, strv_skip(argv, 1)) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "UnregisterHome");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", *i);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* reply= */ NULL);
+                if (r < 0)
+                        RET_GATHER(ret, log_error_errno(r, "Failed to unregister home: %s", bus_error_message(&error, r)));
+        }
+
+        return ret;
 }
 
 static int remove_home(int argc, char *argv[], void *userdata) {
@@ -1756,6 +1916,11 @@ static int update_home(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        if (arg_dry_run) {
+                sd_json_variant_dump(hr->json, SD_JSON_FORMAT_COLOR_AUTO|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_NEWLINE, stderr, /* prefix= */ NULL);
+                return 0;
+        }
+
         /* If we do multiple operations, let's output things more verbosely, since otherwise the repeated
          * authentication might be confusing. */
 
@@ -1892,11 +2057,11 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
         if (arg_pkcs11_token_uri)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "To change the PKCS#11 security token use 'homectl update --pkcs11-token-uri=%s'.",
-                                       special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                       glyph(GLYPH_ELLIPSIS));
         if (arg_fido2_device)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "To change the FIDO2 security token use 'homectl update --fido2-device=%s'.",
-                                       special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                       glyph(GLYPH_ELLIPSIS));
         if (identity_properties_specified())
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The 'passwd' verb does not permit changing other record properties at the same time.");
 
@@ -2328,11 +2493,10 @@ static int rebalance(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int create_from_credentials(void) {
-        _cleanup_close_ int fd = -EBADF;
-        int ret = 0, n_created = 0, r;
+static int create_or_register_from_credentials(void) {
+        int r;
 
-        fd = open_credentials_dir();
+        _cleanup_close_ int fd = open_credentials_dir();
         if (IN_SET(fd, -ENXIO, -ENOENT)) /* Credential env var not set, or dir doesn't exist. */
                 return 0;
         if (fd < 0)
@@ -2343,16 +2507,22 @@ static int create_from_credentials(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials: %m");
 
+        int ret = 0, n_processed = 0;
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *identity = NULL;
                 struct dirent *de = *i;
-                const char *e;
-
                 if (de->d_type != DT_REG)
                         continue;
 
-                e = startswith(de->d_name, "home.create.");
-                if (!e)
+                enum {
+                        OPERATION_CREATE,
+                        OPERATION_REGISTER,
+                } op;
+                const char *e;
+                if ((e = startswith(de->d_name, "home.create.")))
+                        op = OPERATION_CREATE;
+                else if ((e = startswith(de->d_name, "home.register.")))
+                        op = OPERATION_REGISTER;
+                else
                         continue;
 
                 if (!valid_user_group_name(e, 0)) {
@@ -2360,21 +2530,22 @@ static int create_from_credentials(void) {
                         continue;
                 }
 
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *identity = NULL;
+                unsigned line = 0, column = 0;
                 r = sd_json_parse_file_at(
                                 /* f= */ NULL,
                                 fd,
                                 de->d_name,
                                 /* flags= */ 0,
                                 &identity,
-                                /* ret_line= */ NULL,
-                                /* ret_column= */ NULL);
+                                &line,
+                                &column);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to parse user record in credential '%s', ignoring: %m", de->d_name);
+                        log_warning_errno(r, "[%s:%u:%u] Failed to parse user record in credential, ignoring: %m", de->d_name, line, column);
                         continue;
                 }
 
-                sd_json_variant *un;
-                un = sd_json_variant_by_key(identity, "userName");
+                sd_json_variant *un = sd_json_variant_by_key(identity, "userName");
                 if (un) {
                         if (!sd_json_variant_is_string(un)) {
                                 log_warning("User record from credential '%s' contains 'userName' field of invalid type, ignoring.", de->d_name);
@@ -2393,14 +2564,17 @@ static int create_from_credentials(void) {
 
                 log_notice("Processing user '%s' from credentials.", e);
 
-                r = create_home_common(identity, /* show_enforce_password_policy_hint= */ false);
+                if (op == OPERATION_CREATE)
+                        r = create_home_common(identity, /* show_enforce_password_policy_hint= */ false);
+                else
+                        r = register_home_common(/* bus= */ NULL, identity);
                 if (r >= 0)
-                        n_created++;
+                        n_processed++;
 
                 RET_GATHER(ret, r);
         }
 
-        return ret < 0 ? ret : n_created;
+        return ret < 0 ? ret : n_processed;
 }
 
 static int has_regular_user(void) {
@@ -2462,7 +2636,7 @@ static int acquire_group_list(char ***ret) {
                                 if (r < 0 && r != -ESRCH)
                                         return log_debug_errno(r, "Failed to check if matching user exists for group '%s': %m", gr->group_name);
 
-                                if (r >= 0 && ur->gid == gr->gid)
+                                if (r >= 0 && user_record_gid(ur) == gr->gid)
                                         continue;
                         }
 
@@ -2508,7 +2682,12 @@ static int create_interactively(void) {
                 return 0;
         }
 
-        printf("\nPlease create your user account!\n");
+        putchar('\n');
+        if (emoji_enabled()) {
+                fputs(glyph(GLYPH_HOME), stdout);
+                putchar(' ');
+        }
+        printf("Please create your user account!\n");
 
         if (!any_key_to_proceed()) {
                 log_notice("Skipping.");
@@ -2522,7 +2701,7 @@ static int create_interactively(void) {
 
                 r = ask_string(&username,
                                "%s Please enter user name to create (empty to skip): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                               glyph(GLYPH_TRIANGULAR_BULLET));
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for username: %m");
 
@@ -2578,7 +2757,7 @@ static int create_interactively(void) {
                 r = ask_string_full(&s,
                                group_completion_callback, &available,
                                "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
+                               glyph(GLYPH_TRIANGULAR_BULLET), username);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for auxiliary group: %m");
 
@@ -2663,7 +2842,7 @@ static int create_interactively(void) {
 
                 r = ask_string(&shell,
                                "%s Please enter the shell to use for user %s (empty for default): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
+                               glyph(GLYPH_TRIANGULAR_BULLET), username);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for username: %m");
 
@@ -2698,6 +2877,8 @@ static int create_interactively(void) {
         return create_home_common(/* input= */ NULL, /* show_enforce_password_policy_hint= */ false);
 }
 
+static int add_signing_keys_from_credentials(void);
+
 static int verb_firstboot(int argc, char *argv[], void *userdata) {
         int r;
 
@@ -2713,11 +2894,13 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
                 arg_prompt_new_user = false;
         }
 
-        r = create_from_credentials();
-        if (r < 0)
-                return r;
-        if (r > 0) /* Already created users from credentials */
-                return 0;
+        int ret = 0;
+
+        RET_GATHER(ret, add_signing_keys_from_credentials());
+
+        r = create_or_register_from_credentials();
+        RET_GATHER(ret, r);
+        bool existing_users = r > 0;
 
         r = getenv_bool("SYSTEMD_HOME_FIRSTBOOT_OVERRIDE");
         if (r == 0)
@@ -2726,16 +2909,21 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
                 if (r != -ENXIO)
                         log_warning_errno(r, "Failed to parse $SYSTEMD_HOME_FIRSTBOOT_OVERRIDE, ignoring: %m");
 
-                r = has_regular_user();
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        log_info("Regular user already present in user database, skipping user creation.");
+                if (!existing_users) {
+                        r = has_regular_user();
+                        if (r < 0)
+                                return r;
+
+                        existing_users = r > 0;
+                }
+                if (existing_users) {
+                        log_info("Regular user already present in user database, skipping interactive user creation.");
                         return 0;
                 }
         }
 
-        return create_interactively();
+        RET_GATHER(ret, create_interactively());
+        return ret;
 }
 
 static int drop_from_identity(const char *field) {
@@ -2777,23 +2965,35 @@ static int help(int argc, char *argv[], void *userdata) {
 
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
                "%2$sCreate, manipulate or inspect home directories.%3$s\n"
-               "\n%4$sCommands:%5$s\n"
+               "\n%4$sBasic User Manipulation Commands:%5$s\n"
                "  list                         List home areas\n"
-               "  activate USER…               Activate a home area\n"
-               "  deactivate USER…             Deactivate a home area\n"
                "  inspect USER…                Inspect a home area\n"
-               "  authenticate USER…           Authenticate a home area\n"
                "  create USER                  Create a home area\n"
-               "  remove USER…                 Remove a home area\n"
                "  update USER                  Update a home area\n"
                "  passwd USER                  Change password of a home area\n"
                "  resize USER SIZE             Resize a home area\n"
+               "  remove USER…                 Remove a home area\n"
+               "\n%4$sAdvanced User Manipulation Commands:%5$s\n"
+               "  activate USER…               Activate a home area\n"
+               "  deactivate USER…             Deactivate a home area\n"
+               "  deactivate-all               Deactivate all active home areas\n"
+               "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
+               "  authenticate USER…           Authenticate a home area\n"
+               "\n%4$sUser Migration Commands:%5$s\n"
+               "  adopt PATH…                  Add an existing home area on this system\n"
+               "  register PATH…               Register a user record locally\n"
+               "  unregister USER…             Unregister a user record locally\n"
+               "\n%4$sSigning Keys Commands:%5$s\n"
+               "  list-signing-keys            List home signing keys\n"
+               "  get-signing-key [NAME…]      Get a named home signing key\n"
+               "  add-signing-key FILE…        Add home signing key\n"
+               "  remove-signing-key NAME…     Remove home signing key\n"
+               "\n%4$sLock/Unlock Commands:%5$s\n"
                "  lock USER…                   Temporarily lock an active home area\n"
                "  unlock USER…                 Unlock a temporarily locked home area\n"
                "  lock-all                     Lock all suitable home areas\n"
-               "  deactivate-all               Deactivate all active home areas\n"
+               "\n%4$sOther Commands:%5$s\n"
                "  rebalance                    Rebalance free space between home areas\n"
-               "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
                "  firstboot                    Run first-boot home area creation wizard\n"
                "\n%4$sOptions:%5$s\n"
                "  -h --help                    Show this help\n"
@@ -2816,6 +3016,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               -j --export-format=minimal\n"
                "     --prompt-new-user         firstboot: Query user interactively for user\n"
                "                               to create\n"
+               "     --key-name=NAME           Key name when adding a signing key\n"
+               "     --seize=no                Do not strip existing signatures of user record\n"
+               "                               when creating\n"
                "\n%4$sGeneral User Record Properties:%5$s\n"
                "  -c --real-name=REALNAME      Real name for user\n"
                "     --realm=REALM             Realm to create user in\n"
@@ -3049,6 +3252,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TMP_LIMIT,
                 ARG_DEV_SHM_LIMIT,
                 ARG_DEFAULT_AREA,
+                ARG_KEY_NAME,
+                ARG_SEIZE,
+                ARG_MATCH,
         };
 
         static const struct option options[] = {
@@ -3152,18 +3358,33 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tmp-limit",                    required_argument, NULL, ARG_TMP_LIMIT                   },
                 { "dev-shm-limit",                required_argument, NULL, ARG_DEV_SHM_LIMIT               },
                 { "default-area",                 required_argument, NULL, ARG_DEFAULT_AREA                },
+                { "key-name",                     required_argument, NULL, ARG_KEY_NAME                    },
+                { "seize",                        required_argument, NULL, ARG_SEIZE                       },
+                { "match",                        required_argument, NULL, ARG_MATCH                       },
                 {}
         };
 
         int r;
 
+        /* This points to one of arg_identity_extra, arg_identity_extra_this_machine,
+         * arg_identity_extra_other_machines, in order to redirect changes on the next property being set to
+         * this part of the identity, instead of the default. */
+        sd_json_variant **match_identity = NULL;
+
         assert(argc >= 0);
         assert(argv);
+
+        /* Eventually we should probably turn this into a proper --dry-run option, but as long as it is not hooked up everywhere let's make it an environment variable only. */
+        r = getenv_bool("SYSTEMD_HOME_DRY_RUN");
+        if (r >= 0)
+                arg_dry_run = r;
+        else if (r != -ENXIO)
+                log_debug_errno(r, "Unable to parse $SYSTEMD_HOME_DRY_RUN, ignoring: %m");
 
         for (;;) {
                 int c;
 
-                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPE", options, NULL);
+                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPENAT", options, NULL);
                 if (c < 0)
                         break;
 
@@ -3217,7 +3438,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!valid_gecos(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Real name '%s' not a valid GECOS field.", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "realName", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "realName", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set realName field: %m");
 
@@ -3347,7 +3568,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, field, optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -3367,7 +3588,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "cifsService", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "cifsService", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set cifsService field: %m");
 
@@ -3403,7 +3624,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse nice level: %s", optarg);
 
-                        r = sd_json_variant_set_field_integer(&arg_identity_extra, "niceLevel", nc);
+                        r = sd_json_variant_set_field_integer(match_identity ?: &arg_identity_extra, "niceLevel", nc);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set niceLevel field: %m");
 
@@ -3498,6 +3719,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (uid_is_system(uid))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in system range, refusing.", uid);
+                        if (uid_is_greeter(uid))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in greeter range, refusing.", uid);
                         if (uid_is_dynamic(uid))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in dynamic range, refusing.", uid);
                         if (uid == UID_NOBODY)
@@ -3527,7 +3750,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra_this_machine, field, v);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra_this_machine, field, v);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", v);
 
@@ -3546,7 +3769,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!valid_shell(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Shell '%s' not valid.", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "shell", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "shell", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set shell field: %m");
 
@@ -3565,7 +3788,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        e = sd_json_variant_by_key(arg_identity_extra, "environment");
+                        e = sd_json_variant_by_key(match_identity ? *match_identity: arg_identity_extra, "environment");
                         if (e) {
                                 r = sd_json_variant_strv(e, &l);
                                 if (r < 0)
@@ -3582,7 +3805,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to allocate environment list JSON: %m");
 
-                        r = sd_json_variant_set_field(&arg_identity_extra, "environment", ne);
+                        r = sd_json_variant_set_field(match_identity ?: &arg_identity_extra, "environment", ne);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set environment list: %m");
 
@@ -3590,7 +3813,6 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TIMEZONE:
-
                         if (isempty(optarg)) {
                                 r = drop_from_identity("timeZone");
                                 if (r < 0)
@@ -3602,7 +3824,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!timezone_is_valid(optarg, LOG_DEBUG))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timezone '%s' is not valid.", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "timeZone", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "timeZone", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set timezone field: %m");
 
@@ -3682,7 +3904,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s boolean: %m", field);
 
-                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, field, r > 0);
+                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, field, r > 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -3718,7 +3940,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return r;
 
-                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra_this_machine, "diskSize", arg_disk_size);
+                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "diskSize", arg_disk_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set diskSize field: %m");
 
@@ -3731,7 +3953,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return r;
 
-                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra_this_machine, "diskSizeRelative", arg_disk_size_relative);
+                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "diskSizeRelative", arg_disk_size_relative);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set diskSizeRelative field: %m");
 
@@ -3739,7 +3961,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         /* Automatically turn off the rebalance logic if user configured a size explicitly */
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra_this_machine, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
 
@@ -3780,7 +4002,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --luks-discard= parameter: %s", optarg);
 
-                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "luksDiscard", r);
+                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "luksDiscard", r);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set discard field: %m");
 
@@ -3799,7 +4021,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --luks-offline-discard= parameter: %s", optarg);
 
-                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "luksOfflineDiscard", r);
+                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "luksOfflineDiscard", r);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set offline discard field: %m");
 
@@ -3828,7 +4050,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s parameter: %s", field, optarg);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, n);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -3850,7 +4072,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "luksSectorSize", ss);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "luksSectorSize", ss);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set sector size field: %m");
 
@@ -3872,7 +4094,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse umask: %m");
 
-                        r = sd_json_variant_set_field_integer(&arg_identity_extra, "umask", m);
+                        r = sd_json_variant_set_field_integer(match_identity ?: &arg_identity_extra, "umask", m);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set umask field: %m");
 
@@ -3984,7 +4206,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s parameter: %m", field);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, n);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
                         break;
@@ -4017,7 +4239,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s parameter: %m", field);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, n);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
                         break;
@@ -4052,9 +4274,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for %s field not valid: %s", field, optarg);
 
                         r = sd_json_variant_set_field_string(
-                                        IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
-                                        &arg_identity_extra_this_machine :
-                                        &arg_identity_extra, field, optarg);
+                                        match_identity ?: (IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
+                                                           &arg_identity_extra_this_machine :
+                                                           &arg_identity_extra), field, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4085,7 +4307,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s field: %s", field, optarg);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, t);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, t);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4134,7 +4356,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create group list JSON: %m");
 
-                                r = sd_json_variant_set_field(&arg_identity_extra, "memberOf", mo);
+                                r = sd_json_variant_set_field(match_identity ?: &arg_identity_extra, "memberOf", mo);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to update group list: %m");
                         }
@@ -4156,7 +4378,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --tasks-max= parameter: %s", optarg);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "tasksMax", u);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "tasksMax", u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set tasksMax field: %m");
 
@@ -4186,7 +4408,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s parameter: %s", field, optarg);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra_this_machine, field, u);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, field, u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4215,7 +4437,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!CGROUP_WEIGHT_IS_OK(u))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Weight %" PRIu64 " is out of valid weight range.", u);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, u);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4346,7 +4568,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --auto-resize-mode= argument: %s", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set autoResizeMode field: %m");
 
@@ -4371,7 +4593,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
                                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Rebalancing weight out of valid range %" PRIu64 "%s%" PRIu64 ": %s",
-                                                               REBALANCE_WEIGHT_MIN, special_glyph(SPECIAL_GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX, optarg);
+                                                               REBALANCE_WEIGHT_MIN, glyph(GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX, optarg);
                         }
 
                         /* Drop from per machine stuff and everywhere */
@@ -4380,7 +4602,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         /* Add to main identity */
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "rebalanceWeight", u);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "rebalanceWeight", u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
 
@@ -4447,7 +4669,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "dropCaches", r);
+                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "dropCaches", r);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set drop caches field: %m");
 
@@ -4501,7 +4723,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (capability_set_to_strv(updated, &l) < 0)
                                 return log_oom();
 
-                        r = sd_json_variant_set_field_strv(&arg_identity_extra, field, l);
+                        r = sd_json_variant_set_field_strv(match_identity ?: &arg_identity_extra, field, l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4615,7 +4837,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse %s/%s parameter: %s", field, field_scale, optarg);
 
-                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, u);
+                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, u);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4623,7 +4845,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return r;
                         } else {
-                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field_scale, UINT32_SCALE_FROM_PERMYRIAD(r));
+                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field_scale, UINT32_SCALE_FROM_PERMYRIAD(r));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set %s field: %m", field_scale);
 
@@ -4647,10 +4869,54 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!filename_is_valid(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for default area field not valid: %s", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "defaultArea", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set default area field: %m");
 
+                        break;
+
+                case ARG_KEY_NAME:
+                        if (isempty(optarg)) {
+                                arg_key_name = mfree(arg_key_name);
+                                return 0;
+                        }
+
+                        if (!filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified key name not valid: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_key_name, optarg);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_SEIZE:
+                        r = parse_boolean_argument("--seize=", optarg, &arg_seize);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_MATCH:
+                        if (streq(optarg, "any"))
+                                match_identity = &arg_identity_extra;
+                        else if (streq(optarg, "this"))
+                                match_identity = &arg_identity_extra_this_machine;
+                        else if (streq(optarg, "other"))
+                                match_identity = &arg_identity_extra_other_machines;
+                        else if (streq(optarg, "auto"))
+                                match_identity = NULL;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--machine= argument not understood. Refusing.");
+                        break;
+
+                case 'A':
+                        match_identity = &arg_identity_extra;
+                        break;
+                case 'T':
+                        match_identity = &arg_identity_extra_this_machine;
+                        break;
+                case 'N':
+                        match_identity = &arg_identity_extra_other_machines;
                         break;
 
                 case '?':
@@ -4850,7 +5116,7 @@ static int fallback_shell(int argc, char *argv[]) {
                                 "org.freedesktop.login1.Session",
                                 "SetClass",
                                 &error,
-                                /* ret_reply= */ NULL,
+                                /* reply= */ NULL,
                                 "s",
                                 "user");
                 if (r < 0)
@@ -4915,26 +5181,297 @@ static int fallback_shell(int argc, char *argv[]) {
         return log_error_errno(errno, "Failed to execute shell '%s': %m", shell);
 }
 
+static int verb_list_signing_keys(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        r = bus_call_method(bus, bus_mgr, "ListSigningKeys", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list signing keys: %s", bus_error_message(&error, r));
+
+        _cleanup_(table_unrefp) Table *table = table_new("name", "key");
+        if (!table)
+                return log_oom();
+
+        r = sd_bus_message_enter_container(reply, 'a', "(sst)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *name, *pem;
+
+                r = sd_bus_message_read(reply, "(sst)", &name, &pem, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                _cleanup_free_ char *h = NULL;
+                if (!sd_json_format_enabled(arg_json_format_flags)) {
+                        /* Let's decode the PEM key to DER (so that we lose prefix/suffix), then truncate it
+                         * for display reasons. */
+
+                        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+                        r = openssl_pubkey_from_pem(pem, SIZE_MAX, &key);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse PEM: %m");
+
+                        _cleanup_free_ void *der = NULL;
+                        int n = i2d_PUBKEY(key, (unsigned char**) &der);
+                        if (n < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to encode key as DER: %m");
+
+                        ssize_t m = base64mem(der, MIN(n, 64), &h);
+                        if (m < 0)
+                                return log_oom();
+                        if (n > 64) /* check if we truncated the original version */
+                                if (!strextend(&h, glyph(GLYPH_ELLIPSIS)))
+                                        return log_oom();
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, name,
+                                TABLE_STRING, h ?: pem);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
+                r = table_set_sort(table, (size_t) 0);
+                if (r < 0)
+                        return table_log_sort_error(r);
+
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
+                if (table_isempty(table))
+                        printf("No signing keys.\n");
+                else
+                        printf("\n%zu signing keys listed.\n", table_get_rows(table) - 1);
+        }
+
+        return 0;
+}
+
+static int verb_get_signing_key(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        char **keys = argc >= 2 ? strv_skip(argv, 1) : STRV_MAKE("local.public");
+        int ret = 0;
+        STRV_FOREACH(k, keys) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                r = bus_call_method(bus, bus_mgr, "GetSigningKey", &error, &reply, "s", *k);
+                if (r < 0) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to get signing key '%s': %s", *k, bus_error_message(&error, r)));
+                        continue;
+                }
+
+                const char *pem;
+                r = sd_bus_message_read(reply, "st", &pem, NULL);
+                if (r < 0) {
+                        RET_GATHER(ret, bus_log_parse_error(r));
+                        continue;
+                }
+
+                fputs(pem, stdout);
+                if (!endswith(pem, "\n"))
+                        fputc('\n', stdout);
+
+                fflush(stdout);
+        }
+
+        return ret;
+}
+
+static int add_signing_key_one(sd_bus *bus, const char *fn, FILE *key) {
+        int r;
+
+        assert_se(bus);
+        assert_se(fn);
+        assert_se(key);
+
+        _cleanup_free_ char *pem = NULL;
+        r = read_full_stream(key, &pem, /* ret_size= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key '%s': %m", fn);
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = bus_call_method(bus, bus_mgr, "AddSigningKey", &error, /* reply= */ NULL, "sst", fn, pem, UINT64_C(0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add signing key '%s': %s", fn, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verb_add_signing_key(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        int ret = EXIT_SUCCESS;
+        if (argc < 2 || streq(argv[1], "-")) {
+                if (!arg_key_name)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key name must be specified via --key-name= when reading key from standard input, refusing.");
+
+                RET_GATHER(ret, add_signing_key_one(bus, arg_key_name, stdin));
+        } else {
+                /* Refuse if more han one key is specified in combination with --key-name= */
+                if (argc >= 3 && arg_key_name)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--key-name= is not supported if multiple signing keys are specified, refusing.");
+
+                STRV_FOREACH(k, strv_skip(argv, 1)) {
+
+                        if (streq(*k, "-"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing to read from standard input if multiple keys are specified.");
+
+                        _cleanup_free_ char *fn = NULL;
+                        if (!arg_key_name) {
+                                r = path_extract_filename(*k, &fn);
+                                if (r < 0) {
+                                        RET_GATHER(ret, log_error_errno(r, "Failed to extract filename from path '%s': %m", *k));
+                                        continue;
+                                }
+                        }
+
+                        _cleanup_fclose_ FILE *f = fopen(*k, "re");
+                        if (!f) {
+                                RET_GATHER(ret, log_error_errno(errno, "Failed to open '%s': %m", *k));
+                                continue;
+                        }
+
+                        RET_GATHER(ret, add_signing_key_one(bus, fn ?: arg_key_name, f));
+                }
+        }
+
+        return ret;
+}
+
+static int add_signing_keys_from_credentials(void) {
+        int r;
+
+        _cleanup_close_ int fd = open_credentials_dir();
+        if (IN_SET(fd, -ENXIO, -ENOENT)) /* Credential env var not set, or dir doesn't exist. */
+                return 0;
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open credentials directory: %m");
+
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate credentials: %m");
+
+        int ret = 0;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                struct dirent *de = *i;
+                if (de->d_type != DT_REG)
+                        continue;
+
+                const char *e = startswith(de->d_name, "home.add-signing-key.");
+                if (!e)
+                        continue;
+
+                if (!filename_is_valid(e))
+                        continue;
+
+                if (!bus) {
+                        r = acquire_bus(&bus);
+                        if (r < 0)
+                                return r;
+                }
+
+                _cleanup_fclose_ FILE *f = NULL;
+                r = xfopenat(fd, de->d_name, "re", O_NOFOLLOW, &f);
+                if (r < 0) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to open credential '%s': %m", de->d_name));
+                        continue;
+                }
+
+                RET_GATHER(ret, add_signing_key_one(bus, e, f));
+        }
+
+        return ret;
+}
+
+static int remove_signing_key_one(sd_bus *bus, const char *fn) {
+        int r;
+
+        assert_se(bus);
+        assert_se(fn);
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = bus_call_method(bus, bus_mgr, "RemoveSigningKey", &error, /* reply= */ NULL, "st", fn, UINT64_C(0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove signing key '%s': %s", fn, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verb_remove_signing_key(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = EXIT_SUCCESS;
+        STRV_FOREACH(k, strv_skip(argv, 1))
+                RET_GATHER(r, remove_signing_key_one(bus, *k));
+
+        return r;
+}
+
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",           VERB_ANY, VERB_ANY, 0,            help                 },
-                { "list",           VERB_ANY, 1,        VERB_DEFAULT, list_homes           },
-                { "activate",       2,        VERB_ANY, 0,            activate_home        },
-                { "deactivate",     2,        VERB_ANY, 0,            deactivate_home      },
-                { "inspect",        VERB_ANY, VERB_ANY, 0,            inspect_home         },
-                { "authenticate",   VERB_ANY, VERB_ANY, 0,            authenticate_home    },
-                { "create",         VERB_ANY, 2,        0,            create_home          },
-                { "remove",         2,        VERB_ANY, 0,            remove_home          },
-                { "update",         VERB_ANY, 2,        0,            update_home          },
-                { "passwd",         VERB_ANY, 2,        0,            passwd_home          },
-                { "resize",         2,        3,        0,            resize_home          },
-                { "lock",           2,        VERB_ANY, 0,            lock_home            },
-                { "unlock",         2,        VERB_ANY, 0,            unlock_home          },
-                { "with",           2,        VERB_ANY, 0,            with_home            },
-                { "lock-all",       VERB_ANY, 1,        0,            lock_all_homes       },
-                { "deactivate-all", VERB_ANY, 1,        0,            deactivate_all_homes },
-                { "rebalance",      VERB_ANY, 1,        0,            rebalance            },
-                { "firstboot",      VERB_ANY, 1,        0,            verb_firstboot       },
+                { "help",               VERB_ANY, VERB_ANY, 0,            help                     },
+                { "list",               VERB_ANY, 1,        VERB_DEFAULT, list_homes               },
+                { "activate",           2,        VERB_ANY, 0,            activate_home            },
+                { "deactivate",         2,        VERB_ANY, 0,            deactivate_home          },
+                { "inspect",            VERB_ANY, VERB_ANY, 0,            inspect_homes            },
+                { "authenticate",       VERB_ANY, VERB_ANY, 0,            authenticate_homes       },
+                { "create",             VERB_ANY, 2,        0,            create_home              },
+                { "adopt",              VERB_ANY, VERB_ANY, 0,            verb_adopt_home          },
+                { "register",           VERB_ANY, VERB_ANY, 0,            verb_register_home       },
+                { "unregister",         2,        VERB_ANY, 0,            verb_unregister_home     },
+                { "remove",             2,        VERB_ANY, 0,            remove_home              },
+                { "update",             VERB_ANY, 2,        0,            update_home              },
+                { "passwd",             VERB_ANY, 2,        0,            passwd_home              },
+                { "resize",             2,        3,        0,            resize_home              },
+                { "lock",               2,        VERB_ANY, 0,            lock_home                },
+                { "unlock",             2,        VERB_ANY, 0,            unlock_home              },
+                { "with",               2,        VERB_ANY, 0,            with_home                },
+                { "lock-all",           VERB_ANY, 1,        0,            lock_all_homes           },
+                { "deactivate-all",     VERB_ANY, 1,        0,            deactivate_all_homes     },
+                { "rebalance",          VERB_ANY, 1,        0,            rebalance                },
+                { "firstboot",          VERB_ANY, 1,        0,            verb_firstboot           },
+                { "list-signing-keys",  VERB_ANY, 1,        0,            verb_list_signing_keys   },
+                { "get-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_get_signing_key     },
+                { "add-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_add_signing_key     },
+                { "remove-signing-key", 2,        VERB_ANY, 0,            verb_remove_signing_key  },
                 {}
         };
 

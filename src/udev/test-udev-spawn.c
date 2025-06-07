@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
+#include "sd-device.h"
+
+#include "alloc-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "udev-event.h"
@@ -17,7 +23,7 @@ static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result
         ASSERT_OK_ERRNO(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1));
 
         ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));
-        ASSERT_NOT_NULL(event = udev_event_new(dev, NULL, EVENT_TEST_SPAWN));
+        ASSERT_NOT_NULL((event = udev_event_new(dev, NULL, EVENT_TEST_SPAWN)));
         ASSERT_OK_ZERO(udev_event_spawn(event, false, cmd, result_buf, buf_size, NULL));
 
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_PIDFD"));
@@ -36,7 +42,7 @@ static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
         test_event_spawn_core(with_pidfd, cmd, result_buf,
                               buf_size >= BUF_SIZE ? BUF_SIZE : buf_size);
 
-        ASSERT_NOT_NULL(lines = strv_split_newlines(result_buf));
+        ASSERT_NOT_NULL((lines = strv_split_newlines(result_buf)));
         strv_print(lines);
 
         if (buf_size >= BUF_SIZE) {
@@ -53,11 +59,11 @@ static void test_event_spawn_self(const char *self, const char *arg, bool with_p
         log_debug("/* %s(%s, %s) */", __func__, arg, yes_no(with_pidfd));
 
         /* 'self' may contain spaces, hence needs to be quoted. */
-        ASSERT_NOT_NULL(cmd = strjoin("'", self, "' ", arg));
+        ASSERT_NOT_NULL((cmd = strjoin("'", self, "' ", arg)));
 
         test_event_spawn_core(with_pidfd, cmd, result_buf, BUF_SIZE);
 
-        ASSERT_NOT_NULL(lines = strv_split_newlines(result_buf));
+        ASSERT_NOT_NULL((lines = strv_split_newlines(result_buf)));
         strv_print(lines);
 
         ASSERT_TRUE(strv_contains(lines, "aaa"));

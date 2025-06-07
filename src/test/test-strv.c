@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
+
 #include "alloc-util.h"
-#include "escape.h"
+#include "extract-word.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -551,41 +553,41 @@ TEST(strv_sort_uniq) {
 
         ASSERT_NULL(strv_sort_uniq(a));
 
-        ASSERT_NOT_NULL(a = strv_new(NULL));
+        ASSERT_NOT_NULL((a = strv_new(NULL)));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_NULL(a[0]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_new("a", "a", "a", "a", "a"));
+        ASSERT_NOT_NULL((a = strv_new("a", "a", "a", "a", "a")));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_STREQ(a[0], "a");
         ASSERT_NULL(a[1]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_new("a", "a", "a", "a", "b"));
+        ASSERT_NOT_NULL((a = strv_new("a", "a", "a", "a", "b")));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_STREQ(a[0], "a");
         ASSERT_STREQ(a[1], "b");
         ASSERT_NULL(a[2]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_new("b", "a", "a", "a", "a"));
+        ASSERT_NOT_NULL((a = strv_new("b", "a", "a", "a", "a")));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_STREQ(a[0], "a");
         ASSERT_STREQ(a[1], "b");
         ASSERT_NULL(a[2]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_new("a", "a", "b", "a", "b"));
+        ASSERT_NOT_NULL((a = strv_new("a", "a", "b", "a", "b")));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_STREQ(a[0], "a");
         ASSERT_STREQ(a[1], "b");
         ASSERT_NULL(a[2]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_copy((char**) input_table));
-        ASSERT_NOT_NULL(b = strv_copy((char**) input_table));
-        ASSERT_NOT_NULL(c = strv_copy((char**) input_table));
+        ASSERT_NOT_NULL((a = strv_copy((char**) input_table)));
+        ASSERT_NOT_NULL((b = strv_copy((char**) input_table)));
+        ASSERT_NOT_NULL((c = strv_copy((char**) input_table)));
 
         assert_se(strv_sort_uniq(a) == a);
         assert_se(strv_sort(strv_uniq(b)) == b);
@@ -664,8 +666,8 @@ TEST(strv_extend_strv_consume) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **n = NULL;
         const char *s1, *s2, *s3;
 
-        ASSERT_NOT_NULL(a = strv_new("abc", "def", "ghi"));
-        ASSERT_NOT_NULL(b = strv_new("jkl", "mno", "abc", "pqr"));
+        ASSERT_NOT_NULL((a = strv_new("abc", "def", "ghi")));
+        ASSERT_NOT_NULL((b = strv_new("jkl", "mno", "abc", "pqr")));
 
         s1 = b[0];
         s2 = b[1];
@@ -685,7 +687,7 @@ TEST(strv_extend_strv_consume) {
         ASSERT_STREQ(a[5], "pqr");
         ASSERT_EQ(strv_length(a), (size_t) 6);
 
-        ASSERT_NOT_NULL(c = strv_new("jkl", "mno"));
+        ASSERT_NOT_NULL((c = strv_new("jkl", "mno")));
 
         s1 = c[0];
         s2 = c[1];
@@ -789,28 +791,6 @@ TEST(strv_foreach_pair) {
                      "pair_three", "pair_three");
         STRV_FOREACH_PAIR(x, y, a)
                 ASSERT_STREQ(*x, *y);
-}
-
-static void test_strv_from_stdarg_alloca_one(char **l, const char *first, ...) {
-        char **j;
-        unsigned i;
-
-        log_info("/* %s */", __func__);
-
-        j = strv_from_stdarg_alloca(first);
-
-        for (i = 0;; i++) {
-                ASSERT_STREQ(l[i], j[i]);
-
-                if (!l[i])
-                        break;
-        }
-}
-
-TEST(strv_from_stdarg_alloca) {
-        test_strv_from_stdarg_alloca_one(STRV_MAKE("foo", "bar"), "foo", "bar", NULL);
-        test_strv_from_stdarg_alloca_one(STRV_MAKE("foo"), "foo", NULL);
-        test_strv_from_stdarg_alloca_one(STRV_MAKE_EMPTY, NULL);
 }
 
 TEST(strv_insert) {
@@ -1004,17 +984,21 @@ TEST(strv_skip) {
         test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 0, STRV_MAKE("foo", "bar", "baz"));
         test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 1, STRV_MAKE("bar", "baz"));
         test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 2, STRV_MAKE("baz"));
-        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 3, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 4, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 55, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 3, NULL);
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 4, NULL);
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 55, NULL);
 
         test_strv_skip_one(STRV_MAKE("quux"), 0, STRV_MAKE("quux"));
-        test_strv_skip_one(STRV_MAKE("quux"), 1, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE("quux"), 55, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE("quux"), 1, NULL);
+        test_strv_skip_one(STRV_MAKE("quux"), 55, NULL);
 
-        test_strv_skip_one(STRV_MAKE(NULL), 0, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE(NULL), 1, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE(NULL), 55, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE(NULL), 0, NULL);
+        test_strv_skip_one(STRV_MAKE(NULL), 1, NULL);
+        test_strv_skip_one(STRV_MAKE(NULL), 55, NULL);
+
+        test_strv_skip_one(NULL, 0, NULL);
+        test_strv_skip_one(NULL, 1, NULL);
+        test_strv_skip_one(NULL, 55, NULL);
 }
 
 TEST(strv_extend_n) {

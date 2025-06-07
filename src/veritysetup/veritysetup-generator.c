@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdbool.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <unistd.h>
+
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -12,18 +10,14 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "hexdecoct.h"
-#include "id128-util.h"
-#include "main-func.h"
-#include "mkdir.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "specifier.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit-name.h"
-
-#define SYSTEMD_VERITYSETUP_SERVICE_ROOT "systemd-veritysetup@root.service"
-#define SYSTEMD_VERITYSETUP_SERVICE_USR "systemd-veritysetup@usr.service"
 
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
@@ -49,7 +43,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 
 static int create_special_device(
                 const char *name,
-                const char *service,
                 const char *roothash,
                 const char *data_what,
                 const char *hash_what,
@@ -62,7 +55,6 @@ static int create_special_device(
         /* Creates a systemd-veritysetup@.service instance for the special kernel cmdline specified root + usr devices. */
 
         assert(name);
-        assert(service);
 
         /* If all three pieces of information are missing, then verity is turned off */
         if (!roothash && !data_what && !hash_what)
@@ -70,14 +62,16 @@ static int create_special_device(
 
         /* if one of them is missing however, the data is simply incomplete and this is an error */
         if (!roothash)
-                log_error("Verity information for %s incomplete, root hash unspecified.", name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verity information for %s incomplete, root hash unspecified.", name);
         if (!data_what)
-                log_error("Verity information for %s incomplete, data device unspecified.", name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verity information for %s incomplete, data device unspecified.", name);
         if (!hash_what)
-                log_error("Verity information for %s incomplete, hash device unspecified.", name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verity information for %s incomplete, hash device unspecified.", name);
 
-        if (!roothash || !data_what || !hash_what)
-                return -EINVAL;
+        _cleanup_free_ char *service = NULL;
+        r = unit_name_build("systemd-veritysetup", name, ".service", &service);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, options, roothash);
 
@@ -95,7 +89,7 @@ static int create_special_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest, NULL, service, &f);
+        r = generator_open_unit_file(arg_dest, "/proc/cmdline", service, &f);
         if (r < 0)
                 return r;
 
@@ -105,9 +99,8 @@ static int create_special_device(
 
         fprintf(f,
                 "Before=veritysetup.target\n"
-                "BindsTo=%s %s\n"
-                "After=%s %s\n",
-                d, e,
+                "BindsTo=%1$s %2$s\n"
+                "After=%1$s %2$s\n",
                 d, e);
 
         r = generator_write_veritysetup_service_section(f, name, u, v, roothash, options);
@@ -126,11 +119,11 @@ static int create_special_device(
 }
 
 static int create_root_device(void) {
-        return create_special_device("root", SYSTEMD_VERITYSETUP_SERVICE_ROOT, arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
+        return create_special_device("root", arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
 }
 
 static int create_usr_device(void) {
-        return create_special_device("usr", SYSTEMD_VERITYSETUP_SERVICE_USR, arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
+        return create_special_device("usr", arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -225,7 +218,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 r = free_and_strdup(&arg_usr_options, value);
                 if (r < 0)
                         return log_oom();
-
         }
 
         return 0;

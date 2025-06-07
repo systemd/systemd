@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-polkit.h"
+#include "logind.h"
 #include "logind-polkit.h"
-#include "user-util.h"
 
 int check_polkit_chvt(sd_bus_message *message, Manager *manager, sd_bus_error *error) {
 #if ENABLE_POLKIT

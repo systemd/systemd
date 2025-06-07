@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <limits.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
-
-#include "macro.h"
+#include "forward.h"
 
 typedef unsigned long loadavg_t;
 
@@ -41,7 +35,7 @@ static inline int safe_atou(const char *s, unsigned *ret_u) {
 int safe_atou_bounded(const char *s, unsigned min, unsigned max, unsigned *ret);
 
 int safe_atoi(const char *s, int *ret_i);
-int safe_atolli(const char *s, long long int *ret_i);
+int safe_atolli(const char *s, long long *ret_i);
 
 int safe_atou8_full(const char *s, unsigned base, uint8_t *ret);
 
@@ -87,8 +81,8 @@ static inline int safe_atou64(const char *s, uint64_t *ret_u) {
 }
 
 static inline int safe_atoi64(const char *s, int64_t *ret_i) {
-        assert_cc(sizeof(int64_t) == sizeof(long long int));
-        return safe_atolli(s, (long long int*) ret_i);
+        assert_cc(sizeof(int64_t) == sizeof(long long));
+        return safe_atolli(s, (long long*) ret_i);
 }
 
 static inline int safe_atoux64(const char *s, uint64_t *ret) {
@@ -101,8 +95,8 @@ static inline int safe_atolu_full(const char *s, unsigned base, unsigned long *r
         assert_cc(sizeof(unsigned long) == sizeof(unsigned));
         return safe_atou_full(s, base, (unsigned*) ret_u);
 }
-static inline int safe_atoli(const char *s, long int *ret_u) {
-        assert_cc(sizeof(long int) == sizeof(int));
+static inline int safe_atoli(const char *s, long *ret_u) {
+        assert_cc(sizeof(long) == sizeof(int));
         return safe_atoi(s, (int*) ret_u);
 }
 #else
@@ -110,9 +104,9 @@ static inline int safe_atolu_full(const char *s, unsigned base, unsigned long *r
         assert_cc(sizeof(unsigned long) == sizeof(unsigned long long));
         return safe_atollu_full(s, base, (unsigned long long*) ret_u);
 }
-static inline int safe_atoli(const char *s, long int *ret_u) {
-        assert_cc(sizeof(long int) == sizeof(long long int));
-        return safe_atolli(s, (long long int*) ret_u);
+static inline int safe_atoli(const char *s, long *ret_u) {
+        assert_cc(sizeof(long) == sizeof(long long));
+        return safe_atolli(s, (long long*) ret_u);
 }
 #endif
 

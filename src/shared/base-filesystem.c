@@ -1,46 +1,48 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <syslog.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "architecture.h"
 #include "base-filesystem.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "nulstr-util.h"
 #include "path-util.h"
-#include "string-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+
+typedef enum BaseFilesystemFlags {
+        BASE_FILESYSTEM_IGNORE_ON_FAILURE = 1 << 0,
+        BASE_FILESYSTEM_EMPTY_MARKER      = 1 << 1, /* If this is missing, then we are booting on an empty filesystem - see comment below */
+        BASE_FILESYSTEM_EMPTY_ONLY        = 1 << 2, /* If booting on an empty filesystem create this, otherwise skip it - see comment below */
+} BaseFilesystemFlags;
 
 typedef struct BaseFilesystem {
         const char *dir;      /* directory or symlink to create */
         mode_t mode;
         const char *target;   /* if non-NULL create as symlink to this target */
         const char *exists;   /* conditionalize this entry on existence of this file */
-        bool ignore_failure;
+        BaseFilesystemFlags flags; /* various modifiers for behaviour on creation */
 } BaseFilesystem;
 
+/* Note that as entries are processed in order, entries with BASE_FILESYSTEM_EMPTY_MARKER must be listed
+ * before entries with BASE_FILESYSTEM_EMPTY_ONLY. */
 static const BaseFilesystem table[] = {
-        { "bin",      0, "usr/bin\0",                  NULL },
-        { "lib",      0, "usr/lib\0",                  NULL },
-        { "root",  0750, NULL,                         NULL, true },
-        { "sbin",     0, "usr/sbin\0",                 NULL },
+        { "bin",      0, "usr/bin\0",                  NULL,                        BASE_FILESYSTEM_EMPTY_MARKER      },
+        { "lib",      0, "usr/lib\0",                  NULL,                        BASE_FILESYSTEM_EMPTY_MARKER      },
+        { "root",  0750, NULL,                         NULL,                        BASE_FILESYSTEM_IGNORE_ON_FAILURE },
+        { "sbin",     0, "usr/sbin\0",                 NULL,                        BASE_FILESYSTEM_EMPTY_MARKER      },
         { "usr",   0755, NULL,                         NULL },
         { "var",   0755, NULL,                         NULL },
         { "etc",   0755, NULL,                         NULL },
-        { "proc",  0555, NULL,                         NULL, true },
-        { "sys",   0555, NULL,                         NULL, true },
-        { "dev",   0555, NULL,                         NULL, true },
-        { "run",   0555, NULL,                         NULL, true },
+        { "proc",  0555, NULL,                         NULL,                        BASE_FILESYSTEM_IGNORE_ON_FAILURE },
+        { "sys",   0555, NULL,                         NULL,                        BASE_FILESYSTEM_IGNORE_ON_FAILURE },
+        { "dev",   0555, NULL,                         NULL,                        BASE_FILESYSTEM_IGNORE_ON_FAILURE },
+        { "run",   0555, NULL,                         NULL,                        BASE_FILESYSTEM_IGNORE_ON_FAILURE },
         /* We don't add /tmp/ here for now (even though it's necessary for regular operation), because we
          * want to support both cases where /tmp/ is a mount of its own (in which case we probably should set
          * the mode to 1555, to indicate that no one should write to it, not even root) and when it's part of
@@ -55,9 +57,15 @@ static const BaseFilesystem table[] = {
 #if defined(__aarch64__)
         /* aarch64 ELF ABI actually says dynamic loader is in /lib/, but Fedora puts it in /lib64/ anyway and
          * just symlinks /lib/ld-linux-aarch64.so.1 to ../lib64/ld-linux-aarch64.so.1. For this to work
-         * correctly, /lib64/ must be symlinked to /usr/lib64/. */
+         * correctly, /lib64/ must be symlinked to /usr/lib64/. On the flip side, we must not create /lib64/
+         * on Debian and derivatives as they expect the target to be different from what Fedora et al. use,
+         * which is problematic for example when nspawn from some other distribution boots a Debian
+         * container with only /usr/, so we only create this symlink when at least one other symlink is
+         * missing, and let the image builder/package manager worry about not creating incomplete persistent
+         * filesystem hierarchies instead. The key purpose of this code is to ensure we can bring up a system
+         * with a volatile root filesystem after all. */
         { "lib64",    0, "usr/lib64\0"
-                         "usr/lib\0",                "ld-linux-aarch64.so.1" },
+                         "usr/lib\0",                "ld-linux-aarch64.so.1",       BASE_FILESYSTEM_EMPTY_ONLY        },
 #  define KNOW_LIB64_DIRS 1
 #elif defined(__alpha__)
 #elif defined(__arc__) || defined(__tilegx__)
@@ -108,14 +116,15 @@ static const BaseFilesystem table[] = {
 #  elif __riscv_xlen == 64
         /* Same situation as for aarch64 */
         { "lib64",    0, "usr/lib64\0"
-                         "usr/lib\0",                "ld-linux-riscv64-lp64d.so.1" },
+                         "usr/lib\0",                "ld-linux-riscv64-lp64d.so.1", BASE_FILESYSTEM_EMPTY_ONLY        },
 #    define KNOW_LIB64_DIRS 1
 #  else
 #    error "Unknown RISC-V ABI"
 #  endif
 #elif defined(__s390x__)
+        /* Same situation as for aarch64 */
         { "lib64",    0, "usr/lib64\0"
-                         "usr/lib\0",                "ld-lsb-s390x.so.3" },
+                         "usr/lib\0",                "ld-lsb-s390x.so.3",           BASE_FILESYSTEM_EMPTY_ONLY        },
 #    define KNOW_LIB64_DIRS 1
 #elif defined(__s390__)
         /* s390-linux-gnu */
@@ -129,6 +138,7 @@ static const BaseFilesystem table[] = {
 #endif
 
 int base_filesystem_create_fd(int fd, const char *root, uid_t uid, gid_t gid) {
+        bool empty_fs = false;
         int r;
 
         assert(fd >= 0);
@@ -137,8 +147,14 @@ int base_filesystem_create_fd(int fd, const char *root, uid_t uid, gid_t gid) {
         /* The "root" parameter is decoration only – it's only used as part of log messages */
 
         FOREACH_ELEMENT(i, table) {
+                if (FLAGS_SET(i->flags, BASE_FILESYSTEM_EMPTY_ONLY) && !empty_fs)
+                        continue;
+
                 if (faccessat(fd, i->dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                         continue;
+
+                if (FLAGS_SET(i->flags, BASE_FILESYSTEM_EMPTY_MARKER))
+                        empty_fs = true;
 
                 if (i->target) { /* Create as symlink? */
                         const char *target = NULL;
@@ -174,7 +190,7 @@ int base_filesystem_create_fd(int fd, const char *root, uid_t uid, gid_t gid) {
                                 r = RET_NERRNO(mkdirat(fd, i->dir, i->mode));
                 }
                 if (r < 0) {
-                        bool ignore = IN_SET(r, -EEXIST, -EROFS) || i->ignore_failure;
+                        bool ignore = IN_SET(r, -EEXIST, -EROFS) || FLAGS_SET(i->flags, BASE_FILESYSTEM_IGNORE_ON_FAILURE);
                         log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
                                        "Failed to create %s/%s: %m", root, i->dir);
                         if (ignore)

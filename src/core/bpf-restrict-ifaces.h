@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "fdset.h"
-#include "unit.h"
-
-typedef struct Unit Unit;
+#include "core-forward.h"
 
 int bpf_restrict_ifaces_supported(void);
 int bpf_restrict_ifaces_install(Unit *u);

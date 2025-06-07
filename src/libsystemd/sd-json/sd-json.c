@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <locale.h>
-#include <stdarg.h>
 #include <stdlib.h>
-#include <sys/types.h>
 
 #include "sd-json.h"
 #include "sd-messages.h"
@@ -15,28 +12,26 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "float.h"
-#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
-#include "iovec-util.h"
 #include "json-internal.h"
 #include "json-util.h"
-#include "ordered-set.h"
-#include "macro.h"
+#include "log.h"
 #include "math-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
-#include "path-util.h"
-#include "process-util.h"
-#include "set.h"
+#include "ordered-set.h"
+#include "parse-util.h"
+#include "pidref.h"
+#include "ratelimit.h"
 #include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -4909,10 +4904,10 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = command == _SD_JSON_BUILD_BASE64    ? sd_json_variant_new_base64(&add_more, p, sz) :
-                                    command == _SD_JSON_BUILD_BASE32HEX ? sd_json_variant_new_base32hex(&add_more, p, sz) :
-                                    command == _SD_JSON_BUILD_HEX       ? sd_json_variant_new_hex(&add_more, p, sz) :
-                                                                          sd_json_variant_new_octescape(&add_more, p, sz);
+                                r = command == _JSON_BUILD_PAIR_BASE64_NON_EMPTY    ? sd_json_variant_new_base64(&add_more, p, sz) :
+                                    command == _JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY ? sd_json_variant_new_base32hex(&add_more, p, sz) :
+                                    command == _JSON_BUILD_PAIR_HEX_NON_EMPTY       ? sd_json_variant_new_hex(&add_more, p, sz) :
+                                                                                      sd_json_variant_new_octescape(&add_more, p, sz);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -5040,10 +5035,10 @@ int json_log_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                "CONFIG_FILE=%s", source,
-                                "CONFIG_LINE=%u", source_line,
-                                "CONFIG_COLUMN=%u", source_column,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                                LOG_ITEM("CONFIG_FILE=%s", source),
+                                LOG_ITEM("CONFIG_LINE=%u", source_line),
+                                LOG_ITEM("CONFIG_COLUMN=%u", source_column),
                                 LOG_MESSAGE("%s:%u:%u: %s", source, source_line, source_column, buffer),
                                 NULL);
         else if (source_line > 0 && source_column > 0)
@@ -5051,9 +5046,9 @@ int json_log_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                "CONFIG_LINE=%u", source_line,
-                                "CONFIG_COLUMN=%u", source_column,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                                LOG_ITEM("CONFIG_LINE=%u", source_line),
+                                LOG_ITEM("CONFIG_COLUMN=%u", source_column),
                                 LOG_MESSAGE("(string):%u:%u: %s", source_line, source_column, buffer),
                                 NULL);
         else
@@ -5061,7 +5056,7 @@ int json_log_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
                                 LOG_MESSAGE("%s", buffer),
                                 NULL);
 }

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
-#include "pidref.h"
+#include "forward.h"
 
 typedef enum NamespaceType {
         NAMESPACE_CGROUP,
@@ -27,6 +25,8 @@ extern const struct namespace_info {
 } namespace_info[_NAMESPACE_TYPE_MAX + 1];
 
 NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag);
+
+bool namespace_type_supported(NamespaceType type);
 
 int pidref_namespace_open_by_type(const PidRef *pidref, NamespaceType type);
 int namespace_open_by_type(NamespaceType type);
@@ -54,13 +54,7 @@ int is_our_namespace(int fd, NamespaceType type);
 int namespace_is_init(NamespaceType type);
 
 int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type);
-static inline int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
-        assert(pid1 >= 0);
-        assert(pid2 >= 0);
-        return pidref_in_same_namespace(pid1 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid1),
-                                        pid2 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid2),
-                                        type);
-}
+int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
 
 int namespace_get_leader(PidRef *pidref, NamespaceType type, PidRef *ret);
 
@@ -86,8 +80,10 @@ static inline bool userns_shift_range_valid(uid_t shift, uid_t range) {
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range);
 
 int userns_acquire_empty(void);
-int userns_acquire(const char *uid_map, const char *gid_map);
+int userns_acquire(const char *uid_map, const char *gid_map, bool setgroups_deny);
+int userns_acquire_self_root(void);
 int userns_enter_and_pin(int userns_fd, pid_t *ret_pid);
+bool userns_supported(void);
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid);
 

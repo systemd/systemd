@@ -5,24 +5,23 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 
+#include "argv-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "chase.h"
 #include "device-util.h"
-#include "dirent-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
 #include "main-func.h"
-#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -31,12 +30,12 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "sort-util.h"
+#include "runtime-scope.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "udev-util.h"
-#include "umask-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -417,11 +416,11 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At least one argument required.");
 
-                if (arg_transport != BUS_TRANSPORT_LOCAL)
+                if (arg_transport != BUS_TRANSPORT_LOCAL || !arg_canonicalize)
                         for (int i = optind; i < argc; i++)
                                 if (!path_is_absolute(argv[i]))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Path must be absolute when operating remotely: %s",
+                                                               "Path must be absolute when operating remotely or when canonicalization is turned off: %s",
                                                                argv[i]);
         } else {
                 if (optind >= argc)
@@ -1301,6 +1300,7 @@ static int acquire_description(sd_device *d) {
 
 static int acquire_removable(sd_device *d) {
         const char *v;
+        int r;
 
         assert(d);
 
@@ -1312,10 +1312,16 @@ static int acquire_removable(sd_device *d) {
                 if (sd_device_get_sysattr_value(d, "removable", &v) >= 0)
                         break;
 
-                if (sd_device_get_parent(d, &d) < 0)
+                r = sd_device_get_parent(d, &d);
+                if (r == -ENODEV)
                         return 0;
+                if (r < 0)
+                        return r;
 
-                if (!device_in_subsystem(d, "block"))
+                r = device_in_subsystem(d, "block");
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return 0;
         }
 

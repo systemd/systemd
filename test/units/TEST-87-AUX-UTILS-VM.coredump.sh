@@ -191,15 +191,24 @@ rm -f /tmp/core.{output,redirected}
 (! "${UNPRIV_CMD[@]}" coredumpctl dump "$CORE_TEST_BIN" >/dev/null)
 
 # --backtrace mode
-# Pass one of the existing journal coredump records to systemd-coredump and
-# use our PID as the source to make matching the coredump later easier
-# systemd-coredump args: PID UID GID SIGNUM TIMESTAMP CORE_SOFT_RLIMIT HOSTNAME
+# Pass one of the existing journal coredump records to systemd-coredump.
+# Use our PID as the source to be able to create a PIDFD and to make matching easier.
+# systemd-coredump args: PID UID GID SIGNUM TIMESTAMP CORE_SOFT_RLIMIT [HOSTNAME]
 journalctl -b -n 1 --output=export --output-fields=MESSAGE,COREDUMP COREDUMP_EXE="/usr/bin/test-dump" |
-    /usr/lib/systemd/systemd-coredump --backtrace $$ 0 0 6 1679509994 12345 mymachine
-# Wait a bit for the coredump to get processed
-timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -eq 0 ]]; do sleep 1; done"
-coredumpctl info "$$"
+    /usr/lib/systemd/systemd-coredump --backtrace $$ 0 0 6 1679509900 12345
+journalctl -b -n 1 --output=export --output-fields=MESSAGE,COREDUMP COREDUMP_EXE="/usr/bin/test-dump" |
+    /usr/lib/systemd/systemd-coredump --backtrace $$ 0 0 6 1679509901 12345 mymachine
+journalctl -b -n 1 --output=export --output-fields=MESSAGE,COREDUMP COREDUMP_EXE="/usr/bin/test-dump" |
+    /usr/lib/systemd/systemd-coredump --backtrace $$ 0 0 6 1679509902 12345 youmachine 1
+# Wait a bit for the coredumps to get processed
+timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -lt 3 ]]; do sleep 1; done"
+coredumpctl info $$
+coredumpctl info COREDUMP_TIMESTAMP=1679509900000000
+coredumpctl info COREDUMP_TIMESTAMP=1679509901000000
 coredumpctl info COREDUMP_HOSTNAME="mymachine"
+coredumpctl info COREDUMP_TIMESTAMP=1679509902000000
+coredumpctl info COREDUMP_HOSTNAME="youmachine"
+coredumpctl info COREDUMP_DUMPABLE="1"
 
 # This used to cause a stack overflow
 systemd-run -t --property CoredumpFilter=all ls /tmp

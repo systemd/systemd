@@ -3,15 +3,15 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
 #include "glyph-util.h"
-#include "mkdir.h"
+#include "log.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "strv.h"
 
 static const char *arg_dest = NULL;
@@ -118,7 +118,7 @@ static int generate(void) {
         p = strjoina(arg_dest, "/" SPECIAL_DEFAULT_TARGET);
         if (symlink("kernel-command-line.target", p) < 0)
                 return log_error_errno(errno, "Failed to link unit file kernel-command-line.target %s %s: %m",
-                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                                       glyph(GLYPH_ARROW_RIGHT), p);
 
         return 0;
 }

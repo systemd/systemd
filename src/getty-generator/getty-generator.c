@@ -1,22 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "creds-util.h"
-#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
@@ -25,41 +24,38 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 
-static int add_serial_getty(const char *tty) {
-        _cleanup_free_ char *instance = NULL;
+static int add_getty_impl(const char *tty, const char *type, const char *unit_path) {
         int r;
 
-        assert(tty);
+        assert(type);
+        assert(unit_path);
 
-        tty = skip_dev_prefix(tty);
+        if (!filename_is_valid(tty)) {
+                log_debug("Invalid %s tty device specified, ignoring: %s", type, tty);
+                return 0;
+        }
 
-        log_debug("Automatically adding serial getty for /dev/%s.", tty);
-
+        _cleanup_free_ char *instance = NULL;
         r = unit_name_path_escape(tty, &instance);
         if (r < 0)
-                return log_error_errno(r, "Failed to escape tty path: %m");
+                return log_error_errno(r, "Failed to escape %s tty path %s: %m", type, tty);
 
-        return generator_add_symlink_full(arg_dest,
-                                          "getty.target", "wants",
-                                          SYSTEM_DATA_UNIT_DIR "/serial-getty@.service", instance);
+        log_debug("Automatically adding %s getty for %s.", type, tty);
+
+        return generator_add_symlink_full(arg_dest, "getty.target", "wants", unit_path, instance);
+}
+
+static int add_serial_getty(const char *tty) {
+        tty = skip_dev_prefix(ASSERT_PTR(tty));
+        return add_getty_impl(tty, "serial", SYSTEM_DATA_UNIT_DIR "/serial-getty@.service");
 }
 
 static int add_container_getty(const char *tty) {
-        _cleanup_free_ char *instance = NULL;
-        int r;
+        if (is_path(tty))
+                /* Check if it is actually a pty. */
+                tty = path_startswith(skip_dev_prefix(tty), "pts/");
 
-        assert(tty);
-        assert(!path_startswith(tty, "/dev/"));
-
-        log_debug("Automatically adding container getty for /dev/pts/%s.", tty);
-
-        r = unit_name_path_escape(tty, &instance);
-        if (r < 0)
-                return log_error_errno(r, "Failed to escape tty path: %m");
-
-        return generator_add_symlink_full(arg_dest,
-                                          "getty.target", "wants",
-                                          SYSTEM_DATA_UNIT_DIR "/container-getty@.service", instance);
+        return add_getty_impl(tty, "container", SYSTEM_DATA_UNIT_DIR "/container-getty@.service");
 }
 
 static int verify_tty(const char *path) {
@@ -104,15 +100,12 @@ static int run_container(void) {
                 if (r == 0)
                         return 0;
 
-                /* First strip off /dev/ if it is specified */
-                const char *tty = skip_dev_prefix(word);
-
-                /* Then, make sure it's actually a pty */
-                tty = path_startswith(tty, "pts/");
-                if (!tty)
+                /* add_container_getty() also accepts a filename, but here we request that the string
+                 * contains "pts/". */
+                if (!is_path(word))
                         continue;
 
-                r = add_container_getty(tty);
+                r = add_container_getty(word);
                 if (r < 0)
                         return r;
         }
@@ -242,17 +235,17 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                                 return r;
                 }
 
-        /* Automatically add in a serial getty on the first virtualizer console */
+        /* Automatically add a serial getty to each available virtualizer console. */
         FOREACH_STRING(j,
                        "hvc0",
                        "xvc0",
                        "hvsi0",
                        "sclp_line0",
                        "ttysclp0",
-                       "3270!tty1") {
+                       "3270/tty1") {
                 _cleanup_free_ char *p = NULL;
 
-                p = path_join("/sys/class/tty", j);
+                p = path_join("/dev", j);
                 if (!p)
                         return log_oom();
                 if (access(p, F_OK) < 0)

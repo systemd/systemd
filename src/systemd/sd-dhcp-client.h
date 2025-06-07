@@ -19,21 +19,19 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
-#include <sys/types.h>
 #include <stdbool.h>
-
-#include "sd-device.h"
-#include "sd-dhcp-client-id.h"
-#include "sd-dhcp-lease.h"
-#include "sd-dhcp-option.h"
-#include "sd-event.h"
 
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct in_addr;
+
+typedef struct sd_device sd_device;
+typedef struct sd_dhcp_client_id sd_dhcp_client_id;
+typedef struct sd_dhcp_lease sd_dhcp_lease;
+typedef struct sd_dhcp_option sd_dhcp_option;
+typedef struct sd_event sd_event;
 
 enum {
         SD_DHCP_CLIENT_EVENT_STOP               = 0,

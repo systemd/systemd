@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-internal.h"
+#include "sd-bus.h"
+#include "sd-event.h"
+
 #include "bus-message.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
-#include "process-util.h"
+#include "errno-util.h"
+#include "hashmap.h"
+#include "list.h"
+#include "log.h"
+#include "pidref.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 #include "varlink-util.h"
 
 static int bus_message_check_good_user(sd_bus_message *m, uid_t good_user) {
@@ -127,7 +133,7 @@ int bus_test_polkit(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL, *reply = NULL;
         int authorized = false, challenge = false;
 
-        r = bus_message_new_polkit_auth_call_for_bus(call, action, details, /* interactive = */ false, &request);
+        r = bus_message_new_polkit_auth_call_for_bus(call, action, details, /* flags = */ 0, &request);
         if (r < 0)
                 return r;
 
@@ -315,9 +321,10 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
                 log_debug("Polkit authorization for action '%s' succeeded.", a->action);
                 LIST_PREPEND(authorized, q->authorized_actions, TAKE_PTR(a));
         } else if (challenge) {
-                log_debug("Polkit authorization for action requires '%s' interactive authentication, which we didn't allow.", a->action);
+                log_debug("Polkit authorization for action '%s' requires interactive authentication, which we didn't allow.", a->action);
                 q->error_action = TAKE_PTR(a);
-                sd_bus_error_set_const(&q->error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
+                sd_bus_error_set_const(&q->error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED,
+                                       "Access denied as the requested operation requires interactive authentication. However, interactive authentication has not been enabled by the calling program.");
         } else {
                 log_debug("Polkit authorization for action '%s' denied.", a->action);
                 q->denied_action = TAKE_PTR(a);
@@ -437,6 +444,10 @@ static int async_polkit_query_check_action(
 
         if (q->absent_action)
                 return FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW) ? 1 /* Allow! */ : -EACCES /* Deny! */;
+
+        /* Also deny if we've got an auth. failure for a previous action */
+        if (q->denied_action || q->error_action)
+                return -EBUSY;
 
         return 0; /* no reply yet */
 }
@@ -881,3 +892,8 @@ bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char 
         return false;
 #endif
 }
+
+const sd_json_dispatch_field dispatch_table_polkit_only[] = {
+        VARLINK_DISPATCH_POLKIT_FIELD,
+        {}
+};

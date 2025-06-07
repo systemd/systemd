@@ -3,21 +3,28 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
+#include <linux/if_addr.h>
+#include <stdio.h>
+
+#include "sd-dhcp6-protocol.h"
+
+#include "conf-parser.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
-#include "networkd-dhcp6-bus.h"
 #include "networkd-dhcp6.h"
+#include "networkd-dhcp6-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-ntp.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-state-file.h"
+#include "set.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -134,8 +141,9 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv6 address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 

@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
@@ -25,11 +25,6 @@ TEST(print_paths) {
 TEST(path) {
         assert_se( path_is_absolute("/"));
         assert_se(!path_is_absolute("./"));
-
-        ASSERT_STREQ(basename("./aa/bb/../file.da."), "file.da.");
-        ASSERT_STREQ(basename("/aa///.file"), ".file");
-        ASSERT_STREQ(basename("/aa///file..."), "file...");
-        ASSERT_STREQ(basename("file.../"), "");
 
         assert_se( PATH_IN_SET("/bin", "/", "/bin", "/foo"));
         assert_se( PATH_IN_SET("/bin", "/bin"));
@@ -372,20 +367,24 @@ TEST(path_equal_root) {
 }
 
 TEST(find_executable_full) {
-        char *p;
-        char* test_file_name;
+        char *p, *bp;
+        _cleanup_free_ char *test_file_name = NULL;
         _cleanup_close_ int fd = -EBADF;
         char fn[] = "/tmp/test-XXXXXX";
 
         assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
-        ASSERT_STREQ(basename(p), "sh");
+        ASSERT_OK(path_extract_filename(p, &bp));
+        ASSERT_STREQ(bp, "sh");
         free(p);
+        free(bp);
 
         assert_se(find_executable_full("sh", NULL, NULL, false, &p, NULL) == 0);
         puts(p);
-        ASSERT_STREQ(basename(p), "sh");
+        ASSERT_OK(path_extract_filename(p, &bp));
+        ASSERT_STREQ(bp, "sh");
         free(p);
+        free(bp);
 
         _cleanup_free_ char *oldpath = NULL;
         p = getenv("PATH");
@@ -396,21 +395,25 @@ TEST(find_executable_full) {
 
         assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
-        ASSERT_STREQ(basename(p), "sh");
+        ASSERT_OK(path_extract_filename(p, &bp));
+        ASSERT_STREQ(bp, "sh");
         free(p);
+        free(bp);
 
         assert_se(find_executable_full("sh", NULL, NULL, false, &p, NULL) == 0);
         puts(p);
-        ASSERT_STREQ(basename(p), "sh");
+        ASSERT_OK(path_extract_filename(p, &bp));
+        ASSERT_STREQ(bp, "sh");
         free(p);
+        free(bp);
 
         if (oldpath)
-                assert_se(setenv("PATH", oldpath, true) >= 0);
+                ASSERT_OK_ERRNO(setenv("PATH", oldpath, true));
 
-        assert_se((fd = mkostemp_safe(fn)) >= 0);
-        assert_se(fchmod(fd, 0755) >= 0);
+        ASSERT_OK(fd = mkostemp_safe(fn));
+        ASSERT_OK_ERRNO(fchmod(fd, 0755));
 
-        test_file_name = basename(fn);
+        ASSERT_OK(path_extract_filename(fn, &test_file_name));
 
         assert_se(find_executable_full(test_file_name, NULL, STRV_MAKE("/doesnotexist", "/tmp", "/bin"), false, &p, NULL) == 0);
         puts(p);
@@ -423,6 +426,7 @@ TEST(find_executable_full) {
 
 TEST(find_executable) {
         char *p;
+        _cleanup_free_ char *bp = NULL;
 
         assert_se(find_executable("/bin/sh", &p) == 0);
         puts(p);
@@ -447,7 +451,8 @@ TEST(find_executable) {
 
         assert_se(find_executable("touch", &p) == 0);
         assert_se(path_is_absolute(p));
-        ASSERT_STREQ(basename(p), "touch");
+        ASSERT_OK(path_extract_filename(p, &bp));
+        ASSERT_STREQ(bp, "touch");
         free(p);
 
         assert_se(find_executable("xxxx-xxxx", &p) == -ENOENT);
@@ -756,14 +761,29 @@ TEST(path_startswith) {
         test_path_startswith_one("/foo/bar/barfoo/", "/fo", NULL, NULL);
 }
 
+static void test_path_startswith_return_leading_slash_one(const char *path, const char *prefix, const char *expected) {
+        const char *p;
+
+        log_debug("/* %s(%s, %s) */", __func__, path, prefix);
+
+        p = path_startswith_full(path, prefix, PATH_STARTSWITH_RETURN_LEADING_SLASH);
+        ASSERT_STREQ(p, expected);
+}
+
+TEST(path_startswith_return_leading_slash) {
+        test_path_startswith_return_leading_slash_one("/foo/bar", "/", "/foo/bar");
+        test_path_startswith_return_leading_slash_one("/foo/bar", "/foo", "/bar");
+        test_path_startswith_return_leading_slash_one("/foo/bar", "/foo/bar", NULL);
+        test_path_startswith_return_leading_slash_one("/foo/bar/", "/foo/bar", "/");
+}
+
 static void test_prefix_root_one(const char *r, const char *p, const char *expected) {
         _cleanup_free_ char *s = NULL;
-        const char *t;
 
         assert_se(s = path_join(r, p));
         assert_se(path_equal(s, expected));
 
-        t = prefix_roota(r, p);
+        _cleanup_free_ char *t = path_join(r, p);
         assert_se(t);
         assert_se(path_equal(t, expected));
 }

@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "dns-def.h"
 #include "dns-domain.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "idn-util.h"
+#include "log.h"
 #include "resolved-util.h"
 #include "utf8.h"
 

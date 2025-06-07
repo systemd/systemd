@@ -2,7 +2,6 @@
 #pragma once
 
 #include "efi.h"
-#include "macro-fundamental.h"
 
 size_t strnlen8(const char *s, size_t n);
 size_t strnlen16(const char16_t *s, size_t n);

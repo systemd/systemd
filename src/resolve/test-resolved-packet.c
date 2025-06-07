@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "hexdecoct.h"
 #include "log.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-rr.h"
 #include "tests.h"
 
 TEST(dns_packet_new) {
@@ -205,7 +209,7 @@ TEST(naptr) {
         assert(streq(joined, twilio_reply_string));
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parsed = NULL;
-        assert_se(sd_json_parse(twilio_reply_json, /* flags= */ 0, &parsed, /* ret_line= */ NULL, /* ret_column= */ NULL) >= 0);
+        assert_se(sd_json_parse(twilio_reply_json, /* flags= */ 0, &parsed, /* reterr_line= */ NULL, /* ret_column= */ NULL) >= 0);
 
         assert_se(sd_json_variant_equal(parsed, a));
 }

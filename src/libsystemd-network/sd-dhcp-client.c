@@ -3,13 +3,9 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <net/ethernet.h>
+#include <linux/if_infiniband.h>
 #include <net/if_arp.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/ioctl.h>
-#include <linux/if_infiniband.h>
 
 #include "sd-dhcp-client.h"
 
@@ -22,6 +18,7 @@
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -31,12 +28,12 @@
 #include "network-common.h"
 #include "random-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "utf8.h"
 #include "web-util.h"
 
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
@@ -740,10 +737,9 @@ static void client_stop(sd_dhcp_client *client, int error) {
  * for retransmission delays, timeout should start at 4s then double
  * each attempt with max of 64s, with -1 to +1 sec of random 'fuzz' added.
  * This assumes the first call will be using attempt 1. */
-static usec_t client_compute_request_timeout(usec_t now, uint64_t attempt) {
+static usec_t client_compute_request_timeout(uint64_t attempt) {
         usec_t timeout = (UINT64_C(1) << MIN(attempt + 1, UINT64_C(6))) * USEC_PER_SEC;
-
-        return usec_sub_signed(usec_add(now, timeout), RFC2131_RANDOM_FUZZ);
+        return usec_sub_signed(timeout, RFC2131_RANDOM_FUZZ);
 }
 
 /* RFC2131 section 4.4.5:
@@ -758,8 +754,8 @@ static usec_t client_compute_request_timeout(usec_t now, uint64_t attempt) {
  * of 60 seconds.
  * Note that while the default T1/T2 initial times do have random 'fuzz' applied,
  * the RFC sec 4.4.5 does not mention adding any fuzz to retries. */
-static usec_t client_compute_reacquisition_timeout(usec_t now, usec_t expire) {
-        return now + MAX(usec_sub_unsigned(expire, now) / 2, 60 * USEC_PER_SEC);
+static usec_t client_compute_reacquisition_timeout(usec_t now_usec, usec_t expire) {
+        return MAX(usec_sub_unsigned(expire, now_usec) / 2, 60 * USEC_PER_SEC);
 }
 
 static int cmp_uint8(const uint8_t *a, const uint8_t *b) {
@@ -1242,7 +1238,7 @@ static int client_timeout_resend(
                         goto error;
 
                 client->discover_attempt++;
-                next_timeout = client_compute_request_timeout(time_now, client->discover_attempt);
+                next_timeout = client_compute_request_timeout(client->discover_attempt);
                 break;
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_BOUND:
@@ -1250,7 +1246,7 @@ static int client_timeout_resend(
                         goto error;
 
                 client->request_attempt++;
-                next_timeout = client_compute_request_timeout(time_now, client->request_attempt);
+                next_timeout = client_compute_request_timeout(client->request_attempt);
                 break;
 
         case DHCP_STATE_STOPPED:
@@ -1261,11 +1257,11 @@ static int client_timeout_resend(
                 assert_not_reached();
         }
 
-        r = event_reset_time(client->event, &client->timeout_resend,
-                             CLOCK_BOOTTIME,
-                             next_timeout, 10 * USEC_PER_MSEC,
-                             client_timeout_resend, client,
-                             client->event_priority, "dhcp4-resend-timer", true);
+        r = event_reset_time_relative(
+                        client->event, &client->timeout_resend,
+                        CLOCK_BOOTTIME, next_timeout, 10 * USEC_PER_MSEC,
+                        client_timeout_resend, client,
+                        client->event_priority, "dhcp4-resend-timer", true);
         if (r < 0)
                 goto error;
 
@@ -2057,7 +2053,8 @@ static int client_receive_message_udp(
         sd_dhcp_client *client = ASSERT_PTR(userdata);
         _cleanup_free_ DHCPMessage *message = NULL;
         ssize_t len, buflen;
-        /* This needs to be initialized with zero. See #20741. */
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov;
         struct msghdr msg = {
@@ -2108,7 +2105,8 @@ static int client_receive_message_raw(
 
         sd_dhcp_client *client = ASSERT_PTR(userdata);
         _cleanup_free_ DHCPPacket *packet = NULL;
-        /* This needs to be initialized with zero. See #20741. */
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL +
                          CMSG_SPACE(sizeof(struct tpacket_auxdata))) control = {};
         struct iovec iov = {};

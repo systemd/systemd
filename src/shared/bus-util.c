@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
+#include <malloc.h>
 #include <stdlib.h>
-#include <sys/ioctl.h>
-#include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -14,6 +12,7 @@
 #include "sd-event.h"
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
 #include "bus-label.h"
@@ -22,14 +21,20 @@
 #include "chase.h"
 #include "daemon-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "log.h"
 #include "memfd-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "uid-classification.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -59,6 +64,10 @@ int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeSc
                               hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
                               hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
                                           "Failed to connect to %s scope bus via %s transport: %m", runtime_scope_to_string(scope), bus_transport_to_string(transport));
+}
+
+int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope) {
+        return bus_log_connect_full(LOG_ERR, r, transport, scope);
 }
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
@@ -153,7 +162,7 @@ int bus_event_loop_with_idle(
 
                         /* Inform the service manager that we are going down, so that it will queue all
                          * further start requests, instead of assuming we are still running. */
-                        (void) sd_notify(false, NOTIFY_STOPPING);
+                        (void) sd_notify(false, NOTIFY_STOPPING_MESSAGE);
 
                         r = bus_async_unregister_and_exit(e, bus, name);
                         if (r < 0)
@@ -201,6 +210,13 @@ bool bus_error_is_unknown_service(const sd_bus_error *error) {
                                       SD_BUS_ERROR_SERVICE_UNKNOWN,
                                       SD_BUS_ERROR_NAME_HAS_NO_OWNER,
                                       BUS_ERROR_NO_SUCH_UNIT);
+}
+
+bool bus_error_is_connection(const sd_bus_error *error) {
+        return sd_bus_error_has_names(error,
+                                      SD_BUS_ERROR_NO_REPLY,
+                                      SD_BUS_ERROR_DISCONNECTED,
+                                      SD_BUS_ERROR_TIMED_OUT);
 }
 
 int bus_check_peercred(sd_bus *c) {
@@ -914,7 +930,7 @@ int bus_get_instance_id(sd_bus *bus, sd_id128_t *ret) {
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "GetId",
-                               /* error = */ NULL, &reply,
+                               /* ret_error = */ NULL, &reply,
                                NULL);
         if (r < 0)
                 return r;

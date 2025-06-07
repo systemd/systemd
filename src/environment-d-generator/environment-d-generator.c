@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "sd-path.h"
 
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "env-file.h"
@@ -9,7 +12,7 @@
 #include "glyph-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "path-lookup.h"
+#include "string-util.h"
 #include "strv.h"
 
 static int environment_dirs(char ***ret) {
@@ -57,7 +60,7 @@ static int load_and_print(void) {
          * that in case of failure, a partial update is better than none. */
 
         STRV_FOREACH(i, files) {
-                log_debug("Reading %s%s", *i, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_debug("Reading %s%s", *i, glyph(GLYPH_ELLIPSIS));
 
                 r = merge_env_file(&env, NULL, *i);
                 if (r == -ENOMEM)

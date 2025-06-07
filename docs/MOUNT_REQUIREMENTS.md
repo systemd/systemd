@@ -59,6 +59,14 @@ initrd), and require some late boot service (for example a network manager
 implementation) to operate this will likely result in cyclic ordering
 dependencies, and will result in various forms of boot failures.
 
+Also note that the whole of `/var/` (including `/var/tmp/`), and `/tmp/` must
+be *writable* at the moment indicated above. It's OK if they are mounted
+read-only at an earlier time as long as they are remounted writable by the
+indicated point in time. Systems where these three hierarchies remain read-only
+during regular operation are not supported by `systemd`. (Note that for
+stateless systems it is absolutely OK and supported to mount an empty `tmpfs`
+there at boot, `systemd` will know how to populate the tree as necessary.)
+
 If you intend to use network-backed mounts (NFS, SMB, iSCSI, NVME-TCP and
 similar, including anything you add the `_netdev` pseudo mount option to) for
 any of the mounts from category 1 or 2, make sure to use a network managing

@@ -2,7 +2,6 @@
 
 #include "errno-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(strerror_not_threadsafe) {
@@ -27,8 +26,8 @@ TEST(STRERROR) {
         log_info("STRERROR(%d), STRERROR(%d) → %s, %s", 200, 201, STRERROR(200), STRERROR(201));
 
         const char *a = STRERROR(200), *b = STRERROR(201);
-        assert_se(strstr(a, "200"));
-        assert_se(strstr(b, "201"));
+        ASSERT_NOT_NULL(strstr(a, "200"));
+        ASSERT_NOT_NULL(strstr(b, "201"));
 
         /* Check with negative values */
         ASSERT_STREQ(a, STRERROR(-200));
@@ -38,7 +37,7 @@ TEST(STRERROR) {
         char buf[DECIMAL_STR_MAX(int)];
         xsprintf(buf, "%d", INT_MAX);  /* INT_MAX is hexadecimal, use printf to convert to decimal */
         log_info("STRERROR(%d) → %s", INT_MAX, c);
-        assert_se(strstr(c, buf));
+        ASSERT_NOT_NULL(strstr(c, buf));
 }
 
 TEST(STRERROR_OR_ELSE) {
@@ -53,7 +52,7 @@ TEST(PROTECT_ERRNO) {
                 PROTECT_ERRNO;
                 errno = 11;
         }
-        assert_se(errno == 12);
+        ASSERT_EQ(errno, 12);
 }
 
 static void test_unprotect_errno_inner_function(void) {
@@ -71,42 +70,41 @@ TEST(UNPROTECT_ERRNO) {
 
         UNPROTECT_ERRNO;
 
-        assert_se(errno == 4711);
+        ASSERT_EQ(errno, 4711);
 
         test_unprotect_errno_inner_function();
-
-        assert_se(errno == 4711);
+        ASSERT_EQ(errno, 4711);
 }
 
 TEST(RET_GATHER) {
         int x = 0, y = 2;
 
-        assert_se(RET_GATHER(x, 5) == 0);
-        assert_se(RET_GATHER(x, -5) == -5);
-        assert_se(RET_GATHER(x, -1) == -5);
+        ASSERT_EQ(RET_GATHER(x, 5), 0);
+        ASSERT_EQ(RET_GATHER(x, -5), -5);
+        ASSERT_EQ(RET_GATHER(x, -1), -5);
 
-        assert_se(RET_GATHER(x, y++) == -5);
-        assert_se(y == 3);
+        ASSERT_EQ(RET_GATHER(x, y++), -5);
+        ASSERT_EQ(y, 3);
 }
 
 TEST(ERRNO_IS_TRANSIENT) {
-        assert_se( ERRNO_IS_NEG_TRANSIENT(-EINTR));
-        assert_se(!ERRNO_IS_NEG_TRANSIENT(EINTR));
-        assert_se( ERRNO_IS_TRANSIENT(-EINTR));
-        assert_se( ERRNO_IS_TRANSIENT(EINTR));
+        ASSERT_TRUE(ERRNO_IS_NEG_TRANSIENT(-EINTR));
+        ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(EINTR));
+        ASSERT_TRUE(ERRNO_IS_TRANSIENT(-EINTR));
+        ASSERT_TRUE(ERRNO_IS_TRANSIENT(EINTR));
 
         /* Test with type wider than int */
         ssize_t r = -EAGAIN;
-        assert_se( ERRNO_IS_NEG_TRANSIENT(r));
+        ASSERT_TRUE(ERRNO_IS_NEG_TRANSIENT(r));
 
         /* On 64-bit arches, now (int) r == EAGAIN */
         r = SSIZE_MAX - EAGAIN + 1;
-        assert_se(!ERRNO_IS_NEG_TRANSIENT(r));
+        ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(r));
 
-        assert_se(!ERRNO_IS_NEG_TRANSIENT(INT_MAX));
-        assert_se(!ERRNO_IS_NEG_TRANSIENT(INT_MIN));
-        assert_se(!ERRNO_IS_NEG_TRANSIENT(INTMAX_MAX));
-        assert_se(!ERRNO_IS_NEG_TRANSIENT(INTMAX_MIN));
+        ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(INT_MAX));
+        ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(INT_MIN));
+        ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(INTMAX_MAX));
+        ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(INTMAX_MIN));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

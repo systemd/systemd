@@ -21,9 +21,18 @@ if conf.get('ENABLE_SSH_PROXY_CONFIG') == 1
                 install_dir : sshconfdir.startswith('/usr/') ? sshconfdir : libexecdir / 'ssh_config.d')
 
         if conf.get('LINK_SSH_PROXY_DROPIN') == 1
-                install_emptydir(sshconfdir)
+                if meson.version().version_compare('>=1.3.0')
+                        install_symlink(
+                                '20-systemd-ssh-proxy.conf',
+                                pointing_to : fs.relative_to(libexecdir / 'ssh_config.d' / '20-systemd-ssh-proxy.conf',
+                                                             sshconfdir),
+                                install_dir : sshconfdir)
+                else
+                        install_emptydir(sshconfdir)
 
-                meson.add_install_script(sh, '-c',
-                        ln_s.format(libexecdir / 'ssh_config.d' / '20-systemd-ssh-proxy.conf', sshconfdir / '20-systemd-ssh-proxy.conf'))
+                        meson.add_install_script(sh, '-c',
+                                ln_s.format(libexecdir / 'ssh_config.d' / '20-systemd-ssh-proxy.conf',
+                                            sshconfdir / '20-systemd-ssh-proxy.conf'))
+                endif
         endif
 endif

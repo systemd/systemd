@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "group-record.h"
 #include "json-util.h"
+#include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "uid-classification.h"
 #include "user-util.h"
@@ -174,6 +177,7 @@ int group_record_load(
         static const sd_json_dispatch_field group_dispatch_table[] = {
                 { "groupName",      SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       SD_JSON_RELAX  },
                 { "realm",          SD_JSON_VARIANT_STRING,        json_dispatch_realm,            offsetof(GroupRecord, realm),            0              },
+                { "uuid",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,         offsetof(GroupRecord, uuid),             0              },
                 { "description",    SD_JSON_VARIANT_STRING,        json_dispatch_gecos,            offsetof(GroupRecord, description),      0              },
                 { "disposition",    SD_JSON_VARIANT_STRING,        json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0              },
                 { "service",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(GroupRecord, service),          SD_JSON_STRICT },
@@ -371,4 +375,16 @@ bool group_record_match(GroupRecord *h, const UserDBMatch *match) {
         }
 
         return true;
+}
+
+bool group_record_is_root(const GroupRecord *g) {
+        assert(g);
+
+        return g->gid == 0 || streq_ptr(g->group_name, "root");
+}
+
+bool group_record_is_nobody(const GroupRecord *g) {
+        assert(g);
+
+        return g->gid == GID_NOBODY || STRPTR_IN_SET(g->group_name, NOBODY_GROUP_NAME, "nobody");
 }

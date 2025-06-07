@@ -3,7 +3,6 @@
 #include "glyph-util.h"
 #include "kbd-util.h"
 #include "locale-util.h"
-#include "macro.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -80,61 +79,62 @@ TEST(keymaps) {
         assert_se(keymap_is_valid("unicode"));
 }
 
-#define dump_glyph(x) log_info(STRINGIFY(x) ": %s", special_glyph(x))
-TEST(dump_special_glyphs) {
-        assert_cc(SPECIAL_GLYPH_IDCARD + 1 == _SPECIAL_GLYPH_MAX);
+#define dump_glyph(x) log_info(STRINGIFY(x) ": %s", glyph(x))
+TEST(dump_glyphs) {
+        assert_cc(GLYPH_HOME + 1 == _GLYPH_MAX);
 
         log_info("is_locale_utf8: %s", yes_no(is_locale_utf8()));
 
-        dump_glyph(SPECIAL_GLYPH_TREE_VERTICAL);
-        dump_glyph(SPECIAL_GLYPH_TREE_BRANCH);
-        dump_glyph(SPECIAL_GLYPH_TREE_RIGHT);
-        dump_glyph(SPECIAL_GLYPH_TREE_SPACE);
-        dump_glyph(SPECIAL_GLYPH_TREE_TOP);
-        dump_glyph(SPECIAL_GLYPH_VERTICAL_DOTTED);
-        dump_glyph(SPECIAL_GLYPH_HORIZONTAL_DOTTED);
-        dump_glyph(SPECIAL_GLYPH_HORIZONTAL_FAT);
-        dump_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET);
-        dump_glyph(SPECIAL_GLYPH_BLACK_CIRCLE);
-        dump_glyph(SPECIAL_GLYPH_WHITE_CIRCLE);
-        dump_glyph(SPECIAL_GLYPH_MULTIPLICATION_SIGN);
-        dump_glyph(SPECIAL_GLYPH_CIRCLE_ARROW);
-        dump_glyph(SPECIAL_GLYPH_BULLET);
-        dump_glyph(SPECIAL_GLYPH_MU);
-        dump_glyph(SPECIAL_GLYPH_CHECK_MARK);
-        dump_glyph(SPECIAL_GLYPH_CROSS_MARK);
-        dump_glyph(SPECIAL_GLYPH_LIGHT_SHADE);
-        dump_glyph(SPECIAL_GLYPH_DARK_SHADE);
-        dump_glyph(SPECIAL_GLYPH_FULL_BLOCK);
-        dump_glyph(SPECIAL_GLYPH_SIGMA);
-        dump_glyph(SPECIAL_GLYPH_ARROW_UP);
-        dump_glyph(SPECIAL_GLYPH_ARROW_DOWN);
-        dump_glyph(SPECIAL_GLYPH_ARROW_LEFT);
-        dump_glyph(SPECIAL_GLYPH_ARROW_RIGHT);
-        dump_glyph(SPECIAL_GLYPH_ELLIPSIS);
-        dump_glyph(SPECIAL_GLYPH_EXTERNAL_LINK);
-        dump_glyph(SPECIAL_GLYPH_ECSTATIC_SMILEY);
-        dump_glyph(SPECIAL_GLYPH_HAPPY_SMILEY);
-        dump_glyph(SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY);
-        dump_glyph(SPECIAL_GLYPH_NEUTRAL_SMILEY);
-        dump_glyph(SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY);
-        dump_glyph(SPECIAL_GLYPH_UNHAPPY_SMILEY);
-        dump_glyph(SPECIAL_GLYPH_DEPRESSED_SMILEY);
-        dump_glyph(SPECIAL_GLYPH_LOCK_AND_KEY);
-        dump_glyph(SPECIAL_GLYPH_TOUCH);
-        dump_glyph(SPECIAL_GLYPH_RECYCLING);
-        dump_glyph(SPECIAL_GLYPH_DOWNLOAD);
-        dump_glyph(SPECIAL_GLYPH_SPARKLES);
-        dump_glyph(SPECIAL_GLYPH_LOW_BATTERY);
-        dump_glyph(SPECIAL_GLYPH_WARNING_SIGN);
-        dump_glyph(SPECIAL_GLYPH_COMPUTER_DISK);
-        dump_glyph(SPECIAL_GLYPH_WORLD);
-        dump_glyph(SPECIAL_GLYPH_RED_CIRCLE);
-        dump_glyph(SPECIAL_GLYPH_YELLOW_CIRCLE);
-        dump_glyph(SPECIAL_GLYPH_BLUE_CIRCLE);
-        dump_glyph(SPECIAL_GLYPH_GREEN_CIRCLE);
-        dump_glyph(SPECIAL_GLYPH_SUPERHERO);
-        dump_glyph(SPECIAL_GLYPH_IDCARD);
+        dump_glyph(GLYPH_TREE_VERTICAL);
+        dump_glyph(GLYPH_TREE_BRANCH);
+        dump_glyph(GLYPH_TREE_RIGHT);
+        dump_glyph(GLYPH_TREE_SPACE);
+        dump_glyph(GLYPH_TREE_TOP);
+        dump_glyph(GLYPH_VERTICAL_DOTTED);
+        dump_glyph(GLYPH_HORIZONTAL_DOTTED);
+        dump_glyph(GLYPH_HORIZONTAL_FAT);
+        dump_glyph(GLYPH_TRIANGULAR_BULLET);
+        dump_glyph(GLYPH_BLACK_CIRCLE);
+        dump_glyph(GLYPH_WHITE_CIRCLE);
+        dump_glyph(GLYPH_MULTIPLICATION_SIGN);
+        dump_glyph(GLYPH_CIRCLE_ARROW);
+        dump_glyph(GLYPH_BULLET);
+        dump_glyph(GLYPH_MU);
+        dump_glyph(GLYPH_CHECK_MARK);
+        dump_glyph(GLYPH_CROSS_MARK);
+        dump_glyph(GLYPH_LIGHT_SHADE);
+        dump_glyph(GLYPH_DARK_SHADE);
+        dump_glyph(GLYPH_FULL_BLOCK);
+        dump_glyph(GLYPH_SIGMA);
+        dump_glyph(GLYPH_ARROW_UP);
+        dump_glyph(GLYPH_ARROW_DOWN);
+        dump_glyph(GLYPH_ARROW_LEFT);
+        dump_glyph(GLYPH_ARROW_RIGHT);
+        dump_glyph(GLYPH_ELLIPSIS);
+        dump_glyph(GLYPH_EXTERNAL_LINK);
+        dump_glyph(GLYPH_ECSTATIC_SMILEY);
+        dump_glyph(GLYPH_HAPPY_SMILEY);
+        dump_glyph(GLYPH_SLIGHTLY_HAPPY_SMILEY);
+        dump_glyph(GLYPH_NEUTRAL_SMILEY);
+        dump_glyph(GLYPH_SLIGHTLY_UNHAPPY_SMILEY);
+        dump_glyph(GLYPH_UNHAPPY_SMILEY);
+        dump_glyph(GLYPH_DEPRESSED_SMILEY);
+        dump_glyph(GLYPH_LOCK_AND_KEY);
+        dump_glyph(GLYPH_TOUCH);
+        dump_glyph(GLYPH_RECYCLING);
+        dump_glyph(GLYPH_DOWNLOAD);
+        dump_glyph(GLYPH_SPARKLES);
+        dump_glyph(GLYPH_LOW_BATTERY);
+        dump_glyph(GLYPH_WARNING_SIGN);
+        dump_glyph(GLYPH_COMPUTER_DISK);
+        dump_glyph(GLYPH_WORLD);
+        dump_glyph(GLYPH_RED_CIRCLE);
+        dump_glyph(GLYPH_YELLOW_CIRCLE);
+        dump_glyph(GLYPH_BLUE_CIRCLE);
+        dump_glyph(GLYPH_GREEN_CIRCLE);
+        dump_glyph(GLYPH_SUPERHERO);
+        dump_glyph(GLYPH_IDCARD);
+        dump_glyph(GLYPH_HOME);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

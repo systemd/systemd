@@ -2,9 +2,12 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "creds-util.h"
 #include "discover-image.h"
 #include "efivars.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
@@ -12,9 +15,10 @@
 #include "initrd-util.h"
 #include "json-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
-#include "special.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "unit-name.h"
 #include "web-util.h"
 

@@ -1,46 +1,46 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <syslog.h>
 #include <sys/mount.h>
-#include <sys/prctl.h>
+
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bpf-restrict-fs.h"
 #include "bus-get-properties.h"
 #include "bus-unit-util.h"
-#include "bus-util.h"
 #include "cap-list.h"
-#include "capability-util.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
 #include "dbus-execute.h"
 #include "dbus-util.h"
+#include "dissect-image.h"
 #include "env-util.h"
-#include "errno-list.h"
 #include "escape.h"
 #include "exec-credential.h"
 #include "execute.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "image-policy.h"
 #include "ioprio-util.h"
 #include "iovec-util.h"
 #include "journal-file.h"
-#include "load-fragment.h"
 #include "memstream-util.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
-#include "parse-util.h"
+#include "nsflags.h"
+#include "ordered-set.h"
 #include "path-util.h"
 #include "pcre2-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
+#include "set.h"
 #include "specifier.h"
-#include "stat-util.h"
 #include "strv.h"
 #include "syslog-util.h"
-#include "unit-printf.h"
+#include "unit.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -440,7 +440,7 @@ static int property_get_restrict_filesystems(
                 sd_bus_error *error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_free_ char **l = NULL;
+        _cleanup_free_ char **l = NULL; /* Strings are owned by 'c->restrict_filesystems'! */
         int r;
 
         assert(bus);
@@ -1097,6 +1097,23 @@ static int property_get_protect_hostname_ex(
         return sd_bus_message_append(reply, "(ss)", protect_hostname_to_string(c->protect_hostname), c->private_hostname);
 }
 
+static int property_get_unsigned_as_uint16(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        unsigned *value = ASSERT_PTR(userdata);
+
+        /* Returns an unsigned as a D-Bus "q" type, i.e. as 16-bit value, even if unsigned is 32-bit. We'll saturate if it doesn't fit. */
+
+        uint16_t q = *value >= UINT16_MAX ? UINT16_MAX : (uint16_t) *value;
+        return sd_bus_message_append_basic(reply, 'q', &q);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1174,8 +1191,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("TTYReset", "b", bus_property_get_bool, offsetof(ExecContext, tty_reset), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TTYVHangup", "b", bus_property_get_bool, offsetof(ExecContext, tty_vhangup), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TTYVTDisallocate", "b", bus_property_get_bool, offsetof(ExecContext, tty_vt_disallocate), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("TTYRows", "q", bus_property_get_unsigned, offsetof(ExecContext, tty_rows), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("TTYColumns", "q", bus_property_get_unsigned, offsetof(ExecContext, tty_cols), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TTYRows", "q", property_get_unsigned_as_uint16, offsetof(ExecContext, tty_rows), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TTYColumns", "q", property_get_unsigned_as_uint16, offsetof(ExecContext, tty_cols), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogPriority", "i", bus_property_get_int, offsetof(ExecContext, syslog_priority), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogIdentifier", "s", NULL, offsetof(ExecContext, syslog_identifier), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogLevelPrefix", "b", bus_property_get_bool, offsetof(ExecContext, syslog_level_prefix), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1453,11 +1470,12 @@ int bus_property_get_exec_ex_command_list(
         return sd_bus_message_close_container(reply);
 }
 
-static char *exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
+static char* exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
         return strjoin(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
                        FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
                        FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "");
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)        ? "|" : "");
 }
 
 int bus_set_transient_exec_command(
@@ -1485,30 +1503,58 @@ int bus_set_transient_exec_command(
                 return r;
 
         while ((r = sd_bus_message_enter_container(message, 'r', ex_prop ? "sasas" : "sasb")) > 0) {
-                _cleanup_strv_free_ char **argv = NULL, **ex_opts = NULL;
+                _cleanup_strv_free_ char **argv = NULL;
                 const char *path;
-                int b;
+                ExecCommandFlags command_flags;
 
                 r = sd_bus_message_read(message, "s", &path);
                 if (r < 0)
                         return r;
 
-                if (!path_is_absolute(path) && !filename_is_valid(path))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "\"%s\" is neither a valid executable name nor an absolute path",
-                                                 path);
-
                 r = sd_bus_message_read_strv(message, &argv);
                 if (r < 0)
                         return r;
 
-                if (strv_isempty(argv))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "\"%s\" argv cannot be empty", name);
+                if (ex_prop) {
+                        _cleanup_strv_free_ char **ex_opts = NULL;
 
-                r = ex_prop ? sd_bus_message_read_strv(message, &ex_opts) : sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
+                        r = sd_bus_message_read_strv(message, &ex_opts);
+                        if (r < 0)
+                                return r;
+
+                        r = exec_command_flags_from_strv(ex_opts, &command_flags);
+                        if (r < 0)
+                                return r;
+                } else {
+                        int b;
+
+                        r = sd_bus_message_read(message, "b", &b);
+                        if (r < 0)
+                                return r;
+
+                        command_flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
+                }
+
+                if (!FLAGS_SET(command_flags, EXEC_COMMAND_VIA_SHELL)) {
+                        if (!filename_or_absolute_path_is_valid(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "\"%s\" is neither a valid executable name nor an absolute path",
+                                                         path);
+
+                        if (strv_isempty(argv))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "\"%s\" argv cannot be empty", name);
+                } else {
+                        /* Always normalize path and argv0 to be "sh" */
+                        path = _PATH_BSHELL;
+
+                        if (strv_isempty(argv))
+                                r = strv_extend(&argv, "sh");
+                        else
+                                r = free_and_strdup(&argv[0], argv[0][0] == '-' ? "-sh" : "sh");
+                        if (r < 0)
+                                return r;
+                }
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
@@ -1523,18 +1569,12 @@ int bus_set_transient_exec_command(
 
                         *c = (ExecCommand) {
                                 .argv = TAKE_PTR(argv),
+                                .flags = command_flags,
                         };
 
                         r = path_simplify_alloc(path, &c->path);
                         if (r < 0)
                                 return r;
-
-                        if (ex_prop) {
-                                r = exec_command_flags_from_strv(ex_opts, &c->flags);
-                                if (r < 0)
-                                        return r;
-                        } else if (b)
-                                c->flags |= EXEC_COMMAND_IGNORE_FAILURE;
 
                         exec_command_append_list(exec_command, TAKE_PTR(c));
                 }
@@ -1566,17 +1606,19 @@ int bus_set_transient_exec_command(
                         _cleanup_free_ char *a = NULL, *exec_chars = NULL;
                         UnitWriteFlags esc_flags = UNIT_ESCAPE_SPECIFIERS |
                                 (FLAGS_SET(c->flags, EXEC_COMMAND_NO_ENV_EXPAND) ? UNIT_ESCAPE_EXEC_SYNTAX : UNIT_ESCAPE_EXEC_SYNTAX_ENV);
+                        bool via_shell = FLAGS_SET(c->flags, EXEC_COMMAND_VIA_SHELL);
 
                         exec_chars = exec_command_flags_to_exec_chars(c->flags);
                         if (!exec_chars)
                                 return -ENOMEM;
 
-                        a = unit_concat_strv(c->argv, esc_flags);
+                        a = unit_concat_strv(via_shell ? strv_skip(c->argv, 1) : c->argv, esc_flags);
                         if (!a)
                                 return -ENOMEM;
 
-                        if (streq_ptr(c->path, c->argv ? c->argv[0] : NULL))
-                                fprintf(f, "%s=%s%s\n", written_name, exec_chars, a);
+                        if (via_shell || streq(c->path, c->argv[0]))
+                                fprintf(f, "%s=%s%s%s\n",
+                                        written_name, exec_chars, via_shell && c->argv[0][0] == '-' ? "@" : "", a);
                         else {
                                 _cleanup_free_ char *t = NULL;
                                 const char *p;
@@ -1845,8 +1887,8 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(allow_list) && strv_isempty(deny_list)) {
-                                c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
-                                c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
+                                c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+                                c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 r = set_put_strdupv(&c->log_filter_allowed_patterns, allow_list);
@@ -2223,7 +2265,7 @@ int bus_exec_context_set_transient_property(
 
                         if (strv_isempty(l)) {
                                 c->restrict_filesystems_allow_list = false;
-                                c->restrict_filesystems = set_free_free(c->restrict_filesystems);
+                                c->restrict_filesystems = set_free(c->restrict_filesystems);
 
                                 unit_write_setting(u, flags, name, "RestrictFileSystems=");
                                 return 1;
@@ -2753,18 +2795,11 @@ int bus_exec_context_set_transient_property(
 
                         if (strv_isempty(l))
                                 c->syscall_archs = set_free(c->syscall_archs);
-                        else
-                                STRV_FOREACH(s, l) {
-                                        uint32_t a;
-
-                                        r = seccomp_arch_from_string(*s, &a);
-                                        if (r < 0)
-                                                return r;
-
-                                        r = set_ensure_put(&c->syscall_archs, NULL, UINT32_TO_PTR(a + 1));
-                                        if (r < 0)
-                                                return r;
-                                }
+                        else {
+                                r = parse_syscall_archs(l, &c->syscall_archs);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         joined = strv_join(l, " ");
                         if (!joined)

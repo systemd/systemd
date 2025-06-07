@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "core-forward.h"
 #include "unit.h"
-
-typedef struct Device Device;
 
 /* A mask specifying where we have seen the device currently. This is a bitmask because the device might show up
  * asynchronously from each other at various places. For example, in very common case a device might already be mounted
@@ -17,7 +16,7 @@ typedef enum DeviceFound {
         _DEVICE_FOUND_MASK = DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP,
 } DeviceFound;
 
-struct Device {
+typedef struct Device {
         Unit meta;
 
         char *sysfs, *deserialized_sysfs;
@@ -36,7 +35,7 @@ struct Device {
 
         /* The SYSTEMD_WANTS udev property for this device the last time we saw it */
         char **wants_property;
-};
+} Device;
 
 extern const UnitVTable device_vtable;
 

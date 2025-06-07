@@ -7,15 +7,15 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_fs.h"
+#include "log.h"
 #include "missing_magic.h"
 #include "missing_namespace.h"
 #include "missing_sched.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -45,6 +45,13 @@ NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
                         return t;
 
         return _NAMESPACE_TYPE_INVALID;
+}
+
+bool namespace_type_supported(NamespaceType type) {
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
+
+        const char *p = pid_namespace_path(0, type);
+        return access(p, F_OK) >= 0;
 }
 
 static int pidref_namespace_open_by_type_internal(const PidRef *pidref, NamespaceType type, bool *need_verify) {
@@ -351,6 +358,14 @@ int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type) {
         return fd_inode_same(ns1, ns2);
 }
 
+int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
+        assert(pid1 >= 0);
+        assert(pid2 >= 0);
+        return pidref_in_same_namespace(pid1 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid1),
+                                        pid2 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid2),
+                                        type);
+}
+
 int namespace_get_leader(PidRef *pidref, NamespaceType type, PidRef *ret) {
         int r;
 
@@ -412,6 +427,8 @@ int detach_mount_namespace(void) {
 }
 
 int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
+        uid_t from_uid;
+        gid_t from_gid;
         int r;
 
         /* Tried detach_mount_namespace() first. If that doesn't work due to permissions, opens up an
@@ -439,11 +456,14 @@ int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
         if (r != -EPERM)
                 return r;
 
+        from_uid = getuid();
+        from_gid = getgid();
+
         if (unshare(CLONE_NEWUSER) < 0)
                 return log_debug_errno(errno, "Failed to acquire user namespace: %m");
 
         r = write_string_filef("/proc/self/uid_map", 0,
-                               UID_FMT " " UID_FMT " 1\n", target_uid, getuid());
+                               UID_FMT " " UID_FMT " 1\n", target_uid, from_uid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write uid map: %m");
 
@@ -452,7 +472,7 @@ int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
                 return log_debug_errno(r, "Failed to write setgroups file: %m");
 
         r = write_string_filef("/proc/self/gid_map", 0,
-                               GID_FMT " " GID_FMT " 1\n", target_gid, getgid());
+                               GID_FMT " " GID_FMT " 1\n", target_gid, from_gid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write gid map: %m");
 
@@ -524,8 +544,8 @@ int userns_acquire_empty(void) {
         return pidref_namespace_open_by_type(&pid, NAMESPACE_USER);
 }
 
-int userns_acquire(const char *uid_map, const char *gid_map) {
-        char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+int userns_acquire(const char *uid_map, const char *gid_map, bool setgroups_deny) {
+        char path[STRLEN("/proc//setgroups") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         int r;
 
@@ -546,12 +566,34 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to write UID map: %m");
 
+        if (setgroups_deny) {
+                xsprintf(path, "/proc/" PID_FMT "/setgroups", pid.pid);
+                r = write_string_file(path, "deny", WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to write setgroups file: %m");
+        }
+
         xsprintf(path, "/proc/" PID_FMT "/gid_map", pid.pid);
         r = write_string_file(path, gid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write GID map: %m");
 
         return pidref_namespace_open_by_type(&pid, NAMESPACE_USER);
+}
+
+int userns_acquire_self_root(void) {
+
+        /* Returns a user namespace with only our own uid/gid mapped to root, and everything else unmapped.
+         *
+         * Note: this can be acquired unprivileged! */
+
+        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+        if (asprintf(&uid_map, "0 " UID_FMT " 1", getuid()) < 0)
+                return -ENOMEM;
+        if (asprintf(&gid_map, "0 " GID_FMT " 1", getgid()) < 0)
+                return -ENOMEM;
+
+        return userns_acquire(uid_map, gid_map, /* setgroups_deny= */ true);
 }
 
 int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
@@ -607,6 +649,10 @@ int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
 
         *ret_pid = TAKE_PID(pid);
         return 0;
+}
+
+bool userns_supported(void) {
+        return access("/proc/self/uid_map", F_OK) >= 0;
 }
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
@@ -697,7 +743,6 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
 
 int is_idmapping_supported(const char *path) {
         _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
-        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         int r;
 
         assert(path);
@@ -705,15 +750,7 @@ int is_idmapping_supported(const char *path) {
         if (!mount_new_api_supported())
                 return false;
 
-        r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, UID_NOBODY, 1u);
-        if (r < 0)
-                return r;
-
-        r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, GID_NOBODY, 1u);
-        if (r < 0)
-                return r;
-
-        userns_fd = r = userns_acquire(uid_map, gid_map);
+        userns_fd = r = userns_acquire_self_root();
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
                 return false;
         if (r == -ENOSPC) {

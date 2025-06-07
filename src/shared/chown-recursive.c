@@ -2,14 +2,13 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "chown-recursive.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "macro.h"
-#include "stdio-util.h"
+#include "path-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "xattr-util.h"

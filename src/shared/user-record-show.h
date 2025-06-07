@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "user-record.h"
-#include "group-record.h"
+#include "forward.h"
 
 const char* user_record_state_color(const char *state);
 

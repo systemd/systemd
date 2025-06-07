@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
-#include <limits.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -12,9 +8,7 @@
 #include "alloc-util.h"
 #include "calendarspec.h"
 #include "errno-util.h"
-#include "fd-util.h"
-#include "fileio.h"
-#include "macro.h"
+#include "log.h"
 #include "memstream-util.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -1235,14 +1229,43 @@ static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
         return (weekdays_bits & (1 << k));
 }
 
+static int tm_compare(const struct tm *t1, const struct tm *t2) {
+        int r;
+
+        assert(t1);
+        assert(t2);
+
+        r = CMP(t1->tm_year, t2->tm_year);
+        if (r != 0)
+                return r;
+
+        r = CMP(t1->tm_mon, t2->tm_mon);
+        if (r != 0)
+                return r;
+
+        r = CMP(t1->tm_mday, t2->tm_mday);
+        if (r != 0)
+                return r;
+
+        r = CMP(t1->tm_hour, t2->tm_hour);
+        if (r != 0)
+                return r;
+
+        r = CMP(t1->tm_min, t2->tm_min);
+        if (r != 0)
+                return r;
+
+        return CMP(t1->tm_sec, t2->tm_sec);
+}
+
 /* A safety valve: if we get stuck in the calculation, return an error.
  * C.f. https://bugzilla.redhat.com/show_bug.cgi?id=1941335. */
 #define MAX_CALENDAR_ITERATIONS 1000
 
 static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
         struct tm c;
-        int tm_usec;
-        int r;
+        int tm_usec, r;
+        bool invalidate_dst = false;
 
         /* Returns -ENOENT if the expression is not going to elapse anymore */
 
@@ -1255,7 +1278,8 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
         for (unsigned iteration = 0; iteration < MAX_CALENDAR_ITERATIONS; iteration++) {
                 /* Normalize the current date */
                 (void) mktime_or_timegm_usec(&c, spec->utc, /* ret= */ NULL);
-                c.tm_isdst = spec->dst;
+                if (!invalidate_dst)
+                        c.tm_isdst = spec->dst;
 
                 c.tm_year += 1900;
                 r = find_matching_component(spec, spec->year, &c, &c.tm_year);
@@ -1344,6 +1368,18 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                 }
                 if (r == 0)
                         continue;
+
+                r = tm_compare(tm, &c);
+                if (r == 0) {
+                        assert(tm_usec + 1 <= 1000000);
+                        r = CMP(*usec, (usec_t) tm_usec + 1);
+                }
+                if (r >= 0) {
+                        /* We're stuck - advance, let mktime determine DST transition and try again. */
+                        invalidate_dst = true;
+                        c.tm_hour++;
+                        continue;
+                }
 
                 *tm = c;
                 *usec = tm_usec;

@@ -2,19 +2,19 @@
 
 #include "analyze.h"
 #include "analyze-cat-config.h"
-#include "conf-files.h"
 #include "constants.h"
+#include "log.h"
+#include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "strv.h"
 
 int verb_cat_config(int argc, char *argv[], void *userdata) {
-        char **list;
         int r;
 
         pager_open(arg_pager_flags);
 
-        list = strv_skip(argv, 1);
+        char **list = strv_skip(argv, 1);
         STRV_FOREACH(arg, list) {
                 const char *t = NULL;
 
@@ -39,5 +39,5 @@ int verb_cat_config(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        return EXIT_SUCCESS;
+        return 0;
 }

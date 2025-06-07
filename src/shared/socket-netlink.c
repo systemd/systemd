@@ -1,19 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <arpa/inet.h>
-#include <errno.h>
 #include <linux/net_namespace.h>
+#include <linux/unix_diag.h>
 #include <string.h>
+#include <sys/stat.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "log.h"
-#include "memory-util.h"
 #include "namespace-util.h"
+#include "netlink-sock-diag.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "socket-netlink.h"
@@ -479,4 +478,62 @@ int netns_get_nsid(int netnsfd, uint32_t *ret) {
         }
 
         return -ENXIO;
+}
+
+int af_unix_get_qlen(int fd, uint32_t *ret) {
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Returns the current queue length for an AF_UNIX listening socket */
+
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return -errno;
+        if (!S_ISSOCK(st.st_mode))
+                return -ENOTSOCK;
+
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        r = sd_sock_diag_socket_open(&nl);
+        if (r < 0)
+                return r;
+
+        uint64_t cookie;
+        r = socket_get_cookie(fd, &cookie);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        r = sd_sock_diag_message_new_unix(nl, &message, st.st_ino, cookie, UDIAG_SHOW_RQLEN);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        r = sd_netlink_call(nl, message, /* timeout= */ 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
+                r = sd_netlink_message_get_errno(m);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ void *data = NULL;
+                size_t size = 0;
+
+                r = sd_netlink_message_read_data(m, UNIX_DIAG_RQLEN, &size, &data);
+                if (r == -ENODATA)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                assert(size == sizeof(struct unix_diag_rqlen));
+                const struct unix_diag_rqlen *udrql = ASSERT_PTR(data);
+
+                *ret = udrql->udiag_rqueue;
+                return 0;
+        }
+
+        return -ENODATA;
 }

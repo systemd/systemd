@@ -1,18 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "memstream-util.h"
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -23,6 +25,7 @@ static char *arg_certificate = NULL;
 static char *arg_certificate_source = NULL;
 static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 static char *arg_signature = NULL;
+static char *arg_content = NULL;
 static char *arg_output = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
@@ -30,6 +33,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signature, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_content, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -60,6 +64,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                         Specify how to interpret the certificate from\n"
                "                         --certificate=. Allows the certificate to be loaded\n"
                "                         from an OpenSSL provider\n"
+               "     --content=PATH      Raw data content to embed in PKCS#7 signature\n"
                "     --signature=PATH    PKCS#1 signature to embed in PKCS#7 signature\n"
                "     --output=PATH       Where to write the PKCS#7 signature\n"
                "\nSee the %2$s for details.\n",
@@ -81,6 +86,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CERTIFICATE,
                 ARG_CERTIFICATE_SOURCE,
                 ARG_SIGNATURE,
+                ARG_CONTENT,
                 ARG_OUTPUT,
         };
 
@@ -92,6 +98,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "certificate",        required_argument, NULL, ARG_CERTIFICATE        },
                 { "certificate-source", required_argument, NULL, ARG_CERTIFICATE_SOURCE },
                 { "signature",          required_argument, NULL, ARG_SIGNATURE          },
+                { "content",            required_argument, NULL, ARG_CONTENT            },
                 { "output",             required_argument, NULL, ARG_OUTPUT             },
                 {}
         };
@@ -145,6 +152,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SIGNATURE:
                         r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_signature);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_CONTENT:
+                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_content);
                         if (r < 0)
                                 return r;
 
@@ -345,16 +359,31 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate PKCS#7 context: %m");
 
-        if (PKCS7_set_detached(pkcs7, true) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS#7 detached attribute: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+        if (arg_content) {
+                _cleanup_free_ char *content = NULL;
+                size_t content_len = 0;
+
+                r = read_full_file(arg_content, &content, &content_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read content file %s: %m", arg_content);
+                if (content_len == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Content file %s is empty", arg_content);
+
+                if (!PKCS7_content_new(pkcs7, NID_pkcs7_data))
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Error creating new PKCS7 content field");
+
+                ASN1_STRING_set0(pkcs7->d.sign->contents->d.data, TAKE_PTR(content), content_len);
+        } else
+                if (PKCS7_set_detached(pkcs7, true) == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to set PKCS#7 detached attribute: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
 
         /* Add PKCS1 signature to PKCS7_SIGNER_INFO */
-
         ASN1_STRING_set0(signer_info->enc_digest, TAKE_PTR(pkcs1), pkcs1_len);
 
         _cleanup_fclose_ FILE *output = NULL;
-        _cleanup_free_ char *tmp = NULL;
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
         r = fopen_tmpfile_linkable(arg_output, O_WRONLY|O_CLOEXEC, &tmp, &output);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file: %m");
@@ -366,6 +395,8 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
         r = flink_tmpfile(output, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", arg_output);
+
+        tmp = mfree(tmp);
 
         return 0;
 }

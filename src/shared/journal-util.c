@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+#include "sd-journal.h"
+
 #include "acl-util.h"
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
@@ -111,7 +115,7 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
         HASHMAP_FOREACH_KEY(path, code, j->errors) {
                 int err;
 
-                err = abs(PTR_TO_INT(code));
+                err = ABS(PTR_TO_INT(code));
 
                 switch (err) {
                 case EACCES:

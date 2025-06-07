@@ -1,14 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
-#include "sd-device.h"
-
-#include "macro.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
+#include "networkd-forward.h"
 
 /* The following values are different from the ones defined in linux/rfkill.h. */
 typedef enum RFKillState {
@@ -30,9 +23,6 @@ typedef struct Wiphy {
         sd_device *rfkill;
         RFKillState rfkill_state;
 } Wiphy;
-
-Wiphy *wiphy_free(Wiphy *w);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Wiphy*, wiphy_free);
 
 int wiphy_get_by_index(Manager *manager, uint32_t index, Wiphy **ret);
 int wiphy_get_by_name(Manager *manager, const char *name, Wiphy **ret);

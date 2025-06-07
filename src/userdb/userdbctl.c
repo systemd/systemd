@@ -1,25 +1,36 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "build.h"
+#include "copy.h"
+#include "creds-util.h"
 #include "dirent-util.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
+#include "log.h"
 #include "main-func.h"
+#include "mkdir.h"
 #include "pager.h"
 #include "parse-argument.h"
-#include "parse-util.h"
 #include "pretty-print.h"
+#include "recurse-dir.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
+#include "umask-util.h"
 #include "user-record-show.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -45,8 +56,10 @@ static uid_t arg_uid_min = 0;
 static uid_t arg_uid_max = UID_INVALID-1;
 static bool arg_fuzzy = false;
 static bool arg_boundaries = true;
+static sd_json_variant *arg_from_file = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_from_file, sd_json_variant_unrefp);
 
 static const char *user_disposition_to_color(UserDisposition d) {
         assert(d >= 0);
@@ -160,6 +173,12 @@ static const struct {
                 .disposition = USER_SYSTEM,
         },
         {
+                .first = GREETER_UID_MIN,
+                .last = GREETER_UID_MAX,
+                .name = "dynamic greeter",
+                .disposition = USER_DYNAMIC,
+        },
+        {
                 .first = DYNAMIC_UID_MIN,
                 .last = DYNAMIC_UID_MAX,
                 .name = "dynamic system",
@@ -211,9 +230,9 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
                 if (i->test && !i->test())
                         continue;
 
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                name = strjoin(glyph(GLYPH_ARROW_DOWN),
                                " begin ", i->name, " users ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                               glyph(GLYPH_ARROW_DOWN));
                 if (!name)
                         return log_oom();
 
@@ -223,7 +242,7 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, glyph(GLYPH_TREE_TOP),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(i->disposition),
@@ -240,9 +259,9 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
                         return table_log_add_error(r);
 
                 free(name);
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                name = strjoin(glyph(GLYPH_ARROW_UP),
                                " end ", i->name, " users ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                               glyph(GLYPH_ARROW_UP));
                 if (!name)
                         return log_oom();
 
@@ -253,7 +272,7 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, glyph(GLYPH_TREE_RIGHT),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(i->disposition),
@@ -282,15 +301,15 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
         assert(table);
         assert(start <= end);
 
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(glyph(GLYPH_ARROW_DOWN),
                        " begin unavailable users ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       glyph(GLYPH_ARROW_DOWN));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, glyph(GLYPH_TREE_TOP),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -306,15 +325,15 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+        name = strjoin(glyph(GLYPH_ARROW_UP),
                        " end unavailable users ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                       glyph(GLYPH_ARROW_UP));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, glyph(GLYPH_TREE_RIGHT),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -380,7 +399,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = argc > 1 && !arg_fuzzy ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "uid", "gid", "realname", "home", "shell", "order");
@@ -402,7 +421,23 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 .uid_max = arg_uid_max,
         };
 
-        if (argc > 1 && !arg_fuzzy)
+        if (arg_from_file) {
+                if (argc > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No argument expected when invoked with --from-file=, refusing.");
+
+                _cleanup_(user_record_unrefp) UserRecord *ur = user_record_new();
+                if (!ur)
+                        return log_oom();
+
+                r = user_record_load(ur, arg_from_file, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG);
+                if (r < 0)
+                        return r;
+
+                r = show_user(ur, table);
+                if (r < 0)
+                        return r;
+
+        } else if (argc > 1 && !arg_fuzzy)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
@@ -591,9 +626,9 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
                 if (i->test && !i->test())
                         continue;
 
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                name = strjoin(glyph(GLYPH_ARROW_DOWN),
                                " begin ", i->name, " groups ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                               glyph(GLYPH_ARROW_DOWN));
                 if (!name)
                         return log_oom();
 
@@ -603,7 +638,7 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, glyph(GLYPH_TREE_TOP),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(i->disposition),
@@ -617,9 +652,9 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
                         return table_log_add_error(r);
 
                 free(name);
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                name = strjoin(glyph(GLYPH_ARROW_UP),
                                " end ", i->name, " groups ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                               glyph(GLYPH_ARROW_UP));
                 if (!name)
                         return log_oom();
 
@@ -630,7 +665,7 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, glyph(GLYPH_TREE_RIGHT),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(i->disposition),
@@ -656,15 +691,15 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
         assert(table);
         assert(start <= end);
 
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(glyph(GLYPH_ARROW_DOWN),
                        " begin unavailable groups ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       glyph(GLYPH_ARROW_DOWN));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, glyph(GLYPH_TREE_TOP),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -677,15 +712,15 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+        name = strjoin(glyph(GLYPH_ARROW_UP),
                        " end unavailable groups ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                       glyph(GLYPH_ARROW_UP));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, glyph(GLYPH_TREE_RIGHT),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -706,7 +741,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = argc > 1 && !arg_fuzzy ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "gid", "description", "order");
@@ -727,7 +762,23 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 .gid_max = arg_uid_max,
         };
 
-        if (argc > 1 && !arg_fuzzy)
+        if (arg_from_file) {
+                if (argc > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No argument expected when invoked with --from-file=, refusing.");
+
+                _cleanup_(group_record_unrefp) GroupRecord *gr = group_record_new();
+                if (!gr)
+                        return log_oom();
+
+                r = group_record_load(gr, arg_from_file, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG);
+                if (r < 0)
+                        return r;
+
+                r = show_group(gr, table);
+                if (r < 0)
+                        return r;
+
+        } else if (argc > 1 && !arg_fuzzy)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
@@ -888,6 +939,9 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int ret = 0, r;
 
+        if (arg_from_file)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--from-file= not supported when showing memberships, refusing.");
+
         if (arg_output < 0)
                 arg_output = OUTPUT_TABLE;
 
@@ -982,6 +1036,9 @@ static int display_services(int argc, char *argv[], void *userdata) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
+        if (arg_from_file)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--from-file= not supported when showing services, refusing.");
+
         d = opendir("/run/systemd/userdb/");
         if (!d) {
                 if (errno == ENOENT) {
@@ -989,7 +1046,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return 0;
                 }
 
-                return log_error_errno(errno, "Failed to open /run/systemd/userdb/: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/run/systemd/userdb/");
         }
 
         t = table_new("service", "listening");
@@ -1047,6 +1104,9 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         int r;
 
         assert(argc >= 2);
+
+        if (arg_from_file)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--from-file= not supported when showing SSH authorized keys, refusing.");
 
         if (arg_chain) {
                 /* If --chain is specified, the rest of the command line is the chain command */
@@ -1121,6 +1181,306 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int load_credential_one(int credential_dir_fd, const char *name, int userdb_dir_fd) {
+        int r;
+
+        assert(credential_dir_fd >= 0);
+        assert(name);
+        assert(userdb_dir_fd >= 0);
+
+        const char *user = startswith(name, "userdb.user.");
+        const char *group = startswith(name, "userdb.group.");
+        if (!user && !group)
+                return 0;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        unsigned line = 0, column = 0;
+        r = sd_json_parse_file_at(NULL, credential_dir_fd, name, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse credential '%s' as JSON at %u:%u: %m", name, line, column);
+
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL, *ur_stripped = NULL, *ur_privileged = NULL;
+        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL, *gr_stripped = NULL, *gr_privileged = NULL;
+        _cleanup_free_ char *fn = NULL, *link = NULL;
+
+        if (user) {
+                ur = user_record_new();
+                if (!ur)
+                        return log_oom();
+
+                r = user_record_load(ur, v, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG);
+                if (r < 0)
+                        return r;
+
+                if (user_record_is_root(ur))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Creating 'root' user from credentials is not supported.");
+                if (user_record_is_nobody(ur))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Creating 'nobody' user from credentials is not supported.");
+
+                if (!streq_ptr(user, ur->user_name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Credential suffix '%s' does not match user record name '%s'",
+                                               user, strna(ur->user_name));
+
+                if (!uid_is_valid(ur->uid))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON user record missing uid field");
+
+                if (!gid_is_valid(user_record_gid(ur)))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON user record missing gid field");
+
+                _cleanup_(user_record_unrefp) UserRecord *m = NULL;
+                r = userdb_by_name(ur->user_name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
+                if (r >= 0) {
+                        if (m->uid != ur->uid)
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Cannot create user %s from credential %s as it already exists with UID " UID_FMT " instead of " UID_FMT,
+                                                       ur->user_name, name, m->uid, ur->uid);
+
+                        log_info("User with name %s and UID " UID_FMT " already exists, not creating user from credential %s", ur->user_name, ur->uid, name);
+                        return 0;
+                }
+                if (r != -ESRCH)
+                        return log_error_errno(r, "Failed to check if user with name %s already exists: %m", ur->user_name);
+
+                m = user_record_unref(m);
+                r = userdb_by_uid(ur->uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
+                if (r >= 0) {
+                        if (!streq_ptr(ur->user_name, m->user_name))
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Cannot create user %s from credential %s as UID " UID_FMT " is already assigned to user %s",
+                                                       ur->user_name, name, ur->uid, m->user_name);
+
+                        log_info("User with name %s and UID " UID_FMT " already exists, not creating user from credential %s", ur->user_name, ur->uid, name);
+                        return 0;
+                }
+                if (r != -ESRCH)
+                        return log_error_errno(r, "Failed to check if user with UID " UID_FMT " already exists: %m", ur->uid);
+
+                r = user_record_clone(ur, USER_RECORD_LOAD_MASK_PRIVILEGED|USER_RECORD_LOG, &ur_stripped);
+                if (r < 0)
+                        return r;
+
+                r = user_record_clone(ur, USER_RECORD_EXTRACT_PRIVILEGED|USER_RECORD_EMPTY_OK|USER_RECORD_LOG, &ur_privileged);
+                if (r < 0)
+                        return r;
+
+                fn = strjoin(ur->user_name, ".user");
+                if (!fn)
+                        return log_oom();
+
+                if (asprintf(&link, UID_FMT ".user", ur->uid) < 0)
+                        return log_oom();
+        } else {
+                assert(group);
+
+                gr = group_record_new();
+                if (!gr)
+                        return log_oom();
+
+                r = group_record_load(gr, v, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG);
+                if (r < 0)
+                        return r;
+
+                if (group_record_is_root(gr))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Creating 'root' group from credentials is not supported.");
+                if (group_record_is_nobody(gr))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Creating 'nobody' group from credentials is not supported.");
+
+                if (!streq_ptr(group, gr->group_name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Credential suffix '%s' does not match group record name '%s'",
+                                               group, strna(gr->group_name));
+
+                if (!gid_is_valid(gr->gid))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON group record missing gid field");
+
+                _cleanup_(group_record_unrefp) GroupRecord *m = NULL;
+                r = groupdb_by_name(gr->group_name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
+                if (r >= 0) {
+                        if (m->gid != gr->gid)
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Cannot create group %s from credential %s as it already exists with GID " GID_FMT " instead of " GID_FMT,
+                                                       gr->group_name, name, m->gid, gr->gid);
+
+                        log_info("Group with name %s and GID " GID_FMT " already exists, not creating group from credential %s", gr->group_name, gr->gid, name);
+                        return 0;
+                }
+                if (r != -ESRCH)
+                        return log_error_errno(r, "Failed to check if group with name %s already exists: %m", gr->group_name);
+
+                m = group_record_unref(m);
+                r = groupdb_by_gid(gr->gid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
+                if (r >= 0) {
+                        if (!streq_ptr(gr->group_name, m->group_name))
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Cannot create group %s from credential %s as GID " GID_FMT " is already assigned to group %s",
+                                                       gr->group_name, name, gr->gid, m->group_name);
+
+                        log_info("Group with name %s and GID " GID_FMT " already exists, not creating group from credential %s", gr->group_name, gr->gid, name);
+                        return 0;
+                }
+                if (r != -ESRCH)
+                        return log_error_errno(r, "Failed to check if group with GID " GID_FMT " already exists: %m", gr->gid);
+
+                r = group_record_clone(gr, USER_RECORD_LOAD_MASK_PRIVILEGED|USER_RECORD_LOG, &gr_stripped);
+                if (r < 0)
+                        return r;
+
+                r = group_record_clone(gr, USER_RECORD_EXTRACT_PRIVILEGED|USER_RECORD_EMPTY_OK|USER_RECORD_LOG, &gr_privileged);
+                if (r < 0)
+                        return r;
+
+                fn = strjoin(gr->group_name, ".group");
+                if (!fn)
+                        return log_oom();
+
+                if (asprintf(&link, GID_FMT ".group", gr->gid) < 0)
+                        return log_oom();
+        }
+
+        if (!filename_is_valid(fn))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Passed credential '%s' would result in invalid filename '%s'.",
+                                       name, fn);
+
+        _cleanup_free_ char *formatted = NULL;
+        r = sd_json_variant_format(ur ? ur_stripped->json : gr_stripped->json, SD_JSON_FORMAT_NEWLINE, &formatted);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON record: %m");
+
+        r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write JSON record to /etc/userdb/%s: %m", fn);
+
+        if (symlinkat(fn, userdb_dir_fd, link) < 0)
+                return log_error_errno(errno, "Failed to create symlink from %s to %s", link, fn);
+
+        log_info("Installed /etc/userdb/%s from credential.", fn);
+
+        if ((ur && !sd_json_variant_is_blank_object(ur_privileged->json)) ||
+            (gr && !sd_json_variant_is_blank_object(gr_privileged->json))) {
+                fn = mfree(fn);
+                fn = strjoin(ur ? ur->user_name : gr->group_name, ur ? ".user-privileged" : ".group-privileged");
+                if (!fn)
+                        return log_oom();
+
+                formatted = mfree(formatted);
+                r = sd_json_variant_format(ur ? ur_privileged->json : gr_privileged->json, SD_JSON_FORMAT_NEWLINE, &formatted);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format JSON record: %m");
+
+                r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write JSON record to /etc/userdb/%s: %m", fn);
+
+                link = mfree(link);
+
+                if (ur) {
+                        if (asprintf(&link, UID_FMT ".user-privileged", ur->uid) < 0)
+                                return log_oom();
+                } else {
+                        if (asprintf(&link, GID_FMT ".group-privileged", gr->gid) < 0)
+                                return log_oom();
+                }
+
+                if (symlinkat(fn, userdb_dir_fd, link) < 0)
+                        return log_error_errno(errno, "Failed to create symlink from %s to %s", link, fn);
+
+                log_info("Installed /etc/userdb/%s from credential.", fn);
+        }
+
+        if (ur)
+                STRV_FOREACH(g, ur->member_of) {
+                        _cleanup_free_ char *membership = strjoin(ur->user_name, ":", *g);
+                        if (!membership)
+                                return log_oom();
+
+                        _cleanup_close_ int fd = openat(userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to create %s: %m", membership);
+
+                        log_info("Installed /etc/userdb/%s from credential.", membership);
+                }
+        else
+                STRV_FOREACH(u, gr->members) {
+                        _cleanup_free_ char *membership = strjoin(*u, ":", gr->group_name);
+                        if (!membership)
+                                return log_oom();
+
+                        _cleanup_close_ int fd = openat(userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to create %s: %m", membership);
+
+                        log_info("Installed /etc/userdb/%s from credential.", membership);
+                }
+
+        if (ur && user_record_disposition(ur) == USER_REGULAR) {
+                const char *hd = user_record_home_directory(ur);
+
+                r = RET_NERRNO(access(hd, F_OK));
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return log_error_errno(r, "Failed to check if %s exists: %m", hd);
+
+                        WITH_UMASK(0000) {
+                                r = mkdir_parents(hd, 0755);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create parent directories of %s: %m", hd);
+
+                                if (mkdir(hd, 0700) < 0 && errno != EEXIST)
+                                        return log_error_errno(errno, "Failed to create %s: %m", hd);
+                        }
+
+                        if (chown(hd, ur->uid, user_record_gid(ur)) < 0)
+                                return log_error_errno(errno, "Failed to chown %s: %m", hd);
+
+                        r = copy_tree(user_record_skeleton_directory(ur), hd, ur->uid, user_record_gid(ur),
+                                      COPY_REFLINK|COPY_MERGE, /* denylist= */ NULL, /* subvolumes= */NULL);
+                        if (r < 0 && r != -ENOENT)
+                                return log_error_errno(r, "Failed to copy skeleton directory to %s: %m", hd);
+                }
+        }
+
+        return 0;
+}
+
+static int load_credentials(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_close_ int credential_dir_fd = open_credentials_dir();
+        if (IN_SET(credential_dir_fd, -ENXIO, -ENOENT)) {
+                /* Credential env var not set, or dir doesn't exist. */
+                log_debug("No credentials found.");
+                return 0;
+        }
+        if (credential_dir_fd < 0)
+                return log_error_errno(credential_dir_fd, "Failed to open credentials directory: %m");
+
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all(credential_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate credentials: %m");
+
+        _cleanup_close_ int userdb_dir_fd = xopenat_full(
+                AT_FDCWD, "/etc/userdb",
+                /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
+                /* xopen_flags= */ XO_LABEL,
+                /* mode= */ 0755);
+        if (userdb_dir_fd < 0)
+                return log_error_errno(userdb_dir_fd, "Failed to open %s: %m", "/etc/userdb/");
+
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                struct dirent *de = *i;
+
+                if (de->d_type != DT_REG)
+                        continue;
+
+                RET_GATHER(r, load_credential_one(credential_dir_fd, de->d_name, userdb_dir_fd));
+        }
+
+        return r;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1140,6 +1500,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  groups-of-user [USER…]     Show groups the specified users are members of\n"
                "  services                   Show enabled database services\n"
                "  ssh-authorized-keys USER   Show SSH authorized keys for user\n"
+               "  load-credentials           Write static user/group records from credentials\n"
                "\nOptions:\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
@@ -1167,6 +1528,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -R                         Equivalent to --disposition=regular\n"
                "     --boundaries=BOOL       Show/hide UID/GID range boundaries in output\n"
                "  -B                         Equivalent to --boundaries=no\n"
+               "  -F --from-file=PATH        Read JSON record from file\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1215,6 +1577,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fuzzy",        no_argument,       NULL, 'z'              },
                 { "disposition",  required_argument, NULL, ARG_DISPOSITION  },
                 { "boundaries",   required_argument, NULL, ARG_BOUNDARIES   },
+                { "from-file",    required_argument, NULL, 'F'              },
                 {}
         };
 
@@ -1245,7 +1608,7 @@ static int parse_argv(int argc, char *argv[]) {
                 int c;
 
                 c = getopt_long(argc, argv,
-                                arg_chain ? "+hjs:NISRzB" : "hjs:NISRzB", /* When --chain was used disable parsing of further switches */
+                                arg_chain ? "+hjs:NISRzBF:" : "hjs:NISRzBF:", /* When --chain was used disable parsing of further switches */
                                 options, NULL);
                 if (c < 0)
                         break;
@@ -1420,6 +1783,24 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_boundaries = false;
                         break;
 
+                case 'F': {
+                        if (isempty(optarg)) {
+                                arg_from_file = sd_json_variant_unref(arg_from_file);
+                                break;
+                        }
+
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        const char *fn = streq(optarg, "-") ? NULL : optarg;
+                        unsigned line = 0;
+                        r = sd_json_parse_file(fn ? NULL : stdin, fn ?: "<stdin>", SD_JSON_PARSE_SENSITIVE, &v, &line, /* reterr_column= */ NULL);
+                        if (r < 0)
+                                return log_syntax(/* unit= */ NULL, LOG_ERR, fn ?: "<stdin>", line, r, "JSON parse failure.");
+
+                        sd_json_variant_unref(arg_from_file);
+                        arg_from_file = TAKE_PTR(v);
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -1435,6 +1816,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_disposition_mask == UINT64_MAX)
                 arg_disposition_mask = USER_DISPOSITION_MASK_ALL;
 
+        if (arg_from_file)
+                arg_boundaries = false;
+
         return 1;
 }
 
@@ -1446,10 +1830,8 @@ static int run(int argc, char *argv[]) {
                 { "users-in-group",      VERB_ANY, VERB_ANY, 0,            display_memberships },
                 { "groups-of-user",      VERB_ANY, VERB_ANY, 0,            display_memberships },
                 { "services",            VERB_ANY, 1,        0,            display_services    },
-
-                /* This one is a helper for sshd_config's AuthorizedKeysCommand= setting, it's not a
-                 * user-facing verb and thus should not appear in man pages or --help texts. */
                 { "ssh-authorized-keys", 2,        VERB_ANY, 0,            ssh_authorized_keys },
+                { "load-credentials",    VERB_ANY, 1,        0,            load_credentials    },
                 {}
         };
 

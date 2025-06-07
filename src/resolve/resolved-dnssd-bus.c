@@ -1,13 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
-#include "resolved-dnssd-bus.h"
+#include "hashmap.h"
+#include "log.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dnssd.h"
+#include "resolved-dnssd-bus.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
 #include "strv.h"
-#include "user-util.h"
 
 int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         DnssdService *s = ASSERT_PTR(userdata);

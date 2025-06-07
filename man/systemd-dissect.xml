@@ -499,6 +499,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--usr-hash=</option></term>
+        <term><option>--usr-hash-sig=</option></term>
+
+        <listitem><para>Similar to <option>--root-hash=</option> and <option>--root-hash-sig=</option>, but
+        specifies hash and signature for the <filename>/usr/</filename> partition. Note that either the
+        options for the root partition may be used or the ones for the <filename>/usr/</filename>, but not
+        both in combination.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--loop-ref=</option></term>
 
         <listitem><para>Configures the "reference" string the kernel shall report as backing file for the
@@ -570,6 +582,7 @@
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+      <xi:include href="standard-options.xml" xpointer="image-filter" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />

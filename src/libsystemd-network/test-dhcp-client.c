@@ -3,10 +3,9 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <net/if.h>
 #include <net/if_arp.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
@@ -14,6 +13,7 @@
 #endif
 
 #include "sd-dhcp-client.h"
+#include "sd-dhcp-lease.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -23,7 +23,7 @@
 #include "dhcp-packet.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
-#include "random-util.h"
+#include "log.h"
 #include "tests.h"
 
 static struct hw_addr_data hw_addr = {
@@ -147,8 +147,8 @@ static void test_dhcp_identifier_set_iaid(void) {
         uint32_t iaid_legacy;
         be32_t iaid;
 
-        assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy = */ true, &iaid_legacy) >= 0);
-        assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy = */ false, &iaid) >= 0);
+        assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy_unstable_byteorder = */ true, &iaid_legacy) >= 0);
+        assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy_unstable_byteorder = */ false, &iaid) >= 0);
 
         /* we expect, that the MAC address was hashed. The legacy value is in native
          * endianness. */
@@ -168,7 +168,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
                 uint32_t iaid;
 
                 assert_se(sd_dhcp_duid_set_en(&duid) >= 0);
-                assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy = */ true, &iaid) >= 0);
+                assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy_unstable_byteorder = */ true, &iaid) >= 0);
 
                 assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid.size);
                 assert_se(len == 19);

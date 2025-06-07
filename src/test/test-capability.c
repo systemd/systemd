@@ -3,10 +3,12 @@
 #include <linux/prctl.h>
 #include <netinet/in.h>
 #include <pwd.h>
+#include <stdlib.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "pidref.h"
 
 #define TEST_CAPABILITY_C
 
@@ -15,10 +17,8 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 static uid_t test_uid = -1;
@@ -39,8 +39,8 @@ static void test_last_cap_file(void) {
         int r;
 
         r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
-        if (r == -ENOENT || ERRNO_IS_NEG_PRIVILEGE(r)) /* kernel pre 3.2 or no access */
-                return;
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped_errno(r, "Failed to /proc/sys/kernel/cap_last_cap");
         ASSERT_OK(r);
 
         r = safe_atolu(content, &val);
@@ -235,8 +235,8 @@ static void test_ensure_cap_64_bit(void) {
         int r;
 
         r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
-        if (r == -ENOENT || ERRNO_IS_NEG_PRIVILEGE(r)) /* kernel pre 3.2 or no access */
-                return;
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped_errno(r, "Failed to /proc/sys/kernel/cap_last_cap");
         ASSERT_OK(r);
 
         ASSERT_OK(safe_atolu(content, &p));

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include "env-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "random-util.h"
 #include "serialize.h"
 #include "string-util.h"
@@ -966,7 +965,7 @@ static void test_parse_timestamp_impl(const char *tz) {
         if (tz) {
                 _cleanup_free_ char *s = NULL;
 
-                ASSERT_NOT_NULL(s = strjoin("Fri 2012-11-23 23:02:15 ", tz));
+                ASSERT_NOT_NULL((s = strjoin("Fri 2012-11-23 23:02:15 ", tz)));
                 ASSERT_OK(parse_timestamp(s, NULL));
         }
 

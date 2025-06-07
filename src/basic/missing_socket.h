@@ -1,22 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/socket.h>
+#include <sys/socket.h> /* IWYU pragma: export */
 
-#ifndef SO_PEERGROUPS
-#define SO_PEERGROUPS 59
-#endif
-
+/* Supported since kernel v6.5 (5e2ff6704a275be009be8979af17c52361b79b89) */
 #ifndef SO_PASSPIDFD
 #define SO_PASSPIDFD 76
 #endif
 
+/* Supported since kernel v6.5 (7b26952a91cf65ff1cc867a2382a8964d8c0ee7d) */
 #ifndef SO_PEERPIDFD
 #define SO_PEERPIDFD 77
-#endif
-
-#ifndef SO_BINDTOIFINDEX
-#define SO_BINDTOIFINDEX 62
 #endif
 
 /* Not exposed yet. Defined in include/linux/socket.h. */
@@ -24,12 +18,14 @@
 #define SOL_SCTP 132
 #endif
 
-/* since glibc-2.39 */
+/* Supported since kernel v2.6.17 (2c7946a7bf45ae86736ab3b43d0085e43947945c).
+ * Defined since glibc-2.39 */
 #ifndef SCM_SECURITY
 #define SCM_SECURITY 0x03
 #endif
 
-/* since glibc-2.39 */
+/* Supported since kernel v6.5 (5e2ff6704a275be009be8979af17c52361b79b89).
+ * Defined since glibc-2.39 */
 #ifndef SCM_PIDFD
 #define SCM_PIDFD 0x04
 #endif

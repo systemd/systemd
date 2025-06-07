@@ -1,11 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-pcrs.h"
+#include "ansi-color.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "hexdecoct.h"
-#include "terminal-util.h"
+#include "log.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 static int get_pcr_alg(const char **ret) {
@@ -114,19 +119,14 @@ int verb_pcrs(int argc, char *argv[], void *userdata) {
         if (!alg) /* hide hash column if we couldn't acquire it */
                 (void) table_set_display(table, 0, 1);
 
-        if (strv_isempty(strv_skip(argv, 1)))
-                for (uint32_t pi = 0; pi < _TPM2_PCR_INDEX_MAX_DEFINED; pi++) {
-                        r = add_pcr_to_table(table, alg, pi);
-                        if (r < 0)
-                                return r;
-                }
-        else {
-                for (int i = 1; i < argc; i++) {
+        char **args = strv_skip(argv, 1);
+        if (args) {
+                STRV_FOREACH(arg, args) {
                         int pi;
 
-                        pi = tpm2_pcr_index_from_string(argv[i]);
+                        pi = tpm2_pcr_index_from_string(*arg);
                         if (pi < 0)
-                                return log_error_errno(pi, "PCR index \"%s\" not known.", argv[i]);
+                                return log_error_errno(pi, "PCR index \"%s\" not known.", *arg);
 
                         r = add_pcr_to_table(table, alg, pi);
                         if (r < 0)
@@ -134,7 +134,12 @@ int verb_pcrs(int argc, char *argv[], void *userdata) {
                 }
 
                 (void) table_set_sort(table, (size_t) 0);
-        }
+        } else
+                for (uint32_t pi = 0; pi < _TPM2_PCR_INDEX_MAX_DEFINED; pi++) {
+                        r = add_pcr_to_table(table, alg, pi);
+                        if (r < 0)
+                                return r;
+                }
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */true);
         if (r < 0)

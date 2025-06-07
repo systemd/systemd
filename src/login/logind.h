@@ -1,30 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
 #include <sys/stat.h>
 
-#include "sd-bus.h"
-#include "sd-device.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
 #include "calendarspec.h"
-#include "conf-parser.h"
-#include "hashmap.h"
 #include "list.h"
-#include "set.h"
-#include "time-util.h"
-#include "user-record.h"
-
-typedef struct Manager Manager;
-
 #include "logind-action.h"
-#include "logind-button.h"
-#include "logind-device.h"
-#include "logind-inhibit.h"
+#include "logind-forward.h"
 
-struct Manager {
+typedef struct Manager {
         sd_event *event;
         sd_bus *bus;
 
@@ -41,7 +25,11 @@ struct Manager {
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
 
-        sd_device_monitor *device_seat_monitor, *device_monitor, *device_vcsa_monitor, *device_button_monitor;
+        sd_device_monitor *device_seat_monitor;
+        sd_device_monitor *device_monitor;
+        sd_device_monitor *device_vcsa_monitor;
+        sd_device_monitor *device_button_monitor;
+        sd_device_monitor *device_uaccess_monitor;
 
         sd_event_source *console_active_event_source;
 
@@ -87,7 +75,7 @@ struct Manager {
         bool unlink_nologin;
 
         char *wall_message;
-        bool enable_wall_messages;
+        bool wall_messages;
         sd_event_source *wall_message_timeout_source;
 
         bool shutdown_dry_run;
@@ -150,7 +138,7 @@ struct Manager {
         dual_timestamp init_ts;
 
         sd_varlink_server *varlink_server;
-};
+} Manager;
 
 void manager_reset_config(Manager *m);
 int manager_parse_config_file(Manager *m);
@@ -180,10 +168,6 @@ bool manager_is_lid_closed(Manager *m);
 bool manager_is_docked_or_external_displays(Manager *m);
 bool manager_is_on_external_power(void);
 bool manager_all_buttons_ignored(Manager *m);
-
-int manager_read_utmp(Manager *m);
-void manager_connect_utmp(Manager *m);
-void manager_reconnect_utmp(Manager *m);
 
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

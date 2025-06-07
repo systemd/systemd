@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mman.h>
+#include <fnmatch.h>
 #include <unistd.h>
 
+#include "sd-varlink.h"
+
+#include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-status.h"
 #include "bootctl-util.h"
@@ -12,14 +15,17 @@
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "find-esp.h"
+#include "hashmap.h"
+#include "log.h"
+#include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
-#include "terminal-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 static int boot_config_load_and_select(
@@ -48,7 +54,7 @@ static int boot_config_load_and_select(
                 else if (r < 0)
                         log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
                 else
-                        (void) boot_config_augment_from_loader(config, efi_entries, /* only_auto= */ false);
+                        (void) boot_config_augment_from_loader(config, efi_entries, /* auto_only= */ false);
         }
 
         return boot_config_select_special_entries(config, /* skip_efivars= */ !!arg_root);
@@ -61,26 +67,31 @@ static int status_entries(
                 const char *xbootldr_path,
                 sd_id128_t xbootldr_partition_uuid) {
 
-        sd_id128_t dollar_boot_partition_uuid;
-        const char *dollar_boot_path;
         int r;
 
         assert(config);
         assert(esp_path || xbootldr_path);
 
+        printf("%sBoot Loader Entry Locations:%s\n", ansi_underline(), ansi_normal());
+
+        printf("          ESP: %s (", esp_path);
+        if (!sd_id128_is_null(esp_partition_uuid))
+                printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "",
+                       SD_ID128_FORMAT_VAL(esp_partition_uuid));
+        if (!xbootldr_path)
+                /* ESP is $BOOT if XBOOTLDR not present. */
+                printf(", %s$BOOT%s", ansi_green(), ansi_normal());
+        printf(")");
+
         if (xbootldr_path) {
-                dollar_boot_path = xbootldr_path;
-                dollar_boot_partition_uuid = xbootldr_partition_uuid;
-        } else {
-                dollar_boot_path = esp_path;
-                dollar_boot_partition_uuid = esp_partition_uuid;
+                printf("\n     XBOOTLDR: %s (", xbootldr_path);
+                if (!sd_id128_is_null(xbootldr_partition_uuid))
+                        printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ", ",
+                               SD_ID128_FORMAT_VAL(xbootldr_partition_uuid));
+                /* XBOOTLDR is always $BOOT if present. */
+                printf("%s$BOOT%s)", ansi_green(), ansi_normal());
         }
 
-        printf("%sBoot Loader Entries:%s\n"
-               "        $BOOT: %s", ansi_underline(), ansi_normal(), dollar_boot_path);
-        if (!sd_id128_is_null(dollar_boot_partition_uuid))
-                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")",
-                       SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
         if (settle_entry_token() >= 0)
                 printf("\n        token: %s", arg_entry_token);
         printf("\n\n");
@@ -94,7 +105,7 @@ static int status_entries(
                                 boot_config_default_entry(config),
                                 /* show_as_default= */ false,
                                 /* show_as_selected= */ false,
-                                /* show_discovered= */ false);
+                                /* show_reported= */ false);
                 if (r > 0)
                         /* < 0 is already logged by the function itself, let's just emit an extra warning if
                            the default entry is broken */
@@ -137,7 +148,8 @@ static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
         printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                SD_ID128_FORMAT_VAL(partition));
-        printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path);
+        printf("         File: %s%s%s/%s%s\n",
+               glyph(GLYPH_TREE_RIGHT), ansi_grey(), arg_esp_path, ansi_normal(), path);
         printf("\n");
 
         (*n_printed)++;
@@ -203,7 +215,7 @@ static int enumerate_binaries(
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to read \"%s/%s\": %m", esp_path, path);
+                return log_error_errno(r, "Failed to read \"%s/%s\": %m", esp_path, skip_leading_slash(path));
 
         FOREACH_DIRENT(de, d, break) {
                 _cleanup_free_ char *v = NULL, *filename = NULL;
@@ -222,7 +234,6 @@ static int enumerate_binaries(
                         return log_error_errno(errno, "Failed to open file for reading: %m");
 
                 r = get_file_version(fd, &v);
-
                 if (r < 0 && r != -ESRCH)
                         return r;
 
@@ -230,7 +241,7 @@ static int enumerate_binaries(
                                   * one more, and can draw the tree glyph properly. */
                         printf("         %s %s%s\n",
                                *is_first ? "File:" : "     ",
-                               special_glyph(SPECIAL_GLYPH_TREE_BRANCH), *previous);
+                               glyph(GLYPH_TREE_BRANCH), *previous);
                         *is_first = false;
                         *previous = mfree(*previous);
                 }
@@ -239,9 +250,12 @@ static int enumerate_binaries(
                  * variable, because we only will know the tree glyph to print (branch or final edge) once we
                  * read one more entry */
                 if (r == -ESRCH) /* No systemd-owned file but still interesting to print */
-                        r = asprintf(previous, "/%s/%s", path, de->d_name);
+                        r = asprintf(previous, "%s%s/%s/%s/%s",
+                                     ansi_grey(), esp_path, ansi_normal(), path, de->d_name);
                 else /* if (r >= 0) */
-                        r = asprintf(previous, "/%s/%s (%s%s%s)", path, de->d_name, ansi_highlight(), v, ansi_normal());
+                        r = asprintf(previous, "%s%s/%s/%s/%s (%s%s%s)",
+                                     ansi_grey(), esp_path, ansi_normal(), path, de->d_name,
+                                     ansi_highlight(), v, ansi_normal());
                 if (r < 0)
                         return log_oom();
 
@@ -281,7 +295,7 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
         if (last) /* let's output the last entry now, since now we know that there will be no more, and can draw the tree glyph properly */
                 printf("         %s %s%s\n",
                        is_first ? "File:" : "     ",
-                       special_glyph(SPECIAL_GLYPH_TREE_RIGHT), last);
+                       glyph(GLYPH_TREE_RIGHT), last);
 
         if (r == 0 && !arg_quiet)
                 log_info("systemd-boot not installed in ESP.");
@@ -370,7 +384,13 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        if (!arg_root && is_efi_boot()) {
+        if (arg_root)
+                log_debug("Skipping 'System' section, operating offline.");
+        else if (!is_efi_boot())
+                printf("%sSystem:%s\n"
+                       "Not booted with EFI\n\n",
+                       ansi_underline(), ansi_normal());
+        else {
                 static const struct {
                         uint64_t flag;
                         const char *name;
@@ -412,7 +432,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
-                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL;
+                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL, *sysfail_reason = NULL;
                 uint64_t loader_features = 0, stub_features = 0;
                 int have;
 
@@ -427,6 +447,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), &current_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), &oneshot_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &default_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), &sysfail_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderSysFailReason"), &sysfail_reason);
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
@@ -476,40 +498,47 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                 if (loader) {
                         printf("%sCurrent Boot Loader:%s\n", ansi_underline(), ansi_normal());
-                        printf("      Product: %s%s%s\n", ansi_highlight(), loader, ansi_normal());
+                        printf("       Product: %s%s%s\n", ansi_highlight(), loader, ansi_normal());
                         for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
 
                         sd_id128_t loader_partition_uuid = SD_ID128_NULL;
                         (void) efi_loader_get_device_part_uuid(&loader_partition_uuid);
-                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(loader_partition_uuid), "Boot loader set partition information");
 
                         _cleanup_free_ char *loader_url = NULL;
                         (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderDeviceURL"), &loader_url);
-                        print_yes_no_line(/* first= */ false, !!loader_url, "Boot loader set network boot URL information");
 
                         if (!sd_id128_is_null(loader_partition_uuid)) {
-                                if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
-                                        printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
-                                               SD_ID128_FORMAT_VAL(loader_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid));
+                                /* If we know esp_uuid and loader_partition_uuid is not equal to it, print a warning. */
+                                if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(loader_partition_uuid, esp_uuid))
+                                        printf("WARNING: The boot loader reports a different partition UUID than the detected ESP "
+                                               "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(loader_partition_uuid),
+                                               SD_ID128_FORMAT_VAL(esp_uuid));
 
-                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                printf("     Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(loader_partition_uuid));
                         } else if (loader_path)
-                                printf("    Partition: n/a\n");
+                                printf("     Partition: n/a\n");
 
                         if (loader_path)
-                                printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+                                printf("        Loader: %s%s%s/%s%s\n",
+                                       glyph(GLYPH_TREE_RIGHT), ansi_grey(), arg_esp_path, ansi_normal(), loader_path);
 
                         if (loader_url)
-                                printf(" Net Boot URL: %s\n", loader_url);
+                                printf("  Net Boot URL: %s\n", loader_url);
+
+                        if (sysfail_entry)
+                                printf("SysFail Reason: %s\n", sysfail_reason);
 
                         if (current_entry)
-                                printf("Current Entry: %s\n", current_entry);
+                                printf(" Current Entry: %s\n", current_entry);
                         if (default_entry)
-                                printf("Default Entry: %s\n", default_entry);
+                                printf(" Default Entry: %s\n", default_entry);
                         if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
-                                printf("OneShot Entry: %s\n", oneshot_entry);
+                                printf(" OneShot Entry: %s\n", oneshot_entry);
+                        if (sysfail_entry)
+                                printf(" SysFail Entry: %s\n", sysfail_entry);
 
                         printf("\n");
                 }
@@ -522,17 +551,20 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                         sd_id128_t stub_partition_uuid = SD_ID128_NULL;
                         (void) efi_stub_get_device_part_uuid(&stub_partition_uuid);
-                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(stub_partition_uuid), "Stub loader set partition information");
 
                         _cleanup_free_ char *stub_url = NULL;
                         (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("StubDeviceURL"), &stub_url);
-                        print_yes_no_line(/* first= */ false, !!stub_url, "Stub set network boot URL information");
 
                         if (!sd_id128_is_null(stub_partition_uuid)) {
-                                if (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
-                                    !(!sd_id128_is_null(xbootldr_uuid) && sd_id128_equal(xbootldr_uuid, stub_partition_uuid)))
-                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP or XBOOTDLR partition ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
-                                               SD_ID128_FORMAT_VAL(stub_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid), SD_ID128_FORMAT_VAL(xbootldr_uuid));
+                                /* _If_ we know both esp_uuid and xbootldr_uuid and stub_partition_uuid is not equal
+                                 * to _either_ of them, print a warning. */
+                                if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(stub_partition_uuid, esp_uuid) &&
+                                    !sd_id128_is_null(xbootldr_uuid) && !sd_id128_equal(stub_partition_uuid, xbootldr_uuid))
+                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTDLR partitions "
+                                               "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(stub_partition_uuid),
+                                               SD_ID128_FORMAT_VAL(esp_uuid),
+                                               SD_ID128_FORMAT_VAL(xbootldr_uuid));
 
                                 printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(stub_partition_uuid));
@@ -540,7 +572,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                 printf("    Partition: n/a\n");
 
                         if (stub_path)
-                                printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
+                                printf("         Stub: %s%s\n", glyph(GLYPH_TREE_RIGHT), strna(stub_path));
 
                         if (stub_url)
                                 printf(" Net Boot URL: %s\n", stub_url);
@@ -567,10 +599,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 }
 
                 printf("\n");
-        } else
-                printf("%sSystem:%s\n"
-                       "Not booted with EFI\n\n",
-                       ansi_underline(), ansi_normal());
+        }
 
         if (arg_esp_path)
                 RET_GATHER(r, status_binaries(arg_esp_path, esp_uuid));
@@ -826,7 +855,7 @@ static int cleanup_orphaned_files(
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
-                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, arg_entry_token);
+                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, skip_leading_slash(arg_entry_token));
 
         p = path_join("/", arg_entry_token);
         if (!p)

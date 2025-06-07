@@ -2,14 +2,18 @@
 
 #include "sd-network.h"
 
+#include "alloc-util.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "networkctl.h"
 #include "networkctl-dump-util.h"
 #include "networkctl-journal.h"
 #include "networkctl-status-system.h"
 #include "networkctl-util.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 static int ifindex_str_compare_func(char * const *a, char * const *b) {
@@ -116,7 +120,7 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
                 return r;
 
         printf("%s%s%s Interfaces: %s\n",
-               on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational,
+               on_color_operational, glyph(GLYPH_BLACK_CIRCLE), off_color_operational,
                strna(netifs_joined));
 
         r = table_print(table, NULL);

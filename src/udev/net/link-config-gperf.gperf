@@ -5,6 +5,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
 #include <stddef.h>
+#include "condition.h"
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "link-config.h"
@@ -34,7 +35,8 @@ Match.Property,                            config_parse_match_property,         
 Match.Host,                                config_parse_net_condition,            CONDITION_HOST,                offsetof(LinkConfig, conditions)
 Match.Virtualization,                      config_parse_net_condition,            CONDITION_VIRTUALIZATION,      offsetof(LinkConfig, conditions)
 Match.KernelCommandLine,                   config_parse_net_condition,            CONDITION_KERNEL_COMMAND_LINE, offsetof(LinkConfig, conditions)
-Match.KernelVersion,                       config_parse_net_condition,            CONDITION_KERNEL_VERSION,      offsetof(LinkConfig, conditions)
+Match.KernelVersion,                       config_parse_net_condition,            CONDITION_VERSION,             offsetof(LinkConfig, conditions)
+Match.Version,                             config_parse_net_condition,            CONDITION_VERSION,             offsetof(LinkConfig, conditions)
 Match.Credential,                          config_parse_net_condition,            CONDITION_CREDENTIAL,          offsetof(LinkConfig, conditions)
 Match.Architecture,                        config_parse_net_condition,            CONDITION_ARCHITECTURE,        offsetof(LinkConfig, conditions)
 Match.Firmware,                            config_parse_net_condition,            CONDITION_FIRMWARE,            offsetof(LinkConfig, conditions)

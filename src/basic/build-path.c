@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <elf.h>
+#include <fcntl.h>
 #include <link.h>
+#include <stdlib.h>
 #include <sys/auxv.h>
 
+#include "alloc-util.h"
 #include "build-path.h"
-#include "errno-list.h"
-#include "errno-util.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "unistd.h"
 
 static int get_runpath_from_dynamic(const ElfW(Dyn) *d, ElfW(Addr) bias, const char **ret) {
@@ -241,16 +242,17 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
         if (find_build_dir_binary(fn, &np) >= 0)
                 execv(np, argv);
 
-        execv(path, argv);
+        execvp(path, argv);
         return -errno;
 }
 
-int pin_callout_binary(const char *path) {
-        int r;
+int pin_callout_binary(const char *path, char **ret_path) {
+        int r, fd;
 
         assert(path);
 
-        /* Similar to invoke_callout_binary(), but pins (i.e. O_PATH opens) the binary instead of executing it. */
+        /* Similar to invoke_callout_binary(), but pins (i.e. O_PATH opens) the binary instead of executing
+         * it, also optionally provides the path to the binary. */
 
         _cleanup_free_ char *fn = NULL;
         r = path_extract_filename(path, &fn);
@@ -260,15 +262,27 @@ int pin_callout_binary(const char *path) {
                 return -EISDIR;
 
         const char *e;
-        if (find_environment_binary(fn, &e) >= 0)
-                return RET_NERRNO(open(e, O_CLOEXEC|O_PATH));
+        if (find_environment_binary(fn, &e) >= 0) {
+                /* The environment variable counts. We'd fail if the executable is not available/invalid. */
+                r = open_and_check_executable(e, /* root = */ NULL, ret_path, &fd);
+                if (r < 0)
+                        return r;
+
+                return fd;
+        }
 
         _cleanup_free_ char *np = NULL;
         if (find_build_dir_binary(fn, &np) >= 0) {
-                r = RET_NERRNO(open(np, O_CLOEXEC|O_PATH));
+                r = open_and_check_executable(np, /* root = */ NULL, ret_path, &fd);
                 if (r >= 0)
-                        return r;
+                        return fd;
         }
 
-        return RET_NERRNO(open(path, O_CLOEXEC|O_PATH));
+        r = find_executable_full(path, /* root = */ NULL,
+                                 /* exec_search_path = */ NULL, /* use_path_envvar = */ true,
+                                 ret_path, &fd);
+        if (r < 0)
+                return r;
+
+        return fd;
 }

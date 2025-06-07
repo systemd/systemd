@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/epoll.h>
+#include <stdlib.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <threads.h>
@@ -11,33 +11,34 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "env-util.h"
+#include "errno-util.h"
 #include "event-source.h"
 #include "fd-util.h"
-#include "fs-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "list.h"
+#include "log.h"
 #include "logarithm.h"
-#include "macro.h"
 #include "mallinfo-util.h"
 #include "memory-util.h"
 #include "missing_magic.h"
-#include "missing_syscall.h"
 #include "missing_wait.h"
 #include "origin-id.h"
 #include "path-util.h"
-#include "prioq.h"
 #include "pidfd-util.h"
+#include "prioq.h"
 #include "process-util.h"
 #include "psi-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "strxcpyx.h"
 #include "time-util.h"
 
@@ -431,7 +432,7 @@ _public_ int sd_event_new(sd_event** ret) {
 
         if (secure_getenv("SD_EVENT_PROFILE_DELAYS")) {
                 log_debug("Event loop profiling enabled. Logarithmic histogram of event loop iterations in the range 2^0 %s 2^63 us will be logged every 5s.",
-                          special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                          glyph(GLYPH_ELLIPSIS));
                 e->profile_delays = true;
         }
 
@@ -1891,15 +1892,15 @@ _public_ int sd_event_trim_memory(void) {
                    LOG_MESSAGE("Memory trimming took %s, returned %s to OS.",
                                FORMAT_TIMESPAN(period, 0),
                                FORMAT_BYTES(l)),
-                   "MESSAGE_ID=" SD_MESSAGE_MEMORY_TRIM_STR,
-                   "TRIMMED_BYTES=%zu", l,
-                   "TRIMMED_USEC=" USEC_FMT, period);
+                   LOG_MESSAGE_ID(SD_MESSAGE_MEMORY_TRIM_STR),
+                   LOG_ITEM("TRIMMED_BYTES=%zu", l),
+                   LOG_ITEM("TRIMMED_USEC=" USEC_FMT, period));
 #else
         log_struct(LOG_DEBUG,
                    LOG_MESSAGE("Memory trimming took %s.",
                                FORMAT_TIMESPAN(period, 0)),
-                   "MESSAGE_ID=" SD_MESSAGE_MEMORY_TRIM_STR,
-                   "TRIMMED_USEC=" USEC_FMT, period);
+                   LOG_MESSAGE_ID(SD_MESSAGE_MEMORY_TRIM_STR),
+                   LOG_ITEM("TRIMMED_USEC=" USEC_FMT, period));
 #endif
 
         return 0;
@@ -2725,8 +2726,10 @@ _public_ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t *ret) {
         assert_return(s, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
-        assert_return(s->pending, -ENODATA);
         assert_return(!event_origin_changed(s->event), -ECHILD);
+
+        if (!s->pending)
+                return -ENODATA;
 
         *ret = s->io.revents;
         return 0;

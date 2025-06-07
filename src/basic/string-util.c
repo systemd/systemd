@@ -1,20 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "glyph-util.h"
 #include "gunicode.h"
 #include "locale-util.h"
-#include "macro.h"
+#include "log.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
@@ -247,7 +241,7 @@ bool string_has_cc(const char *p, const char *ok) {
 }
 
 static int write_ellipsis(char *buf, bool unicode) {
-        const char *s = special_glyph_full(SPECIAL_GLYPH_ELLIPSIS, unicode);
+        const char *s = glyph_full(GLYPH_ELLIPSIS, unicode);
         assert(strlen(s) == 3);
         memcpy(buf, s, 3);
         return 3;
@@ -1042,6 +1036,15 @@ int free_and_strdup(char **p, const char *s) {
         return 1;
 }
 
+int free_and_strdup_warn(char **p, const char *s) {
+        int r;
+
+        r = free_and_strdup(p, s);
+        if (r < 0)
+                return log_oom();
+        return r;
+}
+
 int free_and_strndup(char **p, const char *s, size_t l) {
         char *t;
 
@@ -1101,6 +1104,19 @@ bool string_is_safe(const char *p) {
         }
 
         return true;
+}
+
+bool string_is_safe_ascii(const char *p) {
+        return ascii_is_valid(p) && string_is_safe(p);
+}
+
+char* str_realloc(char *p) {
+        /* Reallocate *p to actual size. Ignore failure, and return the original string on error. */
+
+        if (!p)
+                return NULL;
+
+        return realloc(p, strlen(p) + 1) ?: p;
 }
 
 char* string_erase(char *x) {
@@ -1358,6 +1374,46 @@ char* find_line_startswith(const char *haystack, const char *needle) {
                 }
 
         return p + strlen(needle);
+}
+
+char* find_line(const char *haystack, const char *needle) {
+        char *p;
+
+        assert(haystack);
+        assert(needle);
+
+        /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
+         * beginning of the line */
+
+        p = find_line_startswith(haystack, needle);
+        if (!p)
+                return NULL;
+
+        if (*p == 0 || strchr(NEWLINE, *p))
+                return p - strlen(needle);
+
+        return NULL;
+}
+
+char* find_line_after(const char *haystack, const char *needle) {
+        char *p;
+
+        assert(haystack);
+        assert(needle);
+
+        /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
+         * next line after it */
+
+        p = find_line_startswith(haystack, needle);
+        if (!p)
+                return NULL;
+
+        if (*p == 0)
+                return p;
+        if (strchr(NEWLINE, *p))
+                return p + 1;
+
+        return NULL;
 }
 
 bool version_is_valid(const char *s) {

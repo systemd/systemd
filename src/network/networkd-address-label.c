@@ -1,17 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
+#include <linux/if_addr.h>
 #include <linux/if_addrlabel.h>
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
-#include "netlink-util.h"
+#include "conf-parser.h"
+#include "hashmap.h"
 #include "networkd-address-label.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
 #include "parse-util.h"
+#include "string-util.h"
 
 AddressLabel *address_label_free(AddressLabel *label) {
         if (!label)

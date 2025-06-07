@@ -1,15 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
+#include "sd-json.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bitmap.h"
 #include "dns-domain.h"
 #include "format-ifname.h"
+#include "log.h"
+#include "prioq.h"
+#include "resolve-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
+#include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-rr.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /* Never cache more than 4K entries. RFC 1536, Section 5 suggests to
  * leave DNS caches unbounded, but that's crazy. */
@@ -910,7 +917,11 @@ fail:
         return r;
 }
 
-static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, DnsResourceKey *k) {
+static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(
+                DnsCache *c,
+                DnsResourceKey *k,
+                uint64_t query_flags) {
+
         DnsCacheItem *i;
         const char *n;
         int r;
@@ -933,7 +944,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         if (i && i->type == DNS_CACHE_NXDOMAIN)
                 return i;
 
-        if (dns_type_may_redirect(k->type)) {
+        if (dns_type_may_redirect(k->type) && !FLAGS_SET(query_flags, SD_RESOLVED_NO_CNAME)) {
                 /* Check if we have a CNAME record instead */
                 i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
                 if (i && i->type != DNS_CACHE_NODATA)
@@ -1053,7 +1064,7 @@ int dns_cache_lookup(
                 goto miss;
         }
 
-        first = dns_cache_get_by_key_follow_cname_dname_nsec(c, key);
+        first = dns_cache_get_by_key_follow_cname_dname_nsec(c, key, query_flags);
         if (!first) {
                 /* If one question cannot be answered we need to refresh */
 

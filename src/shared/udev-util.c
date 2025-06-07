@@ -1,24 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
-#include <errno.h>
+#include <time.h>
 #include <unistd.h>
+
+#include "sd-event.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "env-file.h"
 #include "errno-util.h"
-#include "fd-util.h"
-#include "id128-util.h"
+#include "hashmap.h"
 #include "log.h"
-#include "macro.h"
-#include "parse-util.h"
 #include "path-util.h"
-#include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-util.h"
 #include "utf8.h"
 
@@ -41,7 +40,12 @@ int udev_parse_config_full(const ConfigTableItem config_table[]) {
 int udev_parse_config(void) {
         int r, log_val = -1;
         const ConfigTableItem config_table[] = {
-                { NULL, "udev_log", config_parse_log_level, 0, &log_val },
+                { NULL, "udev_log",       config_parse_log_level, 0, &log_val },
+                { NULL, "children_max",   NULL,                   0, NULL     },
+                { NULL, "exec_delay",     NULL,                   0, NULL     },
+                { NULL, "event_timeout",  NULL,                   0, NULL     },
+                { NULL, "resolve_names",  NULL,                   0, NULL     },
+                { NULL, "timeout_signal", NULL,                   0, NULL     },
                 {}
         };
 

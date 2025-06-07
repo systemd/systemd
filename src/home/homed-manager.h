@@ -3,15 +3,8 @@
 
 #include <openssl/evp.h>
 
-#include "sd-bus.h"
-#include "sd-device.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
-typedef struct Manager Manager;
-
-#include "hashmap.h"
-#include "homed-home.h"
+#include "homed-forward.h"
+#include "user-record.h"
 
 /* The LUKS free disk space rebalancing logic goes through this state machine */
 typedef enum RebalanceState {
@@ -25,7 +18,7 @@ typedef enum RebalanceState {
         _REBALANCE_STATE_INVALID = -1,
 } RebalanceState;
 
-struct Manager {
+typedef struct Manager {
         sd_event *event;
         sd_bus *bus;
 
@@ -42,8 +35,7 @@ struct Manager {
 
         sd_event_source *inotify_event_source;
 
-        /* An event source we receive sd_notify() messages from our worker from */
-        sd_event_source *notify_socket_event_source;
+        char *notify_socket_path;
 
         sd_device_monitor *device_monitor;
 
@@ -69,7 +61,7 @@ struct Manager {
          * running a rebalancing operation for. 'rebalance_queued_method_calls' are the method calls that
          * have been queued since then and that we'll operate on once we complete the current run. */
         Set *rebalance_pending_method_calls, *rebalance_queued_method_calls;
-};
+} Manager;
 
 int manager_new(Manager **ret);
 Manager* manager_free(Manager *m);
@@ -87,9 +79,13 @@ int manager_reschedule_rebalance(Manager *m);
 
 int manager_verify_user_record(Manager *m, UserRecord *hr);
 
+int manager_adopt_home(Manager *m, const char *path);
+
 int manager_acquire_key_pair(Manager *m);
 int manager_sign_user_record(Manager *m, UserRecord *u, UserRecord **ret, sd_bus_error *error);
 
 int bus_manager_emit_auto_login_changed(Manager *m);
 
 int manager_get_home_by_name(Manager *m, const char *user_name, Home **ret);
+
+extern const struct hash_ops public_key_hash_ops;

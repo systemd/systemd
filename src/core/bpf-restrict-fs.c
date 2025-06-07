@@ -1,33 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <fcntl.h>
-#include <linux/types.h>
-#include <sys/resource.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <stdlib.h>
 
-#include "alloc-util.h"
 #include "bpf-restrict-fs.h"
-#include "cgroup-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "filesystems.h"
 #include "log.h"
 #include "lsm-util.h"
 #include "manager.h"
-#include "mkdir.h"
 #include "nulstr-util.h"
+#include "set.h"
 #include "stat-util.h"
-#include "strv.h"
+#include "unit.h"
 
 #if BPF_FRAMEWORK
 /* libbpf, clang and llc compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf-util.h"
 #include "bpf/restrict_fs/restrict-fs-skel.h"
 
 #define CGROUP_HASH_SIZE_MAX 2048
@@ -102,12 +91,12 @@ bool bpf_restrict_fs_supported(bool initialize) {
         if (!initialize)
                 return false;
 
-        if (!cgroup_bpf_supported())
+        if (dlopen_bpf_full(LOG_WARNING) < 0)
                 return (supported = false);
 
         r = lsm_supported("bpf");
         if (r == -ENOPKG) {
-                log_info_errno(r, "bpf-restrict-fs: securityfs not mounted, BPF LSM support not available.");
+                log_debug_errno(r, "bpf-restrict-fs: securityfs not mounted, BPF LSM support not available.");
                 return (supported = false);
         }
         if (r < 0) {

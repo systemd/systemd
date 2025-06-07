@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-json.h"
-
+#include "forward.h"
 #include "user-record.h"
 
 typedef struct GroupRecord {
@@ -13,6 +12,7 @@ typedef struct GroupRecord {
         char *group_name;
         char *realm;
         char *group_name_and_realm_auto;
+        sd_id128_t uuid;
 
         char *description;
 
@@ -41,6 +41,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(GroupRecord*, group_record_unref);
 
 int group_record_load(GroupRecord *h, sd_json_variant *v, UserRecordLoadFlags flags);
 int group_record_build(GroupRecord **ret, ...);
+#define group_record_buildo(ret, ...)                                   \
+        group_record_build((ret), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 int group_record_clone(GroupRecord *g, UserRecordLoadFlags flags, GroupRecord **ret);
 
 bool group_record_match(GroupRecord *h, const UserDBMatch *match);
@@ -49,3 +51,6 @@ const char* group_record_group_name_and_realm(GroupRecord *h);
 UserDisposition group_record_disposition(GroupRecord *h);
 
 bool group_record_matches_group_name(const GroupRecord *g, const char *groupname);
+
+bool group_record_is_root(const GroupRecord *g) _pure_;
+bool group_record_is_nobody(const GroupRecord *g) _pure_;

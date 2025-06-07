@@ -1,18 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
-#include "cgroup.h"
-#include "unit.h"
-
-enum {
-        BPF_FIREWALL_UNSUPPORTED          = 0,
-        BPF_FIREWALL_SUPPORTED            = 1,
-        BPF_FIREWALL_SUPPORTED_WITH_MULTI = 2,
-};
-
-int bpf_firewall_supported(void);
+#include "core-forward.h"
 
 int bpf_firewall_compile(Unit *u);
 int bpf_firewall_install(Unit *u);

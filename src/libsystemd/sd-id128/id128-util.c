@@ -1,18 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "fd-util.h"
 #include "fs-util.h"
-#include "hexdecoct.h"
+#include "hash-funcs.h"
 #include "id128-util.h"
 #include "io-util.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "sha256.h"
-#include "stdio-util.h"
+#include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"

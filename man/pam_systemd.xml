@@ -113,7 +113,7 @@
               </row>
               <row>
                 <entry><constant>user-early</constant></entry>
-                <entry>Similar to <literal>user</literal> but sessions of this class are not ordered after <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, i.e. may be started before regular sessions are allowed to be established. This session class is the default for sessions of the root user that would otherwise qualify for the <constant>user</constant> class, see above. (Added in v256.)</entry>
+                <entry>Similar to <constant>user</constant> but sessions of this class are not ordered after <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, i.e. may be started before regular sessions are allowed to be established. This session class is the default for sessions of the root user that would otherwise qualify for the <constant>user</constant> class, see above. (Added in v256.)</entry>
               </row>
               <row>
                 <entry><constant>user-light</constant></entry>
@@ -125,15 +125,15 @@
               </row>
               <row>
                 <entry><constant>user-incomplete</constant></entry>
-                <entry>Similar to <literal>user</literal> but for sessions which are not fully set up yet, i.e. have no home directory mounted or similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
+                <entry>Similar to <constant>user</constant> but for sessions which are not fully set up yet, i.e. have no home directory mounted or similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
               </row>
               <row>
                 <entry><constant>greeter</constant></entry>
-                <entry>Similar to <literal>user</literal> but for sessions that are spawned by a display manager ephemerally and which prompt the user for login credentials.</entry>
+                <entry>Similar to <constant>user</constant> but for sessions that are spawned by a display manager ephemerally and which prompt the user for login credentials.</entry>
               </row>
               <row>
                 <entry><constant>lock-screen</constant></entry>
-                <entry>Similar to <literal>user</literal> but for sessions that are spawned by a display manager ephemerally and which show a lock screen that can be used to unlock locked user accounts or sessions.</entry>
+                <entry>Similar to <constant>user</constant> but for sessions that are spawned by a display manager ephemerally and which show a lock screen that can be used to unlock locked user accounts or sessions.</entry>
               </row>
               <row>
                 <entry><constant>background</constant></entry>
@@ -166,9 +166,9 @@
         <term><varname>type=</varname></term>
 
         <listitem><para>Takes a string argument which sets the session type. The <varname>XDG_SESSION_TYPE</varname>
-        environment variable (see below) takes precedence. One of <literal>unspecified</literal>,
-        <literal>tty</literal>, <literal>x11</literal>, <literal>wayland</literal>, <literal>mir</literal>, or
-        <literal>web</literal>. See
+        environment variable (see below) takes precedence. One of <constant>unspecified</constant>,
+        <constant>tty</constant>, <constant>x11</constant>, <constant>wayland</constant>, <constant>mir</constant>, or
+        <constant>web</constant>. See
         <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
         details about the session type.</para>
 
@@ -181,7 +181,7 @@
         <listitem><para>Takes a single, short identifier string for the desktop environment. The
         <varname>XDG_SESSION_DESKTOP</varname> environment variable (see below) takes precedence. This may be used to
         indicate the session desktop used, where this applies and if this information is available. For example:
-        <literal>GNOME</literal>, or <literal>KDE</literal>. It is recommended to use the same identifiers and
+        <constant>GNOME</constant>, or <constant>KDE</constant>. It is recommended to use the same identifiers and
         capitalization as for <varname>$XDG_CURRENT_DESKTOP</varname>, as defined by the <ulink
         url="https://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop Entry
         Specification</ulink>. (However, note that the option only takes a single item, and not a colon-separated list
@@ -229,16 +229,16 @@
         <term><varname>default-capability-bounding-set=</varname></term>
         <term><varname>default-capability-ambient-set=</varname></term>
 
-        <listitem><para>Takes a comma-separated list of process capabilities
-        (e.g. <constant>CAP_WAKE_ALARM</constant>, <constant>CAP_BLOCK_SUSPEND</constant>, …) to set for the
+        <listitem><para>Takes a comma-separated list of process capabilities (e.g.
+        <constant>CAP_WAKE_ALARM</constant>, <constant>CAP_BLOCK_SUSPEND</constant>, …) to set for the
         invoked session's processes, if the user record does not encode appropriate sets of capabilities
         directly. See <citerefentry
         project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details on the capabilities concept. If not specified, the default bounding set is left as is
         (i.e. usually contains the full set of capabilities). The default ambient set is set to
         <constant>CAP_WAKE_ALARM</constant> for regular users if the PAM session is associated with a local
-        seat or if it is invoked for the <literal>systemd-user</literal> service. Otherwise, defaults to the
-        empty set.</para>
+        seat or if it is invoked for the systemd user service <filename>user@.service</filename>. Otherwise,
+        defaults to the empty set.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>

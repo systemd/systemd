@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-introspect.h"
 #include "bus-object.h"
-#include "macro.h"
+#include "log.h"
+#include "ordered-set.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -80,7 +84,7 @@ static const BusObjectImplementation* find_implementation(
 }
 
 static int bus_introspect_implementation(
-                struct introspect *intro,
+                BusIntrospect *intro,
                 const BusObjectImplementation *impl) {
         int r;
 
@@ -124,7 +128,7 @@ int bus_introspect_implementations(
                 return 0;
         }
 
-        struct introspect intro = {};
+        BusIntrospect intro = {};
         bool is_interface = sd_bus_interface_name_is_valid(pattern);
 
         impl = find_implementation(pattern, bus_objects);

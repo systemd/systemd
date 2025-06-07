@@ -1,16 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/loop.h>
 #include <linux/magic.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
+#include "sd-json.h"
 #include "sd-path.h"
 
 #include "alloc-util.h"
@@ -34,19 +34,17 @@
 #include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
-#include "macro.h"
-#include "missing_fs.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "utf8.h"
 #include "vpick.h"
 #include "xattr-util.h"
 
@@ -299,7 +297,7 @@ static int image_update_quota(Image *i, int fd) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         if (i->type != IMAGE_SUBVOLUME)
@@ -400,7 +398,7 @@ static int image_make(
                         r = extract_image_basename(
                                         filename,
                                         image_class_suffix_to_string(c),
-                                        /* format_suffix= */ NULL,
+                                        /* format_suffixes= */ NULL,
                                         &pretty_buffer,
                                         /* ret_suffix= */ NULL);
                         if (r < 0)
@@ -942,7 +940,7 @@ int image_discover(
                                                 image_class_suffix_to_string(class),
                                                 STRV_MAKE(".raw"),
                                                 &pretty,
-                                                /* suffix= */ NULL);
+                                                /* ret_suffix= */ NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", fname);
                                         continue;
@@ -1016,7 +1014,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         fname,
                                                         image_class_suffix_to_string(class),
-                                                        /* format_suffix= */ NULL,
+                                                        /* format_suffixes= */ NULL,
                                                         &pretty,
                                                         /* ret_suffix= */ NULL);
                                         if (r < 0) {
@@ -1031,7 +1029,7 @@ int image_discover(
                                                 /* class_suffix= */ NULL,
                                                 /* format_suffix= */ NULL,
                                                 &pretty,
-                                                /* ret_v_suffix= */ NULL);
+                                                /* ret_suffix= */ NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", fname);
                                         continue;
@@ -1094,7 +1092,7 @@ int image_remove(Image *i) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         settings = image_settings_path(i);
@@ -1189,7 +1187,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         if (!image_name_is_valid(new_name))
                 return -EINVAL;
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         settings = image_settings_path(i);
@@ -1388,7 +1386,7 @@ int image_read_only(Image *i, bool b) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         /* Make sure we don't interfere with a running nspawn */
@@ -1578,7 +1576,7 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         if (i->type != IMAGE_SUBVOLUME)
@@ -1654,7 +1652,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/hostname in image %s: %m", i->name);
                 else if (r >= 0) {
-                        r = read_etc_hostname(path, &hostname);
+                        r = read_etc_hostname(path, /* substitute_wildcards= */ false, &hostname);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to read /etc/hostname of image %s: %m", i->name);
                 }
@@ -1726,6 +1724,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                                 /* verity= */ NULL,
                                 /* mount_options= */ NULL,
                                 image_policy,
+                                /* image_filter= */ NULL,
                                 flags,
                                 &m);
                 if (r < 0)
@@ -1826,6 +1825,24 @@ bool image_in_search_path(
                 if (p[strspn(p, "/")] == 0)
                         return true;
         }
+
+        return false;
+}
+
+bool image_is_vendor(const struct Image *i) {
+        assert(i);
+
+        return i->path && path_startswith(i->path, "/usr");
+}
+
+bool image_is_host(const struct Image *i) {
+        assert(i);
+
+        if (i->name && streq(i->name, ".host"))
+                return true;
+
+        if (i->path && path_equal(i->path, "/"))
+                return true;
 
         return false;
 }

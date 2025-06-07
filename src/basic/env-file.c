@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -7,6 +9,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -569,6 +572,41 @@ int merge_env_file(
         return parse_env_file_internal(f, fname, merge_env_file_push, env);
 }
 
+static void env_file_fputs_escaped(FILE *f, const char *p) {
+        assert(f);
+        assert(p);
+
+        flockfile(f);
+
+        if (string_has_cc(p, NULL) || chars_intersect(p, WHITESPACE SHELL_NEED_QUOTES)) {
+                fputc_unlocked('"', f);
+
+                for (; *p; p++) {
+                        if (strchr(SHELL_NEED_ESCAPE, *p))
+                                fputc_unlocked('\\', f);
+
+                        fputc_unlocked(*p, f);
+                }
+
+                fputc_unlocked('"', f);
+        } else
+                fputs_unlocked(p, f);
+
+        funlockfile(f);
+}
+
+void env_file_fputs_assignment(FILE *f, const char *k, const char *v) {
+        assert(f);
+        assert(k);
+
+        if (!v)
+                return;
+
+        fputs(k, f);
+        env_file_fputs_escaped(f, v);
+        fputc('\n', f);
+}
+
 static void write_env_var(FILE *f, const char *v) {
         const char *p;
 
@@ -586,19 +624,7 @@ static void write_env_var(FILE *f, const char *v) {
         p++;
         fwrite_unlocked(v, 1, p-v, f);
 
-        if (string_has_cc(p, NULL) || chars_intersect(p, WHITESPACE SHELL_NEED_QUOTES)) {
-                fputc_unlocked('"', f);
-
-                for (; *p; p++) {
-                        if (strchr(SHELL_NEED_ESCAPE, *p))
-                                fputc_unlocked('\\', f);
-
-                        fputc_unlocked(*p, f);
-                }
-
-                fputc_unlocked('"', f);
-        } else
-                fputs_unlocked(p, f);
+        env_file_fputs_escaped(f, p);
 
         fputc_unlocked('\n', f);
 }
@@ -611,11 +637,13 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(fname);
 
-        r = fopen_temporary_at(dir_fd, fname, &f, &p);
+        r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY|O_CLOEXEC, &p, &f);
         if (r < 0)
                 return r;
 
-        (void) fchmod_umask(fileno(f), 0644);
+        r = fchmod_umask(fileno(f), 0644);
+        if (r < 0)
+                goto fail;
 
         STRV_FOREACH(i, headers) {
                 assert(isempty(*i) || startswith(*i, "#"));
@@ -626,15 +654,16 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l) {
         STRV_FOREACH(i, l)
                 write_env_var(f, *i);
 
-        r = fflush_and_check(f);
-        if (r >= 0) {
-                if (renameat(dir_fd, p, dir_fd, fname) >= 0)
-                        return 0;
+        r = flink_tmpfile_at(f, dir_fd, p, fname, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
+        if (r < 0)
+                goto fail;
 
-                r = -errno;
-        }
+        return 0;
 
-        (void) unlinkat(dir_fd, p, 0);
+fail:
+        if (p)
+                (void) unlinkat(dir_fd, p, 0);
+
         return r;
 }
 

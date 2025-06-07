@@ -1,27 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
 #include "fs-util.h"
-#include "missing_fcntl.h"
-#include "missing_fs.h"
-#include "missing_syscall.h"
-#include "mkdir.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 
 /* This is the original MAX_HANDLE_SZ definition from the kernel, when the API was introduced. We use that in place of
  * any more currently defined value to future-proof things: if the size is increased in the API headers, and our code
@@ -140,7 +137,6 @@ int name_to_handle_at_try_fid(
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mnt_id) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *fdinfo = NULL;
         _cleanup_close_ int subfd = -EBADF;
         int r;
 
@@ -157,18 +153,12 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
                 xsprintf(path, "/proc/self/fdinfo/%i", subfd);
         }
 
-        r = read_full_virtual_file(path, &fdinfo, NULL);
+        _cleanup_free_ char *p = NULL;
+        r = get_proc_field(path, "mnt_id", &p);
         if (r == -ENOENT)
-                return proc_fd_enoent_errno();
+                return -EBADF;
         if (r < 0)
                 return r;
-
-        char *p = find_line_startswith(fdinfo, "mnt_id:");
-        if (!p)
-                return -EBADMSG;
-
-        p = skip_leading_chars(p, /* bad = */ NULL);
-        p[strcspn(p, WHITESPACE)] = 0;
 
         return safe_atoi(p, ret_mnt_id);
 }

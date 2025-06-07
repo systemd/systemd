@@ -1,18 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "copy.h"
-#include "env-file-label.h"
 #include "env-file.h"
-#include "env-util.h"
+#include "env-file-label.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "hashmap.h"
 #include "kbd-util.h"
 #include "localed-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "process-util.h"
 #include "stat-util.h"

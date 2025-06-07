@@ -49,6 +49,9 @@ predicate potentiallyDangerousFunction(Function f, string message) {
   ) or (
     f.getQualifiedName() = "dirname" and
     message = "Call dirname() is icky. Use path_extract_directory() instead."
+  ) or (
+    f.getQualifiedName() = "basename" and
+    message = "Call basename() is icky. Use path_extract_filename() instead."
   )
 }
 

@@ -20,6 +20,12 @@ they carry some identical (or at least very similar) fields.
 Matches the `gr_name` field of UNIX/glibc NSS `struct group`,
 or the shadow structure `struct sgrp`'s `sg_namp` field.
 
+`uuid` -> A string containing a lowercase UUID that identifies this group.
+The same considerations apply to this field as they do to the corresponding field of user records.
+Users and groups MUST NOT share the same UUID unless they are semantically
+the same security principal, e.g. if a system synthesizes a single-user group from
+user records to be the user's primary group.
+
 `realm` → The "realm" the group belongs to, conceptually identical to the same field of user records.
 A string in DNS domain name syntax.
 

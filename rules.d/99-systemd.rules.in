@@ -34,26 +34,6 @@ SUBSYSTEM=="block", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READ
 # we are probably still calling mke2fs or mkswap on it.
 SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_TABLE_TYPE}=="", ENV{ID_FS_USAGE}=="", ENV{SYSTEMD_READY}="0"
 
-# Add symlink to GPT root disk – in two flavours: one which takes the factory
-# reset state into account, and one which does not. The former is useful for
-# wipe-rootfs-on-factory-reset scenarios where we should not be tempted to use
-# the root fs before factory reset is complete. The latter is useful for
-# wipe-only-/var-on-factory-reset where we should use it (because that's where
-# repart.d/ definitions are placed which tell us what to wipe).
-SUBSYSTEM!="block", GOTO="gpt_auto_root_end"
-ENV{ID_PART_GPT_AUTO_ROOT}!="1", GOTO="gpt_auto_root_end"
-IMPORT{builtin}="factory_reset status"
-ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="gpt-auto-root"
-ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="gpt-auto-root-ignore-factory-reset"
-ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="gpt-auto-root-luks"
-ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="gpt-auto-root-luks-ignore-factory-reset"
-LABEL="gpt_auto_root_end"
-# Note we don't need to condition the gpt-auto-root LUKS symlink for
-# auto-discovered LUKS devices, because it's sufficient if we do this for the
-# underlying partition block device, which is covered by the above.
-SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", SYMLINK+="gpt-auto-root", IMPORT{builtin}="factory_reset status"
-SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="gpt-auto-root-ignore-factory-reset"
-
 # Ignore raid devices that are not yet assembled and started
 SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="md*", TEST!="md/array_state", ENV{SYSTEMD_READY}="0"
 SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="md*", ATTR{md/array_state}=="|clear|inactive", ENV{SYSTEMD_READY}="0"
@@ -104,7 +84,9 @@ SUBSYSTEM=="misc", KERNEL=="rfkill", TAG+="systemd", ENV{SYSTEMD_WANTS}+="system
 SUBSYSTEM=="module", KERNEL=="fuse", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-fs-fuse-connections.mount"
 SUBSYSTEM=="module", KERNEL=="configfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-kernel-config.mount"
 
-# Pull in tpm2.target whenever /dev/tpmrm* shows up
+# Pull in tpm2.target whenever the full-blown /dev/tpmrm* shows up (and also
+# tag the version without resource manager, so that we can sync on it).
 SUBSYSTEM=="tpmrm", KERNEL=="tpmrm[0-9]*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="tpm2.target"
+SUBSYSTEM=="tpm", KERNEL=="tpm[0-9]*", TAG+="systemd"
 
 LABEL="systemd_end"

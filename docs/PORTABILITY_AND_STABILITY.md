@@ -145,7 +145,6 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 | [Journal File Format](/JOURNAL_FILE_FORMAT) | File format | yes | yes | - | maybe | - | no |
 | [Journal Export Format](JOURNAL_EXPORT_FORMATS#journal-export-format) | File format | yes | yes | - | yes | - | no |
 | [Journal JSON Format](JOURNAL_EXPORT_FORMATS#journal-json-format) | File format | yes | yes | - | yes | - | no |
-| [Cooperation in cgroup tree](/PAX_CONTROL_GROUPS) | Treaty | yes | yes | libvirt | yes | libvirt | no |
 | [Password Agents](/PASSWORD_AGENTS) | Socket+Files | yes | yes | - | yes | - | no |
 | [udev multi-seat properties](https://www.freedesktop.org/software/systemd/man/sd-login.html) | udev Property | yes | yes | X11, gdm | no | - | no |
 | udev session switch ACL properties | udev Property | no | no | - | no | - | no |

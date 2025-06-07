@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if !SD_BOOT
-#  include <ctype.h>
-#endif
-
 #include "macro-fundamental.h"
 #include "string-util-fundamental.h"
 
@@ -82,7 +78,7 @@ static bool is_valid_version_char(sd_char a) {
 int strverscmp_improved(const sd_char *a, const sd_char *b) {
         /* This function is similar to strverscmp(3), but it treats '-' and '.' as separators.
          *
-         * The logic is based on rpm's rpmvercmp(), but unlike rpmvercmp(), it distiguishes e.g.
+         * The logic is based on rpm's rpmvercmp(), but unlike rpmvercmp(), it distinguishes e.g.
          * '123a' and '123.a', with '123a' being newer.
          *
          * It allows direct comparison of strings which contain both a version and a release; e.g.

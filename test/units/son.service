@@ -6,4 +6,4 @@ Description=Son Service
 Slice=parent.slice
 Type=oneshot
 ExecStart=true
-CPUShares=100
+CPUWeight=100

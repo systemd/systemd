@@ -95,7 +95,7 @@ testcase_multiple_features() {
         -p BindReadOnlyPaths=/usr/share \
         -p NoNewPrivileges=yes \
         -p ProtectSystem=strict \
-        -p User=testuser\
+        -p User=testuser \
         -p Group=testuser \
         -p RuntimeDirectory=abc \
         -p StateDirectory=qed \
@@ -142,8 +142,8 @@ testcase_unpriv() {
     mount -t proc proc /tmp/TEST-07-PID1-private-pids-proc
 
     # Verify running as unprivileged user can unshare PID namespace and mounts /proc properly.
-    assert_eq "$(runas testuser systemd-run --wait --user --pipe -p PrivatePIDs=yes readlink /proc/self)" "1"
-    assert_eq "$(runas testuser systemd-run --wait --user --pipe -p PrivatePIDs=yes ps aux --no-heading | wc -l)" "1"
+    assert_eq "$(systemd-run --machine=testuser@.host --wait --user --pipe -p PrivatePIDs=yes readlink /proc/self)" "1"
+    assert_eq "$(systemd-run --machine=testuser@.host --wait --user --pipe -p PrivatePIDs=yes ps aux --no-heading | wc -l)" "1"
 
     umount /tmp/TEST-07-PID1-private-pids-proc
     rm -rf /tmp/TEST-07-PID1-private-pids-proc
@@ -162,7 +162,7 @@ testcase_unpriv() {
         mount -t tmpfs tmpfs /proc/scsi
     fi
 
-    (! runas testuser systemd-run --wait --user --pipe -p PrivatePIDs=yes true)
+    (! systemd-run --machine=testuser@.host --wait --user --pipe -p PrivatePIDs=yes true)
 
     if [[ "$HAS_EXISTING_SCSI_MOUNT" == "no" ]]; then
         umount /proc/scsi

@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <netdb.h>
 #include <nss.h>
 #include <pthread.h>
-#include <stdlib.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
@@ -15,12 +12,12 @@
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "json-util.h"
-#include "macro.h"
 #include "nss-util.h"
 #include "resolved-def.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 
 static sd_json_dispatch_flags_t json_dispatch_flags = SD_JSON_ALLOW_EXTENSIONS;
 
@@ -165,7 +162,7 @@ static int json_dispatch_address(const char *name, sd_json_variant *variant, sd_
                 if (b < 0 || b > 0xff)
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "Element %zu of JSON field '%s' is out of range 0%s255.",
-                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                        k, strna(name), glyph(GLYPH_ELLIPSIS));
 
                 buf.bytes[k++] = (uint8_t) b;
         }

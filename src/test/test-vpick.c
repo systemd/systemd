@@ -3,7 +3,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "tests.h"
@@ -166,6 +165,29 @@ TEST(path_pick) {
         assert_se(result.tries_done == 6);
         assert_se(endswith(result.path, "quux_2_s390+4-6.raw"));
         assert_se(result.architecture == ARCHITECTURE_S390);
+}
+
+TEST(path_uses_vpick) {
+        ASSERT_OK_POSITIVE(path_uses_vpick("foo.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to/foo.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("./path/to/foo.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to.v/foo.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to/foo.raw.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("/var/lib/machines/mymachine.raw.v/"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to.v/foo___.hi/a.v"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to/foo.mp4.vtt"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to/foo.mp4.v.1"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to.v/a"));
+
+        ASSERT_OK_POSITIVE(path_uses_vpick("to.v/foo___.raw"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to.v/foo___.raw"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to/foo___.raw"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to.v/foo__"));
+        ASSERT_OK_ZERO(path_uses_vpick("foo___.raw"));
+
+        ASSERT_OK_ZERO(path_uses_vpick("/"));
+        ASSERT_OK_ZERO(path_uses_vpick("."));
+        ASSERT_ERROR(path_uses_vpick(""), EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

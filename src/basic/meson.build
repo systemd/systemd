@@ -4,9 +4,11 @@ basic_sources = files(
         'MurmurHash2.c',
         'af-list.c',
         'alloc-util.c',
+        'ansi-color.c',
         'architecture.c',
         'argv-util.c',
         'arphrd-util.c',
+        'assert-util.c',
         'audit-util.c',
         'btrfs.c',
         'build.c',
@@ -14,6 +16,7 @@ basic_sources = files(
         'bus-label.c',
         'cap-list.c',
         'capability-util.c',
+        'capsule-util.c',
         'cgroup-util.c',
         'chase.c',
         'chattr-util.c',
@@ -57,6 +60,7 @@ basic_sources = files(
         'locale-util.c',
         'lock-util.c',
         'log.c',
+        'log-context.c',
         'login-util.c',
         'keyring-util.c',
         'memfd-util.c',
@@ -92,6 +96,7 @@ basic_sources = files(
         'socket-util.c',
         'sort-util.c',
         'stat-util.c',
+        'static-destruct.c',
         'strbuf.c',
         'string-table.c',
         'string-util.c',
@@ -113,6 +118,8 @@ basic_sources = files(
         'xattr-util.c',
 )
 
+sources += basic_sources
+
 missing_audit_h = files('missing_audit.h')
 missing_socket_h = files('missing_socket.h')
 
@@ -130,14 +137,14 @@ generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         'arphrd-list.txt',
         output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, files('linux/if_arp.h'), config_h],
+        command : [generate_arphrd_list, cpp, files('include/linux/if_arp.h'), config_h],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')
 cap_list_txt = custom_target(
         'cap-list.txt',
         output : 'cap-list.txt',
-        command : [generate_cap_list, cpp, files('linux/capability.h')],
+        command : [generate_cap_list, cpp, files('include/linux/capability.h')],
         capture : true)
 
 generate_errno_list = find_program('generate-errno-list.sh')
@@ -148,20 +155,20 @@ errno_list_txt = custom_target(
         capture : true)
 
 generated_gperf_headers = []
-foreach item : [['af',     af_list_txt,     'af',         ''],
-                ['arphrd', arphrd_list_txt, 'arphrd',     'ARPHRD_'],
-                ['cap',    cap_list_txt,    'capability', ''],
-                ['errno',  errno_list_txt,  'errno',      '']]
+foreach item : [['af',     af_list_txt,     'af',         '',        ['<sys/socket.h>']],
+                ['arphrd', arphrd_list_txt, 'arphrd',     'ARPHRD_', []],
+                ['cap',    cap_list_txt,    'capability', '',        []],
+                ['errno',  errno_list_txt,  'errno',      '',        []]]
 
         fname = '@0@-from-name.gperf'.format(item[0])
         gperf_file = custom_target(
                 fname,
                 input : item[1],
                 output : fname,
-                command : [generate_gperfs, item[2], item[3], '@INPUT@'],
+                command : [generate_gperfs, item[2], item[3], '@INPUT@'] + item[4],
                 capture : true)
 
-        fname = '@0@-from-name.h'.format(item[0])
+        fname = '@0@-from-name.inc'.format(item[0])
         target1 = custom_target(
                 fname,
                 input : gperf_file,
@@ -174,7 +181,7 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
                            '@INPUT@'],
                 capture : true)
 
-        fname = '@0@-to-name.h'.format(item[0])
+        fname = '@0@-to-name.inc'.format(item[0])
         awkscript = '@0@-to-name.awk'.format(item[0])
         target2 = custom_target(
                 fname,
@@ -186,6 +193,7 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
         generated_gperf_headers += [target1, target2]
 endforeach
 
+generated_sources += generated_gperf_headers
 basic_sources += generated_gperf_headers
 
 ############################################################
@@ -235,12 +243,18 @@ run_target(
 ############################################################
 
 filesystem_includes = files(
-        'linux/magic.h',
+        'include/linux/magic.h',
         'missing_magic.h',
 )
 
 check_filesystems = find_program('check-filesystems.sh')
-r = run_command([check_filesystems, cpp, files('filesystems-gperf.gperf')] + filesystem_includes, check: false)
+r = run_command(
+        [
+                'env', '--chdir', meson.project_build_root(),
+                check_filesystems, cpp, files('filesystems-gperf.gperf')
+        ] + filesystem_includes,
+        check: false,
+)
 if r.returncode() != 0
         warning('Unknown filesystems defined in kernel headers:\n\n' + r.stdout())
 endif
@@ -252,8 +266,8 @@ filesystems_gperf_h = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generate_filesystem_list = find_program('generate-filesystem-list.py')
-fname = 'filesystem-list.h'
-filesystem_list_h = custom_target(
+fname = 'filesystem-list.inc'
+filesystem_list_inc = custom_target(
         fname,
         input : 'filesystems-gperf.gperf',
         output : fname,
@@ -261,23 +275,25 @@ filesystem_list_h = custom_target(
                    '@INPUT@'],
         capture : true)
 
-generate_filesystem_switch_case_h = find_program('generate-filesystem-switch-case.py')
-fname = 'filesystem-switch-case.h'
-filesystem_switch_case_h = custom_target(
+generate_filesystem_switch_case_inc = find_program('generate-filesystem-switch-case.py')
+fname = 'filesystem-switch-case.inc'
+filesystem_switch_case_inc = custom_target(
         fname,
         input : 'filesystems-gperf.gperf',
-        output : 'filesystem-switch-case.h',
-        command : [generate_filesystem_switch_case_h,
+        output : fname,
+        command : [generate_filesystem_switch_case_inc,
                    '@INPUT@'],
         capture : true)
 
-basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
+generated_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
+basic_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
 
 libbasic_static = static_library(
         'basic',
         basic_sources,
         fundamental_sources,
         include_directories : basic_includes,
+        implicit_include_directories : false,
         dependencies : [libcap,
                         libdl,
                         libgcrypt_cflags,

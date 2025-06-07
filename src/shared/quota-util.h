@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/quota.h>
-#include <sys/types.h>
+#include <sys/quota.h> /* IWYU pragma: export */
+
+#include "forward.h"
 
 /* Wrapper around the QCMD() macro of linux/quota.h that removes some undefined behaviour. A typical quota
  * command such as QCMD(Q_GETQUOTA, USRQUOTA) cannot be resolved on platforms where "int" is 32-bit, as it is
@@ -15,5 +15,4 @@ static inline int QCMD_FIXED(uint32_t cmd, uint32_t type) {
         return (int) QCMD(cmd, type);
 }
 
-int quotactl_devnum(int cmd, dev_t devnum, int id, void *addr);
-int quotactl_path(int cmd, const char *path, int id, void *addr);
+int quotactl_fd_with_fallback(int fd, int cmd, int id, void *addr);

@@ -33,8 +33,6 @@ function info() {
 }
 
 function run_meson() {
-    # TODO: drop once minimum meson version is bumped to 0.62 or newer
-    find . -type f -name meson.build -exec sed -i 's/install_emptydir(\(.*\), install_tag : .*)/install_emptydir(\1)/g' '{}' '+'
     if ! meson "$@"; then
         find . -type f -name meson-log.txt -exec cat '{}' +
         return 1
@@ -43,7 +41,7 @@ function run_meson() {
 
 set -ex
 
-MESON_ARGS=(-Dcryptolib=${CRYPTOLIB:-auto})
+MESON_ARGS=()
 
 # (Re)set the current oom-{score-}adj. For some reason root on GH actions is able to _decrease_
 # its oom-score even after dropping all capabilities (including CAP_SYS_RESOURCE), until the
@@ -109,7 +107,7 @@ for phase in "${PHASES[@]}"; do
                 MESON_ARGS+=(-Db_lundef=false -Dfuzz-tests=true)
 
                 if [[ "$phase" == "RUN_CLANG_ASAN_UBSAN_NO_DEPS" ]]; then
-                    MESON_ARGS+=(--auto-features=disabled)
+                    MESON_ARGS+=(--auto-features=disabled -Dnspawn=enabled)
                 fi
             fi
             MESON_ARGS+=(--fatal-meson-warnings)

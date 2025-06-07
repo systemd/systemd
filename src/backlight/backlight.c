@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -14,11 +15,9 @@
 #include "parse-util.h"
 #include "percent-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "reboot-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
 #define PCI_CLASS_GRAPHICS_CARD 0x30000
@@ -91,53 +90,65 @@ static int has_multiple_graphics_cards(void) {
 }
 
 static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
-        sd_device *parent;
-        const char *s;
         int r;
 
         assert(device);
         assert(ret);
 
-        r = sd_device_get_parent(device, &parent);
-        if (r < 0)
-                return r;
-
-        if (device_in_subsystem(parent, "drm")) {
-
-                r = sd_device_get_sysname(parent, &s);
+        for (;;) {
+                r = sd_device_get_parent(device, &device);
                 if (r < 0)
                         return r;
 
-                s = startswith(s, "card");
-                if (!s)
-                        return -ENODATA;
-
-                s += strspn(s, DIGITS);
-                if (*s == '-' && !STARTSWITH_SET(s, "-LVDS-", "-Embedded DisplayPort-", "-eDP-"))
-                        /* A connector DRM device, let's ignore all but LVDS and eDP! */
-                        return -EOPNOTSUPP;
-
-        } else if (device_in_subsystem(parent, "pci") &&
-                   sd_device_get_sysattr_value(parent, "class", &s)) {
-
-                unsigned long class;
-
-                r = safe_atolu(s, &class);
+                r = device_in_subsystem(device, "drm");
                 if (r < 0)
-                        return log_device_warning_errno(parent, r, "Cannot parse PCI class '%s': %m", s);
+                        return r;
+                if (r > 0) {
+                        const char *s;
 
-                /* Graphics card */
-                if (class == PCI_CLASS_GRAPHICS_CARD) {
-                        *ret = parent;
-                        return 0;
+                        r = device_sysname_startswith_strv(device, STRV_MAKE("card"), &s);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -ENODATA;
+
+                        s += strspn(s, DIGITS);
+                        if (*s == '-' && !STARTSWITH_SET(s, "-LVDS-", "-Embedded DisplayPort-", "-eDP-"))
+                                /* A connector DRM device, let's ignore all but LVDS and eDP! */
+                                return -EOPNOTSUPP;
+
+                        continue;
                 }
 
-        } else if (device_in_subsystem(parent, "platform")) {
-                *ret = parent;
-                return 0;
-        }
+                r = device_in_subsystem(device, "pci");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        uint32_t class;
 
-        return find_pci_or_platform_parent(parent, ret);
+                        r = device_get_sysattr_u32(device, "class", &class);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r < 0)
+                                return r;
+
+                        /* Graphics card */
+                        if (class == PCI_CLASS_GRAPHICS_CARD) {
+                                *ret = device;
+                                return 0;
+                        }
+
+                        continue;
+                }
+
+                r = device_in_subsystem(device, "platform");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        *ret = device;
+                        return 0;
+                }
+        }
 }
 
 static int same_device(sd_device *a, sd_device *b) {
@@ -190,7 +201,10 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to get sysname: %m");
 
-        if (!device_in_subsystem(device, "backlight"))
+        r = device_in_subsystem(device, "leds");
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to check if device is in backlight subsystem: %m");
+        if (r > 0)
                 return true; /* We assume LED device is always valid. */
 
         r = sd_device_get_sysattr_value(device, "type", &v);
@@ -235,7 +249,7 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysattr match: %m");
 
-        if (device_in_subsystem(parent, "pci")) {
+        if (device_in_subsystem(parent, "pci") > 0) {
                 r = has_multiple_graphics_cards();
                 if (r < 0)
                         return log_debug_errno(r, "Failed to check if the system has multiple graphics cards: %m");
@@ -277,7 +291,7 @@ static int validate_device(sd_device *device) {
                         return false;
                 }
 
-                if (device_in_subsystem(other_parent, "platform") && device_in_subsystem(parent, "pci")) {
+                if (device_in_subsystem(other_parent, "platform") > 0 && device_in_subsystem(parent, "pci") > 0) {
                         /* The other is connected to the platform bus and we are a PCI device, that also means we are out. */
                         if (DEBUG_LOGGING) {
                                 const char *other_sysname = NULL, *other_type = NULL;
@@ -297,19 +311,14 @@ static int validate_device(sd_device *device) {
 
 static int read_max_brightness(sd_device *device, unsigned *ret) {
         unsigned max_brightness;
-        const char *s;
         int r;
 
         assert(device);
         assert(ret);
 
-        r = sd_device_get_sysattr_value(device, "max_brightness", &s);
+        r = device_get_sysattr_unsigned(device, "max_brightness", &max_brightness);
         if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to read 'max_brightness' attribute: %m");
-
-        r = safe_atou(s, &max_brightness);
-        if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", s);
+                return log_device_warning_errno(device, r, "Failed to read/parse 'max_brightness' attribute: %m");
 
         /* If max_brightness is 0, then there is no actual backlight device. This happens on desktops
          * with Asus mainboards that load the eeepc-wmi module. */
@@ -333,6 +342,7 @@ static int clamp_brightness(
                 unsigned *brightness) {
 
         unsigned new_brightness, min_brightness;
+        int r;
 
         assert(device);
         assert(brightness);
@@ -343,7 +353,10 @@ static int clamp_brightness(
          * state restoration. */
 
         min_brightness = (unsigned) ((double) max_brightness * percent / 100);
-        if (device_in_subsystem(device, "backlight"))
+        r = device_in_subsystem(device, "backlight");
+        if (r < 0)
+                return r;
+        if (r > 0)
                 min_brightness = MAX(1U, min_brightness);
 
         new_brightness = CLAMP(*brightness, min_brightness, max_brightness);
@@ -359,7 +372,7 @@ static int clamp_brightness(
         return 0;
 }
 
-static bool shall_clamp(sd_device *device, unsigned *ret) {
+static int shall_clamp(sd_device *device, unsigned *ret) {
         const char *property, *s;
         unsigned default_percent;
         int r;
@@ -367,7 +380,10 @@ static bool shall_clamp(sd_device *device, unsigned *ret) {
         assert(device);
         assert(ret);
 
-        if (device_in_subsystem(device, "backlight")) {
+        r = device_in_subsystem(device, "backlight");
+        if (r < 0)
+                return r;
+        if (r > 0) {
                 property = "ID_BACKLIGHT_CLAMP";
                 default_percent = 5;
         } else {
@@ -408,35 +424,6 @@ static int read_brightness(sd_device *device, unsigned max_brightness, unsigned 
         assert(device);
         assert(ret_brightness);
 
-        if (device_in_subsystem(device, "backlight")) {
-                r = sd_device_get_sysattr_value(device, "actual_brightness", &value);
-                if (r == -ENOENT) {
-                        log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute, "
-                                               "fall back to use 'brightness' attribute: %m");
-                        goto use_brightness;
-                }
-                if (r < 0)
-                        return log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute: %m");
-
-                r = safe_atou(value, &brightness);
-                if (r < 0) {
-                        log_device_debug_errno(device, r, "Failed to parse 'actual_brightness' attribute, "
-                                               "fall back to use 'brightness' attribute: %s", value);
-                        goto use_brightness;
-                }
-
-                if (brightness > max_brightness) {
-                        log_device_debug(device, "actual_brightness=%u is larger than max_brightness=%u, "
-                                         "fall back to use 'brightness' attribute", brightness, max_brightness);
-                        goto use_brightness;
-                }
-
-                log_device_debug(device, "Current actual_brightness is %u", brightness);
-                *ret_brightness = brightness;
-                return 0;
-        }
-
-use_brightness:
         r = sd_device_get_sysattr_value(device, "brightness", &value);
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to read 'brightness' attribute: %m");
@@ -588,7 +575,10 @@ static int verb_load(int argc, char *argv[], void *userdata) {
         if (validate_device(device) == 0)
                 return 0;
 
-        clamp = shall_clamp(device, &percent);
+        r = shall_clamp(device, &percent);
+        if (r < 0)
+                return r;
+        clamp = r;
 
         r = read_saved_brightness(device, &brightness);
         if (r < 0) {

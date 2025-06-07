@@ -2,19 +2,21 @@
 
 #include <resolv.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
-#include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "label-util.h"
+#include "log.h"
 #include "ordered-set.h"
 #include "path-util.h"
-#include "resolved-conf.h"
+#include "resolved-dns-cache.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
+#include "resolved-dns-stub.h"
+#include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -104,7 +106,7 @@ int manager_read_resolv_conf(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
+                r = log_warning_errno(errno, "Failed to open %s: %m", "/etc/resolv.conf");
                 goto clear;
         }
 

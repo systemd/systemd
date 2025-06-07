@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "hashmap.h"
 #include "journald-rate-limit.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(journal_ratelimit_test) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *rl = NULL;

@@ -4,35 +4,37 @@
 #include <getopt.h>
 #include <linux/loop.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/file.h>
-#include <sys/ioctl.h>
-#include <sys/mount.h>
 
 #include "sd-device.h"
 
 #include "architecture.h"
+#include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "chase.h"
 #include "copy.h"
 #include "device-util.h"
-#include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "json-util.h"
 #include "libarchive-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -44,6 +46,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "recurse-dir.h"
+#include "runtime-scope.h"
 #include "sha256.h"
 #include "shift-uid.h"
 #include "stat-util.h"
@@ -102,6 +105,7 @@ static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 static bool arg_all = false;
 static uid_t arg_uid_base = UID_INVALID;
 static bool arg_quiet = false;
+static ImageFilter *arg_image_filter = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -110,6 +114,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 STATIC_DESTRUCTOR_REGISTER(arg_argv, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_loop_ref, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -155,6 +160,8 @@ static int help(void) {
                "                          not embedded in IMAGE\n"
                "     --image-policy=POLICY\n"
                "                          Specify image dissection policy\n"
+               "     --image-filter=FILTER\n"
+               "                          Specify image dissection filter\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --loop-ref=NAME      Set reference string for loopback device\n"
@@ -274,6 +281,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GROWFS,
                 ARG_ROOT_HASH,
                 ARG_ROOT_HASH_SIG,
+                ARG_USR_HASH,
+                ARG_USR_HASH_SIG,
                 ARG_VERITY_DATA,
                 ARG_MKDIR,
                 ARG_RMDIR,
@@ -293,6 +302,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_ALL,
+                ARG_IMAGE_FILTER,
         };
 
         static const struct option options[] = {
@@ -311,6 +321,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "growfs",        required_argument, NULL, ARG_GROWFS        },
                 { "root-hash",     required_argument, NULL, ARG_ROOT_HASH     },
                 { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
+                { "usr-hash",      required_argument, NULL, ARG_USR_HASH      },
+                { "usr-hash-sig",  required_argument, NULL, ARG_USR_HASH_SIG  },
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
                 { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
                 { "rmdir",         no_argument,       NULL, ARG_RMDIR         },
@@ -332,6 +344,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "user",          no_argument,       NULL, ARG_USER          },
                 { "all",           no_argument,       NULL, ARG_ALL           },
                 { "quiet",         no_argument,       NULL, 'q'               },
+                { "image-filter",  required_argument, NULL, ARG_IMAGE_FILTER  },
                 {}
         };
 
@@ -457,9 +470,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_in_memory = true;
                         break;
 
-                case ARG_ROOT_HASH: {
+                case ARG_ROOT_HASH:
+                case ARG_USR_HASH: {
                         _cleanup_free_ void *p = NULL;
                         size_t l;
+
+                        PartitionDesignator d = c == ARG_USR_HASH ? PARTITION_USR : PARTITION_ROOT;
+                        if (arg_verity_settings.designator >= 0 &&
+                            arg_verity_settings.designator != d)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
                         r = unhexmem(optarg, &p, &l);
                         if (r < 0)
@@ -470,13 +489,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                         free_and_replace(arg_verity_settings.root_hash, p);
                         arg_verity_settings.root_hash_size = l;
+                        arg_verity_settings.designator = d;
                         break;
                 }
 
-                case ARG_ROOT_HASH_SIG: {
+                case ARG_ROOT_HASH_SIG:
+                case ARG_USR_HASH_SIG: {
                         char *value;
                         size_t l;
                         void *p;
+
+                        PartitionDesignator d = c == ARG_USR_HASH_SIG ? PARTITION_USR : PARTITION_ROOT;
+                        if (arg_verity_settings.designator >= 0 &&
+                            arg_verity_settings.designator != d)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
                         if ((value = startswith(optarg, "base64:"))) {
                                 r = unbase64mem(value, &p, &l);
@@ -490,6 +516,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         free_and_replace(arg_verity_settings.root_hash_sig, p);
                         arg_verity_settings.root_hash_sig_size = l;
+                        arg_verity_settings.designator = d;
                         break;
                 }
 
@@ -591,6 +618,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'q':
                         arg_quiet = true;
                         break;
+
+                case ARG_IMAGE_FILTER: {
+                        _cleanup_(image_filter_freep) ImageFilter *f = NULL;
+                        r = image_filter_parse(optarg, &f);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image filter expression: %s", optarg);
+
+                        image_filter_free(arg_image_filter);
+                        arg_image_filter = TAKE_PTR(f);
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -1255,7 +1293,7 @@ static const char *pick_color_for_uid_gid(uid_t uid) {
                 return ansi_highlight_yellow4(); /* files should never be owned by 'nobody' (but might happen due to userns mapping) */
         if (uid_is_system(uid))
                 return ansi_normal();            /* files in disk images are typically owned by root and other system users, no issue there */
-        if (uid_is_dynamic(uid))
+        if (uid_is_dynamic(uid) || uid_is_greeter(uid))
                 return ansi_highlight_red();     /* files should never be owned persistently by dynamic users, and there are just no excuses */
         if (uid_is_container(uid) || uid_is_foreign(uid))
                 return ansi_highlight_cyan();
@@ -1749,6 +1787,8 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         r = flink_tmpfile(f, tar, arg_target, LINK_TMPFILE_REPLACE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move archive file into place: %m");
+
+                        tar = mfree(tar);
                 }
 
                 return 0;
@@ -2047,8 +2087,13 @@ static int action_detach(const char *path) {
                 FOREACH_DEVICE(e, d) {
                         _cleanup_(loop_device_unrefp) LoopDevice *entry_loop = NULL;
 
-                        if (!device_is_devtype(d, "disk")) /* Filter out partition block devices */
+                        r = device_is_devtype(d, "disk");
+                        if (r < 0) {
+                                log_device_warning_errno(d, r, "Failed to check if device is a whole disk, skipping: %m");
                                 continue;
+                        }
+                        if (r == 0)
+                                continue; /* Filter out partition block devices */
 
                         r = loop_device_open(d, O_RDONLY, LOCK_SH, &entry_loop);
                         if (r < 0) {
@@ -2088,20 +2133,21 @@ static int action_validate(void) {
         r = dissect_image_file_and_warn(
                         arg_image,
                         &arg_verity_settings,
-                        NULL,
+                        /* mount_options= */ NULL,
                         arg_image_policy,
+                        arg_image_filter,
                         arg_flags,
-                        NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
 
         if (isatty_safe(STDOUT_FILENO) && emoji_enabled())
-                printf("%s ", special_glyph(SPECIAL_GLYPH_SPARKLES));
+                printf("%s ", glyph(GLYPH_SPARKLES));
 
         printf("%sOK%s", ansi_highlight_green(), ansi_normal());
 
         if (isatty_safe(STDOUT_FILENO) && emoji_enabled())
-                printf(" %s", special_glyph(SPECIAL_GLYPH_SPARKLES));
+                printf(" %s", glyph(GLYPH_SPARKLES));
 
         putc('\n', stdout);
         return 0;
@@ -2159,8 +2205,10 @@ static int run(int argc, char *argv[]) {
 
         if (arg_image) {
                 r = verity_settings_load(
-                        &arg_verity_settings,
-                        arg_image, NULL, NULL);
+                                &arg_verity_settings,
+                                arg_image,
+                                /* root_hash_path= */ NULL,
+                                /* root_hash_sig_path= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read verity artifacts for %s: %m", arg_image);
 
@@ -2211,6 +2259,7 @@ static int run(int argc, char *argv[]) {
                                                 &arg_verity_settings,
                                                 /* mount_options= */ NULL,
                                                 arg_image_policy,
+                                                arg_image_filter,
                                                 arg_flags,
                                                 &m);
                                 if (r < 0)
@@ -2225,6 +2274,12 @@ static int run(int argc, char *argv[]) {
                                                 &arg_verity_settings);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to load verity signature partition: %m");
+
+                                r = dissected_image_guess_verity_roothash(
+                                                m,
+                                                &arg_verity_settings);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to guess verity root hash: %m");
 
                                 if (arg_action != ACTION_DISSECT) {
                                         r = dissected_image_decrypt_interactively(

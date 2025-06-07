@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <sched.h>
 #include <sys/statvfs.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -12,18 +9,17 @@
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "filesystems.h"
 #include "fs-util.h"
 #include "hash-funcs.h"
-#include "macro.h"
-#include "missing_fs.h"
+#include "log.h"
 #include "missing_magic.h"
 #include "mountpoint-util.h"
-#include "nulstr-util.h"
-#include "parse-util.h"
+#include "path-util.h"
+#include "siphash24.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 static int verify_stat_at(
                 int fd,
@@ -488,11 +484,21 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return fd;
+        if (!isempty(path)) {
+                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return fd;
+                dir_fd = fd;
+        }
 
-        return RET_NERRNO(fstatfs(fd, ret));
+        return RET_NERRNO(fstatfs(dir_fd, ret));
+}
+
+usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
+        return timespec_load(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
+}
+nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) {
+        return timespec_load_nsec(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
 }
 
 void inode_hash_func(const struct stat *q, struct siphash *state) {

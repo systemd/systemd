@@ -3,27 +3,30 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <sys/ioctl.h>
 #include <linux/if_arp.h>
 #include <linux/if_infiniband.h>
 
 #include "sd-dhcp6-client.h"
+#include "sd-dhcp6-option.h"
 
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dhcp-duid-internal.h"
+#include "dhcp6-client-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
+#include "ordered-set.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "web-util.h"
 
@@ -1289,7 +1292,8 @@ static int client_receive_message(
 
         sd_dhcp6_client *client = ASSERT_PTR(userdata);
         DHCP6_CLIENT_DONT_DESTROY(client);
-        /* This needs to be initialized with zero. See #20741. */
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov;
         union sockaddr_union sa = {};

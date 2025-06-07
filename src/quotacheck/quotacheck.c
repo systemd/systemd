@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "static-destruct.h"
 #include "string-util.h"
 

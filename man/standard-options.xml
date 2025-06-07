@@ -114,6 +114,14 @@
     in the image are used.</para></listitem>
   </varlistentry>
 
+  <varlistentry id='image-filter'>
+    <term><option>--image-filter=<replaceable>filter</replaceable></option></term> <listitem><para>Takes an
+    image filter string as argument, as per
+    <citerefentry><refentrytitle>systemd.image-filter</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+    filter is taken into consideration when operating on the disk image specified via
+    <option>--image=</option>, see above. If not specified no filtering is applied.</para></listitem>
+  </varlistentry>
+
   <varlistentry id='esp-path'>
     <term><option>--esp-path=</option></term>
 

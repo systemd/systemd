@@ -1,19 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/fscrypt.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/xattr.h>
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "hexdecoct.h"
 #include "homework-fscrypt.h"
 #include "homework-mount.h"
+#include "homework-password-cache.h"
 #include "homework-quota.h"
+#include "homework.h"
 #include "keyring-util.h"
+#include "log.h"
 #include "memory-util.h"
-#include "missing_fs.h"
 #include "missing_keyctl.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
@@ -25,8 +32,11 @@
 #include "random-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "user-record-util.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "xattr-util.h"
 
@@ -309,9 +319,8 @@ static int fscrypt_setup(
         NULSTR_FOREACH(xa, xattr_buf) {
                 _cleanup_free_ void *salt = NULL, *encrypted = NULL;
                 _cleanup_free_ char *value = NULL;
-                size_t salt_size, encrypted_size;
+                size_t salt_size, encrypted_size, vsize;
                 const char *nr, *e;
-                int n;
 
                 /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32-bit unsigned integer */
                 nr = startswith(xa, "trusted.fscrypt_slot");
@@ -320,13 +329,13 @@ static int fscrypt_setup(
                 if (safe_atou32(nr, NULL) < 0)
                         continue;
 
-                n = fgetxattr_malloc(setup->root_fd, xa, &value);
-                if (n == -ENODATA) /* deleted by now? */
+                r = fgetxattr_malloc(setup->root_fd, xa, &value, &vsize);
+                if (r == -ENODATA) /* deleted by now? */
                         continue;
-                if (n < 0)
-                        return log_error_errno(n, "Failed to read %s xattr: %m", xa);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read %s xattr: %m", xa);
 
-                e = memchr(value, ':', n);
+                e = memchr(value, ':', vsize);
                 if (!e)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator.", xa);
 
@@ -334,7 +343,7 @@ static int fscrypt_setup(
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode salt of %s: %m", xa);
 
-                r = unbase64mem_full(e + 1, n - (e - value) - 1, /* secure = */ false, &encrypted, &encrypted_size);
+                r = unbase64mem_full(e + 1, vsize - (e - value) - 1, /* secure = */ false, &encrypted, &encrypted_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode encrypted key of %s: %m", xa);
 
@@ -629,7 +638,7 @@ int home_create_fscrypt(
                 nr++;
         }
 
-        (void) home_update_quota_classic(h, temporary);
+        (void) home_update_quota_classic(h, setup->root_fd, temporary);
 
         r = home_shift_uid(setup->root_fd, HOME_RUNTIME_WORK_DIR, h->uid, h->uid, &mount_fd);
         if (r > 0)

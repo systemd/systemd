@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
-#include <stddef.h>
-
 /* We use system assert.h here, because we don't want to keep macro.h and log.h C++ compatible */
 #undef NDEBUG
 #include <assert.h>
-#include <errno.h>
 #include <stdio.h>
 
+#include "sd-bus.h"
 #include "sd-bus-vtable.h"
 
 #ifndef __cplusplus
+#  include "alloc-util.h"
 #  include "bus-objects.h"
+#  include "log.h"
 #endif
 
 #include "test-vtable-data.h"

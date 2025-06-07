@@ -5,20 +5,21 @@
 # pan93412 <pan93412@gmail.com>, 2019.
 # Cheng-Chia Tseng <pswo10680@gmail.com>, 2023.
 # hanjinpeng <hanjinpeng@kylinos.cn>, 2024.
+# hsu zangmen <chzang55@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2024-06-06 00:50+0000\n"
-"Last-Translator: hanjinpeng <hanjinpeng@kylinos.cn>\n"
+"PO-Revision-Date: 2025-04-09 02:53+0000\n"
+"Last-Translator: hsu zangmen <chzang55@gmail.com>\n"
 "Language-Team: Chinese (Traditional) <https://translate.fedoraproject.org/"
-"projects/systemd/master/zh_TW/>\n"
+"projects/systemd/main/zh_TW/>\n"
 "Language: zh_TW\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.1.1\n"
+"X-Generator: Weblate 5.10.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -68,10 +69,9 @@ msgid "Dump the systemd state without rate limits"
 msgstr "無速率限制地轉儲系統狀態"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr "重新載入 systemd 狀態需要驗證。"
+msgstr "要轉儲沒有速率限制的 systemd 狀態，必須進行驗證。"
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -107,14 +107,12 @@ msgid "Authentication is required to update a user's home area."
 msgstr "更新用戶家區域需要認證。"
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "更新一個家區域"
+msgstr "更新你的家區域"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "更新用戶家區域需要認證。"
+msgstr "更新用戶家區域時，則需要認證。"
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -134,14 +132,12 @@ msgid ""
 msgstr "更改家區域密碼需要認證。"
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "創建一個家區域"
+msgstr "啟動家區域"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "創建用戶家區域需要身份驗證。"
+msgstr "啟動使用者的首頁區域需要驗證。"
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -166,11 +162,11 @@ msgstr "用戶 %s 的密碼不正確或不足以進行身份驗證。"
 
 #: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
-msgstr "抱歉，請重試："
+msgstr "抱歉，請重試： "
 
 #: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
-msgstr "恢復金鑰："
+msgstr "恢復金鑰： "
 
 #: src/home/pam_systemd_home.c:337
 #, c-format
@@ -181,7 +177,7 @@ msgstr "用戶 %s 密碼/恢復金鑰不正確或不足以進行身份驗證。"
 
 #: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
-msgstr "抱歉，重新輸入恢復金鑰："
+msgstr "抱歉，重新輸入恢復金鑰： "
 
 #: src/home/pam_systemd_home.c:358
 #, c-format
@@ -190,7 +186,7 @@ msgstr "用戶 %s 的安全權杖未插入。"
 
 #: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
-msgstr "使用密碼重試："
+msgstr "使用密碼重試： "
 
 #: src/home/pam_systemd_home.c:361
 #, c-format
@@ -201,7 +197,7 @@ msgstr "密碼不正確或不足，並且未插入用戶 %s 的配寘安全權�
 
 #: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
-msgstr "安全權杖 PIN:"
+msgstr "安全權杖 PIN: "
 
 #: src/home/pam_systemd_home.c:398
 #, c-format
@@ -232,7 +228,7 @@ msgstr "用戶 %s 的安全權杖 PIN 不正確。"
 #: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
 #: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
-msgstr "抱歉，請重試安全權杖 PIN:"
+msgstr "抱歉，請重試安全權杖 PIN: "
 
 #: src/home/pam_systemd_home.c:456
 #, c-format
@@ -335,59 +331,49 @@ msgid "Get hardware serial number"
 msgstr "獲取硬體序號"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "獲取硬體序號需要身份驗證。"
+msgstr "需要驗證才能取得硬體序號。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "獲取系統描述"
+msgstr "取得系統描述"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "需要身份驗證才能獲得系統描述。"
+msgstr "需要驗證才能取得系統描述。"
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "導入磁片映像"
+msgstr "匯入磁碟映像"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image."
-msgstr "導入映像需要身份驗證"
+msgstr "導入映像需要身份驗證。"
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "匯出磁片映像"
+msgstr "匯出磁碟映像"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image."
-msgstr "匯出磁片映像需要驗證"
+msgstr "匯出磁片映像需要驗證。"
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "下載磁片映像"
+msgstr "下載磁碟映像"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image."
-msgstr "下載磁片映像需要驗證"
+msgstr "下載磁片映像需要驗證。"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
 msgstr "取消磁片映像的傳輸"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
-msgstr "需要身份驗證才能取消正在進行的磁片映像傳輸"
+msgstr "需要身份驗證才能取消正在進行的磁片映像傳輸。"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -729,9 +715,8 @@ msgid "Set a wall message"
 msgstr "設定 wall 訊息"
 
 #: src/login/org.freedesktop.login1.policy:397
-#, fuzzy
 msgid "Authentication is required to set a wall message."
-msgstr "設定 wall 訊息需要身份驗證"
+msgstr "設定 wall 訊息需要身份驗證。"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -800,15 +785,13 @@ msgid ""
 msgstr "管理本機虛擬機器及容器需要驗證。"
 
 #: src/machine/org.freedesktop.machine1.policy:95
-#, fuzzy
 msgid "Create a local virtual machine or container"
-msgstr "管理本機虛擬機器及容器"
+msgstr "建立本機虛擬機器或容器"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-#, fuzzy
 msgid ""
 "Authentication is required to create a local virtual machine or container."
-msgstr "管理本機虛擬機器及容器需要驗證。"
+msgstr "建立本機虛擬機器或容器需要驗證。"
 
 #: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
@@ -997,18 +980,16 @@ msgid "Register a DNS-SD service"
 msgstr "註冊 DNS-SD 服務"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#, fuzzy
 msgid "Authentication is required to register a DNS-SD service."
-msgstr "註冊 DNS-SD 服務需要身份驗證"
+msgstr "註冊 DNS-SD 服務需要身份驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
 msgstr "取消註冊 DNS-SD 服務"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr "取消註冊 DNS-SD 服務需要身份驗證"
+msgstr "取消註冊 DNS-SD 服務需要身份驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1020,95 +1001,85 @@ msgstr "重設名稱解析設定需要身份驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "訂閱查詢結果"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
-#, fuzzy
 msgid "Authentication is required to subscribe query results."
-msgstr "暫停系統需要驗證。"
+msgstr "訂閱查詢結果需要驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Dump cache"
-msgstr ""
+msgstr "傾倒至快取"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to dump cache."
-msgstr "設定網域需要身份驗證。"
+msgstr "轉存快取記憶體需要驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump server state"
-msgstr ""
+msgstr "傾倒伺服器狀態"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
-#, fuzzy
 msgid "Authentication is required to dump server state."
-msgstr "設定 NTP 伺服器需要身份驗證。"
+msgstr "轉儲伺服器狀態需要身份驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump statistics"
-msgstr ""
+msgstr "傾倒統計"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
-#, fuzzy
 msgid "Authentication is required to dump statistics."
-msgstr "設定網域需要身份驗證。"
+msgstr "轉儲統計資料需要驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
-msgstr ""
+msgstr "重置統計"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
-#, fuzzy
 msgid "Authentication is required to reset statistics."
-msgstr "重設 NTP 設定需要身份驗證。"
+msgstr "重設統計資料需要驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "檢查系統更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "設定系統時間需要驗證。"
+msgstr "檢查系統更新需要驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "安裝系統更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "設定系統時間需要驗證。"
+msgstr "安裝系統更新需要驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "安裝特定的系統版本"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
-#, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "設定系統時區需要驗證。"
+msgstr "更新系統至特定 (可能是舊) 版本需要驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "清理舊有的系統更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
 msgid "Authentication is required to cleanup old system updates."
-msgstr "設定系統時間需要驗證。"
+msgstr "清理舊系統更新需要驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "管理選配功能"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr "管理活躍的工作階段、使用者與座位需要驗證。"
+msgstr "管理選購功能需要驗證。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

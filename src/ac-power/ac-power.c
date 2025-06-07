@@ -2,9 +2,14 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
+#include "ansi-color.h"
 #include "battery-util.h"
 #include "build.h"
+#include "log.h"
 #include "main-func.h"
+#include "pretty-print.h"
+#include "string-util.h"
 
 static bool arg_verbose = false;
 
@@ -13,14 +18,27 @@ static enum {
         ACTION_LOW,
 } arg_action = ACTION_AC_POWER;
 
-static void help(void) {
-        printf("%s\n\n"
-               "Report whether we are connected to an external power source.\n\n"
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-ac-power", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%1$s [OPTION]\n"
+               "\n%2$sReport whether we are connected to an external power source.%3$s\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "  -v --verbose          Show state as text\n"
-               "     --low              Check if battery is discharging and low\n",
-               program_invocation_short_name);
+               "     --low              Check if battery is discharging and low\n"
+               "\nSee the %4$s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {

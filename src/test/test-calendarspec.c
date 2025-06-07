@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <time.h>
+
 #include "alloc-util.h"
 #include "calendarspec.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 static void _test_one(int line, const char *input, const char *output) {
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
@@ -47,7 +51,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         if (old_tz)
                 old_tz = strdupa_safe(old_tz);
 
-        if (!isempty(new_tz))
+        if (!isempty(new_tz) && !strchr(new_tz, ','))
                 new_tz = strjoina(":", new_tz);
 
         assert_se(set_unset_env("TZ", new_tz, true) == 0);
@@ -97,7 +101,7 @@ TEST(hourly_bug_4031) {
 
         ASSERT_OK(calendar_spec_from_string("hourly", &c));
         n = now(CLOCK_REALTIME);
-        ASSERT_OK((r = calendar_spec_next_usec(c, n, &u)));
+        ASSERT_OK(r = calendar_spec_next_usec(c, n, &u));
 
         log_info("Now: %s (%"PRIu64")", FORMAT_TIMESTAMP_STYLE(n, TIMESTAMP_US), n);
         log_info("Next hourly: %s (%"PRIu64")", r < 0 ? STRERROR(r) : FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_US), u);
@@ -219,6 +223,8 @@ TEST(calendar_spec_next) {
         /* Check that we don't start looping if mktime() moves us backwards */
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "", 1616412478000000, 1617494400000000);
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "IST", 1616412478000000, 1617494400000000);
+        /* Europe/Dublin TZ that moves DST backwards */
+        test_next("hourly", "IST-1GMT-0,M10.5.0/1,M3.5.0/1", 1743292800000000, 1743296400000000);
 }
 
 TEST(calendar_spec_from_string) {

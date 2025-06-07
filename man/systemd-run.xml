@@ -395,6 +395,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--verbose</option></term>
+
+        <listitem>
+          <para>Display unit log output while running.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--on-active=</option></term>
         <term><option>--on-boot=</option></term>
         <term><option>--on-startup=</option></term>
@@ -474,9 +485,10 @@
         start request for the transient unit is verified, enqueued, and waited for. Subsequently the invoked unit is
         monitored, and it is waited until it is deactivated again (most likely because the specified command
         completed). On exit, terse information about the unit's runtime is shown, including total runtime (as well as
-        CPU usage, if <option>--property=CPUAccounting=1</option> was set) and the exit code and status of the main
-        process. This output may be suppressed with <option>--quiet</option>. This option may not be combined with
-        <option>--no-block</option>, <option>--scope</option> or the various path, socket, or timer options.</para>
+        CPU, memory, IO, and IP accounting data, if the corresponding cgroup accounting settings are enabled)
+        and the exit code and status of the main process. This output may be suppressed with <option>--quiet</option>.
+        This option may not be combined with <option>--no-block</option>, <option>--scope</option> or the various
+        path, socket, or timer options.</para>
 
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>

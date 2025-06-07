@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
+#include "sd-bus-protocol.h"
 
-#include "user-record.h"
+#include "homed-forward.h"
 
 typedef enum OperationType {
         OPERATION_ACQUIRE,           /* enqueued on AcquireHome() */

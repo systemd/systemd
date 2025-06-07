@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  This file is part of systemd.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+-->
+
+<policyconfig>
+
+        <vendor>The systemd Project</vendor>
+        <vendor_url>https://systemd.io</vendor_url>
+
+        <!-- Allow allocation of a user namespace with an automatically assigned UID range -->
+        <action id="io.systemd.namespace-resource.allocate-user-namespace">
+                <description gettext-domain="systemd">Allow user namespace allocation</description>
+                <message gettext-domain="systemd">Authentication is required for an application to allocate a user namespace '$(name)' with an automatically assigned transient UID range.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.namespace-resource.register-user-namespace</annotate>
+        </action>
+
+        <!-- Allow registration of a user namespace with a range allocated elsewhere -->
+        <action id="io.systemd.namespace-resource.register-user-namespace">
+                <description gettext-domain="systemd">Allow user namespace registration</description>
+                <message gettext-domain="systemd">Authentication is required for an application to register a user namespace '$(name)'.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.namespace-resource.allocate-user-namespace</annotate>
+        </action>
+
+        <!-- Allow adding a mount to a registered userns -->
+        <action id="io.systemd.namespace-resource.delegate-mount">
+                <description gettext-domain="systemd">Allow adding a mount to a user namespace</description>
+                <message gettext-domain="systemd">Authentication is required for an application to add a mount to a user namespace.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <!-- Allow adding a cgroup to a registered userns -->
+        <action id="io.systemd.namespace-resource.delegate-cgroup">
+                <description gettext-domain="systemd">Allow adding a control group to a user namespace</description>
+                <message gettext-domain="systemd">Authentication is required for an application to add a control group to a user namespace.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <!-- Allow adding a network interface to a registered userns -->
+        <action id="io.systemd.namespace-resource.delegate-network-interface">
+                <description gettext-domain="systemd">Allow adding a network interface to a user namespace</description>
+                <message gettext-domain="systemd">Authentication is required for an application to add a network interface of type $(type) to a user namespace.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+</policyconfig>

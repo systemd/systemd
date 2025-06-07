@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
+#include "forward.h"
 #include "journal-file.h"
 
 int journal_file_append_tag(JournalFile *f);

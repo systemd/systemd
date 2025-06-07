@@ -1,26 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <limits.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <sys/utsname.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "env-file.h"
 #include "hostname-util.h"
+#include "log.h"
 #include "os-util.h"
 #include "string-util.h"
 #include "strv.h"
 
-char* get_default_hostname(void) {
+char* get_default_hostname_raw(void) {
         int r;
+
+        /* Returns the default hostname, and leaves any ??? in place. */
 
         const char *e = secure_getenv("SYSTEMD_DEFAULT_HOSTNAME");
         if (e) {
-                if (hostname_is_valid(e, 0))
+                if (hostname_is_valid(e, VALID_HOSTNAME_QUESTION_MARK))
                         return strdup(e);
+
                 log_debug("Invalid hostname in $SYSTEMD_DEFAULT_HOSTNAME, ignoring: %s", e);
         }
 
@@ -29,47 +28,13 @@ char* get_default_hostname(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to parse os-release, ignoring: %m");
         else if (f) {
-                if (hostname_is_valid(f, 0))
+                if (hostname_is_valid(f, VALID_HOSTNAME_QUESTION_MARK))
                         return TAKE_PTR(f);
+
                 log_debug("Invalid hostname in os-release, ignoring: %s", f);
         }
 
         return strdup(FALLBACK_HOSTNAME);
-}
-
-int gethostname_full(GetHostnameFlags flags, char **ret) {
-        _cleanup_free_ char *buf = NULL, *fallback = NULL;
-        struct utsname u;
-        const char *s;
-
-        assert(ret);
-
-        assert_se(uname(&u) >= 0);
-
-        s = u.nodename;
-        if (isempty(s) || streq(s, "(none)") ||
-            (!FLAGS_SET(flags, GET_HOSTNAME_ALLOW_LOCALHOST) && is_localhost(s)) ||
-            (FLAGS_SET(flags, GET_HOSTNAME_SHORT) && s[0] == '.')) {
-                if (!FLAGS_SET(flags, GET_HOSTNAME_FALLBACK_DEFAULT))
-                        return -ENXIO;
-
-                s = fallback = get_default_hostname();
-                if (!s)
-                        return -ENOMEM;
-
-                if (FLAGS_SET(flags, GET_HOSTNAME_SHORT) && s[0] == '.')
-                        return -ENXIO;
-        }
-
-        if (FLAGS_SET(flags, GET_HOSTNAME_SHORT))
-                buf = strdupcspn(s, ".");
-        else
-                buf = strdup(s);
-        if (!buf)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(buf);
-        return 0;
 }
 
 bool valid_ldh_char(char c) {
@@ -116,7 +81,7 @@ bool hostname_is_valid(const char *s, ValidHostnameFlags flags) {
                         hyphen = true;
 
                 } else {
-                        if (!valid_ldh_char(*p))
+                        if (!valid_ldh_char(*p) && (*p != '?' || !FLAGS_SET(flags, VALID_HOSTNAME_QUESTION_MARK)))
                                 return false;
 
                         dot = false;
@@ -158,7 +123,7 @@ char* hostname_cleanup(char *s) {
                         dot = false;
                         hyphen = true;
 
-                } else if (valid_ldh_char(*p)) {
+                } else if (valid_ldh_char(*p) || *p == '?') {
                         *(d++) = *p;
                         dot = false;
                         hyphen = false;
@@ -206,4 +171,37 @@ int get_pretty_hostname(char **ret) {
 
         *ret = TAKE_PTR(n);
         return 0;
+}
+
+int split_user_at_host(const char *s, char **ret_user, char **ret_host) {
+        _cleanup_free_ char *u = NULL, *h = NULL;
+
+        /* Splits a user@host expression (one of those we accept on --machine= and similar). Returns NULL in
+         * each of the two return parameters if that part was left empty. */
+
+        const char *rhs = strchr(s, '@');
+        if (rhs) {
+                if (ret_user && rhs > s) {
+                        u = strndup(s, rhs - s);
+                        if (!u)
+                                return -ENOMEM;
+                }
+
+                if (ret_host && rhs[1] != 0) {
+                        h = strdup(rhs + 1);
+                        if (!h)
+                                return -ENOMEM;
+                }
+        } else if (!isempty(s) && ret_host) {
+                h = strdup(s);
+                if (!h)
+                        return -ENOMEM;
+        }
+
+        if (ret_user)
+                *ret_user = TAKE_PTR(u);
+        if (ret_host)
+                *ret_host = TAKE_PTR(h);
+
+        return !!rhs; /* return > 0 if '@' was specified, 0 otherwise */
 }

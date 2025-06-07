@@ -6,14 +6,10 @@
  *   Author: Hannes Reinecke <hare@suse.de>
  */
 
-#include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
 #include "device-nodes.h"
 #include "device-util.h"
 #include "fd-util.h"

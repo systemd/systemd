@@ -1,18 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/vm_sockets.h>
+
+#include "sd-event.h"
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
 #include "discover-image.h"
+#include "errno-util.h"
 #include "format-util.h"
-#include "hostname-util.h"
+#include "hashmap.h"
+#include "image-policy.h"
 #include "image-varlink.h"
 #include "json-util.h"
+#include "local-addresses.h"
+#include "machine.h"
 #include "machine-varlink.h"
+#include "machined.h"
 #include "machined-varlink.h"
-#include "mkdir.h"
-#include "process-util.h"
-#include "socket-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
@@ -806,13 +813,18 @@ static int manager_varlink_init_machine(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
-        r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+        r = sd_varlink_server_listen_auto(s);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to io.systemd.Machine varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
+        if (r == 0) {
+                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to io.systemd.Machine varlink socket: %m");
 
-        r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.MachineImage", 0666);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind to io.systemd.MachineImage varlink socket: %m");
+                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.MachineImage", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to io.systemd.MachineImage varlink socket: %m");
+        }
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -7,13 +8,12 @@
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "oomd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "string-util.h"
-#include "strv.h"
+#include "set.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int fork_and_sleep(unsigned sleep_min) {
@@ -46,16 +46,13 @@ static void test_oomd_cgroup_kill(void) {
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
 
-        if (cg_all_unified() <= 0)
-                return (void) log_tests_skipped("cgroups are not running in unified mode");
-
         assert_se(cg_pid_get_path(NULL, 0, &cgroup_root) >= 0);
 
         /* Create another cgroup below this one for the pids we forked off. We need this to be managed
          * by the test so that pid1 doesn't delete it before we can read the xattrs. */
         cgroup = path_join(cgroup_root, "oomdkilltest");
         assert_se(cgroup);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, cgroup) >= 0);
+        assert_se(cg_create(cgroup) >= 0);
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
         r = cg_set_xattr(cgroup, "user.oomd_test", "test", 4, 0);
@@ -68,7 +65,7 @@ static void test_oomd_cgroup_kill(void) {
 
                 for (int j = 0; j < 2; j++) {
                         pid[j] = fork_and_sleep(5);
-                        assert_se(cg_attach(SYSTEMD_CGROUP_CONTROLLER, cgroup, pid[j]) >= 0);
+                        assert_se(cg_attach(cgroup, pid[j]) >= 0);
                 }
 
                 r = oomd_cgroup_kill(cgroup, false /* recurse */, false /* dry run */);
@@ -77,7 +74,7 @@ static void test_oomd_cgroup_kill(void) {
                         abort();
                 }
 
-                assert_se(cg_get_xattr_malloc(cgroup, "user.oomd_ooms", &v) >= 0);
+                ASSERT_OK(cg_get_xattr(cgroup, "user.oomd_ooms", &v, /* ret_size= */ NULL));
                 assert_se(streq(v, i == 0 ? "1" : "2"));
                 v = mfree(v);
 
@@ -85,7 +82,7 @@ static void test_oomd_cgroup_kill(void) {
                 sleep(2);
                 assert_se(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, cgroup) == true);
 
-                assert_se(cg_get_xattr_malloc(cgroup, "user.oomd_kill", &v) >= 0);
+                ASSERT_OK(cg_get_xattr(cgroup, "user.oomd_kill", &v, /* ret_size= */ NULL));
                 assert_se(streq(v, i == 0 ? "2" : "4"));
         }
 }
@@ -102,9 +99,6 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
 
         if (!is_pressure_supported())
                 return (void) log_tests_skipped("system does not support pressure");
-
-        if (cg_all_unified() <= 0)
-                return (void) log_tests_skipped("cgroups are not running in unified mode");
 
         assert_se(cg_mask_supported(&mask) >= 0);
 
@@ -429,9 +423,6 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
         if (!is_pressure_supported())
                 return (void) log_tests_skipped("system does not support pressure");
 
-        if (cg_all_unified() <= 0)
-                return (void) log_tests_skipped("cgroups are not running in unified mode");
-
         assert_se(cg_mask_supported(&mask) >= 0);
 
         if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
@@ -486,7 +477,7 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
          * owned by the same user. */
         if (test_xattrs && !empty_or_root(cgroup)) {
                 ctx = oomd_cgroup_context_free(ctx);
-                assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 61183, 0) >= 0);
+                assert_se(cg_set_access(cgroup, 61183, 0) >= 0);
                 assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
 
                 assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);

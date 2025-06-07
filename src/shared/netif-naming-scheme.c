@@ -1,13 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "sd-device.h"
 
 #include "alloc-util.h"
 #include "device-private.h"
+#include "log.h"
 #include "netif-naming-scheme.h"
 #include "proc-cmdline.h"
-#include "string-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 static const NamingScheme naming_schemes[] = {
         { "v238", NAMING_V238 },
@@ -25,6 +28,7 @@ static const NamingScheme naming_schemes[] = {
         { "v254", NAMING_V254 },
         { "v255", NAMING_V255 },
         { "v257", NAMING_V257 },
+        { "v258", NAMING_V258 },
         /* … add more schemes here, as the logic to name devices is updated … */
 
         EXTRA_NET_NAMING_MAP

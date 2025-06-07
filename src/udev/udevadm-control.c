@@ -1,25 +1,21 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "creds-util.h"
 #include "errno-util.h"
+#include "log.h"
 #include "parse-argument.h"
 #include "parse-util.h"
-#include "process-util.h"
 #include "static-destruct.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "time-util.h"
-#include "udevadm.h"
 #include "udev-ctrl.h"
 #include "udev-varlink.h"
+#include "udevadm.h"
 #include "varlink-util.h"
 #include "virt.h"
 
@@ -32,6 +28,7 @@ static int arg_max_children = -1;
 static int arg_log_level = -1;
 static int arg_start_exec_queue = -1;
 static int arg_trace = -1;
+static bool arg_revert = false;
 static bool arg_load_credentials = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
@@ -45,7 +42,8 @@ static bool arg_has_control_commands(void) {
                 !strv_isempty(arg_env) ||
                 arg_max_children >= 0 ||
                 arg_ping ||
-                arg_trace >= 0;
+                arg_trace >= 0 ||
+                arg_revert;
 }
 
 static int help(void) {
@@ -62,6 +60,7 @@ static int help(void) {
                "  -m --children-max=N      Maximum number of children\n"
                "     --ping                Wait for udev to respond to a ping message\n"
                "     --trace=BOOL          Enable/disable trace logging\n"
+               "     --revert              Revert previously set configurations\n"
                "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
                "     --load-credentials    Load udev rules from credentials\n",
                program_invocation_short_name);
@@ -73,6 +72,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_PING = 0x100,
                 ARG_TRACE,
+                ARG_REVERT,
                 ARG_LOAD_CREDENTIALS,
         };
 
@@ -89,6 +89,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "children-max",     required_argument, NULL, 'm'                  },
                 { "ping",             no_argument,       NULL, ARG_PING             },
                 { "trace",            required_argument, NULL, ARG_TRACE            },
+                { "revert",           no_argument,       NULL, ARG_REVERT           },
                 { "timeout",          required_argument, NULL, 't'                  },
                 { "load-credentials", no_argument,       NULL, ARG_LOAD_CREDENTIALS },
                 { "version",          no_argument,       NULL, 'V'                  },
@@ -155,6 +156,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         arg_trace = r;
+                        break;
+
+                case ARG_REVERT:
+                        arg_revert = true;
                         break;
 
                 case 't':
@@ -269,6 +274,12 @@ static int send_control_commands(void) {
 
         if (arg_exit)
                 return varlink_call_and_log(link, "io.systemd.Udev.Exit", /* parameters = */ NULL, /* reply = */ NULL);
+
+        if (arg_revert) {
+                r = varlink_call_and_log(link, "io.systemd.Udev.Revert", /* parameters = */ NULL, /* reply = */ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         if (arg_log_level >= 0) {
                 r = varlink_callbo_and_log(link, "io.systemd.service.SetLogLevel", /* reply = */ NULL,

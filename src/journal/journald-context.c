@@ -4,6 +4,8 @@
 #include <selinux/selinux.h>
 #endif
 
+#include <sys/stat.h>
+
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
@@ -13,15 +15,21 @@
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "journal-internal.h"
-#include "journal-util.h"
 #include "journald-client.h"
 #include "journald-context.h"
+#include "journald-manager.h"
+#include "log.h"
+#include "log-ratelimit.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
+#include "prioq.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "unaligned.h"
 #include "user-util.h"
 
@@ -103,15 +111,15 @@ static int client_context_compare(const void *a, const void *b) {
         return CMP(x->pid, y->pid);
 }
 
-static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
+static int client_context_new(Manager *m, pid_t pid, ClientContext **ret) {
         _cleanup_free_ ClientContext *c = NULL;
         int r;
 
-        assert(s);
+        assert(m);
         assert(pid_is_valid(pid));
         assert(ret);
 
-        r = prioq_ensure_allocated(&s->client_contexts_lru, client_context_compare);
+        r = prioq_ensure_allocated(&m->client_contexts_lru, client_context_compare);
         if (r < 0)
                 return r;
 
@@ -130,12 +138,12 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
                 .timestamp = USEC_INFINITY,
                 .extra_fields_mtime = NSEC_INFINITY,
                 .log_level_max = -1,
-                .log_ratelimit_interval = s->ratelimit_interval,
-                .log_ratelimit_burst = s->ratelimit_burst,
+                .log_ratelimit_interval = m->ratelimit_interval,
+                .log_ratelimit_burst = m->ratelimit_burst,
                 .capability_quintet = CAPABILITY_QUINTET_NULL,
         };
 
-        r = hashmap_ensure_put(&s->client_contexts, NULL, PID_TO_PTR(pid), c);
+        r = hashmap_ensure_put(&m->client_contexts, NULL, PID_TO_PTR(pid), c);
         if (r < 0)
                 return r;
 
@@ -143,8 +151,8 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
         return 0;
 }
 
-static void client_context_reset(Server *s, ClientContext *c) {
-        assert(s);
+static void client_context_reset(Manager *m, ClientContext *c) {
+        assert(m);
         assert(c);
 
         c->timestamp = USEC_INFINITY;
@@ -179,27 +187,27 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_level_max = -1;
 
-        c->log_ratelimit_interval = s->ratelimit_interval;
-        c->log_ratelimit_burst = s->ratelimit_burst;
+        c->log_ratelimit_interval = m->ratelimit_interval;
+        c->log_ratelimit_burst = m->ratelimit_burst;
 
-        c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
-        c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
+        c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+        c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
 
         c->capability_quintet = CAPABILITY_QUINTET_NULL;
 }
 
-static ClientContext* client_context_free(Server *s, ClientContext *c) {
-        assert(s);
+static ClientContext* client_context_free(Manager *m, ClientContext *c) {
+        assert(m);
 
         if (!c)
                 return NULL;
 
-        assert_se(hashmap_remove(s->client_contexts, PID_TO_PTR(c->pid)) == c);
+        assert_se(hashmap_remove(m->client_contexts, PID_TO_PTR(c->pid)) == c);
 
         if (c->in_lru)
-                assert_se(prioq_remove(s->client_contexts_lru, c, &c->lru_index) >= 0);
+                assert_se(prioq_remove(m->client_contexts_lru, c, &c->lru_index) >= 0);
 
-        client_context_reset(s, c);
+        client_context_reset(m, c);
 
         return mfree(c);
 }
@@ -274,14 +282,14 @@ static int client_context_read_label(
         return 0;
 }
 
-static int client_context_read_cgroup(Server *s, ClientContext *c, const char *unit_id) {
+static int client_context_read_cgroup(Manager *m, ClientContext *c, const char *unit_id) {
         _cleanup_free_ char *t = NULL;
         int r;
 
         assert(c);
 
         /* Try to acquire the current cgroup path */
-        r = cg_pid_get_path_shifted(c->pid, s->cgroup_root, &t);
+        r = cg_pid_get_path_shifted(c->pid, m->cgroup_root, &t);
         if (r < 0 || empty_or_root(t)) {
                 /* We use the unit ID passed in as fallback if we have nothing cached yet and cg_pid_get_path_shifted()
                  * failed or process is running in a root cgroup. Zombie processes are automatically migrated to root cgroup
@@ -325,13 +333,13 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
 }
 
 static int client_context_read_invocation_id(
-                Server *s,
+                Manager *m,
                 ClientContext *c) {
 
         _cleanup_free_ char *p = NULL, *value = NULL;
         int r;
 
-        assert(s);
+        assert(m);
         assert(c);
 
         /* Read the invocation ID of a unit off a unit.
@@ -359,7 +367,7 @@ static int client_context_read_invocation_id(
 }
 
 static int client_context_read_log_level_max(
-                Server *s,
+                Manager *m,
                 ClientContext *c) {
 
         _cleanup_free_ char *value = NULL;
@@ -383,7 +391,7 @@ static int client_context_read_log_level_max(
 }
 
 static int client_context_read_extra_fields(
-                Server *s,
+                Manager *m,
                 ClientContext *c) {
 
         _cleanup_free_ struct iovec *iovec = NULL;
@@ -509,14 +517,14 @@ static int client_context_read_log_ratelimit_burst(ClientContext *c) {
 }
 
 static void client_context_really_refresh(
-                Server *s,
+                Manager *m,
                 ClientContext *c,
                 const struct ucred *ucred,
                 const char *label, size_t label_size,
                 const char *unit_id,
                 usec_t timestamp) {
 
-        assert(s);
+        assert(m);
         assert(c);
         assert(pid_is_valid(c->pid));
 
@@ -530,10 +538,10 @@ static void client_context_really_refresh(
         (void) audit_session_from_pid(&PIDREF_MAKE_FROM_PID(c->pid), &c->auditid);
         (void) audit_loginuid_from_pid(&PIDREF_MAKE_FROM_PID(c->pid), &c->loginuid);
 
-        (void) client_context_read_cgroup(s, c, unit_id);
-        (void) client_context_read_invocation_id(s, c);
-        (void) client_context_read_log_level_max(s, c);
-        (void) client_context_read_extra_fields(s, c);
+        (void) client_context_read_cgroup(m, c, unit_id);
+        (void) client_context_read_invocation_id(m, c);
+        (void) client_context_read_log_level_max(m, c);
+        (void) client_context_read_extra_fields(m, c);
         (void) client_context_read_log_ratelimit_interval(c);
         (void) client_context_read_log_ratelimit_burst(c);
 
@@ -541,19 +549,19 @@ static void client_context_really_refresh(
 
         if (c->in_lru) {
                 assert(c->n_ref == 0);
-                prioq_reshuffle(s->client_contexts_lru, c, &c->lru_index);
+                prioq_reshuffle(m->client_contexts_lru, c, &c->lru_index);
         }
 }
 
 void client_context_maybe_refresh(
-                Server *s,
+                Manager *m,
                 ClientContext *c,
                 const struct ucred *ucred,
                 const char *label, size_t label_size,
                 const char *unit_id,
                 usec_t timestamp) {
 
-        assert(s);
+        assert(m);
         assert(c);
 
         if (timestamp == USEC_INFINITY)
@@ -566,7 +574,7 @@ void client_context_maybe_refresh(
         /* If the data isn't pinned and if the cashed data is older than the upper limit, we flush it out
          * entirely. This follows the logic that as long as an entry is pinned the PID reuse is unlikely. */
         if (c->n_ref == 0 && c->timestamp + MAX_USEC < timestamp) {
-                client_context_reset(s, c);
+                client_context_reset(m, c);
                 goto refresh;
         }
 
@@ -587,44 +595,44 @@ void client_context_maybe_refresh(
         return;
 
 refresh:
-        client_context_really_refresh(s, c, ucred, label, label_size, unit_id, timestamp);
+        client_context_really_refresh(m, c, ucred, label, label_size, unit_id, timestamp);
 }
 
-static void client_context_try_shrink_to(Server *s, size_t limit) {
+static void client_context_try_shrink_to(Manager *m, size_t limit) {
         ClientContext *c;
         usec_t t;
 
-        assert(s);
+        assert(m);
 
         /* Flush any cache entries for PIDs that have already moved on. Don't do this
          * too often, since it's a slow process. */
         t = now(CLOCK_MONOTONIC);
-        if (s->last_cache_pid_flush + MAX_USEC < t) {
-                unsigned n = prioq_size(s->client_contexts_lru), idx = 0;
+        if (m->last_cache_pid_flush + MAX_USEC < t) {
+                unsigned n = prioq_size(m->client_contexts_lru), idx = 0;
 
                 /* We do a number of iterations based on the initial size of the prioq.  When we remove an
                  * item, a new item is moved into its places, and items to the right might be reshuffled.
                  */
                 for (unsigned i = 0; i < n; i++) {
-                        c = prioq_peek_by_index(s->client_contexts_lru, idx);
+                        c = prioq_peek_by_index(m->client_contexts_lru, idx);
 
                         assert(c->n_ref == 0);
 
                         if (pid_is_unwaited(c->pid) == 0)
-                                client_context_free(s, c);
+                                client_context_free(m, c);
                         else
                                 idx++;
                 }
 
-                s->last_cache_pid_flush = t;
+                m->last_cache_pid_flush = t;
         }
 
         /* Bring the number of cache entries below the indicated limit, so that we can create a new entry without
          * breaching the limit. Note that we only flush out entries that aren't pinned here. This means the number of
          * cache entries may very well grow beyond the limit, if all entries stored remain pinned. */
 
-        while (hashmap_size(s->client_contexts) > limit) {
-                c = prioq_pop(s->client_contexts_lru);
+        while (hashmap_size(m->client_contexts) > limit) {
+                c = prioq_pop(m->client_contexts_lru);
                 if (!c)
                         break; /* All remaining entries are pinned, give up */
 
@@ -633,33 +641,33 @@ static void client_context_try_shrink_to(Server *s, size_t limit) {
 
                 c->in_lru = false;
 
-                client_context_free(s, c);
+                client_context_free(m, c);
         }
 }
 
-void client_context_flush_regular(Server *s) {
-        client_context_try_shrink_to(s, 0);
+void client_context_flush_regular(Manager *m) {
+        client_context_try_shrink_to(m, 0);
 }
 
-void client_context_flush_all(Server *s) {
-        assert(s);
+void client_context_flush_all(Manager *m) {
+        assert(m);
 
         /* Flush out all remaining entries. This assumes all references are already dropped. */
 
-        s->my_context = client_context_release(s, s->my_context);
-        s->pid1_context = client_context_release(s, s->pid1_context);
+        m->my_context = client_context_release(m, m->my_context);
+        m->pid1_context = client_context_release(m, m->pid1_context);
 
-        client_context_flush_regular(s);
+        client_context_flush_regular(m);
 
-        assert(prioq_isempty(s->client_contexts_lru));
-        assert(hashmap_isempty(s->client_contexts));
+        assert(prioq_isempty(m->client_contexts_lru));
+        assert(hashmap_isempty(m->client_contexts));
 
-        s->client_contexts_lru = prioq_free(s->client_contexts_lru);
-        s->client_contexts = hashmap_free(s->client_contexts);
+        m->client_contexts_lru = prioq_free(m->client_contexts_lru);
+        m->client_contexts = hashmap_free(m->client_contexts);
 }
 
 static int client_context_get_internal(
-                Server *s,
+                Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
                 const char *label, size_t label_len,
@@ -670,80 +678,80 @@ static int client_context_get_internal(
         ClientContext *c;
         int r;
 
-        assert(s);
+        assert(m);
         assert(ret);
 
         if (!pid_is_valid(pid))
                 return -EINVAL;
 
-        c = hashmap_get(s->client_contexts, PID_TO_PTR(pid));
+        c = hashmap_get(m->client_contexts, PID_TO_PTR(pid));
         if (c) {
 
                 if (add_ref) {
                         if (c->in_lru) {
                                 /* The entry wasn't pinned so far, let's remove it from the LRU list then */
                                 assert(c->n_ref == 0);
-                                assert_se(prioq_remove(s->client_contexts_lru, c, &c->lru_index) >= 0);
+                                assert_se(prioq_remove(m->client_contexts_lru, c, &c->lru_index) >= 0);
                                 c->in_lru = false;
                         }
 
                         c->n_ref++;
                 }
 
-                client_context_maybe_refresh(s, c, ucred, label, label_len, unit_id, USEC_INFINITY);
+                client_context_maybe_refresh(m, c, ucred, label, label_len, unit_id, USEC_INFINITY);
 
                 *ret = c;
                 return 0;
         }
 
-        client_context_try_shrink_to(s, cache_max()-1);
+        client_context_try_shrink_to(m, cache_max()-1);
 
-        r = client_context_new(s, pid, &c);
+        r = client_context_new(m, pid, &c);
         if (r < 0)
                 return r;
 
         if (add_ref)
                 c->n_ref++;
         else {
-                r = prioq_put(s->client_contexts_lru, c, &c->lru_index);
+                r = prioq_put(m->client_contexts_lru, c, &c->lru_index);
                 if (r < 0) {
-                        client_context_free(s, c);
+                        client_context_free(m, c);
                         return r;
                 }
 
                 c->in_lru = true;
         }
 
-        client_context_really_refresh(s, c, ucred, label, label_len, unit_id, USEC_INFINITY);
+        client_context_really_refresh(m, c, ucred, label, label_len, unit_id, USEC_INFINITY);
 
         *ret = c;
         return 0;
 }
 
 int client_context_get(
-                Server *s,
+                Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
                 const char *label, size_t label_len,
                 const char *unit_id,
                 ClientContext **ret) {
 
-        return client_context_get_internal(s, pid, ucred, label, label_len, unit_id, false, ret);
+        return client_context_get_internal(m, pid, ucred, label, label_len, unit_id, false, ret);
 }
 
 int client_context_acquire(
-                Server *s,
+                Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
                 const char *label, size_t label_len,
                 const char *unit_id,
                 ClientContext **ret) {
 
-        return client_context_get_internal(s, pid, ucred, label, label_len, unit_id, true, ret);
+        return client_context_get_internal(m, pid, ucred, label, label_len, unit_id, true, ret);
 };
 
-ClientContext *client_context_release(Server *s, ClientContext *c) {
-        assert(s);
+ClientContext *client_context_release(Manager *m, ClientContext *c) {
+        assert(m);
 
         if (!c)
                 return NULL;
@@ -758,40 +766,40 @@ ClientContext *client_context_release(Server *s, ClientContext *c) {
         /* The entry is not pinned anymore, let's add it to the LRU prioq if we can. If we can't we'll drop it
          * right-away */
 
-        if (prioq_put(s->client_contexts_lru, c, &c->lru_index) < 0)
-                client_context_free(s, c);
+        if (prioq_put(m->client_contexts_lru, c, &c->lru_index) < 0)
+                client_context_free(m, c);
         else
                 c->in_lru = true;
 
         return NULL;
 }
 
-void client_context_acquire_default(Server *s) {
+void client_context_acquire_default(Manager *m) {
         int r;
 
-        assert(s);
+        assert(m);
 
         /* Ensure that our own and PID1's contexts are always pinned. Our own context is particularly useful to
          * generate driver messages. */
 
-        if (!s->my_context) {
+        if (!m->my_context) {
                 struct ucred ucred = {
                         .pid = getpid_cached(),
                         .uid = getuid(),
                         .gid = getgid(),
                 };
 
-                r = client_context_acquire(s, ucred.pid, &ucred, NULL, 0, NULL, &s->my_context);
+                r = client_context_acquire(m, ucred.pid, &ucred, NULL, 0, NULL, &m->my_context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to acquire our own context, ignoring: %m");
         }
 
-        if (!s->namespace && !s->pid1_context) {
+        if (!m->namespace && !m->pid1_context) {
                 /* Acquire PID1's context, but only if we are in non-namespaced mode, since PID 1 is only
                  * going to log to the non-namespaced journal instance. */
 
-                r = client_context_acquire(s, 1, NULL, NULL, 0, NULL, &s->pid1_context);
+                r = client_context_acquire(m, 1, NULL, NULL, 0, NULL, &m->pid1_context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to acquire PID1's context, ignoring: %m");

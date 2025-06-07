@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/socket.h>
 #include <sys/utsname.h>
 
 #include "sd-id128.h"
 
 #include "errno-util.h"
-#include "hostname-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tests.h"

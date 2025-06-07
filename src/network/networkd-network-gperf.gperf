@@ -4,13 +4,17 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #if __GNUC__ >= 15
 _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
+#include <linux/can/netlink.h>
 #include <netinet/icmp6.h>
 #include <stddef.h>
 
+#include "sd-dhcp-lease.h"
+
+#include "condition.h"
 #include "conf-parser.h"
 #include "in-addr-prefix-util.h"
-#include "netem.h"
 #include "net-condition.h"
+#include "netif-sriov.h"
 #include "networkd-address-generation.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
@@ -29,7 +33,6 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-ipv6ll.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
-#include "networkd-netlabel.h"
 #include "networkd-network.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
@@ -37,10 +40,28 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
-#include "networkd-sriov.h"
 #include "qdisc.h"
+#include "socket-util.h"
 #include "tclass.h"
-#include "vlan-util.h"
+
+#include "cake.h"
+#include "codel.h"
+#include "ets.h"
+#include "fifo.h"
+#include "fq-codel.h"
+#include "fq-pie.h"
+#include "fq.h"
+#include "gred.h"
+#include "hhf.h"
+#include "htb.h"
+#include "pie.h"
+#include "qfq.h"
+#include "netem.h"
+#include "drr.h"
+#include "sfb.h"
+#include "sfq.h"
+#include "tbf.h"
+#include "teql.h"
 %}
 struct ConfigPerfItem;
 %null_strings
@@ -67,7 +88,8 @@ Match.Property,                              config_parse_match_property,       
 Match.Host,                                  config_parse_net_condition,                               CONDITION_HOST,                offsetof(Network, conditions)
 Match.Virtualization,                        config_parse_net_condition,                               CONDITION_VIRTUALIZATION,      offsetof(Network, conditions)
 Match.KernelCommandLine,                     config_parse_net_condition,                               CONDITION_KERNEL_COMMAND_LINE, offsetof(Network, conditions)
-Match.KernelVersion,                         config_parse_net_condition,                               CONDITION_KERNEL_VERSION,      offsetof(Network, conditions)
+Match.KernelVersion,                         config_parse_net_condition,                               CONDITION_VERSION,             offsetof(Network, conditions)
+Match.Version,                               config_parse_net_condition,                               CONDITION_VERSION,             offsetof(Network, conditions)
 Match.Credential,                            config_parse_net_condition,                               CONDITION_CREDENTIAL,          offsetof(Network, conditions)
 Match.Architecture,                          config_parse_net_condition,                               CONDITION_ARCHITECTURE,        offsetof(Network, conditions)
 Match.Firmware,                              config_parse_net_condition,                               CONDITION_FIRMWARE,            offsetof(Network, conditions)
@@ -138,6 +160,7 @@ Network.IPv6PrivacyExtensions,               config_parse_ipv6_privacy_extension
 Network.IPv6AcceptRA,                        config_parse_tristate,                                    0,                             offsetof(Network, ndisc)
 Network.IPv6AcceptRouterAdvertisements,      config_parse_tristate,                                    0,                             offsetof(Network, ndisc)
 Network.IPv6DuplicateAddressDetection,       config_parse_int,                                         0,                             offsetof(Network, ipv6_dad_transmits)
+Network.IPv4DuplicateAddressDetectionTimeoutSec, config_parse_sec,                                     0,                             offsetof(Network, ipv4_dad_timeout_usec)
 Network.IPv6HopLimit,                        config_parse_uint8,                                       0,                             offsetof(Network, ipv6_hop_limit)
 Network.IPv6RetransmissionTimeSec,           config_parse_sec,                                         0,                             offsetof(Network, ipv6_retransmission_time)
 Network.IPv6ProxyNDP,                        config_parse_tristate,                                    0,                             offsetof(Network, ipv6_proxy_ndp)
@@ -385,6 +408,7 @@ Bridge.Priority,                             config_parse_bridge_port_priority, 
 Bridge.MulticastRouter,                      config_parse_multicast_router,                            0,                             offsetof(Network, multicast_router)
 Bridge.Locked,                               config_parse_tristate,                                    0,                             offsetof(Network, bridge_locked)
 Bridge.MACAuthenticationBypass,              config_parse_tristate,                                    0,                             offsetof(Network, bridge_mac_authentication_bypass)
+Bridge.VLANTunnel,                           config_parse_tristate,                                    0,                             offsetof(Network, bridge_vlan_tunnel)
 BridgeFDB.MACAddress,                        config_parse_fdb_hwaddr,                                  0,                             0
 BridgeFDB.VLANId,                            config_parse_fdb_vlan_id,                                 0,                             0
 BridgeFDB.Destination,                       config_parse_fdb_destination,                             0,                             0

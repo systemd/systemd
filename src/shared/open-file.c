@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-
+#include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"

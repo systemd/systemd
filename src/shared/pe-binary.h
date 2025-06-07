@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
 #include "openssl-util.h"
-#include "macro-fundamental.h"
 #include "sparse-endian.h"
 #include "uki.h"
 

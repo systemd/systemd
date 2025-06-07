@@ -93,7 +93,7 @@ _udevadm() {
                        -g --tag-match -y --sysname-match --name-match -b --parent-match
                        --prioritized-subsystem'
         [SETTLE]='-t --timeout -E --exit-if-exists'
-        [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping
+        [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping --revert
                               --load-credentials'
         [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout --trace'
         [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
@@ -110,7 +110,7 @@ _udevadm() {
     )
 
     local verbs=(info trigger settle control monitor test-builtin test verify cat wait lock)
-    local builtins=(blkid btrfs hwdb input_id keyboard kmod net_driver net_id net_setup_link path_id uaccess usb_id)
+    local builtins=(blkid btrfs dissect_image factory_reset hwdb input_id keyboard kmod net_driver net_id net_setup_link path_id uaccess usb_id)
 
     for ((i=0; i < COMP_CWORD; i++)); do
         if __contains_word "${COMP_WORDS[i]}" "${verbs[@]}"; then

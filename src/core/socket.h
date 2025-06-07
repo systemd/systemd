@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Socket Socket;
-typedef struct SocketPeer SocketPeer;
-
-#include "mount.h"
+#include "cgroup.h"
+#include "core-forward.h"
+#include "execute.h"
+#include "list.h"
 #include "pidref.h"
 #include "socket-util.h"
 #include "unit.h"
@@ -66,7 +66,7 @@ typedef enum SocketTimestamping {
         _SOCKET_TIMESTAMPING_INVALID = -EINVAL,
 } SocketTimestamping;
 
-struct Socket {
+typedef struct Socket {
         Unit meta;
 
         LIST_HEAD(SocketPort, ports);
@@ -162,7 +162,7 @@ struct Socket {
 
         RateLimit trigger_limit;
         RateLimit poll_limit;
-};
+} Socket;
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
 SocketPeer *socket_peer_unref(SocketPeer *p);

@@ -51,7 +51,7 @@
     the full list. This duplicates the functionality of
     <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>, but
     it is still recommended (see examples below) to keep <command>nss-myhostname</command> configured in
-    <filename>/etc/nsswitch.conf</filename>, to keep those names resolveable if
+    <filename>/etc/nsswitch.conf</filename>, to keep those names resolvable if
     <command>systemd-resolved</command> is not running.</para>
 
     <para>Please keep in mind that <command>nss-myhostname</command> (and <command>nss-resolve</command>) also resolve

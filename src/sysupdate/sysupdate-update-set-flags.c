@@ -3,7 +3,6 @@
 #include "ansi-color.h"
 #include "glyph-util.h"
 #include "sysupdate-update-set-flags.h"
-#include "terminal-util.h"
 
 const char* update_set_flags_to_color(UpdateSetFlags flags) {
 
@@ -28,16 +27,16 @@ const char* update_set_flags_to_color(UpdateSetFlags flags) {
 const char* update_set_flags_to_glyph(UpdateSetFlags flags) {
 
         if (flags == 0 || (flags & UPDATE_OBSOLETE))
-                return special_glyph(SPECIAL_GLYPH_MULTIPLICATION_SIGN);
+                return glyph(GLYPH_MULTIPLICATION_SIGN);
 
         if (FLAGS_SET(flags, UPDATE_INSTALLED|UPDATE_NEWEST))
-                return special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE);
+                return glyph(GLYPH_BLACK_CIRCLE);
 
         if (FLAGS_SET(flags, UPDATE_INSTALLED|UPDATE_PROTECTED))
-                return special_glyph(SPECIAL_GLYPH_WHITE_CIRCLE);
+                return glyph(GLYPH_WHITE_CIRCLE);
 
         if ((flags & (UPDATE_AVAILABLE|UPDATE_INSTALLED|UPDATE_NEWEST|UPDATE_OBSOLETE)) == (UPDATE_AVAILABLE|UPDATE_NEWEST))
-                return special_glyph(SPECIAL_GLYPH_CIRCLE_ARROW);
+                return glyph(GLYPH_CIRCLE_ARROW);
 
         return " ";
 }

@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdio.h>
-
-#include "errno-list.h"
-#include "macro.h"
+#include "forward.h"
 #include "main-func.h"
 
 int generator_open_unit_file_full(const char *dest, const char *source, const char *name, FILE **ret_file, char **ret_final_path, char **ret_temp_path);
@@ -22,7 +19,8 @@ int generator_write_fsck_deps(
         const char *dir,
         const char *what,
         const char *where,
-        const char *type);
+        const char *type,
+        const char *options);
 
 int generator_write_device_timeout(
         const char *dir,
@@ -67,6 +65,10 @@ int generator_hook_up_pcrfs(
         const char *dir,
         const char *where,
         const char *target);
+int generator_hook_up_validatefs(
+        const char *dir,
+        const char *where,
+        const char *target);
 int generator_hook_up_quotacheck(
         const char *dir,
         const char *what,
@@ -83,7 +85,7 @@ int generator_write_cryptsetup_service_section(
                 FILE *f,
                 const char *name,
                 const char *what,
-                const char *password,
+                const char *key_file,
                 const char *options);
 
 int generator_write_veritysetup_unit_section(FILE *f, const char *source);
@@ -117,11 +119,13 @@ bool generator_soft_rebooted(void);
                 exit_failure_if_negative)
 
 typedef enum GptAutoRoot {
-        GPT_AUTO_ROOT_OFF = 0,      /* root= set to something else */
-        GPT_AUTO_ROOT_ON,           /* root= set explicitly to "gpt-auto" */
-        GPT_AUTO_ROOT_FORCE,        /* root= set explicitly to "gpt-auto-force" → ignores factory reset mode */
+        GPT_AUTO_ROOT_OFF = 0,       /* root= set to something else */
+        GPT_AUTO_ROOT_ON,            /* root= set explicitly to "gpt-auto" */
+        GPT_AUTO_ROOT_FORCE,         /* root= set explicitly to "gpt-auto-force" → ignores factory reset mode */
+        GPT_AUTO_ROOT_DISSECT,       /* root= set to "dissect" */
+        GPT_AUTO_ROOT_DISSECT_FORCE, /* root= set to "dissect-force" → ignores factory reset mode */
         _GPT_AUTO_ROOT_MAX,
         _GPT_AUTO_ROOT_INVALID = -EINVAL,
 } GptAutoRoot;
 
-GptAutoRoot parse_gpt_auto_root(const char *value);
+GptAutoRoot parse_gpt_auto_root(const char *switch_name, const char *value);

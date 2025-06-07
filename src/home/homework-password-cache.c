@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "homework-password-cache.h"
 #include "keyring-util.h"
+#include "log.h"
 #include "missing_syscall.h"
+#include "string-util.h"
 #include "user-record.h"
 
 void password_cache_free(PasswordCache *cache) {

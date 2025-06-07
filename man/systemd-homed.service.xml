@@ -108,6 +108,22 @@
   </refsect1>
 
   <refsect1>
+    <title>Signals</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>SIGUSR1</constant></term>
+
+        <listitem><para>Upon reception of the <constant>SIGUSR1</constant> process signal
+        <command>systemd-homed</command> will reestablish its file watches on <filename>/home/</filename> and
+        rescan the directory for home directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

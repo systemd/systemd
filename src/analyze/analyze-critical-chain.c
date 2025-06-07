@@ -1,16 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "analyze.h"
 #include "analyze-critical-chain.h"
 #include "analyze-time-data.h"
-#include "analyze.h"
+#include "ansi-color.h"
 #include "bus-error.h"
-#include "copy.h"
-#include "path-util.h"
+#include "bus-util.h"
+#include "glyph-util.h"
+#include "hashmap.h"
+#include "log.h"
+#include "pager.h"
+#include "runtime-scope.h"
 #include "sort-util.h"
 #include "special.h"
 #include "static-destruct.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 
 static Hashmap *unit_times_hashmap = NULL;
 STATIC_DESTRUCTOR_REGISTER(unit_times_hashmap, hashmap_freep);
@@ -24,9 +32,9 @@ static int list_dependencies_print(
                 BootTimes *boot) {
 
         for (unsigned i = level; i > 0; i--)
-                printf("%s", special_glyph(branches & (1 << (i-1)) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
+                printf("%s", glyph(branches & (1 << (i-1)) ? GLYPH_TREE_VERTICAL : GLYPH_TREE_SPACE));
 
-        printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
+        printf("%s", glyph(last ? GLYPH_TREE_RIGHT : GLYPH_TREE_BRANCH));
 
         if (times && times->activating >= boot->userspace_time) {
                 if (timestamp_is_set(times->time))

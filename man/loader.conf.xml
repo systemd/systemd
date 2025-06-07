@@ -374,6 +374,29 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
       </varlistentry>
 
       <varlistentry>
+        <term>secure-boot-enroll-action</term>
+        <listitem>
+          <para>Specifies the action to take after the automatic enrollment of secure boot keys is completed.</para>
+          <variablelist>
+            <varlistentry>
+              <term>reboot</term>
+              <listitem>
+                <para>Reboot the system after enrollment. This is the default.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>shutdown</term>
+              <listitem>
+                <para>Shut down the system after enrollment.</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+          <para>This option is only relevant if <literal>secure-boot-enroll</literal> is enabled.</para>
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>reboot-for-bitlocker</term>
 
         <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
@@ -398,6 +421,36 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
         up booting into Windows.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>reboot-on-error</term>
+
+        <listitem><para>Controls auto reboot in case the selected entry fails to start.
+
+        <variablelist>
+          <varlistentry>
+            <term><option>yes</option></term>
+            <listitem><para>Reboot the system if the selected boot entry failed to start.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>no</option></term>
+            <listitem><para>Don't reboot - pass control back to EFI firmware.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>auto</option></term>
+            <listitem>
+            <para>Perform the reboot if and only if boot counting is enabled for this entry and the tries left counter wasn't already at 0.</para>
+            <para>This is the default, as it is typically a safe option, that ensures a clean measurement log on each boot attempt, but also does not risk an unbounded reboot loop.</para>
+            </listitem>
+          </varlistentry>
+
+        </variablelist>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

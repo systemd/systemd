@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #if HAVE_LZ4
 #include <lz4.h>
 #endif
 
-#include "dlfcn-util.h"
 #include "alloc-util.h"
 #include "compress.h"
+#include "dlfcn-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "macro.h"
-#include "memory-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "tests.h"
@@ -188,7 +187,7 @@ _unused_ static void test_compress_stream(const char *compression,
 
         log_debug("/* create source from %s */", srcfile);
 
-        ASSERT_OK((src = open(srcfile, O_RDONLY|O_CLOEXEC)));
+        ASSERT_OK(src = open(srcfile, O_RDONLY|O_CLOEXEC));
 
         log_debug("/* test compression */");
 
@@ -229,6 +228,11 @@ _unused_ static void test_compress_stream(const char *compression,
 #endif
 
 #if HAVE_LZ4
+extern DLSYM_PROTOTYPE(LZ4_compress_default);
+extern DLSYM_PROTOTYPE(LZ4_decompress_safe);
+extern DLSYM_PROTOTYPE(LZ4_decompress_safe_partial);
+extern DLSYM_PROTOTYPE(LZ4_versionNumber);
+
 static void test_lz4_decompress_partial(void) {
         char buf[20000], buf2[100];
         size_t buf_size = sizeof(buf), compressed;

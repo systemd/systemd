@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
-
 #include "bitfield.h"
-#include "log.h"
 #include "tests.h"
 
 #define TEST_BITS(bits, v, ...)                                         \

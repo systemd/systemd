@@ -52,6 +52,9 @@ _not_installed_headers = [
         'sd-resolve.h',
 ]
 
+sources += systemd_headers
+sources += files(_not_installed_headers)
+
 install_headers(
         systemd_headers,
         '_sd-common.h',
@@ -65,11 +68,12 @@ endif
 
 opts = [['c'],
         ['c', '-ansi'],
-        ['c', '-std=iso9899:1990'],
-        ['c', '-std=iso9899:2011']]
+        ['c', '-std=iso9899:1990'], # C90
+        ['c', '-std=iso9899:1999'], # C99
+        ['c', '-std=iso9899:2011']] # C11
 
-foreach opt : ['-std=iso9899:2017',
-               '-std=c23',
+foreach opt : ['-std=iso9899:2018', # C17
+               '-std=iso9899:2024', # C23
               ]
         if cc.has_argument(opt)
                 opts += [['c', opt]]

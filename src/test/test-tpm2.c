@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "hexdecoct.h"
-#include "macro.h"
 #include "tests.h"
 #include "tpm2-util.h"
 #include "virt.h"
@@ -560,7 +559,7 @@ static void check_parse_pcr_argument(
                 size_t n_arg_pcr_values = 0;
                 assert_se(tpm2_parse_pcr_argument(arg, &arg_pcr_values, &n_arg_pcr_values) >= 0);
                 uint32_t mask2 = UINT32_MAX;
-                assert_se(tpm2_pcr_values_to_mask(arg_pcr_values, n_arg_pcr_values, /* algorithm= */ 0, &mask2) >= 0);
+                assert_se(tpm2_pcr_values_to_mask(arg_pcr_values, n_arg_pcr_values, /* hash= */ 0, &mask2) >= 0);
 
                 assert_se((mask == UINT32_MAX ? mask2 : (mask|mask2)) == expected_mask);
         }
@@ -810,7 +809,7 @@ static void get_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PU
         assert(pem);
         assert(ret);
 
-        assert_se(openssl_pkey_from_pem(pem, pem_size, &pkey) >= 0);
+        assert_se(openssl_pubkey_from_pem(pem, pem_size, &pkey) >= 0);
         assert_se(tpm2_tpm2b_public_from_openssl_pkey(pkey, &p1) >= 0);
         assert_se(tpm2_tpm2b_public_from_pem(pem, pem_size, &p2) >= 0);
         assert_se(memcmp_nn(&p1, sizeof(p1), &p2, sizeof(p2)) == 0);
@@ -1259,8 +1258,8 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         /* primary_alg= */ 0,
                         blobs,
                         n_blobs,
-                        /* policy_hash= */ NULL,
-                        /* n_policy_hash= */ 0,
+                        /* known_policy_hash= */ NULL,
+                        /* n_known_policy_hash= */ 0,
                         &srk,
                         &unsealed_secret) >= 0);
 

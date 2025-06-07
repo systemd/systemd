@@ -34,6 +34,56 @@ if [[ -L /run/nextroot ]]; then
     rm -f /run/nextroot
 fi
 
+trigger_uevent() {
+    local rule=/run/udev/rules.d/99-softreboot.rules
+
+    if [[ ! -f "$rule" ]]; then
+        mkdir -p /run/udev/rules.d
+        cat >"$rule" <<EOF
+SUBSYSTEM!="mem", GOTO="end"
+KERNEL!="null", GOTO="end"
+ACTION=="remove", GOTO="end"
+
+IMPORT{db}="HISTORY"
+IMPORT{program}="/bin/bash -c 'systemctl show --property=SoftRebootsCount'"
+ENV{HISTORY}+="%E{ACTION}_%E{SEQNUM}_%E{SoftRebootsCount}"
+
+LABEL="end"
+EOF
+        udevadm control --reload
+    fi
+
+    systemd-run \
+        --unit=TEST-82-SOFTREBOOT-trigger.service \
+        --property DefaultDependencies=no \
+        --property Conflicts=soft-reboot.target \
+        --property Before=soft-reboot.target \
+        --property Before=systemd-soft-reboot.service \
+        --property Before=systemd-udevd.service \
+        --property RemainAfterExit=yes \
+        --property 'ExecStop=udevadm trigger --action bind /dev/null' \
+        true
+}
+
+check_device_property() {
+    local expected_count=${1:?}
+
+    udevadm info --no-pager /dev/null
+
+    local action seqnum softreboot_count
+    local previous_seqnum=0
+    local count=0
+    while read -r action seqnum softreboot_count; do
+        test "$seqnum" -gt "$previous_seqnum"
+        assert_eq "$action" "bind"
+        assert_eq "$softreboot_count" "$((++count))"
+
+        previous_seqnum="$seqnum"
+    done < <(udevadm info -q property --property=HISTORY --value /dev/null | sed -e 's/ /\n/g; s/_/ /g')
+
+    assert_eq "$count" "$expected_count"
+}
+
 systemd-analyze log-level debug
 
 export SYSTEMD_LOG_LEVEL=debug
@@ -69,6 +119,8 @@ if [ -f /run/TEST-82-SOFTREBOOT.touch3 ]; then
     # Check journals
     journalctl -o short-monotonic --no-hostname --grep '(will soft-reboot|KILL|corrupt)'
     assert_eq "$(journalctl -q -o short-monotonic -u systemd-journald.service --grep 'corrupt')" ""
+
+    check_device_property 3
 
     # All succeeded, exit cleanly now
 
@@ -109,6 +161,9 @@ elif [ -f /run/TEST-82-SOFTREBOOT.touch2 ]; then
 
     # Restart the unit that is not supposed to survive
     systemd-run --collect --service-type=exec --unit=TEST-82-SOFTREBOOT-nosurvive.service sleep infinity
+
+    check_device_property 2
+    trigger_uevent
 
     # Now issue the soft reboot. We should be right back soon.
     touch /run/TEST-82-SOFTREBOOT.touch3
@@ -175,6 +230,9 @@ elif [ -f /run/TEST-82-SOFTREBOOT.touch ]; then
     for _ in $(seq 1 25); do
         systemd-run --wait true
     done
+
+    check_device_property 1
+    trigger_uevent
 
     # Now issue the soft reboot. We should be right back soon. Given /run/nextroot exists, we should
     # automatically do a softreboot instead of normal reboot.
@@ -265,6 +323,8 @@ EOF
         # used instead of the bus ID)
         systemd-run --wait false || true
     done
+
+    trigger_uevent
 
     # Now issue the soft reboot. We should be right back soon.
     touch /run/TEST-82-SOFTREBOOT.touch

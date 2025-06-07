@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Button Button;
-
-#include "logind.h"
+#include "logind-forward.h"
 
 typedef enum ButtonModifierMask {
         BUTTON_MODIFIER_NONE        = 0,
@@ -19,7 +17,7 @@ typedef enum ButtonModifierMask {
 #define BUTTON_MODIFIER_HAS_CTRL(modifier) (((modifier) & (BUTTON_MODIFIER_LEFT_CTRL|BUTTON_MODIFIER_RIGHT_CTRL)) != 0)
 #define BUTTON_MODIFIER_HAS_ALT(modifier) (((modifier) & (BUTTON_MODIFIER_LEFT_ALT|BUTTON_MODIFIER_RIGHT_ALT)) != 0)
 
-struct Button {
+typedef struct Button {
         Manager *manager;
 
         sd_event_source *io_event_source;
@@ -33,7 +31,7 @@ struct Button {
 
         bool lid_closed;
         bool docked;
-};
+} Button;
 
 Button* button_new(Manager *m, const char *name);
 Button *button_free(Button *b);

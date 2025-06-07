@@ -3,10 +3,13 @@
 #include <linux/if.h>
 #include <unistd.h>
 
+#include "sd-netlink.h"
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "env-file.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -14,10 +17,16 @@
 #include "mkdir.h"
 #include "netif-util.h"
 #include "parse-util.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-server.h"
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
+#include "resolved-manager.h"
 #include "resolved-mdns.h"
+#include "set.h"
 #include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -73,7 +82,7 @@ void link_flush_settings(Link *l) {
         dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
 
-        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
+        l->dnssec_negative_trust_anchors = set_free(l->dnssec_negative_trust_anchors);
 }
 
 Link *link_free(Link *l) {
@@ -134,7 +143,7 @@ void link_allocate_scopes(Link *l) {
                 if (!l->unicast_scope) {
                         dns_server_reset_features_all(l->dns_servers);
 
-                        r = dns_scope_new(l->manager, &l->unicast_scope, l, DNS_PROTOCOL_DNS, AF_UNSPEC);
+                        r = dns_scope_new(l->manager, &l->unicast_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate DNS scope, ignoring: %m");
                 }
@@ -144,7 +153,7 @@ void link_allocate_scopes(Link *l) {
         if (link_relevant(l, AF_INET, true) &&
             link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv4_scope) {
-                        r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
+                        r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate LLMNR IPv4 scope, ignoring: %m");
                 }
@@ -154,7 +163,7 @@ void link_allocate_scopes(Link *l) {
         if (link_relevant(l, AF_INET6, true) &&
             link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv6_scope) {
-                        r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
+                        r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate LLMNR IPv6 scope, ignoring: %m");
                 }
@@ -164,7 +173,7 @@ void link_allocate_scopes(Link *l) {
         if (link_relevant(l, AF_INET, true) &&
             link_get_mdns_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv4_scope) {
-                        r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, l, DNS_PROTOCOL_MDNS, AF_INET);
+                        r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv4 scope, ignoring: %m");
                 }
@@ -174,7 +183,7 @@ void link_allocate_scopes(Link *l) {
         if (link_relevant(l, AF_INET6, true) &&
             link_get_mdns_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv6_scope) {
-                        r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, l, DNS_PROTOCOL_MDNS, AF_INET6);
+                        r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv6 scope, ignoring: %m");
                 }
@@ -274,7 +283,7 @@ static int link_update_dns_server_one(Link *l, const char *str) {
                 return 0;
         }
 
-        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, port, 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
+        return dns_server_new(l->manager, /* ret= */ NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL, family, &a, port, 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
 }
 
 static int link_update_dns_servers(Link *l) {
@@ -418,11 +427,11 @@ void link_set_dnssec_mode(Link *l, DnssecMode mode) {
 
         assert(l);
 
-#if !HAVE_OPENSSL_OR_GCRYPT
+#if !HAVE_OPENSSL
         if (IN_SET(mode, DNSSEC_YES, DNSSEC_ALLOW_DOWNGRADE))
                 log_link_warning(l,
                                  "DNSSEC option for the link cannot be enabled or set to allow-downgrade "
-                                 "when systemd-resolved is built without a cryptographic library. "
+                                 "when systemd-resolved is built without openssl. "
                                  "Turning off DNSSEC support.");
         return;
 #endif
@@ -459,12 +468,12 @@ static int link_update_dnssec_mode(Link *l) {
 
 static int link_update_dnssec_negative_trust_anchors(Link *l) {
         _cleanup_strv_free_ char **ntas = NULL;
-        _cleanup_set_free_free_ Set *ns = NULL;
+        _cleanup_set_free_ Set *ns = NULL;
         int r;
 
         assert(l);
 
-        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
+        l->dnssec_negative_trust_anchors = set_free(l->dnssec_negative_trust_anchors);
 
         r = sd_network_link_get_dnssec_negative_trust_anchors(l->ifindex, &ntas);
         if (r == -ENODATA)
@@ -472,11 +481,7 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
         if (r < 0)
                 return r;
 
-        ns = set_new(&dns_name_hash_ops);
-        if (!ns)
-                return -ENOMEM;
-
-        r = set_put_strdupv(&ns, ntas);
+        r = set_put_strdupv_full(&ns, &dns_name_hash_ops_free, ntas);
         if (r < 0)
                 return r;
 
@@ -497,7 +502,7 @@ static int link_update_search_domain_one(Link *l, const char *name, bool route_o
         if (r > 0)
                 dns_search_domain_move_back_and_unmark(d);
         else {
-                r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, name);
+                r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, /* delegate= */ NULL, name);
                 if (r < 0)
                         return r;
         }
@@ -1161,7 +1166,7 @@ int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m) {
         assert(a);
         assert(m);
 
-        r = sd_rtnl_message_addr_get_flags(m, &a->flags);
+        r = sd_netlink_message_read_u32(m, IFA_FLAGS, &a->flags);
         if (r < 0)
                 return r;
 
@@ -1425,9 +1430,9 @@ int link_load_user(Link *l) {
         }
 
         if (ntas) {
-                _cleanup_set_free_free_ Set *ns = NULL;
+                _cleanup_set_free_ Set *ns = NULL;
 
-                ns = set_new(&dns_name_hash_ops);
+                ns = set_new(&dns_name_hash_ops_free);
                 if (!ns) {
                         r = -ENOMEM;
                         goto fail;

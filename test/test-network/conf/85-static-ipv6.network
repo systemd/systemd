@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+DHCP=no
+IPv6AcceptRA=no
+KeepConfiguration=yes
+
+[Address]
+Address=2001:db8:0:f101::15/64
+PreferredLifetime=forever
+
+[Address]
+Address=2001:db8:1:f101::15/64
+PreferredLifetime=0
+
+[Route]
+Gateway=fe80::f0ca:cc1a
+Source=::/0
+Destination=::/0
+Metric=1

@@ -8,20 +8,14 @@
 #include <net/ethernet.h>
 #include <netinet/in.h>
 
-#include "sd-event.h"
 #include "sd-dhcp6-client.h"
 
 #include "dhcp-duid-internal.h"
-#include "dhcp6-client-internal.h"
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
-#include "ether-addr-util.h"
-#include "hashmap.h"
-#include "macro.h"
+#include "forward.h"
 #include "network-common.h"
-#include "ordered-set.h"
 #include "sparse-endian.h"
-#include "time-util.h"
 
 /* what to request from the server, addresses (IA_NA) and/or prefixes (IA_PD) */
 typedef enum DHCP6RequestIA {

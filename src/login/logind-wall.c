@@ -1,22 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <unistd.h>
+#include <stdio.h>
 
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "audit-util.h"
-#include "bus-common-errors.h"
-#include "bus-error.h"
-#include "bus-util.h"
 #include "event-util.h"
-#include "format-util.h"
+#include "log.h"
 #include "logind.h"
 #include "path-util.h"
-#include "special.h"
-#include "strv.h"
-#include "unit-name.h"
+#include "string-util.h"
 #include "user-util.h"
 #include "wall.h"
 
@@ -84,11 +77,11 @@ static int warn_wall(Manager *m, usec_t n) {
 
         log_struct(level,
                    LOG_MESSAGE("%s", l),
-                   "ACTION=%s", handle_action_to_string(m->scheduled_shutdown_action),
-                   "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_SCHEDULED_STR,
+                   LOG_ITEM("ACTION=%s", handle_action_to_string(m->scheduled_shutdown_action)),
+                   LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_SCHEDULED_STR),
                    username ? "OPERATOR=%s" : NULL, username);
 
-        if (m->enable_wall_messages)
+        if (m->wall_messages)
                 (void) wall(l, username, m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
 
         return 1;

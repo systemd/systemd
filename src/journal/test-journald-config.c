@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <stdbool.h>
 #include <string.h>
 #include <sys/un.h>
 
-#include "journald-server.h"
+#include "alloc-util.h"
+#include "journald-manager.h"
 #include "log.h"
-#include "path-util.h"
 #include "socket-util.h"
 #include "sparse-endian.h"
 #include "tests.h"

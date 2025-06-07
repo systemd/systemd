@@ -1,41 +1,39 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <math.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <resolv.h>
-#include <stdlib.h>
-#include <sys/timerfd.h>
-#include <sys/timex.h>
-#include <sys/types.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-messages.h"
+#include "sd-network.h"
 
 #include "alloc-util.h"
-#include "bus-polkit.h"
 #include "clock-util.h"
 #include "common-signal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "list.h"
 #include "log.h"
 #include "logarithm.h"
 #include "network-util.h"
+#include "random-util.h"
 #include "ratelimit.h"
 #include "resolve-private.h"
-#include "random-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
-#include "user-util.h"
+#include "timesyncd-server.h"
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
@@ -397,7 +395,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .iov_base = &ntpmsg,
                 .iov_len = sizeof(ntpmsg),
         };
-        /* This needs to be initialized with zero. See #20741. */
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMESPEC) control = {};
         union sockaddr_union server_addr;
         struct msghdr msghdr = {
@@ -618,10 +617,10 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Initial clock synchronization to %s.",
                                        FORMAT_TIMESTAMP_STYLE(dts.realtime, TIMESTAMP_US)),
-                           "MESSAGE_ID=" SD_MESSAGE_TIME_SYNC_STR,
-                           "MONOTONIC_USEC=" USEC_FMT, dts.monotonic,
-                           "REALTIME_USEC=" USEC_FMT, dts.realtime,
-                           "BOOTTIME_USEC=" USEC_FMT, dts.boottime);
+                           LOG_MESSAGE_ID(SD_MESSAGE_TIME_SYNC_STR),
+                           LOG_ITEM("MONOTONIC_USEC=" USEC_FMT, dts.monotonic),
+                           LOG_ITEM("REALTIME_USEC=" USEC_FMT, dts.realtime),
+                           LOG_ITEM("BOOTTIME_USEC=" USEC_FMT, dts.boottime));
         }
 
         r = manager_arm_timer(m, m->poll_interval_usec);
@@ -1136,7 +1135,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to install SIGRTMIN+18 signal handler, ignoring: %m");
 

@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "errno-util.h"
 #include "link-config.h"
 #include "log.h"
-#include "string-util.h"
-#include "strv.h"
+#include "netif-naming-scheme.h"
 #include "udev-builtin.h"
 
 static LinkConfigContext *ctx = NULL;
@@ -35,7 +32,11 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv) {
 
                 /* Set ID_NET_NAME= with the current interface name. */
                 const char *value;
-                if (sd_device_get_sysname(dev, &value) >= 0)
+                if (naming_scheme_has(NAMING_USE_INTERFACE_PROPERTY))
+                        r = device_get_ifname(dev, &value);
+                else
+                        r = sd_device_get_sysname(dev, &value);
+                if (r >= 0)
                         (void) udev_builtin_add_property(event, "ID_NET_NAME", value);
 
                 return 0;

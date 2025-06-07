@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
-#include "audit-util.h"
 #include "build.h"
 #include "chase.h"
 #include "conf-files.h"
@@ -12,32 +13,36 @@
 #include "creds-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "image-policy.h"
+#include "label-util.h"
+#include "libaudit-util.h"
 #include "libcrypt-util.h"
+#include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "mount-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "selinux-util.h"
 #include "set.h"
 #include "smack-util.h"
 #include "specifier.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "tmpfile-util-label.h"
 #include "uid-classification.h"
 #include "uid-range.h"
 #include "user-util.h"
-#include "utf8.h"
 #include "verbs.h"
 
 typedef enum ItemType {
@@ -143,7 +148,7 @@ static void context_done(Context *c) {
         hashmap_free(c->database_by_gid);
         hashmap_free(c->database_by_groupname);
 
-        set_free_free(c->names);
+        set_free(c->names);
         uid_range_free(c->uid_range);
 }
 
@@ -231,9 +236,8 @@ static int load_user_database(Context *c) {
                 if (!n)
                         return -ENOMEM;
 
-                /* Note that we use NULL hash_ops (i.e. trivial_hash_ops) here, so identical strings can
-                 * exist in the set. */
-                r = set_ensure_consume(&c->names, /* hash_ops= */ NULL, n);
+                /* Note that we use trivial_hash_ops_free here, so identical strings can exist in the set. */
+                r = set_ensure_consume(&c->names, &trivial_hash_ops_free, n);
                 if (r < 0)
                         return r;
                 assert(r > 0);  /* The set uses pointer comparisons, so n must not be in the set. */
@@ -274,9 +278,8 @@ static int load_group_database(Context *c) {
                 if (!n)
                         return -ENOMEM;
 
-                /* Note that we use NULL hash_ops (i.e. trivial_hash_ops) here, so identical strings can
-                 * exist in the set. */
-                r = set_ensure_consume(&c->names, /* hash_ops= */ NULL, n);
+                /* Note that we use trivial_hash_ops_free here, so identical strings can exist in the set. */
+                r = set_ensure_consume(&c->names, &trivial_hash_ops_free, n);
                 if (r < 0)
                         return r;
                 assert(r > 0);  /* The set uses pointer comparisons, so n must not be in the set. */
@@ -481,7 +484,7 @@ static int write_temporary_passwd(
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/passwd%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/passwd%s", glyph(GLYPH_ELLIPSIS));
                 return 0;
         }
 
@@ -624,7 +627,7 @@ static int write_temporary_shadow(
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/shadow%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/shadow%s", glyph(GLYPH_ELLIPSIS));
                 return 0;
         }
 
@@ -759,7 +762,7 @@ static int write_temporary_group(
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/group%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/group%s", glyph(GLYPH_ELLIPSIS));
                 return 0;
         }
 
@@ -872,7 +875,7 @@ static int write_temporary_gshadow(
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/gshadow%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/gshadow%s", glyph(GLYPH_ELLIPSIS));
                 return 0;
         }
 
@@ -945,11 +948,21 @@ static int write_files(Context *c) {
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
         int r;
 
-        const char
-                *passwd_path = prefix_roota(arg_root, "/etc/passwd"),
-                *shadow_path = prefix_roota(arg_root, "/etc/shadow"),
-                *group_path = prefix_roota(arg_root, "/etc/group"),
-                *gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
+        _cleanup_free_ char *passwd_path = path_join(arg_root, "/etc/passwd");
+        if (!passwd_path)
+                return log_oom();
+
+        _cleanup_free_ char *shadow_path = path_join(arg_root, "/etc/shadow");
+        if (!shadow_path)
+                return log_oom();
+
+        _cleanup_free_ char *group_path = path_join(arg_root, "/etc/group");
+        if (!group_path)
+                return log_oom();
+
+        _cleanup_free_ char *gshadow_path = path_join(arg_root, "/etc/gshadow");
+        if (!gshadow_path)
+                return log_oom();
 
         assert(c);
 
@@ -2224,13 +2237,13 @@ static int read_config_files(Context *c, char **args) {
 
         STRV_FOREACH(f, files)
                 if (p && path_equal(*f, p)) {
-                        log_debug("Parsing arguments at position \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Parsing arguments at position \"%s\"%s", *f, glyph(GLYPH_ELLIPSIS));
 
                         r = parse_arguments(c, args);
                         if (r < 0)
                                 return r;
                 } else {
-                        log_debug("Reading config file \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Reading config file \"%s\"%s", *f, glyph(GLYPH_ELLIPSIS));
 
                         /* Just warn, ignore result otherwise */
                         (void) read_config_file(c, *f, /* ignore_enoent= */ true);

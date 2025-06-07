@@ -1,22 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
+#include <linux/rtnetlink.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
-#include <linux/if.h>
-#include <linux/if_arp.h>
+#include <stdio.h>
+
+#include "sd-dhcp-protocol.h"
+#include "sd-ipv4ll.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "device-private.h"
 #include "dhcp-client-internal.h"
+#include "errno-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
-#include "parse-util.h"
-#include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
-#include "networkd-dhcp4-bus.h"
 #include "networkd-dhcp4.h"
-#include "networkd-ipv4acd.h"
+#include "networkd-dhcp4-bus.h"
+#include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -26,9 +29,12 @@
 #include "networkd-route.h"
 #include "networkd-setlink.h"
 #include "networkd-state-file.h"
+#include "parse-util.h"
+#include "set.h"
+#include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "sysctl-util.h"
 
 void network_adjust_dhcp4(Network *network) {
         assert(network);
@@ -341,11 +347,11 @@ int dhcp4_check_ready(Link *link) {
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
-        assert(m);
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Could not set DHCPv4 route");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
@@ -897,8 +903,9 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv4 address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 
@@ -956,9 +963,9 @@ static int dhcp4_request_address(Link *link, bool announce) {
                                                     prefixlen,
                                                     IPV4_ADDRESS_FMT_VAL(router[0]),
                                                     IPV4_ADDRESS_FMT_VAL(server)),
-                                   "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
-                                   "PREFIXLEN=%u", prefixlen,
-                                   "GATEWAY="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(router[0]));
+                                   LOG_ITEM("ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address)),
+                                   LOG_ITEM("PREFIXLEN=%u", prefixlen),
+                                   LOG_ITEM("GATEWAY="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(router[0])));
                 else
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
@@ -966,8 +973,8 @@ static int dhcp4_request_address(Link *link, bool announce) {
                                                     IPV4_ADDRESS_FMT_VAL(address),
                                                     prefixlen,
                                                     IPV4_ADDRESS_FMT_VAL(server)),
-                                   "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
-                                   "PREFIXLEN=%u", prefixlen);
+                                   LOG_ITEM("ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address)),
+                                   LOG_ITEM("PREFIXLEN=%u", prefixlen));
         }
 
         r = address_new(&addr);
@@ -1192,13 +1199,11 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 return 0;
                         }
 
-                        if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
-                                log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
-
-                                r = sd_ipv4ll_start(link->ipv4ll);
-                                if (r < 0 && r != -ESTALE) /* On exit, we cannot and should not start sd-ipv4ll. */
-                                        return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-                        }
+                        r = ipv4ll_start(link);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                        if (r > 0)
+                                log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address.");
 
                         if (link->dhcp_lease) {
                                 if (link->network->dhcp_send_release) {
@@ -1270,13 +1275,11 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         break;
 
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
-                        if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
+                        r = ipv4ll_start(link);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                        if (r > 0)
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
-
-                                r = sd_ipv4ll_start(link->ipv4ll);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-                        }
                         break;
 
                 default:

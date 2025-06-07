@@ -4,21 +4,31 @@
 
 #include "acl-util.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "exec-credential.h"
 #include "execute.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "label-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "ordered-set.h"
+#include "path-lookup.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "siphash24.h"
+#include "stat-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc) {
         if (!sc)
@@ -932,7 +942,7 @@ static int setup_credentials_internal(
 
         r = path_is_mount_point(final);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to determine if '%s' is a mountpoint: %m", final);
         final_mounted = r > 0;
 
         if (final_mounted) {
@@ -1125,7 +1135,7 @@ int exec_setup_credentials(
                 FOREACH_STRING(i, t, u) {
                         r = mkdir_label(i, 0700);
                         if (r < 0 && r != -EEXIST)
-                                return r;
+                                return log_debug_errno(r, "Failed to make directory '%s': %m", i);
                 }
 
                 r = setup_credentials_internal(

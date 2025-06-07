@@ -1,23 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <string.h>
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "bitfield.h"
-#include "capability-util.h"
 #include "cap-list.h"
+#include "capability-util.h"
 #include "extract-word.h"
-#include "macro.h"
+#include "log.h"
 #include "parse-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 
 static const struct capability_name* lookup_capability(register const char *str, register GPERF_LEN_TYPE len);
 
-#include "cap-from-name.h"
-#include "cap-to-name.h"
+#include "cap-from-name.inc"
+#include "cap-to-name.inc"
 
 const char* capability_to_name(int id) {
         if (id < 0)

@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <linux/vm_sockets.h>
 #include <locale.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "sd-bus.h"
@@ -12,22 +10,25 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
-#include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
+#include "bus-util.h"
+#include "errno-util.h"
 #include "format-table.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
-#include "socket-util.h"
-#include "terminal-util.h"
+#include "runtime-scope.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static bool arg_ask_password = true;
@@ -52,6 +53,8 @@ typedef struct StatusInfo {
         const char *os_pretty_name;
         const char *os_cpe_name;
         usec_t os_support_end;
+        const char *os_image_id;
+        const char *os_image_version;
         const char *virtualization;
         const char *architecture;
         const char *home_url;
@@ -64,25 +67,27 @@ typedef struct StatusInfo {
         const char *hardware_serial;
         sd_id128_t product_uuid;
         uint32_t vsock_cid;
+        const char *hardware_sku;
+        const char *hardware_version;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
         if (streq_ptr(chassis, "laptop"))
-                return u8"💻"; /* Personal Computer */
+                return UTF8("💻"); /* Personal Computer */
         if (streq_ptr(chassis, "desktop"))
-                return u8"🖥️"; /* Desktop Computer */
+                return UTF8("🖥️"); /* Desktop Computer */
         if (streq_ptr(chassis, "server"))
-                return u8"🖳"; /* Old Personal Computer */
+                return UTF8("🖳"); /* Old Personal Computer */
         if (streq_ptr(chassis, "tablet"))
-                return u8"具"; /* Ideograph tool, implement; draw up, write, looks vaguely tabletty */
+                return UTF8("具"); /* Ideograph tool, implement; draw up, write, looks vaguely tabletty */
         if (streq_ptr(chassis, "watch"))
-                return u8"⌚"; /* Watch */
+                return UTF8("⌚"); /* Watch */
         if (streq_ptr(chassis, "handset"))
-                return u8"🕻"; /* Left Hand Telephone Receiver */
+                return UTF8("🕻"); /* Left Hand Telephone Receiver */
         if (streq_ptr(chassis, "vm"))
-                return u8"🖴"; /* Hard disk */
+                return UTF8("🖴"); /* Hard disk */
         if (streq_ptr(chassis, "container"))
-                return u8"☐"; /* Ballot Box  */
+                return UTF8("☐"); /* Ballot Box  */
         return NULL;
 }
 
@@ -119,6 +124,15 @@ static int print_status_info(StatusInfo *i) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
 
+        if (!isempty(i->hostname) &&
+            !streq_ptr(i->hostname, i->static_hostname)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Transient hostname",
+                                   TABLE_STRING, i->hostname);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         r = table_add_many(table,
                            TABLE_FIELD, "Static hostname",
                            TABLE_STRING, i->static_hostname);
@@ -130,15 +144,6 @@ static int print_status_info(StatusInfo *i) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Pretty hostname",
                                    TABLE_STRING, i->pretty_hostname);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->hostname) &&
-            !streq_ptr(i->hostname, i->static_hostname)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Transient hostname",
-                                   TABLE_STRING, i->hostname);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -259,6 +264,22 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
+        if (!isempty(i->os_image_id)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OS Image",
+                                   TABLE_STRING, i->os_image_id);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i->os_image_version)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OS Image Version",
+                                   TABLE_STRING, i->os_image_version);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (!isempty(i->kernel_name) && !isempty(i->kernel_release)) {
                 const char *v;
 
@@ -298,6 +319,22 @@ static int print_status_info(StatusInfo *i) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Hardware Serial",
                                    TABLE_STRING, i->hardware_serial);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i->hardware_sku)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Hardware SKU",
+                                   TABLE_STRING, i->hardware_sku);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i->hardware_version)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Hardware Version",
+                                   TABLE_STRING, i->hardware_version);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -377,31 +414,35 @@ static int show_all_names(sd_bus *bus) {
         };
 
         static const struct bus_properties_map hostname_map[]  = {
-                { "Hostname",                  "s",  NULL,          offsetof(StatusInfo, hostname)         },
-                { "StaticHostname",            "s",  NULL,          offsetof(StatusInfo, static_hostname)  },
-                { "PrettyHostname",            "s",  NULL,          offsetof(StatusInfo, pretty_hostname)  },
-                { "IconName",                  "s",  NULL,          offsetof(StatusInfo, icon_name)        },
-                { "Chassis",                   "s",  NULL,          offsetof(StatusInfo, chassis)          },
-                { "ChassisAssetTag",           "s",  NULL,          offsetof(StatusInfo, chassis_asset_tag)},
-                { "Deployment",                "s",  NULL,          offsetof(StatusInfo, deployment)       },
-                { "Location",                  "s",  NULL,          offsetof(StatusInfo, location)         },
-                { "KernelName",                "s",  NULL,          offsetof(StatusInfo, kernel_name)      },
-                { "KernelRelease",             "s",  NULL,          offsetof(StatusInfo, kernel_release)   },
-                { "OperatingSystemPrettyName", "s",  NULL,          offsetof(StatusInfo, os_pretty_name)   },
-                { "OperatingSystemCPEName",    "s",  NULL,          offsetof(StatusInfo, os_cpe_name)      },
-                { "OperatingSystemSupportEnd", "t",  NULL,          offsetof(StatusInfo, os_support_end)   },
-                { "HomeURL",                   "s",  NULL,          offsetof(StatusInfo, home_url)         },
-                { "HardwareVendor",            "s",  NULL,          offsetof(StatusInfo, hardware_vendor)  },
-                { "HardwareModel",             "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
-                { "FirmwareVersion",           "s",  NULL,          offsetof(StatusInfo, firmware_version) },
-                { "FirmwareDate",              "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
-                { "MachineID",                 "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
-                { "BootID",                    "ay", bus_map_id128, offsetof(StatusInfo, boot_id)          },
-                { "VSockCID",                  "u",  NULL,          offsetof(StatusInfo, vsock_cid)        },
+                { "Hostname",                    "s",  NULL,          offsetof(StatusInfo, hostname)         },
+                { "StaticHostname",              "s",  NULL,          offsetof(StatusInfo, static_hostname)  },
+                { "PrettyHostname",              "s",  NULL,          offsetof(StatusInfo, pretty_hostname)  },
+                { "IconName",                    "s",  NULL,          offsetof(StatusInfo, icon_name)        },
+                { "Chassis",                     "s",  NULL,          offsetof(StatusInfo, chassis)          },
+                { "ChassisAssetTag",             "s",  NULL,          offsetof(StatusInfo, chassis_asset_tag)},
+                { "Deployment",                  "s",  NULL,          offsetof(StatusInfo, deployment)       },
+                { "Location",                    "s",  NULL,          offsetof(StatusInfo, location)         },
+                { "KernelName",                  "s",  NULL,          offsetof(StatusInfo, kernel_name)      },
+                { "KernelRelease",               "s",  NULL,          offsetof(StatusInfo, kernel_release)   },
+                { "OperatingSystemPrettyName",   "s",  NULL,          offsetof(StatusInfo, os_pretty_name)   },
+                { "OperatingSystemCPEName",      "s",  NULL,          offsetof(StatusInfo, os_cpe_name)      },
+                { "OperatingSystemSupportEnd",   "t",  NULL,          offsetof(StatusInfo, os_support_end)   },
+                { "OperatingSystemImageID",      "s",  NULL,          offsetof(StatusInfo, os_image_id)      },
+                { "OperatingSystemImageVersion", "s",  NULL,          offsetof(StatusInfo, os_image_version) },
+                { "HomeURL",                     "s",  NULL,          offsetof(StatusInfo, home_url)         },
+                { "HardwareVendor",              "s",  NULL,          offsetof(StatusInfo, hardware_vendor)  },
+                { "HardwareModel",               "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
+                { "HardwareSKU",                 "s",  NULL,          offsetof(StatusInfo, hardware_sku)     },
+                { "HardwareVersion",             "s",  NULL,          offsetof(StatusInfo, hardware_version) },
+                { "FirmwareVersion",             "s",  NULL,          offsetof(StatusInfo, firmware_version) },
+                { "FirmwareDate",                "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
+                { "MachineID",                   "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
+                { "BootID",                      "ay", bus_map_id128, offsetof(StatusInfo, boot_id)          },
+                { "VSockCID",                    "u",  NULL,          offsetof(StatusInfo, vsock_cid)        },
                 {}
         }, manager_map[] = {
-                { "Virtualization",            "s",  NULL,          offsetof(StatusInfo, virtualization)   },
-                { "Architecture",              "s",  NULL,          offsetof(StatusInfo, architecture)     },
+                { "Virtualization",              "s",  NULL,          offsetof(StatusInfo, virtualization)   },
+                { "Architecture",                "s",  NULL,          offsetof(StatusInfo, architecture)     },
                 {}
         };
 
@@ -578,7 +619,7 @@ static int set_hostname(int argc, char **argv, void *userdata) {
                 /* If the passed hostname is already valid, then assume the user doesn't know anything about pretty
                  * hostnames, so let's unset the pretty hostname, and just set the passed hostname as static/dynamic
                  * hostname. */
-                if (implicit && hostname_is_valid(hostname, VALID_HOSTNAME_TRAILING_DOT))
+                if (implicit && hostname_is_valid(hostname, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
                         p = ""; /* No pretty hostname (as it is redundant), just a static one */
                 else
                         p = hostname; /* Use the passed name as pretty hostname */
@@ -669,16 +710,16 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sQuery or change system hostname.%s\n"
-               "\nCommands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%2$sQuery or change system hostname.%3$s\n"
+               "\n%4$sCommands:%5$s\n"
                "  status                 Show current hostname settings\n"
                "  hostname [NAME]        Get/set system hostname\n"
                "  icon-name [NAME]       Get/set icon name for host\n"
                "  chassis [NAME]         Get/set chassis type for host\n"
                "  deployment [NAME]      Get/set deployment environment for host\n"
                "  location [NAME]        Get/set location for host\n"
-               "\nOptions:\n"
+               "\n%4$sOptions:%5$s\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --no-ask-password   Do not prompt for password\n"
@@ -690,9 +731,11 @@ static int help(void) {
                "     --json=pretty|short|off\n"
                "                         Generate JSON output\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %6$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal(),
                link);
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/statvfs.h>
 
 #include "alloc-util.h"
@@ -9,7 +10,6 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "libmount-util.h"
-#include "missing_magic.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -18,7 +18,6 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -383,7 +382,7 @@ TEST(umount_recursive) {
                         /* Open /p/s/m file before we unmount everything (which might include /proc/) */
                         f = fopen("/proc/self/mountinfo", "re");
                         if (!f) {
-                                log_error_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+                                log_error_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
                                 _exit(EXIT_FAILURE);
                         }
 

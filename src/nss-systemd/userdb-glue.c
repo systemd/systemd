@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <gshadow.h>
+#include <string.h>
+
 #include "env-util.h"
-#include "fd-util.h"
 #include "nss-systemd.h"
 #include "strv.h"
-#include "user-record-nss.h"
+#include "time-util.h"
 #include "user-record.h"
+#include "user-record-nss.h"
 #include "user-util.h"
-#include "userdb-glue.h"
 #include "userdb.h"
+#include "userdb-glue.h"
 
 UserDBFlags nss_glue_userdb_flags(void) {
         UserDBFlags flags = USERDB_EXCLUDE_NSS;
@@ -156,14 +159,14 @@ int nss_pack_user_record_shadow(
                 .sp_namp = buffer,
                 .sp_lstchg = hr->last_password_change_usec == 0 ? 1 :               /* map 0 to 1, since 0 means please change password on next login */
                              hr->last_password_change_usec == UINT64_MAX ? -1 :
-                             (long int) (hr->last_password_change_usec / USEC_PER_DAY),
-                .sp_min = hr->password_change_min_usec != UINT64_MAX ? (long int) (hr->password_change_min_usec / USEC_PER_DAY) : -1,
-                .sp_max = hr->password_change_max_usec != UINT64_MAX ? (long int) (hr->password_change_max_usec / USEC_PER_DAY) : -1,
-                .sp_warn = hr->password_change_warn_usec != UINT64_MAX ? (long int) (hr->password_change_warn_usec / USEC_PER_DAY) : -1,
-                .sp_inact = hr->password_change_inactive_usec != UINT64_MAX ? (long int) (hr->password_change_inactive_usec / USEC_PER_DAY) : -1,
+                             (long) (hr->last_password_change_usec / USEC_PER_DAY),
+                .sp_min = hr->password_change_min_usec != UINT64_MAX ? (long) (hr->password_change_min_usec / USEC_PER_DAY) : -1,
+                .sp_max = hr->password_change_max_usec != UINT64_MAX ? (long) (hr->password_change_max_usec / USEC_PER_DAY) : -1,
+                .sp_warn = hr->password_change_warn_usec != UINT64_MAX ? (long) (hr->password_change_warn_usec / USEC_PER_DAY) : -1,
+                .sp_inact = hr->password_change_inactive_usec != UINT64_MAX ? (long) (hr->password_change_inactive_usec / USEC_PER_DAY) : -1,
                 .sp_expire = hr->locked > 0 || hr->not_after_usec == 0 ? 1 : /* already expired/locked */
                              hr->not_after_usec == UINT64_MAX ? -1 :
-                             (long int) (hr->not_after_usec / USEC_PER_DAY),
+                             (long) (hr->not_after_usec / USEC_PER_DAY),
                 .sp_flag = ULONG_MAX,
         };
 

@@ -1,23 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <netinet/in.h>
-#include <linux/netdevice.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "dns-domain.h"
-#include "fd-util.h"
-#include "hostname-util.h"
 #include "in-addr-util.h"
 #include "net-condition.h"
 #include "netdev/macvlan.h"
+#include "netif-sriov.h"
 #include "network-util.h"
-#include "networkd-address-label.h"
 #include "networkd-address.h"
+#include "networkd-address-label.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
@@ -31,9 +26,9 @@
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
-#include "networkd-sriov.h"
+#include "ordered-set.h"
 #include "parse-util.h"
-#include "path-lookup.h"
+#include "path-util.h"
 #include "qdisc.h"
 #include "radv-internal.h"
 #include "set.h"
@@ -43,6 +38,16 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tclass.h"
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                network_hash_ops,
+                char, string_hash_func, string_compare_func,
+                Network, network_unref);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                stacked_netdevs_hash_ops,
+                char, string_hash_func, string_compare_func,
+                NetDev, netdev_unref);
 
 static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret) {
         const char *kind_string;
@@ -105,14 +110,14 @@ static int network_resolve_stacked_netdevs(Network *network) {
                 if (network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev) <= 0)
                         continue;
 
-                r = hashmap_ensure_put(&network->stacked_netdevs, &string_hash_ops, netdev->ifname, netdev);
+                r = hashmap_ensure_put(&network->stacked_netdevs, &stacked_netdevs_hash_ops, netdev->ifname, netdev);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
                         log_warning_errno(r, "%s: Failed to add NetDev '%s' to network, ignoring: %m",
                                           network->filename, (const char *) name);
 
-                netdev = NULL;
+                TAKE_PTR(netdev);
         }
 
         return 0;
@@ -291,11 +296,6 @@ int network_verify(Network *network) {
         if (network->keep_configuration < 0)
                 network->keep_configuration = KEEP_CONFIGURATION_NO;
 
-        if (network->ipv6_proxy_ndp == 0 && !set_isempty(network->ipv6_proxy_ndp_addresses)) {
-                log_warning("%s: IPv6ProxyNDP= is disabled. Ignoring IPv6ProxyNDPAddress=.", network->filename);
-                network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
-        }
-
         r = network_drop_invalid_addresses(network);
         if (r < 0)
                 return r; /* network_drop_invalid_addresses() logs internally. */
@@ -342,9 +342,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         if (!fname)
                 return log_oom();
 
-        name = strdup(basename(filename));
-        if (!name)
-                return log_oom();
+        r = path_extract_filename(filename, &name);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to extract file name of \"%s\": %m", filename);
 
         d = strrchr(name, '.');
         if (!d)
@@ -458,6 +458,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .multicast_router = _MULTICAST_ROUTER_INVALID,
                 .bridge_locked = -1,
                 .bridge_mac_authentication_bypass = -1,
+                .bridge_vlan_tunnel = -1,
 
                 .bridge_vlan_pvid = BRIDGE_VLAN_KEEP_PVID,
 
@@ -593,7 +594,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         if (r < 0)
                 return r; /* network_verify() logs internally. */
 
-        r = ordered_hashmap_ensure_put(networks, &string_hash_ops, network->name, network);
+        r = ordered_hashmap_ensure_put(networks, &network_hash_ops, network->name, network);
         if (r < 0)
                 return log_warning_errno(r, "%s: Failed to store configuration into hashmap: %m", filename);
 
@@ -644,7 +645,7 @@ static bool network_netdev_equal(Network *a, Network *b) {
 }
 
 int network_reload(Manager *manager) {
-        OrderedHashmap *new_networks = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *new_networks = NULL;
         Network *n, *old;
         int r;
 
@@ -652,7 +653,7 @@ int network_reload(Manager *manager) {
 
         r = network_load(manager, &new_networks);
         if (r < 0)
-                goto failure;
+                return r;
 
         ORDERED_HASHMAP_FOREACH(n, new_networks) {
                 r = network_get_by_name(manager, n->name, &old);
@@ -674,14 +675,13 @@ int network_reload(Manager *manager) {
                 /* Nothing updated, use the existing Network object, and drop the new one. */
                 r = ordered_hashmap_replace(new_networks, old->name, old);
                 if (r < 0)
-                        goto failure;
+                        return r;
 
                 network_ref(old);
                 network_unref(n);
         }
 
-        ordered_hashmap_free_with_destructor(manager->networks, network_unref);
-        manager->networks = new_networks;
+        ordered_hashmap_free_and_replace(manager->networks, new_networks);
 
         r = manager_build_dhcp_pd_subnet_ids(manager);
         if (r < 0)
@@ -692,11 +692,6 @@ int network_reload(Manager *manager) {
                 return r;
 
         return 0;
-
-failure:
-        ordered_hashmap_free_with_destructor(new_networks, network_unref);
-
-        return r;
 }
 
 int manager_build_dhcp_pd_subnet_ids(Manager *manager) {
@@ -751,7 +746,7 @@ static Network *network_free(Network *network) {
         free(network->dns);
         ordered_set_free(network->search_domains);
         ordered_set_free(network->route_domains);
-        set_free_free(network->dnssec_negative_trust_anchors);
+        set_free(network->dnssec_negative_trust_anchors);
 
         /* DHCP server */
         free(network->dhcp_server_relay_agent_circuit_id);
@@ -824,23 +819,23 @@ static Network *network_free(Network *network) {
         netdev_unref(network->bridge);
         netdev_unref(network->bond);
         netdev_unref(network->vrf);
-        hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
+        hashmap_free(network->stacked_netdevs);
 
         /* static configs */
-        set_free_free(network->ipv6_proxy_ndp_addresses);
+        set_free(network->ipv6_proxy_ndp_addresses);
         ordered_hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         ordered_hashmap_free(network->nexthops_by_section);
-        hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
-        hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
+        hashmap_free(network->bridge_fdb_entries_by_section);
+        hashmap_free(network->bridge_mdb_entries_by_section);
         ordered_hashmap_free(network->neighbors_by_section);
         hashmap_free(network->address_labels_by_section);
-        hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
-        hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
-        hashmap_free_with_destructor(network->pref64_prefixes_by_section, prefix64_free);
+        hashmap_free(network->prefixes_by_section);
+        hashmap_free(network->route_prefixes_by_section);
+        hashmap_free(network->pref64_prefixes_by_section);
         hashmap_free(network->rules_by_section);
-        hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
-        ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
+        hashmap_free(network->dhcp_static_leases_by_section);
+        ordered_hashmap_free(network->sr_iov_by_section);
         hashmap_free(network->qdiscs_by_section);
         hashmap_free(network->tclasses_by_section);
 

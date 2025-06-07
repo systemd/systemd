@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
 #include "compress.h"
+#include "forward.h"
 #include "journal-importer.h"
 #include "journal-remote-write.h"
 

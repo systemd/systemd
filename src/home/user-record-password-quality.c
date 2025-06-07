@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "errno-util.h"
-#include "home-util.h"
 #include "libcrypt-util.h"
+#include "log.h"
 #include "password-quality-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "user-record.h"
 #include "user-record-password-quality.h"
-#include "user-record-util.h"
 
 #if HAVE_PASSWDQC || HAVE_PWQUALITY
 

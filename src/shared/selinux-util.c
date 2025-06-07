@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stddef.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <sys/un.h>
 #include <syslog.h>
 
@@ -21,12 +18,12 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "label.h"
+#include "label-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mallinfo-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
-#include "stdio-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #if HAVE_SELINUX
@@ -167,6 +164,8 @@ static int selinux_init(bool force) {
         if (!force && initialized != LAZY_INITIALIZED)
                 return 1;
 
+        mac_selinux_disable_logging();
+
         r = selinux_status_open(/* netlink fallback= */ 1);
         if (r < 0) {
                 if (!ERRNO_IS_PRIVILEGE(errno))
@@ -260,6 +259,20 @@ void mac_selinux_finish(void) {
         have_status_page = false;
 
         initialized = false;
+#endif
+}
+
+#if HAVE_SELINUX
+_printf_(2,3)
+static int selinux_log_glue(int type, const char *fmt, ...) {
+        return 0;
+}
+#endif
+
+void mac_selinux_disable_logging(void) {
+#if HAVE_SELINUX
+        /* Turn off all of SELinux' own logging, we want to do that ourselves */
+        selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = selinux_log_glue });
 #endif
 }
 
@@ -407,14 +420,14 @@ int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
         return 0;
 }
 
-int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
+int mac_selinux_get_create_label_from_exe(const char *exe, char **ret_label) {
 #if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *fcon = NULL;
         security_class_t sclass;
         int r;
 
         assert(exe);
-        assert(label);
+        assert(ret_label);
 
         r = selinux_init(/* force= */ false);
         if (r < 0)
@@ -436,14 +449,14 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         if (sclass == 0)
                 return -ENOSYS;
 
-        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
+        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, ret_label));
 #else
         return -EOPNOTSUPP;
 #endif
 }
 
-int mac_selinux_get_our_label(char **ret) {
-        assert(ret);
+int mac_selinux_get_our_label(char **ret_label) {
+        assert(ret_label);
 
 #if HAVE_SELINUX
         int r;
@@ -460,7 +473,7 @@ int mac_selinux_get_our_label(char **ret) {
         if (!con)
                 return -EOPNOTSUPP;
 
-        *ret = TAKE_PTR(con);
+        *ret_label = TAKE_PTR(con);
         return 0;
 #else
         return -EOPNOTSUPP;

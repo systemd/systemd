@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <inttypes.h>
-
-#include "conf-parser.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 
 #define VLANID_MAX 4094
 #define VLANID_INVALID UINT16_MAX

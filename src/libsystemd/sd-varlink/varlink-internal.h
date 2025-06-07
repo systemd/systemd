@@ -3,11 +3,10 @@
 
 #include <sys/socket.h>
 
-#include "sd-event.h"
 #include "sd-varlink.h"
 
-#include "hashmap.h"
 #include "list.h"
+#include "forward.h"
 
 typedef enum VarlinkState {
         /* Client side states */
@@ -142,6 +141,7 @@ struct sd_varlink {
          * with preceding or following messages. */
         LIST_HEAD(VarlinkJsonQueueItem, output_queue);
         VarlinkJsonQueueItem *output_queue_tail;
+        size_t n_output_queue;
 
         /* The fds to associate with the next message that is about to be enqueued. The user first pushes the
          * fds it intends to send via varlink_push_fd() into this queue, and then once the message data is

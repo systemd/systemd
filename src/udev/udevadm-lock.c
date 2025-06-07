@@ -1,23 +1,23 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <getopt.h>
-#include <stdlib.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "blockdev-util.h"
-#include "btrfs-util.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "hash-funcs.h"
 #include "lock-util.h"
-#include "main-func.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "static-destruct.h"
 #include "strv.h"
 #include "time-util.h"
 #include "udevadm.h"
@@ -204,7 +204,7 @@ static int lock_device(
                         return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Device '%s' is currently locked.", path);
 
                 if (deadline == USEC_INFINITY)  {
-                        log_info("Device '%s' is currently locked, waiting%s", path, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_info("Device '%s' is currently locked, waiting%s", path, glyph(GLYPH_ELLIPSIS));
 
                         r = lock_generic(fd, LOCK_BSD, LOCK_EX);
                 } else {
@@ -212,7 +212,7 @@ static int lock_device(
 
                         log_info("Device '%s' is currently locked, waiting %s%s",
                                  path, FORMAT_TIMESPAN(left, 0),
-                                 special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                 glyph(GLYPH_ELLIPSIS));
 
                         r = lock_generic_with_timeout(fd, LOCK_BSD, LOCK_EX, left);
                         if (r == -ETIMEDOUT)
@@ -222,7 +222,7 @@ static int lock_device(
                         return log_error_errno(r, "Failed to lock device '%s': %m", path);
         }
 
-        log_debug("Successfully locked %s (%u:%u)%s", path, major(devno), minor(devno), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+        log_debug("Successfully locked %s (%u:%u)%s", path, major(devno), minor(devno), glyph(GLYPH_ELLIPSIS));
 
         return TAKE_FD(fd);
 }
@@ -232,7 +232,6 @@ int lock_main(int argc, char *argv[], void *userdata) {
         _cleanup_free_ dev_t *devnos = NULL;
         size_t n_devnos = 0;
         usec_t deadline;
-        pid_t pid;
         int r;
 
         r = parse_argv(argc, argv);
@@ -290,7 +289,11 @@ int lock_main(int argc, char *argv[], void *userdata) {
         /* Ignore SIGINT and allow the forked process to receive it */
         (void) ignore_signals(SIGINT);
 
-        r = safe_fork("(lock)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(lock)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -302,5 +305,5 @@ int lock_main(int argc, char *argv[], void *userdata) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check(arg_cmdline[0], pid, 0);
+        return pidref_wait_for_terminate_and_check(arg_cmdline[0], &pidref, 0);
 }

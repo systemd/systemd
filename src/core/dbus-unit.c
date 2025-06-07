@@ -4,32 +4,34 @@
 
 #include "alloc-util.h"
 #include "bitfield.h"
-#include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
-#include "bus-polkit.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "dbus.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
 #include "dbus-util.h"
-#include "dbus.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "install.h"
 #include "locale-util.h"
 #include "log.h"
+#include "manager.h"
+#include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "selinux-access.h"
 #include "service.h"
+#include "set.h"
 #include "signal-util.h"
 #include "special.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
+#include "transaction.h"
+#include "unit-name.h"
 #include "web-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
@@ -1052,29 +1054,6 @@ static int property_get_slice(
         return sd_bus_message_append(reply, "s", unit_slice_name(u));
 }
 
-static int property_get_current_memory(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        uint64_t sz = UINT64_MAX;
-        Unit *u = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = unit_get_memory_current(u, &sz);
-        if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u, r, "Failed to get current memory usage from cgroup: %m");
-
-        return sd_bus_message_append(reply, "t", sz);
-}
-
 static int property_get_available_memory(
                 sd_bus *bus,
                 const char *path,
@@ -1652,7 +1631,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
         SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
         SD_BUS_PROPERTY("ControlGroupId", "t", property_get_cgroup_id, 0, 0),
-        SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
+        SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemoryPeak", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemorySwapCurrent", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemorySwapPeak", "t", property_get_memory_accounting, 0, 0),
@@ -1794,7 +1773,7 @@ void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
         bus_unit_send_change_signal(u);
 }
 
-int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
+int bus_unit_send_pending_freezer_message(Unit *u, bool canceled) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
@@ -1803,7 +1782,7 @@ int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
         if (!u->pending_freezer_invocation)
                 return 0;
 
-        if (cancelled)
+        if (canceled)
                 r = sd_bus_message_new_method_error(
                                 u->pending_freezer_invocation,
                                 &reply,
@@ -2374,8 +2353,9 @@ static int bus_unit_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "Slice")) {
+        if (streq(name, "Slice")) {
                 Unit *slice;
                 const char *s;
 
@@ -2412,8 +2392,9 @@ static int bus_unit_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
+        if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
@@ -2444,13 +2425,35 @@ static int bus_unit_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "AddRef")) {
+                int b;
+
+                /* Why is this called "AddRef" rather than just "Ref", or "Reference"? There's already a "Ref()" method
+                 * on the Unit interface, and it's probably not a good idea to expose a property and a method on the
+                 * same interface (well, strictly speaking AddRef isn't exposed as full property, we just read it for
+                 * transient units, but still). And "References" and "ReferencedBy" is already used as unit reference
+                 * dependency type, hence let's not confuse things with that.
+                 *
+                 * Note that we don't actually add the reference to the bus track. We do that only after the setup of
+                 * the transient unit is complete, so that setting this property multiple times in the same transient
+                 * unit creation call doesn't count as individual references. */
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags))
+                        u->bus_track_add = b;
+
+                return 1;
+        }
+
         if (streq(name, "RequiresOverridable"))
                 d = UNIT_REQUIRES; /* redirect for obsolete unit dependency type */
         else if (streq(name, "RequisiteOverridable"))
                 d = UNIT_REQUISITE; /* same here */
         else
                 d = unit_dependency_from_string(name);
-
         if (d >= 0) {
                 const char *other;
 
@@ -2502,29 +2505,6 @@ static int bus_unit_set_transient_property(
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         return r;
-
-                return 1;
-
-        } else if (streq(name, "AddRef")) {
-
-                int b;
-
-                /* Why is this called "AddRef" rather than just "Ref", or "Reference"? There's already a "Ref()" method
-                 * on the Unit interface, and it's probably not a good idea to expose a property and a method on the
-                 * same interface (well, strictly speaking AddRef isn't exposed as full property, we just read it for
-                 * transient units, but still). And "References" and "ReferencedBy" is already used as unit reference
-                 * dependency type, hence let's not confuse things with that.
-                 *
-                 * Note that we don't actually add the reference to the bus track. We do that only after the setup of
-                 * the transient unit is complete, so that setting this property multiple times in the same transient
-                 * unit creation call doesn't count as individual references. */
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags))
-                        u->bus_track_add = b;
 
                 return 1;
         }
@@ -2667,11 +2647,7 @@ static int bus_unit_track_handler(sd_bus_track *t, void *userdata) {
 
         u->bus_track = sd_bus_track_unref(u->bus_track); /* make sure we aren't called again */
 
-        /* If the client that tracks us disappeared, then there's reason to believe that the cgroup is empty now too,
-         * let's see */
-        unit_add_to_cgroup_empty_queue(u);
-
-        /* Also add the unit to the GC queue, after all if the client left it might be time to GC this unit */
+        /* Add the unit to the GC queue, after all if the client left it might be time to GC this unit */
         unit_add_to_gc_queue(u);
 
         return 0;

@@ -411,13 +411,16 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>EnableWallMessages=</varname></term>
+        <term><varname>WallMessages=</varname></term>
 
         <listitem>
+          <!-- NB: the configuration file setting lacks the "Enable" prefix that the dbus property has. It
+               was a mistake to have that prefix, as we generally frown on useless Enable/Disables prefix of
+               configuration knobs. -->
           <para>
             Controls whether
-            <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-            messages should be sent to the terminals of all currently logged in users upon shutdown or
+            <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry> messages
+            should be sent to the terminals of all currently logged in users upon shutdown or
             reboot. Defaults to <literal>yes</literal>, and can be changed at runtime via the DBus
             <literal>EnableWallMessages</literal> and <literal>WallMessagePrefix</literal> properties.
           </para>

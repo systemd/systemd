@@ -17,8 +17,8 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     ARGS+=(--profile=trusted)
 fi
 
-unsquashfs -dest /tmp/minimal_0 /usr/share/minimal_0.raw
-unsquashfs -dest /tmp/minimal_1 /usr/share/minimal_1.raw
+unsquashfs -no-xattrs -d /tmp/minimal_0 /usr/share/minimal_0.raw
+unsquashfs -no-xattrs -d /tmp/minimal_1 /usr/share/minimal_1.raw
 
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 

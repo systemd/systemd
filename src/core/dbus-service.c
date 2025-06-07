@@ -1,32 +1,35 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 #include "alloc-util.h"
 #include "async.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
+#include "constants.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
 #include "dbus-manager.h"
 #include "dbus-service.h"
 #include "dbus-util.h"
+#include "dissect-image.h"
 #include "execute.h"
-#include "exec-credential.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "fileio.h"
+#include "glyph-util.h"
 #include "locale-util.h"
+#include "manager.h"
 #include "missing_fcntl.h"
+#include "mount-util.h"
 #include "open-file.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "selinux-access.h"
 #include "service.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, service_type, ServiceType);
@@ -641,7 +644,7 @@ static int bus_service_set_transient_property(
 
                                 if (!UNIT_WRITE_FLAGS_NOOP(flags))
                                         log_unit_notice(u, "Transient unit's PIDFile= property references path below legacy directory /var/run, updating %s %s %s; please update client accordingly.",
-                                                        n, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), z);
+                                                        n, glyph(GLYPH_ARROW_RIGHT), z);
 
                                 free_and_replace(n, z);
                         }

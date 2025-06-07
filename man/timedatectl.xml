@@ -78,10 +78,10 @@
       <varlistentry>
         <term><command>set-time [TIME]</command></term>
 
-        <listitem><para>Set the system clock to the specified time.
-        This will also update the RTC time accordingly. The time may
-        be specified in the format "2012-10-30
-        18:17:16".</para>
+        <listitem><para>Set the system clock to the specified timestamp. This will also update the RTC time
+        accordingly. The timestamp may be specified in the format <literal>2012-10-30 18:17:16</literal>. See
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for more details about acceptable timestamp format.</para>
 
         <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>

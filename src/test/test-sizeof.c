@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <time.h>
 #include <sched.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
-#include <sys/timex.h>
-#include <sys/types.h>
 
 #define __STDC_WANT_IEC_60559_TYPES_EXT__
 #include <float.h>
 
-#include "time-util.h"
+#include "forward.h"
 
 /* Print information about various types. Useful when diagnosing
  * gcc diagnostics on an unfamiliar architecture. */
@@ -62,7 +62,7 @@ int main(void) {
         check_no_sign(ino_t, SIZEOF_INO_T);
         check_no_sign(rlim_t, SIZEOF_RLIM_T);
         check(time_t, SIZEOF_TIME_T);
-        check(typeof(((struct timex *)0)->freq), SIZEOF_TIMEX_MEMBER);
+        check(typeof_field(struct timex, freq), SIZEOF_TIMEX_MEMBER);
 
         info_no_sign(typeof(function_pointer));
         info_no_sign(void*);

@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "authenticode.h"
 #include "build.h"
@@ -10,6 +12,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -18,6 +21,8 @@
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "stat-util.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -669,18 +674,18 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 end += n;
         }
 
-        uint32_t certsz = offsetof(WIN_CERTIFICATE, bCertificate) + sigsz;
+        uint32_t certsz = sizeof(WIN_CERTIFICATE_HEADER) + sigsz;
         n = pwrite(dstfd,
-                   &(WIN_CERTIFICATE) {
+                   &(WIN_CERTIFICATE_HEADER) {
                            .wRevision = htole16(0x200),
                            .wCertificateType = htole16(0x0002), /* PKCS7 signedData */
                            .dwLength = htole32(ROUND_UP(certsz, 8)),
                    },
-                   sizeof(WIN_CERTIFICATE),
+                   sizeof(WIN_CERTIFICATE_HEADER),
                    end);
         if (n < 0)
                 return log_error_errno(errno, "Failed to write certificate header: %m");
-        if (n != sizeof(WIN_CERTIFICATE))
+        if (n != sizeof(WIN_CERTIFICATE_HEADER))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing certificate header.");
 
         end += n;

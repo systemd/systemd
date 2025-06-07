@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/blkpg.h>
+#include <linux/fs.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -19,8 +20,9 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "missing_magic.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "string-util.h"
 
 static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
         struct stat st;
@@ -57,9 +59,14 @@ static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
 }
 
 int block_device_is_whole_disk(sd_device *dev) {
+        int r;
+
         assert(dev);
 
-        if (!device_in_subsystem(dev, "block"))
+        r = device_in_subsystem(dev, "block");
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -ENOTBLK;
 
         return device_is_devtype(dev, "disk");
@@ -138,7 +145,7 @@ int block_device_get_originating(sd_device *dev, sd_device **ret) {
                 return -ENOENT;
 
         *ret = TAKE_PTR(first_found);
-        return 1; /* found */
+        return 0;
 }
 
 int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **ret) {
@@ -166,10 +173,10 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **re
                         return r;
 
                 r = block_device_get_originating(dev_whole_disk, &dev_origin);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-                if (r > 0)
+                if (r >= 0)
                         device_unref_and_replace(dev, dev_origin);
+                else if (r != -ENOENT)
+                        return r;
         }
 
         if (FLAGS_SET(flags, BLOCK_DEVICE_LOOKUP_WHOLE_DISK)) {
@@ -414,7 +421,10 @@ int blockdev_partscan_enabled(sd_device *dev) {
 
         /* Partition block devices never have partition scanning on, there's no concept of sub-partitions for
          * partitions. */
-        if (device_is_devtype(dev, "partition"))
+        r = device_is_devtype(dev, "partition");
+        if (r < 0)
+                return r;
+        if (r > 0)
                 return false;
 
         /* For loopback block device, especially for v5.19 or newer. Even if this is enabled, we also need to
@@ -534,7 +544,7 @@ static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
 }
 
 int fd_is_encrypted(int fd) {
-        char p[SYS_BLOCK_PATH_MAX(NULL)];
+        char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
 
@@ -550,7 +560,7 @@ int fd_is_encrypted(int fd) {
 }
 
 int path_is_encrypted(const char *path) {
-        char p[SYS_BLOCK_PATH_MAX(NULL)];
+        char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
 
@@ -788,20 +798,6 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         return k < 0 ? k : has_partitions;
 }
 
-int block_device_has_partitions(sd_device *dev) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        int r;
-
-        assert(dev);
-
-        /* Checks if the specified device currently has partitions. */
-
-        r = partition_enumerator_new(dev, &e);
-        if (r < 0)
-                return r;
-
-        return !!sd_device_enumerator_get_device_first(e);
-}
 
 int blockdev_reread_partition_table(sd_device *dev) {
         _cleanup_close_ int fd = -EBADF;

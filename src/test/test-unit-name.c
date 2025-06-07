@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <stdio.h>
-#include <stdlib.h>
 
+#include "sd-daemon.h"
 #include "sd-id128.h"
 
-#include "alloc-util.h"
 #include "all-units.h"
-#include "glob-util.h"
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "format-util.h"
-#include "hostname-util.h"
-#include "macro.h"
+#include "glob-util.h"
+#include "hostname-setup.h"
 #include "manager.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -19,10 +20,10 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "unit.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "unit.h"
 #include "user-util.h"
 
 static char *runtime_dir = NULL;
@@ -839,7 +840,6 @@ TEST(unit_name_from_dbus_path) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/polkit_2eservice", 0, "polkit.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount", 0, "proc-sys-fs-binfmt_misc.automount");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2emount", 0, "proc-sys-fs-binfmt_misc.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/rc_2dlocal_2eservice", 0, "rc-local.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/remote_2dcryptsetup_2etarget", 0, "remote-cryptsetup.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/remote_2dfs_2dpre_2etarget", 0, "remote-fs-pre.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/remote_2dfs_2etarget", 0, "remote-fs.target");
@@ -934,8 +934,6 @@ TEST(unit_name_from_dbus_path) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dfirstboot_2eservice", 0, "systemd-firstboot.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dfsck_2droot_2eservice", 0, SPECIAL_FSCK_ROOT_SERVICE);
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dhwdb_2dupdate_2eservice", 0, "systemd-hwdb-update.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dinitctl_2eservice", 0, "systemd-initctl.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dinitctl_2esocket", 0, "systemd-initctl.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2djournal_2dcatalog_2dupdate_2eservice", 0, "systemd-journal-catalog-update.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2djournal_2dflush_2eservice", 0, "systemd-journal-flush.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2djournald_2daudit_2esocket", 0, "systemd-journald-audit.socket");
@@ -964,7 +962,6 @@ TEST(unit_name_from_dbus_path) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudevd_2dkernel_2esocket", 0, "systemd-udevd-kernel.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudevd_2eservice", 0, "systemd-udevd.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dupdate_2ddone_2eservice", 0, "systemd-update-done.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dupdate_2dutmp_2drunlevel_2eservice", 0, "systemd-update-utmp-runlevel.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dupdate_2dutmp_2eservice", 0, "systemd-update-utmp.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2duser_2dsessions_2eservice", 0, "systemd-user-sessions.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dvconsole_2dsetup_2eservice", 0, "systemd-vconsole-setup.service");

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "gpt.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -115,7 +116,7 @@ static const char *const partition_mountpoint_table[_PARTITION_DESIGNATOR_MAX] =
         [PARTITION_VAR]                       = "/var\0",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(partition_mountpoint, PartitionDesignator);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(partition_mountpoint, PartitionDesignator);
 
 #define _GPT_ARCH_SEXTET(arch, name)                                   \
         { SD_GPT_ROOT_##arch,              "root-" name,               ARCHITECTURE_##arch, .designator = PARTITION_ROOT            },  \

@@ -1,15 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
 #include "cgroup-util.h"
 #include "copy.h"
+#include "discover-image.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "iovec-util.h"
+#include "hashmap.h"
+#include "local-addresses.h"
+#include "log.h"
+#include "machine.h"
 #include "machined.h"
 #include "namespace-util.h"
+#include "os-util.h"
 #include "process-util.h"
-#include "socket-util.h"
 #include "strv.h"
 #include "user-util.h"
 

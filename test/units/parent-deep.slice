@@ -3,4 +3,4 @@
 Description=Deeper Parent Slice
 
 [Slice]
-MemoryLimit=3G
+MemoryAccounting=yes

@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+
+#include "sd-event.h"
 
 #include "daemon-util.h"
-#include "nsresourced-manager.h"
 #include "log.h"
 #include "main-func.h"
+#include "nsresourced-manager.h"
 #include "signal-util.h"
 
 static int run(int argc, char *argv[]) {
@@ -34,7 +36,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to start up daemon: %m");
 
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
-        notify_stop = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_stop = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         r = sd_event_loop(m->event);
         if (r < 0)

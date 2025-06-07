@@ -1,27 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "sd-bus.h"
 
-#include "audit-util.h"
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
-#include "format-util.h"
+#include "libaudit-util.h"
 #include "log.h"
-#include "macro.h"
 #include "main-func.h"
-#include "process-util.h"
 #include "random-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "strv.h"
-#include "unit-name.h"
+#include "time-util.h"
+#include "unit-def.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
 
@@ -120,10 +115,7 @@ static int get_current_runlevel(Context *c) {
                                         "ActiveState",
                                         &error,
                                         &state);
-                        if ((r == -ENOTCONN ||
-                             sd_bus_error_has_names(&error,
-                                                    SD_BUS_ERROR_NO_REPLY,
-                                                    SD_BUS_ERROR_DISCONNECTED)) &&
+                        if ((r == -ENOTCONN || bus_error_is_connection(&error)) &&
                             n_attempts < MAX_ATTEMPTS) {
                                 log_debug_errno(r, "Failed to get state of %s, retrying after a slight delay: %s",
                                                 e->special, bus_error_message(&error, r));

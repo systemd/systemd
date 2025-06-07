@@ -1,22 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-varlink.h"
-
-#include "clean-ipc.h"
-#include "core-varlink.h"
+#include "alloc-util.h"
 #include "dbus.h"
+#include "dynamic-user.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "glyph-util.h"
+#include "hashmap.h"
 #include "initrd-util.h"
-#include "macro.h"
-#include "manager-serialize.h"
 #include "manager.h"
+#include "manager-serialize.h"
 #include "parse-util.h"
 #include "serialize.h"
+#include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "unit-serialize.h"
 #include "user-util.h"
+#include "varlink.h"
 #include "varlink-serialize.h"
 
 int manager_open_serialization(Manager *m, FILE **ret_f) {
@@ -135,12 +138,6 @@ int manager_serialize(
                         return r;
 
                 (void) serialize_item(f, "notify-socket", m->notify_socket);
-        }
-
-        if (m->cgroups_agent_fd >= 0) {
-                r = serialize_fd(f, fds, "cgroups-agent-fd", m->cgroups_agent_fd);
-                if (r < 0)
-                        return r;
         }
 
         if (m->user_lookup_fds[0] >= 0) {
@@ -303,10 +300,10 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 r = fd_get_path(fd, &fn);
                                 if (r < 0)
                                         log_debug_errno(r, "Received serialized fd %i %s %m",
-                                                        fd, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT));
+                                                        fd, glyph(GLYPH_ARROW_RIGHT));
                                 else
                                         log_debug("Received serialized fd %i %s %s",
-                                                  fd, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), strna(fn));
+                                                  fd, glyph(GLYPH_ARROW_RIGHT), strna(fn));
                         }
                 }
         }
@@ -453,15 +450,6 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
 
-                } else if ((val = startswith(l, "cgroups-agent-fd="))) {
-                        int fd;
-
-                        fd = deserialize_fd(fds, val);
-                        if (fd >= 0) {
-                                m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
-                                close_and_replace(m->cgroups_agent_fd, fd);
-                        }
-
                 } else if ((val = startswith(l, "user-lookup="))) {
 
                         m->user_lookup_event_source = sd_event_source_disable_unref(m->user_lookup_event_source);
@@ -499,7 +487,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "varlink-server-socket-address="))) {
-                        if (!m->varlink_server && MANAGER_IS_SYSTEM(m)) {
+                        if (!m->varlink_server) {
                                 r = manager_setup_varlink_server(m);
                                 if (r < 0) {
                                         log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
@@ -550,7 +538,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         if (q < _MANAGER_TIMESTAMP_MAX) /* found it */
                                 (void) deserialize_dual_timestamp(val, m->timestamps + q);
-                        else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=", "ready-sent=")) /* ignore deprecated values */
+                        else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=", "ready-sent=", "cgroups-agent-fd=")) /* ignore deprecated values */
                                 log_notice("Unknown serialization item '%s', ignoring.", l);
                 }
         }

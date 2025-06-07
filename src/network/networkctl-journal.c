@@ -1,9 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-journal.h"
+
+#include "ansi-color.h"
 #include "journal-internal.h"
+#include "log.h"
 #include "logs-show.h"
 #include "networkctl.h"
 #include "networkctl-journal.h"
+#include "output-mode.h"
 #include "terminal-util.h"
 
 static OutputFlags get_output_flags(void) {

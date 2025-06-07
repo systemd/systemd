@@ -42,8 +42,8 @@ label:gpt
 name="loop${1?}-part1"
 EOF
     LOOP=$(losetup -P --show -f "/tmp/TEST-60-MOUNT-RATELIMIT-dependencies-${1?}.img")
-    udevadm wait --settle --timeout=10 "${LOOP}"
-    udevadm lock --device="${LOOP}" mkfs.ext4 -L "partname${1?}-1" "${LOOP}p1"
+    udevadm wait --settle --timeout=30 "${LOOP}"
+    udevadm lock --timeout=30 --device="${LOOP}" mkfs.ext4 -L "partname${1?}-1" "${LOOP}p1"
 }
 
 check_dependencies() {

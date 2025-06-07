@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dlfcn-util.h"
+#include "hash-funcs.h"
 #include "log.h"
 #include "pcre2-util.h"
 
@@ -35,7 +36,7 @@ int dlopen_pcre2(void) {
         /* So here's something weird: PCRE2 actually renames the symbols exported by the library via C
          * macros, so that the exported symbols carry a suffix "_8" but when used from C the suffix is
          * gone. In the argument list below we ignore this mangling. Surprisingly (at least to me), we
-         * actually get away with that. That's because DLSYM_ARG() useses STRINGIFY() to generate a string
+         * actually get away with that. That's because DLSYM_ARG() uses STRINGIFY() to generate a string
          * version of the symbol name, and that resolves the macro mapping implicitly already, so that the
          * string actually contains the "_8" suffix already due to that and we don't have to append it
          * manually anymore. C is weird. 🤯 */

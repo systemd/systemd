@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
@@ -9,16 +9,16 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "initrd-util.h"
 #include "install.h"
 #include "log.h"
-#include "main-func.h"
-#include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "set.h"
@@ -64,7 +64,7 @@ typedef struct SysvStub {
         bool loaded;
 } SysvStub;
 
-static SysvStub* free_sysvstub(SysvStub *s) {
+static SysvStub* sysvstub_free(SysvStub *s) {
         if (!s)
                 return NULL;
 
@@ -78,11 +78,12 @@ static SysvStub* free_sysvstub(SysvStub *s) {
         strv_free(s->wanted_by);
         return mfree(s);
 }
-DEFINE_TRIVIAL_CLEANUP_FUNC(SysvStub*, free_sysvstub);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SysvStub*, sysvstub_free);
 
-static void free_sysvstub_hashmapp(Hashmap **h) {
-        hashmap_free_with_destructor(*h, free_sysvstub);
-}
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                sysvstub_hash_ops,
+                char, string_hash_func, string_compare_func,
+                SysvStub, sysvstub_free);
 
 static int add_alias(const char *service, const char *alias) {
         _cleanup_free_ char *link = NULL;
@@ -728,7 +729,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
 
                 FOREACH_DIRENT(de, d, log_error_errno(errno, "Failed to enumerate directory %s, ignoring: %m", *path)) {
                         _cleanup_free_ char *fpath = NULL, *name = NULL;
-                        _cleanup_(free_sysvstubp) SysvStub *service = NULL;
+                        _cleanup_(sysvstub_freep) SysvStub *service = NULL;
                         struct stat st;
 
                         if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
@@ -768,11 +769,11 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                                                "Please update package to include a native systemd unit file.\n"
                                                "%s This compatibility logic is deprecated, expect removal soon. %s",
                                                fpath,
-                                               special_glyph(SPECIAL_GLYPH_WARNING_SIGN),
-                                               special_glyph(SPECIAL_GLYPH_WARNING_SIGN)),
-                                   "MESSAGE_ID=" SD_MESSAGE_SYSV_GENERATOR_DEPRECATED_STR,
-                                   "SYSVSCRIPT=%s", fpath,
-                                   "UNIT=%s", name);
+                                               glyph(GLYPH_WARNING_SIGN),
+                                               glyph(GLYPH_WARNING_SIGN)),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_SYSV_GENERATOR_DEPRECATED_STR),
+                                   LOG_ITEM("SYSVSCRIPT=%s", fpath),
+                                   LOG_ITEM("UNIT=%s", name));
 
                         service = new(SysvStub, 1);
                         if (!service)
@@ -894,7 +895,7 @@ finish:
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        _cleanup_(free_sysvstub_hashmapp) Hashmap *all_services = NULL;
+        _cleanup_hashmap_free_ Hashmap *all_services = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         SysvStub *service;
         int r;
@@ -910,7 +911,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (r < 0)
                 return r;
 
-        all_services = hashmap_new(&string_hash_ops);
+        all_services = hashmap_new(&sysvstub_hash_ops);
         if (!all_services)
                 return log_oom();
 

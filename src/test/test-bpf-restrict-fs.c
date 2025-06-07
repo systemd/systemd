@@ -10,7 +10,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "unit.h"
-#include "virt.h"
 
 static int test_restrict_filesystems(Manager *m, const char *unit_name, const char *file_path, char **allowed_filesystems) {
         _cleanup_free_ char *exec_start = NULL;
@@ -18,9 +17,9 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         ExecContext *ec = NULL;
         int cld_code, r;
 
-        ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
+        ASSERT_NOT_NULL((u = unit_new(m, sizeof(Service))));
         ASSERT_OK_ZERO(unit_add_name(u, unit_name));
-        ASSERT_NOT_NULL(ec = unit_get_exec_context(u));
+        ASSERT_NOT_NULL((ec = unit_get_exec_context(u)));
 
         STRV_FOREACH(allow_filesystem, allowed_filesystems) {
                 r = config_parse_restrict_filesystems(
@@ -30,7 +29,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
                         return log_unit_error_errno(u, r, "Failed to parse RestrictFileSystems: %m");
         }
 
-        ASSERT_NOT_NULL(exec_start = strjoin("cat ", file_path));
+        ASSERT_NOT_NULL((exec_start = strjoin("cat ", file_path)));
         r = config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart",
                         SERVICE_EXEC_START, exec_start, SERVICE(u)->exec_command, u);
         if (r < 0)
@@ -39,6 +38,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
+        ASSERT_OK(unit_patch_contexts(u));
         r = unit_start(u, NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed %m");
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));
-        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
+        ASSERT_NOT_NULL((runtime_dir = setup_fake_runtime_dir()));
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m));
         ASSERT_OK(manager_startup(m, NULL, NULL, NULL));

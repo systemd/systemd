@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <linux/if.h>
 #include <linux/if_arp.h>
-#include <linux/if_bridge.h>
 #include <linux/ipv6.h>
+#include <netinet/in.h>
+
+#include "sd-netlink.h"
 
 #include "device-private.h"
 #include "missing_network.h"
@@ -12,12 +12,18 @@
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-can.h"
+#include "networkd-ipv4acd.h"
+#include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
 #include "networkd-sriov.h"
 #include "networkd-wiphy.h"
+#include "ordered-set.h"
+#include "set.h"
+#include "socket-util.h"
+#include "string-util.h"
 
 static int get_link_default_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return link_getlink_handler_internal(rtnl, m, link, "Failed to sync link information");
@@ -54,10 +60,9 @@ static int set_link_handler_internal(
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
-                const char *error_msg;
-
-                error_msg = strjoina("Failed to set ", request_type_to_string(req->type), ignore ? ", ignoring" : "");
-                log_link_message_warning_errno(link, m, r, error_msg);
+                log_link_message_warning_errno(link, m, r, "Failed to set %s%s",
+                                               request_type_to_string(req->type),
+                                               ignore ? ", ignoring" : "");
 
                 if (!ignore)
                         link_enter_failed(link);
@@ -153,7 +158,7 @@ static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message
                  * operstate is not down. See, eth_prepare_mac_addr_change() in net/ethernet/eth.c
                  * of kernel. */
 
-                log_link_message_debug_errno(link, m, r, "Failed to set MAC address, retrying again: %m");
+                log_link_message_debug_errno(link, m, r, "Failed to set MAC address, retrying again");
 
                 r = link_request_to_set_mac(link, /* allow_retry = */ false);
                 if (r < 0)
@@ -176,6 +181,30 @@ static int link_unset_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Re
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_default_handler);
+}
+
+static int link_get_arp(Link *link) {
+        assert(link);
+
+        /* This returns tristate. */
+
+        if (!link->network)
+                return -1;
+
+        /* If ARP= is explicitly specified, use the setting. */
+        if (link->network->arp >= 0)
+                return link->network->arp;
+
+        /* Enable ARP when IPv4ACD is enabled. */
+        if (link_ipv4acd_enabled(link))
+                return true;
+
+        /* Similarly, enable ARP when IPv4LL is enabled. */
+        if (link_ipv4ll_enabled(link))
+                return true;
+
+        /* Otherwise, do not change the flag. */
+        return -1;
 }
 
 static int link_configure_fill_message(
@@ -332,6 +361,12 @@ static int link_configure_fill_message(
                                 return r;
                 }
 
+                if (link->network->bridge_vlan_tunnel >= 0) {
+                        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_VLAN_TUNNEL, link->network->bridge_vlan_tunnel);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
                         return r;
@@ -354,9 +389,11 @@ static int link_configure_fill_message(
         case REQUEST_TYPE_SET_LINK_FLAGS: {
                 unsigned ifi_change = 0, ifi_flags = 0;
 
-                if (link->network->arp >= 0) {
+                int arp = link_get_arp(link);
+
+                if (arp >= 0) {
                         ifi_change |= IFF_NOARP;
-                        SET_FLAG(ifi_flags, IFF_NOARP, link->network->arp == 0);
+                        SET_FLAG(ifi_flags, IFF_NOARP, arp == 0);
                 }
 
                 if (link->network->multicast >= 0) {
@@ -838,7 +875,7 @@ int link_request_to_set_flags(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (link->network->arp < 0 &&
+        if (link_get_arp(link) < 0 &&
             link->network->multicast < 0 &&
             link->network->allmulticast < 0 &&
             link->network->promiscuous < 0)
@@ -1039,9 +1076,7 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         if (r == -ENETDOWN && up && link_up_dsa_slave(link) > 0)
                 log_link_message_debug_errno(link, m, r, "Could not bring up dsa slave, retrying again after dsa master becomes up");
         else if (r < 0)
-                log_link_message_warning_errno(link, m, r, up ?
-                                               "Could not bring up interface, ignoring" :
-                                               "Could not bring down interface, ignoring");
+                log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up ? "up" : "down");
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
@@ -1243,7 +1278,7 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
         return 0;
 }
 
-static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *msg) {
+static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool up) {
         int r;
 
         assert(m);
@@ -1257,7 +1292,7 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_message_warning_errno(link, m, r, msg);
+                log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up ? "up" : "down");
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
@@ -1270,11 +1305,11 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 }
 
 static int link_up_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_now_handler(rtnl, m, link, "Could not bring up interface, ignoring");
+        return link_up_or_down_now_handler(rtnl, m, link, /* up = */ true);
 }
 
 static int link_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_now_handler(rtnl, m, link, "Could not bring down interface, ignoring");
+        return link_up_or_down_now_handler(rtnl, m, link, /* up = */ false);
 }
 
 int link_up_or_down_now(Link *link, bool up) {

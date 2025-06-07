@@ -1,15 +1,19 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "netif-naming-scheme.h"
 #include "netlink-util.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "udev-event.h"
 #include "udev-node.h"
 #include "udev-rules.h"
@@ -96,11 +100,8 @@ static int device_rename(sd_device *device, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_device_get_property_value(device, "INTERFACE", &s);
-        if (r == -ENOENT)
+        if (device_get_ifname(device, &s) < 0)
                 return 0;
-        if (r < 0)
-                return r;
 
         /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
         r = device_add_property_internal(device, "INTERFACE_OLD", s);
@@ -138,9 +139,9 @@ static int rename_netif(UdevEvent *event) {
                 return 0;
         }
 
-        r = sd_device_get_sysname(dev, &s);
+        r = device_get_ifname(dev, &s);
         if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to get sysname: %m");
+                return log_device_warning_errno(dev, r, "Failed to get ifname: %m");
 
         if (streq(event->name, s))
                 return 0; /* The interface name is already requested name. */
@@ -245,9 +246,9 @@ static int assign_altnames(UdevEvent *event) {
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to get ifindex: %m");
 
-        r = sd_device_get_sysname(dev, &s);
+        r = device_get_ifname(dev, &s);
         if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to get sysname: %m");
+                return log_device_warning_errno(dev, r, "Failed to get ifname: %m");
 
         /* Filter out the current interface name. */
         strv_remove(event->altnames, s);

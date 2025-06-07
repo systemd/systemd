@@ -2,11 +2,12 @@
 
 #include "analyze.h"
 #include "analyze-timespan.h"
-#include "calendarspec.h"
+#include "ansi-color.h"
 #include "format-table.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 
 int verb_timespan(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(input_timespan, strv_skip(argv, 1)) {
@@ -42,7 +43,7 @@ int verb_timespan(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_add_cell_stringf_full(table, NULL, TABLE_FIELD, "%ss", special_glyph(SPECIAL_GLYPH_MU));
+                r = table_add_cell_stringf_full(table, NULL, TABLE_FIELD, "%ss", glyph(GLYPH_MU));
                 if (r < 0)
                         return table_log_add_error(r);
 

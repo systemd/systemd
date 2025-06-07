@@ -2,9 +2,7 @@
 
 #include "alloc-util.h"
 #include "cpu-set-util.h"
-#include "string-util.h"
 #include "tests.h"
-#include "macro.h"
 
 TEST(parse_cpu_set) {
         CPUSet c = {};

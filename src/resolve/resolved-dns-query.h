@@ -1,21 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-varlink.h"
-
-#include "set.h"
-
-typedef struct DnsQueryCandidate DnsQueryCandidate;
-typedef struct DnsQuery DnsQuery;
-typedef struct DnsStubListenerExtra DnsStubListenerExtra;
-
-#include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-search-domain.h"
+#include "in-addr-util.h"
+#include "list.h"
+#include "resolved-dns-packet.h"
 #include "resolved-dns-transaction.h"
+#include "resolved-forward.h"
 
-struct DnsQueryCandidate {
+typedef struct DnsQueryCandidate {
         unsigned n_ref;
         int error_code;
 
@@ -29,9 +21,9 @@ struct DnsQueryCandidate {
 
         LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
         LIST_FIELDS(DnsQueryCandidate, candidates_by_scope);
-};
+} DnsQueryCandidate;
 
-struct DnsQuery {
+typedef struct DnsQuery {
         Manager *manager;
 
         /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note
@@ -121,7 +113,7 @@ struct DnsQuery {
         LIST_FIELDS(DnsQuery, auxiliary_queries);
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-};
+} DnsQuery;
 
 enum {
         DNS_QUERY_MATCH,
@@ -160,12 +152,4 @@ bool dns_query_fully_authoritative(DnsQuery *q);
 
 int validate_and_mangle_query_flags(Manager *manager, uint64_t *flags, const char *name, uint64_t ok);
 
-static inline uint64_t dns_query_reply_flags_make(DnsQuery *q) {
-        assert(q);
-
-        return SD_RESOLVED_FLAGS_MAKE(q->answer_protocol,
-                                      q->answer_family,
-                                      dns_query_fully_authenticated(q),
-                                      dns_query_fully_confidential(q)) |
-                (q->answer_query_flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC));
-}
+uint64_t dns_query_reply_flags_make(DnsQuery *q);

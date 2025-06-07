@@ -1,17 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
-#include "sd-json.h"
 
-#include "hashmap.h"
+#include "bitfield.h"
 #include "rlimit-util.h"
-#include "strv.h"
-#include "time-util.h"
-#include "user-util.h"
+#include "forward.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -25,7 +19,7 @@ typedef enum UserDisposition {
         _USER_DISPOSITION_INVALID = -EINVAL,
 } UserDisposition;
 
-typedef enum UserHomeStorage {
+typedef enum UserStorage {
         USER_CLASSIC,
         USER_LUKS,
         USER_DIRECTORY, /* A directory, and a .identity file in it, which USER_CLASSIC lacks */
@@ -132,6 +126,20 @@ typedef enum UserRecordLoadFlags {
                                           USER_RECORD_STRIP_BINDING |
                                           USER_RECORD_STRIP_STATUS,
 
+        USER_RECORD_LOAD_MASK_PRIVILEGED = USER_RECORD_REQUIRE_REGULAR|
+                                           USER_RECORD_STRIP_PRIVILEGED|
+                                           USER_RECORD_ALLOW_PER_MACHINE|
+                                           USER_RECORD_ALLOW_BINDING|
+                                           USER_RECORD_ALLOW_STATUS|
+                                           USER_RECORD_ALLOW_SIGNATURE,
+
+        USER_RECORD_EXTRACT_PRIVILEGED   = USER_RECORD_STRIP_REGULAR|
+                                           USER_RECORD_ALLOW_PRIVILEGED|
+                                           USER_RECORD_STRIP_PER_MACHINE|
+                                           USER_RECORD_STRIP_BINDING|
+                                           USER_RECORD_STRIP_STATUS|
+                                           USER_RECORD_STRIP_SIGNATURE,
+
         /* Whether to log about loader errors beyond LOG_DEBUG */
         USER_RECORD_LOG                 = 1U << 28,
 
@@ -169,10 +177,7 @@ static inline UserRecordMask USER_RECORD_STRIP_MASK(UserRecordLoadFlags f) {
         return (f >> 21) & _USER_RECORD_MASK_MAX;
 }
 
-static inline sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags) {
-        return (FLAGS_SET(flags, USER_RECORD_LOG) ? SD_JSON_LOG : 0) |
-                (FLAGS_SET(flags, USER_RECORD_PERMISSIVE) ? SD_JSON_PERMISSIVE : 0);
-}
+sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags) _const_;
 
 typedef struct Pkcs11EncryptedKey {
         /* The encrypted passphrase, which can be decrypted with the private key indicated below */
@@ -255,6 +260,7 @@ typedef struct UserRecord {
         char *realm;
         char *user_name_and_realm_auto; /* the user_name field concatenated with '@' and the realm, if the latter is defined */
         char **aliases;
+        sd_id128_t uuid;
         char *real_name;
         char *email_address;
         char *password_hint;
@@ -419,6 +425,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UserRecord*, user_record_unref);
 
 int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags flags);
 int user_record_build(UserRecord **ret, ...);
+#define user_record_buildo(ret, ...)                                    \
+        user_record_build((ret), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 const char* user_record_user_name_and_realm(UserRecord *h);
 UserStorage user_record_storage(UserRecord *h);
@@ -477,8 +485,8 @@ int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask);
 int user_record_test_blocked(UserRecord *h);
 int user_record_test_password_change_required(UserRecord *h);
 
-int user_record_is_root(const UserRecord *u);
-int user_record_is_nobody(const UserRecord *u);
+bool user_record_is_root(const UserRecord *u);
+bool user_record_is_nobody(const UserRecord *u);
 
 /* The following six are user by group-record.c, that's why we export them here */
 int json_dispatch_realm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
@@ -510,26 +518,24 @@ typedef struct UserDBMatch {
 #define USER_DISPOSITION_MASK_ALL ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
 
 #define USERDB_MATCH_NULL                                       \
-        (UserDBMatch) {                                         \
+        (const UserDBMatch) {                                   \
                 .disposition_mask = USER_DISPOSITION_MASK_ALL,  \
                 .uid_min = 0,                                   \
                 .uid_max = UID_INVALID-1,                       \
        }
 
-static inline bool userdb_match_is_set(const UserDBMatch *match) {
-        if (!match)
-                return false;
+/* Maybe useful when we want to resolve root and system user/group but want to refuse nobody user/group. */
+#define USERDB_MATCH_ROOT_AND_SYSTEM                            \
+        (const UserDBMatch) {                                   \
+                .disposition_mask =                             \
+                        INDEXES_TO_MASK(uint64_t, USER_INTRINSIC, USER_SYSTEM), \
+                .uid_min = 0,                                   \
+                .uid_max = UID_NOBODY - 1,                      \
+        }
 
-        return !strv_isempty(match->fuzzy_names) ||
-                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
-                match->uid_min > 0 ||
-                match->uid_max < UID_INVALID-1;
-}
+bool userdb_match_is_set(const UserDBMatch *match) _pure_;
 
-static inline void userdb_match_done(UserDBMatch *match) {
-        assert(match);
-        strv_free(match->fuzzy_names);
-}
+void userdb_match_done(UserDBMatch *match);
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 bool user_record_match(UserRecord *u, const UserDBMatch *match);

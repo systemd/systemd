@@ -1,26 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "env-util.h"
+#include "forward.h"
 #include "gpt.h"
 #include "list.h"
-#include "loop-util.h"
-#include "macro.h"
-#include "os-util.h"
-#include "strv.h"
 
-typedef struct DissectedImage DissectedImage;
-typedef struct DissectedPartition DissectedPartition;
 typedef struct DecryptedImage DecryptedImage;
-typedef struct MountOptions MountOptions;
-typedef struct VeritySettings VeritySettings;
 
-struct DissectedPartition {
+typedef struct DissectedPartition {
         bool found:1;
         bool ignored:1;
         bool rw:1;
@@ -39,7 +29,7 @@ struct DissectedPartition {
         uint64_t offset;
         uint64_t gpt_flags;
         int fsmount_fd;
-};
+} DissectedPartition;
 
 #define DISSECTED_PARTITION_NULL                                        \
         ((DissectedPartition) {                                         \
@@ -93,7 +83,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
 } DissectImageFlags;
 
-struct DissectedImage {
+typedef struct DissectedImage {
         bool encrypted:1;
         bool has_verity:1;         /* verity available in image, but not necessarily used */
         bool has_verity_sig:1;     /* pkcs#7 signature embedded in image */
@@ -120,15 +110,15 @@ struct DissectedImage {
         char **confext_release;
         char **sysext_release;
         int has_init_system;
-};
+} DissectedImage;
 
-struct MountOptions {
+typedef struct MountOptions {
         PartitionDesignator partition_designator;
         char *options;
         LIST_FIELDS(MountOptions, mount_options);
-};
+} MountOptions;
 
-struct VeritySettings {
+typedef struct VeritySettings {
         /* Binary root hash for the Verity Merkle tree */
         void *root_hash;
         size_t root_hash_size;
@@ -142,14 +132,25 @@ struct VeritySettings {
 
         /* PARTITION_ROOT or PARTITION_USR, depending on what these Verity settings are for */
         PartitionDesignator designator;
-};
+} VeritySettings;
 
-#define VERITY_SETTINGS_DEFAULT {                               \
+#define VERITY_SETTINGS_DEFAULT (VeritySettings) {              \
                 .designator = _PARTITION_DESIGNATOR_INVALID     \
         }
 
-/* We include image-policy.h down here, since ImagePolicy wants a complete definition of PartitionDesignator first. */
-#include "image-policy.h"
+typedef struct ImageFilter {
+        /* A per designator glob matching against the partition label */
+        char *pattern[_PARTITION_DESIGNATOR_MAX];
+} ImageFilter;
+
+typedef struct ExtensionReleaseData {
+        char *os_release_id;
+        char *os_release_id_like;
+        char *os_release_version_id;
+        char *os_release_sysext_level;
+        char *os_release_confext_level;
+        char *os_release_extension_scope;
+} ExtensionReleaseData;
 
 MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
@@ -161,10 +162,10 @@ static inline int probe_filesystem(const char *path, char **ret_fstype) {
 }
 
 int dissect_log_error(int log_level, int r, const char *name, const VeritySettings *verity);
-int dissect_image_file(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
-int dissect_image_file_and_warn(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
-int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
-int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image_file(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image_file_and_warn(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);
+int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *image_filter, DissectImageFlags flags, DissectedImage **ret);
+int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *image_filter, DissectImageFlags flags, DissectedImage **ret);
 
 void dissected_image_close(DissectedImage *m);
 DissectedImage* dissected_image_unref(DissectedImage *m);
@@ -172,7 +173,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
 int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
 int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
-int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
+int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m, int userns_fd, DissectImageFlags extra_flags);
@@ -187,19 +188,19 @@ static inline bool dissected_image_is_bootable_uefi(DissectedImage *m) {
         return m && m->partitions[PARTITION_ESP].found && dissected_image_is_bootable_os(m);
 }
 
-static inline bool dissected_image_is_portable(DissectedImage *m) {
-        return m && strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES");
-}
-
-static inline bool dissected_image_is_initrd(DissectedImage *m) {
-        return m && !strv_isempty(m->initrd_release);
-}
+bool dissected_image_is_portable(DissectedImage *m) _pure_;
+bool dissected_image_is_initrd(DissectedImage *m) _pure_;
 
 DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 
 int dissected_image_relinquish(DissectedImage *m);
+
+void image_filter_done(ImageFilter *f);
+ImageFilter *image_filter_free(ImageFilter *f);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ImageFilter*, image_filter_free);
+int image_filter_parse(const char *s, ImageFilter **ret);
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
 
@@ -226,7 +227,10 @@ static inline bool verity_settings_data_covers(const VeritySettings *verity, Par
                 verity->data_path;
 }
 
+int verity_settings_copy(VeritySettings *dest, const VeritySettings *source);
+
 int dissected_image_load_verity_sig_partition(DissectedImage *m, int fd, VeritySettings *verity);
+int dissected_image_guess_verity_roothash(DissectedImage *m, VeritySettings *verity);
 
 bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator d);
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
@@ -234,7 +238,7 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 
 int mount_image_privately_interactively(const char *path, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
 
-int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_host_os_release_confext_level, const char *required_sysext_scope, VeritySettings *verity, DissectedImage **ret_image);
+int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, const ExtensionReleaseData *required_release_data, ImageClass required_class, VeritySettings *verity, DissectedImage **ret_image);
 
 int dissect_fstype_ok(const char *fstype);
 
@@ -242,6 +246,8 @@ int probe_sector_size(int fd, uint32_t *ret);
 int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret);
 
 int partition_pick_mount_options(PartitionDesignator d, const char *fstype, bool rw, bool discard, char **ret_options, unsigned long *ret_ms_flags);
+
+void extension_release_data_done(ExtensionReleaseData *data);
 
 static inline const char* dissected_partition_fstype(const DissectedPartition *m) {
         assert(m);

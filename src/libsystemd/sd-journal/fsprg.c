@@ -26,6 +26,8 @@
 #define RND_GEN_Q 0x02
 #define RND_GEN_X 0x03
 
+#if HAVE_GCRYPT
+
 #pragma GCC diagnostic ignored "-Wpointer-arith"
 /* TODO: remove void* arithmetic and this work-around */
 
@@ -201,6 +203,8 @@ static void CRT_compose(gcry_mpi_t *x, const gcry_mpi_t xp, const gcry_mpi_t xq,
 
 /******************************************************************************/
 
+#endif
+
 size_t FSPRG_mskinbytes(unsigned _secpar) {
         VALIDATE_SECPAR(_secpar);
         return 2 + 2 * (_secpar / 2) / 8; /* to store header,p,q */
@@ -216,6 +220,7 @@ size_t FSPRG_stateinbytes(unsigned _secpar) {
         return 2 + 2 * _secpar / 8 + 8; /* to store header,n,x,epoch */
 }
 
+#if HAVE_GCRYPT
 static void store_secpar(void *buf, uint16_t secpar) {
         secpar = secpar / 16 - 1;
         ((uint8_t*) buf)[0] = (secpar >> 8) & 0xff;
@@ -229,8 +234,10 @@ static uint16_t read_secpar(const void *buf) {
                 (uint16_t)(((uint8_t*) buf)[1]) << 0;
         return 16 * (secpar + 1);
 }
+#endif
 
 int FSPRG_GenMK(void *msk, void *mpk, const void *seed, size_t seedlen, unsigned _secpar) {
+#if HAVE_GCRYPT
         uint8_t iseed[FSPRG_RECOMMENDED_SEEDLEN];
         gcry_mpi_t n, p, q;
         uint16_t secpar;
@@ -273,9 +280,13 @@ int FSPRG_GenMK(void *msk, void *mpk, const void *seed, size_t seedlen, unsigned
         sym_gcry_mpi_release(q);
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int FSPRG_GenState0(void *state, const void *mpk, const void *seed, size_t seedlen) {
+#if HAVE_GCRYPT
         gcry_mpi_t n, x;
         uint16_t secpar;
         int r;
@@ -296,9 +307,13 @@ int FSPRG_GenState0(void *state, const void *mpk, const void *seed, size_t seedl
         sym_gcry_mpi_release(x);
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int FSPRG_Evolve(void *state) {
+#if HAVE_GCRYPT
         gcry_mpi_t n, x;
         uint16_t secpar;
         uint64_t epoch;
@@ -323,15 +338,23 @@ int FSPRG_Evolve(void *state) {
         sym_gcry_mpi_release(x);
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 uint64_t FSPRG_GetEpoch(const void *state) {
+#if HAVE_GCRYPT
         uint16_t secpar;
         secpar = read_secpar(state + 0);
         return uint64_import(state + 2 + 2 * secpar / 8, 8);
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int FSPRG_Seek(void *state, uint64_t epoch, const void *msk, const void *seed, size_t seedlen) {
+#if HAVE_GCRYPT
         gcry_mpi_t p, q, n, x, xp, xq, kp, kq, xm;
         uint16_t secpar;
         int r;
@@ -374,9 +397,13 @@ int FSPRG_Seek(void *state, uint64_t epoch, const void *msk, const void *seed, s
         sym_gcry_mpi_release(xm);
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int FSPRG_GetKey(const void *state, void *key, size_t keylen, uint32_t idx) {
+#if HAVE_GCRYPT
         uint16_t secpar;
         int r;
 
@@ -388,4 +415,7 @@ int FSPRG_GetKey(const void *state, void *key, size_t keylen, uint32_t idx) {
         det_randomize(key, keylen, state + 2, 2 * secpar / 8 + 8, idx);
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }

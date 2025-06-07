@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>
-#include <errno.h>
-#include <stdbool.h>
+#include <dirent.h>     /* IWYU pragma: export */
 
-#include "macro.h"
+#include "forward.h"
 #include "path-util.h"
 
 bool dirent_is_file(const struct dirent *de) _pure_;

@@ -1,23 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <termios.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 #define LOREM_IPSUM "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor " \
@@ -28,21 +27,6 @@
 
 TEST(colors_enabled) {
         log_info("colors_enabled: %s", yes_no(colors_enabled()));
-}
-
-TEST(default_term_for_tty) {
-        puts(default_term_for_tty("/dev/tty23"));
-        puts(default_term_for_tty("/dev/ttyS23"));
-        puts(default_term_for_tty("/dev/tty0"));
-        puts(default_term_for_tty("/dev/pty0"));
-        puts(default_term_for_tty("/dev/pts/0"));
-        puts(default_term_for_tty("/dev/console"));
-        puts(default_term_for_tty("tty23"));
-        puts(default_term_for_tty("ttyS23"));
-        puts(default_term_for_tty("tty0"));
-        puts(default_term_for_tty("pty0"));
-        puts(default_term_for_tty("pts/0"));
-        puts(default_term_for_tty("console"));
 }
 
 TEST(read_one_char) {
@@ -177,7 +161,10 @@ TEST(get_default_background_color) {
         double red, green, blue;
         int r;
 
+        usec_t n = now(CLOCK_MONOTONIC);
         r = get_default_background_color(&red, &green, &blue);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
         if (r < 0)
                 log_notice_errno(r, "Can't get terminal default background color: %m");
         else
@@ -188,31 +175,85 @@ TEST(terminal_get_size_by_dsr) {
         unsigned rows, columns;
         int r;
 
+        usec_t n = now(CLOCK_MONOTONIC);
         r = terminal_get_size_by_dsr(STDIN_FILENO, STDOUT_FILENO, &rows, &columns);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
         if (r < 0)
-                log_notice_errno(r, "Can't get screen dimensions via DSR: %m");
-        else {
-                log_notice("terminal size via DSR: rows=%u columns=%u", rows, columns);
+                return (void) log_notice_errno(r, "Can't get screen dimensions via DSR: %m");
 
-                struct winsize ws = {};
+        log_notice("terminal size via DSR: rows=%u columns=%u", rows, columns);
 
-                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
-                        log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
-                else
-                        log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
-        }
+        struct winsize ws = {};
+
+        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
+                log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
+        else
+                log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
 }
 
 TEST(terminal_fix_size) {
         int r;
 
+        usec_t n = now(CLOCK_MONOTONIC);
+
         r = terminal_fix_size(STDIN_FILENO, STDOUT_FILENO);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
         if (r < 0)
                 log_warning_errno(r, "Failed to fix terminal size: %m");
         else if (r == 0)
                 log_notice("Not fixing terminal size, nothing to do.");
         else
                 log_notice("Fixed terminal size.");
+}
+
+TEST(terminal_get_terminfo_by_dcs) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        /* We need a non-blocking read-write fd. */
+        _cleanup_close_ int fd = fd_reopen(STDIN_FILENO, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0)
+                return (void) log_info_errno(fd, "Cannot reopen stdin in read-write mode: %m");
+
+        usec_t n = now(CLOCK_MONOTONIC);
+
+        r = terminal_get_terminfo_by_dcs(fd, &name);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
+        if (r < 0)
+                return (void) log_info_errno(r, "Can't get terminal terminfo via DCS: %m");
+        log_info("terminal terminfo via DCS: %s, $TERM: %s", name, strnull(getenv("TERM")));
+}
+
+TEST(have_terminfo_file) {
+        int r;
+
+        FOREACH_STRING(s,
+                       "linux",
+                       "xterm",
+                       "vt220",
+                       "xterm-256color",
+                       "nosuchfile") {
+                r = have_terminfo_file(s);
+                log_info("%s: %s → %s", __func__+5, s, r >= 0 ? yes_no(r) : STRERROR(r));
+                ASSERT_OK(r);
+        }
+}
+
+TEST(query_term_for_tty) {
+        int r;
+
+        FOREACH_STRING(s,
+                       "/dev/console",
+                       "/dev/stdin",
+                       "/dev/stdout") {
+                _cleanup_free_ char *term = NULL;
+
+                r = query_term_for_tty(s, &term);
+                log_info("%s: %s → %s/%s", __func__+5, s, STRERROR(r), strnull(term));
+        }
 }
 
 TEST(terminal_is_pty_fd) {
@@ -300,19 +341,19 @@ TEST(pty_open_peer) {
         _cleanup_free_ char *pty_path = NULL;
 
         pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
-        assert(pty_fd >= 0);
-        assert(pty_path);
+        assert_se(pty_fd >= 0);
+        assert_se(pty_path);
 
         peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        assert(peer_fd >= 0);
+        assert_se(peer_fd >= 0);
 
         static const char x[] = { 'x', '\n' };
-        assert(write(pty_fd, x, sizeof(x)) == 2);
+        assert_se(write(pty_fd, x, sizeof(x)) == 2);
 
         char buf[3];
-        assert(read(peer_fd, &buf, sizeof(buf)) == sizeof(x));
-        assert(buf[0] == x[0]);
-        assert(buf[1] == x[1]);
+        assert_se(read(peer_fd, &buf, sizeof(buf)) == sizeof(x));
+        assert_se(buf[0] == x[0]);
+        assert_se(buf[1] == x[1]);
 }
 
 TEST(terminal_new_session) {

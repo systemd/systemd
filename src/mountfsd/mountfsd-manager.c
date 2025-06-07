@@ -1,20 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#include <sys/wait.h>
+
+#include <stdlib.h>
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
+#include "event-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "mkdir.h"
+#include "format-util.h"
+#include "log.h"
 #include "mountfsd-manager.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "umask-util.h"
 
 #define LISTEN_TIMEOUT_USEC (25 * USEC_PER_SEC)
@@ -57,13 +62,6 @@ static int on_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, voi
         (void) start_workers(m, /* explicit_request= */ true); /* Workers told us there's more work, let's add one more worker as long as we are below the high watermark */
         return 0;
 }
-
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-                event_source_hash_ops,
-                sd_event_source,
-                (void (*)(const sd_event_source*, struct siphash*)) trivial_hash_func,
-                (int (*)(const sd_event_source*, const sd_event_source*)) trivial_compare_func,
-                sd_event_source_disable_unref);
 
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -261,7 +259,7 @@ int manager_startup(Manager *m) {
                 (void) sockaddr_un_unlink(&sockaddr.un);
 
                 WITH_UMASK(0000)
-                        if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
+                        if (bind(m->listen_fd, &sockaddr.sa, sockaddr_un_len(&sockaddr.un)) < 0)
                                 return log_error_errno(errno, "Failed to bind socket: %m");
 
                 if (listen(m->listen_fd, SOMAXCONN) < 0)

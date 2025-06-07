@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-device.h"
-#include "sd-netlink.h"
-
-#include "macro.h"
-#include "udev-def.h"
+#include "forward.h"
 #include "udev-event.h"
 
 typedef struct UdevBuiltin {
@@ -37,6 +31,7 @@ typedef struct UdevBuiltin {
 extern const UdevBuiltin udev_builtin_blkid;
 #endif
 extern const UdevBuiltin udev_builtin_btrfs;
+extern const UdevBuiltin udev_builtin_dissect_image;
 extern const UdevBuiltin udev_builtin_factory_reset;
 extern const UdevBuiltin udev_builtin_hwdb;
 extern const UdevBuiltin udev_builtin_input_id;

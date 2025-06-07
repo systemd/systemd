@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "constants.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "parse-util.h"
@@ -12,6 +11,7 @@
 #include "procfs-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 int procfs_get_pid_max(uint64_t *ret) {
         _cleanup_free_ char *value = NULL;
@@ -62,13 +62,13 @@ int procfs_tasks_set_limit(uint64_t limit) {
         /* As pid_max is about the numeric pid_t range we'll bump it if necessary, but only ever increase it, never
          * decrease it, as threads-max is the much more relevant sysctl. */
         if (limit > pid_max-1) {
-                sprintf(buffer, "%" PRIu64, limit+1); /* Add one, since PID 0 is not a valid PID */
+                xsprintf(buffer, "%" PRIu64, limit+1); /* Add one, since PID 0 is not a valid PID */
                 r = write_string_file("/proc/sys/kernel/pid_max", buffer, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0)
                         return r;
         }
 
-        sprintf(buffer, "%" PRIu64, limit);
+        xsprintf(buffer, "%" PRIu64, limit);
         r = write_string_file("/proc/sys/kernel/threads-max", buffer, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0) {
                 uint64_t threads_max;
@@ -175,46 +175,34 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         return 0;
 }
 
-int convert_meminfo_value_to_uint64_bytes(const char *word, uint64_t *ret) {
+int convert_meminfo_value_to_uint64_bytes(const char *s, uint64_t *ret) {
         _cleanup_free_ char *w = NULL;
-        char *digits, *e;
         uint64_t v;
-        size_t n;
         int r;
 
-        assert(word);
+        assert(s);
         assert(ret);
 
-        w = strdup(word);
-        if (!w)
-                return -ENOMEM;
-
-        /* Determine length of numeric value */
-        n = strspn(w, WHITESPACE);
-        digits = w + n;
-        n = strspn(digits, DIGITS);
-        if (n == 0)
-                return -EINVAL;
-        e = digits + n;
-
-        /* Ensure the line ends in " kB" */
-        n = strspn(e, WHITESPACE);
-        if (n == 0)
-                return -EINVAL;
-        if (!streq(e + n, "kB"))
+        r = extract_first_word(&s, &w, /* separators = */ NULL, /* flags = */ 0);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EINVAL;
 
-        *e = 0;
-        r = safe_atou64(digits, &v);
+        /* Ensure the line ends in "kB" */
+        if (!streq(s, "kB"))
+                return -EINVAL;
+
+        r = safe_atou64(w, &v);
         if (r < 0)
                 return r;
         if (v == UINT64_MAX)
                 return -EINVAL;
 
-        if (v > UINT64_MAX/1024)
+        if (!MUL_ASSIGN_SAFE(&v, U64_KB))
                 return -EOVERFLOW;
 
-        *ret = v * 1024U;
+        *ret = v;
         return 0;
 }
 

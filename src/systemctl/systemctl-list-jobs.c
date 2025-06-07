@@ -1,13 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
+
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "locale-util.h"
+#include "bus-util.h"
+#include "format-table.h"
+#include "glyph-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-list-jobs.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
-#include "terminal-util.h"
 
 static int output_waiting_jobs(sd_bus *bus, Table *table, uint32_t id, const char *method, const char *prefix) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -33,7 +41,7 @@ static int output_waiting_jobs(sd_bus *bus, Table *table, uint32_t id, const cha
                         return log_oom();
 
                 r = table_add_many(table,
-                                    TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                    TABLE_STRING, glyph(GLYPH_TREE_RIGHT),
                                     TABLE_STRING, row,
                                     TABLE_EMPTY,
                                     TABLE_EMPTY);

@@ -15,6 +15,7 @@
  */
 
 #if SD_BOOT
+#  include "efi-string.h"
 #  include "util.h"
 #else
 #  include <byteswap.h>
@@ -147,6 +148,21 @@ const uint32_t chid_smbios_table[CHID_TYPES_MAX] = {
                (UINT32_C(1) << CHID_SMBIOS_BASEBOARD_PRODUCT),
 
         [14] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER),
+
+        /* Extra non-standard CHIDs */
+
+        [EXTRA_CHID_BASE + 0] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+                                (UINT32_C(1) << CHID_SMBIOS_FAMILY) |
+                                (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME)|
+                                (UINT32_C(1) << CHID_EDID_PANEL),
+
+        [EXTRA_CHID_BASE + 1] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+                                (UINT32_C(1) << CHID_SMBIOS_FAMILY) |
+                                (UINT32_C(1) << CHID_EDID_PANEL),
+
+        [EXTRA_CHID_BASE + 2] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+                                (UINT32_C(1) << CHID_SMBIOS_PRODUCT_SKU) |
+                                (UINT32_C(1) << CHID_EDID_PANEL),
 };
 
 void chid_calculate(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX], EFI_GUID ret_chids[static CHID_TYPES_MAX]) {

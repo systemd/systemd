@@ -24,16 +24,19 @@ manager, please consider supporting the following interfaces.
    invoking systemd, and mount `/sys/`, `/sys/fs/selinux/` and `/proc/sys/`
    read-only (the latter via e.g. a read-only bind mount on itself) in order
    to prevent the container from altering the host kernel's configuration
-   settings. (As a special exception, if your container has network namespaces
+   settings. As a special exception, if your container has network namespaces
    enabled, feel free to make `/proc/sys/net/` writable. If it also has user, ipc,
-   uts and pid namespaces enabled, the entire `/proc/sys` can be left writable).
-   systemd and various other subsystems (such as the SELinux userspace) have
-   been modified to behave accordingly when these file systems are read-only.
-   (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a subset of its
-   sub-trees from the real `sysfs` to hide `/sys/firmware/`, `/sys/kernel/` and
-   so on. If you do that, make sure to mark `/sys/` read-only, as that
-   condition is what systemd looks for, and is what is considered to be the API
-   in this context.)
+   uts and pid namespaces enabled, the entire `/proc/sys` can be left writable.
+   However, in the latter case, an appropriate userns mapping should exist to
+   map the root user inside the container to an unprivileged user on the
+   host. Otherwise, the root user inside the container could modify the host's
+   kernel settings. systemd and various other subsystems (such as the SELinux
+   userspace) have been modified to behave accordingly when these file systems
+   are read-only. (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a
+   subset of its sub-trees from the real `sysfs` to hide `/sys/firmware/`,
+   `/sys/kernel/` and so on. If you do that, make sure to mark `/sys/`
+   read-only, as that condition is what systemd looks for, and is what is
+   considered to be the API in this context.)
 
 3. Pre-mount `/dev/` as (container private) `tmpfs` for the container and bind
    mount some suitable TTY to `/dev/console`. If this is a pty, make sure to
@@ -43,9 +46,8 @@ manager, please consider supporting the following interfaces.
    for `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`, `/dev/urandom`,
    `/dev/tty`, `/dev/ptmx` in `/dev/`. It is not necessary to create `/dev/fd`
    or `/dev/stdout`, as systemd will do that on its own. Make sure to set up a
-   `BPF_PROG_TYPE_CGROUP_DEVICE` BPF program — on cgroupv2 — or the `devices`
-   cgroup controller — on cgroupv1 — so that no other devices but these may be
-   created in the container. Note that many systemd services use
+   `BPF_PROG_TYPE_CGROUP_DEVICE` BPF program on cgroupv2, so that no other devices
+   but these may be created in the container. Note that many systemd services use
    `PrivateDevices=`, which means that systemd will set up a private `/dev/`
    for them for which it needs to be able to create these device nodes.
    Dropping `CAP_MKNOD` for containers is hence generally not advisable, but
@@ -69,13 +71,7 @@ manager, please consider supporting the following interfaces.
    root-level cgroup directories tend to be quite different from inner
    directories, and that distinction matters. It is OK however, to mount the
    "upper" parts read-only of the hierarchies, and only allow write-access to
-   the cgroup sub-tree the container runs in. It's also a good idea to mount
-   all controller hierarchies with exception of `name=systemd` fully read-only
-   (this only applies to cgroupv1, of course), to protect the controllers from
-   alteration from inside the containers. Or to turn this around: only the
-   cgroup sub-tree of the container itself (on cgroupv2 in the unified
-   hierarchy, and on cgroupv1 in the `name=systemd` hierarchy) may be writable
-   to the container.
+   the cgroup sub-tree the container runs in.
 
 7. Create the control group root of your container by either running your
    container as a service (in case you have one container manager instance per

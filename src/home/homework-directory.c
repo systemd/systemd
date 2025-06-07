@@ -3,17 +3,22 @@
 #include <sys/mount.h>
 
 #include "btrfs-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "homework-blob.h"
 #include "homework-directory.h"
 #include "homework-mount.h"
 #include "homework-quota.h"
+#include "log.h"
 #include "mkdir.h"
 #include "mount-util.h"
-#include "path-util.h"
+#include "homework.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
+#include "user-record-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 int home_setup_directory(UserRecord *h, HomeSetup *setup) {
@@ -153,7 +158,7 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
                                 /* Actually configure the quota. We also ignore errors here, but we do log
                                  * about them loudly, to keep things discoverable even though we don't
                                  * consider lacking quota support in kernel fatal. */
-                                (void) home_update_quota_btrfs(h, d);
+                                (void) home_update_quota_btrfs(h, /* fd= */ -EBADF, d);
                         }
 
                         break;
@@ -169,7 +174,7 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
                 if (mkdir(d, 0700) < 0)
                         return log_error_errno(errno, "Failed to create temporary home directory %s: %m", d);
 
-                (void) home_update_quota_classic(h, d);
+                (void) home_update_quota_classic(h, /* fd= */ -EBADF, d);
                 break;
 
         default:
@@ -285,7 +290,7 @@ int home_resize_directory(
         if (r < 0)
                 return r;
 
-        r = home_update_quota_auto(h, NULL);
+        r = home_update_quota_auto(h, setup->root_fd, /* path= */ NULL);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return -ESOCKTNOSUPPORT; /* make recognizable */
         if (r < 0)

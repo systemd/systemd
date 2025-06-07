@@ -17,108 +17,17 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <sys/types.h>
 #include <sys/uio.h>
 
-#include "sd-event.h"
-#include "sd-id128.h"
-
 #include "_sd-common.h"
-
-_SD_BEGIN_DECLARATIONS;
-
-#define SD_BUS_DEFAULT ((sd_bus *) 1)
-#define SD_BUS_DEFAULT_USER ((sd_bus *) 2)
-#define SD_BUS_DEFAULT_SYSTEM ((sd_bus *) 3)
-
-/* Types */
-
-typedef struct sd_bus sd_bus;
-typedef struct sd_bus_message sd_bus_message;
-typedef struct sd_bus_slot sd_bus_slot;
-typedef struct sd_bus_creds sd_bus_creds;
-typedef struct sd_bus_track sd_bus_track;
-
-typedef struct {
-        const char *name;
-        const char *message;
-        int _need_free;
-} sd_bus_error;
-
-typedef struct {
-        const char *name;
-        int code;
-} sd_bus_error_map;
-
-/* Flags */
-
-__extension__ enum {
-        SD_BUS_CREDS_PID                = 1ULL << 0,
-        SD_BUS_CREDS_TID                = 1ULL << 1,
-        SD_BUS_CREDS_PPID               = 1ULL << 2,
-        SD_BUS_CREDS_UID                = 1ULL << 3,
-        SD_BUS_CREDS_EUID               = 1ULL << 4,
-        SD_BUS_CREDS_SUID               = 1ULL << 5,
-        SD_BUS_CREDS_FSUID              = 1ULL << 6,
-        SD_BUS_CREDS_GID                = 1ULL << 7,
-        SD_BUS_CREDS_EGID               = 1ULL << 8,
-        SD_BUS_CREDS_SGID               = 1ULL << 9,
-        SD_BUS_CREDS_FSGID              = 1ULL << 10,
-        SD_BUS_CREDS_SUPPLEMENTARY_GIDS = 1ULL << 11,
-        SD_BUS_CREDS_COMM               = 1ULL << 12,
-        SD_BUS_CREDS_TID_COMM           = 1ULL << 13,
-        SD_BUS_CREDS_EXE                = 1ULL << 14,
-        SD_BUS_CREDS_CMDLINE            = 1ULL << 15,
-        SD_BUS_CREDS_CGROUP             = 1ULL << 16,
-        SD_BUS_CREDS_UNIT               = 1ULL << 17,
-        SD_BUS_CREDS_SLICE              = 1ULL << 18,
-        SD_BUS_CREDS_USER_UNIT          = 1ULL << 19,
-        SD_BUS_CREDS_USER_SLICE         = 1ULL << 20,
-        SD_BUS_CREDS_SESSION            = 1ULL << 21,
-        SD_BUS_CREDS_OWNER_UID          = 1ULL << 22,
-        SD_BUS_CREDS_EFFECTIVE_CAPS     = 1ULL << 23,
-        SD_BUS_CREDS_PERMITTED_CAPS     = 1ULL << 24,
-        SD_BUS_CREDS_INHERITABLE_CAPS   = 1ULL << 25,
-        SD_BUS_CREDS_BOUNDING_CAPS      = 1ULL << 26,
-        SD_BUS_CREDS_SELINUX_CONTEXT    = 1ULL << 27,
-        SD_BUS_CREDS_AUDIT_SESSION_ID   = 1ULL << 28,
-        SD_BUS_CREDS_AUDIT_LOGIN_UID    = 1ULL << 29,
-        SD_BUS_CREDS_TTY                = 1ULL << 30,
-        SD_BUS_CREDS_UNIQUE_NAME        = 1ULL << 31,
-        SD_BUS_CREDS_WELL_KNOWN_NAMES   = 1ULL << 32,
-        SD_BUS_CREDS_DESCRIPTION        = 1ULL << 33,
-        SD_BUS_CREDS_PIDFD              = 1ULL << 34,
-        SD_BUS_CREDS_AUGMENT            = 1ULL << 63, /* special flag, if on sd-bus will augment creds struct, in a potentially race-full way. */
-        _SD_BUS_CREDS_ALL               = (1ULL << 35) -1
-};
-
-__extension__ enum {
-        SD_BUS_NAME_REPLACE_EXISTING  = 1ULL << 0,
-        SD_BUS_NAME_ALLOW_REPLACEMENT = 1ULL << 1,
-        SD_BUS_NAME_QUEUE             = 1ULL << 2
-};
-
-__extension__ enum {
-        SD_BUS_MESSAGE_DUMP_WITH_HEADER  = 1ULL << 0,
-        SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY = 1ULL << 1,
-        _SD_BUS_MESSAGE_DUMP_KNOWN_FLAGS = SD_BUS_MESSAGE_DUMP_WITH_HEADER | SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY
-};
-
-/* Callbacks */
-
-typedef int (*sd_bus_message_handler_t)(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
-typedef int (*sd_bus_property_get_t) (sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *ret_error);
-typedef int (*sd_bus_property_set_t) (sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *ret_error);
-typedef int (*sd_bus_object_find_t) (sd_bus *bus, const char *path, const char *interface, void *userdata, void **ret_found, sd_bus_error *ret_error);
-typedef int (*sd_bus_node_enumerator_t) (sd_bus *bus, const char *prefix, void *userdata, char ***ret_nodes, sd_bus_error *ret_error);
-typedef int (*sd_bus_track_handler_t) (sd_bus_track *track, void *userdata);
-typedef _sd_destroy_t sd_bus_destroy_t;
-
 #include "sd-bus-protocol.h"
 #include "sd-bus-vtable.h"
+#include "sd-event.h"
+#include "sd-id128.h"
+#include "sd-json.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 /* Naming */
 
@@ -199,7 +108,7 @@ int sd_bus_get_scope(sd_bus *bus, const char **scope);
 int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
 int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 
-int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
+int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *ret_cookie);
 int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);
 int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *ret_error, sd_bus_message **reply);
 int sd_bus_call_async(sd_bus *bus, sd_bus_slot **slot, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec);
@@ -339,13 +248,14 @@ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 int sd_bus_message_skip(sd_bus_message *m, const char *types);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
-int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
+int sd_bus_message_peek_type(sd_bus_message *m, char *ret_type, const char **ret_contents);
 int sd_bus_message_verify_type(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_at_end(sd_bus_message *m, int complete);
 int sd_bus_message_rewind(sd_bus_message *m, int complete);
 int sd_bus_message_sensitive(sd_bus_message *m);
 
 int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags);
+int sd_bus_message_dump_json(sd_bus_message *m, uint64_t flags, sd_json_variant **ret);
 
 /* Bus management */
 
@@ -400,7 +310,7 @@ int sd_bus_query_sender_creds(sd_bus_message *m, uint64_t mask, sd_bus_creds **c
 int sd_bus_query_sender_privilege(sd_bus_message *m, int capability);
 
 int sd_bus_match_signal(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t match_callback, sd_bus_message_handler_t add_callback, void *userdata);
+int sd_bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t match_callback, sd_bus_message_handler_t install_callback, void *userdata);
 
 /* Credential handling */
 
@@ -464,8 +374,8 @@ int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_
 int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_move(sd_bus_error *dest, sd_bus_error *e);
-int sd_bus_error_is_set(const sd_bus_error *e);
-int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
+_sd_pure_ int sd_bus_error_is_set(const sd_bus_error *e);
+_sd_pure_ int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
 int sd_bus_error_has_names_sentinel(const sd_bus_error *e, ...) _sd_sentinel_;
 #define sd_bus_error_has_names(e, ...) sd_bus_error_has_names_sentinel(e, __VA_ARGS__, NULL)
 

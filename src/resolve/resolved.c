@@ -1,24 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "capability-util.h"
 #include "daemon-util.h"
+#include "label-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "resolved-bus.h"
-#include "resolved-conf.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
-#include "selinux-util.h"
 #include "service-util.h"
-#include "signal-util.h"
 #include "user-util.h"
 
 static int run(int argc, char *argv[]) {
@@ -85,7 +83,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to drop remaining caps: %m");
 
-        notify_stop = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_stop = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         r = sd_event_loop(m->event);
         if (r < 0)

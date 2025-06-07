@@ -34,6 +34,7 @@ hwdb_files_test = files(
         '70-mouse.hwdb',
         '70-pda.hwdb',
         '70-pointingstick.hwdb',
+        '70-software-radio.hwdb',
         '70-sound-card.hwdb',
         '70-touchpad.hwdb',
         '80-ieee1394-unit-function.hwdb')
@@ -80,4 +81,4 @@ run_target(
 
 run_target(
         'update-hwdb-autosuspend',
-        command : [update_hwdb_autosuspend_sh, project_source_root])
+        command : [update_hwdb_autosuspend_sh, meson.project_source_root()])

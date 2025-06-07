@@ -5,14 +5,15 @@
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  */
 
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "errno-util.h"
 #include "fd-util.h"
-#include "mkdir.h"
+#include "label-util.h"
+#include "log.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "selinux-util.h"
 #include "terminal-util.h"
 #include "udev-config.h"
 #include "udev-manager.h"
@@ -50,10 +51,6 @@ int run_udevd(int argc, char *argv[]) {
         r = RET_NERRNO(mkdir("/run/udev", 0755));
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
-
-        r = manager_init(manager);
-        if (r < 0)
-                return r;
 
         if (arg_daemonize) {
                 pid_t pid;

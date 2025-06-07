@@ -1,20 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <linux/fib_rules.h>
 #include <linux/if_addrlabel.h>
 #include <linux/if_bridge.h>
 #include <linux/nexthop.h>
-#include <stdbool.h>
-#include <unistd.h>
 
 #include "sd-netlink.h"
 
-#include "format-util.h"
+#include "in-addr-util.h"
 #include "netlink-internal.h"
-#include "netlink-types.h"
-#include "netlink-util.h"
-#include "socket-util.h"
 
 static bool rtnl_message_type_is_neigh(uint16_t type) {
         return IN_SET(type, RTM_NEWNEIGH, RTM_GETNEIGH, RTM_DELNEIGH);
@@ -136,8 +130,6 @@ DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_index, ifindex, int);
 DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_family, family, int);
 DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(addr, struct ifaddrmsg, ifa_family, ifa_prefixlen, prefixlen, uint8_t);
 DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_prefixlen, prefixlen, uint8_t);
-DEFINE_RTNL_MESSAGE_ADDR_SETTER(ifa_flags, flags, uint8_t);
-DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_flags, flags, uint8_t);
 DEFINE_RTNL_MESSAGE_ADDR_SETTER(ifa_scope, scope, uint8_t);
 DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_scope, scope, uint8_t);
 
@@ -245,12 +237,12 @@ int sd_rtnl_message_new_route(
                       IN_SET(family, AF_INET, AF_INET6), -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
+        r = message_new(rtnl,
+                        ret,
+                        nlmsg_type,
+                        NLM_F_REQUEST|NLM_F_ACK|(nlmsg_type == RTM_NEWROUTE ? NLM_F_CREATE | NLM_F_APPEND : 0));
         if (r < 0)
                 return r;
-
-        if (nlmsg_type == RTM_NEWROUTE)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_APPEND;
 
         rtm = NLMSG_DATA((*ret)->hdr);
 
@@ -282,12 +274,12 @@ int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
         }
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
+        r = message_new(rtnl,
+                        ret,
+                        nlmsg_type,
+                        NLM_F_REQUEST | NLM_F_ACK | (nlmsg_type == RTM_NEWNEXTHOP ? NLM_F_CREATE | NLM_F_REPLACE : 0));
         if (r < 0)
                 return r;
-
-        if (nlmsg_type == RTM_NEWNEXTHOP)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         nhm = NLMSG_DATA((*ret)->hdr);
 
@@ -312,16 +304,17 @@ int sd_rtnl_message_new_neigh(
         assert_return(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6, AF_BRIDGE), -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
-        if (r < 0)
-                return r;
-
+        uint16_t flags = NLM_F_REQUEST | NLM_F_ACK;
         if (nlmsg_type == RTM_NEWNEIGH) {
                 if (family == AF_BRIDGE)
-                        (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_APPEND;
+                        flags |= NLM_F_CREATE | NLM_F_APPEND;
                 else
-                        (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
+                        flags |= NLM_F_CREATE | NLM_F_REPLACE;
         }
+
+        r = message_new(rtnl, ret, nlmsg_type, flags);
+        if (r < 0)
+                return r;
 
         ndm = NLMSG_DATA((*ret)->hdr);
 
@@ -338,14 +331,15 @@ int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret, uint16_
         assert_return(rtnl_message_type_is_link(nlmsg_type), -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
+        uint16_t flags = NLM_F_REQUEST | NLM_F_ACK;
+        if (nlmsg_type == RTM_NEWLINK && ifindex == 0)
+                flags |= NLM_F_CREATE | NLM_F_EXCL;
+        else if (nlmsg_type == RTM_NEWLINKPROP)
+                flags |= NLM_F_CREATE | NLM_F_EXCL | NLM_F_APPEND;
+
+        r = message_new(rtnl, ret, nlmsg_type, flags);
         if (r < 0)
                 return r;
-
-        if (nlmsg_type == RTM_NEWLINK && ifindex == 0)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
-        else if (nlmsg_type == RTM_NEWLINKPROP)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL | NLM_F_APPEND;
 
         ifi = NLMSG_DATA((*ret)->hdr);
 
@@ -372,7 +366,7 @@ int sd_rtnl_message_new_addr(
                       IN_SET(family, AF_INET, AF_INET6), -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
+        r = message_new(rtnl, ret, nlmsg_type, NLM_F_REQUEST | NLM_F_ACK);
         if (r < 0)
                 return r;
 
@@ -440,12 +434,12 @@ int sd_rtnl_message_new_addrlabel(
         assert_return(rtnl_message_type_is_addrlabel(nlmsg_type), -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
+        r = message_new(rtnl,
+                        ret,
+                        nlmsg_type,
+                        NLM_F_REQUEST | NLM_F_ACK | (nlmsg_type == RTM_NEWADDRLABEL ? NLM_F_CREATE | NLM_F_REPLACE : 0));
         if (r < 0)
                 return r;
-
-        if (nlmsg_type == RTM_NEWADDRLABEL)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         addrlabel = NLMSG_DATA((*ret)->hdr);
 
@@ -467,12 +461,12 @@ int sd_rtnl_message_new_routing_policy_rule(
         assert_return(rtnl_message_type_is_routing_policy_rule(nlmsg_type), -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
+        r = message_new(rtnl,
+                        ret,
+                        nlmsg_type,
+                        NLM_F_REQUEST | NLM_F_ACK | (nlmsg_type == RTM_NEWRULE ? NLM_F_CREATE | NLM_F_EXCL : 0));
         if (r < 0)
                 return r;
-
-        if (nlmsg_type == RTM_NEWRULE)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
 
         frh = NLMSG_DATA((*ret)->hdr);
         frh->family = family;
@@ -494,12 +488,12 @@ int sd_rtnl_message_new_traffic_control(
         assert_return(rtnl_message_type_is_traffic_control(nlmsg_type), -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
+        r = message_new(rtnl,
+                        ret,
+                        nlmsg_type,
+                        NLM_F_REQUEST | NLM_F_ACK | (IN_SET(nlmsg_type, RTM_NEWQDISC, RTM_NEWTCLASS) ? NLM_F_CREATE | NLM_F_REPLACE : 0));
         if (r < 0)
                 return r;
-
-        if (IN_SET(nlmsg_type, RTM_NEWQDISC, RTM_NEWTCLASS))
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         tcm = NLMSG_DATA((*ret)->hdr);
         tcm->tcm_ifindex = ifindex;
@@ -521,12 +515,12 @@ int sd_rtnl_message_new_mdb(
         assert_return(rtnl_message_type_is_mdb(nlmsg_type), -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
+        r = message_new(rtnl,
+                        ret,
+                        nlmsg_type,
+                        NLM_F_REQUEST | NLM_F_ACK | (nlmsg_type == RTM_NEWMDB ? NLM_F_CREATE | NLM_F_REPLACE : 0));
         if (r < 0)
                 return r;
-
-        if (nlmsg_type == RTM_NEWMDB)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         bpm = NLMSG_DATA((*ret)->hdr);
         bpm->family = AF_BRIDGE;
@@ -546,7 +540,7 @@ int sd_rtnl_message_new_nsid(
         assert_return(rtnl_message_type_is_nsid(nlmsg_type), -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = message_new(rtnl, ret, nlmsg_type);
+        r = message_new(rtnl, ret, nlmsg_type, NLM_F_REQUEST | NLM_F_ACK);
         if (r < 0)
                 return r;
 

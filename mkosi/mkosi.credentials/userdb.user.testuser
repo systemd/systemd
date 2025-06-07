@@ -1,0 +1,14 @@
+{
+    "userName": "testuser",
+    "uid": 4711,
+    "disposition": "regular",
+    "enforcePasswordPolicy": false,
+    "memberOf": [
+        "wheel",
+        "systemd-journal"
+    ],
+    "shell": "/bin/bash",
+    "privileged": {
+        "hashedPassword": ["$1$kqp7NF1f$tNnQcshPX53CSfRKTQD0R1"]
+    }
+}

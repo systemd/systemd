@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "alloc-util.h"
@@ -10,6 +9,7 @@
 #include "log.h"
 #include "netlink-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 static const char * const firewall_backend_table[_FW_BACKEND_MAX] = {
         [FW_BACKEND_NONE] = "none",

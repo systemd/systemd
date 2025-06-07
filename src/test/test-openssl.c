@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "hexdecoct.h"
 #include "openssl-util.h"
 #include "tests.h"
 
 TEST(openssl_pkey_from_pem) {
         DEFINE_HEX_PTR(key_ecc, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145726a6e4575424c73496c3972687068777976584e50686a346a426e500a44586e794a304b395579724e6764365335413532542b6f5376746b436a365a726c34685847337741515558706f426c532b7448717452714c35513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_ecc = NULL;
-        assert_se(openssl_pkey_from_pem(key_ecc, key_ecc_len, &pkey_ecc) >= 0);
+        assert_se(openssl_pubkey_from_pem(key_ecc, key_ecc_len, &pkey_ecc) >= 0);
 
         _cleanup_free_ void *x = NULL, *y = NULL;
         size_t x_len, y_len;
@@ -23,7 +22,7 @@ TEST(openssl_pkey_from_pem) {
 
         DEFINE_HEX_PTR(key_rsa, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d494942496a414e42676b71686b6947397730424151454641414f43415138414d49494243674b4341514541795639434950652f505852337a436f63787045300a6a575262546c3568585844436b472f584b79374b6d2f4439584942334b734f5a31436a5937375571372f674359363170697838697552756a73413464503165380a593445336c68556d374a332b6473766b626f4b64553243626d52494c2f6675627771694c4d587a41673342575278747234547545443533527a373634554650640a307a70304b68775231496230444c67772f344e67566f314146763378784b4d6478774d45683567676b73733038326332706c354a504e32587677426f744e6b4d0a5471526c745a4a35355244436170696e7153334577376675646c4e735851357746766c7432377a7637344b585165616d704c59433037584f6761304c676c536b0a79754774586b6a50542f735542544a705374615769674d5a6f714b7479563463515a58436b4a52684459614c47587673504233687a766d5671636e6b47654e540a65774944415141420a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_rsa = NULL;
-        assert_se(openssl_pkey_from_pem(key_rsa, key_rsa_len, &pkey_rsa) >= 0);
+        assert_se(openssl_pubkey_from_pem(key_rsa, key_rsa_len, &pkey_rsa) >= 0);
 
         _cleanup_free_ void *n = NULL, *e = NULL;
         size_t n_len, e_len;
@@ -94,7 +93,7 @@ TEST(invalid) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
 
         DEFINE_HEX_PTR(key, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b7b");
-        assert_se(openssl_pkey_from_pem(key, key_len, &pkey) == -EIO);
+        assert_se(openssl_pubkey_from_pem(key, key_len, &pkey) == -EIO);
         ASSERT_NULL(pkey);
 }
 
@@ -423,7 +422,7 @@ TEST(openssl_cipher) {
                 "32c62bbaeb0decc5c874b8e0148f86475b5bb10a36f7078a75a6f11704c2f06a",
                 /* hex_iv= */ NULL,
                 /* data= */ NULL, /* n_data= */ 0,
-                /* expected= */ NULL);
+                /* hex_expected= */ NULL);
 
         check_cipher(
                 "aes", 128, "cfb",
@@ -451,14 +450,14 @@ TEST(openssl_cipher) {
                 "b8fe4b89f6f25dd58cadceb68c99d508",
                 /* hex_iv= */ NULL,
                 /* data= */ NULL, /* n_data= */ 0,
-                /* expected= */ NULL);
+                /* hex_expected= */ NULL);
 
         check_cipher(
                 "aes", 128, "cfb",
                 "b8fe4b89f6f25dd58cadceb68c99d508",
                 "00000000000000000000000000000000",
                 /* data= */ NULL, /* n_data= */ 0,
-                /* expected= */ NULL);
+                /* hex_expected= */ NULL);
 }
 
 TEST(ecc_ecdh) {

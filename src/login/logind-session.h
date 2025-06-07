@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Session Session;
-typedef enum KillWhom KillWhom;
-
 #include "list.h"
-#include "login-util.h"
-#include "logind-user.h"
+#include "logind-forward.h"
 #include "pidref.h"
-#include "string-util.h"
+#include "time-util.h"
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */
@@ -85,12 +81,12 @@ typedef enum SessionType {
 
 #define SESSION_TYPE_IS_GRAPHICAL(type) IN_SET(type, SESSION_X11, SESSION_WAYLAND, SESSION_MIR)
 
-enum KillWhom {
+typedef enum KillWhom {
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHOM_MAX,
         _KILL_WHOM_INVALID = -EINVAL,
-};
+} KillWhom;
 
 typedef enum TTYValidity {
         TTY_FROM_PAM,
@@ -100,7 +96,7 @@ typedef enum TTYValidity {
         _TTY_VALIDITY_INVALID = -EINVAL,
 } TTYValidity;
 
-struct Session {
+typedef struct Session {
         Manager *manager;
 
         char *id;
@@ -138,10 +134,6 @@ struct Session {
         pid_t deserialized_pid; /* PID deserialized from state file (for verification when pidfd is used) */
         uint32_t audit_id;
 
-        int fifo_fd;
-        char *fifo_path;
-
-        sd_event_source *fifo_event_source;
         sd_event_source *leader_pidfd_event_source;
 
         bool in_gc_queue;
@@ -173,7 +165,7 @@ struct Session {
         LIST_FIELDS(Session, sessions_by_seat);
 
         LIST_FIELDS(Session, gc_queue);
-};
+} Session;
 
 int session_new(Manager *m, const char *id, Session **ret);
 Session* session_free(Session *s);
@@ -194,7 +186,6 @@ void session_set_type(Session *s, SessionType t);
 void session_set_class(Session *s, SessionClass c);
 int session_set_display(Session *s, const char *display);
 int session_set_tty(Session *s, const char *tty);
-int session_create_fifo(Session *s);
 int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error);
 int session_stop(Session *s, bool force);
 int session_finalize(Session *s);
@@ -230,10 +221,5 @@ bool session_job_pending(Session *s);
 
 int session_send_create_reply(Session *s, const sd_bus_error *error);
 
-static inline bool SESSION_IS_SELF(const char *name) {
-        return isempty(name) || streq(name, "self");
-}
-
-static inline bool SESSION_IS_AUTO(const char *name) {
-        return streq_ptr(name, "auto");
-}
+bool session_is_self(const char *name);
+bool session_is_auto(const char *name);

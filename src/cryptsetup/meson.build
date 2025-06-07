@@ -7,13 +7,10 @@ endif
 subdir('cryptsetup-tokens')
 
 systemd_cryptsetup_sources = files(
-        'cryptsetup-keyfile.c',
         'cryptsetup.c',
+        'cryptsetup-keyfile.c',
+        'cryptsetup-pkcs11.c',
 )
-
-if conf.get('HAVE_P11KIT') == 1
-        systemd_cryptsetup_sources += files('cryptsetup-pkcs11.c')
-endif
 
 executables += [
         executable_template + {
@@ -33,6 +30,6 @@ executables += [
 ]
 
 # symlink for backwards compatibility after rename
-meson.add_install_script(sh, '-c',
-                         ln_s.format(bindir / 'systemd-cryptsetup',
-                                     libexecdir / 'systemd-cryptsetup'))
+install_symlink('systemd-cryptsetup',
+                pointing_to : libexecdir_to_bin / 'systemd-cryptsetup',
+                install_dir : libexecdir)

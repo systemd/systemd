@@ -2,7 +2,9 @@
 
 #include "alloc-util.h"
 #include "bus-label.h"
+#include "glyph-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 
@@ -66,14 +68,6 @@ const char* unit_dbus_interface_from_name(const char *name) {
                 return NULL;
 
         return unit_dbus_interface_from_type(t);
-}
-
-const char* unit_type_to_capitalized_string(UnitType t) {
-        const char *di = unit_dbus_interface_from_type(t);
-        if (!di)
-                return NULL;
-
-        return ASSERT_PTR(startswith(di, "org.freedesktop.systemd1."));
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
@@ -221,6 +215,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_RELOAD]                     = "reload",
         [SERVICE_RELOAD_SIGNAL]              = "reload-signal",
         [SERVICE_RELOAD_NOTIFY]              = "reload-notify",
+        [SERVICE_REFRESH_EXTENSIONS]         = "refresh-extensions",
         [SERVICE_STOP]                       = "stop",
         [SERVICE_STOP_WATCHDOG]              = "stop-watchdog",
         [SERVICE_STOP_SIGTERM]               = "stop-sigterm",
@@ -358,20 +353,20 @@ static const char* const job_mode_table[_JOB_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
 
-SpecialGlyph unit_active_state_to_glyph(UnitActiveState state) {
-        static const SpecialGlyph map[_UNIT_ACTIVE_STATE_MAX] = {
-                [UNIT_ACTIVE]       = SPECIAL_GLYPH_BLACK_CIRCLE,
-                [UNIT_RELOADING]    = SPECIAL_GLYPH_CIRCLE_ARROW,
-                [UNIT_REFRESHING]   = SPECIAL_GLYPH_CIRCLE_ARROW,
-                [UNIT_INACTIVE]     = SPECIAL_GLYPH_WHITE_CIRCLE,
-                [UNIT_FAILED]       = SPECIAL_GLYPH_MULTIPLICATION_SIGN,
-                [UNIT_ACTIVATING]   = SPECIAL_GLYPH_BLACK_CIRCLE,
-                [UNIT_DEACTIVATING] = SPECIAL_GLYPH_BLACK_CIRCLE,
-                [UNIT_MAINTENANCE]  = SPECIAL_GLYPH_WHITE_CIRCLE,
+Glyph unit_active_state_to_glyph(UnitActiveState state) {
+        static const Glyph map[_UNIT_ACTIVE_STATE_MAX] = {
+                [UNIT_ACTIVE]       = GLYPH_BLACK_CIRCLE,
+                [UNIT_RELOADING]    = GLYPH_CIRCLE_ARROW,
+                [UNIT_REFRESHING]   = GLYPH_CIRCLE_ARROW,
+                [UNIT_INACTIVE]     = GLYPH_WHITE_CIRCLE,
+                [UNIT_FAILED]       = GLYPH_MULTIPLICATION_SIGN,
+                [UNIT_ACTIVATING]   = GLYPH_BLACK_CIRCLE,
+                [UNIT_DEACTIVATING] = GLYPH_BLACK_CIRCLE,
+                [UNIT_MAINTENANCE]  = GLYPH_WHITE_CIRCLE,
         };
 
         if (state < 0)
-                return _SPECIAL_GLYPH_INVALID;
+                return _GLYPH_INVALID;
 
         assert(state < _UNIT_ACTIVE_STATE_MAX);
         return map[state];

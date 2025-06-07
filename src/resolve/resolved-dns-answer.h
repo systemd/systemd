@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsAnswerItem DnsAnswerItem;
-
-#include "macro.h"
 #include "ordered-set.h"
-#include "resolved-dns-rr.h"
+#include "resolved-forward.h"
 
 /* A simple array of resource records. We keep track of the originating ifindex for each RR where that makes
  * sense, so that we can qualify A and AAAA RRs referring to a local link with the right ifindex.
@@ -29,18 +25,18 @@ typedef enum DnsAnswerFlags {
                                         DNS_ANSWER_SECTION_ADDITIONAL,
 } DnsAnswerFlags;
 
-struct DnsAnswerItem {
+typedef struct DnsAnswerItem {
         unsigned n_ref;
         DnsResourceRecord *rr;
         DnsResourceRecord *rrsig; /* Optionally, also store RRSIG RR that successfully validates this item */
         int ifindex;
         DnsAnswerFlags flags;
-};
+} DnsAnswerItem;
 
-struct DnsAnswer {
+typedef struct DnsAnswer {
         unsigned n_ref;
         OrderedSet *items;
-};
+} DnsAnswer;
 
 DnsAnswer *dns_answer_new(size_t n);
 DnsAnswer *dns_answer_ref(DnsAnswer *a);

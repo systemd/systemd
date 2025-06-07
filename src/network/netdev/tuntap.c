@@ -1,23 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
-#include <netinet/if_ether.h>
+#include <net/if.h>
+#include <net/if_arp.h>
 #include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #include "alloc-util.h"
 #include "daemon-util.h"
 #include "fd-util.h"
-#include "networkd-link.h"
+#include "hashmap.h"
 #include "networkd-manager.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "tuntap.h"
+#include "user-record.h"
 #include "user-util.h"
+#include "userdb.h"
 
 #define TUN_DEV "/dev/net/tun"
 
@@ -175,30 +174,13 @@ static int netdev_create_tuntap(NetDev *netdev) {
                         return log_netdev_error_errno(netdev, errno, "TUNSETQUEUE failed: %m");
         }
 
-        if (t->user_name) {
-                const char *user = t->user_name;
-                uid_t uid;
-
-                r = get_user_creds(&user, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Cannot resolve user name %s: %m", t->user_name);
-
-                if (ioctl(fd, TUNSETOWNER, uid) < 0)
+        if (uid_is_valid(t->uid))
+                if (ioctl(fd, TUNSETOWNER, t->uid) < 0)
                         return log_netdev_error_errno(netdev, errno, "TUNSETOWNER failed: %m");
-        }
 
-        if (t->group_name) {
-                const char *group = t->group_name;
-                gid_t gid;
-
-                r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Cannot resolve group name %s: %m", t->group_name);
-
-                if (ioctl(fd, TUNSETGROUP, gid) < 0)
+        if (gid_is_valid(t->gid))
+                if (ioctl(fd, TUNSETGROUP, t->gid) < 0)
                         return log_netdev_error_errno(netdev, errno, "TUNSETGROUP failed: %m");
-
-        }
 
         if (ioctl(fd, TUNSETPERSIST, 1) < 0)
                 return log_netdev_error_errno(netdev, errno, "TUNSETPERSIST failed: %m");
@@ -226,7 +208,17 @@ static void tuntap_done(NetDev *netdev) {
         t->group_name = mfree(t->group_name);
 }
 
+static void tuntap_init(NetDev *netdev) {
+        TunTap *t = TUNTAP(netdev);
+
+        t->uid = UID_INVALID;
+        t->gid = GID_INVALID;
+}
+
 static int tuntap_verify(NetDev *netdev, const char *filename) {
+        TunTap *t = TUNTAP(netdev);
+        int r;
+
         assert(netdev);
 
         if (netdev->mtu != 0)
@@ -241,12 +233,41 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
                                    "Please set it in the corresponding .network file.",
                                    netdev_kind_to_string(netdev->kind), filename);
 
+        if (t->user_name) {
+                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+
+                r = userdb_by_name(t->user_name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                                   USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC,
+                                   &ur);
+                if (r == -ENOEXEC)
+                        log_netdev_warning_errno(netdev, r, "User %s is not a system user, ignoring.", t->user_name);
+                else if (r < 0)
+                        log_netdev_warning_errno(netdev, r, "Cannot resolve user name %s, ignoring: %m", t->user_name);
+                else
+                        t->uid = ur->uid;
+        }
+
+        if (t->group_name) {
+                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+
+                r = groupdb_by_name(t->group_name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC,
+                                    &gr);
+                if (r == -ENOEXEC)
+                        log_netdev_warning_errno(netdev, r, "Group %s is not a system group, ignoring.", t->group_name);
+                else if (r < 0)
+                        log_netdev_warning_errno(netdev, r, "Cannot resolve group name %s, ignoring: %m", t->group_name);
+                else
+                        t->gid = gr->gid;
+        }
+
         return 0;
 }
 
 const NetDevVTable tun_vtable = {
         .object_size = sizeof(TunTap),
         .sections = NETDEV_COMMON_SECTIONS "Tun\0",
+        .init = tuntap_init,
         .config_verify = tuntap_verify,
         .drop = tuntap_drop,
         .done = tuntap_done,
@@ -258,6 +279,7 @@ const NetDevVTable tun_vtable = {
 const NetDevVTable tap_vtable = {
         .object_size = sizeof(TunTap),
         .sections = NETDEV_COMMON_SECTIONS "Tap\0",
+        .init = tuntap_init,
         .config_verify = tuntap_verify,
         .drop = tuntap_drop,
         .done = tuntap_done,

@@ -6,9 +6,8 @@
 #include "ansi-color.h"
 #include "build.h"
 #include "extract-word.h"
-#include "macro.h"
+#include "log.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "version.h"
 
 const char* const systemd_features =

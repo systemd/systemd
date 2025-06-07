@@ -1,0 +1,183 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+set -o nounset
+
+find "$BUILDDIR" \( -name "*.rpm" -o -name "*.deb" -o -name "*.pkg.tar" -o -name systemd.raw \) -exec cp -t "$OUTPUTDIR" {} \;
+
+if command -v authselect >/dev/null; then
+    # authselect 1.5.0 renamed the minimal profile to the local profile without keeping backwards compat so
+    # let's use the new name if it exists.
+    if [ -d /usr/share/authselect/default/local ]; then
+        PROFILE=local
+    else
+        PROFILE=minimal
+    fi
+
+    authselect select "$PROFILE"
+
+    if authselect list-features "$PROFILE" | grep -q "with-systemd-homed"; then
+        authselect enable-feature with-systemd-homed
+    fi
+fi
+
+# Let tmpfiles.d/systemd-resolve.conf handle the symlink. /etc/resolv.conf might be mounted over so undo that
+# if that's the case.
+mountpoint -q /etc/resolv.conf && umount /etc/resolv.conf
+rm -f /etc/resolv.conf
+
+for f in "$BUILDROOT"/usr/share/*.verity.sig; do
+    jq --join-output '.rootHash' "$f" >"${f%.verity.sig}.roothash"
+done
+
+# We want /var/log/journal to be created on first boot so it can be created with the right chattr settings by
+# systemd-journald.
+rm -rf "$BUILDROOT/var/log/journal"
+
+# Make sure our own nsswitch.conf from the repository is used instead of the distribution's by deleting the
+# distribution's and relying on tmpfiles to put ours in place during boot.
+rm -f /etc/nsswitch.conf
+
+# Remove to make TEST-73-LOCALE pass on Ubuntu.
+rm -f /etc/default/keyboard
+
+# These don't ship proper units with [Install] directives so we have to mask them instead.
+systemctl mask isc-dhcp-server.service
+systemctl mask mdmonitor.service
+
+# Fedora disables the userdb ssh dropin by default, but helpfully leaves it available in
+# the package so that we can just symlink it to a name that will be picked up by systemd-tmpfiles.
+if [[ -f /usr/lib/tmpfiles.d/20-systemd-userdb.conf.example ]]; then
+    ln --symbolic 20-systemd-userdb.conf.example /usr/lib/tmpfiles.d/20-systemd-userdb.conf
+fi
+
+# This is executed inside the chroot so no need to disable any features as the default features will match
+# the kernel's supported features.
+SYSTEMD_REPART_MKFS_OPTIONS_EXT4="" \
+    systemd-repart \
+    --empty=create \
+    --dry-run=no \
+    --size=auto \
+    --offline=true \
+    --root mkosi/mkosi.credentials \
+    --definitions mkosi/keydev.repart \
+    "$OUTPUTDIR/keydev.raw"
+
+can_test_pkcs11() {
+    if ! command -v "softhsm2-util" >/dev/null; then
+        echo "softhsm2-util not available, skipping the PKCS#11 test" >&2
+        return 1
+    fi
+    if ! command -v "pkcs11-tool" >/dev/null; then
+        echo "pkcs11-tool not available, skipping the PKCS#11 test" >&2
+        return 1
+    fi
+    if ! command -v "certtool" >/dev/null; then
+        echo "certtool not available, skipping the PKCS#11 test" >&2
+        return 1
+    fi
+    if ! systemctl --version | grep -q "+P11KIT"; then
+        echo "Support for p11-kit is disabled, skipping the PKCS#11 test" >&2
+        return 1
+    fi
+    if ! systemctl --version | grep -q "+OPENSSL"; then
+        echo "Support for openssl is disabled, skipping the PKCS#11 test" >&2
+        return 1
+    fi
+    if ! systemctl --version | grep -q "+LIBCRYPTSETUP\b"; then
+        echo "Support for libcryptsetup is disabled, skipping the PKCS#11 test" >&2
+        return 1
+    fi
+    if ! systemctl --version | grep -q "+LIBCRYPTSETUP_PLUGINS"; then
+        echo "Support for libcryptsetup plugins is disabled, skipping the PKCS#11 test" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+setup_pkcs11_token() {
+    echo "Setup PKCS#11 token" >&2
+    local P11_MODULE_CONFIGS_DIR P11_MODULE_DIR SOFTHSM_MODULE
+
+    export SOFTHSM2_CONF="/tmp/softhsm2.conf"
+    mkdir -p /usr/lib/softhsm/tokens/
+    cat >$SOFTHSM2_CONF <<EOF
+directories.tokendir = /usr/lib/softhsm/tokens/
+objectstore.backend = file
+slots.removable = false
+slots.mechanisms = ALL
+EOF
+    export GNUTLS_PIN="1234"
+    export GNUTLS_SO_PIN="12345678"
+    softhsm2-util --init-token --free --label "TestToken" --pin "$GNUTLS_PIN" --so-pin "$GNUTLS_SO_PIN"
+
+    if ! P11_MODULE_CONFIGS_DIR=$(pkg-config --variable=p11_module_configs p11-kit-1); then
+        echo "WARNING! Cannot get p11_module_configs from p11-kit-1.pc, assuming /usr/share/p11-kit/modules" >&2
+        P11_MODULE_CONFIGS_DIR="/usr/share/p11-kit/modules"
+    fi
+
+    if ! P11_MODULE_DIR=$(pkg-config --variable=p11_module_path p11-kit-1); then
+        echo "WARNING! Cannot get p11_module_path from p11-kit-1.pc, assuming /usr/lib/pkcs11" >&2
+        P11_MODULE_DIR="/usr/lib/pkcs11"
+    fi
+
+    SOFTHSM_MODULE=$(grep -F 'module:' "$P11_MODULE_CONFIGS_DIR/softhsm2.module"| cut -d ':' -f 2| xargs)
+    if [[ "$SOFTHSM_MODULE" =~ ^[^/] ]]; then
+        SOFTHSM_MODULE="$P11_MODULE_DIR/$SOFTHSM_MODULE"
+    fi
+
+    # RSA #####################################################
+    pkcs11-tool --module "$SOFTHSM_MODULE" --token-label "TestToken" --pin "env:GNUTLS_PIN" --so-pin "env:GNUTLS_SO_PIN" --keypairgen --key-type "RSA:2048" --label "RSATestKey" --usage-decrypt
+
+    certtool --generate-self-signed \
+      --load-privkey="pkcs11:token=TestToken;object=RSATestKey;type=private" \
+      --load-pubkey="pkcs11:token=TestToken;object=RSATestKey;type=public" \
+      --template "mkosi/template.cfg" \
+      --outder --outfile "/tmp/rsa_test.crt"
+
+    pkcs11-tool --module "$SOFTHSM_MODULE" --token-label "TestToken" --pin "env:GNUTLS_PIN" --so-pin "env:GNUTLS_SO_PIN" --write-object "/tmp/rsa_test.crt" --type cert --label "RSATestKey"
+    rm "/tmp/rsa_test.crt"
+
+    # prime256v1 ##############################################
+    pkcs11-tool --module "$SOFTHSM_MODULE" --token-label "TestToken" --pin "env:GNUTLS_PIN" --so-pin "env:GNUTLS_SO_PIN" --keypairgen --key-type "EC:prime256v1" --label "ECTestKey" --usage-derive
+
+    certtool --generate-self-signed \
+      --load-privkey="pkcs11:token=TestToken;object=ECTestKey;type=private" \
+      --load-pubkey="pkcs11:token=TestToken;object=ECTestKey;type=public" \
+      --template "mkosi/template.cfg" \
+      --outder --outfile "/tmp/ec_test.crt"
+
+    pkcs11-tool --module "$SOFTHSM_MODULE" --token-label "TestToken" --pin "env:GNUTLS_PIN" --so-pin "env:GNUTLS_SO_PIN" --write-object "/tmp/ec_test.crt" --type cert --label "ECTestKey"
+    rm "/tmp/ec_test.crt"
+
+    ###########################################################
+    rm "$SOFTHSM2_CONF"
+    unset SOFTHSM2_CONF
+
+    cat >/etc/softhsm2.conf <<EOF
+directories.tokendir = /usr/lib/softhsm/tokens/
+objectstore.backend = file
+slots.removable = false
+slots.mechanisms = ALL
+log.level = INFO
+EOF
+
+    mkdir -p /etc/systemd/system/systemd-cryptsetup@.service.d
+    cat >/etc/systemd/system/systemd-cryptsetup@.service.d/PKCS11.conf <<EOF
+[Unit]
+# Make sure we can start systemd-cryptsetup@empty_pkcs11_auto.service many times
+StartLimitBurst=10
+
+[Service]
+Environment="SOFTHSM2_CONF=/etc/softhsm2.conf"
+Environment="PIN=$GNUTLS_PIN"
+EOF
+
+    unset GNUTLS_PIN
+    unset GNUTLS_SO_PIN
+}
+
+if can_test_pkcs11; then
+    setup_pkcs11_token
+fi

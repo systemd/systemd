@@ -508,8 +508,9 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       <option>--boot</option>.</para>
 
       <para>If the minus sign (<literal>-</literal>) is used, this line failing to run successfully during
-      create (and only create) will not cause the execution of <command>systemd-tmpfiles</command> to return
-      an error.</para>
+      create (and only create) will not cause the execution of
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      to return an error.</para>
 
       <para>For example:
       <programlisting># Modify sysfs but do not fail if we are in a container with a read-only /proc
@@ -595,7 +596,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
 
       <para>This field should generally only reference system users/groups, i.e. users/groups that are
       guaranteed to be resolvable during early boot. If this field references users/groups that only become
-      resolveable during later boot (i.e. after NIS, LDAP or a similar networked directory service become
+      resolvable during later boot (i.e. after NIS, LDAP or a similar networked directory service become
       available), execution of the operations declared by the line will likely fail. Also see <ulink
       url="https://systemd.io/UIDS-GIDS/#notes-on-resolvability-of-user-and-group-names">Notes on
       Resolvability of User and Group Names</ulink> for more information on requirements on system user/group
@@ -877,9 +878,10 @@ e! /var/cache/krb5rcache - - - 0
 </programlisting>
 
       <para>By passing this line to QEMU, the public key of the current user will be encoded in base64, added
-      to a tmpfiles.d line that tells <command>systemd-tmpfiles</command> to decode it into
-      <filename>/root/.ssh/authorized_keys</filename>, encode that line itself in base64 and pass it as a
-      Credential that will be picked up by systemd from SMBIOS on boot.
+      to a tmpfiles.d line that tells
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry> to
+      decode it into <filename>/root/.ssh/authorized_keys</filename>, encode that line itself in base64 and
+      pass it as a Credential that will be picked up by systemd from SMBIOS on boot.
       </para>
     </example>
   </refsect1>

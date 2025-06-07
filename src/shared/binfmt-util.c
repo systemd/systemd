@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <sys/vfs.h>
 
 #include "binfmt-util.h"
@@ -9,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "log.h"
 #include "missing_magic.h"
 #include "stat-util.h"
 

@@ -1,21 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <sys/epoll.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "async.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "dbus-path.h"
 #include "dbus-unit.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "event-util.h"
-#include "fd-util.h"
 #include "glob-util.h"
 #include "inotify-util.h"
-#include "macro.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "path.h"
 #include "path-util.h"
@@ -24,7 +23,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "unit-name.h"
+#include "strv.h"
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
@@ -918,8 +917,8 @@ static void activation_details_path_done(ActivationDetails *details) {
         p->trigger_path_filename = mfree(p->trigger_path_filename);
 }
 
-static void activation_details_path_serialize(ActivationDetails *details, FILE *f) {
-        ActivationDetailsPath *p = ASSERT_PTR(ACTIVATION_DETAILS_PATH(details));
+static void activation_details_path_serialize(const ActivationDetails *details, FILE *f) {
+        const ActivationDetailsPath *p = ASSERT_PTR(ACTIVATION_DETAILS_PATH(details));
 
         assert(f);
 
@@ -950,8 +949,8 @@ static int activation_details_path_deserialize(const char *key, const char *valu
         return 0;
 }
 
-static int activation_details_path_append_env(ActivationDetails *details, char ***strv) {
-        ActivationDetailsPath *p = ASSERT_PTR(ACTIVATION_DETAILS_PATH(details));
+static int activation_details_path_append_env(const ActivationDetails *details, char ***strv) {
+        const ActivationDetailsPath *p = ASSERT_PTR(ACTIVATION_DETAILS_PATH(details));
         char *s;
         int r;
 
@@ -971,8 +970,8 @@ static int activation_details_path_append_env(ActivationDetails *details, char *
         return 1; /* Return the number of variables added to the env block */
 }
 
-static int activation_details_path_append_pair(ActivationDetails *details, char ***strv) {
-        ActivationDetailsPath *p = ASSERT_PTR(ACTIVATION_DETAILS_PATH(details));
+static int activation_details_path_append_pair(const ActivationDetails *details, char ***strv) {
+        const ActivationDetailsPath *p = ASSERT_PTR(ACTIVATION_DETAILS_PATH(details));
         int r;
 
         assert(strv);

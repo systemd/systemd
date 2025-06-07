@@ -86,9 +86,17 @@ node /org/freedesktop/hostname1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HomeURL = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemImageID = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemImageVersion = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HardwareVendor = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HardwareModel = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HardwareSKU = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HardwareVersion = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s FirmwareVersion = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -168,9 +176,17 @@ node /org/freedesktop/hostname1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="HomeURL"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemImageID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemImageVersion"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="HardwareVendor"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HardwareModel"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HardwareSKU"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HardwareVersion"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FirmwareVersion"/>
 
@@ -293,9 +309,17 @@ node /org/freedesktop/hostname1 {
     information is known. It's an unsigned 64bit value, in µs since the UNIX epoch, UTC. If this information
     is not known carries the value 2^64-1, i.e. <constant>UINT64_MAX</constant>.</para>
 
-    <para><varname>HardwareVendor</varname> and <varname>HardwareModel</varname> expose information about the
-    vendor of the hardware of the system. If no such information can be determined these properties are set
-    to empty strings.</para>
+    <para><varname>OperatingSystemImageID</varname> and <varname>OperatingSystemImageVersion</varname> expose
+    the OS image name and version if available, or contain empty strings otherwise. This mostly corresponds
+    to the <varname>IMAGE_ID=</varname> and <varname>IMAGE_VERSION=</varname> fields of the
+    <filename>os-release</filename> file.</para>
+
+    <para><varname>HardwareVendor</varname>, <varname>HardwareModel</varname>, <varname>HardwareSKU</varname>,
+    and <varname>HardwareVersion</varname> expose vendor information about the hardware of the system. The
+    stock keeping unit (SKU) describes a distinct type of hardware for sale, purchase or inventory management.
+    The SKU and version are only available if they deviate from the model and among each other. Thereby the
+    version is more specific and only available if it differs from the model and SKU. If no such information
+    can be determined these properties are set to empty strings.</para>
 
     <para><varname>FirmwareVersion</varname> and <varname>FirmwareVendor</varname> expose information about
     the system's firmware, i.e. a version string and a vendor name. If no such information can be determined
@@ -460,7 +484,9 @@ node /org/freedesktop/hostname1 {
       <varname>FirmwareDate</varname> were added in version 253.</para>
       <para><varname>MachineID</varname>, <varname>BootID</varname> and
       <varname>VSockCID</varname> were added in version 256.</para>
-      <para><varname>ChassisAssetTag</varname> was added in version 258.</para>
+      <para><varname>ChassisAssetTag</varname>, <varname>OperatingSystemImageID</varname>,
+      <varname>OperatingSystemImageVersion</varname>, <varname>HardwareSKU</varname>, and
+      <varname>HardwareVersion</varname> were added in version 258.</para>
     </refsect2>
   </refsect1>
 

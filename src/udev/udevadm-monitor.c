@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 
 #include "sd-device.h"
@@ -10,11 +9,9 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
 #include "set.h"
-#include "signal-util.h"
 #include "static-destruct.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -66,7 +63,7 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         const char *subsystem, *devtype, *tag;
         int r;
 
-        r = device_monitor_new_full(&monitor, sender, -1);
+        r = device_monitor_new_full(&monitor, sender, -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to create netlink socket: %m");
 

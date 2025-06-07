@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdio.h>
-
-#include "sd-json.h"
-
-typedef struct UdevEvent UdevEvent;
+#include "udev-forward.h"
 
 void event_cache_written_sysattr(UdevEvent *event, const char *attr, const char *value);
 void event_cache_written_sysctl(UdevEvent *event, const char *attr, const char *value);

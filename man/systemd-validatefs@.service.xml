@@ -1,0 +1,114 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-validatefs_.service" conditional='HAVE_BLKID'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-validatefs@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-validatefs@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-validatefs@.service</refname>
+    <refpurpose>Validate File System Mount Constraint Data</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-validatefs@.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-validatefs</filename> <optional><replaceable>DEVICE</replaceable></optional></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-validatefs@.service</filename> is a system service template that can be
+    instantiated for newly established mount points. It reads file system mount constraint data from the file
+    system, and ensures the mount runtime setup matches it. If it doesn't the service fails, which effects an
+    immediate reboot.</para>
+
+    <para>This functionality is supposed to ensure that trusted file systems cannot be used in a different
+    context then what they were intended for. More specifically: in an
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    based environment the file systems to mount are largely auto-discovered based on (unprotected) GPT
+    partition table data. The mount constraint information can be used to validate the GPT partition data,
+    based on the (protected) file system contents.</para>
+
+    <para>Specifically, the mount constraints are encoded in the following extended attributes on the root
+    inode of the file systems:</para>
+
+    <orderedlist>
+      <listitem><para><varname>user.validatefs.mount_point</varname>: this extended attribute shall contain
+      one or more absolute, normalized paths, separated by NUL bytes. If set and the specified file system is
+      mounted to a location not matching any of the listed paths the validation check will
+      fail.</para></listitem>
+
+      <listitem><para><varname>user.validatefs.gpt_label</varname>: this extended attribute may contain one
+      or more free-form strings, separated by NUL bytes. If set, all backing partitions of the file system
+      are checked against this list, and if any backing partition's label is not listed, the validation will
+      fail. Note that there may be multiple backing partition in case of Verity setups, which combines a data
+      and a hash partition.</para></listitem>
+
+      <listitem><para><varname>user.validatefs.gpt_type_uuid</varname>: this extended attribute may contain
+      one or more GPT partition type UUIDs, formatted as string, separated by NUL bytes. As above, all
+      backing partitions of the file system are checked against this list, and if none is matching the
+      validation will fail.</para></listitem>
+    </orderedlist>
+
+    <para>The <filename>systemd-validatefs@.service</filename> unit is automatically pulled into the initial
+    transaction by
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for all file systems it discovers and generates mounts
+    for. <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    will do this for all mounts with the <option>x-systemd.validatefs</option> mount option in
+    <filename>/etc/fstab</filename>.</para>
+
+    <para>The
+    <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> tool
+    generates these extended attributes automatically for the file systems it puts together, which may be
+    controlled with the <varname>AddValidateFS=</varname> configuration option.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The <filename>/usr/lib/systemd/system-validatefs</filename> executable may also be invoked from the
+    command line, where it expects a path to a mount and the following options:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--root=</option></term>
+
+        <listitem><para>Takes an absolute path or the special string <literal>auto</literal>. The specified
+        path is removed as prefix from the specified mount point argument before the validation. If set to
+        <literal>auto</literal> defaults to unspecified on the host and <filename>/sysroot/</filename> when
+        run in initrd context, in order to validate the mount constraint data relative to the future file
+        system root.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "devnum-util.h"
 #include "hibernate-resume-config.h"
@@ -14,7 +14,6 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "static-destruct.h"
-#include "terminal-util.h"
 
 static HibernateInfo arg_info = {};
 static bool arg_clear = false;
@@ -172,11 +171,10 @@ static int run(int argc, char *argv[]) {
 
         /* The write shall not return if a resume takes place. */
         r = write_resume_config(st.st_rdev, arg_info.offset, arg_info.device);
-        log_full_errno(r < 0 ? LOG_ERR : LOG_DEBUG,
+        log_full_errno(r < 0 || arg_info.efi ? LOG_WARNING : LOG_INFO,
                        r < 0 ? r : SYNTHETIC_ERRNO(ENOENT),
                        "Unable to resume from device '%s' (" DEVNUM_FORMAT_STR ") offset %" PRIu64 ", continuing boot process.",
                        arg_info.device, DEVNUM_FORMAT_VAL(st.st_rdev), arg_info.offset);
-
         return r;
 }
 

@@ -18,18 +18,14 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-
-#include "sd-dhcp-client-id.h"
-
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
+struct in_addr;
+struct in6_addr;
+
+typedef struct sd_dhcp_client_id sd_dhcp_client_id;
 typedef struct sd_dhcp_lease sd_dhcp_lease;
 typedef struct sd_dhcp_route sd_dhcp_route;
 typedef struct sd_dns_resolver sd_dns_resolver;

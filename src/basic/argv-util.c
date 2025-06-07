@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sched.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
-#include <unistd.h>
 
 #include "argv-util.h"
 #include "capability-util.h"
 #include "errno-util.h"
+#include "log.h"
 #include "missing_sched.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -17,6 +17,16 @@
 
 int saved_argc = 0;
 char **saved_argv = NULL;
+
+void save_argc_argv(int argc, char **argv) {
+        /* Protect against CVE-2021-4034 style attacks */
+        assert_se(argc > 0);
+        assert_se(argv);
+        assert_se(argv[0]);
+
+        saved_argc = argc;
+        saved_argv = argv;
+}
 
 bool invoked_as(char *argv[], const char *token) {
         if (!argv || isempty(argv[0]))

@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "format-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 #define PROGRESS_PREFIX "test:"
 

@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
-#include <linux/sockios.h>
-#include <sys/ioctl.h>
-
 #include "sd-event.h"
 #include "sd-id128.h"
 #include "sd-lldp-tx.h"
@@ -11,6 +7,7 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "network-common.h"
 #include "random-util.h"

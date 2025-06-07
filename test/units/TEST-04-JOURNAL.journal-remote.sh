@@ -272,3 +272,41 @@ EOF
     rm /run/systemd/journal-upload.conf.d/99-test.conf
     rm /run/systemd/journal-remote.conf.d/99-test.conf
 done
+
+# Let's test sending data with custom headers
+echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
+journalctl --sync
+
+cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
+[Remote]
+SplitMode=host
+ServerKeyFile=/run/systemd/remote-pki/server.key
+ServerCertificateFile=/run/systemd/remote-pki/server.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+
+cat >/run/systemd/journal-upload.conf.d/99-test.conf <<EOF
+[Upload]
+URL=https://localhost:19532
+Header=TestHeader: TestValue
+ServerKeyFile=/run/systemd/remote-pki/client.key
+ServerCertificateFile=/run/systemd/remote-pki/client.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+
+systemd-analyze cat-config systemd/journal-remote.conf
+systemd-analyze cat-config systemd/journal-upload.conf
+
+systemctl restart systemd-journal-remote.socket
+systemctl restart systemd-journal-upload
+timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
+systemctl status systemd-journal-{remote,upload}
+
+# It may take a bit until the whole journal is transferred
+timeout 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
+
+systemctl stop systemd-journal-upload
+systemctl stop systemd-journal-remote.{socket,service}
+rm -rf /var/log/journal/remote/*
+rm /run/systemd/journal-upload.conf.d/99-test.conf
+rm /run/systemd/journal-remote.conf.d/99-test.conf

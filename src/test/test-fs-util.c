@@ -1,29 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/file.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "copy.h"
-#include "dirent-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
-#include "user-util.h"
 #include "virt.h"
 
 static const char *arg_test_dir = NULL;
@@ -610,7 +609,7 @@ TEST(openat_report_new) {
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         bool b;
 
-        ASSERT_OK((tfd = mkdtemp_open(NULL, 0, &t)));
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
 
         fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);

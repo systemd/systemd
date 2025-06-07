@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "errno-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "procfs-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 int main(int argc, char *argv[]) {
         nsec_t nsec;

@@ -1,31 +1,36 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <signal.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <sys/mount.h>
+#include <sys/prctl.h>
 #include <sys/wait.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "coredump-util.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "log.h"
-#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "rlimit-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -219,7 +224,10 @@ static int allocate_scope(void) {
                 return 0;
         }
 
-        r = sd_bus_default_system(&bus);
+        if (geteuid() == 0)
+                r = sd_bus_default_system(&bus);
+        else
+                r = sd_bus_default_user(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
@@ -306,11 +314,7 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if
          * we handle any errors at that point. */
 
-        r = cg_create_everywhere(supported, _CGROUP_MASK_ALL, cgroup_subroot);
-        if (r < 0)
-                return r;
-
-        r = cg_attach_everywhere(supported, cgroup_subroot, 0);
+        r = cg_create_and_attach(cgroup_subroot, 0);
         if (r < 0)
                 return r;
 
@@ -326,6 +330,10 @@ int enter_cgroup_subroot(char **ret_cgroup) {
 
 int enter_cgroup_root(char **ret_cgroup) {
         return enter_cgroup(ret_cgroup, false);
+}
+
+int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len) {
+        return unhexmem_full(hex, strlen_ptr(hex), false, name, name_len);
 }
 
 const char* ci_environment(void) {
@@ -367,4 +375,91 @@ const char* ci_environment(void) {
         }
 
         return (ans = NULL);
+}
+
+int run_test_table(const TestFunc *start, const TestFunc *end) {
+        _cleanup_strv_free_ char **tests = NULL;
+        int r = EXIT_SUCCESS;
+        bool ran = false;
+        const char *e;
+
+        if (!start)
+                return r;
+
+        e = getenv("TESTFUNCS");
+        if (e) {
+                r = strv_split_full(&tests, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse $TESTFUNCS: %m");
+        }
+
+        for (const TestFunc *t = ALIGN_PTR(start); t + 1 <= end; t = ALIGN_PTR(t + 1)) {
+
+                if (tests && !strv_contains(tests, t->name))
+                        continue;
+
+                if (t->sd_booted && sd_booted() <= 0) {
+                        log_info("/* systemd not booted, skipping %s */", t->name);
+                        if (t->has_ret && r == EXIT_SUCCESS)
+                                r = EXIT_TEST_SKIP;
+                } else {
+                        log_info("/* %s */", t->name);
+
+                        if (t->has_ret) {
+                                int r2 = t->f.int_func();
+                                if (r == EXIT_SUCCESS)
+                                        r = r2;
+                        } else
+                                t->f.void_func();
+                }
+
+                ran = true;
+        }
+
+        if (!ran)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No matching tests found.");
+
+        return r;
+}
+
+void test_prepare(int argc, char *argv[], int log_level) {
+        save_argc_argv(argc, argv);
+        test_setup_logging(log_level);
+}
+
+int assert_signal_internal(void) {
+        siginfo_t siginfo = {};
+        int r;
+
+        r = fork();
+        if (r < 0)
+                return -errno;
+
+        if (r == 0) {
+                /* Speed things up by never even attempting to generate a coredump */
+                (void) set_dumpable(SUID_DUMP_DISABLE);
+
+                /* But still set an rlimit just in case */
+                (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(0));
+                return 0;
+        }
+
+        r = wait_for_terminate(r, &siginfo);
+        if (r < 0)
+                return r;
+
+        return siginfo.si_status;
+}
+
+
+void log_test_failed_internal(const char *file, int line, const char *func, const char *format, ...) {
+        va_list ap;
+
+        va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        log_internalv(LOG_ERR, 0, file, line, func, format, ap);
+        REENABLE_WARNING;
+        va_end(ap);
+
+        abort();
 }

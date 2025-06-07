@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "argv-util.h"
 #include "fileio.h"
 #include "initrd-util.h"
 #include "path-lookup.h"
@@ -10,7 +11,7 @@
 #include "special.h"
 #include "strv.h"
 #include "tests.h"
-#include "tmpfile-util.h"
+#include "time-util.h"
 #include "unit-file.h"
 
 TEST(unit_validate_alias_symlink_and_warn) {
@@ -63,7 +64,7 @@ TEST(unit_file_build_name_map) {
 
         STRV_FOREACH(id, ids) {
                  const char *fragment, *name;
-                 _cleanup_set_free_free_ Set *names = NULL;
+                 _cleanup_set_free_ Set *names = NULL;
                  log_info("*** %s ***", *id);
                  r = unit_file_find_fragment(unit_ids,
                                              unit_names,
@@ -158,7 +159,7 @@ TEST(unit_file_remove_from_name_map) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         ASSERT_OK(lookup_paths_init(&lp, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_TEMPORARY_GENERATED, NULL));
-        ASSERT_NOT_NULL(d = strdup(lp.temporary_dir));
+        ASSERT_NOT_NULL((d = strdup(lp.temporary_dir)));
 
         for (size_t i = 0; i < 10; i++)
                 if (test_unit_file_remove_from_name_map_trail(&lp, i))

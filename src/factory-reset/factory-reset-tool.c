@@ -5,10 +5,12 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "build.h"
 #include "device-util.h"
 #include "efivars.h"
+#include "errno-util.h"
 #include "factory-reset.h"
 #include "fs-util.h"
 #include "json-util.h"
@@ -209,12 +211,9 @@ static int verb_cancel(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        if (!is_efi_boot()) {
-                if (!arg_quiet)
-                        log_info("Not an EFI boot, cannot remove FactoryResetMode EFI variable, not cancelling.");
-
-                return 0;
-        }
+        if (!is_efi_boot())
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Not an EFI boot, cannot remove FactoryResetMode EFI variable, not cancelling.");
 
         r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("FactoryResetRequest"), /* value= */ NULL, /* size= */ 0);
         if (r < 0)
@@ -308,7 +307,7 @@ static int vl_method_get_factory_reset_mode(sd_varlink *link, sd_json_variant *p
 
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, /* table= */ NULL, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -324,7 +323,7 @@ static int vl_method_can_request_factory_reset(sd_varlink *link, sd_json_variant
 
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, /* table= */ NULL, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 

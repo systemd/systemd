@@ -3,12 +3,14 @@
 #include <sys/auxv.h>
 
 #include "escape.h"
-#include "hostname-util.h"
+#include "format-util.h"
+#include "hostname-setup.h"
 #include "id128-util.h"
 #include "osc-context.h"
 #include "pidfd-util.h"
 #include "process-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
 

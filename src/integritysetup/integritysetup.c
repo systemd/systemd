@@ -1,23 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "cryptsetup-util.h"
 #include "fileio.h"
-#include "hexdecoct.h"
 #include "integrity-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "memory-util.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static uint32_t arg_activate_flags;

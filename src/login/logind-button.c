@@ -1,16 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/input.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "async.h"
 #include "fd-util.h"
+#include "hashmap.h"
+#include "log.h"
+#include "logind.h"
 #include "logind-button.h"
 #include "logind-dbus.h"
 #include "string-util.h"
@@ -171,7 +174,7 @@ static int long_press_of_power_key_handler(sd_event_source *e, uint64_t usec, vo
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Power key pressed long."),
-                   "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_LONG_PRESS_STR);
+                   LOG_MESSAGE_ID(SD_MESSAGE_POWER_KEY_LONG_PRESS_STR));
 
         manager_handle_action(m, INHIBIT_HANDLE_POWER_KEY, m->handle_power_key_long_press, m->power_key_ignore_inhibited, /* is_edge= */ true, b->seat);
         return 0;
@@ -187,7 +190,7 @@ static int long_press_of_reboot_key_handler(sd_event_source *e, uint64_t usec, v
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Reboot key pressed long."),
-                   "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_LONG_PRESS_STR);
+                   LOG_MESSAGE_ID(SD_MESSAGE_REBOOT_KEY_LONG_PRESS_STR));
 
         manager_handle_action(m, INHIBIT_HANDLE_REBOOT_KEY, m->handle_reboot_key_long_press, m->reboot_key_ignore_inhibited, /* is_edge= */ true, b->seat);
         return 0;
@@ -203,7 +206,7 @@ static int long_press_of_suspend_key_handler(sd_event_source *e, uint64_t usec, 
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Suspend key pressed long."),
-                   "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_LONG_PRESS_STR);
+                   LOG_MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY_LONG_PRESS_STR));
 
         manager_handle_action(m, INHIBIT_HANDLE_SUSPEND_KEY, m->handle_suspend_key_long_press, m->suspend_key_ignore_inhibited, /* is_edge= */ true, b->seat);
         return 0;
@@ -219,7 +222,7 @@ static int long_press_of_hibernate_key_handler(sd_event_source *e, uint64_t usec
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Hibernate key pressed long."),
-                   "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_LONG_PRESS_STR);
+                   LOG_MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY_LONG_PRESS_STR));
 
         manager_handle_action(m, INHIBIT_HANDLE_HIBERNATE_KEY, m->handle_hibernate_key_long_press, m->hibernate_key_ignore_inhibited, /* is_edge= */ true, b->seat);
         return 0;
@@ -272,7 +275,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         } else {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Power key pressed short."),
-                                           "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
+                                           LOG_MESSAGE_ID(SD_MESSAGE_POWER_KEY_STR));
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, /* is_edge= */ true, b->seat);
                         }
                         break;
@@ -289,7 +292,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         } else {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Reboot key pressed short."),
-                                           "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_STR);
+                                           LOG_MESSAGE_ID(SD_MESSAGE_REBOOT_KEY_STR));
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_REBOOT_KEY, b->manager->handle_reboot_key, b->manager->reboot_key_ignore_inhibited, /* is_edge= */ true, b->seat);
                         }
                         break;
@@ -307,7 +310,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         } else {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Suspend key pressed short."),
-                                           "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
+                                           LOG_MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY_STR));
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, /* is_edge= */ true, b->seat);
                         }
                         break;
@@ -319,7 +322,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         } else {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Hibernate key pressed short."),
-                                           "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
+                                           LOG_MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY_STR));
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, /* is_edge= */ true, b->seat);
                         }
                         break;
@@ -353,7 +356,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                 */
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Power key pressed short."),
-                                           "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
+                                           LOG_MESSAGE_ID(SD_MESSAGE_POWER_KEY_STR));
 
                                 b->manager->power_key_long_press_event_source = sd_event_source_unref(b->manager->power_key_long_press_event_source);
 
@@ -365,7 +368,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         if (b->manager->reboot_key_long_press_event_source) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Reboot key pressed short."),
-                                           "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_STR);
+                                           LOG_MESSAGE_ID(SD_MESSAGE_REBOOT_KEY_STR));
 
                                 b->manager->reboot_key_long_press_event_source = sd_event_source_unref(b->manager->reboot_key_long_press_event_source);
 
@@ -377,7 +380,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         if (b->manager->suspend_key_long_press_event_source) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Suspend key pressed short."),
-                                           "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
+                                           LOG_MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY_STR));
 
                                 b->manager->suspend_key_long_press_event_source = sd_event_source_unref(b->manager->suspend_key_long_press_event_source);
 
@@ -388,7 +391,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         if (b->manager->hibernate_key_long_press_event_source) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Hibernate key pressed short."),
-                                           "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
+                                           LOG_MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY_STR));
 
                                 b->manager->hibernate_key_long_press_event_source = sd_event_source_unref(b->manager->hibernate_key_long_press_event_source);
 
@@ -408,17 +411,17 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 if (ev.code == SW_LID) {
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("Lid closed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_LID_CLOSED_STR);
+                                   LOG_MESSAGE_ID(SD_MESSAGE_LID_CLOSED_STR));
 
                         b->lid_closed = true;
                         button_lid_switch_handle_action(b->manager, /* is_edge= */ true, b->seat);
                         button_install_check_event_source(b);
-                        manager_send_changed(b->manager, "LidClosed", NULL);
+                        manager_send_changed(b->manager, "LidClosed");
 
                 } else if (ev.code == SW_DOCK) {
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("System docked."),
-                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_DOCKED_STR);
+                                   LOG_MESSAGE_ID(SD_MESSAGE_SYSTEM_DOCKED_STR));
 
                         b->docked = true;
                 }
@@ -428,16 +431,16 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 if (ev.code == SW_LID) {
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("Lid opened."),
-                                   "MESSAGE_ID=" SD_MESSAGE_LID_OPENED_STR);
+                                   LOG_MESSAGE_ID(SD_MESSAGE_LID_OPENED_STR));
 
                         b->lid_closed = false;
                         b->check_event_source = sd_event_source_unref(b->check_event_source);
-                        manager_send_changed(b->manager, "LidClosed", NULL);
+                        manager_send_changed(b->manager, "LidClosed");
 
                 } else if (ev.code == SW_DOCK) {
                         log_struct(LOG_INFO,
                                    LOG_MESSAGE("System undocked."),
-                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_UNDOCKED_STR);
+                                   LOG_MESSAGE_ID(SD_MESSAGE_SYSTEM_UNDOCKED_STR));
 
                         b->docked = false;
                 }
@@ -616,7 +619,7 @@ int button_check_switches(Button *b) {
 
         b->lid_closed = bitset_get(switches, SW_LID);
         b->docked = bitset_get(switches, SW_DOCK);
-        manager_send_changed(b->manager, "LidClosed", NULL);
+        manager_send_changed(b->manager, "LidClosed");
 
         if (b->lid_closed)
                 button_install_check_event_source(b);

@@ -3,16 +3,12 @@
   Copyright © 2014 Michael Marineau
 ***/
 
-#include <stdarg.h>
-#include <stdio.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
-#include "macro.h"
-#include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"

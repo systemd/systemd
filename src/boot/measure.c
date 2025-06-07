@@ -2,9 +2,8 @@
 
 #if ENABLE_TPM
 
-#include "macro-fundamental.h"
+#include "efi-log.h"
 #include "measure.h"
-#include "memory-util-fundamental.h"
 #include "proto/cc-measurement.h"
 #include "proto/tcg.h"
 #include "tpm2-pcr.h"
@@ -18,10 +17,10 @@ static EFI_STATUS tpm2_measure_to_pcr_and_tagged_event_log(
                 uint32_t event_id,
                 const char16_t *description) {
 
-        _cleanup_free_ struct event {
+        _cleanup_free_ union event {
                 EFI_TCG2_EVENT tcg_event;
                 EFI_TCG2_TAGGED_EVENT tcg_tagged_event;
-        } _packed_ *event = NULL;
+        } *event = NULL;
         size_t desc_len, event_size;
 
         assert(tcg);
@@ -30,21 +29,17 @@ static EFI_STATUS tpm2_measure_to_pcr_and_tagged_event_log(
         /* New style stuff we log as EV_EVENT_TAG with a recognizable event tag. */
 
         desc_len = strsize16(description);
-        event_size = offsetof(EFI_TCG2_EVENT, Event) + offsetof(EFI_TCG2_TAGGED_EVENT, Event) + desc_len;
+        event_size = offsetof(EFI_TCG2_TAGGED_EVENT, Event) + desc_len;
 
         event = xmalloc(event_size);
-        *event = (struct event) {
-                .tcg_event = (EFI_TCG2_EVENT) {
-                        .Size = event_size,
-                        .Header.HeaderSize = sizeof(EFI_TCG2_EVENT_HEADER),
-                        .Header.HeaderVersion = EFI_TCG2_EVENT_HEADER_VERSION,
-                        .Header.PCRIndex = pcrindex,
-                        .Header.EventType = EV_EVENT_TAG,
-                },
-                .tcg_tagged_event = {
-                        .EventId = event_id,
-                        .EventSize = desc_len,
-                },
+        event->tcg_tagged_event = (EFI_TCG2_TAGGED_EVENT) {
+                .Size = event_size,
+                .Header.HeaderSize = sizeof(EFI_TCG2_EVENT_HEADER),
+                .Header.HeaderVersion = EFI_TCG2_EVENT_HEADER_VERSION,
+                .Header.PCRIndex = pcrindex,
+                .Header.EventType = EV_EVENT_TAG,
+                .EventId = event_id,
+                .EventSize = desc_len,
         };
         memcpy(event->tcg_tagged_event.Event, description, desc_len);
 

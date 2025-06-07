@@ -36,11 +36,10 @@ typedef struct {
         uint32_t dwLength;
         uint16_t wRevision;
         uint16_t wCertificateType;
-        uint8_t bCertificate[];
-} WIN_CERTIFICATE;
+} WIN_CERTIFICATE_HEADER;
 
 typedef struct {
-        WIN_CERTIFICATE Hdr;
+        WIN_CERTIFICATE_HEADER Hdr;
         EFI_GUID CertType;
         uint8_t CertData[];
 } WIN_CERTIFICATE_UEFI_GUID;

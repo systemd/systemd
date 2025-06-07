@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "log.h"
 #include "serialize.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -227,14 +227,14 @@ TEST(serialize_item_base64mem) {
 TEST(serialize_string_set) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_set_free_free_ Set *s = NULL;
+        _cleanup_set_free_ Set *s = NULL;
         _cleanup_free_ char *line1 = NULL, *line2 = NULL;
         char *p, *q;
 
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(set_ensure_allocated(&s, &string_hash_ops) >= 0);
+        assert_se(set_ensure_allocated(&s, &string_hash_ops_free) >= 0);
 
         assert_se(serialize_string_set(f, "a", s) == 0);
 

@@ -21,9 +21,10 @@ available functionality:
    change these flags for an already set up build tree, too, with "meson
    configure -C build -D…".)
 
-2. Use `./test/run-integration-tests.sh` to run the full integration test
-   suite. This will build OS images with a number of integration tests and run
-   them using `systemd-nspawn` and `qemu`. Requires root.
+2. Run the full integration test suite as described in
+   [`test/integration-tests/README.md`](https://github.com/systemd/systemd/blob/main/test/integration-tests/README.md).
+   This will build OS images with a number of integration tests and run them
+   using `systemd-nspawn` and `qemu`. Requires root.
 
 3. Use `./coccinelle/run-coccinelle.sh` to run all
    [Coccinelle](http://coccinelle.lip6.fr/) semantic patch scripts we ship. The

@@ -3,9 +3,7 @@
   Copyright © 2008 Alan Jenkins <alan.christopher.jenkins@googlemail.com>
 ***/
 
-#include <errno.h>
 #include <fnmatch.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -18,9 +16,9 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "hwdb-internal.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "string-util.h"
-#include "time-util.h"
 
 struct linebuf {
         char bytes[LINE_MAX];

@@ -7,6 +7,11 @@ endif
 systemd_importd_sources = files(
         'importd.c',
 )
+systemd_importd_extract_sources = files(
+        'import-common.c',
+        'import-compress.c',
+        'qcow2-util.c',
+)
 
 systemd_pull_sources = files(
         'pull.c',
@@ -33,94 +38,65 @@ systemd_export_sources = files(
         'export-raw.c',
 )
 
-importd_common_sources = files(
-        'import-common.c',
-        'import-compress.c',
-        'qcow2-util.c',
-)
-
-lib_import_common = static_library(
-        'import-common',
-        sources : importd_common_sources,
-        include_directories : includes,
-        dependencies : [
-                libbzip2,
-                libxz,
-                libz,
-                userspace,
-        ],
-        build_by_default : false)
-
-common_libs = [
-        lib_import_common,
-        libshared,
-]
-
 common_deps = [
         libbzip2,
         libcurl,
         libxz,
         libz,
+        libzstd,
 ]
 
 executables += [
         libexec_template + {
                 'name' : 'systemd-importd',
                 'dbus' : true,
-                'conditions' : ['ENABLE_IMPORTD'],
-                'sources' : systemd_importd_sources,
-                'dependencies' : threads,
+                'sources' : systemd_importd_sources + systemd_importd_extract_sources,
+                'extract' : systemd_importd_extract_sources,
+                'dependencies' : [common_deps, threads],
         },
         libexec_template + {
                 'name' : 'systemd-pull',
                 'public' : true,
-                'conditions' : ['ENABLE_IMPORTD'],
                 'sources' : systemd_pull_sources,
-                'link_with' : common_libs,
+                'objects' : ['systemd-importd'],
                 'dependencies' : common_deps + [
-                        lib_openssl_or_gcrypt,
+                        libopenssl,
                 ],
         },
         libexec_template + {
                 'name' : 'systemd-import',
                 'public' : true,
-                'conditions' : ['ENABLE_IMPORTD'],
                 'sources' : systemd_import_sources,
-                'link_with' : common_libs,
+                'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
         libexec_template + {
                 'name' : 'systemd-import-fs',
                 'public' : true,
-                'conditions' : ['ENABLE_IMPORTD'],
                 'sources' : systemd_import_fs_sources,
-                'link_with' : common_libs,
+                'objects' : ['systemd-importd'],
+                'dependencies' : common_deps,
         },
         libexec_template + {
                 'name' : 'systemd-export',
                 'public' : true,
-                'conditions' : ['ENABLE_IMPORTD'],
                 'sources' : systemd_export_sources,
-                'link_with' : common_libs,
+                'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
         executable_template + {
                 'name' : 'importctl',
                 'public' : true,
-                'conditions' : ['ENABLE_IMPORTD'],
                 'sources' : files('importctl.c'),
         },
         generator_template + {
                 'name' : 'systemd-import-generator',
                 'sources' : files('import-generator.c'),
-                'conditions' : ['ENABLE_IMPORTD'],
         },
         test_template + {
-                'sources' : files(
-                        'test-qcow2.c',
-                        'qcow2-util.c',
-                ),
-                'dependencies' : libz,
+                'sources' : files('test-qcow2.c'),
+                'objects' : ['systemd-importd'],
+                'dependencies' : common_deps,
                 'conditions' : ['HAVE_ZLIB'],
                 'type' : 'manual',
         },

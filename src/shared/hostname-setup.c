@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -13,12 +11,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "proc-cmdline.h"
+#include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -95,7 +94,7 @@ static int acquire_hostname_from_credential(char **ret) {
         return 0;
 }
 
-int read_etc_hostname_stream(FILE *f, char **ret) {
+int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret) {
         int r;
 
         assert(f);
@@ -114,9 +113,19 @@ int read_etc_hostname_stream(FILE *f, char **ret) {
                 if (IN_SET(line[0], '\0', '#'))
                         continue;
 
+                if (substitute_wildcards) {
+                        r = hostname_substitute_wildcards(line);
+                        if (r < 0)
+                                return r;
+                }
+
                 hostname_cleanup(line); /* normalize the hostname */
 
-                if (!hostname_is_valid(line, VALID_HOSTNAME_TRAILING_DOT)) /* check that the hostname we return is valid */
+                /* check that the hostname we return is valid */
+                if (!hostname_is_valid(
+                                    line,
+                                    VALID_HOSTNAME_TRAILING_DOT|
+                                    (substitute_wildcards ? 0 : VALID_HOSTNAME_QUESTION_MARK)))
                         return -EBADMSG;
 
                 *ret = TAKE_PTR(line);
@@ -124,7 +133,7 @@ int read_etc_hostname_stream(FILE *f, char **ret) {
         }
 }
 
-int read_etc_hostname(const char *path, char **ret) {
+int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
 
         assert(ret);
@@ -136,11 +145,13 @@ int read_etc_hostname(const char *path, char **ret) {
         if (!f)
                 return -errno;
 
-        return read_etc_hostname_stream(f, ret);
+        return read_etc_hostname_stream(f, substitute_wildcards, ret);
 }
 
 void hostname_update_source_hint(const char *hostname, HostnameSource source) {
         int r;
+
+        assert(hostname);
 
         /* Why save the value and not just create a flag file? This way we will
          * notice if somebody sets the hostname directly (not going through hostnamed).
@@ -152,7 +163,7 @@ void hostname_update_source_hint(const char *hostname, HostnameSource source) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to create \"/run/systemd/default-hostname\", ignoring: %m");
         } else
-                unlink_or_warn("/run/systemd/default-hostname");
+                (void) unlink_or_warn("/run/systemd/default-hostname");
 }
 
 int hostname_setup(bool really) {
@@ -174,7 +185,7 @@ int hostname_setup(bool really) {
         }
 
         if (!hn) {
-                r = read_etc_hostname(NULL, &hn);
+                r = read_etc_hostname(/* path= */ NULL, /* substitute_wildcards= */ true, &hn);
                 if (r == -ENOENT)
                         enoent = true;
                 else if (r < 0)
@@ -237,3 +248,98 @@ static const char* const hostname_source_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(hostname_source, HostnameSource);
+
+int hostname_substitute_wildcards(char *name) {
+        static const sd_id128_t key = SD_ID128_MAKE(98,10,ad,df,8d,7d,4f,b5,89,1b,4b,56,ac,c2,26,8f);
+        sd_id128_t mid = SD_ID128_NULL;
+        size_t left_bits = 0, counter = 0;
+        uint64_t h = 0;
+        int r;
+
+        assert(name);
+
+        /* Replaces every occurrence of '?' in the specified string with a nibble hashed from
+         * /etc/machine-id. This is supposed to be used on /etc/hostname files that want to automatically
+         * configure a hostname derived from the machine ID in some form.
+         *
+         * Note that this does not directly use the machine ID, because that's not necessarily supposed to be
+         * public information to be broadcast on the network, while the hostname certainly is. */
+
+        for (char *n = name; ; n++) {
+                n = strchr(n, '?');
+                if (!n)
+                        return 0;
+
+                if (left_bits <= 0) {
+                        if (sd_id128_is_null(mid)) {
+                                r = sd_id128_get_machine(&mid);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        struct siphash state;
+                        siphash24_init(&state, key.bytes);
+                        siphash24_compress(&mid, sizeof(mid), &state);
+                        siphash24_compress(&counter, sizeof(counter), &state); /* counter mode */
+                        h = siphash24_finalize(&state);
+                        left_bits = sizeof(h) * 8;
+                        counter++;
+                }
+
+                assert(left_bits >= 4);
+                *n = hexchar(h & 0xf);
+                h >>= 4;
+                left_bits -= 4;
+        }
+}
+
+char* get_default_hostname(void) {
+        int r;
+
+        _cleanup_free_ char *h = get_default_hostname_raw();
+        if (!h)
+                return NULL;
+
+        r = hostname_substitute_wildcards(h);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to substitute wildcards in hostname, falling back to built-in name: %m");
+                return strdup(FALLBACK_HOSTNAME);
+        }
+
+        return TAKE_PTR(h);
+}
+
+int gethostname_full(GetHostnameFlags flags, char **ret) {
+        _cleanup_free_ char *buf = NULL, *fallback = NULL;
+        struct utsname u;
+        const char *s;
+
+        assert(ret);
+
+        assert_se(uname(&u) >= 0);
+
+        s = u.nodename;
+        if (isempty(s) || streq(s, "(none)") ||
+            (!FLAGS_SET(flags, GET_HOSTNAME_ALLOW_LOCALHOST) && is_localhost(s)) ||
+            (FLAGS_SET(flags, GET_HOSTNAME_SHORT) && s[0] == '.')) {
+                if (!FLAGS_SET(flags, GET_HOSTNAME_FALLBACK_DEFAULT))
+                        return -ENXIO;
+
+                s = fallback = get_default_hostname();
+                if (!s)
+                        return -ENOMEM;
+
+                if (FLAGS_SET(flags, GET_HOSTNAME_SHORT) && s[0] == '.')
+                        return -ENXIO;
+        }
+
+        if (FLAGS_SET(flags, GET_HOSTNAME_SHORT))
+                buf = strdupcspn(s, ".");
+        else
+                buf = strdup(s);
+        if (!buf)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}

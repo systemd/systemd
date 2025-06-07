@@ -220,7 +220,7 @@ if rpm.found() and rpmspec.found()
                 test('test-rpm-macros',
                      test_rpm_macros,
                      suite : 'dist',
-                     args : [project_build_root])
+                     args : [meson.project_build_root()])
         endif
 else
       message('Skipping test-rpm-macros since rpm and/or rpmspec are not available')
@@ -232,20 +232,20 @@ if want_tests != 'false' and conf.get('HAVE_DMI') == 1
         udev_dmi_memory_id_test = find_program('udev-dmi-memory-id-test.sh')
         exe = executables_by_name.get('dmi_memory_id')
 
-        if git.found() and fs.is_dir(project_source_root / '.git')
+        if git.found() and fs.is_dir(meson.project_source_root() / '.git')
                 out = run_command(
                         env, '-u', 'GIT_WORK_TREE',
-                        git, '--git-dir=@0@/.git'.format(project_source_root),
+                        git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
                         'ls-files', ':/test/dmidecode-dumps/*.bin',
                         check: true)
         else
                 out = run_command(
-                        sh, '-c', 'cd "$1"; echo test/dmidecode-dumps/*.bin', '_', project_source_root,
+                        sh, '-c', 'cd "$1"; echo test/dmidecode-dumps/*.bin', '_', meson.project_source_root(),
                         check: true)
         endif
 
         foreach p : out.stdout().split()
-                source = project_source_root / p
+                source = meson.project_source_root() / p
                 test('dmidecode_' + fs.stem(p),
                      udev_dmi_memory_id_test,
                      suite : 'udev',
@@ -278,30 +278,68 @@ endif
 ############################################################
 
 if want_tests != 'false'
-        integration_test_wrapper = find_program('integration-test-wrapper.py')
-        integration_tests = []
-        integration_test_template = {
-                'mkosi-args' : [],
-                'timeout' : 1800,
-                'storage' : 'volatile',
-                'priority' : 0,
-                'firmware' : 'linux',
-                'enabled' : true,
-                'configuration' : {
-                        'memory-accounting' : 'no',
-                        'command' : testdata_dir / 'units/%N.sh',
-                        'wants' : 'multi-user.target user@4711.service',
-                        'after' : 'user@4711.service',
-                },
-                'cmdline' : [],
-                'credentials' : [],
-                'qemu-args' : [],
-                'exit-code' : 123,
-                'vm' : false,
-                'coredump-exclude-regex' : '',
-                'sanitizer-exclude-regex' : '',
-                'rtc' : false,
-        }
+        subdir('integration-tests')
+endif
+
+if install_tests
+        if meson.version().version_compare('<1.3.0')
+                if not rsync.found()
+                        error('rsync is required to install the integration test data')
+                endif
+
+                rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
+        endif
+
+        if meson.version().version_compare('>=1.3.0')
+                # Installing symlinks to directories is broken in install_subdir() so we exclude the
+                # standalone directory from install_subdir() and handle it manually.
+                # TODO: Remove when https://github.com/mesonbuild/meson/pull/14471 is available in all
+                # supported distributions.
+                install_subdir('integration-tests',
+                               install_dir : testsdir,
+                               exclude_directories : ['standalone'],
+                               follow_symlinks : false)
+                install_emptydir(testsdir / 'integration-tests/standalone')
+                install_data('integration-tests/standalone/meson.build',
+                             install_dir : testsdir / 'integration-tests/standalone')
+                install_symlink('integration-tests',
+                                pointing_to : '..',
+                                install_dir : testsdir / 'integration-tests/standalone')
+        else
+                meson.add_install_script(sh, '-c',
+                                         rsync_r.format(meson.current_source_dir() / 'integration-tests', testsdir))
+        endif
+
+        foreach integration_test : integration_tests
+                integration_test_unit_env = []
+                integration_test_extra_unit_properties = []
+                integration_test_extra_service_properties = []
+
+                foreach key, value : integration_test['configuration']['env']
+                        integration_test_unit_env += [f'@key@=@value@']
+                endforeach
+
+                foreach key, value : integration_test['configuration']['unit']
+                        integration_test_extra_unit_properties += [f'@key@=@value@']
+                endforeach
+
+                foreach key, value : integration_test['configuration']['service']
+                        integration_test_extra_service_properties += [f'@key@=@value@']
+                endforeach
+
+                integration_test_unit = configure_file(
+                        input : 'test.service.in',
+                        output : '@0@.service'.format(integration_test['name']),
+                        configuration : integration_test['configuration'] + {
+                                'env' : ' '.join(integration_test_unit_env),
+                                'unit' : '\n'.join(integration_test_extra_unit_properties),
+                                'service' : '\n'.join(integration_test_extra_service_properties),
+                        },
+                )
+
+                install_data(integration_test_unit, install_dir : testdata_dir / 'units')
+        endforeach
+
         testdata_subdirs = [
                 'auxv',
                 'journal-data',
@@ -315,185 +353,32 @@ if want_tests != 'false'
                 'test-umount',
                 'test-network',
                 'test-network-generator-conversion',
+                'integration-tests/TEST-07-PID1/TEST-07-PID1.units',
+                'integration-tests/TEST-03-JOBS/TEST-03-JOBS.units',
+                'integration-tests/TEST-04-JOURNAL/TEST-04-JOURNAL.units',
+                'integration-tests/TEST-06-SELINUX/TEST-06-SELINUX.units',
+                'integration-tests/TEST-16-EXTEND-TIMEOUT/TEST-16-EXTEND-TIMEOUT.units',
+                'integration-tests/TEST-23-UNIT-FILE/TEST-23-UNIT-FILE.units',
+                'integration-tests/TEST-30-ONCLOCKCHANGE/TEST-30-ONCLOCKCHANGE.units',
+                'integration-tests/TEST-52-HONORFIRSTSHUTDOWN/TEST-52-HONORFIRSTSHUTDOWN.units',
+                'integration-tests/TEST-63-PATH/TEST-63-PATH.units',
+                'integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units',
+                'integration-tests/TEST-80-NOTIFYACCESS/TEST-80-NOTIFYACCESS.units',
         ]
 
-        foreach dirname : [
-                'TEST-01-BASIC',
-                'TEST-02-UNITTESTS',
-                'TEST-03-JOBS',
-                'TEST-04-JOURNAL',
-                'TEST-05-RLIMITS',
-                'TEST-06-SELINUX',
-                'TEST-07-PID1',
-                'TEST-08-INITRD',
-                'TEST-09-REBOOT',
-                'TEST-13-NSPAWN',
-                'TEST-15-DROPIN',
-                'TEST-16-EXTEND-TIMEOUT',
-                'TEST-17-UDEV',
-                'TEST-18-FAILUREACTION',
-                'TEST-19-CGROUP',
-                'TEST-21-DFUZZER',
-                'TEST-22-TMPFILES',
-                'TEST-23-UNIT-FILE',
-                'TEST-24-CRYPTSETUP',
-                'TEST-25-IMPORT',
-                'TEST-26-SYSTEMCTL',
-                'TEST-29-PORTABLE',
-                'TEST-30-ONCLOCKCHANGE',
-                'TEST-31-DEVICE-ENUMERATION',
-                'TEST-32-OOMPOLICY',
-                'TEST-34-DYNAMICUSERMIGRATE',
-                'TEST-35-LOGIN',
-                'TEST-36-NUMAPOLICY',
-                'TEST-38-FREEZER',
-                'TEST-43-PRIVATEUSER-UNPRIV',
-                'TEST-44-LOG-NAMESPACE',
-                'TEST-45-TIMEDATE',
-                'TEST-46-HOMED',
-                'TEST-50-DISSECT',
-                'TEST-52-HONORFIRSTSHUTDOWN',
-                'TEST-53-ISSUE-16347',
-                'TEST-54-CREDS',
-                'TEST-55-OOMD',
-                'TEST-58-REPART',
-                'TEST-59-RELOADING-RESTART',
-                'TEST-60-MOUNT-RATELIMIT',
-                'TEST-62-RESTRICT-IFACES',
-                'TEST-63-PATH',
-                'TEST-64-UDEV-STORAGE',
-                'TEST-65-ANALYZE',
-                'TEST-66-DEVICE-ISOLATION',
-                'TEST-67-INTEGRITY',
-                'TEST-68-PROPAGATE-EXIT-STATUS',
-                'TEST-69-SHUTDOWN',
-                'TEST-70-TPM2',
-                'TEST-71-HOSTNAME',
-                'TEST-72-SYSUPDATE',
-                'TEST-73-LOCALE',
-                'TEST-74-AUX-UTILS',
-                'TEST-75-RESOLVED',
-                'TEST-76-SYSCTL',
-                'TEST-78-SIGQUEUE',
-                'TEST-79-MEMPRESS',
-                'TEST-80-NOTIFYACCESS',
-                'TEST-81-GENERATORS',
-                'TEST-82-SOFTREBOOT',
-                'TEST-83-BTRFS',
-                'TEST-84-STORAGETM',
-                'TEST-85-NETWORK',
-                'TEST-86-MULTI-PROFILE-UKI',
-                'TEST-87-AUX-UTILS-VM',
-        ]
-                subdir(dirname)
-        endforeach
-
-        foreach integration_test : integration_tests
-                integration_test_args = [
-                        '--meson-source-dir', meson.project_source_root(),
-                        '--meson-build-dir', meson.project_build_root(),
-                        '--name', integration_test['name'],
-                        '--storage', integration_test['storage'],
-                        '--firmware', integration_test['firmware'],
-                        '--exit-code', integration_test['exit-code'].to_string(),
-                        '--coredump-exclude-regex', integration_test['coredump-exclude-regex'],
-                        '--sanitizer-exclude-regex', integration_test['sanitizer-exclude-regex'],
-                ]
-
-                if 'unit' in integration_test
-                        integration_test_unit = integration_test['unit']
-                else
-                        integration_test_unit = configure_file(
-                                input : 'test.service.in',
-                                output : '@0@.service'.format(integration_test['name']),
-                                configuration : integration_test['configuration'],
-                        )
-                endif
-
-                integration_test_args += ['--unit', fs.name(integration_test_unit)]
-                if install_tests
-                        install_data(integration_test_unit, install_dir : testdata_dir / 'units')
-                endif
-
-                if integration_test['vm']
-                        integration_test_args += ['--vm']
-                endif
-
-                if integration_test['rtc']
-                        integration_test_args += ['--rtc']
-                endif
-
-                if not mkosi.found()
-                        continue
-                endif
-
-                integration_test_args += ['--mkosi', mkosi.full_path(), '--']
-
-                if integration_test['cmdline'].length() > 0
-                        integration_test_args += [
-                                '--kernel-command-line-extra=@0@'.format(' '.join(integration_test['cmdline']))
-                        ]
-                endif
-
-                foreach credential : integration_test['credentials']
-                        integration_test_args += ['--credential', credential]
-                endforeach
-
-                if integration_test['qemu-args'].length() > 0
-                        integration_test_args += ['--qemu-args=@0@'.format(' '.join(integration_test['qemu-args']))]
-                endif
-
-                integration_test_args += integration_test['mkosi-args']
-
-                integration_test_env = {}
-
-                if want_integration_tests
-                        integration_test_env += {'SYSTEMD_INTEGRATION_TESTS': '1'}
-                endif
-
-                if not integration_test['enabled']
-                        continue
-                endif
-
-                # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt on every
-                # "ninja -C build". Instead, the mkosi target has to be rebuilt manually before running the
-                # integration tests with mkosi.
-                test(
-                        integration_test['name'],
-                        integration_test_wrapper,
-                        env : integration_test_env,
-                        args : integration_test_args,
-                        timeout : integration_test['timeout'],
-                        priority : integration_test['priority'],
-                        suite : 'integration-tests',
-                )
-        endforeach
-endif
-
-if install_tests
         foreach subdir : testdata_subdirs
                 # install_subdir() before meson 1.3.0 does not handle symlinks correctly (it follows them
                 # instead of copying the symlink) so we use rsync instead.
-                if meson.version().version_compare('<1.3.0')
-                        if not rsync.found()
-                                error('rsync is required to install the integration test data')
-                        endif
-
-                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes --exclude 25-default.link -- "@0@" "${DESTDIR:-}@1@"'
-                        meson.add_install_script(sh, '-c',
-                                                 rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
-                else
+                if meson.version().version_compare('>=1.3.0')
                         install_subdir(subdir,
-                                       exclude_files : ['.gitattributes', '25-default.link'],
+                                       exclude_files : ['.gitattributes'],
                                        install_dir : testdata_dir,
                                        follow_symlinks : false)
+                else
+                        meson.add_install_script(sh, '-c',
+                                                 rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
                 endif
         endforeach
-
-        # test-network/conf/25-default.link is a local symlink that becomes dangling when installed, so we
-        # exclude it and create the correct symlink here.
-        meson.add_install_script(sh, '-c', ln_s.format(networkdir / '99-default.link',
-                                                       testdata_dir / 'test-network/conf/25-default.link'))
 
         install_data(kbd_model_map,
                      install_dir : testdata_dir + '/test-keymap-util')
@@ -503,14 +388,14 @@ if install_tests
                                exclude_files : '.gitattributes',
                                install_dir : testdata_dir)
         endif
-        if conf.get('ENABLE_RESOLVE') == 1
-                install_subdir('test-resolve',
-                               exclude_files : '.gitattributes',
-                               install_dir : testdata_dir)
-        endif
+        install_subdir('test-resolve',
+                       exclude_files : '.gitattributes',
+                       install_dir : testdata_dir)
 
         # The unit tests implemented as shell scripts expect to find testdata/
         # in the directory where they are stored.
-        meson.add_install_script(sh, '-c', ln_s.format(testdata_dir,
-                                                       unittestsdir / 'testdata'))
+        assert(fs.parent(unittestsdir) / 'testdata' == testdata_dir)
+        install_symlink('testdata',
+                        pointing_to : '../testdata',
+                        install_dir : unittestsdir)
 endif

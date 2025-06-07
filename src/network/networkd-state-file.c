@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
 #include <netinet/in.h>
-#include <linux/if.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "sd-dhcp6-lease.h"
 
 #include "alloc-util.h"
-#include "dns-domain.h"
 #include "dns-resolver-internal.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -13,13 +17,14 @@
 #include "network-internal.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-link.h"
-#include "networkd-manager-bus.h"
 #include "networkd-manager.h"
+#include "networkd-manager-bus.h"
 #include "networkd-network.h"
 #include "networkd-ntp.h"
 #include "networkd-state-file.h"
 #include "ordered-set.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 
@@ -315,7 +320,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
                 NDiscDNSSL *a;
 
                 SET_FOREACH(a, link->ndisc_dnssl) {
-                        r = ordered_set_put_strdup(s, NDISC_DNSSL_DOMAIN(a));
+                        r = ordered_set_put_strdup(s, ndisc_dnssl_domain(a));
                         if (r < 0)
                                 return r;
                 }
@@ -671,7 +676,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, U
                 NDiscDNSSL *dd;
 
                 SET_FOREACH(dd, link->ndisc_dnssl)
-                        fputs_with_separator(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
+                        fputs_with_separator(f, ndisc_dnssl_domain(dd), NULL, &space);
         }
 }
 
@@ -947,8 +952,6 @@ static int link_save(Link *link) {
 }
 
 void link_dirty(Link *link) {
-        int r;
-
         assert(link);
         assert(link->manager);
 
@@ -962,10 +965,9 @@ void link_dirty(Link *link) {
         /* Also mark manager dirty as link is dirty */
         link->manager->dirty = true;
 
-        r = set_ensure_put(&link->manager->dirty_links, NULL, link);
-        if (r <= 0)
-                /* Ignore allocation errors and don't take another ref if the link was already dirty */
-                return;
+        if (set_ensure_put(&link->manager->dirty_links, &link_hash_ops, link) <= 0)
+                return; /* Ignore allocation errors and don't take another ref if the link was already dirty */
+
         link_ref(link);
 }
 

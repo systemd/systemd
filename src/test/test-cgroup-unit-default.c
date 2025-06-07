@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-
 #include "cgroup.h"
 #include "manager.h"
 #include "rm-rf.h"

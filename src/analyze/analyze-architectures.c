@@ -2,7 +2,12 @@
 
 #include "analyze.h"
 #include "analyze-architectures.h"
+#include "ansi-color.h"
+#include "architecture.h"
 #include "format-table.h"
+#include "log.h"
+#include "string-util.h"
+#include "strv.h"
 
 static int add_arch(Table *t, Architecture a) {
         const char *c, *color;
@@ -47,30 +52,25 @@ int verb_architectures(int argc, char *argv[], void *userdata) {
 
         (void) table_hide_column_from_display(table, (size_t) 0);
 
-        if (strv_isempty(strv_skip(argv, 1)))
-                for (Architecture a = 0; a < _ARCHITECTURE_MAX; a++) {
-                        r = add_arch(table, a);
-                        if (r < 0)
-                                return r;
-                }
-        else {
-                STRV_FOREACH(as, strv_skip(argv, 1)) {
+        char **args = strv_skip(argv, 1);
+        if (args) {
+                STRV_FOREACH(arg, args) {
                         Architecture a;
 
-                        if (streq(*as, "native"))
+                        if (streq(*arg, "native"))
                                 a = native_architecture();
-                        else if (streq(*as, "uname"))
+                        else if (streq(*arg, "uname"))
                                 a = uname_architecture();
-                        else if (streq(*as, "secondary")) {
+                        else if (streq(*arg, "secondary")) {
 #ifdef ARCHITECTURE_SECONDARY
                                 a = ARCHITECTURE_SECONDARY;
 #else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No secondary architecture.");
 #endif
                         } else
-                                a = architecture_from_string(*as);
+                                a = architecture_from_string(*arg);
                         if (a < 0)
-                                return log_error_errno(a, "Architecture \"%s\" not known.", *as);
+                                return log_error_errno(a, "Architecture \"%s\" not known.", *arg);
 
                         r = add_arch(table, a);
                         if (r < 0)
@@ -78,7 +78,12 @@ int verb_architectures(int argc, char *argv[], void *userdata) {
                 }
 
                 (void) table_set_sort(table, (size_t) 0);
-        }
+        } else
+                for (Architecture a = 0; a < _ARCHITECTURE_MAX; a++) {
+                        r = add_arch(table, a);
+                        if (r < 0)
+                                return r;
+                }
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
         if (r < 0)

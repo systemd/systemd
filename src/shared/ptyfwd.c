@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <signal.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -22,11 +15,13 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "glyph-util.h"
+#include "hostname-setup.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "ptyfwd.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -222,11 +217,11 @@ static RequestOperation look_for_escape(PTYForward *f, const char *buffer, size_
                 case 0x1D: { /* Check for ^] */
                         usec_t nw = now(CLOCK_MONOTONIC);
 
-                        if (f->escape_counter == 0 || nw > f->escape_timestamp + ESCAPE_USEC) {
+                        if (f->escape_counter == 0 || nw > usec_add(f->escape_timestamp, ESCAPE_USEC)) {
                                 f->escape_timestamp = nw;
                                 f->escape_counter = 1;
                         } else {
-                                (f->escape_counter)++;
+                                f->escape_counter++;
 
                                 if (f->escape_counter >= 3)
                                         return REQUEST_EXIT;
@@ -237,7 +232,7 @@ static RequestOperation look_for_escape(PTYForward *f, const char *buffer, size_
 
                 case 'a'...'z':
                         if (f->escape_counter == 2 &&
-                            now(CLOCK_MONOTONIC) <= f->escape_timestamp + ESCAPE_USEC) {
+                            now(CLOCK_MONOTONIC) <= usec_add(f->escape_timestamp, ESCAPE_USEC)) {
                                 f->escape_timestamp = 0;
                                 f->escape_counter = 0;
                                 return REQUEST_HOTKEY_BASE + *p;
@@ -1260,4 +1255,46 @@ int pty_forward_set_title_prefix(PTYForward *f, const char *title_prefix) {
         assert(f);
 
         return free_and_strdup(&f->title_prefix, title_prefix);
+}
+
+int pty_forward_set_window_title(
+                PTYForward *f,
+                Glyph circle,           /* e.g. GLYPH_GREEN_CIRCLE */
+                const char *hostname,   /* Can be NULL, and obtained by gethostname_strict() in that case. */
+                char * const *msg) {
+
+        _cleanup_free_ char *hn = NULL, *dot = NULL, *joined = NULL;
+        int r;
+
+        assert(f);
+
+        if (!shall_set_terminal_title())
+                return 0;
+
+        if (!hostname) {
+                (void) gethostname_strict(&hn);
+                hostname = hn;
+        }
+
+        if (circle >= 0 && emoji_enabled()) {
+                dot = strjoin(glyph(circle), " ");
+                if (!dot)
+                        return -ENOMEM;
+        }
+
+        joined = strv_join(msg, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        r = pty_forward_set_titlef(f, "%s%s%s%s", strempty(dot), joined, hn ? " on " : "", strempty(hn));
+        if (r < 0)
+                return r;
+
+        if (dot) {
+                r = pty_forward_set_title_prefix(f, dot);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }

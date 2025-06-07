@@ -2,14 +2,15 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
-#include "journald-server.h"
+#include "journald-manager.h"
 #include "journald-wall.h"
+#include "log.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "wall.h"
 
-void server_forward_wall(
-                Server *s,
+void manager_forward_wall(
+                Manager *m,
                 int priority,
                 const char *identifier,
                 const char *message,
@@ -19,10 +20,10 @@ void server_forward_wall(
         const char *l;
         int r;
 
-        assert(s);
+        assert(m);
         assert(message);
 
-        if (LOG_PRI(priority) > s->max_level_wall)
+        if (LOG_PRI(priority) > m->max_level_wall)
                 return;
 
         if (ucred) {

@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "btrfs-util.h"
+#include "errno-util.h"
 #include "fs-util.h"
-#include "label.h"
 #include "label-util.h"
-#include "macro.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 

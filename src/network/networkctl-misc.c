@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
+#include "sd-bus.h"
+#include "sd-netlink.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-ifname.h"
+#include "log.h"
 #include "netlink-util.h"
 #include "networkctl.h"
 #include "networkctl-misc.h"
@@ -13,7 +17,7 @@
 #include "parse-util.h"
 #include "polkit-agent.h"
 #include "set.h"
-#include "strv.h"
+#include "string-util.h"
 #include "varlink-util.h"
 
 static int link_up_down_send_message(sd_netlink *rtnl, char *command, int index) {
@@ -288,7 +292,7 @@ int verb_persistent_storage(int argc, char *argv[], void *userdata) {
 
                 fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
+                        return log_error_errno(errno, "Failed to open %s: %m", "/var/lib/systemd/network/");
 
                 r = sd_varlink_push_fd(vl, fd);
                 if (r < 0)

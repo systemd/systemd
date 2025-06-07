@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <linux/capability.h>
 #include <sys/prctl.h>
-#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -18,33 +17,38 @@
 #include "confidential-virt.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
+#include "dbus.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-scope.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
 #include "dbus-util.h"
-#include "dbus.h"
+#include "dynamic-user.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
+#include "glyph-util.h"
+#include "hashmap.h"
 #include "initrd-util.h"
 #include "install.h"
 #include "locale-util.h"
 #include "log.h"
 #include "manager-dump.h"
+#include "manager.h"
 #include "memfd-util.h"
 #include "os-util.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "selinux-access.h"
-#include "stat-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "taint.h"
+#include "unit-name.h"
 #include "user-util.h"
 #include "version.h"
 #include "virt.h"
@@ -1049,7 +1053,7 @@ static int transient_aux_units_from_message(
                 if (r < 0)
                         return r;
 
-                r = transient_unit_from_message(m, message, name, /* unit = */ NULL, error);
+                r = transient_unit_from_message(m, message, name, /* ret_unit = */ NULL, error);
                 if (r < 0)
                         return r;
 
@@ -2073,7 +2077,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        log_info("Queuing reload/restart jobs for marked units%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+        log_info("Queuing reload/restart jobs for marked units%s", glyph(GLYPH_ELLIPSIS));
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         r = sd_bus_message_new_method_return(message, &reply);
@@ -2814,178 +2818,8 @@ static int method_dump_unit_descriptor_store(sd_bus_message *message, void *user
         return method_generic_unit_operation(message, userdata, error, bus_service_method_dump_file_descriptor_store, 0);
 }
 
-static int aux_scope_from_message(Manager *m, sd_bus_message *message, Unit **ret_scope, sd_bus_error *error) {
-        _cleanup_(pidref_done) PidRef sender_pidref = PIDREF_NULL;
-        _cleanup_free_ PidRef *pidrefs = NULL;
-        const char *name;
-        Unit *from, *scope;
-        PidRef *main_pid;
-        CGroupContext *cc;
-        size_t n_pids = 0;
-        uint64_t flags;
-        int r;
-
-        assert(ret_scope);
-
-        r = bus_query_sender_pidref(message, &sender_pidref);
-        if (r < 0)
-                return r;
-
-        from = manager_get_unit_by_pidref(m, &sender_pidref);
-        if (!from)
-                return sd_bus_error_set(error, BUS_ERROR_NO_SUCH_UNIT, "Client not member of any unit.");
-
-        if (!IN_SET(from->type, UNIT_SERVICE, UNIT_SCOPE))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Starting auxiliary scope is supported only for service and scope units, refusing.");
-
-        if (!unit_name_is_valid(from->id, UNIT_NAME_PLAIN))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Auxiliary scope can be started only for non-template service units and scope units, refusing.");
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        if (!unit_name_is_valid(name, UNIT_NAME_PLAIN))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid name \"%s\" for auxiliary scope.", name);
-
-        if (unit_name_to_type(name) != UNIT_SCOPE)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Name \"%s\" of auxiliary scope doesn't have .scope suffix.", name);
-
-        log_unit_warning(from, "D-Bus call StartAuxiliaryScope() has been invoked which is deprecated.");
-        main_pid = unit_main_pid(from);
-
-        r = sd_bus_message_enter_container(message, 'a', "h");
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
-                Unit *unit;
-                int fd;
-
-                r = sd_bus_message_read(message, "h", &fd);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                r = pidref_set_pidfd(&p, fd);
-                if (r < 0) {
-                        log_unit_warning_errno(from, r, "Failed to create process reference from PIDFD, ignoring: %m");
-                        continue;
-                }
-
-                unit = manager_get_unit_by_pidref(m, &p);
-                if (!unit) {
-                        log_unit_warning(from, "Failed to get unit from PIDFD, ignoring.");
-                        continue;
-                }
-
-                if (!streq(unit->id, from->id)) {
-                        log_unit_warning(from, "PID " PID_FMT " is not running in the same service as the calling process, ignoring.", p.pid);
-                        continue;
-                }
-
-                if (pidref_equal(main_pid, &p)) {
-                        log_unit_warning(from, "Main PID cannot be migrated into auxiliary scope, ignoring.");
-                        continue;
-                }
-
-                if (!GREEDY_REALLOC(pidrefs, n_pids+1))
-                        return -ENOMEM;
-
-                pidrefs[n_pids++] = TAKE_PIDREF(p);
-        }
-
-        if (n_pids == 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "No processes can be migrated to auxiliary scope.");
-
-        r = sd_bus_message_exit_container(message);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_read(message, "t", &flags);
-        if (r < 0)
-                return r;
-
-        if (flags != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
-
-        r = manager_load_unit(m, name, NULL, error, &scope);
-        if (r < 0)
-                return r;
-
-        if (!unit_is_pristine(scope))
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
-                                         "Unit %s was already loaded or has a fragment file.", name);
-
-        r = unit_set_slice(scope, UNIT_GET_SLICE(from));
-        if (r < 0)
-                return r;
-
-        cc = unit_get_cgroup_context(scope);
-
-        r = cgroup_context_copy(cc, unit_get_cgroup_context(from));
-        if (r < 0)
-                return r;
-
-        r = unit_make_transient(scope);
-        if (r < 0)
-                return r;
-
-        r = bus_unit_set_properties(scope, message, UNIT_RUNTIME, true, error);
-        if (r < 0)
-                return r;
-
-        FOREACH_ARRAY(p, pidrefs, n_pids) {
-                r = unit_pid_attachable(scope, p, error);
-                if (r < 0)
-                        return r;
-
-                r = unit_watch_pidref(scope, p, /* exclusive= */ false);
-                if (r < 0 && r != -EEXIST)
-                        return r;
-        }
-
-        /* Now load the missing bits of the unit we just created */
-        unit_add_to_load_queue(scope);
-        manager_dispatch_load_queue(m);
-
-        *ret_scope = TAKE_PTR(scope);
-
-        return 1;
-}
-
 static int method_start_aux_scope(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = ASSERT_PTR(userdata);
-        Unit *u = NULL; /* avoid false maybe-uninitialized warning */
-        int r;
-
-        assert(message);
-
-        r = mac_selinux_access_check(message, "start", error);
-        if (r < 0)
-                return r;
-
-        r = bus_verify_manage_units_async(m, message, error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-
-        log_once(LOG_WARNING, "StartAuxiliaryScope() is deprecated because state of resources cannot be "
-                              "migrated between cgroups. Please report this to "
-                              "systemd-devel@lists.freedesktop.org or https://github.com/systemd/systemd/issues/ "
-                              "if you see this message and know the software making use of this functionality.");
-        r = aux_scope_from_message(m, message, &u, error);
-        if (r < 0)
-                return r;
-
-        return bus_unit_queue_job(message, u, JOB_START, JOB_REPLACE, 0, error);
+        return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "StartAuxiliaryScope() method has been removed.");
 }
 
 const sd_bus_vtable bus_manager_vtable[] = {
@@ -3044,7 +2878,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_WRITABLE_PROPERTY("ServiceWatchdogs", "b", bus_property_get_bool, bus_property_set_bool, offsetof(Manager, service_watchdogs), 0),
         SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Manager, cgroup_root), 0),
         SD_BUS_PROPERTY("SystemState", "s", property_get_system_state, 0, 0),
-        SD_BUS_PROPERTY("ExitCode", "y", bus_property_get_unsigned, offsetof(Manager, return_value), 0),
+        SD_BUS_PROPERTY("ExitCode", "y", NULL, offsetof(Manager, return_value), 0),
         SD_BUS_PROPERTY("DefaultTimerAccuracyUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.timer_accuracy_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTimeoutStartUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTimeoutStopUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3056,8 +2890,6 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultStartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("DefaultStartLimitInterval", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("DefaultStartLimitBurst", "u", bus_property_get_unsigned, offsetof(Manager, defaults.start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("DefaultCPUAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.cpu_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("DefaultBlockIOAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.blockio_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultIOAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.io_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultIPAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.ip_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultMemoryAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.memory_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3102,6 +2934,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SoftRebootsCount", "u", bus_property_get_unsigned, offsetof(Manager, soft_reboots_count), SD_BUS_VTABLE_PROPERTY_CONST),
+
+        /* deprecated cgroup v1 property */
+        SD_BUS_PROPERTY("DefaultBlockIOAccounting", "b", bus_property_get_bool_false, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        /* see comment in bus_cgroup_vtable */
+        SD_BUS_PROPERTY("DefaultCPUAccounting", "b", bus_property_get_bool_true, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
 
         SD_BUS_METHOD_WITH_ARGS("GetUnit",
                                 SD_BUS_ARGS("s", name),
@@ -3557,7 +3394,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", name, "ah", pidfds, "t", flags, "a(sv)", properties),
                                 SD_BUS_RESULT("o", job),
                                 method_start_aux_scope,
-                                SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_UNPRIVILEGED),
+                                SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_HIDDEN),
 
         SD_BUS_SIGNAL_WITH_ARGS("UnitNew",
                                 SD_BUS_ARGS("s", id, "o", unit),

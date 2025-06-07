@@ -9,4 +9,4 @@ Before=remote-fs.target
 What=//foo￾bar
 Where=/hoge/with space
 Type=cifs
-Options=rw
+Options=rw,seclabel

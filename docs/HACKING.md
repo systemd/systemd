@@ -39,7 +39,8 @@ chance that your distribution's packaged version of mkosi will be too old.
 Then, you can build, run and test systemd executables as follows:
 
 ```sh
-$ mkosi -f sandbox -- meson setup build
+$ mkosi -f genkey                                  # Generate signing keys once.
+$ mkosi -f sandbox -- meson setup -Dbpf-framework=disabled build # bpftool detection inside mkosi sandbox is broken on Ubuntu Noble and older
 $ mkosi -f sandbox -- meson compile -C build
 $ mkosi -f sandbox -- build/systemctl --version
 $ mkosi -f sandbox -- meson test -C build          # Run the unit tests
@@ -48,7 +49,6 @@ $ mkosi -f sandbox -- meson test -C build          # Run the unit tests
 To build and boot an OS image with the latest systemd installed:
 
 ```sh
-$ mkosi -f genkey                                  # Generate signing keys once.
 $ mkosi -f sandbox -- meson compile -C build mkosi # (re-)build the OS image
 $ mkosi boot                                       # Boot the image with systemd-nspawn.
 $ mkosi vm                                         # Boot the image with qemu.
@@ -64,8 +64,8 @@ $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
 $ git checkout -b <BRANCH>                         # where BRANCH is the name of the branch
 $ $EDITOR src/core/main.c                          # or wherever you'd like to make your changes
-$ mkosi -f sandbox -- meson setup build            # Set up meson
 $ mkosi -f genkey                                  # Generate signing keys once.
+$ mkosi -f sandbox -- meson setup build            # Set up meson
 $ mkosi -f sandbox -- meson compile -C build mkosi # (re-)build the test image
 $ mkosi vm                                         # Boot the image in qemu
 $ git add -p                                       # interactively put together your patch
@@ -86,7 +86,7 @@ not required to write basic patches.
 
 By default, `mkosi` will first build a tools tree and use it build the image and
 provide the environment for `mkosi sandbox`. To disable the tools tree and use
-binaries from your host instead, write the following to `mkosi.local.conf`:
+binaries from your host instead, write the following to `mkosi/mkosi.local.conf`:
 
 ```conf
 [Build]
@@ -309,14 +309,33 @@ To debug systemd-boot in an IDE such as VSCode we can use a launch configuration
 
 [clangd](https://clangd.llvm.org/) is a language server that provides code completion, diagnostics and more
 right in your editor of choice (with the right plugin installed). When using mkosi, we can run clangd in the
-mkosi build container to avoid needing to build systemd on the host machine just to make clangd work.
+mkosi tools tree to avoid needing to install clangd on the host machine.
 
-All that is required is to run `mkosi` once to make sure cached images are available and to modify the path of the
-clangd binary used by your editor to the `mkosi.clangd` script included in the systemd repository. For example, for
-VScode, you'd have to add the following to the VSCode workspace settings of the systemd repository:
+All that is required is to run `mkosi -f sandbox true` once to make sure the tools tree is available and to modify
+the path of the clangd binary used by your editor to the `mkosi.clangd` script included in the systemd repository.
+For example, for VScode, you'd have to add the following to the VSCode workspace settings of the systemd repository:
 
 ```json
 {
-    "clangd.path": "<path-to-systemd-repository>/mkosi.clangd",
+    "clangd.path": "<path-to-systemd-repository>/mkosi/mkosi.clangd",
 }
+```
+
+The script passes any arguments it receives directly to clangd which you can use
+for example to tell clangd where the compilation database can be found using the
+`--compile-commands-dir=` option.
+
+When using clangd, it's recommended to setup the build directory containing the
+compilation database used by clangd to use clang as the compiler as well:
+
+```sh
+$ mkosi sandbox -- env CC=clang CXX=clang++ meson setup build
+```
+
+Additionally, the `gensources` target can be used to make sure all generated
+sources are generated to avoid clangd complaining that these source files don't
+exist.
+
+```sh
+$ mkosi sandbox -- ninja -C build gensources
 ```

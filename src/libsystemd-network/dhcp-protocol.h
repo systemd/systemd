@@ -7,11 +7,10 @@
 
 #include <netinet/ip.h>
 #include <netinet/udp.h>
-#include <stdint.h>
 
 #include "sd-dhcp-protocol.h"
 
-#include "macro.h"
+#include "forward.h"
 #include "sparse-endian.h"
 #include "time-util.h"
 
@@ -19,22 +18,25 @@
  * MIN_V6ONLY_WAIT: The lower boundary for V6ONLY_WAIT. Value: 300 seconds */
 #define MIN_V6ONLY_WAIT_USEC (300U * USEC_PER_SEC)
 
-struct DHCPMessage {
-        uint8_t op;
-        uint8_t htype;
-        uint8_t hlen;
-        uint8_t hops;
-        be32_t xid;
-        be16_t secs;
-        be16_t flags;
-        be32_t ciaddr;
-        be32_t yiaddr;
-        be32_t siaddr;
-        be32_t giaddr;
-        uint8_t chaddr[16];
-        uint8_t sname[64];
-        uint8_t file[128];
+#define DHCP_MESSAGE_HEADER_DEFINITION \
+        uint8_t op;                    \
+        uint8_t htype;                 \
+        uint8_t hlen;                  \
+        uint8_t hops;                  \
+        be32_t xid;                    \
+        be16_t secs;                   \
+        be16_t flags;                  \
+        be32_t ciaddr;                 \
+        be32_t yiaddr;                 \
+        be32_t siaddr;                 \
+        be32_t giaddr;                 \
+        uint8_t chaddr[16];            \
+        uint8_t sname[64];             \
+        uint8_t file[128];             \
         be32_t magic;
+
+struct DHCPMessage {
+        DHCP_MESSAGE_HEADER_DEFINITION;
         uint8_t options[];
 } _packed_;
 

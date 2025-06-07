@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "argv-util.h"
 #include "chattr-util.h"
 #include "iovec-util.h"
 #include "journal-authenticate.h"
@@ -11,6 +12,7 @@
 #include "log.h"
 #include "rm-rf.h"
 #include "tests.h"
+#include "time-util.h"
 
 static bool arg_keep = false;
 

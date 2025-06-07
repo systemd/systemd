@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "hashmap.h"
-#include "user-util.h"
+#include "forward.h"
 
 typedef enum PolkitFlags {
         POLKIT_ALLOW_INTERACTIVE = 1 << 0, /* Allow interactive auth (typically not required, because can be derived from bus message/link automatically) */
@@ -34,6 +33,10 @@ static inline int varlink_verify_polkit_async(sd_varlink *link, sd_bus *bus, con
                 .name = "allowInteractiveAuthentication",        \
                 .type = SD_JSON_VARIANT_BOOLEAN,                 \
         }
+
+/* A dispatch table that only accepts (but ignores) the Polkit field, and refuses everything else. This can
+ * be used wherever methods do not accept any parameters but shall be access controlled via Polkit. */
+extern const sd_json_dispatch_field dispatch_table_polkit_only[];
 
 /* Generates the right Varlink introspection field for the allowInteractiveAuthentication field above. To be used in Varlink IDL definitions. */
 #define VARLINK_DEFINE_POLKIT_INPUT                                     \

@@ -1,10 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <fcntl.h>
-#include <printf.h>
-#include <stddef.h>
-#include <sys/un.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
@@ -21,14 +16,13 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
+#include "log.h"
 #include "memfd-util.h"
 #include "missing_mman.h"
-#include "missing_syscall.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "tmpfile-util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 
@@ -230,7 +224,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         };
         struct msghdr mh = {
                 .msg_name = (struct sockaddr*) &sa.sa,
-                .msg_namelen = SOCKADDR_UN_LEN(sa.un),
+                .msg_namelen = sockaddr_un_len(&sa.un),
         };
         ssize_t k;
         bool have_syslog_identifier = false;

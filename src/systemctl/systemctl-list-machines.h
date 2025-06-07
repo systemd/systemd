@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
 #include "bus-map-properties.h"
-#include "time-util.h"
+#include "forward.h"
 
 int verb_list_machines(int argc, char *argv[], void *userdata);
 

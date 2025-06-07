@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
 #include "list.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef enum ConditionType {
         CONDITION_ARCHITECTURE,
@@ -13,7 +10,7 @@ typedef enum ConditionType {
         CONDITION_VIRTUALIZATION,
         CONDITION_HOST,
         CONDITION_KERNEL_COMMAND_LINE,
-        CONDITION_KERNEL_VERSION,
+        CONDITION_VERSION,
         CONDITION_CREDENTIAL,
         CONDITION_SECURITY,
         CONDITION_CAPABILITY,

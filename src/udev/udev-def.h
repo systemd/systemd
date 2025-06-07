@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <errno.h>
-
 #include "env-util.h"
+#include "udev-forward.h"
 
 #define UDEV_NAME_SIZE   512
 #define UDEV_PATH_SIZE  1024
@@ -40,6 +39,7 @@ typedef enum UdevBuiltinCommand {
         UDEV_BUILTIN_BLKID,
 #endif
         UDEV_BUILTIN_BTRFS,
+        UDEV_BUILTIN_DISSECT_IMAGE,
         UDEV_BUILTIN_FACTORY_RESET,
         UDEV_BUILTIN_HWDB,
         UDEV_BUILTIN_INPUT_ID,
@@ -61,25 +61,27 @@ typedef enum UdevBuiltinCommand {
 
 typedef enum UdevReloadFlags {
 #if HAVE_BLKID
-        UDEV_RELOAD_BUILTIN_BLKID    = 1u << UDEV_BUILTIN_BLKID,
+        UDEV_RELOAD_BUILTIN_BLKID         = 1u << UDEV_BUILTIN_BLKID,
 #endif
-        UDEV_RELOAD_BUILTIN_BTRFS    = 1u << UDEV_BUILTIN_BTRFS,
-        UDEV_RELOAD_BUILTIN_HWDB     = 1u << UDEV_BUILTIN_HWDB,
-        UDEV_RELOAD_BUILTIN_INPUT_ID = 1u << UDEV_BUILTIN_INPUT_ID,
-        UDEV_RELOAD_BUILTIN_KEYBOARD = 1u << UDEV_BUILTIN_KEYBOARD,
+        UDEV_RELOAD_BUILTIN_BTRFS         = 1u << UDEV_BUILTIN_BTRFS,
+        UDEV_RELOAD_BUILTIN_DISSECT_IMAGE = 1u << UDEV_BUILTIN_DISSECT_IMAGE,
+        UDEV_RELOAD_BUILTIN_FACTORY_RESET = 1u << UDEV_BUILTIN_FACTORY_RESET,
+        UDEV_RELOAD_BUILTIN_HWDB          = 1u << UDEV_BUILTIN_HWDB,
+        UDEV_RELOAD_BUILTIN_INPUT_ID      = 1u << UDEV_BUILTIN_INPUT_ID,
+        UDEV_RELOAD_BUILTIN_KEYBOARD      = 1u << UDEV_BUILTIN_KEYBOARD,
 #if HAVE_KMOD
-        UDEV_RELOAD_BUILTIN_KMOD     = 1u << UDEV_BUILTIN_KMOD,
+        UDEV_RELOAD_BUILTIN_KMOD          = 1u << UDEV_BUILTIN_KMOD,
 #endif
-        UDEV_RELOAD_BUILTIN_DRIVER   = 1u << UDEV_BUILTIN_NET_DRIVER,
-        UDEV_RELOAD_BUILTIN_NET_ID   = 1u << UDEV_BUILTIN_NET_ID,
-        UDEV_RELOAD_BUILTIN_NET_LINK = 1u << UDEV_BUILTIN_NET_LINK,
-        UDEV_RELOAD_BUILTIN_PATH_ID  = 1u << UDEV_BUILTIN_PATH_ID,
+        UDEV_RELOAD_BUILTIN_DRIVER        = 1u << UDEV_BUILTIN_NET_DRIVER,
+        UDEV_RELOAD_BUILTIN_NET_ID        = 1u << UDEV_BUILTIN_NET_ID,
+        UDEV_RELOAD_BUILTIN_NET_LINK      = 1u << UDEV_BUILTIN_NET_LINK,
+        UDEV_RELOAD_BUILTIN_PATH_ID       = 1u << UDEV_BUILTIN_PATH_ID,
 #if HAVE_ACL
-        UDEV_RELOAD_BUILTIN_UACCESS  = 1u << UDEV_BUILTIN_UACCESS,
+        UDEV_RELOAD_BUILTIN_UACCESS       = 1u << UDEV_BUILTIN_UACCESS,
 #endif
-        UDEV_RELOAD_BUILTIN_USB_ID   = 1u << UDEV_BUILTIN_USB_ID,
-        UDEV_RELOAD_KILL_WORKERS     = 1u << (_UDEV_BUILTIN_MAX + 0),
-        UDEV_RELOAD_RULES            = 1u << (_UDEV_BUILTIN_MAX + 1),
+        UDEV_RELOAD_BUILTIN_USB_ID        = 1u << UDEV_BUILTIN_USB_ID,
+        UDEV_RELOAD_KILL_WORKERS          = 1u << (_UDEV_BUILTIN_MAX + 0),
+        UDEV_RELOAD_RULES                 = 1u << (_UDEV_BUILTIN_MAX + 1),
 } UdevReloadFlags;
 
 /* udev properties are conceptually close to environment variables. Let's validate names, values, and

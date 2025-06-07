@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
 #include "socket-util.h"
+#include "string-util.h"
 
 DnsQuestion *dns_question_new(size_t n) {
         DnsQuestion *q;
@@ -547,4 +551,13 @@ int dns_question_merge(DnsQuestion *a, DnsQuestion *b, DnsQuestion **ret) {
 
         *ret = TAKE_PTR(k);
         return 0;
+}
+
+bool dns_question_contains_key_type(DnsQuestion *q, uint16_t type) {
+        DnsResourceKey *t;
+        DNS_QUESTION_FOREACH(t, q)
+                if (t->type == type)
+                        return true;
+
+        return false;
 }

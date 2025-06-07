@@ -1,24 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "capability-util.h"
 #include "daemon-util.h"
-#include "firewall-util.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "networkd-conf.h"
-#include "networkd-manager-bus.h"
 #include "networkd-manager.h"
+#include "networkd-manager-bus.h"
 #include "networkd-serialize.h"
 #include "service-util.h"
-#include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -108,7 +104,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Could not start manager: %m");
 
-        notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_message = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         r = sd_event_loop(m->event);
         if (r < 0)

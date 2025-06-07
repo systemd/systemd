@@ -4,7 +4,6 @@
 #include <locale.h>
 
 #include "sd-event.h"
-#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -12,18 +11,18 @@
 #include "discover-image.h"
 #include "env-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "hostname-util.h"
 #include "import-raw.h"
 #include "import-tar.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
 static const char *arg_image_root = NULL;
@@ -133,7 +132,7 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int import_tar(int argc, char *argv[], void *userdata) {
@@ -202,7 +201,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int import_raw(int argc, char *argv[], void *userdata) {

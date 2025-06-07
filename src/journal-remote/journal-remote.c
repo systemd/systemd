@@ -1,48 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stdlib.h>
-#include <sys/prctl.h>
-#include <stdint.h>
 
-#include "sd-daemon.h"
+#include "sd-event.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
-#include "constants.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
 #include "journal-file-util.h"
-#include "journal-remote-write.h"
 #include "journal-remote.h"
-#include "macro.h"
-#include "parse-util.h"
-#include "parse-helpers.h"
-#include "process-util.h"
+#include "journal-remote-write.h"
+#include "log.h"
 #include "socket-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
-#include "strv.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"
 
 #define filename_escape(s) xescape((s), "/ ")
-
-#if HAVE_MICROHTTPD
-MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
-        if (!d)
-                return NULL;
-
-        if (d->daemon)
-                MHD_stop_daemon(d->daemon);
-        sd_event_source_unref(d->io_event);
-        sd_event_source_unref(d->timer_event);
-
-        return mfree(d);
-}
-#endif
 
 static int open_output(RemoteServer *s, Writer *w, const char *host) {
         _cleanup_free_ char *_filename = NULL;
@@ -364,9 +342,7 @@ void journal_remote_server_destroy(RemoteServer *s) {
         if (!s)
                 return;
 
-#if HAVE_MICROHTTPD
-        hashmap_free_with_destructor(s->daemons, MHDDaemonWrapper_free);
-#endif
+        hashmap_free(s->daemons);
 
         for (i = 0; i < MALLOC_ELEMENTSOF(s->sources); i++)
                 remove_source(s, i);

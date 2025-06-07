@@ -2,17 +2,17 @@
 
 #include <sys/mount.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "dns-domain.h"
-#include "env-util.h"
-#include "fs-util.h"
 #include "glyph-util.h"
-#include "hexdecoct.h"
-#include "hostname-util.h"
+#include "hashmap.h"
+#include "hostname-setup.h"
 #include "json-util.h"
 #include "locale-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "percent-util.h"
@@ -20,11 +20,12 @@
 #include "rlimit-util.h"
 #include "sha256.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "user-record.h"
 #include "user-util.h"
-#include "utf8.h"
 
 #define DEFAULT_RATELIMIT_BURST 30
 #define DEFAULT_RATELIMIT_INTERVAL_USEC (1*USEC_PER_MINUTE)
@@ -101,6 +102,11 @@ UserRecord* user_record_new(void) {
         };
 
         return h;
+}
+
+sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags) {
+        return (FLAGS_SET(flags, USER_RECORD_LOG) ? SD_JSON_LOG : 0) |
+                (FLAGS_SET(flags, USER_RECORD_PERMISSIVE) ? SD_JSON_PERMISSIVE : 0);
 }
 
 static void pkcs11_encrypted_key_done(Pkcs11EncryptedKey *k) {
@@ -472,7 +478,7 @@ static int json_dispatch_umask(const char *name, sd_json_variant *variant, sd_js
         if (k > 0777)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "JSON field '%s' outside of valid range 0%s0777.",
-                                strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                strna(name), glyph(GLYPH_ELLIPSIS));
 
         *m = (mode_t) k;
         return 0;
@@ -494,7 +500,7 @@ static int json_dispatch_access_mode(const char *name, sd_json_variant *variant,
         if (k > 07777)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "JSON field '%s' outside of valid range 0%s07777.",
-                                strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                strna(name), glyph(GLYPH_ELLIPSIS));
 
         *m = (mode_t) k;
         return 0;
@@ -574,7 +580,7 @@ static int json_dispatch_tasks_or_memory_max(const char *name, sd_json_variant *
         if (k <= 0 || k >= UINT64_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
-                                strna(name), (uint64_t) 1, special_glyph(SPECIAL_GLYPH_ELLIPSIS), UINT64_MAX-1);
+                                strna(name), (uint64_t) 1, glyph(GLYPH_ELLIPSIS), UINT64_MAX-1);
 
         *limit = k;
         return 0;
@@ -596,7 +602,7 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
                                 strna(name), (uint64_t) CGROUP_WEIGHT_MIN,
-                                special_glyph(SPECIAL_GLYPH_ELLIPSIS), (uint64_t) CGROUP_WEIGHT_MAX);
+                                glyph(GLYPH_ELLIPSIS), (uint64_t) CGROUP_WEIGHT_MAX);
 
         *weight = k;
         return 0;
@@ -982,7 +988,7 @@ static int dispatch_rebalance_weight(const char *name, sd_json_variant *variant,
         else
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "Rebalance weight is out of valid range %" PRIu64 "%s%" PRIu64 ".",
-                                REBALANCE_WEIGHT_MIN, special_glyph(SPECIAL_GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX);
+                                REBALANCE_WEIGHT_MIN, glyph(GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX);
 
         return 0;
 }
@@ -1126,6 +1132,8 @@ int per_machine_id_match(sd_json_variant *ids, sd_json_dispatch_flags_t flags) {
         sd_id128_t mid;
         int r;
 
+        assert(ids);
+
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return json_log(ids, flags, r, "Failed to acquire machine ID: %m");
@@ -1174,6 +1182,8 @@ int per_machine_hostname_match(sd_json_variant *hns, sd_json_dispatch_flags_t fl
         _cleanup_free_ char *hn = NULL;
         int r;
 
+        assert(hns);
+
         r = gethostname_strict(&hn);
         if (r == -ENXIO) {
                 json_log(hns, flags, r, "No hostname set, not matching perMachine hostname record: %m");
@@ -1221,12 +1231,30 @@ int per_machine_match(sd_json_variant *entry, sd_json_dispatch_flags_t flags) {
                         return true;
         }
 
+        m = sd_json_variant_by_key(entry, "matchNotMachineId");
+        if (m) {
+                r = per_machine_id_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return true;
+        }
+
         m = sd_json_variant_by_key(entry, "matchHostname");
         if (m) {
                 r = per_machine_hostname_match(m, flags);
                 if (r < 0)
                         return r;
                 if (r > 0)
+                        return true;
+        }
+
+        m = sd_json_variant_by_key(entry, "matchNotHostname");
+        if (m) {
+                r = per_machine_hostname_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return true;
         }
 
@@ -1237,7 +1265,9 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
 
         static const sd_json_dispatch_field per_machine_dispatch_table[] = {
                 { "matchMachineId",             _SD_JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0              },
+                { "matchNotMachineId",          _SD_JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0              },
                 { "matchHostname",              _SD_JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0              },
+                { "matchNotHostname",           _SD_JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0              },
                 { "blobDirectory",              SD_JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                SD_JSON_STRICT },
                 { "blobManifest",               SD_JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0              },
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },
@@ -1586,6 +1616,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "userName",                   SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,        offsetof(UserRecord, user_name),                     SD_JSON_RELAX  },
                 { "aliases",                    SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,        offsetof(UserRecord, aliases),                       SD_JSON_RELAX  },
                 { "realm",                      SD_JSON_VARIANT_STRING,        json_dispatch_realm,                  offsetof(UserRecord, realm),                         0              },
+                { "uuid",                       SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,               offsetof(UserRecord, uuid),                          0              },
                 { "blobDirectory",              SD_JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                SD_JSON_STRICT },
                 { "blobManifest",               SD_JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0              },
                 { "realName",                   SD_JSON_VARIANT_STRING,        json_dispatch_gecos,                  offsetof(UserRecord, real_name),                     0              },
@@ -2039,7 +2070,7 @@ UserDisposition user_record_disposition(UserRecord *h) {
         if (uid_is_system(h->uid))
                 return USER_SYSTEM;
 
-        if (uid_is_dynamic(h->uid))
+        if (uid_is_dynamic(h->uid) || uid_is_greeter(h->uid))
                 return USER_DYNAMIC;
 
         if (uid_is_container(h->uid))
@@ -2692,13 +2723,13 @@ int user_record_test_password_change_required(UserRecord *h) {
         return change_permitted ? 0 : -EROFS;
 }
 
-int user_record_is_root(const UserRecord *u) {
+bool user_record_is_root(const UserRecord *u) {
         assert(u);
 
         return u->uid == 0 || streq_ptr(u->user_name, "root");
 }
 
-int user_record_is_nobody(const UserRecord *u) {
+bool user_record_is_nobody(const UserRecord *u) {
         assert(u);
 
         return u->uid == UID_NOBODY || STRPTR_IN_SET(u->user_name, NOBODY_USER_NAME, "nobody");
@@ -2731,6 +2762,21 @@ int suitable_blob_filename(const char *name) {
         return filename_is_valid(name) &&
                in_charset(name, URI_UNRESERVED) &&
                name[0] != '.';
+}
+
+bool userdb_match_is_set(const UserDBMatch *match) {
+        if (!match)
+                return false;
+
+        return !strv_isempty(match->fuzzy_names) ||
+                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
+                match->uid_min > 0 ||
+                match->uid_max < UID_INVALID-1;
+}
+
+void userdb_match_done(UserDBMatch *match) {
+        assert(match);
+        strv_free(match->fuzzy_names);
 }
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches) {

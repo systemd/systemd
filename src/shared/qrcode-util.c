@@ -4,6 +4,7 @@
 
 #if HAVE_QRENCODE
 #include <qrencode.h>
+#include <stdio.h>
 
 #include "ansi-color.h"
 #include "dlfcn-util.h"
@@ -13,9 +14,9 @@
 #include "terminal-util.h"
 
 #define ANSI_WHITE_ON_BLACK "\033[40;37;1m"
-#define UNICODE_FULL_BLOCK       u8"█"
-#define UNICODE_LOWER_HALF_BLOCK u8"▄"
-#define UNICODE_UPPER_HALF_BLOCK u8"▀"
+#define UNICODE_FULL_BLOCK       UTF8("█")
+#define UNICODE_LOWER_HALF_BLOCK UTF8("▄")
+#define UNICODE_UPPER_HALF_BLOCK UTF8("▀")
 
 static void *qrcode_dl = NULL;
 
@@ -82,7 +83,7 @@ static void print_border(FILE *output, unsigned width, unsigned row, unsigned co
         }
 }
 
-static void write_qrcode(FILE *output, QRcode *qr, unsigned int row, unsigned int column) {
+static void write_qrcode(FILE *output, QRcode *qr, unsigned row, unsigned column) {
         assert(qr);
 
         if (!output)

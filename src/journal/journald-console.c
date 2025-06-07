@@ -10,11 +10,13 @@
 #include "format-util.h"
 #include "iovec-util.h"
 #include "journald-console.h"
-#include "journald-server.h"
+#include "journald-manager.h"
+#include "log.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 
 static bool prefix_timestamp(void) {
 
@@ -31,8 +33,8 @@ static bool prefix_timestamp(void) {
         return cached_printk_time;
 }
 
-void server_forward_console(
-                Server *s,
+void manager_forward_console(
+                Manager *m,
                 int priority,
                 const char *identifier,
                 const char *message,
@@ -47,10 +49,10 @@ void server_forward_console(
         const char *tty, *color_on = "", *color_off = "";
         int n = 0;
 
-        assert(s);
+        assert(m);
         assert(message);
 
-        if (LOG_PRI(priority) > s->max_level_console)
+        if (LOG_PRI(priority) > m->max_level_console)
                 return;
 
         /* First: timestamp */
@@ -89,7 +91,7 @@ void server_forward_console(
         iovec[n++] = IOVEC_MAKE_STRING(color_off);
         iovec[n++] = IOVEC_MAKE_STRING("\n");
 
-        tty = s->tty_path ?: "/dev/console";
+        tty = m->tty_path ?: "/dev/console";
 
         /* Before you ask: yes, on purpose we open/close the console for each log line we write individually. This is a
          * good strategy to avoid journald getting killed by the kernel's SAK concept (it doesn't fix this entirely,

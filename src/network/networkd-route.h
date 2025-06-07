@@ -1,23 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
 #include "in-addr-util.h"
-#include "networkd-link.h"
+#include "networkd-forward.h"
 #include "networkd-route-metric.h"
 #include "networkd-route-nexthop.h"
 #include "networkd-util.h"
-
-typedef struct Manager Manager;
-typedef struct Network Network;
-typedef struct Request Request;
-typedef struct Route Route;
-typedef struct Wireguard Wireguard;
 
 typedef int (*route_netlink_handler_t)(
                 sd_netlink *rtnl,
@@ -26,7 +14,7 @@ typedef int (*route_netlink_handler_t)(
                 Link *link,
                 Route *route);
 
-struct Route {
+typedef struct Route {
         Manager *manager;
         Network *network;
         Wireguard *wireguard;
@@ -79,7 +67,7 @@ struct Route {
         bool pref_set:1;
         bool gateway_from_dhcp_or_ra:1;
         int gateway_onlink;
-};
+} Route;
 
 void log_route_debug(const Route *route, const char *str, Manager *manager);
 
@@ -96,7 +84,7 @@ int route_new(Route **ret);
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
 int route_dup(const Route *src, const RouteNextHop *nh, Route **ret);
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Request *req, const char *error_msg);
+int route_configure_handler_internal(sd_netlink_message *m, Request *req, Route *route);
 int route_remove(Route *route, Manager *manager);
 int route_remove_and_cancel(Route *route, Manager *manager);
 
@@ -104,7 +92,7 @@ int route_get(Manager *manager, const Route *route, Route **ret);
 bool route_is_bound_to_link(const Route *route, Link *link);
 int route_get_request(Manager *manager, const Route *route, Request **ret);
 
-bool route_can_update(const Route *existing, const Route *requesting);
+bool route_can_update(Manager *manager, const Route *existing, const Route *requesting);
 
 int link_drop_routes(Link *link, bool only_static);
 static inline int link_drop_static_routes(Link *link) {

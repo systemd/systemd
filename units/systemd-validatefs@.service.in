@@ -1,0 +1,23 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Validate File System Mount Constraints of %f
+Documentation=man:systemd-validatefs@.service(8)
+DefaultDependencies=no
+BindsTo=%i.mount
+Conflicts=shutdown.target
+After=%i.mount
+Before=shutdown.target systemd-pcrfs@%i.service systemd-quotacheck@%i.service systemd-growfs@%i.service
+FailureAction=reboot-immediate
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-validatefs --root=auto %f

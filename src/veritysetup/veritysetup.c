@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "cryptsetup-util.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
@@ -14,12 +17,11 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
+#include "strv.h"
 #include "verbs.h"
 
-static char *arg_hash = NULL;
+static char *arg_hash = NULL; /* the hash algorithm */
 static bool arg_superblock = true;
 static int arg_format = 1;
 static uint64_t arg_data_block_size = 4096;
@@ -33,7 +35,9 @@ static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
 static char *arg_fec_what = NULL;
 static uint64_t arg_fec_offset = 0;
 static uint64_t arg_fec_roots = 2;
-static char *arg_root_hash_signature = NULL;
+static void *arg_root_hash_signature = NULL;
+static size_t arg_root_hash_signature_size = 0;
+static bool arg_root_hash_signature_auto = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_salt, freep);
@@ -60,26 +64,52 @@ static int help(void) {
         return 0;
 }
 
-static int save_roothashsig_option(const char *option, bool strict) {
+static int parse_roothashsig_option(const char *option, bool strict) {
+        _cleanup_free_ void *rhs = NULL;
+        size_t rhss = 0;
+        bool set_auto = false;
         int r;
 
-        if (path_is_absolute(option) || startswith(option, "base64:")) {
-                if (!HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY)
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Activation of verity device with signature requested, but cryptsetup does not support crypt_activate_by_signed_key().");
+        assert(option);
 
-                r = free_and_strdup_warn(&arg_root_hash_signature, option);
+        const char *value = startswith(option, "base64:");
+        if (value) {
+                r = unbase64mem(value, &rhs, &rhss);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", option);
 
-                return true;
-        }
+        } else if (path_is_absolute(option)) {
+                r = read_full_file_full(
+                                AT_FDCWD,
+                                option,
+                                /* offset= */ UINT64_MAX,
+                                /* size= */ SIZE_MAX,
+                                READ_FULL_FILE_CONNECT_SOCKET,
+                                /* bind_name= */ NULL,
+                                (char**) &rhs,
+                                &rhss);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read root hash signature: %m");
 
-        if (!strict)
+        } else if (streq(option, "auto"))
+                /* auto → Derive signature from udev property ID_DISSECT_PART_ROOTHASH_SIG */
+                set_auto = true;
+        else if (strict)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "root-hash-signature= expects either full path to signature file or "
+                                       "base64 string encoding signature prefixed by base64:.");
+        else
                 return false;
-        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                               "root-hash-signature= expects either full path to signature file or "
-                               "base64 string encoding signature prefixed by base64:.");
+
+        if (!HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Activation of verity device with signature requested, but cryptsetup does not support crypt_activate_by_signed_key().");
+
+        free_and_replace(arg_root_hash_signature, rhs);
+        arg_root_hash_signature_size = rhss;
+        arg_root_hash_signature_auto = set_auto;
+
+        return true;
 }
 
 static int parse_block_size(const char *t, uint64_t *size) {
@@ -105,7 +135,7 @@ static int parse_options(const char *options) {
         int r;
 
         /* backward compatibility with the obsolete ROOTHASHSIG positional argument */
-        r = save_roothashsig_option(options, /* strict= */ false);
+        r = parse_roothashsig_option(options, /* strict= */ false);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -264,7 +294,7 @@ static int parse_options(const char *options) {
 
                         arg_fec_roots = u;
                 } else if ((val = startswith(word, "root-hash-signature="))) {
-                        r = save_roothashsig_option(val, /* strict= */ true);
+                        r = parse_roothashsig_option(val, /* strict= */ true);
                         if (r < 0)
                                 return r;
 
@@ -277,10 +307,10 @@ static int parse_options(const char *options) {
 
 static int verb_attach(int argc, char *argv[], void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_free_ void *m = NULL;
+        _cleanup_free_ void *rh = NULL;
         struct crypt_params_verity p = {};
         crypt_status_info status;
-        size_t l;
+        size_t rh_size = 0;
         int r;
 
         assert(argc >= 5);
@@ -294,9 +324,47 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         if (!filename_is_valid(volume))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
-        r = unhexmem(root_hash, &m, &l);
+        if (options) {
+                r = parse_options(options);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse options: %m");
+        }
+
+        if (empty_or_dash(root_hash) || streq_ptr(root_hash, "auto"))
+                root_hash = NULL;
+
+        _cleanup_(sd_device_unrefp) sd_device *datadev = NULL;
+        if (!root_hash || arg_root_hash_signature_auto) {
+                r = sd_device_new_from_path(&datadev, data_device);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire udev object for data device '%s': %m", data_device);
+        }
+
+        if (!root_hash) {
+                /* If no literal root hash is specified try to determine it automatically from the
+                 * ID_DISSECT_PART_ROOTHASH udev property. */
+                r = sd_device_get_property_value(ASSERT_PTR(datadev), "ID_DISSECT_PART_ROOTHASH", &root_hash);
+                if (r < 0)
+                        return log_error_errno(r, "No root hash specified, and device doesn't carry ID_DISSECT_PART_ROOTHASH property, cannot determine root hash.");
+        }
+
+        r = unhexmem(root_hash, &rh, &rh_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse root hash: %m");
+
+        if (arg_root_hash_signature_auto) {
+                assert(!arg_root_hash_signature);
+                assert(arg_root_hash_signature_size == 0);
+
+                const char *t;
+                r = sd_device_get_property_value(ASSERT_PTR(datadev), "ID_DISSECT_PART_ROOTHASH_SIG", &t);
+                if (r < 0)
+                        return log_error_errno(r, "Automatic root hash signature pick up requested, and device doesn't carry ID_DISSECT_PART_ROOTHASH_SIG property, cannot determine root hash signature.");
+
+                r = unbase64mem(t, &arg_root_hash_signature, &arg_root_hash_signature_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode root hash signature data from udev data device: %m");
+        }
 
         r = crypt_init(&cd, verity_device);
         if (r < 0)
@@ -308,12 +376,6 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
                 log_info("Volume %s already active.", volume);
                 return 0;
-        }
-
-        if (options) {
-                r = parse_options(options);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse options: %m");
         }
 
         if (arg_superblock) {
@@ -353,32 +415,23 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to configure data device: %m");
 
-        if (arg_root_hash_signature) {
+        if (arg_root_hash_signature_size > 0) {
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-                _cleanup_free_ char *hash_sig = NULL;
-                size_t hash_sig_size;
-                char *value;
+                r = crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
+                if (r < 0) {
+                        log_info_errno(r, "Unable to activate verity device '%s' with root hash signature (%m), retrying without.", volume);
 
-                if ((value = startswith(arg_root_hash_signature, "base64:"))) {
-                        r = unbase64mem(value, (void*) &hash_sig, &hash_sig_size);
+                        r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse root hash signature '%s': %m", arg_root_hash_signature);
-                } else {
-                        r = read_full_file_full(
-                                        AT_FDCWD, arg_root_hash_signature, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &hash_sig, &hash_sig_size);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read root hash signature: %m");
+                                return log_error_errno(r, "Failed to activate verity device '%s' both with and without root hash signature: %m", volume);
+
+                        log_info("Activation of verity device '%s' succeeded without root hash signature.", volume);
                 }
-
-                r = crypt_activate_by_signed_key(cd, volume, m, l, hash_sig, hash_sig_size, arg_activate_flags);
 #else
                 assert_not_reached();
 #endif
         } else
-                r = crypt_activate_by_volume_key(cd, volume, m, l, arg_activate_flags);
+                r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
 

@@ -2,9 +2,9 @@
 
 #include <linux/netlink.h>
 
-#include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-types-internal.h"
+#include "string-util.h"
 
 static const NLAPolicy empty_policies[1] = {
         /* fake array to avoid .types==NULL, which denotes invalid type-systems */
@@ -51,6 +51,7 @@ const NLAPolicySetUnion *policy_get_policy_set_union(const NLAPolicy *policy) {
 int netlink_get_policy_set_and_header_size(
                 sd_netlink *nl,
                 uint16_t type,
+                uint16_t flags,
                 const NLAPolicySet **ret_policy_set,
                 size_t *ret_header_size) {
 
@@ -70,6 +71,9 @@ int netlink_get_policy_set_and_header_size(
                         break;
                 case NETLINK_GENERIC:
                         return genl_get_policy_set_and_header_size(nl, type, ret_policy_set, ret_header_size);
+                case NETLINK_SOCK_DIAG:
+                        policy = sdnl_get_policy(type, flags);
+                        break;
                 default:
                         return -EOPNOTSUPP;
                 }

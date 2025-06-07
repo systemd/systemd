@@ -2,7 +2,6 @@
 #pragma once
 
 #include "hashmap.h"
-#include "time-util.h"
 
 int fetch_batteries_capacity_by_name(Hashmap **ret_current_capacity);
 int get_capacity_by_name(Hashmap *capacities_by_name, const char *name);

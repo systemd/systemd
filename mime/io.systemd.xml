@@ -3,12 +3,20 @@
   <mime-type type="application/x.systemd-sysext">
     <sub-class-of type="application/vnd.efi.img"/>
     <comment>System Extension DDI</comment>
+    <generic-icon name="application-x-addon"/>
     <glob pattern="*.sysext.raw"/>
   </mime-type>
   <mime-type type="application/x.systemd-confext">
     <sub-class-of type="application/vnd.efi.img"/>
     <comment>Configuration Extension DDI</comment>
+    <generic-icon name="application-x-addon"/>
     <glob pattern="*.confext.raw"/>
+  </mime-type>
+  <mime-type type="application/x.systemd-home">
+    <sub-class-of type="application/vnd.efi.img"/>
+    <comment>Home Directory (LUKS)</comment>
+    <generic-icon name="user-home"/>
+    <glob pattern="*.home"/>
   </mime-type>
   <mime-type type="application/x.systemd-journal">
     <comment>Journal Log File</comment>

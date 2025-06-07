@@ -37,6 +37,14 @@
     <para>The main network file must have the extension <filename>.network</filename>; other
     extensions are ignored. Networks are applied to links whenever the links appear.</para>
 
+    <para>Note that not all settings and configurations can be made with <filename>.network</filename>
+    files, and that it may be necessary to use
+    <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+    or
+    <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+    files in conjunction with <filename>.network</filename> files when working with physical and virtual
+    network devices respectively.</para>
+
     <para>The <filename>.network</filename> files are read from the files located in the system network
     directories <filename>/usr/lib/systemd/network</filename> and
     <filename>/usr/local/lib/systemd/network</filename>
@@ -81,10 +89,11 @@
     <para>Note that any network interfaces that have the <varname>ID_NET_MANAGED_BY=</varname> udev property
     set will never be matched by any .network files – unless the property's value is the string
     <literal>io.systemd.Network</literal> – even if the [Match] section would otherwise match. This may be
-    used to exclude specific network interfaces from <command>systemd-networkd</command>'s management, while
-    keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> property thus declares
-    intended <emphasis>ownership</emphasis> of the device, and permits ensuring that concurrent network
-    management implementations do not compete for management of specific devices.</para>
+    used to exclude specific network interfaces from
+    <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+    management, while keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> property
+    thus declares intended <emphasis>ownership</emphasis> of the device, and permits ensuring that concurrent
+    network management implementations do not compete for management of specific devices.</para>
 
     <para>A network file is said to match a network interface if all matches specified by the [Match]
     section are satisfied. When a network file does not contain valid settings in [Match] section, then
@@ -152,6 +161,7 @@
       <xi:include href="systemd.link.xml" xpointer="virtualization" />
       <xi:include href="systemd.link.xml" xpointer="kernel-command-line" />
       <xi:include href="systemd.link.xml" xpointer="kernel-version" />
+      <xi:include href="systemd.link.xml" xpointer="version" />
       <xi:include href="systemd.link.xml" xpointer="credential" />
       <xi:include href="systemd.link.xml" xpointer="architecture" />
       <xi:include href="systemd.link.xml" xpointer="firmware" />
@@ -188,13 +198,14 @@
       <varlistentry>
         <term><varname>ARP=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the IPv4 ARP (low-level Address Resolution Protocol)
-          and IPv6 NDP (Neighbor Discovery Protocol) for this interface are enabled. When unset, the
-          kernel's default will be used.</para>
-          <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
-          interfaces atop a single lower-level physical interface, which will then only serve as a
-          link/"bridge" device aggregating traffic to the same physical link and not participate in
-          the network otherwise. Defaults to unset.</para>
+          <para>Takes a boolean. If set to true, the IPv4 ARP (low-level Address Resolution Protocol) and
+          IPv6 NDP (Neighbor Discovery Protocol) for this interface are enabled. For example, disabling ARP
+          is useful when creating multiple MACVLAN or VLAN virtual interfaces atop a single lower-level
+          physical interface, which will then only serve as a link/"bridge" device aggregating traffic to the
+          same physical link and not participate in the network otherwise. Defaults to unset, and enabled
+          when the IPv4 link-local addressing is enabled in <varname>LinkLocalAddressing=</varname> or an
+          IPv4 address with <varname>DuplicateAddressDetection=</varname> enabled is requested. Otherwise,
+          the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
@@ -457,6 +468,9 @@
           <varname>Bridge=</varname> is set or when the specified
           <varname>MACVLAN=</varname>/<varname>MACVTAP=</varname> has <varname>Mode=passthru</varname>,
           or <option>ipv6</option> otherwise.</para>
+
+          <para>When IPv4 link-local addressing is enabled, <varname>ARP=</varname> is enabled unless if it
+          is explicitly configured.</para>
 
           <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
@@ -987,6 +1001,17 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv4DuplicateAddressDetectionTimeoutSec=</varname></term>
+        <listitem>
+          <para>Configures the maximum timeout for IPv4 Duplicate Address Detection (RFC 5227). Must be a
+          value between 1 millisecond and 60 seconds. If set, Duplicate Address Detection takes a randomized
+          time between 57% (4/7) and 100% of the given value. If unset, defaults to 200 milliseconds.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4ReversePathFilter=</varname></term>
         <listitem>
           <para>Configure IPv4 Reverse Path Filtering. If enabled, when an IPv4 packet is received, the machine will first check
@@ -1011,14 +1036,15 @@ DuplicateAddressDetection=none</programlisting></para>
           <filename>/proc/sys/net/ipv4/conf/<replaceable>INTERFACE</replaceable>/force_igmp_version</filename>.
           Takes one of <literal>no</literal>,
           <literal>v1</literal>, <literal>v2</literal>, or <literal>v3</literal>.
-          When <literal>no</literal>, no enforcement of an IGMP version will be applied, IGMPv1/v2 fallback are allowed, will back to
-          IGMPv3 mode again if all IGMPv1/v2 Querier Present timer expire.
-          When <literal>v1</literal>, use of IGMP version 1 will be enforced, and IGMPv1 report will be replied even if IGMPv2/v3
+          When <literal>no</literal>, no enforcement of an IGMP version is applied. IGMPv1/v2 fallbacks are allowed, and
+          <command>systemd-networkd</command> will return to
+          IGMPv3 mode after all IGMPv1/v2 Querier Present timers have expired.
+          When <literal>v1</literal>, use of IGMP version 1 is enforced. An IGMPv1 report will be returned even if IGMPv2/v3
           queries are received.
-          When <literal>v2</literal>, use of IGMP version 2 will be enforced, and IGMPv2 report will be replied if an IGMPv2/v3 query
-          is received, but fallback to IGMPv1 if an IGMPv1 query is received.
-          When <literal>v3</literal>, use of IGMP version 3 will be enforced, and the same reaction will be done as <literal>no</literal>.
-          Defaults to unset, and the sysctl value will be unchanged.
+          When <literal>v2</literal>, use of IGMP version 2 is enforced. An IGMPv2 report will be returned if an IGMPv2/v3 query
+          is received. <command>systemd-networkd</command> will fall back to IGMPv1 if an IGMPv1 query is received.
+          When <literal>v3</literal>, use of IGMP version 3 is enforced, and the response is the same as with <literal>no</literal>.
+          Defaults to unset — the sysctl is not set.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
@@ -1438,6 +1464,9 @@ DuplicateAddressDetection=none</programlisting></para>
           <literal>ipv4</literal> for IPv4 link-local addresses (169.254.0.0/16), <literal>ipv6</literal>
           for IPv6 addresses, and <literal>none</literal> otherwise.</para>
 
+          <para>When enabled, regardless implicitly or not, <varname>ARP=</varname> is enabled unless it is
+          explicitly configured.</para>
+
           <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
@@ -1737,8 +1766,10 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>FirewallMark=</varname></term>
         <listitem>
           <para>Specifies the iptables firewall mark value to match (a number in the range
-          1…4294967295). Optionally, the firewall mask (also a number between 1…4294967295) can be
-          suffixed with a slash (<literal>/</literal>), e.g., <literal>7/255</literal>.</para>
+          0…4294967295). Optionally, the firewall mask (also a number between 0…4294967295) can be
+          suffixed with a slash (<literal>/</literal>), e.g., <literal>7/255</literal>. When the
+          mark value is non-zero and no mask is explicitly specified, all bits of the mark are
+          compared. </para>
 
           <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
@@ -1772,8 +1803,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>GoTo=</varname></term>
         <listitem>
-          <para>Specifies the target priority used by <literal>goto</literal> type of rule. Takes an integer
-          in the range 1…4294967295. This must be larger than the priority of this rule specified in
+          <para>Specifies the target priority used by the <literal>goto</literal> type of rule. Takes an
+          integer in the range 1…4294967295. This must be larger than the priority of the rule specified in
           <varname>Priority=</varname>. When specified, <varname>Type=goto</varname> is implied. This is
           mandatory when <varname>Type=goto</varname>.</para>
 
@@ -2943,7 +2974,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are accepted.
           </para>
           <para>Note that this filters only DHCP offers, so the filtering might not work when
-          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> in the above.
+          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> above.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
@@ -4642,6 +4673,15 @@ ServerAddress=192.168.0.1/24</programlisting>
           creates newly learned fdb entries in a "locked" state. User space can authenticate these entries by
           clearing the locked flag. Requires Learning to be enabled. When unset, the kernel's default will be
           used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VLANTunnel=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether vlan tunnel mode is to be enabled on this port.
+          When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>

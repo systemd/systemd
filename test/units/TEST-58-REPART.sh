@@ -373,7 +373,7 @@ $imgs/zzz7 : start=     6291416, size=      131072, type=0FC63DAF-8483-4772-8E79
     fi
 
     loop="$(losetup -P --show --find "$imgs/zzz")"
-    udevadm wait --timeout 60 --settle "${loop:?}p7"
+    udevadm wait --timeout=60 --settle "${loop:?}p7"
 
     volume="test-repart-$RANDOM"
 
@@ -994,7 +994,7 @@ EOF
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" RETURN ERR
 
-    udevadm wait --timeout 60 --settle "${loop:?}p1" "${loop:?}p2"
+    udevadm wait --timeout=60 --settle "${loop:?}p1" "${loop:?}p2"
 
     # Check that the verity block sizes are as expected
     veritysetup dump "${loop}p2" | grep 'Data block size:' | grep -q '4096'
@@ -1054,7 +1054,7 @@ EOF
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" RETURN ERR
 
-    udevadm wait --timeout 60 --settle "${loop:?}p1" "${loop:?}p2"
+    udevadm wait --timeout=60 --settle "${loop:?}p1" "${loop:?}p2"
 
     output=$(sfdisk -J "$loop")
 
@@ -1136,7 +1136,7 @@ EOF
     fi
 
     loop=$(losetup -P --show -f "$imgs/zzz")
-    udevadm wait --timeout 60 --settle "${loop:?}p1" "${loop:?}p2"
+    udevadm wait --timeout=60 --settle "${loop:?}p1" "${loop:?}p2"
 
     # Test that /usr/def did not end up in the root partition but other files did.
     mkdir "$imgs/mnt"
@@ -1349,7 +1349,7 @@ EOF
 
     truncate -s 100m "$imgs/$sector.img"
     loop=$(losetup -b "$sector" -P --show -f "$imgs/$sector.img" )
-    udevadm wait --timeout 60 --settle "${loop:?}"
+    udevadm wait --timeout=60 --settle "${loop:?}"
 
     systemd-repart --offline="$OFFLINE" \
                    --pretty=yes \

@@ -287,6 +287,10 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-boot-clear-sysfail.service',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        {
           'file' : 'systemd-boot-update.service',
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
@@ -323,9 +327,7 @@ units = [
         },
         { 'file' : 'systemd-creds@.service' },
         { 'file' : 'systemd-exit.service' },
-        {
-          'file' : 'systemd-factory-reset@.service.in',
-        },
+        { 'file' : 'systemd-factory-reset@.service.in' },
         {
           'file' : 'systemd-factory-reset.socket',
           'symlinks' : ['sockets.target.wants/'],
@@ -486,6 +488,11 @@ units = [
           'symlinks' : ['dbus-org.freedesktop.machine1.service'],
         },
         {
+          'file' : 'systemd-machined.socket',
+          'conditions' : ['ENABLE_MACHINED'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-modules-load.service.in',
           'conditions' : ['HAVE_KMOD'],
           'symlinks' : ['sysinit.target.wants/'],
@@ -511,7 +518,10 @@ units = [
           'file' : 'systemd-networkd.socket',
           'conditions' : ['ENABLE_NETWORKD'],
         },
-        { 'file' : 'systemd-nspawn@.service.in' },
+        {
+          'file' : 'systemd-nspawn@.service.in',
+          'conditions' : ['ENABLE_NSPAWN'],
+        },
         {
           'file' : 'systemd-vmspawn@.service.in',
           'conditions' : ['ENABLE_VMSPAWN'],
@@ -654,6 +664,14 @@ units = [
         },
         {
           'file' : 'systemd-resolved.service.in',
+          'conditions' : ['ENABLE_RESOLVE'],
+        },
+        {
+          'file' : 'systemd-resolved-varlink.socket',
+          'conditions' : ['ENABLE_RESOLVE'],
+        },
+        {
+          'file' : 'systemd-resolved-monitor.socket',
           'conditions' : ['ENABLE_RESOLVE'],
         },
         {
@@ -816,6 +834,10 @@ units = [
           'symlinks' : ['multi-user.target.wants/'],
         },
         {
+          'file' : 'systemd-userdb-load-credentials.service',
+          'conditions' : ['ENABLE_USERDB'],
+        },
+        {
           'file' : 'systemd-userdbd.service.in',
           'conditions' : ['ENABLE_USERDB'],
         },
@@ -838,6 +860,10 @@ units = [
         {
           'file' : 'systemd-nsresourced.socket',
           'conditions' : ['ENABLE_NSRESOURCED'],
+        },
+        {
+          'file' : 'systemd-validatefs@.service.in',
+          'conditions' : ['HAVE_BLKID'],
         },
         {
           'file' : 'systemd-vconsole-setup.service.in',
@@ -924,16 +950,17 @@ foreach unit : units
         if install
                 foreach target : unit.get('symlinks', [])
                         if target.endswith('/')
-                                install_emptydir(systemunitdir / target, install_tag : unit.get('install_tag', ''))
-                                meson.add_install_script(sh, '-c',
-                                                         ln_s.format(systemunitdir / name,
-                                                                     systemunitdir / target / name),
-                                                         install_tag : unit.get('install_tag', ''))
+                                # '/' is only allowed at the end of the target
+                                assert(target.replace('/', '') + '/' == target)
+                                install_symlink(name,
+                                                pointing_to : '..' / name,
+                                                install_dir : systemunitdir / target,
+                                                install_tag : unit.get('install_tag', ''))
                         else
-                                meson.add_install_script(sh, '-c',
-                                                         ln_s.format(systemunitdir / name,
-                                                                     systemunitdir / target),
-                                                         install_tag : unit.get('install_tag', ''))
+                                install_symlink(target,
+                                                pointing_to : name,
+                                                install_dir : systemunitdir,
+                                                install_tag : unit.get('install_tag', ''))
                         endif
                 endforeach
         endif
@@ -949,10 +976,18 @@ install_data('user@0.service.d/10-login-barrier.conf',
 
 ############################################################
 
-install_emptydir(dbussessionservicedir)
-meson.add_install_script(sh, '-c',
-                         ln_s.format(dbussystemservicedir / 'org.freedesktop.systemd1.service',
-                                     dbussessionservicedir / 'org.freedesktop.systemd1.service'))
+if meson.version().version_compare('>=1.3.0')
+        install_symlink(
+                'org.freedesktop.systemd1.service',
+                pointing_to : fs.relative_to(dbussystemservicedir / 'org.freedesktop.systemd1.service',
+                                             dbussessionservicedir),
+                install_dir : dbussessionservicedir)
+else
+        install_emptydir(dbussessionservicedir)
+        meson.add_install_script(sh, '-c',
+                ln_s.format(dbussystemservicedir / 'org.freedesktop.systemd1.service',
+                            dbussessionservicedir / 'org.freedesktop.systemd1.service'))
+endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
         foreach i : [1, 2, 3, 4, 5]

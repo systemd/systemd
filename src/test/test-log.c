@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
-#include <unistd.h>
-
 #include "format-util.h"
-#include "io-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "log.h"
+#include "log-context.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -50,24 +47,24 @@ static void test_log_struct(void) {
                    "MESSAGE=Waldo PID="PID_FMT" (no errno)", getpid_cached(),
                    "SERVICE=piepapo");
 
-        /* The same as above, just using LOG_MESSAGE(), which is generally recommended */
+        /* The same as above, just using LOG_MESSAGE() and LOG_ITEM(), which is generally recommended */
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Waldo PID="PID_FMT" (no errno)", getpid_cached()),
-                   "SERVICE=piepapo");
+                   LOG_ITEM("SERVICE=piepapo"));
 
         log_struct_errno(LOG_INFO, EILSEQ,
                          LOG_MESSAGE("Waldo PID="PID_FMT": %m (normal)", getpid_cached()),
-                         "SERVICE=piepapo");
+                         LOG_ITEM("SERVICE=piepapo"));
 
         log_struct_errno(LOG_INFO, SYNTHETIC_ERRNO(EILSEQ),
                          LOG_MESSAGE("Waldo PID="PID_FMT": %m (synthetic)", getpid_cached()),
-                         "SERVICE=piepapo");
+                         LOG_ITEM("SERVICE=piepapo"));
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Foobar PID="PID_FMT, getpid_cached()),
-                   "FORMAT_STR_TEST=1=%i A=%c 2=%hi 3=%li 4=%lli 1=%p foo=%s 2.5=%g 3.5=%g 4.5=%Lg",
-                   (int) 1, 'A', (short) 2, (long int) 3, (long long int) 4, (void*) 1, "foo", (float) 2.5f, (double) 3.5, (long double) 4.5,
-                   "SUFFIX=GOT IT");
+                   LOG_ITEM("FORMAT_STR_TEST=1=%i A=%c 2=%hi 3=%li 4=%lli 1=%p foo=%s 2.5=%g 3.5=%g 4.5=%Lg",
+                            (int) 1, 'A', (short) 2, (long) 3, (long long) 4, (void*) 1, "foo", (float) 2.5f, (double) 3.5, (long double) 4.5),
+                   LOG_ITEM("SUFFIX=GOT IT"));
 }
 
 static void test_long_lines(void) {

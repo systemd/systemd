@@ -16,6 +16,7 @@ After=tpm2.target
 Before=sysinit.target shutdown.target
 ConditionPathExists=!/etc/initrd-release
 ConditionSecurity=measured-uki
+FailureAction=reboot-force
 
 [Service]
 Type=oneshot

@@ -44,7 +44,7 @@ _userdbctl () {
         [STANDALONE]='-h --help --version --no-pager --no-legend
                       -j -N --chain -z --fuzzy -I -S -R -B'
         [ARG]='--output -s --service --with-nss --synthesize --with-dropin --with-varlink
-               --multiplexer --json --uid-min --uid-max --disposition --boundaries'
+               --multiplexer --json --uid-min --uid-max --disposition --boundaries --from-file'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then

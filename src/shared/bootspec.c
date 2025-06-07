@@ -1,30 +1,36 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <unistd.h>
 
-#include "bootspec-fundamental.h"
+#include "sd-json.h"
+
+#include "alloc-util.h"
 #include "bootspec.h"
+#include "bootspec-fundamental.h"
 #include "chase.h"
-#include "conf-files.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-file.h"
-#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
+#include "log.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
+#include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "uki.h"
-#include "unaligned.h"
 
 static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",
@@ -453,6 +459,7 @@ void boot_config_free(BootConfig *config) {
         free(config->entry_oneshot);
         free(config->entry_default);
         free(config->entry_selected);
+        free(config->entry_sysfail);
 
         FOREACH_ARRAY(i, config->entries, config->n_entries)
                 boot_entry_free(i);
@@ -529,7 +536,7 @@ static int boot_loader_read_conf_path(BootConfig *config, const char *root, cons
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to open '%s/%s': %m", root, path);
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, skip_leading_slash(path));
 
         return boot_loader_read_conf(config, f, full);
 }
@@ -641,7 +648,7 @@ static int boot_entries_find_type1(
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
-                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, dir);
+                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, skip_leading_slash(dir));
 
         r = readdir_all(dir_fd, RECURSE_DIR_IGNORE_DOT, &dentries);
         if (r < 0)
@@ -1002,7 +1009,7 @@ static int pe_find_uki_sections(
                 if (found->VirtualSize == 0)
                         continue;
 
-                r = pe_read_section_data(fd, found, PE_SECTION_SIZE_MAX, (void**) t->data, /* ret_data= */ NULL);
+                r = pe_read_section_data(fd, found, PE_SECTION_SIZE_MAX, (void**) t->data, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load contents of section '%s': %m", t->name);
         }
@@ -1104,7 +1111,7 @@ static int boot_entries_find_unified_addons(
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to open '%s/%s': %m", root, addon_dir);
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, skip_leading_slash(addon_dir));
 
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
                 _cleanup_free_ char *j = NULL, *cmdline = NULL, *location = NULL;
@@ -1166,7 +1173,7 @@ static int boot_entries_find_unified_global_addons(
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to open '%s/%s': %m", root, d_name);
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, skip_leading_slash(d_name));
 
         return boot_entries_find_unified_addons(config, dirfd(d), d_name, root, ret_addons);
 }
@@ -1206,7 +1213,7 @@ static int boot_entries_find_unified(
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to open '%s/%s': %m", root, dir);
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, skip_leading_slash(dir));
 
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
                 if (!dirent_is_file(de))
@@ -1433,6 +1440,12 @@ static int boot_load_efi_entry_pointers(BootConfig *config, bool skip_efivars) {
         if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
                 log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\", ignoring: %m");
 
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), &config->entry_sysfail);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySysFail\", ignoring: %m");
+
         return 1;
 }
 
@@ -1554,7 +1567,7 @@ int boot_config_load_auto(
 int boot_config_augment_from_loader(
                 BootConfig *config,
                 char **found_by_loader,
-                bool only_auto) {
+                bool auto_only) {
 
         static const BootEntryAddons no_addons = (BootEntryAddons) {};
         static const char *const title_table[] = {
@@ -1584,7 +1597,7 @@ int boot_config_augment_from_loader(
                         continue;
                 }
 
-                if (only_auto && !startswith(*i, "auto-"))
+                if (auto_only && !startswith(*i, "auto-"))
                         continue;
 
                 c = strdup(*i);
@@ -1664,7 +1677,7 @@ static void print_addon(
                 const char *addon_str) {
 
         printf("  %s: %s\n", addon_str, addon->location);
-        printf("      options: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), addon->cmdline);
+        printf("      options: %s%s\n", glyph(GLYPH_TREE_RIGHT), addon->cmdline);
 }
 
 static int indent_embedded_newlines(char *cmdline, char **ret_cmdline) {
@@ -1997,7 +2010,7 @@ int show_boot_entries(const BootConfig *config, sd_json_format_flags_t json_form
                                         config->entries + n,
                                         /* show_as_default= */  n == (size_t) config->default_entry,
                                         /* show_as_selected= */ n == (size_t) config->selected_entry,
-                                        /* show_discovered= */  true);
+                                        /* show_reported= */  true);
                         if (r < 0)
                                 return r;
 

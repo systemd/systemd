@@ -15,10 +15,10 @@ compiler you want to use and which part of the test suite you want to run.
 
 ## mkosi
 
-To build with sanitizers in mkosi, create a file `mkosi.local.conf` and add the following contents:
+To build with sanitizers in mkosi, create a file `mkosi/mkosi.local.conf` and add the following contents:
 
 ```
-[Content]
+[Build]
 Environment=SANITIZERS=address,undefined
 ```
 
@@ -102,5 +102,4 @@ make things work as expected in most cases. This will, obviously, not work with
 statically linked sanitizer libraries.
 
 These shenanigans are performed automatically when running the integration test
-suite (i.e. `test/TEST-??-*`) and are located in `test/test-functions` (mainly,
-but not only, in the `create_asan_wrapper` function).
+suite.

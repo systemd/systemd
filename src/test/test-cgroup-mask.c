@@ -1,21 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-
 #include "cgroup.h"
 #include "cgroup-util.h"
-#include "macro.h"
 #include "manager.h"
 #include "rm-rf.h"
-#include "string-util.h"
 #include "tests.h"
 #include "unit.h"
 
 #define ASSERT_CGROUP_MASK(got, expected) \
         log_cgroup_mask(got, expected); \
         assert_se(got == expected)
-
-#define ASSERT_CGROUP_MASK_JOINED(got, expected) ASSERT_CGROUP_MASK(got, CGROUP_MASK_EXTEND_JOINED(expected))
 
 static void log_cgroup_mask(CGroupMask got, CGroupMask expected) {
         _cleanup_free_ char *e_store = NULL, *g_store = NULL;
@@ -31,7 +25,6 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep, *nomem_parent, *nomem_leaf;
         int r;
-        CGroupMask cpu_accounting_mask = get_cpu_accounting_mask();
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
@@ -53,9 +46,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
         /* Turn off all kinds of default accounting, so that we can
          * verify the masks resulting of our configuration and nothing
          * else. */
-        m->defaults.cpu_accounting =
-                m->defaults.memory_accounting =
-                m->defaults.blockio_accounting =
+        m->defaults.memory_accounting =
                 m->defaults.io_accounting =
                 m->defaults.tasks_accounting = false;
         m->defaults.tasks_max = CGROUP_TASKS_MAX_UNSET;
@@ -79,54 +70,53 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
         assert_se(UNIT_GET_SLICE(nomem_parent) == root);
 
         /* Verify per-unit cgroups settings. */
-        ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(son), CGROUP_MASK_CPU);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(daughter), cpu_accounting_mask);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(grandchild), 0);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(parent_deep), CGROUP_MASK_MEMORY);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(parent), (CGROUP_MASK_IO | CGROUP_MASK_BLKIO));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(nomem_parent), 0);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(nomem_leaf), (CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_own_mask(root), 0);
+        ASSERT_CGROUP_MASK(unit_get_own_mask(son), CGROUP_MASK_CPU);
+        ASSERT_CGROUP_MASK(unit_get_own_mask(grandchild), 0);
+        ASSERT_CGROUP_MASK(unit_get_own_mask(parent_deep), CGROUP_MASK_MEMORY);
+        ASSERT_CGROUP_MASK(unit_get_own_mask(parent), (CGROUP_MASK_IO | CGROUP_MASK_BLKIO));
+        ASSERT_CGROUP_MASK(unit_get_own_mask(nomem_parent), 0);
+        ASSERT_CGROUP_MASK(unit_get_own_mask(nomem_leaf), (CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_own_mask(root), 0);
 
         /* Verify aggregation of member masks */
-        ASSERT_CGROUP_MASK_JOINED(unit_get_members_mask(son), 0);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_members_mask(daughter), 0);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_members_mask(grandchild), 0);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_members_mask(parent_deep), 0);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_members_mask(parent), (CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_MEMORY));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_members_mask(nomem_parent), (CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_members_mask(nomem_leaf), 0);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_members_mask(root), (CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_members_mask(son), 0);
+        ASSERT_CGROUP_MASK(unit_get_members_mask(daughter), 0);
+        ASSERT_CGROUP_MASK(unit_get_members_mask(grandchild), 0);
+        ASSERT_CGROUP_MASK(unit_get_members_mask(parent_deep), 0);
+        ASSERT_CGROUP_MASK(unit_get_members_mask(parent), (CGROUP_MASK_CPU | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_members_mask(nomem_parent), (CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_members_mask(nomem_leaf), 0);
+        ASSERT_CGROUP_MASK(unit_get_members_mask(root), (CGROUP_MASK_CPU | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
 
         /* Verify aggregation of sibling masks. */
-        ASSERT_CGROUP_MASK_JOINED(unit_get_siblings_mask(son), (CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_MEMORY));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_siblings_mask(daughter), (CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_MEMORY));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_siblings_mask(grandchild), 0);
-        ASSERT_CGROUP_MASK_JOINED(unit_get_siblings_mask(parent_deep), (CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_MEMORY));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_siblings_mask(parent), (CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_siblings_mask(nomem_parent), (CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_siblings_mask(nomem_leaf), (CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
-        ASSERT_CGROUP_MASK_JOINED(unit_get_siblings_mask(root), (CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_siblings_mask(son), (CGROUP_MASK_CPU | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_siblings_mask(daughter), (CGROUP_MASK_CPU | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_siblings_mask(grandchild), 0);
+        ASSERT_CGROUP_MASK(unit_get_siblings_mask(parent_deep), (CGROUP_MASK_CPU | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_siblings_mask(parent), (CGROUP_MASK_CPU | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_siblings_mask(nomem_parent), (CGROUP_MASK_CPU | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_siblings_mask(nomem_leaf), (CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
+        ASSERT_CGROUP_MASK(unit_get_siblings_mask(root), (CGROUP_MASK_CPU | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY));
 
         /* Verify aggregation of target masks. */
-        ASSERT_CGROUP_MASK(unit_get_target_mask(son), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_MEMORY) & m->cgroup_supported));
-        ASSERT_CGROUP_MASK(unit_get_target_mask(daughter), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_MEMORY) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_target_mask(son), ((CGROUP_MASK_CPU | CGROUP_MASK_MEMORY) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_target_mask(daughter), ((CGROUP_MASK_CPU | CGROUP_MASK_MEMORY) & m->cgroup_supported));
         ASSERT_CGROUP_MASK(unit_get_target_mask(grandchild), 0);
-        ASSERT_CGROUP_MASK(unit_get_target_mask(parent_deep), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_MEMORY) & m->cgroup_supported));
-        ASSERT_CGROUP_MASK(unit_get_target_mask(parent), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY) & m->cgroup_supported));
-        ASSERT_CGROUP_MASK(unit_get_target_mask(nomem_parent), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT | CGROUP_MASK_IO | CGROUP_MASK_BLKIO) & m->cgroup_supported));
-        ASSERT_CGROUP_MASK(unit_get_target_mask(nomem_leaf), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_IO | CGROUP_MASK_BLKIO) & m->cgroup_supported));
-        ASSERT_CGROUP_MASK(unit_get_target_mask(root), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_target_mask(parent_deep), ((CGROUP_MASK_CPU | CGROUP_MASK_MEMORY) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_target_mask(parent), ((CGROUP_MASK_CPU | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_target_mask(nomem_parent), ((CGROUP_MASK_CPU | CGROUP_MASK_IO | CGROUP_MASK_BLKIO) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_target_mask(nomem_leaf), ((CGROUP_MASK_IO | CGROUP_MASK_BLKIO) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_target_mask(root), ((CGROUP_MASK_CPU | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY) & m->cgroup_supported));
 
         /* Verify aggregation of enable masks. */
         ASSERT_CGROUP_MASK(unit_get_enable_mask(son), 0);
         ASSERT_CGROUP_MASK(unit_get_enable_mask(daughter), 0);
         ASSERT_CGROUP_MASK(unit_get_enable_mask(grandchild), 0);
         ASSERT_CGROUP_MASK(unit_get_enable_mask(parent_deep), 0);
-        ASSERT_CGROUP_MASK(unit_get_enable_mask(parent), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_MEMORY) & m->cgroup_supported));
-        ASSERT_CGROUP_MASK(unit_get_enable_mask(nomem_parent), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_IO | CGROUP_MASK_BLKIO) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_enable_mask(parent), ((CGROUP_MASK_CPU | CGROUP_MASK_MEMORY) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_enable_mask(nomem_parent), ((CGROUP_MASK_IO | CGROUP_MASK_BLKIO) & m->cgroup_supported));
         ASSERT_CGROUP_MASK(unit_get_enable_mask(nomem_leaf), 0);
-        ASSERT_CGROUP_MASK(unit_get_enable_mask(root), (CGROUP_MASK_EXTEND_JOINED(CGROUP_MASK_CPU | cpu_accounting_mask | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY) & m->cgroup_supported));
+        ASSERT_CGROUP_MASK(unit_get_enable_mask(root), ((CGROUP_MASK_CPU | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY) & m->cgroup_supported));
 
         return 0;
 }

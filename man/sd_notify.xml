@@ -306,8 +306,7 @@
 
         <listitem><para>The pidfd inode number of the new main process (specified through <varname>MAINPID=</varname>).
         This information can be acquired through
-        <citerefentry project='man-pages'><refentrytitle>name_to_handle_at</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        or <citerefentry project='man-pages'><refentrytitle>fstat</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>sd_pidfd_get_inode_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         on the pidfd and is used to identify the process in a race-free fashion. Alternatively,
         a pidfd can be sent directly to the service manager (see <varname>MAINPIDFD=1</varname> below).</para>
 
@@ -333,7 +332,7 @@
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for information how to enable this functionality and
         <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for the details of how the service can check whether the watchdog is enabled. </para></listitem>
+        for the details of how the service can check whether the watchdog is enabled.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -345,7 +344,7 @@
         in time. Note that <varname>WatchdogSec=</varname> does not need to be enabled for
         <literal>WATCHDOG=trigger</literal> to trigger the watchdog action. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for information about the watchdog behavior. </para>
+        for information about the watchdog behavior.</para>
 
         <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
@@ -374,6 +373,18 @@
         for effects on the service timeouts.</para>
 
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>RESTART_RESET=1</term>
+
+        <listitem><para>Reset the restart counter of the service, which has the effect of restoring
+        the restart duration to <varname>RestartSec=</varname> if <varname>RestartSteps=</varname> and
+        <varname>RestartMaxDelaySec=</varname> are in use. For more information, refer to
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "sd-json.h"
+#include "forward.h"
 
 /* This header should include all prototypes only the JSON parser itself and
  * its tests need access to. Normal code consuming the JSON parser should not

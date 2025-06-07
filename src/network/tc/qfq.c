@@ -2,7 +2,9 @@
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
+#include "sd-netlink.h"
 
+#include "log.h"
 #include "parse-util.h"
 #include "qdisc.h"
 #include "qfq.h"

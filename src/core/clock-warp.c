@@ -8,6 +8,8 @@
 #include "clock-util.h"
 #include "clock-warp.h"
 #include "errno-util.h"
+#include "log.h"
+#include "time-util.h"
 
 int clock_reset_timewarp(void) {
         static const struct timezone tz = {
@@ -71,17 +73,17 @@ void clock_apply_epoch(bool allow_backwards) {
                 "timestamp on "EPOCH_CLOCK_FILE;
         if (advance)
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_MESSAGE_TIME_BUMP_STR,
-                           "REALTIME_USEC=" USEC_FMT, epoch_usec,
-                           "DIRECTION=forwards",
+                           LOG_MESSAGE_ID(SD_MESSAGE_TIME_BUMP_STR),
+                           LOG_ITEM("REALTIME_USEC=" USEC_FMT, epoch_usec),
+                           LOG_ITEM("DIRECTION=forwards"),
                            LOG_MESSAGE("System time advanced to %s: %s",
                                        from,
                                        FORMAT_TIMESTAMP(epoch_usec)));
         else
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_MESSAGE_TIME_BUMP_STR,
-                           "REALTIME_USEC=" USEC_FMT, epoch_usec,
-                           "DIRECTION=backwards",
+                           LOG_MESSAGE_ID(SD_MESSAGE_TIME_BUMP_STR),
+                           LOG_ITEM("REALTIME_USEC=" USEC_FMT, epoch_usec),
+                           LOG_ITEM("DIRECTION=backwards"),
                            LOG_MESSAGE("System time was further ahead than %s after %s, clock reset to %s",
                                        FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY),
                                        from,

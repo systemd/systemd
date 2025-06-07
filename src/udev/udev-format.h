@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-
-typedef struct UdevEvent UdevEvent;
+#include "udev-forward.h"
 
 #define UDEV_ALLOWED_CHARS_INPUT        "/ $%?,"
 

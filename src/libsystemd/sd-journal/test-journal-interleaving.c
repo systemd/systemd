@@ -7,6 +7,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "chattr-util.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"
@@ -16,8 +17,10 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
-#include "tmpfile-util.h"
+#include "strv.h"
 #include "tests.h"
+#include "time-util.h"
+#include "tmpfile-util.h"
 
 /* This program tests skipping around in a multi-file journal. */
 
@@ -28,7 +31,7 @@ static JournalFile* test_open_internal(const char *name, JournalFileFlags flags)
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         JournalFile *f;
 
-        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_NOT_NULL((m = mmap_cache_new()));
         ASSERT_OK(journal_file_open(-EBADF, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, &f));
         return f;
 }
@@ -80,11 +83,11 @@ static void append_number(JournalFile *f, unsigned n, const sd_id128_t *boot_id,
         ASSERT_OK(asprintf(&p, "NUMBER=%u", n));
         iovec[n_iov++] = IOVEC_MAKE_STRING(p);
 
-        ASSERT_NOT_NULL(s = strjoin("LESS_THAN_FIVE=", yes_no(n < 5)));
+        ASSERT_NOT_NULL((s = strjoin("LESS_THAN_FIVE=", yes_no(n < 5))));
         iovec[n_iov++] = IOVEC_MAKE_STRING(s);
 
         if (boot_id) {
-                ASSERT_NOT_NULL(q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id)));
+                ASSERT_NOT_NULL((q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id))));
                 iovec[n_iov++] = IOVEC_MAKE_STRING(q);
         }
 
@@ -101,7 +104,7 @@ static void append_unreferenced_data(JournalFile *f, const sd_id128_t *boot_id) 
         ts.monotonic = usec_sub_unsigned(previous_ts.monotonic, 10);
         ts.realtime = usec_sub_unsigned(previous_ts.realtime, 10);
 
-        ASSERT_NOT_NULL(q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id)));
+        ASSERT_NOT_NULL((q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id))));
         iovec = IOVEC_MAKE_STRING(q);
 
         ASSERT_ERROR(journal_file_append_entry(f, &ts, boot_id, &iovec, 1, NULL, NULL, NULL, NULL), EREMCHG);
@@ -116,7 +119,7 @@ static void test_check_number(sd_journal *j, unsigned expected) {
         ASSERT_OK(sd_journal_get_data(j, "NUMBER", &d, &l));
 
         _cleanup_free_ char *k = NULL;
-        ASSERT_NOT_NULL(k = strndup(d, l));
+        ASSERT_NOT_NULL((k = strndup(d, l)));
         printf("%s %s (expected=%u)\n", SD_ID128_TO_STRING(boot_id), k, expected);
 
         unsigned x;
@@ -508,7 +511,7 @@ static void test_sequence_numbers_one(void) {
         uint64_t seqnum = 0;
         sd_id128_t seqnum_id;
 
-        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_NOT_NULL((m = mmap_cache_new()));
 
         mkdtemp_chdir_chattr("/var/tmp/journal-seq-XXXXXX", &t);
 
@@ -831,15 +834,15 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
 
         log_info("/* %s(%zu, %zu) */", __func__, n, num_corrupted);
 
-        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_NOT_NULL((m = mmap_cache_new()));
 
         mkdtemp_chdir_chattr("/var/tmp/journal-seq-XXXXXX", &t);
 
         ASSERT_OK(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
                                     UINT64_MAX, NULL, m, NULL, &f));
 
-        ASSERT_NOT_NULL(seqnum = new0(uint64_t, n));
-        ASSERT_NOT_NULL(offset = new0(uint64_t, n));
+        ASSERT_NOT_NULL((seqnum = new0(uint64_t, n)));
+        ASSERT_NOT_NULL((offset = new0(uint64_t, n)));
 
         for (size_t i = 0; i < n; i++) {
                 append_number(f, i, NULL, seqnum + i, offset + i);
@@ -847,7 +850,7 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
                 ASSERT_GT(offset[i], i == 0 ? 0 : offset[i-1]);
         }
 
-        ASSERT_NOT_NULL(offset_candidates = newdup(uint64_t, offset, n));
+        ASSERT_NOT_NULL((offset_candidates = newdup(uint64_t, offset, n)));
 
         verify(f, seqnum, offset_candidates, offset, n);
 
@@ -1003,7 +1006,7 @@ static void verify_entry(sd_journal *j, const TestEntry *entry) {
         ASSERT_EQ(t, entry->ts.realtime);
 
         ASSERT_OK(sd_journal_get_data(j, "NUMBER", &d, &l));
-        ASSERT_NOT_NULL(s = strndup(d, l));
+        ASSERT_NOT_NULL((s = strndup(d, l)));
         ASSERT_OK(asprintf(&e, "NUMBER=%u", entry->number));
         ASSERT_STREQ(s, e);
 
@@ -1011,7 +1014,7 @@ static void verify_entry(sd_journal *j, const TestEntry *entry) {
         e = mfree(e);
 
         ASSERT_OK(sd_journal_get_data(j, "DATA", &d, &l));
-        ASSERT_NOT_NULL(s = strndup(d, l));
+        ASSERT_NOT_NULL((s = strndup(d, l)));
         ASSERT_OK(asprintf(&e, "DATA=%u", entry->data));
         ASSERT_STREQ(s, e);
 }
@@ -1188,7 +1191,7 @@ TEST(seek_time) {
 
         mkdtemp_chdir_chattr("/var/tmp/journal-seek-time-XXXXXX", &t);
 
-        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_NOT_NULL((m = mmap_cache_new()));
 
         ASSERT_OK(journal_file_open(
                                   -EBADF,

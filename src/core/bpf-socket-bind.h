@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "fdset.h"
-#include "unit.h"
+#include "core-forward.h"
 
 int bpf_socket_bind_supported(void);
 

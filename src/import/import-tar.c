@@ -1,33 +1,34 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
-#include "copy.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "fs-util.h"
-#include "hostname-util.h"
+#include "format-util.h"
 #include "import-common.h"
 #include "import-compress.h"
 #include "import-tar.h"
+#include "import-util.h"
 #include "install-file.h"
 #include "io-util.h"
-#include "machine-pool.h"
-#include "missing_fs.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "qcow2-util.h"
 #include "ratelimit.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
-struct TarImport {
+typedef struct TarImport {
         sd_event *event;
 
         char *image_root;
@@ -60,7 +61,7 @@ struct TarImport {
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
-};
+} TarImport;
 
 TarImport* tar_import_unref(TarImport *i) {
         if (!i)
@@ -155,7 +156,7 @@ static void tar_import_report_progress(TarImport *i) {
                 (void) draw_progress_barf(
                                 percent,
                                 "%s %s/%s",
-                                special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                glyph(GLYPH_ARROW_RIGHT),
                                 FORMAT_BYTES(i->written_compressed),
                                 FORMAT_BYTES(i->input_stat.st_size));
         else

@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "conf-parser.h"
-#include "in-addr-util.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 
 typedef struct FirewallContext FirewallContext;
 
@@ -74,7 +71,7 @@ int nft_set_element_modify_iprange(
                 const char *table,
                 const char *set,
                 const union in_addr_union *source,
-                unsigned int source_prefixlen);
+                unsigned source_prefixlen);
 
 int nft_set_element_modify_ip(
                 FirewallContext *ctx,

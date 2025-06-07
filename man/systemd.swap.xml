@@ -72,7 +72,7 @@
 
       <itemizedlist>
         <listitem><para>All swap units automatically get the
-        <varname>BindsTo=</varname> and <varname>After=</varname>
+        <varname>Requires=</varname> and <varname>After=</varname>
         dependencies on the device units or the mount units of the files
         they are activated from.</para></listitem>
       </itemizedlist>

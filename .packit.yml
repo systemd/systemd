@@ -18,7 +18,8 @@ actions:
 
   post-upstream-clone:
     # Use the Fedora Rawhide specfile
-    - git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1
+    - git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm
+    - bash -c 'git -C .packit_rpm checkout "$(grep GIT_COMMIT= mkosi/mkosi.conf.d/centos-fedora/mkosi.conf.d/pkgenv.conf | cut -d= -f2)"'
     - bash -c 'echo "%bcond upstream 1" > .packit_rpm/systemd.spec.new'
     - bash -c 'echo "%define meson_extra_configure_options --werror" >> .packit_rpm/systemd.spec.new'
     - bash -c 'cat .packit_rpm/systemd.spec >> .packit_rpm/systemd.spec.new'
@@ -36,7 +37,17 @@ jobs:
 
 - job: tests
   trigger: pull_request
-  fmf_path: test/fmf
-  tmt_plan: ci
+  fmf_url: https://src.fedoraproject.org/rpms/systemd
+  # This is automatically updated by tools/fetch-distro.py --update fedora
+  fmf_ref: 6646d13acae64665f63354cd60ecf963ee563b96
   targets:
   - fedora-rawhide-x86_64
+  # testing-farm in the Fedora repository is explicitly configured to use testing-farm bare metal runners as
+  # the volume of pull requests there is very low. Upstream the volume of pull requests is much higher and
+  # we'll bottleneck ourselves if we insist on bare metal runners, so explicitly do not request support for
+  # nested virtualization so we don't only consider bare metal runners.
+  tf_extra_params:
+    environments:
+      - hardware:
+          virtualization:
+            is-supported: false

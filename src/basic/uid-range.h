@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "macro.h"
+#include "forward.h"
 
 typedef struct UIDRangeEntry {
         uid_t start, nr;
@@ -37,29 +34,8 @@ static inline size_t uid_range_entries(const UIDRange *range) {
         return range ? range->n_entries : 0;
 }
 
-static inline unsigned uid_range_size(const UIDRange *range) {
-        if (!range)
-                return 0;
-
-        unsigned n = 0;
-
-        FOREACH_ARRAY(e, range->entries, range->n_entries)
-                n += e->nr;
-
-        return n;
-}
-
-static inline bool uid_range_is_empty(const UIDRange *range) {
-
-        if (!range)
-                return true;
-
-        FOREACH_ARRAY(e, range->entries, range->n_entries)
-                if (e->nr > 0)
-                        return false;
-
-        return true;
-}
+unsigned uid_range_size(const UIDRange *range) _pure_;
+bool uid_range_is_empty(const UIDRange *range) _pure_;
 
 bool uid_range_equal(const UIDRange *a, const UIDRange *b);
 

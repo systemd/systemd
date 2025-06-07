@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "log.h"
 #include "lsm-util.h"
 #include "mountpoint-util.h"
 #include "string-util.h"

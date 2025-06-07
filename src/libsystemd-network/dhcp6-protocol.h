@@ -5,11 +5,7 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <netinet/ip6.h>
-#include <netinet/udp.h>
-
-#include "macro.h"
+#include "forward.h"
 #include "sparse-endian.h"
 
 struct DHCP6Message {

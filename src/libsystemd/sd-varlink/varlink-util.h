@@ -3,8 +3,7 @@
 
 #include "sd-varlink.h"
 
-#include "pidref.h"
-#include "set.h"
+#include "forward.h"
 
 int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret);
 
@@ -26,3 +25,5 @@ int varlink_server_new(
                 sd_varlink_server **ret,
                 sd_varlink_server_flags_t flags,
                 void *userdata);
+
+int varlink_check_privileged_peer(sd_varlink *vl);

@@ -2,9 +2,9 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/loop.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -26,13 +26,14 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hostname-util.h"
+#include "image-policy.h"
 #include "kbd-util.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "lock-util.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "mkdir.h"
 #include "mount-util.h"
 #include "os-util.h"
 #include "parse-argument.h"
@@ -41,15 +42,14 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
-#include "random-util.h"
+#include "runtime-scope.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "tmpfile-util-label.h"
-#include "tmpfile-util.h"
-#include "umask-util.h"
 #include "user-util.h"
 #include "vconsole-util.h"
 
@@ -124,11 +124,17 @@ static void print_welcome(int rfd) {
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 
         if (colors_enabled())
-                printf("\nWelcome to your new installation of \x1B[%sm%s\x1B[0m!\n", ac, pn);
+                printf("\n"
+                       ANSI_HIGHLIGHT "Welcome to your new installation of " ANSI_NORMAL "\x1B[%sm%s" ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n", ac, pn);
         else
                 printf("\nWelcome to your new installation of %s!\n", pn);
 
-        printf("\nPlease configure your system!\n");
+        putchar('\n');
+        if (emoji_enabled()) {
+                fputs(glyph(GLYPH_SPARKLES), stdout);
+                putchar(' ');
+        }
+        printf("Please configure your new system!\n");
 
         any_key_to_proceed();
 
@@ -182,7 +188,7 @@ static int prompt_loop(
                                 l,
                                 strv_isempty(l) ? "%s %s (empty to skip): "
                                                 : "%s %s (empty to skip, \"list\" to list options): ",
-                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
+                                glyph(GLYPH_TRIANGULAR_BULLET), text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 
@@ -779,8 +785,8 @@ static int prompt_root_password(int rfd) {
 
         print_welcome(rfd);
 
-        msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter the new root password (empty to skip):");
-        msg2 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter the new root password again:");
+        msg1 = strjoina(glyph(GLYPH_TRIANGULAR_BULLET), " Please enter the new root password (empty to skip):");
+        msg2 = strjoina(glyph(GLYPH_TRIANGULAR_BULLET), " Please enter the new root password again:");
 
         suggest_passwords();
 
@@ -1460,7 +1466,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT))
+                        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Host name %s is not valid.", optarg);
 

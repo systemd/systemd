@@ -1,15 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <alloca.h>
-#include <stdbool.h>
-#include <stddef.h>
-
-#include "macro.h"
-#include "stat-util.h"
-#include "string-util.h"
-#include "strv.h"
-#include "time-util.h"
+#include "forward.h"
 
 #define PATH_SPLIT_BIN(x) x "sbin:" x "bin"
 #define PATH_SPLIT_BIN_NULSTR(x) x "sbin\0" x "bin\0"
@@ -32,12 +24,7 @@ static inline const char* default_user_PATH(void) {
 #endif
 }
 
-static inline bool is_path(const char *p) {
-        if (!p) /* A NULL pointer is definitely not a path */
-                return false;
-
-        return strchr(p, '/');
-}
+bool is_path(const char *p) _pure_;
 
 static inline bool path_is_absolute(const char *p) {
         if (!p) /* A NULL pointer is definitely not an absolute path */
@@ -52,9 +39,15 @@ int safe_getcwd(char **ret);
 int path_make_absolute_cwd(const char *p, char **ret);
 int path_make_relative(const char *from, const char *to, char **ret);
 int path_make_relative_parent(const char *from_child, const char *to, char **ret);
-char* path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) _pure_;
+
+typedef enum PathStartWithFlags {
+        PATH_STARTSWITH_REFUSE_DOT_DOT       = 1U << 0,
+        PATH_STARTSWITH_RETURN_LEADING_SLASH = 1U << 1,
+} PathStartWithFlags;
+
+char* path_startswith_full(const char *path, const char *prefix, PathStartWithFlags flags) _pure_;
 static inline char* path_startswith(const char *path, const char *prefix) {
-        return path_startswith_full(path, prefix, true);
+        return path_startswith_full(path, prefix, 0);
 }
 
 int path_compare(const char *a, const char *b) _pure_;
@@ -76,9 +69,7 @@ char* path_extend_internal(char **x, ...);
 #define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)
 #define path_join(...) path_extend_internal(NULL, __VA_ARGS__, POINTER_MAX)
 
-static inline char* skip_leading_slash(const char *p) {
-        return skip_leading_chars(p, "/");
-}
+char* skip_leading_slash(const char *p) _pure_;
 
 typedef enum PathSimplifyFlags {
         PATH_SIMPLIFY_KEEP_TRAILING_SLASH = 1 << 0,
@@ -89,21 +80,7 @@ static inline char* path_simplify(char *path) {
         return path_simplify_full(path, 0);
 }
 
-static inline int path_simplify_alloc(const char *path, char **ret) {
-        assert(ret);
-
-        if (!path) {
-                *ret = NULL;
-                return 0;
-        }
-
-        char *t = strdup(path);
-        if (!t)
-                return -ENOMEM;
-
-        *ret = path_simplify(t);
-        return 0;
-}
+int path_simplify_alloc(const char *path, char **ret);
 
 /* Note: the search terminates on the first NULL item. */
 #define PATH_IN_SET(p, ...) path_strv_contains(STRV_MAKE(__VA_ARGS__), p)
@@ -115,6 +92,7 @@ int path_strv_make_absolute_cwd(char **l);
 char** path_strv_resolve(char **l, const char *root);
 char** path_strv_resolve_uniq(char **l, const char *root);
 
+int open_and_check_executable(const char *name, const char *root, char **ret_path, int *ret_fd);
 int find_executable_full(
                 const char *name,
                 const char *root,
@@ -153,32 +131,6 @@ int fsck_exists_for_fstype(const char *fstype);
              _slash && ((*_slash = 0), true);                           \
              _slash = strrchr((prefix), '/'))
 
-/* Similar to path_join(), but only works for two components, and only the first one may be NULL and returns
- * an alloca() buffer, or possibly a const pointer into the path parameter. */
-/* DEPRECATED: use path_join() instead */
-#define prefix_roota(root, path)                                        \
-        ({                                                              \
-                const char* _path = (path), *_root = (root), *_ret;     \
-                char *_p, *_n;                                          \
-                size_t _l;                                              \
-                while (_path[0] == '/' && _path[1] == '/')              \
-                        _path++;                                        \
-                if (isempty(_root))                                     \
-                        _ret = _path;                                   \
-                else {                                                  \
-                        _l = strlen(_root) + 1 + strlen(_path) + 1;     \
-                        _n = newa(char, _l);                            \
-                        _p = stpcpy(_n, _root);                         \
-                        while (_p > _n && _p[-1] == '/')                \
-                                _p--;                                   \
-                        if (_path[0] != '/')                            \
-                                *(_p++) = '/';                          \
-                        strcpy(_p, _path);                              \
-                        _ret = _n;                                      \
-                }                                                       \
-                _ret;                                                   \
-        })
-
 int path_find_first_component(const char **p, bool accept_dot_dot, const char **ret);
 int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret);
 const char* last_path_component(const char *path);
@@ -195,19 +147,25 @@ static inline bool path_is_safe(const char *p) {
         return path_is_valid_full(p, /* accept_dot_dot= */ false);
 }
 bool path_is_normalized(const char *p) _pure_;
+static inline bool filename_or_absolute_path_is_valid(const char *p) {
+        if (path_is_absolute(p))
+                return path_is_valid(p);
+
+        return filename_is_valid(p);
+}
 
 int file_in_same_dir(const char *path, const char *filename, char **ret);
 
 bool hidden_or_backup_file(const char *filename) _pure_;
 
-bool is_device_path(const char *path);
+bool is_device_path(const char *path) _pure_;
 
-bool valid_device_node_path(const char *path);
-bool valid_device_allow_pattern(const char *path);
+bool valid_device_node_path(const char *path) _pure_;
+bool valid_device_allow_pattern(const char *path) _pure_;
 
-bool dot_or_dot_dot(const char *path);
+bool dot_or_dot_dot(const char *path) _pure_;
 
-bool path_implies_directory(const char *path);
+bool path_implies_directory(const char *path) _pure_;
 
 static inline const char* skip_dev_prefix(const char *p) {
         const char *e;
@@ -219,10 +177,8 @@ static inline const char* skip_dev_prefix(const char *p) {
         return e ?: p;
 }
 
-bool empty_or_root(const char *path);
-static inline const char* empty_to_root(const char *path) {
-        return isempty(path) ? "/" : path;
-}
+bool empty_or_root(const char *path) _pure_;
+const char* empty_to_root(const char *path) _pure_;
 
 bool path_strv_contains(char * const *l, const char *path);
 bool prefixed_path_strv_contains(char * const *l, const char *path);

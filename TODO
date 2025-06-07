@@ -22,8 +22,6 @@ External:
 
 * fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
 
-* register catalog database signature as file magic
-
 * zsh shell completion:
   - <command> <verb> -<TAB> should complete options, but currently does not
   - systemctl add-wants,add-requires
@@ -61,19 +59,12 @@ Regularly:
 
 * set_put(), hashmap_put() return values check. i.e. == 0 does not free()!
 
-* use secure_getenv() instead of getenv() where appropriate
-
 * link up selected blog stories from man pages and unit files Documentation= fields
 
 Janitorial Clean-ups:
 
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
-
-* get rid of prefix_roota() and similar, only use chase() and related
-  calls instead.
-
-* get rid of basename() and replace by path_extract_filename()
 
 * Replace our fstype_is_network() with a call to libmount's mnt_fstype_is_netfs()?
   Having two lists is not nice, but maybe it's now worth making a dependency on
@@ -122,19 +113,124 @@ Deprecations and removals:
   That requires distros to enable CONFIG_ACPI_FPDT, and have kernels v5.12 for
   x86 and v6.2 for arm.
 
-* Once baseline is 4.13, remove support for INTERFACE_OLD= checks in "udevadm
-  trigger"'s waiting logic, since we can then rely on uuid-tagged uevents
-
 * In v260: remove support for deprecated FactoryReset EFI variable in
   systemd-repart, replaced by FactoryResetRequest.
 
+* Consider removing root=gpt-auto, and push people to use root=dissect instead.
+
 Features:
+
+* Add PassPidFileDescriptor= similar in style to PassCredentials= to .socket
+  units
+
+* automatically reset specific EFI vars on factory reset (make this generic
+  enough so that infrac can be used to erase shim's mok vars?)
+
+* similar: add a plugin for factory reset logic that erases certain parts of
+  the ESP, but leaves others in place.
+
+* systemd-repart: add --defer-partitions-factory-reset or so, as a flavour of
+  --defer-partitions= that picks all partitions that are marked for factory
+  reset. for an installer this is usually the partitions not to copy, too.
+
+* flush_fd() should probably try to be smart and stop reading once we know that
+  all further queued data was enqueued after flush_fd() was originally
+  called. For that, try SIOCINQ if fd refers to stream socket, and look at
+  timestamps for datagram sockets.
+
+* Similar flush_accept() should look at sockdiag queued sockets count and exit
+  once we flushed out the specified number of connections.
+
+* maybe introduce a new per-unit drop-in directory .confext.d/ that may contain
+  symlinks to confext images to enable for the unit.
+
+* nspawn: map foreign UID range through 1:1
+
+* replace most calls to sd_bus_send() by sd_bus_message_send()
+
+* replace all uses of fopen_temporary() by fopen_tmpfile_linkable() +
+  flink_tmpfile() and then get rid of fopen_temporary(). Benefit: use O_TMPFILE
+  pervasively, and avoid rename() wherever we can.
+
+* loginctl: show argv[] of "leader" process in tabular list-sessions output
+
+* loginctl: show "service identifier" in tabular list-sessions output, to make
+  run0 sessions easily visible.
+
+* run0: maybe enable utmp for run0 sessions, so that they are easily visible.
+
+* maybe beef up sd-event: optionally, allow sd-event to query the timestamp of
+  next pending datagram inside a SOCK_DGRAM IO fd, and order event source
+  dispatching by that. Enable this on the native + syslog sockets in journald,
+  so that we add correct ordering between the two. Use MSG_PEEK + SCM_TIMESTAMP
+  for this.
+
+* maybe replace nss-machines with logic in networkd that registers records with
+  systemd-resolved, based on DHCP leases, so that we gain compat with VMs.
+  Implementation idea: encode in an ifaltname the intended local name to expose this
+  under and then parse that out and map it to the combined A/AAAA of all handed
+  out leases.
+
+* bsod: add target "bsod.target" or so, which invokes systemd-bsod.target and
+  waits and then reboots. Then use OnFailure=bsod.target from various jobs that
+  should result in system reboots, such as TPM tamper detection cases.
+
+* honour validatefs xattrs in dissect-image.c too
+
+* pcrextend: maybe add option to disable measurements entirely via kernel cmdline
+
+* tpm2-setup: reboot if we detect SRK changed
+
+* validatefs: validate more things: check if image id + os id of initrd match
+  target mount, so that we refuse early any attempts to boot into different
+  images with the wrong kernels. check min/max kernel version too. all encoded
+  via xattrs in the target fs.
+
+* pcrextend: when we fail to measure, reboot the system (at least optionally).
+  important because certain measurements are supposed to "destroy" tpm object
+  access.
+
+* pcrextend: after measuring get an immediate quote from the TPM, and validate
+  it. if it doesn't check out, i.e. the measurement we made doesn't appear in
+  the PCR then also reboot.
+
+* cryptsetup: add boolean for disabling use of any password/recovery key slots.
+  (i.e. that we can operate in a tpm-only mode, and thus protect us from rogue
+  root disks)
+
+* complete varlink introspection comments:
+  - io.systemd.BootControl
+  - io.systemd.Hostname
+  - io.systemd.ManagedOOM
+  - io.systemd.Network
+  - io.systemd.PCRExtend
+  - io.systemd.PCRLock
+  - io.systemd.Resolve.Monitor
+  - io.systemd.Resolve
+  - io.systemd.oom
+  - io.systemd.sysext
+
+* maybe define a /etc/machine-info field for the ANSI color to associate with a
+  hostname. Then use it for the shell prompt to highlight the hostname. If no
+  color is explicitly set, hash a color automatically from the hostname as a
+  fallback, in a reasonable way. Take inspiration from the ANSI_COLOR= field
+  that already exists in /etc/os-release, i.e. use the same field name and
+  syntax. When hashing the color, use the hsv_to_rgb() helper we already have,
+  fixate S and V to something reasonable and constant, and derive the H from
+  the hostname. Ultimate goal with this: give people a visual hint about the
+  system they are on if the have many to deal with, by giving each a color
+  identity. This code should be placed in hostnamed, so that clients can query
+  the color via varlink or dbus.
 
 * unify how blockdev_get_root() and sysupdate find the default root block device
 
 * Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
 
-* add "homctl export" and "homectl import" that gets you an "atomic" snapshot
+* maybe extend the capsule concept to the per-user instance too: invokes a
+  systemd --user instance with a subdir of $HOME as $HOME, and a subdir of
+  $XDG_RUNTIME_DIR as $XDG_RUNTIME_DIR.
+
+* add "homectl export" and "homectl import" that gets you an "atomic" snapshot
   of your homedir, i.e. either a tarball or a snapshot of the underlying disk
   (use FREEZE/THAW to make it consistent, btrfs snapshots)
 
@@ -146,6 +242,10 @@ Features:
   import into journal. maybe use timestamp for making clock more monotonic.
   also use this to detect unclean shutdowns, boot into special target if
   detected
+
+* fix homed/homectl confusion around terminology, i.e. "home directory"
+  vs. "home" vs. "home area". Stick to one term for the concept, and it
+  probably shouldn't contain "area".
 
 * sd-boot: do something useful if we find exactly zero entries (ignoring items
   such as reboot/poweroff/factory reset). Show a help text or so.
@@ -193,9 +293,6 @@ Features:
   "offline" operation, optionally invoke the two tools directly as child
   processes with varlink communication over socketpair(). This all should be
   useful as blueprint for graphical installers which should do the same.
-
-* make "systemd-vmspawn -n" work unprivileged properly, i.e. acquire tap netif
-  from nsresourced.
 
 * Make run0 forward various signals to the forked process so that sending
   signals to a child process works roughly the same regardless of whether the
@@ -311,17 +408,10 @@ Features:
   credential (would probably require some binary that converts credential to
   User= parameter?
 
-* sd-varlink should probably enforce a limit on queued outgoing replies
-
 * systemd-firstboot: optionally install an ssh key for root for offline use.
 
-* add a small tool that reads user records/group records from a credential, and
-  then places them in the userdb drop-in dirs (either /run/ or /var/). While
-  doing so it processes them:
-  - split privileged part from unprivileged part (the way userdb dropins want
-    it
-  - write out membership files based on the listed group memberships
-  - maybe: also allocate a UID if none is included.
+* Allocate UIDs/GIDs automatically in userdbctl load-credentials if none are
+  included in the user/group record credentials
 
 * the ordering cycle log messages in transaction_verify_order_one() should
   really be recognizable via a message id and come with an explanatory catalog
@@ -333,18 +423,8 @@ Features:
 * in pid1: include ExecStart= cmdlines (and other Exec*= cmdlines) in polkit
   request, so that policies can match against command lines.
 
-* account number of units currently in activating/active/deactivating state in
-  each slice, and expose this as a property of the slice, given this is a key
-  metric of the resource management entity that a slice is. (maybe add a 2nd
-  metric for units assigned to the slice, that also includes those with pending
-  jobs)
-
-* maybe allow putting a "soft" limit on the number concurrently active units in
-  a slice, as per the previous item. When the limit is reached delay further
-  activations until number is below the threshold again, leaving the unit in
-  the job queue. Thus, multiple resource intensive tasks can be scheduled as
-  units in the same slice and they will be executed with an upper limit on
-  concurrently running tasks.
+* allow dynamic modifications of ConcurrencyHardMax= and ConcurrencySoftMax=
+  via DBus (and with that also by daemon-reload)
 
 * importd: introduce a per-user instance, that downloads into per-user DDI dirs
 
@@ -668,10 +748,6 @@ Features:
 * machined: optionally track nspawn unix-export/ runtime for each machined, and
   then update systemd-ssh-proxy so that it can connect to that.
 
-* add a new ExecStart= flag that inserts the configured user's shell as first
-  word in the command line. (maybe use character '.'). Usecase: tool such as
-  run0 can use that to spawn the target user's default shell.
-
 * introduce mntid_t, and make it 64bit, as apparently the kernel switched to
   64bit mount ids
 
@@ -739,6 +815,7 @@ Features:
     suspend key presses.
   - support for "real" networking via "-n" and --network-bridge=
   - translate SIGTERM to clean ACPI shutdown event
+  - implement hotkeys ^]^]r and ^]^]p like nspawn
 
 * systemd-pcrmachine should probably also measure the SMBIOS system UUID.
 
@@ -1112,10 +1189,6 @@ Features:
 * consider adding a new partition type, just for /opt/ for usage in system
   extensions
 
-* gpt-auto-discovery: also use the pkcs7 signature stuff, and pass signature to
-  kernel. So far we only did this for the various --image= switches, but not
-  for the root fs or /usr/.
-
 * dissection policy should enforce that unlocking can only take place by
   certain means, i.e. only via pw, only via tpm2, or only via fido, or a
   combination thereof.
@@ -1280,9 +1353,6 @@ Features:
 * chase(): take inspiration from path_extract_filename() and return
   O_DIRECTORY if input path contains trailing slash.
 
-* chase(): refuse resolution if trailing slash is specified on input,
-  but final node is not a directory
-
 * document in boot loader spec that symlinks in XBOOTLDR/ESP are not OK even if
   non-VFAT fs is used.
 
@@ -1408,8 +1478,6 @@ Features:
   subprocess that quickly dies, we might not be able to identify the cgroup it
   comes from, but we can still derive that from the stdin socket its output
   came from. We apparently don't do that right now.
-
-* add ability to set hostname with suffix derived from machine id at boot
 
 * add PR_SET_DUMPABLE service setting
 
@@ -1604,12 +1672,6 @@ Features:
   data in the image, make sure the image filename actually matches this, so
   that images cannot be misused.
 
-* New udev block device symlink names:
-  /dev/disk/by-parttypelabel/<pttype>-<ptlabel>. Use case: if pt label is used
-  as partition image version string, this is a safe way to reference a specific
-  version of a specific partition type, in particular where related partitions
-  are processed (e.g. verity + rootfs both named "LennartOS_0.7").
-
 * sysupdate:
   - add fuzzing to the pattern parser
   - support casync as download mechanism
@@ -1625,11 +1687,6 @@ Features:
 
 * systemd-sysext: optionally, run it in initrd already, before transitioning
   into host, to open up possibility for services shipped like that.
-
-* introduce /dev/disk/root/* symlinks that allow referencing partitions on the
-  disk the rootfs is on in a reasonably secure way. (or maybe: add
-  /dev/gpt-auto-{home,srv,boot,…} similar in style to /dev/gpt-auto-root as we
-  already have it.
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
@@ -1743,7 +1800,6 @@ Features:
   with matches, then activate app through that passing socket over
 
 * unify on openssl:
-  - kill gnutls support in resolved
   - figure out what to do about libmicrohttpd, which has a hard dependency on
     gnutls
   - port fsprg over to a dlopen lib, then switch it to openssl
@@ -1814,7 +1870,7 @@ Features:
   to 1K implicitly, unless explicitly opted-out.
 
 * rework seccomp/nnp logic that even if User= is used in combination with
-  a seccomp option we don't have to set NNP. For that, change uid first whil
+  a seccomp option we don't have to set NNP. For that, change uid first while
   keeping CAP_SYS_ADMIN, then apply seccomp, the drop cap.
 
 * when no locale is configured, default to UEFI's PlatformLang variable
@@ -1861,7 +1917,7 @@ Features:
 
 * add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
 
-* sync dynamic uids/gids between host+portable srvice (i.e. if DynamicUser=1 is set for a service, make sure that the
+* sync dynamic uids/gids between host+portable service (i.e. if DynamicUser=1 is set for a service, make sure that the
   selected user is resolvable in the service even if it ships its own /etc/passwd)
 
 * Fix DECIMAL_STR_MAX or DECIMAL_STR_WIDTH. One includes a trailing NUL, the
@@ -2392,7 +2448,6 @@ Features:
                 journalctl /usr/bin/X11 --invocation=-1
   - systemctl: change 'status' to show logs for the last invocation, not a fixed
     number of lines
-  - systemctl: expand --wait to show logs for the invocation with a new switch
   - improve journalctl performance by loading journal files
     lazily. Encode just enough information in the file name, so that we
     do not have to open it to know that it is not interesting for us, for
@@ -2662,11 +2717,6 @@ Features:
   ensure deterministic behaviour if two unit files conflict (like DMs
   do, for example)
 
-* add "systemctl start -v foobar.service" that shows logs of a service
-  while the start command runs. This is non-trivial to do without
-  races though, since we should flush out all journal messages before
-  returning from the "systemctl stop".
-
 * systemctl: if some operation fails, show log output?
 
 * Add a new verb "systemctl top"
@@ -2821,3 +2871,6 @@ Features:
 * shared/wall: Once more programs are taught to prefer sd-login over utmp,
   switch the default wall implementation to wall_logind
   (https://github.com/systemd/systemd/pull/29051#issuecomment-1704917074)
+
+* Hook up systemd-journal-upload with RESTART_RESET=1 logic (should probably
+  be conditioned on the num of successfully uploaded entries?)

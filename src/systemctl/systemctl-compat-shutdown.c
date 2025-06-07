@@ -3,13 +3,13 @@
 #include <getopt.h>
 
 #include "alloc-util.h"
+#include "log.h"
 #include "pretty-print.h"
 #include "reboot-util.h"
-#include "systemctl-compat-shutdown.h"
-#include "systemctl-logind.h"
-#include "systemctl-sysv-compat.h"
+#include "strv.h"
 #include "systemctl.h"
-#include "terminal-util.h"
+#include "systemctl-compat-shutdown.h"
+#include "systemctl-sysv-compat.h"
 
 static int shutdown_help(void) {
         _cleanup_free_ char *link = NULL;

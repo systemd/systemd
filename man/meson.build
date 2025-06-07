@@ -92,7 +92,9 @@ foreach tuple : manpages
                                         output : htmlalias,
                                         command : [ln, '-fs', html, '@OUTPUT@'])
                                 if want_html
-                                        meson.add_install_script(sh, '-c', ln_s.format(docdir / 'html' / html, docdir / 'html' / htmlalias))
+                                        install_symlink(htmlalias,
+                                                        pointing_to : html,
+                                                        install_dir : docdir / 'html')
                                         p2 += link
                                 endif
                                 html_pages += link
@@ -134,8 +136,8 @@ systemd_index_xml = custom_target(
         output : 'systemd.index.xml',
         command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
 
-foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directives_xml],
-                                    ['systemd.index',      '7', systemd_index_xml]] : []
+foreach tuple : xsltproc.found() and have_lxml ? [['systemd.directives', '7', systemd_directives_xml],
+                                                  ['systemd.index',      '7', systemd_index_xml]] : []
         stem = tuple[0]
         section = tuple[1]
         xml = tuple[2]
@@ -150,7 +152,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                 input : xml,
                 output : man,
                 command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
-                install : want_man and have_lxml,
+                install : want_man,
                 install_dir : mandirn)
         man_pages += p1
 
@@ -163,7 +165,9 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                         output : htmlalias,
                         command : [ln, '-fs', html, '@OUTPUT@'])
                 if want_html
-                        meson.add_install_script(sh, '-c', ln_s.format(docdir / 'html' / html, docdir / 'html' / htmlalias))
+                        install_symlink(htmlalias,
+                                        pointing_to : html,
+                                        install_dir : docdir / 'html')
                         p2 += link
                 endif
                 html_pages += link
@@ -175,7 +179,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                 output : html,
                 command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
                 depends : [man_page_depends, p2],
-                install : want_html and have_lxml,
+                install : want_html,
                 install_dir : docdir / 'html')
         html_pages += p3
 endforeach
@@ -208,7 +212,7 @@ endif
 ############################################################
 
 buildroot_substs = configuration_data()
-buildroot_substs.set_quoted('BUILD_ROOT', project_build_root)
+buildroot_substs.set_quoted('BUILD_ROOT', meson.project_build_root())
 
 configure_file(
         input : 'man.in',
@@ -225,7 +229,7 @@ configure_file(
 update_dbus_docs = custom_target(
         'update-dbus-docs-impl',
         output : 'update-dbus-docs',
-        command : [update_dbus_docs_py, '--build-dir', project_build_root, '@INPUT@'],
+        command : [update_dbus_docs_py, '--build-dir', meson.project_build_root(), '@INPUT@'],
         input : dbus_docs,
         depends : dbus_programs)
 
@@ -233,7 +237,7 @@ if conf.get('BUILD_MODE_DEVELOPER') == 1
         test('dbus-docs-fresh',
              update_dbus_docs_py,
              suite : 'dist',
-             args : ['--build-dir', project_build_root, '--test', dbus_docs],
+             args : ['--build-dir', meson.project_build_root(), '--test', dbus_docs],
              depends : dbus_programs)
 
         test('check-version-history',
@@ -246,7 +250,7 @@ update_man_rules = custom_target(
         'update-man-rules-impl',
         output : 'update-man-rules',
         command : [update_man_rules_py,
-                   '@0@/man/*.xml'.format(project_source_root),
+                   '@0@/man/*.xml'.format(meson.project_source_root()),
                    '@0@/rules/meson.build'.format(meson.current_source_dir())],
         depends : man_page_depends)
 
@@ -272,6 +276,8 @@ simple_examples = files(
         'sd-bus-container-read.c',
         'sd_bus_error-example.c',
         'sd_bus_service_reconnect.c',
+        'sd_device_enumerator_add_match_parent-example.c',
+        'sd_device_enumerator_new-example.c',
         'send-unit-files-changed.c',
         'vtable-example.c',
 )

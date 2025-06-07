@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "sd-device.h"
+#include "udev-forward.h"
 
-int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd);
-static inline int device_new_from_watch_handle(sd_device **ret, int wd) {
-        return device_new_from_watch_handle_at(ret, -1, wd);
-}
+void udev_watch_dump(void);
 
-int udev_watch_restore(int inotify_fd);
-int udev_watch_begin(int inotify_fd, sd_device *dev);
-int udev_watch_end(int inotify_fd, sd_device *dev);
+int manager_init_inotify(Manager *manager, int fd);
+int manager_start_inotify(Manager *manager);
+
+int manager_add_watch(Manager *manager, sd_device *dev);
+int manager_remove_watch(Manager *manager, sd_device *dev);
+
+int udev_watch_begin(UdevWorker *worker, sd_device *dev);
+int udev_watch_end(UdevWorker *worker, sd_device *dev);

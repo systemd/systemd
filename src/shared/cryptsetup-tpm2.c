@@ -5,14 +5,16 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-tpm2.h"
+#include "cryptsetup-util.h"
 #include "env-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
-#include "parse-util.h"
+#include "log.h"
 #include "random-util.h"
-#include "sha256.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
+#if HAVE_LIBCRYPTSETUP && HAVE_TPM2
 static int get_pin(
                 usec_t until,
                 const char *askpw_credential,
@@ -59,6 +61,7 @@ static int get_pin(
 
         return r;
 }
+#endif
 
 int acquire_tpm2_key(
                 const char *volume_name,
@@ -86,6 +89,7 @@ int acquire_tpm2_key(
                 AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key) {
 
+#if HAVE_LIBCRYPTSETUP && HAVE_TPM2
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
         _cleanup_(iovec_done) struct iovec loaded_blob = {};
         _cleanup_free_ char *auto_device = NULL;
@@ -167,6 +171,10 @@ int acquire_tpm2_key(
                                 n_policy_hash,
                                 srk,
                                 ret_decrypted_key);
+                if (r == -EREMOTE)
+                        return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
+                if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
@@ -215,17 +223,24 @@ int acquire_tpm2_key(
                                 n_policy_hash,
                                 srk,
                                 ret_decrypted_key);
+                if (r == -EREMOTE)
+                        return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
+                if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
                 if (r < 0) {
                         log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
                         /* We get this error in case there is an authentication policy mismatch. This should
                          * not happen, but this avoids confusing behavior, just in case. */
-                        if (!IN_SET(r, -EPERM, -ENOLCK))
+                        if (r != -ENOLCK)
                                 continue;
                 }
 
                 return r;
         }
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support not available.");
+#endif
 }
 
 int find_tpm2_auto_data(
@@ -248,6 +263,7 @@ int find_tpm2_auto_data(
                 int *ret_keyslot,
                 int *ret_token) {
 
+#if HAVE_LIBCRYPTSETUP && HAVE_TPM2
         int r, token;
 
         assert(cd);
@@ -335,4 +351,7 @@ int find_tpm2_auto_data(
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No valid TPM2 token data found.");
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support not available.");
+#endif
 }

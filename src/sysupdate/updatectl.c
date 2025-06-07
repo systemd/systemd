@@ -4,27 +4,26 @@
 #include <locale.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-label.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-util.h"
-#include "conf-files.h"
-#include "conf-parser.h"
-#include "errno-list.h"
-#include "fd-util.h"
-#include "fileio.h"
+#include "errno-util.h"
 #include "format-table.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "os-util.h"
 #include "pager.h"
-#include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysupdate-update-set-flags.h"
 #include "sysupdate-util.h"
@@ -421,7 +420,7 @@ static int list_versions_finished(sd_bus_message *reply, void *userdata, sd_bus_
         color = update_set_flags_to_color(v.flags);
 
         if (urlify_enabled() && !strv_isempty(v.changelog)) {
-                version_link = strjoin(v.version, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK));
+                version_link = strjoin(v.version, glyph(GLYPH_EXTERNAL_LINK));
                 if (!version_link)
                         return log_oom();
         }
@@ -688,10 +687,10 @@ static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus
                 return bus_log_parse_error(r);
 
         if (urlify_enabled() && !strv_isempty(v.changelog))
-                lnk = special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK);
+                lnk = glyph(GLYPH_EXTERNAL_LINK);
 
         update = strjoin(empty_to_dash(current), " ",
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), " ",
+                         glyph(GLYPH_ARROW_RIGHT), " ",
                          v.version, strempty(lnk));
         if (!update)
                 return log_oom();
@@ -1328,7 +1327,7 @@ static int list_features(sd_bus *bus) {
                         return r;
 
                 if (urlify_enabled() && f.documentation) {
-                        name_link = strjoin(f.name, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK));
+                        name_link = strjoin(f.name, glyph(GLYPH_EXTERNAL_LINK));
                         if (!name_link)
                                 return log_oom();
                 }

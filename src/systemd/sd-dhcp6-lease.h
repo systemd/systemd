@@ -19,17 +19,15 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-
-#include "sd-dhcp6-option.h"
 
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
+struct in6_addr;
+
 typedef struct sd_dhcp6_lease sd_dhcp6_lease;
+typedef struct sd_dhcp6_option sd_dhcp6_option;
 typedef struct sd_dns_resolver sd_dns_resolver;
 
 int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);

@@ -17,12 +17,10 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
 #include <stdio.h>
 
-#include "sd-json.h"
-
 #include "_sd-common.h"
+#include "sd-json.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -221,6 +219,10 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_idl_format_flags_t) {
 int sd_varlink_idl_dump(FILE *f, const sd_varlink_interface *interface, sd_varlink_idl_format_flags_t flags, size_t cols);
 int sd_varlink_idl_format_full(const sd_varlink_interface *interface, sd_varlink_idl_format_flags_t flags, size_t cols, char **ret);
 int sd_varlink_idl_format(const sd_varlink_interface *interface, char **ret);
+
+int sd_varlink_idl_parse(const char *text, unsigned *reterr_line, unsigned *reterr_column, sd_varlink_interface **ret);
+sd_varlink_interface* sd_varlink_interface_free(sd_varlink_interface *interface);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink_interface, sd_varlink_interface_free);
 
 _SD_END_DECLARATIONS;
 

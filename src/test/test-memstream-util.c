@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "memstream-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(memstream_done) {
@@ -30,10 +29,10 @@ TEST(memstream) {
         assert_se(f = memstream_init(&m));
         fputs("hoge", f);
         fputs("おはよう！", f);
-        fputs(u8"😀😀😀", f);
-        assert_se(memstream_finalize(&m, &buf, &sz) >= 0);
-        ASSERT_STREQ(buf, u8"hogeおはよう！😀😀😀");
-        assert_se(sz == strlen(u8"hogeおはよう！😀😀😀"));
+        fputs(UTF8("😀😀😀"), f);
+        ASSERT_OK(memstream_finalize(&m, &buf, &sz));
+        ASSERT_STREQ(buf, UTF8("hogeおはよう！😀😀😀"));
+        ASSERT_EQ(sz, strlen(UTF8("hogeおはよう！😀😀😀")));
 
         buf = mfree(buf);
 

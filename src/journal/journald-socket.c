@@ -4,30 +4,32 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
+#include "journald-manager.h"
 #include "journald-socket.h"
 #include "log.h"
-#include "macro.h"
-#include "process-util.h"
+#include "stdio-util.h"
 #include "socket-util.h"
 #include "sparse-endian.h"
+#include "time-util.h"
 
-static int server_open_forward_socket(Server *s) {
+static int manager_open_forward_socket(Manager *m) {
         _cleanup_close_ int socket_fd = -EBADF;
         const SocketAddress *addr;
         int family;
 
-        assert(s);
+        assert(m);
 
         /* Noop if there is nothing to do. */
-        if (s->forward_to_socket.sockaddr.sa.sa_family == AF_UNSPEC || s->namespace)
+        if (m->forward_to_socket.sockaddr.sa.sa_family == AF_UNSPEC || m->namespace)
                 return 0;
         /* All ready, nothing to do. */
-        if (s->forward_socket_fd >= 0)
+        if (m->forward_socket_fd >= 0)
                 return 1;
 
-        addr = &s->forward_to_socket;
+        addr = &m->forward_to_socket;
 
         family = socket_address_family(addr);
 
@@ -42,7 +44,7 @@ static int server_open_forward_socket(Server *s) {
         if (connect(socket_fd, &addr->sockaddr.sa, addr->size) < 0)
                 return log_debug_errno(errno, "Failed to connect to remote address for forwarding, ignoring: %m");
 
-        s->forward_socket_fd = TAKE_FD(socket_fd);
+        m->forward_socket_fd = TAKE_FD(socket_fd);
         log_debug("Successfully connected to remote address for forwarding.");
         return 1;
 }
@@ -66,8 +68,8 @@ static inline bool must_serialize(struct iovec iov) {
         return false;
 }
 
-int server_forward_socket(
-                Server *s,
+int manager_forward_socket(
+                Manager *m,
                 const struct iovec *iovec,
                 size_t n_iovec,
                 const dual_timestamp *ts,
@@ -79,15 +81,15 @@ int server_forward_socket(
         le64_t *len;
         int r;
 
-        assert(s);
+        assert(m);
         assert(iovec);
         assert(n_iovec > 0);
         assert(ts);
 
-        if (LOG_PRI(priority) > s->max_level_socket)
+        if (LOG_PRI(priority) > m->max_level_socket)
                 return 0;
 
-        r = server_open_forward_socket(s);
+        r = manager_open_forward_socket(m);
         if (r <= 0)
                 return r;
 
@@ -151,12 +153,12 @@ int server_forward_socket(
         xsprintf(monotonic_buf, "__MONOTONIC_TIMESTAMP="USEC_FMT"\n\n", ts->monotonic);
         iov[iov_idx++] = IOVEC_MAKE_STRING(monotonic_buf);
 
-        if (writev(s->forward_socket_fd, iov, iov_idx) < 0) {
+        if (writev(m->forward_socket_fd, iov, iov_idx) < 0) {
                 log_debug_errno(errno, "Failed to forward log message over socket: %m");
 
                 /* If we failed to send once we will probably fail again so wait for a new connection to
                  * establish before attempting to forward again. */
-                s->forward_socket_fd = safe_close(s->forward_socket_fd);
+                m->forward_socket_fd = safe_close(m->forward_socket_fd);
         }
 
         return 0;

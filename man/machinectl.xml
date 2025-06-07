@@ -872,6 +872,7 @@
       <member><citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>zstd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

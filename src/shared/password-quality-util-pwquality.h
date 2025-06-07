@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
+#include "forward.h"
 
 #if HAVE_PWQUALITY
-/* pwquality.h uses size_t but doesn't include sys/types.h on its own */
-#include <sys/types.h>
 #include <pwquality.h>
 
 #include "dlfcn-util.h"

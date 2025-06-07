@@ -2,7 +2,6 @@
 
 #include "sd-json.h"
 
-#include "alloc-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fuzz.h"

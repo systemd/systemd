@@ -1,20 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "btrfs-util.h"
-#include "bus-common-errors.h"
+#include "bus-error.h"
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "discover-image.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "io-util.h"
+#include "log.h"
 #include "portable.h"
-#include "portabled-bus.h"
-#include "portabled-image-bus.h"
-#include "portabled-image.h"
 #include "portabled.h"
+#include "portabled-bus.h"
+#include "portabled-image.h"
+#include "portabled-image-bus.h"
 #include "strv.h"
-#include "user-util.h"
 
 static int property_get_pool_path(
                 sd_bus *bus,

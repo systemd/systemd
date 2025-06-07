@@ -1,12 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "log.h"
+#include "output-mode.h"
+#include "pager.h"
+#include "string-util.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-set-environment.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 static int json_transform_message(sd_bus_message *m, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;

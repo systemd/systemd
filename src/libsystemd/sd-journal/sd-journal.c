@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <linux/magic.h>
 #include <poll.h>
-#include <stddef.h>
+#include <stdlib.h>
 #include <sys/inotify.h>
 #include <sys/vfs.h>
 #include <unistd.h>
@@ -14,14 +11,13 @@
 
 #include "alloc-util.h"
 #include "catalog.h"
-#include "compress.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "id128-util.h"
@@ -31,19 +27,21 @@
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "list.h"
+#include "log.h"
 #include "lookup3.h"
 #include "nulstr-util.h"
 #include "origin-id.h"
 #include "path-util.h"
 #include "prioq.h"
-#include "process-util.h"
 #include "replace-var.h"
+#include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "uid-classification.h"
 
 #define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)
@@ -1234,13 +1232,12 @@ _public_ int sd_journal_previous_skip(sd_journal *j, uint64_t skip) {
         return real_journal_next_skip(j, DIRECTION_UP, skip);
 }
 
-_public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
+_public_ int sd_journal_get_cursor(sd_journal *j, char **ret_cursor) {
         Object *o;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(cursor, -EINVAL);
 
         if (!j->current_file || j->current_file->current_offset <= 0)
                 return -EADDRNOTAVAIL;
@@ -1249,7 +1246,10 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
         if (r < 0)
                 return r;
 
-        if (asprintf(cursor,
+        if (!ret_cursor)
+                return 0;
+
+        if (asprintf(ret_cursor,
                      "s=%s;i=%"PRIx64";b=%s;m=%"PRIx64";t=%"PRIx64";x=%"PRIx64,
                      SD_ID128_TO_STRING(j->current_file->header->seqnum_id), le64toh(o->entry.seqnum),
                      SD_ID128_TO_STRING(o->entry.boot_id), le64toh(o->entry.monotonic),
@@ -2294,7 +2294,7 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
                         return NULL;
         }
 
-        j->files = ordered_hashmap_new(&path_hash_ops);
+        j->files = ordered_hashmap_new(&journal_file_hash_ops_by_path);
         if (!j->files)
                 return NULL;
 
@@ -2546,7 +2546,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         if (j->mmap)
                 mmap_cache_stats_log_debug(j->mmap);
 
-        ordered_hashmap_free_with_destructor(j->files, journal_file_close);
+        ordered_hashmap_free(j->files);
         iterated_cache_free(j->files_cache);
 
         hashmap_free(j->directories_by_path);
@@ -2706,7 +2706,7 @@ _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
         return 0;
 }
 
-_public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id128_t *ret_boot_id) {
+_public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret_monotonic, sd_id128_t *ret_boot_id) {
         JournalFile *f;
         Object *o;
         int r;
@@ -2739,8 +2739,8 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         if (!VALID_MONOTONIC(t))
                 return -EBADMSG;
 
-        if (ret)
-                *ret = t;
+        if (ret_monotonic)
+                *ret_monotonic = t;
         if (ret_boot_id)
                 *ret_boot_id = o->entry.boot_id;
 

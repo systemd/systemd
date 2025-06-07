@@ -2,15 +2,13 @@
 
 #include <getopt.h>
 
-#include "sd-hwdb.h"
-
 #include "alloc-util.h"
 #include "build.h"
 #include "hwdb-util.h"
+#include "label-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
-#include "selinux-util.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
 static const char *arg_hwdb_bin_dir = NULL;

@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "color-util.h"
@@ -12,7 +12,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "pager.h"
+#include "log.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
@@ -456,7 +456,7 @@ int terminal_tint_color(double hue, char **ret) {
                 return log_debug_errno(r, "Unable to get terminal background color: %m");
 
         double s, v;
-        rgb_to_hsv(red, green, blue, /* h= */ NULL, &s, &v);
+        rgb_to_hsv(red, green, blue, /* ret_h= */ NULL, &s, &v);
 
         if (v > 50) /* If the background is bright, then pull down saturation */
                 s = 25;
@@ -525,14 +525,14 @@ void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
                                                 fprintf(stderr, "\x1B[38;2;%u;%u;%um", r8, g8, b8);
                                         }
 
-                                        fputs(special_glyph(SPECIAL_GLYPH_HORIZONTAL_FAT), stderr);
+                                        fputs(glyph(GLYPH_HORIZONTAL_FAT), stderr);
                                 } else if (i+1 < length && !separator_done) {
                                         fputs(ansi_normal(), stderr);
                                         fputc(' ', stderr);
                                         separator_done = true;
                                         fputs(ansi_grey(), stderr);
                                 } else
-                                        fputs(special_glyph(SPECIAL_GLYPH_HORIZONTAL_DOTTED), stderr);
+                                        fputs(glyph(GLYPH_HORIZONTAL_DOTTED), stderr);
                         }
 
                         fputs(ansi_normal(), stderr);

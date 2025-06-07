@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Device Device;
-
 #include "list.h"
-#include "logind-seat.h"
-#include "logind-session-device.h"
+#include "logind-forward.h"
+#include "time-util.h"
 
-struct Device {
+typedef struct Device {
         Manager *manager;
 
         char *sysfs;
@@ -18,7 +16,7 @@ struct Device {
 
         LIST_FIELDS(Device, devices);
         LIST_HEAD(SessionDevice, session_devices);
-};
+} Device;
 
 Device* device_new(Manager *m, const char *sysfs, bool master);
 void device_free(Device *d);

@@ -42,6 +42,7 @@ REQUIREMENTS:
                      ≥ 4.17 for cgroup-bpf socket address hooks, /sys/power/resume_offset,
                             and FRA_PROTOCOL attribute for fib rules
                      ≥ 4.20 for PSI (used by systemd-oomd)
+                     ≥ 5.1 for SO_BINDTOIFINDEX
                      ≥ 5.2 for cgroup freezer and new mount API
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
                            and nexthop support
@@ -52,7 +53,8 @@ REQUIREMENTS:
            # FIXME: actually drop compat glue before v258
 
         Linux kernel ≥ 5.6 for getrandom() GRND_INSECURE
-                     ≥ 5.7 for CLONE_INTO_CGROUP, BPF links and the BPF LSM hook
+                     ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
+                               BPF links and the BPF LSM hook
 
         ⚠️ Kernel versions below 5.7 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
@@ -161,7 +163,7 @@ REQUIREMENTS:
 
         Required for reading credentials from SMBIOS:
           CONFIG_DMI
-          CONFIG_DMI_SYSFS
+          CONFIG_DMI_SYSFS (must be built-in, not as kmod)
 
         Required for RestrictFileSystems= in service units:
           CONFIG_BPF
@@ -238,8 +240,7 @@ REQUIREMENTS:
         libcurl >= 7.32.0 (optional)
         libidn2 or libidn (optional)
         gnutls >= 3.1.4 (optional)
-               >= 3.6.0 is required to support DNS-over-TLS with gnutls
-        openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
+        openssl >= 1.1.0 (optional, required to support DNS-over-TLS)
         p11-kit >= 0.23.3 (optional)
         libfido2 (optional)
         tpm2-tss (optional)
@@ -255,7 +256,7 @@ REQUIREMENTS:
         python-pefile (optional, required for ukify)
         python-lxml (optional, required to build the indices)
         pyelftools (optional, required for systemd-boot)
-        meson >= 0.60.0
+        meson >= 0.62.0
         ninja
         gcc >= 8.4
             >= 13.1.0 is required to build BPF program by using GCC
@@ -311,14 +312,6 @@ REQUIREMENTS:
         (i.e.: from the initrd). For more information see:
         https://systemd.io/SEPARATE_USR_IS_BROKEN
         https://systemd.io/THE_CASE_FOR_THE_USR_MERGE
-
-        Additional packages are necessary to run some tests:
-        - nc                 (used by test/TEST-12-ISSUE-3171)
-        - python             (test-udev which is installed is in python)
-        - python-pyparsing
-        - python-evdev       (used by hwdb parsing tests)
-        - strace             (used by test/test-functions)
-        - capsh              (optional, used by test-execute)
 
 POLICY FOR SUPPORT OF DISTRIBUTIONS AND ARCHITECTURES:
         systemd main branch and latest major or stable releases are generally

@@ -1,20 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#include <poll.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/uio.h>
-#include <sys/un.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -22,7 +13,6 @@
 #include "ansi-color.h"
 #include "ask-password-api.h"
 #include "creds-util.h"
-#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -33,11 +23,9 @@
 #include "iovec-util.h"
 #include "keyring-util.h"
 #include "log.h"
-#include "macro.h"
-#include "memory-util.h"
 #include "missing_syscall.h"
-#include "mkdir-label.h"
 #include "nulstr-util.h"
+#include "parse-util.h"
 #include "path-lookup.h"
 #include "plymouth-util.h"
 #include "process-util.h"
@@ -72,7 +60,7 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
         assert(keyname);
         assert(ret);
 
-        serial = request_key("user", keyname, /* callout_info= */ NULL, /* dest_keyring= */ 0);
+        serial = request_key("user", keyname, /* callout_info= */ NULL, /* destringid= */ 0);
         if (serial == -1)
                 return negative_errno();
 
@@ -506,7 +494,7 @@ int ask_password_tty(
         const char *keyring = req->keyring;
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_HIDE_EMOJI) && emoji_enabled())
-                message = strjoina(special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY), " ", message);
+                message = strjoina(glyph(GLYPH_LOCK_AND_KEY), " ", message);
 
         if (req->flag_file || (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && keyring)) {
                 inotify_fd = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
@@ -761,7 +749,7 @@ int ask_password_tty(
                                                 (void) loop_write(ttyfd, passphrase + codepoint, n);
                                         else
                                                 (void) loop_write(ttyfd,
-                                                                  special_glyph(SPECIAL_GLYPH_BULLET),
+                                                                  glyph(GLYPH_BULLET),
                                                                   SIZE_MAX);
                                         codepoint = p;
                                 }

@@ -1,29 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <p11-kit/p11-kit.h>
-#include <p11-kit/uri.h>
-
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-pkcs11.h"
-#include "escape.h"
-#include "fd-util.h"
+#include "cryptsetup-util.h"
 #include "fileio.h"
-#include "format-util.h"
-#include "hexdecoct.h"
 #include "iovec-util.h"
-#include "macro.h"
-#include "memory-util.h"
-#include "parse-util.h"
+#include "log.h"
 #include "pkcs11-util.h"
 #include "random-util.h"
-#include "stat-util.h"
-#include "strv.h"
 
 int decrypt_pkcs11_key(
                 const char *volume_name,
@@ -37,7 +24,7 @@ int decrypt_pkcs11_key(
                 AskPasswordFlags askpw_flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
-
+#if HAVE_P11KIT
         _cleanup_(pkcs11_crypt_device_callback_data_release) pkcs11_crypt_device_callback_data data = {
                 .friendly_name = friendly_name,
                 .askpw_flags = askpw_flags,
@@ -86,6 +73,9 @@ int decrypt_pkcs11_key(
         *ret_decrypted_key_size = data.decrypted_key_size;
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PKCS#11 Token support not available.");
+#endif
 }
 
 int find_pkcs11_auto_data(
@@ -95,6 +85,7 @@ int find_pkcs11_auto_data(
                 size_t *ret_encrypted_key_size,
                 int *ret_keyslot) {
 
+#if HAVE_P11KIT
         _cleanup_free_ char *uri = NULL;
         _cleanup_free_ void *key = NULL;
         int r, keyslot = -1;
@@ -170,4 +161,7 @@ int find_pkcs11_auto_data(
         *ret_encrypted_key_size = key_size;
         *ret_keyslot = keyslot;
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PKCS#11 Token support not available.");
+#endif
 }

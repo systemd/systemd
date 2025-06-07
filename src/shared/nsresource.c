@@ -4,13 +4,16 @@
 
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "missing_sched.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "process-util.h"
+#include "string-util.h"
 
 static int make_pid_name(char **ret) {
         char comm[TASK_COMM_LEN];
@@ -116,7 +119,7 @@ int nsresource_register_userns(const char *name, int userns_fd) {
         if (userns_fd < 0) {
                 _userns_fd = namespace_open_by_type(NAMESPACE_USER);
                 if (_userns_fd < 0)
-                        return -errno;
+                        return _userns_fd;
 
                 userns_fd = _userns_fd;
         }
@@ -144,6 +147,8 @@ int nsresource_register_userns(const char *name, int userns_fd) {
                         SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)));
         if (r < 0)
                 return log_debug_errno(r, "Failed to call RegisterUserNamespace() varlink call: %m");
+        if (streq_ptr(error_id, "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"))
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unprivileged user namespace delegation is not supported on this system.");
         if (error_id)
                 return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to register user namespace: %s", error_id);
 
@@ -213,7 +218,7 @@ int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
         if (userns_fd < 0) {
                 _userns_fd = namespace_open_by_type(NAMESPACE_USER);
                 if (_userns_fd < 0)
-                        return -errno;
+                        return _userns_fd;
 
                 userns_fd = _userns_fd;
         }
@@ -257,6 +262,7 @@ int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
 typedef struct InterfaceParams {
         char *host_interface_name;
         char *namespace_interface_name;
+        unsigned interface_fd_index;
 } InterfaceParams;
 
 static void interface_params_done(InterfaceParams *p) {
@@ -266,7 +272,7 @@ static void interface_params_done(InterfaceParams *p) {
         free(p->namespace_interface_name);
 }
 
-int nsresource_add_netif(
+int nsresource_add_netif_veth(
                 int userns_fd,
                 int netns_fd,
                 const char *namespace_ifname,
@@ -281,7 +287,7 @@ int nsresource_add_netif(
         if (userns_fd < 0) {
                 _userns_fd = namespace_open_by_type(NAMESPACE_USER);
                 if (_userns_fd < 0)
-                        return -errno;
+                        return _userns_fd;
 
                 userns_fd = _userns_fd;
         }
@@ -289,7 +295,7 @@ int nsresource_add_netif(
         if (netns_fd < 0) {
                 _netns_fd = namespace_open_by_type(NAMESPACE_NET);
                 if (_netns_fd < 0)
-                        return -errno;
+                        return _netns_fd;
 
                 netns_fd = _netns_fd;
         }
@@ -330,8 +336,8 @@ int nsresource_add_netif(
                 return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to add network to user namespace: %s", error_id);
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "hostInterfaceName",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name),      0 },
-                { "namespaceInterfaceName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(InterfaceParams, namespace_interface_name), 0 },
+                { "hostInterfaceName",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name),      SD_JSON_MANDATORY },
+                { "namespaceInterfaceName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(InterfaceParams, namespace_interface_name), SD_JSON_MANDATORY },
         };
 
         _cleanup_(interface_params_done) InterfaceParams p = {};
@@ -345,4 +351,70 @@ int nsresource_add_netif(
                 *ret_namespace_ifname = TAKE_PTR(p.namespace_interface_name);
 
         return 1;
+}
+
+int nsresource_add_netif_tap(
+                int userns_fd,
+                char **ret_host_ifname) {
+
+        _cleanup_close_ int _userns_fd = -EBADF;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        int r, userns_fd_idx;
+        const char *error_id;
+
+        if (userns_fd < 0) {
+                _userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                if (_userns_fd < 0)
+                        return _userns_fd;
+
+                userns_fd = _userns_fd;
+        }
+
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
+
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enable varlink fd passing for read: %m");
+
+        userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
+        if (userns_fd_idx < 0)
+                return log_debug_errno(userns_fd_idx, "Failed to push userns fd into varlink connection: %m");
+
+        sd_json_variant *reply = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.NamespaceResource.AddNetworkToUserNamespace",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)),
+                        SD_JSON_BUILD_PAIR("mode", JSON_BUILD_CONST_STRING("tap")));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to call AddNetworkToUserNamespace() varlink call: %m");
+        if (error_id)
+                return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to add network to user namespace: %s", error_id);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "hostInterfaceName",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name),      SD_JSON_MANDATORY },
+                { "interfaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,   offsetof(InterfaceParams, namespace_interface_name), SD_JSON_MANDATORY },
+        };
+
+        _cleanup_(interface_params_done) InterfaceParams p = {};
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int tap_fd = sd_varlink_take_fd(vl, p.interface_fd_index);
+        if (tap_fd < 0)
+                return tap_fd;
+
+        if (ret_host_ifname)
+                *ret_host_ifname = TAKE_PTR(p.host_interface_name);
+
+        return TAKE_FD(tap_fd);
 }

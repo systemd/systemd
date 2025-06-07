@@ -3,19 +3,24 @@
 #include <math.h>
 
 #include "alloc-util.h"
+#include "bitmap.h"
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "escape.h"
+#include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "memory-util.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
+#include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "unaligned.h"
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
@@ -308,7 +313,7 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
         return dns_name_endswith(dns_resource_key_name(key), dns_resource_key_name(soa));
 }
 
-static void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state) {
+void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state) {
         assert(k);
 
         dns_name_hash_func(dns_resource_key_name(k), state);
@@ -316,7 +321,7 @@ static void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *
         siphash24_compress_typesafe(k->type, state);
 }
 
-static int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y) {
+int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y) {
         int r;
 
         r = dns_name_compare_func(dns_resource_key_name(x), dns_resource_key_name(y));
@@ -1350,9 +1355,9 @@ const char* dns_resource_record_to_string(DnsResourceRecord *rr) {
         return TAKE_PTR(s);
 }
 
-ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
+ssize_t dns_resource_record_payload(DnsResourceRecord *rr, const void **ret) {
         assert(rr);
-        assert(out);
+        assert(ret);
 
         switch (rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
         case DNS_TYPE_SRV:
@@ -1363,8 +1368,6 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
         case DNS_TYPE_HINFO:
         case DNS_TYPE_SPF:
         case DNS_TYPE_TXT:
-        case DNS_TYPE_A:
-        case DNS_TYPE_AAAA:
         case DNS_TYPE_SOA:
         case DNS_TYPE_MX:
         case DNS_TYPE_LOC:
@@ -1375,17 +1378,25 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
         case DNS_TYPE_NSEC3:
                 return -EINVAL;
 
+        case DNS_TYPE_A:
+                *ret = &rr->a.in_addr;
+                return sizeof(rr->a.in_addr);
+
+        case DNS_TYPE_AAAA:
+                *ret = &rr->aaaa.in6_addr;
+                return sizeof(rr->aaaa.in6_addr);
+
         case DNS_TYPE_SSHFP:
-                *out = rr->sshfp.fingerprint;
+                *ret = rr->sshfp.fingerprint;
                 return rr->sshfp.fingerprint_size;
 
         case DNS_TYPE_TLSA:
-                *out = rr->tlsa.data;
+                *ret = rr->tlsa.data;
                 return rr->tlsa.data_size;
 
         case DNS_TYPE_OPENPGPKEY:
         default:
-                *out = rr->generic.data;
+                *ret = rr->generic.data;
                 return rr->generic.data_size;
         }
 }
@@ -1686,7 +1697,21 @@ int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResour
         return CMP(x, y);
 }
 
-DEFINE_HASH_OPS(dns_resource_record_hash_ops, DnsResourceRecord, dns_resource_record_hash_func, dns_resource_record_compare_func);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                dns_resource_record_hash_ops,
+                DnsResourceRecord,
+                dns_resource_record_hash_func,
+                dns_resource_record_compare_func,
+                dns_resource_record_unref);
+
+DEFINE_HASH_OPS_FULL(
+                dns_resource_record_hash_ops_by_key,
+                DnsResourceKey,
+                dns_resource_key_hash_func,
+                dns_resource_key_compare_func,
+                dns_resource_key_unref,
+                DnsResourceRecord,
+                dns_resource_record_unref);
 
 DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *copy = NULL;

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "console.h"
+#include "efi-log.h"
 #include "proto/graphics-output.h"
-#include "util.h"
 
 #define SYSTEM_FONT_WIDTH 8
 #define SYSTEM_FONT_HEIGHT 19
@@ -35,14 +35,12 @@ static void event_closep(EFI_EVENT *event) {
  * will replace ConInEx permanently if it ever reports a key press.
  * Lastly, a timer event allows us to provide a input timeout without having to call into
  * any input functions that can freeze on us or using a busy/stall loop. */
-EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
+EFI_STATUS console_key_read(uint64_t *ret_key, uint64_t timeout_usec) {
         static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *conInEx = NULL, *extraInEx = NULL;
         static bool checked = false;
         size_t index;
         EFI_STATUS err;
         _cleanup_(event_closep) EFI_EVENT timer = NULL;
-
-        assert(key);
 
         if (!checked) {
                 /* Get the *first* TextInputEx device. */
@@ -148,7 +146,8 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 }
 
                 /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */
-                *key = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
+                if (ret_key)
+                        *ret_key = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
                 return EFI_SUCCESS;
         } else if (BS->CheckEvent(ST->ConIn->WaitForKey) == EFI_SUCCESS) {
                 EFI_INPUT_KEY k;
@@ -157,7 +156,8 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 if (err != EFI_SUCCESS)
                         return err;
 
-                *key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
+                if (ret_key)
+                        *ret_key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
                 return EFI_SUCCESS;
         }
 

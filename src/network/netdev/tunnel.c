@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <linux/fou.h>
 #include <linux/if_arp.h>
 #include <linux/if_tunnel.h>
-#include <linux/ip.h>
 #include <linux/ip6_tunnel.h>
+#include <netinet/in.h>
 
-#include "af-list.h"
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "hexdecoct.h"
 #include "missing_network.h"

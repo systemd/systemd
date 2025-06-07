@@ -1,29 +1,49 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-device.h"
+
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-chid.h"
+#include "ansi-color.h"
 #include "chid-fundamental.h"
+#include "device-util.h"
+#include "edid-fundamental.h"
 #include "efi-api.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "glyph-util.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "virt.h"
 
 static int parse_chid_type(const char *s, size_t *ret) {
+        char *e;
         unsigned u;
         int r;
 
         assert(s);
 
-        r = safe_atou(s, &u);
-        if (r < 0)
-                return r;
-        if (u >= CHID_TYPES_MAX)
-                return -ERANGE;
+        if ((e = startswith(s, "ext"))) {
+                r = safe_atou(e, &u);
+                if (r < 0)
+                        return r;
+                if (u >= CHID_TYPES_MAX - EXTRA_CHID_BASE)
+                        return -ERANGE;
+                u += EXTRA_CHID_BASE;
+        } else {
+                r = safe_atou(s, &u);
+                if (r < 0)
+                        return r;
+                if (u >= EXTRA_CHID_BASE)
+                        return -ERANGE;
+        }
+
 
         if (ret)
                 *ret = u;
@@ -43,6 +63,7 @@ static const char *const chid_smbios_friendly[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_BIOS_MAJOR]             = "bios-major",
         [CHID_SMBIOS_BIOS_MINOR]             = "bios-minor",
         [CHID_SMBIOS_ENCLOSURE_TYPE]         = "enclosure-type",
+        [CHID_EDID_PANEL]                    = "edid-panel",
 };
 
 static const char chid_smbios_fields_char[_CHID_SMBIOS_FIELDS_MAX] = {
@@ -57,6 +78,7 @@ static const char chid_smbios_fields_char[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_BIOS_MAJOR]             = 'R',
         [CHID_SMBIOS_BIOS_MINOR]             = 'r',
         [CHID_SMBIOS_ENCLOSURE_TYPE]         = 'e',
+        [CHID_EDID_PANEL]                    = 'E',
 };
 
 static char *chid_smbios_fields_string(uint32_t combination) {
@@ -90,8 +112,14 @@ static int add_chid(Table *table, const EFI_GUID guids[static CHID_TYPES_MAX], s
         if (!flags)
                 return log_oom();
 
+        if (t < EXTRA_CHID_BASE)
+                r = table_add_many(table, TABLE_UINT, (unsigned) t);
+        else
+                r = table_add_cell_stringf(table, NULL, "ext%zu", t - EXTRA_CHID_BASE);
+        if (r < 0)
+                return table_log_add_error(r);
+
         r = table_add_many(table,
-                           TABLE_UINT, (unsigned) t,
                            TABLE_STRING, flags,
                            TABLE_UUID, id);
         if (r < 0)
@@ -223,6 +251,93 @@ static int smbios_fields_acquire(char16_t *fields[static _CHID_SMBIOS_FIELDS_MAX
         return 0;
 }
 
+static int edid_parse(sd_device *drm_dev, char16_t **ret_panel) {
+        const char *edid_content;
+        size_t edid_size;
+        int r;
+
+        assert(drm_dev);
+        assert(ret_panel);
+
+        r = sd_device_get_sysattr_value_with_size(drm_dev, "edid", &edid_content, &edid_size);
+        if (r < 0)
+                return r;
+        if (edid_size == 0)
+                return -ENXIO;
+
+        EdidHeader header;
+        if (edid_parse_blob(edid_content, edid_size, &header) < 0)
+                return -EBADMSG;
+
+        _cleanup_free_ char16_t *panel_id = new0(char16_t, 8);
+        if (!panel_id)
+                return -ENOMEM;
+
+        if (edid_get_panel_id(&header, panel_id) < 0)
+                return -EBADMSG;
+
+        *ret_panel = TAKE_PTR(panel_id);
+        return 0;
+}
+
+static int edid_search(char16_t **ret_panel) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_strv_free_ char **drm_paths = NULL;
+        _cleanup_free_ char16_t *unique_panel = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret_panel);
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create device enumerator: %m");
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allow uninitialized device enumerator: %m");
+
+        r = sd_device_enumerator_add_match_subsystem(e, "drm", true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add drm match subsystem to device enumerator: %m");
+
+        FOREACH_DEVICE(e, d) {
+                _cleanup_free_ char16_t *panel = NULL;
+                const char *drm_path;
+
+                r = sd_device_get_syspath(d, &drm_path);
+                if (r < 0)
+                        return log_device_error_errno(d, r, "Failed to get syspath from device: %m");
+
+                r = edid_parse(d, &panel);
+                if (ERRNO_IS_DEVICE_ABSENT(r))
+                        continue;
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Failed to parse EDID from DRM device, skipping: %m");
+                        continue;
+                }
+
+                if (!unique_panel)
+                        unique_panel = TAKE_PTR(panel);
+
+                if (strv_extend_with_size(&drm_paths, &n, drm_path) < 0)
+                        return log_oom();
+        }
+
+        if (n == 1) {
+                *ret_panel = TAKE_PTR(unique_panel);
+                return 0;
+        }
+        if (n == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "No monitors detected, skipping EDID CHID extensions.");
+
+        log_notice("Multiple monitors detected, skipping EDID CHID extensions.");
+        STRV_FOREACH(s, drm_paths)
+                log_info("Hint: use --drm-device=%s", *s);
+
+        return -ENOTUNIQ;
+}
+
 int verb_chid(int argc, char *argv[], void *userdata) {
 
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -243,6 +358,27 @@ int verb_chid(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        if (arg_drm_device_path) {
+                _cleanup_(sd_device_unrefp) sd_device *drm_dev = NULL;
+                r = sd_device_new_from_path(&drm_dev, arg_drm_device_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open device %s: %m", arg_drm_device_path);
+
+                r = device_in_subsystem(drm_dev, "drm");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if the device is a DRM device: %m");
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot read EDID from a non-DRM device '%s'", arg_drm_device_path);
+
+                r = edid_parse(drm_dev, &smbios_fields[CHID_EDID_PANEL]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse EDID for device %s: %m", arg_drm_device_path);
+        } else {
+                r = edid_search(&smbios_fields[CHID_EDID_PANEL]);
+                if (r < 0 && !IN_SET(r, -ENOTUNIQ, -ENODEV))
+                        return r;
+        }
+
         EFI_GUID chids[CHID_TYPES_MAX] = {};
         chid_calculate((const char16_t* const*) smbios_fields, chids);
 
@@ -257,7 +393,7 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                         size_t t;
                         r = parse_chid_type(*as, &t);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to pare CHID type: %s", *as);
+                                return log_error_errno(r, "Failed to parse CHID type: %s", *as);
 
                         r = add_chid(table, chids, t);
                         if (r < 0)
@@ -298,13 +434,13 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                         if (!strextend(&legend,
                                        ansi_grey(),
                                        separator ? " " : "",
-                                       separator ? special_glyph(SPECIAL_GLYPH_HORIZONTAL_DOTTED) : "",
+                                       separator ? glyph(GLYPH_HORIZONTAL_DOTTED) : "",
                                        separator ? " " : "",
                                        ansi_normal(),
                                        CHAR_TO_STR(chid_smbios_fields_char[f]),
                                        ansi_grey(),
                                        " ",
-                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                       glyph(GLYPH_ARROW_RIGHT),
                                        " ",
                                        ansi_normal(),
                                        chid_smbios_friendly[f],

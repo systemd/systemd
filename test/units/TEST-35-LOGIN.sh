@@ -207,7 +207,7 @@ EOF
     input_name=${input_name%/device/name}
     lid_dev=/dev/${input_name#/sys/class/}
     udevadm info --wait-for-initialization=10s "$lid_dev"
-    udevadm settle
+    udevadm settle --timeout=30
 
     # close lid
     evemu-event "$lid_dev" --sync --type 5 --code 0 --value 1
@@ -453,7 +453,7 @@ EOF
         echo "cannot find suitable scsi block device" >&2
         exit 1
     fi
-    udevadm settle
+    udevadm settle --timeout=30
     udevadm info "$dev"
 
     # trigger logind and activate session
@@ -472,7 +472,7 @@ EOF
         echo "cannot find suitable scsi block device" >&2
         exit 1
     fi
-    udevadm settle
+    udevadm settle --timeout=30
 
     # check ACL
     sleep 1
@@ -765,24 +765,44 @@ EOF
 
     # Now check that run0's session class control works
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT0" sleep infinity
-    loginctl | grep lightuser | grep -q "background-light "
+    loginctl | grep lightuser | grep -qw background-light
     systemctl stop "$RUN0UNIT0"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT1" --lightweight=yes sleep infinity
-    loginctl | grep lightuser | grep -q "background-light "
+    loginctl | grep lightuser | grep -qw background-light
     systemctl stop "$RUN0UNIT1"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT2" --lightweight=no sleep infinity
-    loginctl | grep lightuser | grep -q "background "
+    loginctl | grep lightuser | grep -qw background
     systemctl stop "$RUN0UNIT2"
 
     systemd-run --service-type=notify run0 -u root --unit="$RUN0UNIT3" sleep infinity
-    loginctl | grep root | grep -q "background-light "
+    loginctl | grep root | grep -qw background-light
     systemctl stop "$RUN0UNIT3"
 }
 
 testcase_varlink() {
     varlinkctl introspect /run/systemd/io.systemd.Login
+}
+
+testcase_restart() {
+    local classes unit c
+
+    classes='user user-early user-incomplete greeter lock-screen background background-light manager manager-early'
+
+    for c in $classes; do
+        unit="user-sleeper-$c.service"
+        systemd-run --service-type=notify run0  --setenv XDG_SESSION_CLASS="$c" -u logind-test-user --unit="$unit" sleep infinity
+    done
+
+    systemctl restart systemd-logind
+
+    for c in $classes; do
+        unit="user-sleeper-$c.service"
+        systemctl --quiet is-active "$unit"
+        loginctl | grep logind-test-user | grep -qw "$c"
+        systemctl kill "$unit"
+    done
 }
 
 setup_test_user

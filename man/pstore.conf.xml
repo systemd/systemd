@@ -84,9 +84,8 @@
       </varlistentry>
     </variablelist>
 
-    <para>The defaults for all values are listed as comments in the
-    template <filename>/etc/systemd/pstore.conf</filename> file that
-    is installed by default.</para>
+    <para>Use <programlisting>systemd-analyze cat-config systemd/pstore.conf</programlisting>
+    to display the full config.</para>
   </refsect1>
 
   <refsect1>

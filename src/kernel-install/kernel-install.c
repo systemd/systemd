@@ -1,17 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <stdbool.h>
+#include <stdlib.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
+#include "argv-util.h"
 #include "boot-entry.h"
 #include "build.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "dirent-util.h"
+#include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
@@ -21,8 +25,8 @@
 #include "image-policy.h"
 #include "kernel-config.h"
 #include "kernel-image.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "mkdir.h"
 #include "mount-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
@@ -783,7 +787,9 @@ static int context_ensure_layout(Context *c) {
         /* There's no metadata in $BOOT_ROOT, and apparently no entry token directory installed? Then we
          * really don't know anything. */
         c->layout = LAYOUT_OTHER;
-        log_debug("Entry-token directory not found, using layout=%s.", layout_to_string(c->layout));
+        log_debug("Entry-token directory %s not found, using layout=%s.",
+                  entry_token_path,
+                  layout_to_string(c->layout));
         return 0;
 }
 

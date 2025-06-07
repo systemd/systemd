@@ -2,10 +2,16 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-message-util.h"
 #include "bus-util.h"
 #include "copy.h"
+#include "in-addr-util.h"
 #include "resolve-util.h"
+#include "set.h"
+#include "socket-netlink.h"
 
 int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret) {
         const void *a;
@@ -82,16 +88,13 @@ int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *error, 
 
         assert(message);
 
-        r = sd_bus_message_read(message, "i", &family);
+        r = bus_message_read_family(message, error, &family);
         if (r < 0)
                 return r;
 
         r = sd_bus_message_read_array(message, 'y', &d, &sz);
         if (r < 0)
                 return r;
-
-        if (!IN_SET(family, AF_INET, AF_INET6))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
         if (sz != FAMILY_ADDRESS_SIZE(family))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");

@@ -1,18 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
-#include <limits.h>
 #include <linux/oom.h>
 #include <pthread.h>
 #include <spawn.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <syslog.h>
 #include <threads.h>
@@ -29,7 +23,6 @@
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "env-file.h"
-#include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -40,7 +33,6 @@
 #include "iovec-util.h"
 #include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"
@@ -50,6 +42,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
@@ -59,10 +52,8 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
-#include "utf8.h"
 
 /* The kernel limits userspace processes to TASK_COMM_LEN (16 bytes), but allows higher values for its own
  * workers, e.g. "kworker/u9:3-kcryptd/253:0". Let's pick a fixed smallish limit that will work for the kernel.
@@ -507,48 +498,10 @@ int get_process_exe(pid_t pid, char **ret) {
         return 0;
 }
 
-static int get_process_id(pid_t pid, const char *field, uid_t *ret) {
-        _cleanup_fclose_ FILE *f = NULL;
-        const char *p;
+int pid_get_uid(pid_t pid, uid_t *ret) {
         int r;
 
-        assert(field);
-        assert(ret);
-
-        if (pid < 0)
-                return -EINVAL;
-
-        p = procfs_file_alloca(pid, "status");
-        r = fopen_unlocked(p, "re", &f);
-        if (r == -ENOENT)
-                return -ESRCH;
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-                char *l;
-
-                r = read_stripped_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                l = startswith(line, field);
-                if (l) {
-                        l += strspn(l, WHITESPACE);
-
-                        l[strcspn(l, WHITESPACE)] = 0;
-
-                        return parse_uid(l, ret);
-                }
-        }
-
-        return -EIO;
-}
-
-int pid_get_uid(pid_t pid, uid_t *ret) {
+        assert(pid >= 0);
         assert(ret);
 
         if (pid == 0 || pid == getpid_cached()) {
@@ -556,7 +509,14 @@ int pid_get_uid(pid_t pid, uid_t *ret) {
                 return 0;
         }
 
-        return get_process_id(pid, "Uid:", ret);
+        _cleanup_free_ char *v = NULL;
+        r = procfs_file_get_field(pid, "status", "Uid", &v);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        return parse_uid(v, ret);
 }
 
 int pidref_get_uid(const PidRef *pid, uid_t *ret) {
@@ -589,14 +549,24 @@ int pidref_get_uid(const PidRef *pid, uid_t *ret) {
 }
 
 int get_process_gid(pid_t pid, gid_t *ret) {
+        int r;
+
+        assert(pid >= 0);
+        assert(ret);
 
         if (pid == 0 || pid == getpid_cached()) {
                 *ret = getgid();
                 return 0;
         }
 
-        assert_cc(sizeof(uid_t) == sizeof(gid_t));
-        return get_process_id(pid, "Gid:", ret);
+        _cleanup_free_ char *v = NULL;
+        r = procfs_file_get_field(pid, "status", "Gid", &v);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        return parse_gid(v, ret);
 }
 
 int get_process_cwd(pid_t pid, char **ret) {
@@ -862,15 +832,12 @@ int pidref_get_start_time(const PidRef *pid, usec_t *ret) {
 
 int get_process_umask(pid_t pid, mode_t *ret) {
         _cleanup_free_ char *m = NULL;
-        const char *p;
         int r;
 
         assert(pid >= 0);
         assert(ret);
 
-        p = procfs_file_alloca(pid, "status");
-
-        r = get_proc_field(p, "Umask", WHITESPACE, &m);
+        r = procfs_file_get_field(pid, "status", "Umask", &m);
         if (r == -ENOENT)
                 return -ESRCH;
         if (r < 0)
@@ -879,27 +846,8 @@ int get_process_umask(pid_t pid, mode_t *ret) {
         return parse_mode(m, ret);
 }
 
-int wait_for_terminate(pid_t pid, siginfo_t *status) {
-        siginfo_t dummy;
-
-        assert(pid >= 1);
-
-        if (!status)
-                status = &dummy;
-
-        for (;;) {
-                zero(*status);
-
-                if (waitid(P_PID, pid, status, WEXITED) < 0) {
-
-                        if (errno == EINTR)
-                                continue;
-
-                        return negative_errno();
-                }
-
-                return 0;
-        }
+int wait_for_terminate(pid_t pid, siginfo_t *ret) {
+        return pidref_wait_for_terminate(&PIDREF_MAKE_FROM_PID(pid), ret);
 }
 
 /*
@@ -916,24 +864,29 @@ int wait_for_terminate(pid_t pid, siginfo_t *status) {
  * A warning is emitted if the process terminates abnormally,
  * and also if it returns non-zero unless check_exit_code is true.
  */
-int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
+int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+        if (pidref->pid == 1 || pidref_is_self(pidref))
+                return -ECHILD;
+
         _cleanup_free_ char *buffer = NULL;
-        siginfo_t status;
-        int r, prio;
-
-        assert(pid > 1);
-
         if (!name) {
-                r = pid_get_comm(pid, &buffer);
+                r = pidref_get_comm(pidref, &buffer);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to acquire process name of " PID_FMT ", ignoring: %m", pid);
+                        log_debug_errno(r, "Failed to acquire process name of " PID_FMT ", ignoring: %m", pidref->pid);
                 else
                         name = buffer;
         }
 
-        prio = flags & WAIT_LOG_ABNORMAL ? LOG_ERR : LOG_DEBUG;
+        int prio = flags & WAIT_LOG_ABNORMAL ? LOG_ERR : LOG_DEBUG;
 
-        r = wait_for_terminate(pid, &status);
+        siginfo_t status;
+        r = pidref_wait_for_terminate(pidref, &status);
         if (r < 0)
                 return log_full_errno(prio, r, "Failed to wait for %s: %m", strna(name));
 
@@ -954,6 +907,10 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
 
         log_full(prio, "%s failed due to unknown reason.", strna(name));
         return -EPROTO;
+}
+
+int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
+        return pidref_wait_for_terminate_and_check(name, &PIDREF_MAKE_FROM_PID(pid), flags);
 }
 
 /*
@@ -1381,8 +1338,8 @@ void valgrind_summary_hack(void) {
                 if (pid < 0)
                         log_struct_errno(
                                 LOG_EMERG, errno,
-                                "MESSAGE_ID=" SD_MESSAGE_VALGRIND_HELPER_FORK_STR,
-                                LOG_MESSAGE( "Failed to fork off valgrind helper: %m"));
+                                LOG_MESSAGE_ID(SD_MESSAGE_VALGRIND_HELPER_FORK_STR),
+                                LOG_MESSAGE("Failed to fork off valgrind helper: %m"));
                 else if (pid == 0)
                         exit(EXIT_SUCCESS);
                 else {
@@ -1396,6 +1353,18 @@ void valgrind_summary_hack(void) {
 int pid_compare_func(const pid_t *a, const pid_t *b) {
         /* Suitable for usage in qsort() */
         return CMP(*a, *b);
+}
+
+bool nice_is_valid(int n) {
+        return n >= PRIO_MIN && n < PRIO_MAX;
+}
+
+bool sched_policy_is_valid(int i) {
+        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
+}
+
+bool sched_priority_is_valid(int i) {
+        return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
 }
 
 /* The cached PID, possible values:
@@ -2081,17 +2050,14 @@ _noreturn_ void freeze(void) {
 
 int get_process_threads(pid_t pid) {
         _cleanup_free_ char *t = NULL;
-        const char *p;
         int n, r;
 
         if (pid < 0)
                 return -EINVAL;
 
-        p = procfs_file_alloca(pid, "status");
-
-        r = get_proc_field(p, "Threads", WHITESPACE, &t);
+        r = procfs_file_get_field(pid, "status", "Threads", &t);
         if (r == -ENOENT)
-                return proc_mounted() == 0 ? -ENOSYS : -ESRCH;
+                return -ESRCH;
         if (r < 0)
                 return r;
 

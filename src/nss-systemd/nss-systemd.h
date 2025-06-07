@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
 
 int _nss_systemd_block(bool b);
 bool _nss_systemd_is_blocked(void);

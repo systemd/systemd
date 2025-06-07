@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <dirent.h>
-#include <errno.h>
-#include <sys/prctl.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bitfield.h"
@@ -18,19 +15,16 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
-#include "macro.h"
-#include "missing_syscall.h"
+#include "log.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
-#include "set.h"
-#include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "tmpfile-util.h"
+#include "time-util.h"
 
 #define EXIT_SKIP_REMAINING 77
 
@@ -146,11 +140,13 @@ static int do_execute(
                 }
 
                 if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *args = NULL;
-                        if (argv)
-                                args = quote_command_line(strv_skip(argv, 1), SHELL_ESCAPE_EMPTY);
+                        _cleanup_free_ char *s = NULL;
 
-                        log_debug("About to execute %s%s%s", t, argv ? " " : "", argv ? strnull(args) : "");
+                        char **args = strv_skip(argv, 1);
+                        if (args)
+                                s = quote_command_line(args, SHELL_ESCAPE_EMPTY);
+
+                        log_debug("About to execute %s%s%s", t, args ? " " : "", args ? strnull(s) : "");
                 }
 
                 if (FLAGS_SET(flags, EXEC_DIR_WARN_WORLD_WRITABLE)) {
@@ -311,7 +307,12 @@ int execute_directories(
 
         assert(!strv_isempty((char* const*) directories));
 
-        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, directories);
+        r = conf_files_list_strv(
+                        &paths,
+                        /* suffix= */ NULL,
+                        /* root= */ NULL,
+                        CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                        directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate executables: %m");
 
@@ -486,6 +487,7 @@ static const char* const exec_command_strings[] = {
         "privileged",     /* EXEC_COMMAND_FULLY_PRIVILEGED */
         "no-setuid",      /* EXEC_COMMAND_NO_SETUID */
         "no-env-expand",  /* EXEC_COMMAND_NO_ENV_EXPAND */
+        "via-shell",      /* EXEC_COMMAND_VIA_SHELL */
 };
 
 assert_cc((1 << ELEMENTSOF(exec_command_strings)) - 1 == _EXEC_COMMAND_FLAGS_ALL);
@@ -504,7 +506,7 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
         if (streq(s, "ambient")) /* Compatibility with ambient hack, removed in v258, map to no bits set */
                 return 0;
 
-        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
+        idx = string_table_lookup_from_string(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
         if (idx < 0)
                 return _EXEC_COMMAND_FLAGS_INVALID;
 
@@ -560,10 +562,10 @@ int shall_fork_agent(void) {
         return true;
 }
 
-int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
+int _fork_agent(const char *name, char * const *argv, const int except[], size_t n_except, pid_t *ret_pid) {
         int r;
 
-        assert(path);
+        assert(!strv_isempty(argv));
 
         /* Spawns a temporary TTY agent, making sure it goes away when we go away */
 
@@ -593,7 +595,7 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
                  * stdin around. */
                 fd = open_terminal("/dev/tty", stdin_is_tty ? O_WRONLY : (stdout_is_tty && stderr_is_tty) ? O_RDONLY : O_RDWR);
                 if (fd < 0) {
-                        log_error_errno(fd, "Failed to open /dev/tty: %m");
+                        log_error_errno(fd, "Failed to open %s: %m", "/dev/tty");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -616,8 +618,11 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
         }
 
         /* Count arguments */
-        char **l = strv_from_stdarg_alloca(path);
-        execv(path, l);
-        log_error_errno(errno, "Failed to execute %s: %m", path);
+        execv(argv[0], argv);
+
+        /* Let's treat missing agent binary as a graceful issue (in order to support splitting out the Polkit
+         * or password agents into separate, optional distro packages), and not complain loudly. */
+        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                       "Failed to execute %s: %m", argv[0]);
         _exit(EXIT_FAILURE);
 }

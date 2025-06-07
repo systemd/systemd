@@ -1,16 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "event-util.h"
 #include "glyph-util.h"
-#include "hostname-util.h"
-#include "local-addresses.h"
+#include "log.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
 #include "resolved-dns-synthesize.h"
+#include "resolved-dns-transaction.h"
 #include "resolved-etc-hosts.h"
+#include "resolved-manager.h"
 #include "resolved-timeouts.h"
+#include "set.h"
 #include "string-util.h"
 
 #define QUERIES_MAX 2048
@@ -358,7 +369,7 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
                                         c->query->manager->event,
                                         &c->timeout_event_source,
                                         CLOCK_BOOTTIME,
-                                        CANDIDATE_EXPEDITED_TIMEOUT_USEC, /* accuracy_usec= */ 0,
+                                        CANDIDATE_EXPEDITED_TIMEOUT_USEC, /* accuracy= */ 0,
                                         on_candidate_timeout, c,
                                         /* priority= */ 0, "candidate-timeout",
                                         /* force_reset= */ false);
@@ -382,7 +393,7 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
                                 goto fail;
 
                         if (r > 0) {
-                                /* New transactions where queued. Start them and wait */
+                                /* New transactions have been queued. Start them and wait */
 
                                 r = dns_query_candidate_go(c);
                                 if (r < 0)
@@ -1155,7 +1166,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         if (r > 0)
                 log_debug("Following CNAME/DNAME %s %s %s.",
                           dns_question_first_name(q->question_idna),
-                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                          glyph(GLYPH_ARROW_RIGHT),
                           dns_question_first_name(nq_idna));
 
         k = dns_question_is_equal(q->question_idna, q->question_utf8);
@@ -1172,7 +1183,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
                 if (k > 0)
                         log_debug("Following UTF8 CNAME/DNAME %s %s %s.",
                                   dns_question_first_name(q->question_utf8),
-                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                  glyph(GLYPH_ARROW_RIGHT),
                                   dns_question_first_name(nq_utf8));
         }
 
@@ -1492,4 +1503,14 @@ int validate_and_mangle_query_flags(
                 *flags |= SD_RESOLVED_NO_TXT;
 
         return 0;
+}
+
+uint64_t dns_query_reply_flags_make(DnsQuery *q) {
+        assert(q);
+
+        return SD_RESOLVED_FLAGS_MAKE(q->answer_protocol,
+                                      q->answer_family,
+                                      dns_query_fully_authenticated(q),
+                                      dns_query_fully_confidential(q)) |
+                (q->answer_query_flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC));
 }

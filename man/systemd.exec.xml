@@ -61,12 +61,17 @@
       paths. This is equivalent to having them listed explicitly in
       <varname>RequiresMountsFor=</varname>.</para></listitem>
 
-      <listitem><para>Similarly, units with <varname>PrivateTmp=</varname> enabled automatically get mount
-      unit dependencies for all mounts required to access <filename>/tmp/</filename> and
-      <filename>/var/tmp/</filename>. They will also gain an automatic <varname>After=</varname> dependency
-      on
+      <listitem><para>Units with <varname>PrivateTmp=yes</varname> automatically gain dependencies of type
+      <varname>Wants=</varname> and <varname>After=</varname> on all mounts required to access
+      <filename>/tmp/</filename> and <filename>/var/tmp/</filename>. They will also gain an automatic
+      <varname>After=</varname> dependency on
       <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
       </para></listitem>
+
+      <listitem><para>Units with <varname>PrivateTmp=disconnected</varname> automatically gain dependencies
+      of type <varname>Wants=</varname> and <varname>After=</varname> on the mount required to access
+      <filename>/var/</filename>, unless <varname>DefaultDependencies=no</varname> and/or
+      <varname>RootDirectory=/RootImage=</varname> are specified.</para></listitem>
 
       <listitem><para>Units whose standard output or error output is connected to <option>journal</option> or
       <option>kmsg</option> (or their combinations with console output, see below) automatically acquire
@@ -562,6 +567,17 @@
         To disable the safety check that the extension-release file name matches the image file name, the
         <varname>x-systemd.relax-extension-release-check</varname> mount option may be appended.</para>
 
+        <para>This option can be used together with a <option>notify-reload</option> service type and
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        to manage configuration updates. When such a service carrying confext images is reloaded via
+        <command>systemctl reload foo.service</command> or equivalent D-Bus method, the confext itself will
+        be reloaded to pick up any changes. This only applies to confext extensions. Note that in case a
+        service has this configuration enabled at first, and then it is subsequently removed in an update
+        followed by a daemon-reload operation, reloading the confexts will be a no-op, and a full service
+        restart is required instead. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        also for details.</para>
+
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
         set, then this setting adds <filename>/dev/loop-control</filename> with <constant>rw</constant> mode,
@@ -605,6 +621,17 @@
         file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
         or the host. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>This option can be used together with a <option>notify-reload</option> service type and
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        to manage configuration updates. When such a service carrying confext directories is reloaded via
+        <command>systemctl reload foo.service</command> or equivalent D-Bus method, the confext itself will
+        be reloaded to pick up any changes. This only applies to confext extensions. Note that in case a
+        service has this configuration enabled at first, and then it is subsequently removed in an update
+        followed by a daemon-reload operation, reloading the confexts will be a no-op, and a full service
+        restart is required instead. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        also for details.</para>
 
         <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
         which was first introduced in kernel v5.11.</para>
@@ -1797,27 +1824,88 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <listitem><para>Takes a boolean argument, or <literal>disconnected</literal>. If enabled, a new
         file system namespace will be set up for the executed processes, and <filename>/tmp/</filename>
         and <filename>/var/tmp/</filename> directories inside it are not shared with processes outside of
-        the namespace, plus all temporary files created by a service in these directories will be removed after
-        the service is stopped. If <literal>true</literal>, the backing storage of the private temporary directories
-        will remain on the host's <filename>/tmp/</filename> and <filename>/var/tmp/</filename> directories.
-        If <literal>disconnected</literal>, the directories will be backed by a completely new tmpfs instance,
-        meaning that the storage is fully disconnected from the host namespace. Defaults to false.</para>
+        the namespace, plus all temporary files created by a service in these directories will be removed
+        after the service is stopped. For this setting, the same restrictions regarding mount propagation
+        and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above. This
+        setting is useful to secure access to temporary files of the process, but makes sharing between
+        processes via <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible. If
+        <varname>DynamicUser=</varname> is enabled, <literal>disconnected</literal> is implied. Otherwise,
+        defaults to false.</para>
 
-        <para>This setting is useful to secure access to temporary files of the process, but makes sharing
-        between processes via <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible.
-        If not set to <literal>disconnected</literal>, it is possible to run two or more units within
-        the same private <filename>/tmp/</filename> and <filename>/var/tmp/</filename> namespace by using
-        the <varname>JoinsNamespaceOf=</varname> directive, see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting,
-        the same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see above. If set to <literal>true</literal>
-        (as opposed to <literal>disconnected</literal>), this has the side effect of adding
-        <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount units necessary
-        to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover, an
-        implicitly <varname>After=</varname> ordering on
+        <para>If <literal>true</literal>, the backing storage of the private temporary directories will
+        remain on the host's <filename>/tmp/</filename> and <filename>/var/tmp/</filename> directories. It is
+        possible to run two or more units within the same private <filename>/tmp/</filename> and
+        <filename>/var/tmp/</filename> namespace by using the <varname>JoinsNamespaceOf=</varname> directive,
+        see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. This has the side effect of adding <varname>Wants=</varname> and
+        <varname>After=</varname> dependencies on all mount units necessary to access
+        <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover, an implicit
+        <varname>After=</varname> ordering on
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is added.</para>
+
+        <para>If <literal>disconnected</literal>, the directories will be backed by a completely new tmpfs
+        instance, meaning that the storage is fully disconnected from the host namespace. The tmpfs instance
+        does not shared with other units even if the <varname>JoinsNamespaceOf=</varname> directive is used.
+        If <varname>DefaultDependencies=no</varname> is specified,
+        <varname>RequiresMountsFor=/WantsMountsFor=</varname> for <filename>/var/</filename> is not
+        specified, and <varname>RootDirectory=/RootImage=</varname> is not specified, then a new tmpfs is
+        mounted <emphasis>only</emphasis> on <filename>/tmp/</filename>, hence the host's
+        <filename>/var/tmp</filename> is still accessible from the unit. In that case,
+        <varname>$TMPDIR</varname> environment variable is set to <literal>/tmp</literal> to suggest the
+        processes in the unit to use <filename>/tmp/</filename>. This automatically adds
+        <varname>WantsMountsFor=/var/</varname> dependency, unless <varname>DefaultDependencies=no</varname>
+        and/or <varname>RootDirectory=/RootImage=</varname> are specified.</para>
+
+        <table>
+          <title>Summary for <varname>PrivateTmp=disconnected</varname></title>
+          <tgroup cols='4' align='left' colsep='1' rowsep='1'>
+            <colspec colname="other settings" />
+            <colspec colname="tmpfs instance on /var/tmp/" />
+            <colspec colname="$TMPVAR" />
+            <colspec colname="implied dependencies" />
+            <thead>
+              <row>
+                <entry>Other Settings</entry>
+                <entry>tmpfs on /var/tmp/</entry>
+                <entry>$TMPVAR</entry>
+                <entry>implied dependencies</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>(none)</entry>
+                <entry>yes</entry>
+                <entry>(unset)</entry>
+                <entry><varname>WantsMountsFor=/var/</varname></entry>
+              </row>
+              <row>
+                <entry><varname>RootDirectory=/RootImage=</varname></entry>
+                <entry>yes</entry>
+                <entry>(unset)</entry>
+                <entry>(none)</entry>
+              </row>
+              <row>
+                <entry><varname>DefaultDependency=no</varname>, <varname>RequiresMountsFor=/var/</varname></entry>
+                <entry>yes</entry>
+                <entry>(unset)</entry>
+                <entry>(none)</entry>
+              </row>
+              <row>
+                <entry><varname>DefaultDependency=no</varname>, <varname>WantsMountsFor=/var/</varname></entry>
+                <entry>yes</entry>
+                <entry>(unset)</entry>
+                <entry>(none)</entry>
+              </row>
+              <row>
+                <entry><varname>DefaultDependency=no</varname></entry>
+                <entry>no</entry>
+                <entry><varname>$TMPDIR=/tmp</varname></entry>
+                <entry>(none)</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <para>Note that the implementation of this setting might be impossible (for example if mount namespaces are not
         available), and the unit should be written in a way that does not solely rely on this setting for
@@ -2131,7 +2219,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         services need to write to these at runtime; it is hence recommended to turn this on for most services. For this
         setting the same restrictions regarding mount propagation and privileges apply as for
         <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.
-        Note that this option does not prevent indirect changes to kernel tunables effected by IPC calls to
+        Note that this option does not prevent indirect changes to kernel tunables affected by IPC calls to
         other processes. However, <varname>InaccessiblePaths=</varname> may be used to make relevant IPC file system
         objects inaccessible. If <varname>ProtectKernelTunables=</varname> is set,
         <varname>MountAPIVFS=yes</varname> is implied.</para>
@@ -2212,30 +2300,40 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <listitem><para>Restricts the set of socket address families accessible to the processes of this
         unit. Takes <literal>none</literal>, or a space-separated list of address family names to
         allow-list, such as <constant>AF_UNIX</constant>, <constant>AF_INET</constant> or
-        <constant>AF_INET6</constant>. When <literal>none</literal> is specified, then all address
+        <constant>AF_INET6</constant>, see
+        <citerefentry project='man-pages'><refentrytitle>address_families</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for all possible options. When <literal>none</literal> is specified, then all address
         families will be denied. When prefixed with <literal>~</literal> the listed address
-        families will be applied as deny list, otherwise as allow list. Note that this restricts access
-        to the
-        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        families will be applied as deny list, otherwise as allow list.</para>
+
+        <para>By default, no restrictions apply, all address families are accessible to processes. If
+        assigned the empty string, any previous address family restriction changes are undone. This setting
+        does not affect commands prefixed with <literal>+</literal>.</para>
+
+        <para>Use this option to limit exposure of processes to remote access, in particular via exotic and
+        sensitive network protocols, such as <constant>AF_PACKET</constant>. Note that in most cases, the
+        local <constant>AF_UNIX</constant> address family should be included in the configured allow list as
+        it is frequently used for local communication, including for
+        <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        logging.</para>
+
+        <para>Note that this restricts access to the <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         system call only. Sockets passed into the process by other means (for example, by using socket
         activation with socket units, see
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
         are unaffected. Also, sockets created with <function>socketpair()</function> (which creates connected
-        AF_UNIX sockets only) are unaffected. Note that this option has no effect on 32-bit x86, s390, s390x,
-        mips, mips-le, ppc, ppc-le, ppc64, ppc64-le and is ignored (but works correctly on other ABIs,
-        including x86-64). Note that on systems supporting multiple ABIs (such as x86/x86-64) it is
-        recommended to turn off alternative ABIs for services, so that they cannot be used to circumvent the
-        restrictions of this option. Specifically, it is recommended to combine this option with
-        <varname>SystemCallArchitectures=native</varname> or similar. By default, no restrictions apply, all
-        address families are accessible to processes. If assigned the empty string, any previous address family
-        restriction changes are undone. This setting does not affect commands prefixed with <literal>+</literal>.</para>
+        AF_UNIX sockets) or the
+        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        functions, are not affected. Thus, it is recommended to combined this setting with
+        <varname>SystemCallFilter=@service</varname>, to only allow a limited subset of system calls.</para>
 
-        <para>Use this option to limit exposure of processes to remote access, in particular via exotic and sensitive
-        network protocols, such as <constant>AF_PACKET</constant>. Note that in most cases, the local
-        <constant>AF_UNIX</constant> address family should be included in the configured allow list as it is frequently
-        used for local communication, including for
-        <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        logging.</para>
+        <para>Note that this option is limited to some ABIs, in particular x86-64, but currently has no
+        effect on 32-bit x86, s390, s390x, mips, mips-le, ppc, ppc-le, ppc64, or ppc64-le, and is ignored. On
+        systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off alternative ABIs
+        for services, so that they cannot be used to circumvent the restrictions of this option.
+        Specifically, it is recommended to combine this option with
+        <varname>SystemCallArchitectures=native</varname> or similar. </para>
 
         <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
@@ -2408,6 +2506,11 @@ RestrictNamespaces=~cgroup net</programlisting>
         already by the unit. Delegating a namespace does not imply that the namespace is unshared, that is
         done with the namespace specific unit setting such as <varname>PrivateNetwork=</varname> or
         <varname>PrivateMounts=</varname>.</para>
+
+        <para>Note that some namespace sandboxing options might entail mount namespace for private API VFS instances,
+        such as <varname>PrivatePIDs=</varname>, <varname>ProtectControlGroups=private/strict</varname>, or
+        <varname>PrivateNetwork=</varname>. If any of the mentioned options are enabled, mount namespace
+        is implicitly delegated.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -2582,40 +2685,42 @@ RestrictNamespaces=~cgroup net</programlisting>
       <varlistentry>
         <term><varname>SystemCallFilter=</varname></term>
 
-        <listitem><para>Takes a space-separated list of system call names. If this setting is used, all
-        system calls executed by the unit processes except for the listed ones will result in immediate
-        process termination with the <constant>SIGSYS</constant> signal (allow-listing). (See
-        <varname>SystemCallErrorNumber=</varname> below for changing the default action). If the first
-        character of the list is <literal>~</literal>, the effect is inverted: only the listed system calls
-        will result in immediate process termination (deny-listing). Deny-listed system calls and system call
-        groups may optionally be suffixed with a colon (<literal>:</literal>) and <literal>errno</literal>
-        error number (between 0 and 4095) or errno name such as <constant>EPERM</constant>,
-        <constant>EACCES</constant> or <constant>EUCLEAN</constant> (see <citerefentry
-        project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
-        full list). This value will be returned when a deny-listed system call is triggered, instead of
-        terminating the processes immediately. Special setting <literal>kill</literal> can be used to
-        explicitly specify killing. This value takes precedence over the one given in
-        <varname>SystemCallErrorNumber=</varname>, see below. This feature makes use of the Secure Computing Mode 2
-        interfaces of the kernel ('seccomp filtering') and is useful for enforcing a minimal sandboxing environment.
-        Note that the <function>execve()</function>, <function>exit()</function>, <function>exit_group()</function>,
-        <function>getrlimit()</function>, <function>rt_sigreturn()</function>, <function>sigreturn()</function>
-        system calls and the system calls for querying time and sleeping are implicitly allow-listed and do not
-        need to be listed explicitly. This option may be specified more than once, in which case the filter masks are
+        <listitem><para>Takes a space-separated list of system call names or system call groups. If this
+        setting is used, system calls executed by the unit processes except for the listed ones will result
+        in the system call being denied (allow-listing). If the first character of the list is
+        <literal>~</literal>, the effect is inverted: only the listed system calls will be denied
+        (deny-listing). This option may be specified more than once, in which case the filter masks are
         merged. If the empty string is assigned, the filter is reset, all prior assignments will have no
-        effect. This does not affect commands prefixed with <literal>+</literal>.</para>
+        effect.</para>
 
-        <para>Note that on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off
-        alternative ABIs for services, so that they cannot be used to circumvent the restrictions of this
+        <para>Commands prefixed with <literal>+</literal> are not subject to filtering. The
+        <function>execve()</function>, <function>exit()</function>, <function>exit_group()</function>,
+        <function>getrlimit()</function>, <function>rt_sigreturn()</function>,
+        <function>sigreturn()</function> system calls and the system calls for querying time and sleeping are
+        implicitly allow-listed and do not need to be listed explicitly.</para>
+
+        <para>The default action when a system call is denied is to terminate the processes with a
+        <constant>SIGSYS</constant> signal. This can changed using <varname>SystemCallErrorNumber=</varname>,
+        see below. In addition, deny-listed system calls and system call groups may optionally be suffixed
+        with a colon (<literal>:</literal>) and an argument in the same format as
+        <varname>SystemCallErrorNumber=</varname>, to take this action when the matching system call is made.
+        This takes precedence over the action specified in <varname>SystemCallErrorNumber=</varname>.</para>
+
+        <para>This feature makes use of the Secure Computing Mode 2 interfaces of the kernel ('seccomp
+        filtering') and is useful for enforcing a minimal sandboxing environment.</para>
+
+        <para>Note that on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn
+        off alternative ABIs for services, so that they cannot be used to circumvent the restrictions of this
         option. Specifically, it is recommended to combine this option with
         <varname>SystemCallArchitectures=native</varname> or similar.</para>
 
-        <para>Note that strict system call filters may impact execution and error handling code paths of the service
-        invocation. Specifically, access to the <function>execve()</function> system call is required for the execution
-        of the service binary — if it is blocked service invocation will necessarily fail. Also, if execution of the
-        service binary fails for some reason (for example: missing service executable), the error handling logic might
-        require access to an additional set of system calls in order to process and log this failure correctly. It
-        might be necessary to temporarily disable system call filters in order to simplify debugging of such
-        failures.</para>
+        <para>Note that strict system call filters may impact execution and error handling code paths of the
+        service invocation. Specifically, access to the <function>execve()</function> system call is required
+        for the execution of the service binary — if it is blocked service invocation will necessarily fail.
+        Also, if execution of the service binary fails for some reason (for example: missing service
+        executable), the error handling logic might require access to an additional set of system calls in
+        order to process and log this failure correctly. It might be necessary to temporarily disable system
+        call filters in order to allow debugging of such failures.</para>
 
         <para>If you specify both types of this option (i.e. allow-listing and deny-listing), the first
         encountered will take precedence and will dictate the default action (termination or approval of a
@@ -2625,8 +2730,8 @@ RestrictNamespaces=~cgroup net</programlisting>
         <function>write()</function>, and right after it add a deny list rule for <function>write()</function>,
         then <function>write()</function> will be removed from the set.)</para>
 
-        <para>As the number of possible system calls is large, predefined sets of system calls are provided. A set
-        starts with <literal>@</literal> character, followed by name of the set.
+        <para>As the number of possible system calls is large, predefined groups of system calls are
+        provided. A group starts with <literal>@</literal> character, followed by name of the set.
 
         <table>
           <title>Currently predefined system call sets</title>
@@ -3261,23 +3366,30 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       <varlistentry>
         <term><varname>LogLevelMax=</varname></term>
 
-        <listitem><para>Configures filtering by log level of log messages generated by this unit. Takes a
-        <command>syslog</command> log level, one of <option>emerg</option> (lowest log level, only highest priority
-        messages), <option>alert</option>, <option>crit</option>, <option>err</option>, <option>warning</option>,
-        <option>notice</option>, <option>info</option>, <option>debug</option> (highest log level, also lowest priority
-        messages). See <citerefentry
+        <listitem><para>Sets the maximum log level for log messages generated by this unit. Takes a
+        <command>syslog</command> log level, one of <option>emerg</option> (lowest log level, only highest
+        priority messages), <option>alert</option>, <option>crit</option>, <option>err</option>,
+        <option>warning</option>, <option>notice</option>, <option>info</option>, <option>debug</option>
+        (highest log level, also lowest priority messages). See <citerefentry
         project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        details. By default, no filtering is applied (i.e. the default maximum log level is <option>debug</option>). Use
-        this option to configure the logging system to drop log messages of a specific service above the specified
-        level. For example, set <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging
-        of a particularly chatty unit. Note that the configured level is applied to any log messages written by any
-        of the processes belonging to this unit, as well as any log messages written by the system manager process
-        (PID 1) in reference to this unit, sent via any supported logging protocol. The filtering is applied
-        early in the logging pipeline, before any kind of further processing is done. Moreover, messages which pass
-        through this filter successfully might still be dropped by filters applied at a later stage in the logging
-        subsystem. For example, <varname>MaxLevelStore=</varname> configured in
-        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> might
-        prohibit messages of higher log levels to be stored on disk, even though the per-unit
+        details. By default, the maximum log level is not overridden.</para>
+
+        <para>This option can be used to configure the logging system to drop log messages of a specific
+        service above the specified level. For example, set
+        <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging of a
+        particularly chatty unit. Alternatively, this option can be used to enable extra logging about a
+        specific unit by the system or user manager processes without changing the global log level for the
+        system or user manager processes by setting <varname>LogLevelMax=</varname><option>debug</option>.
+        </para>
+
+        <para>Note that the configured level is applied to any log messages written by any of the processes
+        belonging to this unit, as well as any log messages written by the system or user manager processes
+        in reference to this unit, sent via any supported logging protocol. The override is applied early in
+        the logging pipeline, before any kind of further processing is done. Moreover, messages which pass
+        through this filter successfully might still be dropped by filters applied at a later stage in the
+        logging subsystem. For example, <varname>MaxLevelStore=</varname> configured in
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        might prohibit messages of higher log levels to be stored on disk, even though the per-unit
         <varname>LogLevelMax=</varname> permitted it to be processed.</para>
 
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
@@ -3568,7 +3680,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         in the same way a regular credential specified via <varname>LoadCredential=</varname> would be. A
         credential configured this way may be symmetrically encrypted/authenticated with a secret key derived
         from the system's TPM2 security chip, or with a secret key stored in
-        <filename>/var/lib/systemd/credentials.secret</filename>, or with both. Using encrypted and
+        <filename>/var/lib/systemd/credential.secret</filename>, or with both. Using encrypted and
         authenticated credentials improves security as credentials are not stored in plaintext and only
         authenticated and decrypted into plaintext the moment a service requiring them is started. Moreover,
         credentials may be bound to the local hardware and installations, so that they cannot easily be
@@ -3681,7 +3793,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <literal>my.renamed.xxx</literal> to the service.</para>
 
         <para>If <varname>ImportCredential=</varname> is specified multiple times and multiple credentials
-        end up with the same name after renaming, the first one is kept and later ones are dropped.</para>.
+        end up with the same name after renaming, the first one is kept and later ones are dropped.</para>
 
         <para>When multiple credentials of the same name are found, credentials found by
         <varname>LoadCredential=</varname> and <varname>LoadCredentialEncrypted=</varname> take priority over
@@ -3918,6 +4030,18 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>DynamicUser=</varname> (and the superuser).</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$TMPDIR</varname></term>
+
+          <listitem><para>The environment variable is set to <literal>/tmp</literal> when
+          <varname>PrivateTmp=disconnected</varname> specified with <varname>DefaultDependencies=no</varname>
+          and without <varname>RootDirectory=/RootImage=</varname> and
+          <varname>RequiresMountsFor=/WantsMountsFor=</varname> for <filename>/var/</filename>.
+          See explanation for <varname>PrivateTmp=</varname> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -4307,7 +4431,18 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           in case of an unnamed socket. <varname>$REMOTE_PORT</varname> is not set for <constant>AF_UNIX</constant>
           sockets.</para>
 
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$SO_COOKIE</varname></term>
+
+          <listitem><para>If this is a unit started via per-connection socket activation (i.e. via a socket
+          unit with <varname>Accept=yes</varname>), this environment variable contains the Linux socket
+          cookie, formatted as decimal integer. The socket cookie can otherwise be acquired via <citerefentry
+          project='man-pages'><refentrytitle>getsockopt</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>

@@ -1,14 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <limits.h>
 #include <mqueue.h>
 #include <netinet/in.h>
 #include <poll.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -16,12 +11,17 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "log.h"
+#include "missing_magic.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -752,6 +752,27 @@ _public_ int sd_pid_notifyf_with_fds(
 finish:
         unsetenv_notify(unset_environment);
         return r;
+}
+
+_public_ int sd_pidfd_get_inode_id(int pidfd, uint64_t *ret) {
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+
+        /* Are pidfds backed by pidfs where the unique inode id is relevant? Note that the pidfd
+         * passed to us is extrinsic and hence cannot be trusted to initialize our "have_pidfs" cache,
+         * instead pidfd_check_pidfs() will allocate one internally. */
+        r = pidfd_check_pidfs(/* pid_fd = */ -EBADF);
+        if (r <= 0)
+                return -EOPNOTSUPP;
+
+        r = fd_is_fs_type(pidfd, PID_FS_MAGIC);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADF; /* pidfs is definitely around, so it's the fd that's of invalid type */
+
+        return pidfd_get_inode_id_impl(pidfd, ret);
 }
 
 _public_ int sd_booted(void) {

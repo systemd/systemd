@@ -51,7 +51,7 @@
     <para>Note: <filename>systemd-remount-fs.service</filename> is usually pulled in by
     <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     hence it is also affected by the kernel command line option <varname>fstab=</varname>, which may be used
-    to disable the generator. It may also pulled in by
+    to disable the generator. It may also be pulled in by
     <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     which is affected by <varname>systemd.gpt_auto</varname> and other options.</para>
   </refsect1>

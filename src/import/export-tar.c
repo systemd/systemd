@@ -1,21 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "sd-daemon.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "export-tar.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "import-common.h"
+#include "log.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ratelimit.h"
 #include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 #define COPY_BUFFER_SIZE (16*1024)
 
-struct TarExport {
+typedef struct TarExport {
         sd_event *event;
 
         TarExportFinished on_finished;
@@ -48,7 +55,7 @@ struct TarExport {
 
         bool eof;
         bool tried_splice;
-};
+} TarExport;
 
 TarExport *tar_export_unref(TarExport *e) {
         if (!e)
@@ -138,7 +145,7 @@ static void tar_export_report_progress(TarExport *e) {
                 (void) draw_progress_barf(
                                 percent,
                                 "%s %s/%s",
-                                special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                glyph(GLYPH_ARROW_RIGHT),
                                 FORMAT_BYTES(e->written_uncompressed),
                                 FORMAT_BYTES(e->quota_referenced));
         else

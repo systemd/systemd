@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "ctype.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -333,19 +331,19 @@ TEST(script_get_shebang_interpreter) {
 }
 
 TEST(status_field) {
-        _cleanup_free_ char *p = NULL, *s = NULL, *z = NULL;
+        _cleanup_free_ char *p = NULL, *s = NULL;
         unsigned long long total = 0, buffers = 0;
         int r;
 
-        r = get_proc_field("/proc/meminfo", "MemTotal", WHITESPACE, &p);
-        if (r != -ENOENT) {
+        r = get_proc_field("/proc/meminfo", "MemTotal", &p);
+        if (!IN_SET(r, -ENOENT, -ENOSYS)) {
                 assert_se(r == 0);
                 puts(p);
                 assert_se(safe_atollu(p, &total) == 0);
         }
 
-        r = get_proc_field("/proc/meminfo", "Buffers", WHITESPACE, &s);
-        if (r != -ENOENT) {
+        r = get_proc_field("/proc/meminfo", "Buffers", &s);
+        if (!IN_SET(r, -ENOENT, -ENOSYS)) {
                 assert_se(r == 0);
                 puts(s);
                 assert_se(safe_atollu(s, &buffers) == 0);
@@ -353,14 +351,6 @@ TEST(status_field) {
 
         if (p)
                 assert_se(buffers < total);
-
-        /* Seccomp should be a good test for field full of zeros. */
-        r = get_proc_field("/proc/meminfo", "Seccomp", WHITESPACE, &z);
-        if (r != -ENOENT) {
-                assert_se(r == 0);
-                puts(z);
-                assert_se(safe_atollu(z, &buffers) == 0);
-        }
 }
 
 TEST(read_one_line_file) {
@@ -544,7 +534,7 @@ TEST(search_and_fopen) {
         };
         char name[] = "/tmp/test-search_and_fopen.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *bn = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *e;
         int r;
@@ -553,59 +543,48 @@ TEST(search_and_fopen) {
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
-        r = search_and_fopen(basename(name), "re", NULL, (const char**) dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(path_extract_filename(name, &bn));
+        ASSERT_OK(search_and_fopen(bn, "re", NULL, (const char**) dirs, &f, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         f = safe_fclose(f);
         p = mfree(p);
 
-        r = search_and_fopen(basename(name), NULL, NULL, (const char**) dirs, NULL, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(search_and_fopen(bn, NULL, NULL, (const char**) dirs, NULL, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         p = mfree(p);
 
-        r = search_and_fopen(name, "re", NULL, (const char**) dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(search_and_fopen(name, "re", NULL, (const char**) dirs, &f, &p));
         assert_se(path_equal(name, p));
         f = safe_fclose(f);
         p = mfree(p);
 
-        r = search_and_fopen(name, NULL, NULL, (const char**) dirs, NULL, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(search_and_fopen(name, NULL, NULL, (const char**) dirs, NULL, &p));
         assert_se(path_equal(name, p));
         p = mfree(p);
 
-        r = search_and_fopen(basename(name), "re", "/", (const char**) dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(search_and_fopen(bn, "re", "/", (const char**) dirs, &f, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         f = safe_fclose(f);
         p = mfree(p);
 
-        r = search_and_fopen(basename(name), NULL, "/", (const char**) dirs, NULL, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(search_and_fopen(bn, NULL, "/", (const char**) dirs, NULL, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         p = mfree(p);
 
-        r = search_and_fopen("/a/file/which/does/not/exist/i/guess", "re", NULL, (const char**) dirs, &f, &p);
-        assert_se(r == -ENOENT);
-        r = search_and_fopen("/a/file/which/does/not/exist/i/guess", NULL, NULL, (const char**) dirs, NULL, &p);
-        assert_se(r == -ENOENT);
-        r = search_and_fopen("afilewhichdoesnotexistiguess", "re", NULL, (const char**) dirs, &f, &p);
-        assert_se(r == -ENOENT);
-        r = search_and_fopen("afilewhichdoesnotexistiguess", NULL, NULL, (const char**) dirs, NULL, &p);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", "re", NULL, (const char**) dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", NULL, NULL, (const char**) dirs, NULL, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", "re", NULL, (const char**) dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", NULL, NULL, (const char**) dirs, NULL, &p), ENOENT);
 
         r = unlink(name);
         assert_se(r == 0);
 
-        r = search_and_fopen(basename(name), "re", NULL, (const char**) dirs, &f, &p);
-        assert_se(r == -ENOENT);
-        r = search_and_fopen(basename(name), NULL, NULL, (const char**) dirs, NULL, &p);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(search_and_fopen(bn, "re", NULL, (const char**) dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen(bn, NULL, NULL, (const char**) dirs, NULL, &p), ENOENT);
 }
 
 TEST(search_and_fopen_nulstr) {
@@ -615,7 +594,7 @@ TEST(search_and_fopen_nulstr) {
 
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-search_and_fopen.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *bn = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *e;
         int r;
@@ -624,29 +603,25 @@ TEST(search_and_fopen_nulstr) {
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
-        r = search_and_fopen_nulstr(basename(name), "re", NULL, dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(path_extract_filename(name, &bn));
+        ASSERT_OK(search_and_fopen_nulstr(bn, "re", NULL, dirs, &f, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         f = safe_fclose(f);
         p = mfree(p);
 
-        r = search_and_fopen_nulstr(name, "re", NULL, dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(search_and_fopen_nulstr(name, "re", NULL, dirs, &f, &p));
         assert_se(path_equal(name, p));
         f = safe_fclose(f);
         p = mfree(p);
 
-        r = search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "re", NULL, dirs, &f, &p);
-        assert_se(r == -ENOENT);
-        r = search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "re", NULL, dirs, &f, &p);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "re", NULL, dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "re", NULL, dirs, &f, &p), ENOENT);
 
         r = unlink(name);
         assert_se(r == 0);
 
-        r = search_and_fopen_nulstr(basename(name), "re", NULL, dirs, &f, &p);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(search_and_fopen_nulstr(bn, "re", NULL, dirs, &f, &p), ENOENT);
 }
 
 TEST(writing_tmpfile) {
@@ -936,7 +911,7 @@ TEST(read_full_file_socket) {
 
         assert_se(sockaddr_un_set_path(&sa.un, j) >= 0);
 
-        assert_se(bind(listener, &sa.sa, SOCKADDR_UN_LEN(sa.un)) >= 0);
+        assert_se(bind(listener, &sa.sa, sockaddr_un_len(&sa.un)) >= 0);
         assert_se(listen(listener, 1) >= 0);
 
         /* Make sure the socket doesn't fit into a struct sockaddr_un, but we can still access it */
@@ -1104,7 +1079,7 @@ TEST(fdopen_independent) {
         zero(buf);
         assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
         ASSERT_STREQ(buf, TEST_TEXT);
-        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDONLY);
+        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE_STRICT) == O_RDONLY);
         assert_se(FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
         f = safe_fclose(f);
 
@@ -1112,7 +1087,7 @@ TEST(fdopen_independent) {
         zero(buf);
         assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
         ASSERT_STREQ(buf, TEST_TEXT);
-        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDONLY);
+        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE_STRICT) == O_RDONLY);
         assert_se(!FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
         f = safe_fclose(f);
 
@@ -1120,7 +1095,7 @@ TEST(fdopen_independent) {
         zero(buf);
         assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
         ASSERT_STREQ(buf, TEST_TEXT);
-        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDWR);
+        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE_STRICT) == O_RDWR);
         assert_se(FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
         f = safe_fclose(f);
 }

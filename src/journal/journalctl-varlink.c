@@ -1,16 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
+#include "sd-journal.h"
 #include "sd-varlink.h"
 
 #include "errno-util.h"
+#include "hashmap.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "journalctl.h"
 #include "journalctl-util.h"
 #include "journalctl-varlink.h"
+#include "log.h"
+#include "string-util.h"
 #include "varlink-util.h"
 
-static int varlink_connect_journal(sd_varlink **ret) {
+int varlink_connect_journal(sd_varlink **ret) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         const char *address;
         int r;

@@ -3,23 +3,29 @@
 
 #if ENABLE_DNS_OVER_TLS
 
-#include <stdint.h>
-#include <sys/uio.h>
-
-typedef struct DnsServer DnsServer;
-typedef struct DnsStream DnsStream;
-typedef struct DnsTlsManagerData DnsTlsManagerData;
-typedef struct DnsTlsServerData DnsTlsServerData;
-typedef struct DnsTlsStreamData DnsTlsStreamData;
-typedef struct Manager Manager;
-
-#if DNS_OVER_TLS_USE_GNUTLS
-#include "resolved-dnstls-gnutls.h"
-#elif DNS_OVER_TLS_USE_OPENSSL
-#include "resolved-dnstls-openssl.h"
-#else
-#error Unknown dependency for supporting DNS-over-TLS
+#if !HAVE_OPENSSL
+#error This source file requires OpenSSL to be available.
 #endif
+
+#include <openssl/ssl.h>
+
+#include "resolved-forward.h"
+
+typedef struct DnsTlsManagerData {
+        SSL_CTX *ctx;
+} DnsTlsManagerData;
+
+typedef struct DnsTlsServerData {
+        SSL_SESSION *session;
+} DnsTlsServerData;
+
+typedef struct DnsTlsStreamData {
+        int handshake;
+        bool shutdown;
+        SSL *ssl;
+        BUF_MEM *write_buffer;
+        size_t buffer_offset;
+} DnsTlsStreamData;
 
 #define DNSTLS_STREAM_CLOSED 1
 

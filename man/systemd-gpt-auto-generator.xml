@@ -70,11 +70,11 @@
       <citerefentry><refentrytitle>systemd-import-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       make sure to set the <literal>blockdev</literal> option and set the local name string to
       <literal>rootdisk</literal> to achieve this effect. Note that discovery of the root file system on
-      loopback block devices like this is only done if <literal>root=gpt-auto</literal> is specified
-      explicitly on the kernel command line, unlike the discovery based on the boot loader reported ESP which
-      is also enabled if no <literal>root=</literal> parameter is specified at all. (The latter relies on
-      <command>systemd-udevd.service</command>'s <filename>/dev/gpt-auto-root</filename> block device symlink
-      generation).</para></listitem>
+      loopback block devices like this is only done if <literal>root=gpt-auto</literal> or
+      <literal>root=dissect</literal> is specified explicitly on the kernel command line, unlike the
+      discovery based on the boot loader reported ESP which is also enabled if no <literal>root=</literal>
+      parameter is specified at all. (The latter relies on <command>systemd-udevd.service</command>'s
+      <filename>/dev/gpt-auto-root</filename> block device symlink generation).</para></listitem>
     </itemizedlist>
     </para>
 
@@ -159,12 +159,7 @@
             <entry><constant>4d21b016-b534-45c2-a9fb-5c16e091fd2d</constant></entry>
             <entry>Variable Data Partition</entry>
             <entry><filename>/var/</filename></entry>
-            <entry>The first partition with this type UUID on the same disk as the root partition is mounted
-            to <filename>/var/</filename> — under the condition its partition UUID matches the first 128 bit
-            of the HMAC-SHA256 of the GPT type uuid of this partition keyed by the machine ID of the
-            installation stored in
-            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This can be generated using <citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</entry>
+            <entry>The first partition with this type UUID on the same disk as the root partition is mounted to <filename>/var/</filename> — under the condition its partition UUID matches the first 128 bit of the HMAC-SHA256 of the GPT type uuid of this partition keyed by the machine ID of the installation stored in <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This can be generated using <citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</entry>
           </row>
           <row>
             <entry><constant>SD_GPT_TMP</constant></entry>
@@ -281,6 +276,10 @@
     automatically measured into PCR 15 on activation, via
     <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
+    <para>Mount constraint metadata contained in the file systems is validated by pulling in
+    <citerefentry><refentrytitle>systemd-validatefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for generated mounts.</para>
+
     <para><filename>systemd-gpt-auto-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
@@ -313,7 +312,30 @@
         and allows enforcing a policy on dissection and use of the automatically discovered GPT partition
         table entries.</para>
 
+        <para>Note that the specified image policy is not taken into account for automatic root or
+        <filename>/usr/</filename> file system discovery unless
+        <varname>root=dissect</varname>/<varname>mount.usr=dissect</varname> (or
+        <varname>root=dissect-force</varname>) are specified. (The policy will always be applied to the other
+        auto-discoverable partition types.)</para>
+
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.image_filter=</varname></term>
+
+        <listitem><para>Takes an image dissection filter string as argument (as per
+        <citerefentry><refentrytitle>systemd.image-filter</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+        and allows enforcing a set of globbing patterns on the partition matching of the automatically
+        discovered GPT partition table entries.</para>
+
+        <para>Note that the specified image filter is not taken into account for automatic root or
+        <filename>/usr/</filename> file system discovery unless
+        <varname>root=dissect</varname>/<varname>mount.usr=dissect</varname> (or
+        <varname>root=dissect-force</varname>) are specified. (The filter will always be applied to the other
+        auto-discoverable partition types.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -322,22 +344,55 @@
         <term><varname>rootflags=</varname></term>
 
         <listitem><para>When <varname>root=</varname> is used with the special value
-        <literal>gpt-auto</literal>, full automatic discovery of the root partition based on the GPT
+        <literal>gpt-auto</literal>, basic automatic discovery of the root partition based on the GPT
         partition type is enabled. Use of the root partition is delayed until factory reset mode is left, in
         case it is enabled during the current boot. See <ulink url="https://systemd.io/FACTORY_RESET">Factory
         Reset</ulink> for more information on that. If <literal>gpt-auto-force</literal> is specified
-        automatic discovery of the root partition is enabled, ignoring any factory reset mode. Any other
-        value disables this logic.</para>
+        automatic discovery of the root partition is enabled, ignoring any factory reset mode.</para>
+
+        <para>If <varname>root=</varname> is set to the special value <literal>dissect</literal> full
+        automatic discovery of the root partition based on GPT partition information is enabled. This is a
+        superset of <varname>root=gpt-auto</varname>, as it automatically configures Verity partitions
+        (including signature-based setup) following the logic defined for that in the <ulink
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification/">Discoverable
+        Partitions Specification</ulink>. Moreover it takes the configured image policy and image filter into
+        account for all partition types, including the root file system. <literal>root=dissect</literal> will
+        wait for the factory reset phase to be completed if it is in effect before activating the root file
+        system. Use <literal>root=dissect-force</literal> to ignore the factory reset phase and activate the
+        root file system immediately.</para>
+
+        <para>Any other value (i.e. besides <literal>gpt-auto</literal>, <literal>gpt-auto-force</literal>,
+        <literal>dissect</literal>, <literal>dissect-force</literal>) disables automatic root file system
+        discovery.</para>
 
         <para>If <varname>root=</varname> is not specified at all on the kernel command line automatic
         discovery of the root partition via the ESP reported by the boot loader is also enabled (taking
-        factory reset state into account), however in this case discovery based on the loopback block device
-        <literal>.lo_name</literal> field is not enabled.</para>
+        factory reset state into account, i.e. equivalent to <literal>root=gpt-auto</literal>), however in
+        this case discovery based on the loopback block device <literal>.lo_name</literal> field is not
+        enabled.</para>
 
         <para>The <varname>rootfstype=</varname> and <varname>rootflags=</varname> options are used to select
         the file system type and options when the root file system is automatically discovered.</para>
 
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>mount.usr=</varname></term>
+        <term><varname>mount.usrfstype=</varname></term>
+        <term><varname>mount.usrflags=</varname></term>
+
+        <listitem><para>Similar to <varname>root=</varname>, <varname>rootfstype=</varname>,
+        <varname>rootflags=</varname> (see above), but applies to the <filename>/usr/</filename> partition
+        instead. Note that the <literal>gpt-auto</literal>, <literal>gpt-auto-force</literal>,
+        <literal>dissect-force</literal> settings that <filename>root=</filename> understands are not
+        supported by <varname>mount.usr=</varname> (however <literal>dissect</literal> is).</para>
+
+        <para>Also note that automatic partition discovery for <filename>/usr/</filename> must be enabled
+        explicitly, unlike the discovery for the root file system, which is enabled if no
+        <varname>root=</varname> parameter is passed at all.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -375,6 +430,7 @@
       <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-validatefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>

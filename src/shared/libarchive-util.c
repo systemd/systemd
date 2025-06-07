@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <syslog.h>
+
 #include "libarchive-util.h"
 
 #if HAVE_LIBARCHIVE

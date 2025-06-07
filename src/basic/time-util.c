@@ -1,27 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
-#include <limits.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <sys/time.h>
 #include <sys/timerfd.h>
-#include <sys/types.h>
 #include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1785,7 +1782,7 @@ DEFINE_STRING_TABLE_LOOKUP_TO_STRING(timestamp_style, TimestampStyle);
 TimestampStyle timestamp_style_from_string(const char *s) {
         TimestampStyle t;
 
-        t = (TimestampStyle) string_table_lookup(timestamp_style_table, ELEMENTSOF(timestamp_style_table), s);
+        t = (TimestampStyle) string_table_lookup_from_string(timestamp_style_table, ELEMENTSOF(timestamp_style_table), s);
         if (t >= 0)
                 return t;
         if (STRPTR_IN_SET(s, "µs", "μs")) /* accept both µ symbols in unicode, i.e. micro symbol + Greek small letter mu. */

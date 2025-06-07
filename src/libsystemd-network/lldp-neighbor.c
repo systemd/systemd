@@ -3,12 +3,16 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
 #include "json-util.h"
 #include "lldp-neighbor.h"
+#include "lldp-rx-internal.h"
 #include "memory-util.h"
 #include "missing_network.h"
+#include "prioq.h"
+#include "siphash24.h"
 #include "unaligned.h"
 
 static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash *state) {
@@ -37,9 +41,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         sd_lldp_neighbor,
         lldp_neighbor_unlink);
 
-int lldp_neighbor_prioq_compare_func(const void *a, const void *b) {
-        const sd_lldp_neighbor *x = a, *y = b;
-
+int lldp_neighbor_prioq_compare_func(const sd_lldp_neighbor *x, const sd_lldp_neighbor *y) {
         assert(x);
         assert(y);
 
@@ -312,6 +314,16 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                                                  length - sizeof(SD_LLDP_OUI_IANA_MUD));
                                 if (r < 0)
                                         return r;
+                        }
+
+                        /* IEEE 802.1: VLAN ID */
+                        if (memcmp(p, SD_LLDP_OUI_802_1_VLAN_ID, sizeof(SD_LLDP_OUI_802_1_VLAN_ID)) == 0) {
+                                if (length != (sizeof(SD_LLDP_OUI_802_1_VLAN_ID) + sizeof(uint16_t)))
+                                        return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
+                                                                 "Found 802.1 VLAN ID TLV with wrong length, ignoring.");
+
+                                n->has_port_vlan_id = true;
+                                n->port_vlan_id = unaligned_read_be16(p + sizeof(SD_LLDP_OUI_802_1_VLAN_ID));
                         }
                         break;
                 }
@@ -630,6 +642,17 @@ int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret
         return 0;
 }
 
+int sd_lldp_neighbor_get_port_vlan_id(sd_lldp_neighbor *n, uint16_t *ret) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!n->has_port_vlan_id)
+                return -ENODATA;
+
+        *ret = n->port_vlan_id;
+        return 0;
+}
+
 int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
         assert_return(n, -EINVAL);
 
@@ -685,7 +708,7 @@ int sd_lldp_neighbor_tlv_is_type(sd_lldp_neighbor *n, uint8_t type) {
         return type == k;
 }
 
-int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t *subtype) {
+int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[static 3], uint8_t *subtype) {
         const uint8_t *d;
         size_t length;
         int r;
@@ -714,7 +737,7 @@ int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_ARRAY_STAT
         return 0;
 }
 
-int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t subtype) {
+int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[static 3], uint8_t subtype) {
         uint8_t k[3], st;
         int r;
 
@@ -767,6 +790,8 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret) {
                 *system_name = NULL, *system_description = NULL;
         uint16_t cc = 0;
         bool valid_cc;
+        uint16_t vlanid = 0;
+        bool valid_vlanid;
 
         assert(n);
         assert(ret);
@@ -778,6 +803,7 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret) {
         (void) sd_lldp_neighbor_get_system_description(n, &system_description);
 
         valid_cc = sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0;
+        valid_vlanid = sd_lldp_neighbor_get_port_vlan_id(n, &vlanid) >= 0;
 
         return sd_json_buildo(
                         ret,
@@ -788,5 +814,6 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret) {
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", port_description),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", system_name),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", system_description),
-                        SD_JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", SD_JSON_BUILD_UNSIGNED(cc)));
+                        SD_JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", SD_JSON_BUILD_UNSIGNED(cc)),
+                        SD_JSON_BUILD_PAIR_CONDITION(valid_vlanid, "VlanID", SD_JSON_BUILD_UNSIGNED(vlanid)));
 }

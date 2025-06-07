@@ -1,16 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
+#include "sd-bus-vtable.h"
 
-#include "unit.h"
+#include "core-forward.h"
 
 extern const sd_bus_vtable bus_unit_vtable[];
 extern const sd_bus_vtable bus_unit_cgroup_vtable[];
 
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_pending_change_signal(Unit *u, bool including_new);
-int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled);
+int bus_unit_send_pending_freezer_message(Unit *u, bool canceled);
 void bus_unit_send_removed_signal(Unit *u);
 
 int bus_unit_method_start_generic(sd_bus_message *message, Unit *u, JobType job_type, bool reload_if_possible, sd_bus_error *error);

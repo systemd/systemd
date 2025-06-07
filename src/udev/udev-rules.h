@@ -1,14 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "alloc-util.h"
-#include "hashmap.h"
-#include "time-util.h"
 #include "udev-def.h"
-
-typedef struct UdevRuleFile UdevRuleFile;
-typedef struct UdevRules UdevRules;
-typedef struct UdevEvent UdevEvent;
+#include "udev-forward.h"
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos, bool *ret_is_case_insensitive);
 int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_checks, UdevRuleFile **ret);

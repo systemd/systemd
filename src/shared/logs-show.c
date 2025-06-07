@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <fcntl.h>
 #include <signal.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -14,22 +10,21 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
-#include "hostname-util.h"
 #include "id128-util.h"
-#include "io-util.h"
 #include "journal-internal.h"
 #include "journal-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
-#include "macro.h"
 #include "output-mode.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "rlimit-util.h"
+#include "set.h"
+#include "sigbus.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -61,7 +56,7 @@ static int print_catalog(FILE *f, sd_journal *j) {
                 return log_error_errno(r, "Failed to find catalog entry: %m");
 
         if (is_locale_utf8())
-                prefix = strjoina(special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), special_glyph(SPECIAL_GLYPH_LIGHT_SHADE));
+                prefix = strjoina(glyph(GLYPH_LIGHT_SHADE), glyph(GLYPH_LIGHT_SHADE));
         else
                 prefix = "--";
 
@@ -363,7 +358,6 @@ finish:
 
 static int output_timestamp_realtime(
                 FILE *f,
-                sd_journal *j,
                 OutputMode mode,
                 OutputFlags flags,
                 usec_t usec) {
@@ -372,7 +366,6 @@ static int output_timestamp_realtime(
         int r;
 
         assert(f);
-        assert(j);
 
         if (!VALID_REALTIME(usec))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available, skipping showing journal entry.");
@@ -436,7 +429,7 @@ static int output_timestamp_realtime(
 
                 if (IN_SET(mode, OUTPUT_SHORT_ISO, OUTPUT_SHORT_ISO_PRECISE)) {
                         int h = tm.tm_gmtoff / 60 / 60,
-                                m = abs((int) ((tm.tm_gmtoff / 60) % 60));
+                                m = ABS((int) ((tm.tm_gmtoff / 60) % 60));
 
                         assert_se(snprintf_ok(buf + tail, sizeof(buf) - tail, "%+03d:%02d", h, m));
                 }
@@ -458,13 +451,10 @@ static void parse_display_realtime(
                 const char *source_monotonic,
                 usec_t *ret) {
 
-        usec_t t, s, u;
+        usec_t t;
 
         assert(j);
         assert(ret);
-
-        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
-        source_monotonic = NULL;
 
         /* First, try _SOURCE_REALTIME_TIMESTAMP. */
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t)) {
@@ -479,11 +469,15 @@ static void parse_display_realtime(
         }
 
         /* If _SOURCE_MONOTONIC_TIMESTAMP is provided, adjust the header timestamp. */
+        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
+        /*
+        usec_t s, u;
         if (source_monotonic && safe_atou64(source_monotonic, &s) >= 0 && VALID_MONOTONIC(s) &&
             sd_journal_get_monotonic_usec(j, &u, &(sd_id128_t) {}) >= 0) {
                 *ret = map_clock_usec_raw(t, u, s);
                 return;
         }
+        */
 
         /* Otherwise, use the header timestamp as is. */
         *ret = t;
@@ -504,14 +498,14 @@ static void parse_display_timestamp(
         assert(ret_display_ts);
         assert(ret_boot_id);
 
-        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
-        source_monotonic = NULL;
-
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t))
                 source_ts.realtime = t;
 
+        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
+        /*
         if (source_monotonic && safe_atou64(source_monotonic, &t) >= 0 && VALID_MONOTONIC(t))
                 source_ts.monotonic = t;
+        */
 
         (void) sd_journal_get_realtime_usec(j, &header_ts.realtime);
         (void) sd_journal_get_monotonic_usec(j, &header_ts.monotonic, &boot_id);
@@ -620,7 +614,7 @@ static int output_short(
         } else {
                 usec_t usec;
                 parse_display_realtime(j, realtime, monotonic, &usec);
-                r = output_timestamp_realtime(f, j, mode, flags, usec);
+                r = output_timestamp_realtime(f, mode, flags, usec);
         }
         if (r == -EINVAL)
                 return 0;
@@ -694,7 +688,7 @@ static int output_short(
                 if (c) {
                         _cleanup_free_ char *urlified = NULL;
 
-                        if (terminal_urlify(c, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK), &urlified) >= 0) {
+                        if (terminal_urlify(c, glyph(GLYPH_EXTERNAL_LINK), &urlified) >= 0) {
                                 fputs(urlified, f);
                                 fputc(' ', f);
                         }
@@ -812,7 +806,7 @@ static int output_verbose(
 
         r = get_display_realtime(j, &usec);
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
-                log_debug_errno(r, "Skipping message we can't read: %m");
+                log_debug_errno(r, "Unable to read realtime timestamp from entry, assuming bad or partially written entry: %m");
                 return 0;
         }
         if (r < 0)
@@ -822,6 +816,10 @@ static int output_verbose(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
 
         r = sd_journal_get_cursor(j, &cursor);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Unable to determine cursor for entry, assuming bad or partially written entry: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
@@ -842,12 +840,16 @@ static int output_verbose(
                 size_t fieldlen, valuelen;
 
                 c = memchr(data, '=', length);
-                if (!c)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+                if (!c) {
+                        log_debug("Encountered field without '=', assuming bad or partially written entry, leaving.");
+                        break;
+                }
 
                 fieldlen = c - (const char*) data;
-                if (!journal_field_valid(data, fieldlen, true))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+                if (!journal_field_valid(data, fieldlen, /* allow_protected= */ true)) {
+                        log_debug("Encountered invalid field, assuming bad or partially written entry, leaving.");
+                        break;
+                }
 
                 r = field_set_test(output_fields, data, fieldlen);
                 if (r < 0)
@@ -859,10 +861,10 @@ static int output_verbose(
                 p = c + 1;
 
                 if (flags & OUTPUT_COLOR) {
-                        if (startswith(data, "MESSAGE=")) {
+                        if (memory_startswith(data, length, "MESSAGE=")) {
                                 on = ansi_highlight();
                                 off = ansi_normal();
-                        } else if (startswith(data, "CONFIG_FILE=")) {
+                        } else if (memory_startswith(data, length, "CONFIG_FILE=")) {
                                 _cleanup_free_ char *u = NULL;
 
                                 u = memdup_suffix0(p, valuelen);
@@ -874,7 +876,7 @@ static int output_verbose(
                                         valuelen = strlen(urlified);
                                 }
 
-                        } else if (startswith(data, "_")) {
+                        } else if (memory_startswith(data, length, "_")) {
                                 /* Highlight trusted data as such */
                                 on = ansi_green();
                                 off = ansi_normal();
@@ -930,18 +932,34 @@ static int output_export(
         (void) sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_cursor(j, &cursor);
+        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                log_debug_errno(r, "Unable to determine cursor of entry, assuming bad or partially written entry: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
         r = sd_journal_get_realtime_usec(j, &realtime);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Unable to read realtime timestamp of entry, assuming bad or partially written entry: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
         r = sd_journal_get_monotonic_usec(j, &monotonic, &journal_boot_id);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Unable to read monotonic timestamp of entry, assuming bad or partially written entry: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
         r = sd_journal_get_seqnum(j, &seqnum, &seqnum_id);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Unable to read sequence number of entry, assuming bad or partially written entry: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get seqnum: %m");
 
@@ -968,12 +986,16 @@ static int output_export(
                         continue;
 
                 c = memchr(data, '=', length);
-                if (!c)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+                if (!c) {
+                        log_debug("Encountered data field without '=', assuming bad or partially written entry, leaving.");
+                        break;
+                }
 
                 fieldlen = c - (const char*) data;
-                if (!journal_field_valid(data, fieldlen, true))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+                if (!journal_field_valid(data, fieldlen, /* allow_protected= */ true)) {
+                        log_debug("Encountered invalid field, assuming bad or partially written entry, leaving.");
+                        break;
+                }
 
                 r = field_set_test(output_fields, data, fieldlen);
                 if (r < 0)
@@ -1159,8 +1181,10 @@ static int update_json_data_split(
                 return 0;
 
         fieldlen = eq - (const char*) data;
-        if (!journal_field_valid(data, fieldlen, true))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+        if (!journal_field_valid(data, fieldlen, /* allow_protected= */ true)) {
+                log_debug("Encountered invalid field, assuming bad or incompletely written field, leaving.");
+                return 0;
+        }
 
         name = strndupa_safe(data, fieldlen);
         if (output_fields && !set_contains(output_fields, name))
@@ -1197,18 +1221,34 @@ static int output_json(
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
         r = sd_journal_get_cursor(j, &cursor);
+        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                log_debug_errno(r, "Unable to determine cursor of entry, assuming bad or partially written entry: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
         r = sd_journal_get_realtime_usec(j, &realtime);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Unable to read realtime timestamp of entry, assuming bad or partially written entry: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
         r = sd_journal_get_monotonic_usec(j, &monotonic, &journal_boot_id);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Unable to read monotonic timestamp of entry, assuming bad or partially written entry: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
         r = sd_journal_get_seqnum(j, &seqnum, &seqnum_id);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Unable to read sequence number of entry, assuming bad or partially written entry: %m");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get seqnum: %m");
 
@@ -1524,6 +1564,10 @@ int show_journal(
 
                 if (need_seek) {
                         r = sd_journal_next(j);
+                        if (r == -EBADMSG) {
+                                log_debug_errno(r, "Bad or partially written entry, leaving.");
+                                break;
+                        }
                         if (r < 0)
                                 return log_error_errno(r, "Failed to iterate through journal: %m");
                 }
@@ -1949,7 +1993,7 @@ static int set_matches_for_discover_id(
         return -EINVAL;
 }
 
-static int discover_next_id(
+int discover_next_id(
                 sd_journal *j,
                 LogIdType type,
                 sd_id128_t boot_id,  /* optional, used when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
@@ -2266,4 +2310,12 @@ int journal_get_log_ids(
         *ret_ids = TAKE_PTR(ids);
         *ret_n_ids = n_ids;
         return n_ids > 0;
+}
+
+void journal_browse_prepare(void) {
+        /* Increase max number of open files if we can, we might needs this when browsing journal files,
+         * which might be split up into many files. */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
+
+        sigbus_install();
 }

@@ -2,15 +2,18 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
-#include "bus-util.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "format-util.h"
+#include "hashmap.h"
+#include "logind.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
 #include "logind-seat-dbus.h"
@@ -18,7 +21,7 @@
 #include "process-util.h"
 #include "special.h"
 #include "string-table.h"
-#include "terminal-util.h"
+#include "strv.h"
 #include "user-util.h"
 
 static const HandleActionData handle_action_data_table[_HANDLE_ACTION_MAX] = {
@@ -173,11 +176,10 @@ HandleAction handle_action_sleep_select(Manager *m) {
         assert(m);
 
         FOREACH_ELEMENT(i, sleep_actions) {
-                HandleActionSleepMask action_mask = 1U << *i;
                 const HandleActionData *a;
                 _cleanup_free_ char *load_state = NULL;
 
-                if (!FLAGS_SET(m->handle_action_sleep_mask, action_mask))
+                if (!BIT_SET(m->handle_action_sleep_mask, *i))
                         continue;
 
                 a = ASSERT_PTR(handle_action_lookup(*i));
@@ -328,8 +330,8 @@ static int manager_handle_action_secure_attention_key(
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Secure Attention Key sequence pressed on seat %s", seat),
-                   "MESSAGE_ID=" SD_MESSAGE_SECURE_ATTENTION_KEY_PRESS_STR,
-                   "SEAT_ID=%s", seat);
+                   LOG_MESSAGE_ID(SD_MESSAGE_SECURE_ATTENTION_KEY_PRESS_STR),
+                   LOG_ITEM("SEAT_ID=%s", seat));
 
         r = sd_bus_emit_signal(
                         m->bus,
@@ -484,7 +486,7 @@ int config_parse_handle_action_sleep(
                         continue;
                 }
 
-                *mask |= 1U << a;
+                SET_BIT(*mask, a);
         }
 
         if (*mask == 0)

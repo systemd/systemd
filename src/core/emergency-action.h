@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "runtime-scope.h"
+#include "core-forward.h"
 
 typedef enum EmergencyAction {
         EMERGENCY_ACTION_NONE,
@@ -28,16 +26,19 @@ typedef enum EmergencyAction {
 } EmergencyAction;
 
 typedef enum EmergencyActionFlags {
-        EMERGENCY_ACTION_IS_WATCHDOG = 1 << 0,
-        EMERGENCY_ACTION_WARN        = 1 << 1,
+        EMERGENCY_ACTION_IS_WATCHDOG = 1 << 0, /* this action triggered by a watchdog or other kind of timeout */
+        EMERGENCY_ACTION_WARN        = 1 << 1, /* log at LOG_WARNING + write to system console */
+        EMERGENCY_ACTION_SLEEP_5S    = 1 << 2, /* wait 5s before executing action; only honoured together with EMERGENCY_ACTION_WARN */
+        _EMERGENCY_ACTION_FLAGS_MAX  = (1 << 3) - 1,
 } EmergencyActionFlags;
 
-#include "macro.h"
-#include "manager.h"
-
-void emergency_action(Manager *m,
-                      EmergencyAction action, EmergencyActionFlags options,
-                      const char *reboot_arg, int exit_status, const char *reason);
+void emergency_action(
+                Manager *m,
+                EmergencyAction action,
+                EmergencyActionFlags flags,
+                const char *reboot_arg,
+                int exit_status,
+                const char *reason);
 
 const char* emergency_action_to_string(EmergencyAction i) _const_;
 EmergencyAction emergency_action_from_string(const char *s) _pure_;

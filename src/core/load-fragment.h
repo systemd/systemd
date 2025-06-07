@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "unit.h"
+#include "core-forward.h"
 
 /* These functions are declared in the header to make them accessible to unit tests. */
 bool contains_instance_specifier_superset(const char *s);
@@ -81,7 +80,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_unset_environ);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_slice);
 CONFIG_PARSER_PROTOTYPE(config_parse_cg_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_cg_cpu_weight);
-CONFIG_PARSER_PROTOTYPE(config_parse_cpu_shares);
 CONFIG_PARSER_PROTOTYPE(config_parse_memory_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
@@ -95,9 +93,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_device_allow);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_device_latency);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_device_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_limit);
-CONFIG_PARSER_PROTOTYPE(config_parse_blockio_weight);
-CONFIG_PARSER_PROTOTYPE(config_parse_blockio_device_weight);
-CONFIG_PARSER_PROTOTYPE(config_parse_blockio_bandwidth);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_mode_isolate);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_selinux_context);
@@ -165,6 +160,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_open_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_memory_pressure_watch);
 CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_nft_set);
 CONFIG_PARSER_PROTOTYPE(config_parse_mount_node);
+CONFIG_PARSER_PROTOTYPE(config_parse_concurrency_max);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

@@ -8,12 +8,11 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
-#include "dns-domain.h"
-#include "dns-resolver-internal.h"
 #include "ndisc-internal.h"
 #include "ndisc-router-internal.h"
+#include "set.h"
 #include "string-table.h"
-#include "unaligned.h"
+#include "string-util.h"
 
 static sd_ndisc_router* ndisc_router_free(sd_ndisc_router *rt) {
         if (!rt)
@@ -114,7 +113,7 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
         rt->hop_limit = a->nd_ra_curhoplimit;
         rt->flags = a->nd_ra_flags_reserved; /* the first 8 bits */
         rt->lifetime_usec = be16_sec_to_usec(a->nd_ra_router_lifetime, /* max_as_infinity = */ false);
-        rt->reachable_time_usec = be32_msec_to_usec(a->nd_ra_reachable, /* mas_as_infinity = */ false);
+        rt->reachable_time_usec = be32_msec_to_usec(a->nd_ra_reachable, /* max_as_infinity = */ false);
         rt->retransmission_time_usec = be32_msec_to_usec(a->nd_ra_retransmit, /* max_as_infinity = */ false);
 
         /* RFC 4191 section 2.2

@@ -1,19 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <poll.h>
 #include <sys/eventfd.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "barrier.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "macro.h"
 
 /**
  * Barriers

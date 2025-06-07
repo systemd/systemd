@@ -1,13 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <linux/if_arp.h>
+#include <linux/rtnetlink.h>
+#include <netinet/in.h>
 
+#include "sd-bus.h"
+#include "sd-dhcp6-lease.h"
+#include "sd-dhcp6-option.h"
+
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "dhcp-option.h"
-#include "dhcp6-internal.h"
+#include "dhcp6-option.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "hexdecoct.h"
 #include "in-addr-prefix-util.h"
 #include "networkd-dhcp-common.h"
@@ -16,8 +23,10 @@
 #include "networkd-network.h"
 #include "networkd-route-util.h"
 #include "parse-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "vrf.h"
 

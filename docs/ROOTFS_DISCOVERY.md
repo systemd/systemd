@@ -16,7 +16,7 @@ components:
    that provides interactive and programmatic control of what precisely to
    boot. It takes care of enumerating all possible boot targets (implementing
    the [Boot Loader
-   Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/),
+   Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/)),
    potentially presenting it to the user in a menu, but otherwise picking an
    item automatically, implementing boot counting and automatic rollback if
    desired.
@@ -29,14 +29,14 @@ components:
    self-descriptive: the aforementioned boot loader enumerates these UKIs and
    automatically extracts all information necessary to determine which menu
    entries to generate for them. Within the UKI runtime (very early during
-   kernel initialization) the transition from the UEFI firmware world into the
-   Linux world takes place, i.e. it encapsulates the fundamental
-   `ExitBootServices()` UEFI call, that ends PC firmware control, and lets the
-   Linux kernel take over.
+   kernel initialization) the transition from the UEFI firmware code to the
+   Linux code takes place, i.e. it executes the fundamental
+   `ExitBootServices()` UEFI call that ends PC firmware control,
+   and lets the Linux kernel take over.
 
 3. A root file system ("`rootfs`"): this is where the regular OS is
    located. The primary job of the early userspace that is contained in the
-   `initrd` that itself is part of the UKI, is to find, set up and pivot into
+   `initrd` that itself is part of the UKI, is to find, set up, and pivot into
    the `rootfs`.
 
 > [!NOTE]
@@ -95,15 +95,14 @@ auxiliary resources:
    resources "sidecars".
 
 4. The `rootfs` often is a combination of one file system for `/usr/`
-   ("`usrfs`") and one for the actually root `/`, and possibly further,
-   auxiliary file systems, for example for `/home/` or `/srv/`.
+   ("`usrfs`") and one for the actual root `/`, and possibly further,
+   auxiliary file systems, for example `/home/` or `/srv/`.
 
 > [!NOTE]
 > Depending on the execution environment the first component (the boot loader)
 > might be dispensable. Specifically, on disk images intended solely for use in
-> VMs it might be make sense to tell the firmware to directly boot into a UKI,
-> as the UKI selection functionality is somewhat redundant there: the VMM's
-> image selection functionality might supersede it.
+> VMs, it might be make sense to tell the firmware to directly boot a UKI,
+> letting the VMM's image selection functionality play the role of the boot loader.
 
 > [!NOTE]
 > Depending on the execution environment the last component (the `rootfs`)
@@ -140,7 +139,7 @@ the same disk. Specifically:
    VFAT. XBOOTLDR is an optional concept and it's only *raison d'être* is that
    ESPs sometimes are sized too small by vendors, and do not have enough space
    for multiple UKIs. XBOOTLDR hence serves as a conceptual extension of the
-   size constrained ESP. Sidecars for the UKIs are typically placed in a
+   size-constrained ESP. Sidecars for the UKIs are typically placed in a
    directory next to the UKI they are for, whose name however is suffixed by
    `.d/`, i.e. a UKI `foo.efi` has its sidecars in `foo.efi.d/`.
 
@@ -198,24 +197,24 @@ In many cases it is essential to boot an OS from the network instead of a
 local disk. This can happen at each of these three components:
 
 1. Many UEFI firmwares support HTTP(S) network boot (usually requires enabling
-   in firmware setup). If this is available it permits downloading a disk image
+   in firmware setup). If this is available, it permits downloading a disk image
    from an HTTP server (the URL can either be configured in the firmware setup,
-   or be acquired inside a DHCP lease). The disk image is then set up as a RAM
+   or be acquired in a DHCP lease). The disk image is then set up as a RAM
    disk, and then processed much like a regular disk: an ESP is searched for
    and the `/EFI/BOOT/BOOTX64.EFI` entrypoint binary is invoked.
 
 2. UKIs can be placed on the same downloaded disk image, within the ESP. If
    multiple different UKIs shall be made accessible from the same boot menu
-   this would potentially blow up the size of the disk image however, to
-   prohibitive sizes. In order to address this, it is possible to embed Boot
+   this would potentially increase the size of the disk image to prohibitive sizes.
+   In order to address this, it is possible to embed Boot
    Loader Specification Type #1 entry files in the ESP instead, which may carry
    references to the UKIs to download and invoke once a choice is made. These
    references can either be full URLs or alternatively simple filenames which
-   are then automatically suffixed to the URL that was used by the firmware
+   are then automatically appended to the URL that was used by the firmware
    to acquire the initial boot disk.
 
-3. The `rootfs` can be acquired automatically from a networked source too, in a
-   very flexible fashion. For example, the `initrd` contained in the UKI might
+3. The `rootfs` can be acquired automatically from a networked source too in a
+   flexible fashion. For example, the `initrd` contained in the UKI might
    support NVMe-over-TCP or iSCSI block devices to boot from, supporting the
    whole Linux storage stack. `systemd` also natively [supports downloading the
    `rootfs` from HTTP
@@ -225,34 +224,33 @@ local disk. This can happen at each of these three components:
    with `.raw` suffix) or in a `.tar` file, which are placed in system RAM and
    then booted into (these downloads can be downloaded in compressed form and
    are automatically decompressed on-the-fly). This of course requires
-   sufficient RAM to be available on the targeted system, and also implies that
-   persistency of modifications of the file system is not available. If this
-   mode is used the URL to acquire the `rootfs` disk image from can be derived
+   sufficient RAM to be available on the target system, and also means that
+   persistency of modifications of the file system is not possible. If this
+   mode is used, the URL to acquire the `rootfs` disk image from can be derived
    automatically from the URL that was used to acquire the UKI itself. (This
    information is passed from UKI to userspace via the `LoaderDevicePartURL`
    EFI variable.)
 
-Similar to the disk-based boot scheme described in the previous section
-discovery of the boot source can take place fully automatically, with each
-component taking the boot source choice of the preceding component into
-account: the boot loader can automatically download UKIs from the same source
+Similarly to the disk-based boot scheme described in the previous section,
+discovery of the boot source can be fully automatic, with each
+component taking the source of the preceding component into account:
+the boot loader can automatically download UKIs from the same source
 it itself was downloaded from. Moreover the `initrd` of the UKI can
 automatically downloads the `rootfs` from the same source it itself was
 downloaded from.
 
-Also, much like in the disk-based boot scheme it is also possible to
-specifically direct each of the components to a different place instead of the
-automatic derivation of URLs from the same source. On top of that it is of
-course possible to mix disk-based and network-based boot: for example place the
-boot loader on the local disk, but use UKIs and `rootfs` from networked sources;
-or alternatively place both boot loader and UKIs on the local disk, and only
-the `rootfs` on a networked source.
+Also, much like in the disk-based boot scheme, it is possible to
+specify a different source for a component to replace the automatically-derived URL.
+On top of that it is of course possible to mix disk-based and network-based boot:
+for example place the boot loader on the local disk,
+but use UKIs and `rootfs` from networked sources;
+or alternatively place both boot loader and UKIs on the local disk,
+and only the `rootfs` on the network.
 
 ## Trust & Security
 
-In a modern boot integrity world, all three of the relevant components as well
-as (most of) their sidecars require cryptographic protection before they can be
-consumed. Specifically:
+In a modern world of boot integrity, all three of the relevant components as well
+as (most of) their sidecars require cryptographic protection. Specifically:
 
 1. The boot loader is typically authenticated by the firmware before invocation
    via UEFI Secure Boot, i.e. checked against a cryptographic certificate list
@@ -263,7 +261,7 @@ consumed. Specifically:
    very restricted fashion, i.e. configure some UI details as well as menu
    entries. Some options available are ignored if Secure Boot mode is
    enabled. Moreover, even if the text strings shown in the menu entries might
-   not be authenticated the binaries that are invoked once they are selected
+   not be authenticated, the binaries that are invoked once they are selected
    are, as are all their parameters.
 
 2. The UKIs are also authenticated by the firmware via UEFI Secure Boot, and so
@@ -283,15 +281,15 @@ consumed. Specifically:
    cryptographic protection and authentication before use. However, the
    [`systemd.image_policy=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.image-policy.html)
    kernel command line switch may be used to control precisely what kind of
-   protection to require from each such partition.
+   protection to require for each such partition.
 
 Note that UEFI Secure Boot is problematic in various ways: it is generally
 bound to a certificate list maintained centrally by Microsoft, and thus implies
 a complex (and expensive) code signing bureaucracy, that in many cases is
 undesirable, particularly in a community Linux world. Moreover, because the
-certificate list managed by Microsoft is very large its security value is
-limited: it mostly acts more as denylist of known bad software rather than as
-allowlist of known good. (If you enroll your own list things are much better,
+certificate list managed by Microsoft is very large, its security value is
+limited: it mostly acts more as denylist of known-bad software rather than as
+allowlist of known-good. (If you enroll your own list, things are much better,
 but see below.)
 
 ### Shim
@@ -312,22 +310,22 @@ firmware-provided Secure Boot "Setup Mode", it can automatically enroll
 certificates placed inside the ESP into the firmware, replacing any existing
 ones if there are any. This mechanism massively enhances the security value of
 Secure Boot: you can enroll your own certificates, ensuring that only the
-software you want shall be allowed to be run on the system, in a very focussed
-way. However, do note that this mechanism is only suitable if the hardware is
-known to be compatible with this mechanism, because the Secure Boot certificate
+software you want shall be allowed to be run on the system, in a very focused
+way. However, do note that this mechanism is only suitable if the hardware
+supports it properly, because the Secure Boot certificate
 list is also used to authenticate firmware extensions provided by certain
 extension boards of PCs (for example graphics cards). Or in other words:
 replacing the certificate list with your own might result in unbootable and even
 bricked systems. Automatic enrolling of Secure Boot certificates is however a
-really good option if the targeted hardware is well known to be compatible with
-this, which is in particular the case in VMs.
+really good option if the targeted hardware is known to be compatible,
+which is in particular the case in VMs.
 
 ### Measured Boot and TPMs
 
 Secure Boot is not the only mechanism that can provide boot time integrity
 guarantees of the OS. Most modern systems are equipped with a TPM security
-chip. It allows components of the boot to issue "measurements" (i.e. submission
-of a cryptographic hash) of the next step of the boot process as well as of all
+chip. It allows components of the boot to issue "measurements" (i.e. submit
+a cryptographic hash) of the next step of the boot process as well as of all
 inputs they consume to the device, in a fashion that cannot be undone (except
 if the system is rebooted). The combination of measurements of all such boot
 components can then later be used to protect secrets the TPM can manage: only
@@ -337,7 +335,7 @@ of protection: instead of making it *a-priori* impossible to boot or consume
 untrusted components (as Secure Boot would do it), anything is permitted,
 however the TPM would never reveal protected secrets to the OS unless the
 components are trusted, in a *a-posteriori* fashion. This generally provides a
-more focussed security model (as the list of allowed components and the
+more focused security model (as the list of allowed components and the
 policies derived thereof are locally maintained instead of world-wide by
 Microsoft), however, requires more careful management of OS and firmware
 updates. Moreover, it's more compatible with a TOFU security model ("Trust on
@@ -360,10 +358,10 @@ certificate lists are measured as part of the boot process).
 ### Security of Network Boot
 
 UEFI HTTP boot comes in two flavours: plain HTTP and HTTPS. The latter
-typically requires enrollment of TLS server certificates in the system
+typically requires enrolment of TLS server certificates in the system
 firmware, but provides transport integrity, authenticity and
 confidentiality. Acquiring the various resources via plain HTTP should
-generally be sufficient too though, as the key resources acquired this way
+generally be sufficient too, as the key resources acquired this way
 area generally authenticated before use via other mechanisms, see above.
 
 ## Building

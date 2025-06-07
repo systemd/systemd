@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "macro.h"
+#include "log.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-table.h"
@@ -470,12 +469,12 @@ int pid_getrlimit(pid_t pid, int resource, struct rlimit *ret) {
         const char *p = procfs_file_alloca(pid, "limits");
         _cleanup_free_ char *limits = NULL;
 
-        r = read_full_virtual_file(p, &limits, NULL);
+        r = read_full_file(p, &limits, /* ret_size = */ NULL);
         if (r < 0)
                 return -EPERM; /* propagate original permission error if we can't access the limits file */
 
         _cleanup_strv_free_ char **l = NULL;
-        l = strv_split(limits, "\n");
+        l = strv_split_newlines(limits);
         if (!l)
                 return -ENOMEM;
 

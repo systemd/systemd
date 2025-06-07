@@ -1,17 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
+#include <signal.h>
 
 #include "alloc-util.h"
+#include "log.h"
 #include "pretty-print.h"
-#include "rlimit-util.h"
+#include "systemctl.h"
 #include "systemctl-compat-telinit.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-sysv-compat.h"
-#include "systemctl.h"
-#include "terminal-util.h"
 
 static int telinit_help(void) {
         _cleanup_free_ char *link = NULL;

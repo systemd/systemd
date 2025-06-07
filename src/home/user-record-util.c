@@ -1,21 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/xattr.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "group-record.h"
+#include "hashmap.h"
 #include "home-util.h"
-#include "id128-util.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
-#include "memory-util.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "recovery-key.h"
 #include "sha256.h"
 #include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
+#include "user-record.h"
 #include "user-record-util.h"
 #include "user-util.h"
 
@@ -837,45 +845,6 @@ int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) 
                 return r;
 
         strv_free_and_replace(h->hashed_password, np);
-
-        SET_FLAG(h->mask, USER_RECORD_PRIVILEGED, !sd_json_variant_is_blank_object(priv));
-        return 0;
-}
-
-int user_record_set_hashed_password(UserRecord *h, char **hashed_password) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *priv = NULL;
-        _cleanup_strv_free_ char **copy = NULL;
-        int r;
-
-        assert(h);
-
-        priv = sd_json_variant_ref(sd_json_variant_by_key(h->json, "privileged"));
-
-        if (strv_isempty(hashed_password))
-                r = sd_json_variant_filter(&priv, STRV_MAKE("hashedPassword"));
-        else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-
-                copy = strv_copy(hashed_password);
-                if (!copy)
-                        return -ENOMEM;
-
-                strv_uniq(copy);
-
-                r = sd_json_variant_new_array_strv(&array, copy);
-                if (r < 0)
-                        return r;
-
-                r = sd_json_variant_set_field(&priv, "hashedPassword", array);
-        }
-        if (r < 0)
-                return r;
-
-        r = sd_json_variant_set_field(&h->json, "privileged", priv);
-        if (r < 0)
-                return r;
-
-        strv_free_and_replace(h->hashed_password, copy);
 
         SET_FLAG(h->mask, USER_RECORD_PRIVILEGED, !sd_json_variant_is_blank_object(priv));
         return 0;

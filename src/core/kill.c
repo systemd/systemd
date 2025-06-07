@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "kill.h"
 #include "signal-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 void kill_context_init(KillContext *c) {
         assert(c);

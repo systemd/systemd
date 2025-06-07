@@ -1,0 +1,57 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+set -o nounset
+
+if ((${NO_SYNC:-0})) || ((${NO_BUILD:-0})); then
+    exit 0
+fi
+
+if [[ -d "pkg/$PKG_SUBDIR/.git" ]]; then
+    if [[ "$(git -C "pkg/$PKG_SUBDIR" rev-parse HEAD 2>/dev/null)" == "$GIT_COMMIT" ]]; then
+        exit 0
+    fi
+
+    if [[ -n "$(git -C "pkg/$PKG_SUBDIR" status --porcelain)" ]]; then
+        echo "pkg/$PKG_SUBDIR is dirty, not checking out commit $GIT_COMMIT" >&2
+        exit 0
+    fi
+
+    if ! git -C "pkg/$PKG_SUBDIR" show-ref --quiet "origin/$GIT_BRANCH"; then
+        git -C "pkg/$PKG_SUBDIR" remote set-url origin "$GIT_URL"
+        git -C "pkg/$PKG_SUBDIR" fetch origin "$GIT_BRANCH"
+    fi
+
+    # If work is being done on the packaging rules in a separate branch, don't touch the checkout.
+    if ! git -C "pkg/$PKG_SUBDIR" merge-base --is-ancestor HEAD "origin/$GIT_BRANCH"; then
+        EXIT_STATUS=$?
+        if [[ $EXIT_STATUS -eq 1 ]]; then
+            echo "Currently checked out pkg/$PKG_SUBDIR commit is not an ancestor of origin/$GIT_BRANCH, not checking out commit $GIT_COMMIT" >&2
+            exit 0
+        else
+            exit $EXIT_STATUS
+        fi
+    fi
+fi
+
+if [[ ! -e "pkg/$PKG_SUBDIR" ]] || [[ -z "$(ls --almost-all "pkg/$PKG_SUBDIR")" ]]; then
+    # The repository on Salsa has the full upstream sources, so it's a waste of
+    # space to redownload and duplicate everything, so do a sparse checkout as
+    # we only need the packaging directory anyway.
+    if [[ -n "${GIT_SUBDIR:-}" ]]; then
+        sparse=(--no-checkout --filter=tree:0)
+    else
+        sparse=()
+    fi
+
+    git clone "$GIT_URL" --branch "$GIT_BRANCH" "${sparse[@]}" "pkg/$PKG_SUBDIR"
+    if [[ -n "${GIT_SUBDIR:-}" ]]; then
+        # --no-cone is needed to check out only one top-level directory
+        git -C "pkg/$PKG_SUBDIR" sparse-checkout set --no-cone "${GIT_SUBDIR:-}"
+    fi
+elif ! git -C "pkg/$PKG_SUBDIR" cat-file -e "$GIT_COMMIT^{commit}" 2>/dev/null; then
+    git -C "pkg/$PKG_SUBDIR" remote set-url origin "$GIT_URL"
+    git -C "pkg/$PKG_SUBDIR" fetch origin "$GIT_BRANCH"
+fi
+
+git -C "pkg/$PKG_SUBDIR" -c advice.detachedHead=false checkout "$GIT_COMMIT"

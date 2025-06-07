@@ -6,6 +6,7 @@
 
 #include "format-table.h"
 #include "in-addr-util.h"
+#include "log.h"
 #include "networkctl.h"
 #include "networkctl-address-label.h"
 

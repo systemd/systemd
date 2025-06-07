@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <stdlib.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
-#include "bootspec.h"
 #include "build.h"
 #include "devnum-util.h"
-#include "efi-api.h"
-#include "efi-loader.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "find-esp.h"
@@ -18,8 +15,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
-#include "terminal-util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -214,11 +212,9 @@ static int acquire_boot_count_path(
                 uint64_t *ret_done,
                 char **ret_suffix) {
 
-        _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL;
-        const char *last, *e;
-        uint64_t left, done;
         int r;
 
+        _cleanup_free_ char *path = NULL;
         r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("LoaderBootCountPath"), &path);
         if (r == -ENOENT)
                 return -EUNATCH; /* in this case, let the caller print a message */
@@ -235,23 +231,34 @@ static int acquire_boot_count_path(
                                        "Path read from LoaderBootCountPath is not absolute, refusing: %s",
                                        path);
 
-        last = last_path_component(path);
-        e = strrchr(last, '+');
+        const char *last = NULL;
+        r = path_find_last_component(path, /* accept_dot_dot= */ false, /* next= */ NULL, &last);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from LoaderBootCountPath '%s': %m", path);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "LoaderBootCountPath '%s' refers to the root directory: %m", path);
+        if (strlen(last) > (size_t) r)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "LoaderBootCountPath '%s' refers to directory path, refusing.", path);
+
+        const char *e = strrchr(last, '+');
         if (!e)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Path read from LoaderBootCountPath does not contain a counter, refusing: %s",
                                        path);
 
+        _cleanup_free_ char *prefix = NULL;
         if (ret_prefix) {
                 prefix = strndup(path, e - path);
                 if (!prefix)
                         return log_oom();
         }
 
+        uint64_t left, done;
         r = parse_counter(path, &e, &left, &done);
         if (r < 0)
                 return r;
 
+        _cleanup_free_ char *suffix = NULL;
         if (ret_suffix) {
                 suffix = strdup(e);
                 if (!suffix)
@@ -362,7 +369,14 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 }
 
                 if (faccessat(fd, skip_leading_slash(path), F_OK, 0) >= 0) {
-                        puts("indeterminate");
+                        /* If the item we booted with still exists under its name, it means we have not
+                         * change the current boot's marking so far. This may have two reasons: because we
+                         * simply didn't do that yet but still plan to, or because the left tries counter is
+                         * already at zero, hence we cannot further decrease it to mark it even
+                         * "worse"... Here we check the current counter to detect the latter case and return
+                         * "dirty", since the item is already marked bad from a previous boot, but otherwise
+                         * report "indeterminate" since we just didn't make a decision yet. */
+                        puts(left == 0 ? "dirty" : "indeterminate");
                         return 0;
                 }
                 if (errno != ENOENT)
@@ -389,13 +403,37 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Couldn't determine boot state.");
 }
 
+static int rename_in_dir_idempotent(int fd, const char *from, const char *to) {
+        int r;
+
+        assert(fd >= 0);
+        assert(from);
+        assert(to);
+
+        /* A wrapper around rename_noreplace() which executes no operation if the source and target are the
+         * same. */
+
+        if (streq(from, to)) {
+                if (faccessat(fd, from, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
+                        return -errno;
+
+                return 0;
+        }
+
+         r = rename_noreplace(fd, from, fd, to);
+         if (r < 0)
+                 return r;
+
+         return 1;
+}
+
 static int verb_set(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         const char *target, *source1, *source2;
-        uint64_t done;
+        uint64_t left, done;
         int r;
 
-        r = acquire_boot_count_path(&path, &prefix, NULL, &done, &suffix);
+        r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
         if (r == -EUNATCH) /* acquire_boot_count_path() won't log on its own for this specific error */
                 return log_error_errno(r, "Not booted with boot counting in effect.");
         if (r < 0)
@@ -424,6 +462,10 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 source2 = good;     /* Maybe this boot was previously marked as 'good'? */
         } else {
                 assert(streq(argv[0], "indeterminate"));
+
+                if (left == 0)
+                        return log_error_errno(r, "Current boot entry was already marked bad in a previous boot, cannot reset to indeterminate.");
+
                 target = path;
                 source1 = good;
                 source2 = bad;
@@ -436,12 +478,12 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open $BOOT partition '%s': %m", *p);
 
-                r = rename_noreplace(fd, skip_leading_slash(source1), fd, skip_leading_slash(target));
+                r = rename_in_dir_idempotent(fd, skip_leading_slash(source1), skip_leading_slash(target));
                 if (r == -EEXIST)
                         goto exists;
                 if (r == -ENOENT) {
 
-                        r = rename_noreplace(fd, skip_leading_slash(source2), fd, skip_leading_slash(target));
+                        r = rename_in_dir_idempotent(fd, skip_leading_slash(source2), skip_leading_slash(target));
                         if (r == -EEXIST)
                                 goto exists;
                         if (r == -ENOENT) {
@@ -458,11 +500,16 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source2, target);
 
-                        log_debug("Successfully renamed '%s' to '%s'.", source2, target);
+                        if (r > 0)
+                                log_debug("Successfully renamed '%s' to '%s'.", source2, target);
+                        else
+                                log_debug("Not renaming, as '%s' already matches target name.", source2);
                 } else if (r < 0)
                         return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source1, target);
-                else
+                else if (r > 0)
                         log_debug("Successfully renamed '%s' to '%s'.", source1, target);
+                else
+                        log_debug("Not renaming, as '%s' already matches target name.", source1);
 
                 /* First, fsync() the directory these files are located in */
                 r = fsync_parent_at(fd, skip_leading_slash(target));

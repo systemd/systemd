@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Automount Automount;
-
+#include "core-forward.h"
 #include "unit.h"
 
 typedef enum AutomountResult {
@@ -15,7 +14,7 @@ typedef enum AutomountResult {
         _AUTOMOUNT_RESULT_INVALID = -EINVAL,
 } AutomountResult;
 
-struct Automount {
+typedef struct Automount {
         Unit meta;
 
         AutomountState state, deserialized_state;
@@ -35,7 +34,7 @@ struct Automount {
         sd_event_source *expire_event_source;
 
         AutomountResult result;
-};
+} Automount;
 
 extern const UnitVTable automount_vtable;
 

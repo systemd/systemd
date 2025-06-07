@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "escape.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "string-util.h"
 
 bool object_path_is_valid(const char *p) {

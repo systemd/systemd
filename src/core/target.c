@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "dbus-target.h"
+#include <stdio.h>
+
 #include "dbus-unit.h"
-#include "log.h"
 #include "serialize.h"
 #include "special.h"
 #include "string-util.h"
 #include "target.h"
-#include "unit-name.h"
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {

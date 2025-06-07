@@ -1,20 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <linux/bpf.h>
+#include <linux/bpf_insn.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "bpf-program.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
+#include "log.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "string-table.h"
+#include "string-util.h"
 
 static const char *const bpf_cgroup_attach_type_table[__MAX_BPF_ATTACH_TYPE] = {
         [BPF_CGROUP_INET_INGRESS] =     "ingress",
@@ -40,6 +46,69 @@ static const char *const bpf_cgroup_attach_type_table[__MAX_BPF_ATTACH_TYPE] = {
 DEFINE_STRING_TABLE_LOOKUP(bpf_cgroup_attach_type, int);
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(bpf_program_hash_ops, void, trivial_hash_func, trivial_compare_func, bpf_program_free);
+
+int bpf_program_supported(void) {
+        static int cached = 0;
+        int r;
+
+        if (cached != 0)
+                return cached;
+
+        /* Currently, we only use the following three types:
+         * - BPF_PROG_TYPE_CGROUP_SKB, supported since kernel v4.10 (0e33661de493db325435d565a4a722120ae4cbf3),
+         * - BPF_PROG_TYPE_CGROUP_DEVICE, supported since kernel v4.15 (ebc614f687369f9df99828572b1d85a7c2de3d92),
+         * - BPF_PROG_TYPE_CGROUP_SOCK_ADDR, supported since kernel v4.17 (4fbac77d2d092b475dda9eea66da674369665427).
+         * As our baseline on the kernel is v5.4, it is enough to check if one BPF program can be created and loaded. */
+
+        _cleanup_(bpf_program_freep) BPFProgram *program = NULL;
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, /* prog_name = */ NULL, &program);
+        if (r < 0)
+                return cached = log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, assuming BPF is not supported: %m");
+
+        static const struct bpf_insn trivial[] = {
+                BPF_MOV64_IMM(BPF_REG_0, 1),
+                BPF_EXIT_INSN()
+        };
+        r = bpf_program_add_instructions(program, trivial, ELEMENTSOF(trivial));
+        if (r < 0)
+                return cached = log_debug_errno(r, "Can't add trivial instructions to CGROUP SKB BPF program, assuming BPF is not supported: %m");
+
+        r = bpf_program_load_kernel(program, /* log_buf = */ NULL, /* log_size = */ 0);
+        if (r < 0)
+                return cached = log_debug_errno(r, "Can't load kernel CGROUP SKB BPF program, assuming BPF is not supported: %m");
+
+        /* Unfortunately the kernel allows us to create BPF_PROG_TYPE_CGROUP_SKB (maybe also other types)
+         * programs even when CONFIG_CGROUP_BPF is turned off at kernel compilation time. This sucks of course:
+         * why does it allow us to create a cgroup BPF program if we can't do a thing with it later?
+         *
+         * We detect this case by issuing the BPF_PROG_DETACH bpf() call with invalid file descriptors: if
+         * CONFIG_CGROUP_BPF is turned off, then the call will fail early with EINVAL. If it is turned on the
+         * parameters are validated however, and that'll fail with EBADF then.
+         *
+         * The check seems also important when we are running with sanitizers. With sanitizers (at least with
+         * LLVM v20), the following check and other bpf() calls fails even if the kernel supports BPF. To
+         * avoid unexpected fail when running with sanitizers, let's explicitly check if bpf() syscall works. */
+
+        /* Clang and GCC (>=15) do not 0-pad with structured initialization, causing the kernel to reject the
+         * bpf_attr as invalid. See: https://github.com/torvalds/linux/blob/v5.9/kernel/bpf/syscall.c#L65
+         * Hence, we cannot use structured initialization here, and need to clear the structure with zero
+         * explicitly before use. */
+        union bpf_attr attr;
+        zero(attr);
+        attr.attach_type = BPF_CGROUP_INET_EGRESS; /* since kernel v4.10 (0e33661de493db325435d565a4a722120ae4cbf3) */
+        attr.target_fd = -EBADF;
+        attr.attach_bpf_fd = -EBADF;
+
+        if (bpf(BPF_PROG_DETACH, &attr, sizeof(attr)) < 0) {
+                if (errno == EBADF) /* YAY! */
+                        return cached = true;
+
+                return cached = log_debug_errno(errno, "Didn't get EBADF from invalid BPF_PROG_DETACH call: %m");
+        }
+
+        return cached = log_debug_errno(SYNTHETIC_ERRNO(EBADE),
+                                        "Wut? Kernel accepted our invalid BPF_PROG_DETACH call? Something is weird, assuming BPF is broken and hence not supported.");
+}
 
 BPFProgram *bpf_program_free(BPFProgram *p) {
         if (!p)

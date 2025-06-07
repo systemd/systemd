@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fido.h>
-
 #include "hexdecoct.h"
 #include "homework-fido2.h"
 #include "libfido2-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "strv.h"
+#include "user-record.h"
 
 int fido2_use_token(
                 UserRecord *h,
@@ -14,6 +14,7 @@ int fido2_use_token(
                 const Fido2HmacSalt *salt,
                 char **ret) {
 
+#if HAVE_LIBFIDO2
         _cleanup_(erase_and_freep) void *hmac = NULL;
         size_t hmac_size;
         Fido2EnrollFlags flags = 0;
@@ -71,4 +72,7 @@ int fido2_use_token(
                 return log_error_errno(ss, "Failed to base64 encode HMAC secret: %m");
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "FIDO2 token support not available.");
+#endif
 }

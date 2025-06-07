@@ -11,24 +11,26 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
-#include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fdisk-util.h"
 #include "fileio.h"
 #include "find-esp.h"
 #include "glyph-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "import-util.h"
-#include "macro.h"
 #include "missing_magic.h"
 #include "process-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "sysupdate-cache.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
-#include "sysupdate.h"
+#include "time-util.h"
 #include "utf8.h"
 
 void resource_destroy(Resource *rr) {
@@ -288,8 +290,8 @@ static int download_manifest(
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
-        log_info("%s Acquiring manifest file %s%s", special_glyph(SPECIAL_GLYPH_DOWNLOAD),
-                 suffixed_url, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+        log_info("%s Acquiring manifest file %s%s", glyph(GLYPH_DOWNLOAD),
+                 suffixed_url, glyph(GLYPH_ELLIPSIS));
 
         r = safe_fork_full("(sd-pull)",
                            (int[]) { -EBADF, pfd[1], STDERR_FILENO },

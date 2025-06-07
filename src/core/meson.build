@@ -10,7 +10,6 @@ libcore_sources = files(
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
         'cgroup.c',
-        'core-varlink.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
         'dbus-device.c',
@@ -32,7 +31,6 @@ libcore_sources = files(
         'dbus.c',
         'device.c',
         'dynamic-user.c',
-        'efi-random.c',
         'emergency-action.c',
         'exec-credential.c',
         'execute.c',
@@ -64,13 +62,13 @@ libcore_sources = files(
         'unit-printf.c',
         'unit-serialize.c',
         'unit.c',
+        'varlink.c',
+        'varlink-cgroup.c',
+        'varlink-common.c',
+        'varlink-dynamic-user.c',
+        'varlink-manager.c',
+        'varlink-unit.c',
 )
-
-if conf.get('BPF_FRAMEWORK') == 1
-        libcore_sources += files(
-                'bpf-util.c',
-        )
-endif
 
 subdir('bpf/socket_bind')
 subdir('bpf/restrict_fs')
@@ -82,6 +80,8 @@ if conf.get('BPF_FRAMEWORK') == 1
                 restrict_fs_skel_h,
                 restrict_ifaces_skel_h]
 endif
+
+sources += libcore_sources
 
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
@@ -103,6 +103,8 @@ load_fragment_gperf_nulstr_c = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
+generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c]
+
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
 
 libcore_static = static_library(
@@ -110,7 +112,8 @@ libcore_static = static_library(
         libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
-        include_directories : includes,
+        include_directories : [includes, include_directories('.')],
+        implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
         dependencies : [libacl,
                         libaudit,
@@ -118,7 +121,6 @@ libcore_static = static_library(
                         libdl,
                         libm,
                         libmount,
-                        libpam,
                         librt,
                         libseccomp,
                         libselinux,
@@ -129,6 +131,7 @@ libcore_static = static_library(
 libcore = shared_library(
         libcore_name,
         c_args : ['-fvisibility=default'],
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_depends : libshared_sym_path,
@@ -149,6 +152,7 @@ systemd_sources = files(
         'ipe-setup.c',
         'selinux-setup.c',
         'smack-setup.c',
+        'efi-random.c',
 )
 
 systemd_executor_sources = files(
@@ -252,21 +256,27 @@ install_data('org.freedesktop.systemd1.conf',
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
+install_emptydir(systemenvgeneratordir)
 install_emptydir(systemshutdowndir)
 install_emptydir(systemsleepdir)
 install_emptydir(systemgeneratordir)
+install_emptydir(userenvgeneratordir)
 install_emptydir(usergeneratordir)
 
 if install_sysconfdir
         install_emptydir(pkgsysconfdir / 'system')
         install_emptydir(pkgsysconfdir / 'user')
-        install_emptydir(sysconfdir / 'xdg/systemd')
-        meson.add_install_script(sh, '-c', ln_s.format(pkgsysconfdir / 'user',
-                                                       sysconfdir / 'xdg/systemd/user'))
+
+        assert(sysconfdir / 'systemd' == pkgsysconfdir)
+        install_symlink('user',
+                        pointing_to : '../../systemd/user',
+                        install_dir : sysconfdir / 'xdg/systemd')
 endif
 
-install_emptydir(sbindir)
-meson.add_install_script(sh, '-c', ln_s.format(libexecdir / 'systemd', sbindir / 'init'))
+assert(fs.parent(sbindir) / 'lib/systemd' == libexecdir)
+install_symlink('init',
+                pointing_to : '../lib/systemd/systemd',
+                install_dir : sbindir)
 
 ############################################################
 

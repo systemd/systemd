@@ -1,29 +1,30 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# H A <contact+fedora@hen.ee>, 2022.
+# H A <contact+fedora@hen.ee>, 2022, 2025.
+# Henri Aunin <contact+fedora@hen.ee>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2022-10-24 15:23+0000\n"
-"Last-Translator: H A <contact+fedora@hen.ee>\n"
+"PO-Revision-Date: 2025-03-09 02:33+0000\n"
+"Last-Translator: Henri Aunin <contact+fedora@hen.ee>\n"
 "Language-Team: Estonian <https://translate.fedoraproject.org/projects/"
-"systemd/master/et/>\n"
+"systemd/main/et/>\n"
 "Language: et\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.14.1\n"
+"X-Generator: Weblate 5.10.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
-msgstr ""
+msgstr "Saata paroolifraas tagasi süsteemile"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr ""
+msgstr "Autentimine on vajalik, et saata paroolifraas tagasi süsteemile."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -44,7 +45,7 @@ msgstr "Autentimine on vajalik, et hallata süsteemi teenuseid või ühikfaile."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr ""
+msgstr "Määra või kustuta süsteemi ja teenusehalduri keskkonnamuutujaid"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
@@ -67,10 +68,11 @@ msgid "Dump the systemd state without rate limits"
 msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr "Autentimine on vajalik, et laadida systemd olekut uuesti."
+msgstr ""
+"Autentimine on vajalik, et tõmmistada systemd olekut ilma "
+"kiirusepiirangutega."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -90,12 +92,12 @@ msgstr "Autentmine on vajalik, et eemaldada kasutaja koduala."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Kontrolli koduala isikutunnuseid"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr ""
+msgstr "Autentimine on vajalik, et kontrollida kasutaja koduala isikutunnuseid."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -106,14 +108,12 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Autentmine on vajalik, et uuendada kasutaja koduala."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Uuenda koduala"
+msgstr "Uuenda oma koduala"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "Autentmine on vajalik, et uuendada kasutaja koduala."
+msgstr "Autentmine on vajalik, et uuendada enda koduala."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -133,14 +133,12 @@ msgid ""
 msgstr "Autentimine on vajalik, et muuta kasutaja koduala parooli."
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Loo koduala"
+msgstr "Aktiveeri koduala"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "Autentimine on vajalik, et luua kasutaja koduala."
+msgstr "Autentimine on vajalik, et aktiveerida kasutaja koduala."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -148,48 +146,50 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"Kasutaja %s kodu on puudu. Palun sisesta vajalik salvestusseade või "
+"failisüsteem."
 
 #: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
+msgstr "Liiga tihedad kasutaja %s sisselogimiskatsed, proovi hiljem uuesti."
 
 #: src/home/pam_systemd_home.c:310
 msgid "Password: "
-msgstr ""
+msgstr "Parool: "
 
 #: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "Parool on vale või pole kasutaja %s autentimiseks piisav."
 
 #: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Vabandust, proovi uuesti: "
 
 #: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
-msgstr ""
+msgstr "Taastamisvõti: "
 
 #: src/home/pam_systemd_home.c:337
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr ""
+msgstr "Parool/taastamisvõti on vale või pole kasutaja %s autentimiseks piisav."
 
 #: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Vabandust, sisesta taastamisvõti uuesti: "
 
 #: src/home/pam_systemd_home.c:358
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Kasutaja %s turvatunnus pole sisestatud."
 
 #: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
-msgstr ""
+msgstr "Proovi uuesti parooliga: "
 
 #: src/home/pam_systemd_home.c:361
 #, c-format
@@ -197,20 +197,22 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"Parool on vale või pole kasutaja %s autentimiseks piisav ning "
+"konfigureeritud turvatunnus pole sisestatud."
 
 #: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
-msgstr ""
+msgstr "Turvatunnuse PIN: "
 
 #: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Palun autendi füüsiliselt kasutaja %s turvatunnust."
 
 #: src/home/pam_systemd_home.c:409
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Palun kinnita kasutaja %s turvatunnuse kohalolekut."
 
 #: src/home/pam_systemd_home.c:420
 #, c-format
@@ -231,17 +233,18 @@ msgstr ""
 #: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
 #: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Vabandust, proovi sisestada turvatunnuste PIN uuesti: "
 
 #: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
+msgstr "Kasutaja %s turvatunnuse PIN on vale (järele jäänud paar proovi veel!)"
 
 #: src/home/pam_systemd_home.c:475
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"Kasutaja %s turvatunnuse PIN on vale (järele jäänud ainult üks proovi veel!)"
 
 #: src/home/pam_systemd_home.c:643
 #, c-format
@@ -256,7 +259,7 @@ msgstr ""
 #: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
+msgstr "Liiga palju ebaõnnestunuid kasutaja %s sisselogimiskatseid, keeldun."
 
 #: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
@@ -277,23 +280,23 @@ msgstr ""
 #: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Liiga palju sisselogimiskatseid, proovi uuesti %s aja pärast."
 
 #: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
-msgstr ""
+msgstr "Parool vajab vahetamist."
 
 #: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
-msgstr ""
+msgstr "Parool on aegunud, vaja on vahetamist."
 
 #: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
+msgstr "Parool on aegunud, aga ei saa seda muuta. Keeldun sisselogimast."
 
 #: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "Parool varsti aegub, palun muuda seda."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -353,9 +356,8 @@ msgid "Import a disk image"
 msgstr "Impordi VM või konteinerpilti"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image."
-msgstr "Autentmine on vajalik, et importida VM või konteinerpilti"
+msgstr "Autentmine on vajalik, et importida konteinerpilti."
 
 #: src/import/org.freedesktop.import1.policy:32
 #, fuzzy
@@ -363,9 +365,8 @@ msgid "Export a disk image"
 msgstr "Ekspordi VM või konteinerpilti"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image."
-msgstr "Autentmine on vajalik, et eksportida VM või konteinerpilti"
+msgstr "Autentmine on vajalik, et eksportida kettapilti."
 
 #: src/import/org.freedesktop.import1.policy:42
 #, fuzzy
@@ -373,9 +374,8 @@ msgid "Download a disk image"
 msgstr "Lae alla VM või konteinerpildi"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image."
-msgstr "Autentmine on vajalik, et laadida alla VM või konteinerpildi"
+msgstr "Autentmine on vajalik, et laadida alla kettapilti."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
@@ -626,59 +626,67 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
-msgstr ""
+msgstr "Uinuta süsteem"
 
 #: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
-msgstr ""
+msgstr "Autentimine on vajalik, et uinutada süsteem."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr ""
+msgstr "Uinuta süsteem, isegi kui teised kasutajad on sisse logitud"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
+"Autentimine on vajalik, et uinutada süsteem, isegi kui teised kasutajad on "
+"sisse logitud."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr ""
+msgstr "Uinuta süsteem, isegi kui rakendus seda takistab"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
 msgstr ""
+"Autentimine on vajalik, et uinutada süsteem, isegi kui rakendus seda "
+"takistab."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
-msgstr ""
+msgstr "Talvitu süsteem"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr ""
+msgstr "Autentimine on vajalik, et talvituda süsteem."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
+msgstr "Talvitu süsteem, isegi kui teised kasutajad on sisse logitud"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
+"Autentimine on vajalik, et talvituda süsteem, kui teised kasutajad on sisse "
+"logitud."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
+msgstr "Talvitu süsteem, isegi kui mõni rakendus takistab seda"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
+"Autentimine on vajalik, et talvituda süsteemi, isegi kui üks rakendus seda "
+"takistab."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -708,46 +716,49 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
+msgstr "Anna teada riistvarale, et käivitaks \"setup\" liidese"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
+"Autentimine on vajalik, et anda teada riistvarale, et käivitaks \"setup\" "
+"liidese."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr "Viita buudilaadurile, et buutida buudilaaduri menüüsse"
+msgstr "Anna teada süsteemilaadurile, et käivitada süsteemilaaduri menüü"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"Autentimine on vajalik, et viitata buudilaadurile, et buutida buudilaaduri "
-"menüüsse."
+"Autentimine on vajalik, et anda teada süsteemilaadurile, et käivitaks "
+"süsteemilaaduri menüü."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr "Viita buudilaadurile, et buutida spetsiifiline valik"
+msgstr "Anna teada süsteemilaadurile, et käivitaks spetsiifilist süsteemi"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"Autentimine on vajalik, et viitata buudilaadurile, et buutida spetsiifilist "
-"buudilaaduri valikut."
+"Autentimine on vajalik, et annaks teada süsteemilaadurile, et käivitaks "
+"spetsiifilist süsteemi."
 
 #: src/login/org.freedesktop.login1.policy:396
+#, fuzzy
 msgid "Set a wall message"
-msgstr ""
+msgstr "Seadista seinateade"
 
 #: src/login/org.freedesktop.login1.policy:397
 #, fuzzy
 msgid "Authentication is required to set a wall message."
-msgstr "Autentimine on vajalik, et saata sunduuendamis sõnumi."
+msgstr "Autentimine on vajalik, et seadistada seinateade."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -755,7 +766,7 @@ msgstr "Vaheta sessiooni"
 
 #: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
-msgstr ""
+msgstr "Autentimine on vajalik, et vahetada virtuaalmasinat."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -775,36 +786,36 @@ msgstr "Autentimine on vajalik, et logida sisse kohalikku hosti."
 
 #: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
-msgstr ""
+msgstr "Sisene kohaliku konteineri kesta"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr ""
+msgstr "Autentimine on vajalik, et siseneda kohaliku konteineri kesta."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
-msgstr ""
+msgstr "Sisene kohaliku hosti kesta"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
+msgstr "Autentimine on vajalik, et siseneda kohaliku hosti kesta."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
-msgstr ""
+msgstr "Sisene kohaliku konteineri pseudo TTY-sse"
 
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr ""
+msgstr "Autentimine on vajalik, et siseneda kohaliku konteineri pseudo TTY-sse."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
-msgstr ""
+msgstr "Sisene kohaliku hosti pseudo TTY-sse"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr ""
+msgstr "Autentimine on vajalik, et siseneda kohaliku hosti pseudo TTY-sse."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -981,13 +992,15 @@ msgstr "Autentimine on vajalik, et määrata võrguliidese."
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
-msgstr ""
+msgstr "Täpsusta, kas püsiv salvestusruum on systemd-networkd jaoks saadaval"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Autentimine on vajalik, et täpsustada, kas salvestusruum on systemd-networkd "
+"jaoks saadaval."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1020,9 +1033,8 @@ msgid "Register a DNS-SD service"
 msgstr "Registeeri DNS-SD teenust"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#, fuzzy
 msgid "Authentication is required to register a DNS-SD service."
-msgstr "Autentimine on vajalik, et registeerida DNS-SD teenust"
+msgstr "Autentimine on vajalik, et registeerida DNS-SD teenust."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
@@ -1079,7 +1091,7 @@ msgstr "Autentimine on vajalik, et seadistada domeene."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
-msgstr ""
+msgstr "Nulli statistika"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
 #, fuzzy
@@ -1088,51 +1100,47 @@ msgstr "Autentimine on vajalik, et taastada NTP sätted."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Kontrolli süsteemiuuendusi"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "Autentimine on vajalik, et määrata süsteemi aega."
+msgstr "Autentimine on vajalik, et kontrollida süsteemiuuendusi."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Paigalda süsteemiuuendused"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "Autentimine on vajalik, et määrata süsteemi aega."
+msgstr "Autentimine on vajalik, et paigaldada süsteemiuuendused."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Paigalda spetsiifiline süsteemiversioon"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
-#, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "Autentimine on vajalik, et määrata süsteemi ajavööndit."
+msgstr ""
+"Autentimine on vajalik, et värskendada süsteem spetsiifilisele (võib olla "
+"vanale) versioonile."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Puhasta vanadest süsteemiuuendustest"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
 msgid "Authentication is required to cleanup old system updates."
-msgstr "Autentimine on vajalik, et määrata süsteemi aega."
+msgstr "Autentimine on vajalik, et puhastada vanadest süsteemiuuendustest."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Halda valikulisi funktsioone"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr ""
-"Autentimine on vajalik, et hallata aktiivseid seansse, kasutajaid ning kohti."
+msgstr "Autentimine on vajalik, et hallata valikulisi funktsioone."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

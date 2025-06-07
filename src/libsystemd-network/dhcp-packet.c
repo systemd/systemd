@@ -3,13 +3,12 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <string.h>
 
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
+#include "log.h"
 #include "memory-util.h"
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312

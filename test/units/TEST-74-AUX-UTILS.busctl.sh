@@ -58,8 +58,9 @@ busctl emit --auto-start=no --destination=systemd-logind.service \
             PrepareForShutdown b false
 
 systemd-run --quiet --service-type=notify --unit=test-busctl-wait --pty \
-	-p ExecStartPost="busctl emit /test org.freedesktop.fake1 TestSignal s success" \
-	busctl --timeout=3 wait /test org.freedesktop.fake1 TestSignal | grep -qF 's "success"'
+            -p Environment=SYSTEMD_LOG_LEVEL=debug \
+            -p ExecStartPost="busctl emit /test org.freedesktop.fake1 TestSignal s success" \
+            busctl --timeout=30 wait /test org.freedesktop.fake1 TestSignal | grep -qF 's "success"'
 
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                     Version
@@ -116,6 +117,15 @@ busctl get-property -j \
 # Invalid argument
 (! busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                        KExecWatchdogUSec t "foo")
+
+# Invalid destination
+(! busctl get-property '*' /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Version)
+
+# Invalid object
+(! busctl get-property org.freedesktop.systemd1 '*' org.freedesktop.systemd1.Manager Version)
+
+# Invalid interface
+(! busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 '*' Version)
 
 busctl --quiet --timeout=1 --limit-messages=1 --match "interface=org.freedesktop.systemd1.Manager" monitor
 

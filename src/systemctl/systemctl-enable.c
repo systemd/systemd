@@ -1,14 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-unit-util.h"
+#include "bus-util.h"
+#include "glyph-util.h"
+#include "install.h"
+#include "log.h"
+#include "path-lookup.h"
 #include "path-util.h"
+#include "string-util.h"
+#include "strv-fundamental.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-enable.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
+#include "unit-name.h"
 #include "verbs.h"
 
 static int normalize_link_paths(char **paths) {
@@ -278,7 +291,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                            "  D-Bus, udev, scripted systemctl call, ...).\n"
                            "%1$s In case of template units, the unit is meant to be enabled with some\n"
                            "  instance name specified.",
-                           special_glyph(SPECIAL_GLYPH_BULLET));
+                           glyph(GLYPH_BULLET));
 
         if (streq(verb, "disable") && arg_runtime_scope == RUNTIME_SCOPE_USER && !arg_quiet && !arg_no_warn) {
                 /* If some of the units are disabled in user scope but still enabled in global scope,

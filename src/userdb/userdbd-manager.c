@@ -1,21 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/wait.h>
+#include <stdlib.h>
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
+#include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "userdbd-manager.h"
 
@@ -66,13 +71,6 @@ static int on_deferred_start_worker(sd_event_source *s, uint64_t usec, void *use
         (void) start_workers(m, /* explicit_request=*/ false);
         return 0;
 }
-
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-                event_source_hash_ops,
-                sd_event_source,
-                (void (*)(const sd_event_source*, struct siphash*)) trivial_hash_func,
-                (int (*)(const sd_event_source*, const sd_event_source*)) trivial_compare_func,
-                sd_event_source_disable_unref);
 
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -249,7 +247,7 @@ static int start_workers(Manager *m, bool explicit_request) {
                                                 &m->deferred_start_worker_event_source,
                                                 CLOCK_MONOTONIC,
                                                 ratelimit_end(&m->worker_ratelimit),
-                                                /* accuracy_usec= */ 0,
+                                                /* accuracy= */ 0,
                                                 on_deferred_start_worker,
                                                 m);
                                 if (r < 0)
@@ -292,7 +290,7 @@ static int manager_make_listen_socket(Manager *m) {
         (void) sockaddr_un_unlink(&sockaddr.un);
 
         WITH_UMASK(0000)
-                if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
+                if (bind(m->listen_fd, &sockaddr.sa, sockaddr_un_len(&sockaddr.un)) < 0)
                         return log_error_errno(errno, "Failed to bind socket: %m");
 
         FOREACH_STRING(alias,

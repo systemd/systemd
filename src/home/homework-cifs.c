@@ -2,20 +2,24 @@
 
 #include <sys/mount.h>
 
-#include "dirent-util.h"
+#include "alloc-util.h"
+#include "env-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "homework.h"
 #include "homework-cifs.h"
 #include "homework-mount.h"
+#include "log.h"
 #include "memfd-util.h"
-#include "mkdir.h"
 #include "mount-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "tmpfile-util.h"
+#include "user-record-util.h"
+#include "user-record.h"
 
 int home_setup_cifs(
                 UserRecord *h,

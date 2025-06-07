@@ -1,15 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "fd-util.h"
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "bpf-restrict-ifaces.h"
+#include "cgroup.h"
+#include "fd-util.h"
+#include "fdset.h"
 #include "netlink-util.h"
+#include "set.h"
+#include "unit.h"
 
 #if BPF_FRAMEWORK
 /* libbpf, clang and llc compile time dependencies are satisfied */
 
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf-util.h"
 #include "bpf/restrict_ifaces/restrict-ifaces-skel.h"
 
 static struct restrict_ifaces_bpf *restrict_ifaces_bpf_free(struct restrict_ifaces_bpf *obj) {
@@ -80,13 +86,8 @@ int bpf_restrict_ifaces_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        if (!cgroup_bpf_supported())
+        if (dlopen_bpf_full(LOG_WARNING) < 0)
                 return (supported = false);
-
-        if (!compat_libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_CGROUP_SKB, /*opts=*/NULL)) {
-                log_debug("restrict-interfaces: BPF program type cgroup_skb is not supported");
-                return (supported = false);
-        }
 
         r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);
         if (r < 0) {

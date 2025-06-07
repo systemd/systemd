@@ -1,11 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-unit-util.h"
+#include "bus-util.h"
+#include "install.h"
+#include "log.h"
+#include "string-util.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-add-dependency.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
+#include "unit-name.h"
 
 int verb_add_dependency(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;

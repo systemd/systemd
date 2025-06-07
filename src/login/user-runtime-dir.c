@@ -1,19 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdint.h>
 #include <sys/mount.h>
 
 #include "sd-bus.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "dev-setup.h"
 #include "devnum-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "label-util.h"
 #include "limits-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"
@@ -23,8 +23,9 @@
 #include "path-util.h"
 #include "quota-util.h"
 #include "rm-rf.h"
-#include "selinux-util.h"
+#include "set.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -262,7 +263,7 @@ static int apply_tmpfs_quota(
                 uint64_t v =
                         (scale == 0) ? 0 :
                         (scale == UINT32_MAX) ? UINT64_MAX :
-                        (uint64_t) ((double) (sfs.f_blocks * sfs.f_frsize) / scale * UINT32_MAX);
+                        (uint64_t) ((double) (sfs.f_blocks * sfs.f_frsize) * scale / UINT32_MAX);
 
                 v = MIN(v, limit);
                 v /= QIF_DQBLKSIZE;

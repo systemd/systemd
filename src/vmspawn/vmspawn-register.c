@@ -9,14 +9,14 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "json-util.h"
-#include "macro.h"
+#include "errno-util.h"
+#include "log.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
-#include "vmspawn-register.h"
 #include "varlink-util.h"
+#include "vmspawn-register.h"
 
 int register_machine(
                 sd_bus *bus,

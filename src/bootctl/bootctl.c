@@ -5,6 +5,7 @@
 #include "sd-varlink.h"
 
 #include "blockdev-util.h"
+#include "boot-entry.h"
 #include "bootctl.h"
 #include "bootctl-install.h"
 #include "bootctl-random-seed.h"
@@ -16,19 +17,25 @@
 #include "devnum-util.h"
 #include "dissect-image.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "escape.h"
 #include "find-esp.h"
+#include "image-policy.h"
+#include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
+#include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-util.h"
 #include "verbs.h"
-#include "virt.h"
 
 /* EFI_BOOT_OPTION_DESCRIPTION_MAX sets the maximum length for the boot option description
  * stored in NVRAM. The UEFI spec does not specify a minimum or maximum length for this
@@ -43,7 +50,7 @@ bool arg_print_dollar_boot_path = false;
 bool arg_print_loader_path = false;
 bool arg_print_stub_path = false;
 unsigned arg_print_root_device = 0;
-bool arg_touch_variables = true;
+int arg_touch_variables = -1;
 bool arg_install_random_seed = true;
 PagerFlags arg_pager_flags = 0;
 bool arg_graceful = false;
@@ -213,6 +220,29 @@ static int print_loader_or_stub_path(void) {
         return 0;
 }
 
+bool touch_variables(void) {
+        /* If we run in a container or on a non-EFI system, automatically turn off EFI file system access,
+         * unless explicitly overridden. */
+
+        if (arg_touch_variables >= 0)
+                return arg_touch_variables;
+
+        if (arg_root) {
+                log_once(LOG_NOTICE,
+                         "Operating on %s, skipping EFI variable modifications.",
+                         arg_image ? "image" : "root directory");
+                return false;
+        }
+
+        if (!is_efi_boot()) { /* NB: this internally checks if we run in a container */
+                log_once(LOG_NOTICE,
+                         "Not booted with EFI or running in a container, skipping EFI variable modifications.");
+                return false;
+        }
+
+        return true;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -236,6 +266,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%3$sBoot Loader Interface Commands:%4$s\n"
                "  set-default ID       Set default boot loader entry\n"
                "  set-oneshot ID       Set default boot loader entry, for next boot only\n"
+               "  set-sysfail ID       Set boot loader entry used in case of a system failure\n"
                "  set-timeout SECONDS  Set the menu timeout\n"
                "  set-timeout-oneshot SECONDS\n"
                "                       Set the menu timeout for the next boot only\n"
@@ -271,7 +302,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Specify disk image dissection policy\n"
                "     --install-source=auto|image|host\n"
                "                       Where to pick files when using --root=/--image=\n"
-               "     --no-variables    Don't touch EFI variables\n"
+               "     --variables=yes|no\n"
+               "                       Whether to modify EFI variables\n"
                "     --random-seed=yes|no\n"
                "                       Whether to create random-seed file during install\n"
                "     --no-pager        Do not pipe output into a pager\n"
@@ -327,6 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_POLICY,
                 ARG_INSTALL_SOURCE,
                 ARG_VERSION,
+                ARG_VARIABLES,
                 ARG_NO_VARIABLES,
                 ARG_RANDOM_SEED,
                 ARG_NO_PAGER,
@@ -362,7 +395,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "print-loader-path",           no_argument,       NULL, ARG_PRINT_LOADER_PATH           },
                 { "print-stub-path",             no_argument,       NULL, ARG_PRINT_STUB_PATH             },
                 { "print-root-device",           no_argument,       NULL, 'R'                             },
-                { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                },
+                { "variables",                   required_argument, NULL, ARG_VARIABLES                   },
+                { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                }, /* Compatibility alias */
                 { "random-seed",                 required_argument, NULL, ARG_RANDOM_SEED                 },
                 { "no-pager",                    no_argument,       NULL, ARG_NO_PAGER                    },
                 { "graceful",                    no_argument,       NULL, ARG_GRACEFUL                    },
@@ -458,6 +492,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'R':
                         arg_print_root_device++;
+                        break;
+
+                case ARG_VARIABLES:
+                        r = parse_tristate_argument("--variables=", optarg, &arg_touch_variables);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_NO_VARIABLES:
@@ -628,6 +668,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout-oneshot", 2,        2,        0,            verb_set_efivar          },
+                { "set-sysfail",         2,        2,        0,            verb_set_efivar          },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
                 {}
@@ -642,10 +683,6 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
-
-        /* If we run in a container, automatically turn off EFI file system access */
-        if (detect_container() > 0)
-                arg_touch_variables = false;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -718,6 +755,7 @@ static int run(int argc, char *argv[]) {
                                 arg_image,
                                 arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_USR_NO_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,

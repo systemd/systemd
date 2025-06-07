@@ -41,7 +41,7 @@ _homectl() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version
                      --no-pager --no-legend --no-ask-password
-                     -j -E -P'
+                     -j -E -P -A -N -T'
         [ARG]='      -H --host
                      -M --machine
                         --identity
@@ -112,7 +112,10 @@ _homectl() {
                         --avatar
                         --login-background
                         --session-launcher
-                        --session-type'
+                        --session-type
+                        --key-name
+                        --seize
+                        --match'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -172,7 +175,7 @@ _homectl() {
     fi
 
     local -A VERBS=(
-        [STANDALONE]='list lock-all'
+        [STANDALONE]='list lock-all register unregister adopt'
         [CREATE]='create'
         [NAMES]='activate deactivate inspect authenticate remove lock unlock'
         [NAME]='update passwd'

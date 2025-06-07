@@ -41,8 +41,7 @@ wiki documentation into this very document, too.)
 ## Two Key Design Rules
 
 Much of the philosophy behind these concepts is based on a couple of basic
-design ideas of cgroup v2 (which we however try to adapt as far as we can to
-cgroup v1 too). Specifically two cgroup v2 rules are the most relevant:
+design ideas of cgroup v2. Specifically two cgroup v2 rules are the most relevant:
 
 1. The **no-processes-in-inner-nodes** rule: this means that it's not permitted
 to have processes directly attached to a cgroup that also has child cgroups and
@@ -74,29 +73,34 @@ root can do anything, modulo SELinux and friends), but if you ignore it you'll
 be in constant pain as various pieces of software will fight over cgroup
 ownership.
 
-Note that cgroup v1 is currently the most deployed implementation, even though
-it's semantically broken in many ways, and in many cases doesn't actually do
-what people think it does. cgroup v2 is where things are going, and most new
-kernel features in this area are only added to cgroup v2, and not cgroup v1
+Note that cgroup v1 is semantically broken in many ways, and in many cases doesn't
+actually do what people think it does. cgroup v2 is where things are going, and
+new kernel features in this area are only added to cgroup v2, and not cgroup v1
 anymore. For example, cgroup v2 provides proper cgroup-empty notifications, has
 support for all kinds of per-cgroup BPF magic, supports secure delegation of
 cgroup trees to less privileged processes and so on, which all are not
 available on cgroup v1.
 
-## Three Different Tree Setups 🌳
+## Hierarchy and Controller Support
 
-systemd supports three different modes how cgroups are set up. Specifically:
+systemd supports what's called **unified** hierarchy, which is a simply mode
+that exposes a pure cgroup v2 logic. In this mode `/sys/fs/cgroup/` is the only
+mounted cgroup API file system and all available controllers are exclusively
+exposed through it.
 
-1. **Unified** — this is the simplest mode, and exposes a pure cgroup v2
-logic. In this mode `/sys/fs/cgroup` is the only mounted cgroup API file system
-and all available controllers are exclusively exposed through it.
+systemd supports a number of controllers (but not all). Specifically, supported
+are: `cpu`, `io`, `memory`, `pids`. It is our intention to natively support all
+cgroup v2 controllers as they are added to the kernel.
 
-2. **Legacy** — this is the traditional cgroup v1 mode. In this mode the
+The following hierarchies were deprecated in v256, and eventually got removed
+in v258:
+
+* **Legacy** — this is the traditional cgroup v1 mode. In this mode the
 various controllers each get their own cgroup file system mounted to
 `/sys/fs/cgroup/<controller>/`. On top of that systemd manages its own cgroup
 hierarchy for managing purposes as `/sys/fs/cgroup/systemd/`.
 
-3. **Hybrid** — this is a hybrid between the unified and legacy mode. It's set
+* **Hybrid** — this is a hybrid between the unified and legacy mode. It's set
 up mostly like legacy, except that there's also an additional hierarchy
 `/sys/fs/cgroup/unified/` that contains the cgroup v2 hierarchy. (Note that in
 this mode the unified hierarchy won't have controllers attached, the
@@ -106,34 +110,6 @@ functionality and not about resource management.) In this mode compatibility
 with cgroup v1 is retained while some cgroup v2 features are available
 too. This mode is a stopgap. Don't bother with this too much unless you have
 too much free time.
-
-To say this clearly, legacy and hybrid modes have no future. If you develop
-software today and don't focus on the unified mode, then you are writing
-software for yesterday, not tomorrow. They are primarily supported for
-compatibility reasons and will not receive new features. Sorry.
-
-Superficially, in legacy and hybrid modes it might appear that the parallel
-cgroup hierarchies for each controller are orthogonal from each other. In
-systemd they are not: the hierarchies of all controllers are always kept in
-sync (at least mostly: sub-trees might be suppressed in certain hierarchies if
-no controller usage is required for them). The fact that systemd keeps these
-hierarchies in sync means that the legacy and hybrid hierarchies are
-conceptually very close to the unified hierarchy. In particular this allows us
-to talk of one specific cgroup and actually mean the same cgroup in all
-available controller hierarchies. E.g. if we talk about the cgroup `/foo/bar/`
-then we actually mean `/sys/fs/cgroup/cpu/foo/bar/` as well as
-`/sys/fs/cgroup/memory/foo/bar/`, `/sys/fs/cgroup/pids/foo/bar/`, and so on.
-Note that in cgroup v2 the controller hierarchies aren't orthogonal, hence
-thinking about them as orthogonal won't help you in the long run anyway.
-
-If you wonder how to detect which of these three modes is currently used, use
-`statfs()` on `/sys/fs/cgroup/`. If it reports `CGROUP2_SUPER_MAGIC` in its
-`.f_type` field, then you are in unified mode. If it reports `TMPFS_MAGIC` then
-you are either in legacy or hybrid mode. To distinguish these two cases, run
-`statfs()` again on `/sys/fs/cgroup/unified/`. If that succeeds and reports
-`CGROUP2_SUPER_MAGIC` you are in hybrid mode, otherwise not.
-From a shell, you can check the `Type` in `stat -f /sys/fs/cgroup` and
-`stat -f /sys/fs/cgroup/unified`.
 
 ## systemd's Unit Types
 
@@ -196,11 +172,10 @@ above are just the defaults.
 
 Container managers and suchlike often want to control cgroups directly using
 the raw kernel APIs. That's entirely fine and supported, as long as proper
-*delegation* is followed. Delegation is a concept we inherited from cgroup v2,
-but we expose it on cgroup v1 too. Delegation means that some parts of the
-cgroup tree may be managed by different managers than others. As long as it is
-clear which manager manages which part of the tree each one can do within its
-sub-graph of the tree whatever it wants.
+*delegation* is followed. Delegation is a concept we inherited from cgroup v2.
+It means that some parts of the cgroup tree may be managed by different managers
+than others. As long as it is clear which manager manages which part of the tree
+each one can do within its sub-graph of the tree whatever it wants.
 
 Only sub-trees can be delegated (though whoever decides to request a sub-tree
 can delegate sub-sub-trees further to somebody else if they like). Delegation
@@ -222,12 +197,7 @@ guarantees:
 
 2. If your service makes use of the `User=` functionality, then the sub-tree
    will be `chown()`ed to the indicated user so that it can correctly create
-   cgroups below it. Note however that systemd will do that only in the unified
-   hierarchy (in unified and hybrid mode) as well as on systemd's own private
-   hierarchy (in legacy and hybrid mode). It won't pass ownership of the legacy
-   controller hierarchies. Delegation to less privileged processes is not safe
-   in cgroup v1 (as a limitation of the kernel), hence systemd won't facilitate
-   access to it.
+   cgroups below it.
 
 3. Any BPF IP filter programs systemd installs will be installed with
    `BPF_F_ALLOW_MULTI` so that your program can install additional ones.
@@ -283,6 +253,12 @@ cannot be threaded, since that would mean `.control` has to be threaded too —
 this is a requirement of threaded cgroups: either a cgroup and all its siblings
 are threaded or none –, but systemd expects it to be a regular cgroup. Thus you
 have to nest a second cgroup beneath it which then can be threaded.)
+
+Finally, if you turn on cgroup delegation with `Delegate=yes`, systemd will make
+the requested controllers available to your service or scope, but won't actually
+enable them. Currently you have to do that manually by writing to
+`cgroup.subtree_control` within your delegated cgroup (e.g. write `+memory` to
+enable the memory controller).
 
 ## Three Scenarios
 
@@ -345,52 +321,6 @@ can entirely generically follow the single rule that you just use the cgroup
 you are started in, and everything below it, whatever that might be. That said,
 maybe if you dislike D-Bus and systemd that much, the better approach might be
 to work on that, and widen your horizon a bit. You are welcome.
-
-## Controller Support
-
-systemd supports a number of controllers (but not all). Specifically, supported
-are:
-
-* on cgroup v1: `cpu`, `cpuacct`, `blkio`, `memory`, `devices`, `pids`
-* on cgroup v2: `cpu`, `io`, `memory`, `pids`
-
-It is our intention to natively support all cgroup v2 controllers as they are
-added to the kernel. However, regarding cgroup v1: at this point we will not
-add support for any other controllers anymore. This means systemd currently
-does not and will never manage the following controllers on cgroup v1:
-`freezer`, `cpuset`, `net_cls`, `perf_event`, `net_prio`, `hugetlb`. Why not?
-Depending on the case, either their API semantics or implementations aren't
-really usable, or it's very clear they have no future on cgroup v2, and we
-won't add new code for stuff that clearly has no future.
-
-Effectively this means that all those mentioned cgroup v1 controllers are up
-for grabs: systemd won't manage them, and hence won't delegate them to your
-code (however, systemd will still mount their hierarchies, simply because it
-mounts all controller hierarchies it finds available in the kernel). If you
-decide to use them, then that's fine, but systemd won't help you with it (but
-also not interfere with it). To be nice to other tenants it might be wise to
-replicate the cgroup hierarchies of the other controllers in them too however,
-but of course that's between you and those other tenants, and systemd won't
-care. Replicating the cgroup hierarchies in those unsupported controllers would
-mean replicating the full cgroup paths in them, and hence the prefixing
-`.slice` components too, otherwise the hierarchies will start being orthogonal
-after all, and that's not really desirable. One more thing: systemd will clean
-up after you in the hierarchies it manages: if your daemon goes down, its
-cgroups will be removed too. You basically get the guarantee that you start
-with a pristine cgroup sub-tree for your service or scope whenever it is
-started. This is not the case however in the hierarchies systemd doesn't
-manage. This means that your programs should be ready to deal with left-over
-cgroups in them — from previous runs, and be extra careful with them as they
-might still carry settings that might not be valid anymore.
-
-Note a particular asymmetry here: if your systemd version doesn't support a
-specific controller on cgroup v1 you can still make use of it for delegation,
-by directly fiddling with its hierarchy and replicating the cgroup tree there
-as necessary (as suggested above). However, on cgroup v2 this is different:
-separately mounted hierarchies are not available, and delegation has always to
-happen through systemd itself. This means: when you update your kernel and it
-adds a new, so far unseen controller, and you want to use it for delegation,
-then you also need to update systemd to a version that groks it.
 
 ## systemd as Container Payload
 
@@ -490,11 +420,6 @@ unified you (of course, I guess) need to provide only `/sys/fs/cgroup/` itself.
    this for you. (Specifically: each Unit object has a `ControlGroup` property
    to get the cgroup for a unit. The method `GetUnitByControlGroup()` may be
    used to get the unit for a cgroup.)
-
-6. ⚡ Think twice before delegating cgroup v1 controllers to less privileged
-   containers. It's not safe, you basically allow your containers to freeze the
-   system with that and worse. Delegation is a strongpoint of cgroup v2 though,
-   and there it's safe to treat delegation boundaries as privilege boundaries.
 
 And that's it for now. If you have further questions, refer to the systemd
 mailing list.

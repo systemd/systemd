@@ -69,6 +69,7 @@ Most generic unit settings are available for transient units.
 ✓ ConditionFirstBoot=
 ✓ ConditionKernelCommandLine=
 ✓ ConditionKernelVersion=
+✓ ConditionVersion=
 ✓ ConditionArchitecture=
 ✓ ConditionFirmware=
 ✓ ConditionVirtualization=

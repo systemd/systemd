@@ -1,17 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/capability.h>
+#include <grp.h>
+#include <pwd.h>
+
+#include "sd-bus.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-message-util.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "home-util.h"
 #include "homed-bus.h"
 #include "homed-home-bus.h"
-#include "homed-manager-bus.h"
+#include "homed-home.h"
 #include "homed-manager.h"
+#include "homed-manager-bus.h"
+#include "homed-operation.h"
+#include "log.h"
+#include "openssl-util.h"
+#include "path-util.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
@@ -516,6 +529,47 @@ static int method_register_home(
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_adopt_home(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        const char *image_path = NULL;
+        uint64_t flags = 0;
+        r = sd_bus_message_read(message, "st", &image_path, &flags);
+        if (r < 0)
+                return r;
+
+        if (!path_is_absolute(image_path) || !path_is_safe(image_path))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path is not absolute or not valid: %s", image_path);
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags field must be zero.");
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.home1.create-home",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = manager_adopt_home(m, image_path);
+        if (r == -EMEDIUMTYPE)
+                return sd_bus_error_setf(error, BUS_ERROR_UNRECOGNIZED_HOME_FORMAT, "Unrecognized format of home directory: %s", image_path);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_unregister_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return generic_home_method(userdata, message, bus_home_method_unregister, error);
 }
@@ -753,6 +807,274 @@ static int method_rebalance(sd_bus_message *message, void *userdata, sd_bus_erro
         return 1;
 }
 
+static int method_list_signing_keys(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(sst)");
+        if (r < 0)
+                return r;
+
+        /* Add our own key pair first */
+        r = manager_acquire_key_pair(m);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *pem = NULL;
+        r = openssl_pubkey_to_pem(m->private_key, &pem);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert public key to PEM: %m");
+
+        r = sd_bus_message_append(
+                        reply,
+                        "(sst)",
+                        "local.public",
+                        pem,
+                        UINT64_C(0));
+        if (r < 0)
+                return r;
+
+        /* And then all public keys we recognize */
+        EVP_PKEY *pkey;
+        const char *fn;
+        HASHMAP_FOREACH_KEY(pkey, fn, m->public_keys) {
+                pem = mfree(pem);
+                r = openssl_pubkey_to_pem(pkey, &pem);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert public key to PEM: %m");
+
+                r = sd_bus_message_append(
+                                reply,
+                                "(sst)",
+                                fn,
+                                pem,
+                                UINT64_C(0));
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(/* bus= */ NULL, reply, /* ret_cookie= */ NULL);
+}
+
+static int method_get_signing_key(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        const char *fn;
+        r = sd_bus_message_read(message, "s", &fn);
+        if (r < 0)
+                return r;
+
+        /* Make sure the local key is loaded. */
+        r = manager_acquire_key_pair(m);
+        if (r < 0)
+                return r;
+
+        EVP_PKEY *pkey;
+
+        if (streq(fn, "local.public"))
+                pkey = m->private_key;
+        else
+                pkey = hashmap_get(m->public_keys, fn);
+        if (!pkey)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_KEY, "No key with name: %s", fn);
+
+        _cleanup_free_ char *pem = NULL;
+        r = openssl_pubkey_to_pem(pkey, &pem);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert public key to PEM: %m");
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(
+                        reply,
+                        "st",
+                        pem,
+                        UINT64_C(0));
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(/* bus= */ NULL, reply, /* ret_cookie= */ NULL);
+}
+
+static bool valid_public_key_name(const char *fn) {
+        assert(fn);
+
+        /* Checks if the specified name is valid to export, i.e. is a filename, ends in ".public". */
+
+        if (!filename_is_valid(fn))
+                return false;
+
+        const char *e = endswith(fn, ".public");
+        if (!e)
+                return false;
+
+        return e != fn;
+}
+
+static bool manager_has_public_key(Manager *m, EVP_PKEY *needle) {
+        int r;
+
+        assert(m);
+
+        EVP_PKEY *pkey;
+        HASHMAP_FOREACH(pkey, m->public_keys) {
+                r = EVP_PKEY_eq(pkey, needle);
+                if (r > 0)
+                        return true;
+
+                /* EVP_PKEY_eq() returns -1 and -2 too under some conditions, which we'll all treat as "not the same" */
+        }
+
+        r = EVP_PKEY_eq(m->private_key, needle);
+        if (r > 0)
+                return true;
+
+        return false;
+}
+
+static int method_add_signing_key(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        const char *fn, *pem;
+        uint64_t flags;
+        r = sd_bus_message_read(message, "sst", &fn, &pem, &flags);
+        if (r < 0)
+                return r;
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags parameter must be zero.");
+        if (!valid_public_key_name(fn))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name not valid: %s", fn);
+        if (streq(fn, "local.public"))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Refusing to write local public key.");
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        r = openssl_pubkey_from_pem(pem, /* pem_size= */ SIZE_MAX, &pkey);
+        if (r == -EIO)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key invalid: %s", fn);
+        if (r < 0)
+                return r;
+
+        if (hashmap_contains(m->public_keys, fn))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name already exists: %s", fn);
+
+        /* Make sure the local key is loaded before can detect conflicts */
+        r = manager_acquire_key_pair(m);
+        if (r < 0)
+                return r;
+
+        if (manager_has_public_key(m, pkey))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key already exists: %s", fn);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.home1.manage-signing-keys",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        _cleanup_free_ char *pem_reformatted = NULL;
+        r = openssl_pubkey_to_pem(pkey, &pem_reformatted);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert public key to PEM: %m");
+
+        _cleanup_free_ char *fn_copy = strdup(fn);
+        if (!fn_copy)
+                return log_oom();
+
+        _cleanup_free_ char *p = path_join("/var/lib/systemd/home/", fn);
+        if (!p)
+                return log_oom();
+
+        r = write_string_file(p, pem_reformatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_MODE_0444);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write public key PEM to '%s': %m", p);
+
+        r = hashmap_ensure_put(&m->public_keys, &public_key_hash_ops, fn_copy, pkey);
+        if (r < 0) {
+                (void) unlink(p);
+                return log_error_errno(r, "Failed to add public key to set: %m");
+        }
+
+        TAKE_PTR(fn_copy);
+        TAKE_PTR(pkey);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_remove_signing_key(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        const char *fn;
+        uint64_t flags;
+        r = sd_bus_message_read(message, "st", &fn, &flags);
+        if (r < 0)
+                return r;
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags parameter must be zero.");
+
+        if (!valid_public_key_name(fn))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name not valid: %s", fn);
+
+        if (streq(fn, "local.public"))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Refusing to remove local key.");
+
+        if (!hashmap_contains(m->public_keys, fn))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name does not exist: %s", fn);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.home1.manage-signing-keys",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        _cleanup_free_ char *p = path_join("/var/lib/systemd/home/", fn);
+        if (!p)
+                return log_oom();
+
+        if (unlink(p) < 0)
+                return log_error_errno(errno, "Failed to remove '%s': %m", p);
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free_ char *fn_free = NULL;
+        pkey = ASSERT_PTR(hashmap_remove2(m->public_keys, fn, (void**) &fn_free));
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -819,6 +1141,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", user_record),
                                 SD_BUS_NO_RESULT,
                                 method_register_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("AdoptHome",
+                                SD_BUS_ARGS("s", image_path, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_adopt_home,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* Remove the JSON record from homed, but don't remove actual $HOME  */
@@ -933,6 +1260,27 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 method_release_home,
                                 0),
+
+        SD_BUS_METHOD_WITH_ARGS("ListSigningKeys",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("a(sst)", keys),
+                                method_list_signing_keys,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetSigningKey",
+                                SD_BUS_RESULT("s", name),
+                                SD_BUS_RESULT("s", der, "t", flags),
+                                method_get_signing_key,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("AddSigningKey",
+                                SD_BUS_RESULT("s", name, "s", pem, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_add_signing_key,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("RemoveSigningKey",
+                                SD_BUS_RESULT("s", name, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_remove_signing_key,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* An operation that acts on all homes that allow it */
         SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, 0),

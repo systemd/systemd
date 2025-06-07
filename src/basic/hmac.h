@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
-#include <stdlib.h>
-
+#include "forward.h"
 #include "sha256.h"
 
 /* Unoptimized implementation based on FIPS 198. 'res' has to be allocated by

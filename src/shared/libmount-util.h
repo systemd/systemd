@@ -2,10 +2,9 @@
 #pragma once
 
 /* This needs to be after sys/mount.h */
-#include <libmount.h>
+#include <libmount.h> /* IWYU pragma: export */
 
-#include "fstab-util.h"
-#include "macro.h"
+#include "forward.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct libmnt_table*, mnt_free_table, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct libmnt_iter*, mnt_free_iter, NULL);
@@ -31,12 +30,7 @@ static inline int libmount_parse_with_utab(
         return libmount_parse_full(NULL, NULL, ret_table, ret_iter);
 }
 
-static inline int libmount_parse_fstab(
-                struct libmnt_table **ret_table,
-                struct libmnt_iter **ret_iter) {
-
-        return libmount_parse_full(fstab_path(), NULL, ret_table, ret_iter);
-}
+int libmount_parse_fstab(struct libmnt_table **ret_table, struct libmnt_iter **ret_iter);
 
 int libmount_is_leaf(
                 struct libmnt_table *table,

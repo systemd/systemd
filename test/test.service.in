@@ -3,9 +3,13 @@
 Description=%N
 Wants=basic.target network.target @wants@
 After=basic.target network.target @after@
+@unit@
 
 [Service]
 ExecStartPre=rm -f /failed /testok
 ExecStart=@command@
 Type=oneshot
 MemoryAccounting=@memory-accounting@
+Environment=SYSTEMD_PAGER= @env@
+UnsetEnvironment=JOURNAL_STREAM
+@service@

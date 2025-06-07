@@ -1,16 +1,24 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
+#include <stdlib.h>
 
 #include "conf-parser.h"
 #include "cpu-set-util.h"
+#include "daemon-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "hashmap.h"
 #include "limits-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
+#include "serialize.h"
 #include "signal-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "udev-config.h"
 #include "udev-manager.h"
 #include "udev-rules.h"
@@ -20,6 +28,7 @@
 
 #define WORKER_NUM_MAX UINT64_C(2048)
 
+static int default_log_level = LOG_INFO;
 static bool arg_debug = false;
 bool arg_daemonize = false;
 
@@ -279,7 +288,7 @@ static void manager_merge_config_log_level(Manager *manager) {
         if (manager->config.trace)
                 manager->config.log_level = LOG_DEBUG;
         else
-                MERGE_NON_NEGATIVE(log_level, log_get_max_level());
+                MERGE_NON_NEGATIVE(log_level, default_log_level);
 }
 
 static void manager_merge_config(Manager *manager) {
@@ -342,7 +351,7 @@ void manager_set_log_level(Manager *manager, int log_level) {
                 return;
 
         log_set_max_level(manager->config.log_level);
-        manager_kill_workers(manager, /* force = */ false);
+        manager_kill_workers(manager, SIGTERM);
 }
 
 void manager_set_trace(Manager *manager, bool enable) {
@@ -357,7 +366,7 @@ void manager_set_trace(Manager *manager, bool enable) {
                 return;
 
         log_set_max_level(manager->config.log_level);
-        manager_kill_workers(manager, /* force = */ false);
+        manager_kill_workers(manager, SIGTERM);
 }
 
 static void manager_adjust_config(UdevConfig *config) {
@@ -433,13 +442,15 @@ void manager_set_environment(Manager *manager, char * const *v) {
         }
 
         if (changed)
-                manager_kill_workers(manager, /* force = */ false);
+                manager_kill_workers(manager, SIGTERM);
 }
 
 int manager_load(Manager *manager, int argc, char *argv[]) {
         int r;
 
         assert(manager);
+
+        default_log_level = log_get_max_level();
 
         manager_parse_udev_config(&manager->config_by_udev_conf);
 
@@ -460,6 +471,24 @@ int manager_load(Manager *manager, int argc, char *argv[]) {
         return 1;
 }
 
+static UdevReloadFlags manager_needs_reload(Manager *manager, const UdevConfig *old) {
+        assert(manager);
+        assert(old);
+
+        if (manager->config.resolve_name_timing != old->resolve_name_timing)
+                return UDEV_RELOAD_RULES | UDEV_RELOAD_KILL_WORKERS;
+
+        if (manager->config.log_level != old->log_level ||
+            manager->config.exec_delay_usec != old->exec_delay_usec ||
+            manager->config.timeout_usec != old->timeout_usec ||
+            manager->config.timeout_signal != old->timeout_signal ||
+            manager->config.blockdev_read_only != old->blockdev_read_only ||
+            manager->config.trace != old->trace)
+                return UDEV_RELOAD_KILL_WORKERS;
+
+        return 0;
+}
+
 UdevReloadFlags manager_reload_config(Manager *manager) {
         assert(manager);
 
@@ -470,16 +499,167 @@ UdevReloadFlags manager_reload_config(Manager *manager) {
         manager_merge_config(manager);
         manager_adjust_config(&manager->config);
 
-        if (manager->config.resolve_name_timing != old.resolve_name_timing)
-                return UDEV_RELOAD_RULES | UDEV_RELOAD_KILL_WORKERS;
+        return manager_needs_reload(manager, &old);
+}
 
-        if (manager->config.log_level != old.log_level ||
-            manager->config.exec_delay_usec != old.exec_delay_usec ||
-            manager->config.timeout_usec != old.timeout_usec ||
-            manager->config.timeout_signal != old.timeout_signal ||
-            manager->config.blockdev_read_only != old.blockdev_read_only ||
-            manager->config.trace != old.trace)
-                return UDEV_RELOAD_KILL_WORKERS;
+UdevReloadFlags manager_revert_config(Manager *manager) {
+        assert(manager);
 
+        UdevReloadFlags flags = 0;
+        if (!hashmap_isempty(manager->properties)) {
+                flags |= UDEV_RELOAD_KILL_WORKERS;
+                manager->properties = hashmap_free(manager->properties);
+        }
+
+        UdevConfig old = manager->config;
+
+        manager->config_by_control = UDEV_CONFIG_INIT;
+        manager_merge_config(manager);
+        manager_adjust_config(&manager->config);
+
+        return flags | manager_needs_reload(manager, &old);
+}
+
+int manager_serialize_config(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        _cleanup_fclose_ FILE *f = NULL;
+        r = open_serialization_file("systemd-udevd", &f);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to open new serialization file: %m");
+
+        if (manager->config_by_control.log_level >= 0) {
+                r = serialize_item_format(f, "log-level", "%i", manager->config_by_control.log_level);
+                if (r < 0)
+                        return r;
+        }
+
+        if (manager->config_by_control.children_max > 0) {
+                r = serialize_item_format(f, "children-max", "%u", manager->config_by_control.children_max);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_bool_elide(f, "trace", manager->config_by_control.trace);
+        if (r < 0)
+                return r;
+
+        const char *k, *v;
+        HASHMAP_FOREACH_KEY(v, k, manager->properties) {
+                r = serialize_item_format(f, "property", "%s=%s", k, v);
+                if (r < 0)
+                        return r;
+        }
+
+        r = finish_serialization_file(f);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to finalize serialization file: %m");
+
+        r = notify_push_fd(fileno(f), "config-serialization");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to push serialization fd to service manager: %m");
+
+        log_debug("Serialized configurations.");
         return 0;
+}
+
+int manager_deserialize_config(Manager *manager, int *fd) {
+        int r;
+
+        assert(manager);
+        assert(fd);
+        assert(*fd >= 0);
+
+        /* This may invalidate passed file descriptor even on failure. */
+
+        _cleanup_fclose_ FILE *f = take_fdopen(fd, "r");
+        if (!f)
+                return log_warning_errno(errno, "Failed to open serialization fd: %m");
+
+        for (;;) {
+                _cleanup_free_ char *l = NULL;
+                const char *val;
+
+                r = deserialize_read_line(f, &l);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* eof or end marker */
+                        break;
+
+                if ((val = startswith(l, "log-level="))) {
+                        r = log_level_from_string(val);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse serialized log level (%s), ignoring: %m", val);
+                        else
+                                manager->config_by_control.log_level = r;
+
+                } else if ((val = startswith(l, "children-max="))) {
+                        r = safe_atou(val, &manager->config_by_control.children_max);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse serialized children max (%s), ignoring: %m", val);
+
+                } else if ((val = startswith(l, "trace="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse serialized trace (%s), ignoring: %m", val);
+                        else
+                                manager->config_by_control.trace = r;
+
+                } else if ((val = startswith(l, "property="))) {
+                        if (!udev_property_assignment_is_valid(val))
+                                r = -EINVAL;
+                        else
+                                r = manager_set_environment_one(manager, val);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to deserialize property (%s), ignoring: %m", val);
+
+                } else
+                        log_debug("Unknown serialization item, ignoring: %s", l);
+        }
+
+        manager_merge_config(manager);
+        manager_adjust_config(&manager->config);
+
+        log_debug("Deserialized configurations.");
+        return 0;
+}
+
+static usec_t extra_timeout_usec(void) {
+        static usec_t saved = 10 * USEC_PER_SEC;
+        static bool parsed = false;
+        usec_t timeout;
+        const char *e;
+        int r;
+
+        if (parsed)
+                return saved;
+
+        parsed = true;
+
+        e = getenv("SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC");
+        if (!e)
+                return saved;
+
+        r = parse_sec(e, &timeout);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s, ignoring: %m", e);
+
+        if (timeout > 5 * USEC_PER_HOUR) /* Add an arbitrary upper bound */
+                log_debug("Parsed $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s is too large, ignoring.", e);
+        else
+                saved = timeout;
+
+        return saved;
+}
+
+usec_t manager_kill_worker_timeout(Manager *manager) {
+        assert(manager);
+
+        /* Manager.timeout_usec is also used as the timeout for running programs specified in
+         * IMPORT{program}=, PROGRAM=, or RUN=. Here, let's add an extra time before the manager
+         * kills a worker, to make it possible that the worker detects timed out of spawned programs,
+         * kills them, and finalizes the event. */
+        return usec_add(manager->config.timeout_usec, extra_timeout_usec());
 }

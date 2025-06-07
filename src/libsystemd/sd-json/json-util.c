@@ -1,19 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/in.h>
+#include <sys/sysmacros.h>
+
 #include "alloc-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
-#include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
+#include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
+#include "unit-name.h"
 #include "user-util.h"
 
 int json_dispatch_unbase64_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -61,7 +70,7 @@ int json_dispatch_byte_array_iovec(const char *name, sd_json_variant *variant, s
                 if (b > 0xff)
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "Element %zu of JSON field '%s' is out of range 0%s255.",
-                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                        k, strna(name), glyph(GLYPH_ELLIPSIS));
 
                 buffer[k++] = (uint8_t) b;
         }
@@ -105,6 +114,33 @@ int json_dispatch_const_user_group_name(const char *name, sd_json_variant *varia
         n = sd_json_variant_string(variant);
         if (!valid_user_group_name(n, FLAGS_SET(flags, SD_JSON_RELAX) ? VALID_USER_RELAX : 0))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid user/group name.", strna(name));
+
+        *s = n;
+        return 0;
+}
+
+int json_dispatch_const_unit_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **s = ASSERT_PTR(userdata), *n;
+        UnitNameFlags unitname_flags;
+
+        if (sd_json_variant_is_null(variant)) {
+                *s = NULL;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        if (FLAGS_SET(flags, SD_JSON_STRICT))
+                unitname_flags = UNIT_NAME_PLAIN;
+        else if (FLAGS_SET(flags, SD_JSON_RELAX))
+                unitname_flags = UNIT_NAME_ANY;
+        else
+                unitname_flags = UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE;
+
+        n = sd_json_variant_string(variant);
+        if (!unit_name_is_valid(n, unitname_flags))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid unit name.", strna(name));
 
         *s = n;
         return 0;
@@ -166,23 +202,37 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
         return 0;
 }
 
-int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        char **s = ASSERT_PTR(userdata);
-        const char *n;
+int json_dispatch_const_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **n = ASSERT_PTR(userdata);
 
         if (sd_json_variant_is_null(variant)) {
-                *s = mfree(*s);
+                *n = NULL;
                 return 0;
         }
 
         if (!sd_json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        n = sd_json_variant_string(variant);
-        if (!filename_is_valid(n))
+        const char *filename = sd_json_variant_string(variant);
+        if (!filename_is_valid(filename))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid file name.", strna(name));
 
-        if (free_and_strdup(s, n) < 0)
+        *n = filename;
+        return 0;
+}
+
+int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **n = ASSERT_PTR(userdata);
+        const char *filename;
+        int r;
+
+        assert_return(variant, -EINVAL);
+
+        r = json_dispatch_const_filename(name, variant, flags, &filename);
+        if (r < 0)
+                return r;
+
+        if (free_and_strdup(n, filename) < 0)
                 return json_log_oom(variant, flags);
 
         return 0;

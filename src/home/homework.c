@@ -1,42 +1,52 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
+#include <stdlib.h>
 #include <sys/mount.h>
+
+#include "sd-daemon.h"
 
 #include "blockdev-util.h"
 #include "bus-unit-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
+#include "cryptsetup-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
 #include "format-util.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "home-util.h"
+#include "homework-fido2.h"
+#include "homework-password-cache.h"
+#include "homework-pkcs11.h"
 #include "homework.h"
 #include "homework-blob.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
-#include "homework-fido2.h"
 #include "homework-fscrypt.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
-#include "homework-pkcs11.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "missing_magic.h"
+#include "missing_syscall.h"
 #include "mount-util.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "recovery-key.h"
 #include "rm-rf.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
+#include "user-record.h"
+#include "user-record-util.h"
 #include "user-util.h"
 #include "virt.h"
 
@@ -1062,7 +1072,7 @@ static int copy_skel(UserRecord *h, int root_fd, const char *skel) {
         assert(h);
         assert(root_fd >= 0);
 
-        r = copy_tree_at(AT_FDCWD, skel, root_fd, ".", h->uid, h->gid, COPY_MERGE|COPY_REPLACE, NULL, NULL);
+        r = copy_tree_at(AT_FDCWD, skel, root_fd, ".", h->uid, user_record_gid(h), COPY_MERGE|COPY_REPLACE, NULL, NULL);
         if (r == -ENOENT) {
                 log_info("Skeleton directory %s missing, ignoring.", skel);
                 return 0;

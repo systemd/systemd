@@ -3,6 +3,7 @@
 #include "chid.h"
 #include "devicetree.h"
 #include "efi-firmware.h"
+#include "efi-log.h"
 #include "pe.h"
 #include "util.h"
 
@@ -349,21 +350,22 @@ static void pe_locate_sections(
 
         if (!firmware_devicetree_exists()) {
                 /* Find HWIDs table and search for the current device */
-                PeSectionVector hwids_section = {};
+                static const char *const hwid_section_names[] = { ".hwids", NULL };
+                PeSectionVector hwids_section[1] = {};
 
                 pe_locate_sections_internal(
                                 section_table,
                                 n_section_table,
-                                (const char *const[]) { ".hwids", NULL },
+                                hwid_section_names,
                                 validate_base,
                                 /* device_table */ NULL,
                                 /* device */ NULL,
-                                &hwids_section);
+                                hwids_section);
 
-                if (PE_SECTION_VECTOR_IS_SET(&hwids_section)) {
-                        hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section.memory_offset;
+                if (PE_SECTION_VECTOR_IS_SET(hwids_section)) {
+                        hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section[0].memory_offset;
 
-                        EFI_STATUS err = chid_match(hwids, hwids_section.memory_size, DEVICE_TYPE_DEVICETREE, &device);
+                        EFI_STATUS err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_DEVICETREE, &device);
                         if (err != EFI_SUCCESS) {
                                 log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
                                 hwids = NULL;
@@ -390,15 +392,15 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         assert(pe);
 
         static const char *const section_names[] = { ".compat", NULL };
-        PeSectionVector vector = {};
+        PeSectionVector vector[1] = {};
         pe_locate_sections(
                         (const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
                         pe->FileHeader.NumberOfSections,
                         section_names,
                         PTR_TO_SIZE(dos),
-                        &vector);
+                        vector);
 
-        if (!PE_SECTION_VECTOR_IS_SET(&vector)) /* not found */
+        if (!PE_SECTION_VECTOR_IS_SET(vector)) /* not found */
                 return 0;
 
         typedef struct {
@@ -408,7 +410,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
                 uint32_t entry_point;
         } _packed_ LinuxPeCompat1;
 
-        size_t addr = vector.memory_offset, size = vector.memory_size;
+        size_t addr = vector[0].memory_offset, size = vector[0].memory_size;
 
         while (size >= sizeof(LinuxPeCompat1) && addr % alignof(LinuxPeCompat1) == 0) {
                 const LinuxPeCompat1 *compat = (const LinuxPeCompat1 *) ((const uint8_t *) dos + addr);

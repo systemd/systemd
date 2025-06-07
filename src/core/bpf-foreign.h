@@ -2,11 +2,7 @@
 
 #pragma once
 
-#include "unit.h"
-
-static inline int bpf_foreign_supported(void) {
-        return cg_all_unified();
-}
+#include "core-forward.h"
 
 /*
  * Attach cgroup-bpf programs foreign to systemd, i.e. loaded to the kernel by an entity

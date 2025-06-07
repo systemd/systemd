@@ -6,17 +6,17 @@
  * fine given that LGPL-2.1-or-later downgrades to GPL if needed.
  */
 
-#include <linux/types.h>
-#include <linux/bpf.h>
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
-#include <bpf/bpf_core_read.h>
 #include <errno.h>
+#include <linux/bpf.h>
+#include <linux/types.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <bpf/bpf_core_read.h>
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
 
 struct super_block {
-        unsigned long int s_magic;
+        unsigned long s_magic;
 } __attribute__((preserve_access_index));
 
 struct inode {

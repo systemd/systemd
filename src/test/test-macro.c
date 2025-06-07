@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
 #include <sys/stat.h>
 
+#include "sd-id128.h"
+
 #include "errno-util.h"
-#include "id128-util.h"
-#include "log.h"
-#include "macro.h"
 #include "tests.h"
 
 TEST(saturate_add) {
@@ -80,7 +78,7 @@ TEST(MAX) {
         /* CONST_MAX returns (void) instead of a value if the passed arguments
          * are not of the same type or not constant expressions. */
         assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 10)), int));
-        assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 1U)), void));
+        assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 1U)), typeof(VOID_0)));
 
         assert_se(val1.a == 100);
         assert_se(MAX(++d, 0) == 1);
@@ -618,8 +616,8 @@ TEST(ALIGN_TO) {
         assert_cc(CONST_ALIGN_TO(513, 512) == 1024);
         assert_cc(CONST_ALIGN_TO(sizeof(int), 64) == 64);
 
-        assert_cc(__builtin_types_compatible_p(typeof(CONST_ALIGN_TO(4, 3)), void));
-        assert_cc(__builtin_types_compatible_p(typeof(CONST_ALIGN_TO(SIZE_MAX, 512)), void));
+        assert_cc(__builtin_types_compatible_p(typeof(CONST_ALIGN_TO(4, 3)), typeof(VOID_0)));
+        assert_cc(__builtin_types_compatible_p(typeof(CONST_ALIGN_TO(SIZE_MAX, 512)), typeof(VOID_0)));
 }
 
 TEST(align_down) {

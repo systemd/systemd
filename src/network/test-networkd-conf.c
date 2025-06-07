@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "conf-parser.h"
 #include "hexdecoct.h"
-#include "log.h"
-#include "macro.h"
 #include "net-condition.h"
 #include "networkd-address.h"
-#include "networkd-conf.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -58,7 +57,7 @@ static void test_config_parse_ether_addr_one(const char *rvalue, const struct et
 }
 
 static void test_config_parse_ether_addrs_one(const char *rvalue, const struct ether_addr* list, size_t n) {
-        _cleanup_set_free_free_ Set *s = NULL;
+        _cleanup_set_free_ Set *s = NULL;
 
         ASSERT_OK(config_parse_ether_addrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL));
         ASSERT_EQ(set_size(s), n);
@@ -66,7 +65,7 @@ static void test_config_parse_ether_addrs_one(const char *rvalue, const struct e
         for (size_t m = 0; m < n; m++) {
                 _cleanup_free_ struct ether_addr *q = NULL;
 
-                ASSERT_NOT_NULL(q = set_remove(s, &list[m]));
+                ASSERT_NOT_NULL((q = set_remove(s, &list[m])));
         }
 
         ASSERT_TRUE(set_isempty(s));

@@ -17,18 +17,14 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <sys/types.h>
-
-#include "sd-event.h"
-#include "sd-lldp.h"
-
 #include "_sd-common.h"
+#include "sd-lldp.h"    /* IWYU pragma: export*/
 
 _SD_BEGIN_DECLARATIONS;
 
+struct ether_addr;
+
+typedef struct sd_event sd_event;
 typedef struct sd_lldp_tx sd_lldp_tx;
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_lldp_multicast_mode_t) {

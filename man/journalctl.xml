@@ -773,8 +773,13 @@
         <term><option>-f</option></term>
         <term><option>--follow</option></term>
 
-        <listitem><para>Show only the most recent journal entries, and continuously print new entries as
-        they are appended to the journal.</para></listitem>
+        <listitem><para>Show only the most recent journal entries, and continuously print new entries as they
+        are appended to the journal, until Ctrl-C is hit (or the tool is otherwise terminated).</para>
+
+        <para><command>journalctl</command> will send an
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        <literal>READY=1</literal> message once it initialized and successfully established its watch on the
+        journal.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -791,6 +796,20 @@
         <listitem><para>Suppresses all informational messages (i.e. "-- Journal begins at …", "-- Reboot
         --"), any warning messages regarding inaccessible system journals when run as a normal
         user.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--synchronize-on-exit=</option></term>
+
+        <listitem><para>Takes a boolean argument. If true and operating in <option>--follow</option> mode, a
+        journal synchronization request (equivalent to <command>journalctl --sync</command>) is issued when
+        <constant>SIGTERM</constant>/<constant>SIGINT</constant> is received, and log output continues until
+        this request completes. This is useful for synchronizing journal log output to the runtime of
+        services or external events, ensuring that any log data enqueued to the logging subsystem by
+        the time <constant>SIGTERM</constant>/<constant>SIGINT</constant> is issued is guaranteed to be
+        processed and displayed by the time log output ends. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -2,21 +2,16 @@
 
 #include <fcntl.h>
 #include <sys/file.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkfs-util.h"
 #include "path-util.h"
-#include "process-util.h"
-#include "signal-util.h"
-#include "string-util.h"
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *device = NULL, *fstype = NULL, *detected = NULL, *label = NULL;
@@ -75,8 +70,7 @@ static int run(int argc, char *argv[]) {
                                label,
                                /* root = */ NULL,
                                uuid,
-                               /* discard = */ true,
-                               /* quiet = */ true,
+                               MKFS_DISCARD | MKFS_QUIET,
                                /* sector_size = */ 0,
                                /* compression = */ NULL,
                                /* compression_level = */ NULL,

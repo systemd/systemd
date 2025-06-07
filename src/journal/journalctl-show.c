@@ -2,16 +2,25 @@
 
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "fileio.h"
 #include "journalctl.h"
 #include "journalctl-filter.h"
 #include "journalctl-show.h"
 #include "journalctl-util.h"
+#include "journalctl-varlink.h"
+#include "log.h"
 #include "logs-show.h"
+#include "output-mode.h"
+#include "pager.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 
 #define PROCESS_INOTIFY_INTERVAL 1024   /* Every 1024 messages processed */
 
@@ -25,11 +34,15 @@ typedef struct Context {
         sd_id128_t previous_boot_id;
         sd_id128_t previous_boot_id_output;
         dual_timestamp previous_ts_output;
+        sd_event *event;
+        sd_varlink *synchronize_varlink;
 } Context;
 
 static void context_done(Context *c) {
         assert(c);
 
+        sd_varlink_flush_close_unref(c->synchronize_varlink);
+        sd_event_unref(c->event);
         sd_journal_close(c->journal);
 }
 
@@ -268,15 +281,14 @@ static int show(Context *c) {
         return n_shown;
 }
 
-static int show_and_fflush(Context *c, sd_event_source *s) {
+static int show_and_fflush(Context *c) {
         int r;
 
         assert(c);
-        assert(s);
 
         r = show(c);
         if (r < 0)
-                return sd_event_exit(sd_event_source_get_event(s), r);
+                return sd_event_exit(c->event, r);
 
         fflush(stdout);
         return 0;
@@ -291,39 +303,138 @@ static int on_journal_event(sd_event_source *s, int fd, uint32_t revents, void *
         r = sd_journal_process(c->journal);
         if (r < 0) {
                 log_error_errno(r, "Failed to process journal events: %m");
-                return sd_event_exit(sd_event_source_get_event(s), r);
+                return sd_event_exit(c->event, r);
         }
 
-        return show_and_fflush(c, s);
+        return show_and_fflush(c);
 }
 
 static int on_first_event(sd_event_source *s, void *userdata) {
-        return show_and_fflush(userdata, s);
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(s);
+
+        r = show_and_fflush(c);
+        if (r < 0)
+                return r;
+
+        if (arg_follow && !arg_reverse && !c->has_cursor && !arg_since_set) {
+                r = sd_journal_get_cursor(c->journal, /* ret_cursor= */ NULL);
+                if (r == -EADDRNOTAVAIL) {
+                        /* If we shall operate in --follow mode, and we are unable to get a cursor after
+                         * doing our first round of output, then this means there was no data to show
+                         * whatsoever, and we hence have no stable position on any line at all. This means,
+                         * when we get notified about changes, we shouldn't try to position the cursor at the
+                         * end of the logs anymore, but at the beginning, since anything showing up from now
+                         * that matches our filters is good now. Hence, simply disable the effect of --lines=
+                         * now. */
+
+                        r = sd_journal_seek_head(c->journal);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to seek to head: %m");
+
+                        c->need_seek = true;
+
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to get cursor: %m");
+        }
+
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
+        return 0;
+}
+
+static int on_synchronize_reply(
+                sd_varlink *vl,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vl);
+
+        if (error_id) {
+                log_warning("Failed to synchronize on Journal, ignoring: %s", error_id);
+                (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error_id);
+        }
+
+        r = show_and_fflush(c);
+        if (r < 0)
+                return r;
+
+        return sd_event_exit(c->event, EXIT_SUCCESS);
 }
 
 static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
         assert(s);
         assert(si);
         assert(IN_SET(si->ssi_signo, SIGTERM, SIGINT));
 
-        return sd_event_exit(sd_event_source_get_event(s), si->ssi_signo);
+        if (!arg_synchronize_on_exit)
+                goto finish;
+
+        if (c->synchronize_varlink) /* Already pending? Then exit immediately, so that user can cancel the sync */
+                return sd_event_exit(c->event, EXIT_SUCCESS);
+
+        r = varlink_connect_journal(&vl);
+        if (r < 0) {
+                log_error_errno(r, "Failed to connect to Journal Varlink IPC interface, skipping synchronization: %m");
+                goto finish;
+        }
+
+        /* Set a low priority on the idle event handler, so that we show any log messages first */
+        r = sd_varlink_attach_event(vl, c->event, SD_EVENT_PRIORITY_IDLE);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to attach Varlink connection to event loop: %m");
+                goto finish;
+        }
+
+        r = sd_varlink_bind_reply(vl, on_synchronize_reply);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to bind synchronization reply: %m");
+                goto finish;
+        }
+
+        (void) sd_varlink_set_userdata(vl, c);
+
+        r = sd_varlink_invokebo(
+                        vl,
+                        "io.systemd.Journal.Synchronize",
+                        SD_JSON_BUILD_PAIR_BOOLEAN("offline", false));
+        if (r < 0) {
+                log_warning_errno(r, "Failed to issue synchronization request: %m");
+                goto finish;
+        }
+
+        c->synchronize_varlink = TAKE_PTR(vl);
+        return 0;
+
+finish:
+        return sd_event_exit(c->event, si->ssi_signo);
 }
 
-static int setup_event(Context *c, int fd, sd_event **ret) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+static int setup_event(Context *c, int fd) {
         int r;
 
         assert(arg_follow);
         assert(c);
         assert(fd >= 0);
-        assert(ret);
+        assert(!c->event);
 
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         r = sd_event_default(&e);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate sd_event object: %m");
 
-        (void) sd_event_add_signal(e, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_signal, NULL);
-        (void) sd_event_add_signal(e, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_signal, NULL);
+        (void) sd_event_add_signal(e, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_signal, c);
+        (void) sd_event_add_signal(e, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_signal, c);
 
         r = sd_event_add_io(e, NULL, fd, EPOLLIN, &on_journal_event, c);
         if (r < 0)
@@ -345,7 +456,7 @@ static int setup_event(Context *c, int fd, sd_event **ret) {
                         return log_error_errno(r, "Failed to add defer event source: %m");
         }
 
-        *ret = TAKE_PTR(e);
+        c->event = TAKE_PTR(e);
         return 0;
 }
 
@@ -433,16 +544,15 @@ int action_show(char **matches) {
         }
 
         if (arg_follow) {
-                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
                 int sig;
 
                 assert(poll_fd >= 0);
 
-                r = setup_event(&c, poll_fd, &e);
+                r = setup_event(&c, poll_fd);
                 if (r < 0)
                         return r;
 
-                r = sd_event_loop(e);
+                r = sd_event_loop(c.event);
                 if (r < 0)
                         return r;
                 sig = r;
@@ -454,6 +564,8 @@ int action_show(char **matches) {
                 /* re-send the original signal. */
                 return sig;
         }
+
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         r = show(&c);
         if (r < 0)

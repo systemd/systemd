@@ -2,8 +2,6 @@
 
 #include <string.h>
 
-#include "memory-util.h"
-#include "random-util.h"
 #include "recovery-key.h"
 #include "tests.h"
 

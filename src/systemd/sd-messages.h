@@ -17,9 +17,8 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-id128.h"
-
 #include "_sd-common.h"
+#include "sd-id128.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -255,6 +254,15 @@ _SD_BEGIN_DECLARATIONS;
 
 #define SD_MESSAGE_TIME_BUMP                          SD_ID128_MAKE(7d,b7,3c,8a,f0,d9,4e,eb,82,2a,e0,43,23,fe,6a,b6)
 #define SD_MESSAGE_TIME_BUMP_STR                      SD_ID128_MAKE_STR(7d,b7,3c,8a,f0,d9,4e,eb,82,2a,e0,43,23,fe,6a,b6)
+
+#define SD_MESSAGE_WATCHDOG_OPENED                    SD_ID128_MAKE(21,66,8d,bd,3d,7a,4a,32,a2,67,6d,53,da,da,b0,22)
+#define SD_MESSAGE_WATCHDOG_OPENED_STR                SD_ID128_MAKE_STR(21,66,8d,bd,3d,7a,4a,32,a2,67,6d,53,da,da,b0,22)
+
+#define SD_MESSAGE_WATCHDOG_OPEN_FAILED               SD_ID128_MAKE(37,5a,c1,51,ef,9d,4d,e3,90,68,b3,ef,bf,ed,0c,ee)
+#define SD_MESSAGE_WATCHDOG_OPEN_FAILED_STR           SD_ID128_MAKE_STR(37,5a,c1,51,ef,9d,4d,e3,90,68,b3,ef,bf,ed,0c,ee)
+
+#define SD_MESSAGE_WATCHDOG_PING_FAILED               SD_ID128_MAKE(87,39,78,9e,ca,06,43,25,af,15,a8,ed,0e,cf,c5,56)
+#define SD_MESSAGE_WATCHDOG_PING_FAILED_STR           SD_ID128_MAKE_STR(87,39,78,9e,ca,06,43,25,af,15,a8,ed,0e,cf,c5,56)
 
 #define SD_MESSAGE_SHUTDOWN_SCHEDULED                 SD_ID128_MAKE(9e,70,66,27,9d,c8,40,3d,a7,9c,e4,b1,a6,90,64,b2)
 #define SD_MESSAGE_SHUTDOWN_SCHEDULED_STR             SD_ID128_MAKE_STR(9e,70,66,27,9d,c8,40,3d,a7,9c,e4,b1,a6,90,64,b2)

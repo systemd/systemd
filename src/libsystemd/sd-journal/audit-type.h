@@ -3,8 +3,7 @@
 
 #include <stdio.h>
 
-#include "alloc-util.h"
-#include "macro.h"
+#include "forward.h"
 
 const char* audit_type_to_string(int type);
 int audit_type_from_string(const char *s);

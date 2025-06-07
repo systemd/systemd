@@ -2,14 +2,11 @@
 #pragma once
 
 #include <linux/netlink.h>
+#include <sys/socket.h>
 
-#include "sd-netlink.h"
-
+#include "forward.h"
 #include "list.h"
 #include "netlink-types.h"
-#include "ordered-set.h"
-#include "prioq.h"
-#include "time-util.h"
 
 #define NETLINK_DEFAULT_TIMEOUT_USEC ((usec_t) (25 * USEC_PER_SEC))
 
@@ -40,7 +37,7 @@ typedef enum NetlinkSlotType {
         _NETLINK_SLOT_INVALID = -EINVAL,
 } NetlinkSlotType;
 
-struct sd_netlink_slot {
+typedef struct sd_netlink_slot {
         unsigned n_ref;
         NetlinkSlotType type:8;
         bool floating;
@@ -56,9 +53,9 @@ struct sd_netlink_slot {
                 struct reply_callback reply_callback;
                 struct match_callback match_callback;
         };
-};
+} sd_netlink_slot;
 
-struct sd_netlink {
+typedef struct sd_netlink {
         unsigned n_ref;
 
         int fd;
@@ -71,7 +68,6 @@ struct sd_netlink {
         int protocol;
 
         Hashmap *broadcast_group_refs;
-        bool broadcast_group_dont_leave:1; /* until we can rely on 4.2 */
 
         OrderedSet *rqueue;
         Hashmap *rqueue_by_serial;
@@ -99,7 +95,7 @@ struct sd_netlink {
 
         Hashmap *genl_family_by_name;
         Hashmap *genl_family_by_id;
-};
+} sd_netlink;
 
 struct netlink_attribute {
         size_t offset; /* offset from hdr to attribute */
@@ -114,7 +110,7 @@ struct netlink_container {
         uint16_t max_attribute; /* the maximum attribute in container */
 };
 
-struct sd_netlink_message {
+typedef struct sd_netlink_message {
         unsigned n_ref;
 
         int protocol;
@@ -126,16 +122,17 @@ struct sd_netlink_message {
         bool sealed:1;
 
         sd_netlink_message *next; /* next in a chain of multi-part messages */
-};
+} sd_netlink_message;
 
 int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);
 int message_new_full(
                 sd_netlink *nl,
                 uint16_t nlmsg_type,
+                uint16_t nlmsg_flags,
                 const NLAPolicySet *policy_set,
                 size_t header_size,
                 sd_netlink_message **ret);
-int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
+int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type, uint16_t flags);
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
 
 static inline uint32_t message_get_serial(sd_netlink_message *m) {

@@ -10,11 +10,7 @@
  * The underlying algorithm used in this implementation is a Heap.
  */
 
-#include <errno.h>
-#include <stdlib.h>
-
 #include "alloc-util.h"
-#include "hashmap.h"
 #include "prioq.h"
 
 struct prioq_item {
@@ -28,7 +24,7 @@ struct Prioq {
         struct prioq_item *items;
 };
 
-Prioq *prioq_new(compare_func_t compare_func) {
+Prioq* prioq_new(compare_func_t compare_func) {
         Prioq *q;
 
         q = new(Prioq, 1);
@@ -46,6 +42,11 @@ Prioq* prioq_free(Prioq *q) {
         if (!q)
                 return NULL;
 
+        /* Invalidate the index fields of any remaining objects */
+        FOREACH_ARRAY(item, q->items, q->n_items)
+                if (item->idx)
+                        *(item->idx) = PRIOQ_IDX_NULL;
+
         free(q->items);
         return mfree(q);
 }
@@ -53,8 +54,10 @@ Prioq* prioq_free(Prioq *q) {
 int prioq_ensure_allocated(Prioq **q, compare_func_t compare_func) {
         assert(q);
 
-        if (*q)
+        if (*q) {
+                assert((*q)->compare_func == compare_func);
                 return 0;
+        }
 
         *q = prioq_new(compare_func);
         if (!*q)
@@ -162,7 +165,7 @@ int prioq_put(Prioq *q, void *data, unsigned *idx) {
         return 0;
 }
 
-int prioq_ensure_put(Prioq **q, compare_func_t compare_func, void *data, unsigned *idx) {
+int _prioq_ensure_put(Prioq **q, compare_func_t compare_func, void *data, unsigned *idx) {
         int r;
 
         r = prioq_ensure_allocated(q, compare_func);
@@ -178,6 +181,11 @@ static void remove_item(Prioq *q, struct prioq_item *i) {
         assert(q);
         assert(i);
 
+        /* Let's invalidate the index pointer stored in the user's object to indicate the item is now removed
+         * from the priority queue */
+        if (i->idx)
+                *(i->idx) = PRIOQ_IDX_NULL;
+
         l = q->items + q->n_items - 1;
 
         if (i == l)
@@ -189,6 +197,7 @@ static void remove_item(Prioq *q, struct prioq_item *i) {
                 /* Not last entry, let's replace the last entry with
                  * this one, and reshuffle */
 
+                assert(i >= q->items);
                 k = i - q->items;
 
                 i->data = l->data;
@@ -252,12 +261,13 @@ void prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
         if (!i)
                 return;
 
+        assert(i >= q->items);
         k = i - q->items;
         k = shuffle_down(q, k);
         shuffle_up(q, k);
 }
 
-void *prioq_peek_by_index(Prioq *q, unsigned idx) {
+void* prioq_peek_by_index(Prioq *q, unsigned idx) {
         if (!q)
                 return NULL;
 
@@ -267,7 +277,7 @@ void *prioq_peek_by_index(Prioq *q, unsigned idx) {
         return q->items[idx].data;
 }
 
-void *prioq_pop(Prioq *q) {
+void* prioq_pop(Prioq *q) {
         void *data;
 
         if (!q)

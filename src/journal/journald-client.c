@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
 #include "journald-client.h"
+#include "journald-context.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "pcre2-util.h"
+#include "set.h"
 #include "strv.h"
 
 /* This consumes both `allow_list` and `deny_list` arguments. Hence, those arguments are not owned by the
@@ -46,25 +50,26 @@ static int client_parse_log_filter_nulstr(const char *nulstr, size_t len, Set **
 }
 
 int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup) {
-        char *deny_list_xattr, *xattr_end;
-        _cleanup_free_ char *xattr = NULL, *unit_cgroup = NULL;
-        _cleanup_set_free_ Set *allow_list = NULL, *deny_list = NULL;
         int r;
 
         assert(c);
 
+        _cleanup_free_ char *unit_cgroup = NULL;
         r = cg_path_get_unit_path(cgroup, &unit_cgroup);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get the unit's cgroup path for %s: %m", cgroup);
 
-        r = cg_get_xattr_malloc(unit_cgroup, "user.journald_log_filter_patterns", &xattr);
+        _cleanup_free_ char *xattr = NULL;
+        size_t xattr_size = 0;
+        r = cg_get_xattr(unit_cgroup, "user.journald_log_filter_patterns", &xattr, &xattr_size);
         if (ERRNO_IS_NEG_XATTR_ABSENT(r)) {
-                client_set_filtering_patterns(c, NULL, NULL);
+                client_set_filtering_patterns(c, /* allow_list= */ NULL, /* deny_list= */ NULL);
                 return 0;
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return log_debug_errno(r, "Failed to get user.journald_log_filter_patterns xattr for %s: %m", unit_cgroup);
 
-        xattr_end = xattr + r;
+        const char *xattr_end = xattr + xattr_size;
 
         /* We expect '0xff' to be present in the attribute, even if the lists are empty. We expect the
          * following:
@@ -76,17 +81,19 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
          *
          * We do not expect both the allow list and deny list to be empty, as this condition is tested
          * before writing to xattr. */
-        deny_list_xattr = memchr(xattr, (char)0xff, r);
+        const char *deny_list_xattr = memchr(xattr, (char)0xff, xattr_size);
         if (!deny_list_xattr)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Missing delimiter in cgroup user.journald_log_filter_patterns attribute: %m");
 
+        _cleanup_set_free_ Set *allow_list = NULL;
         r = client_parse_log_filter_nulstr(xattr, deny_list_xattr - xattr, &allow_list);
         if (r < 0)
                 return r;
 
         /* Use 'deny_list_xattr + 1' to skip '0xff'. */
         ++deny_list_xattr;
+        _cleanup_set_free_ Set *deny_list = NULL;
         r = client_parse_log_filter_nulstr(deny_list_xattr, xattr_end - deny_list_xattr, &deny_list);
         if (r < 0)
                 return r;

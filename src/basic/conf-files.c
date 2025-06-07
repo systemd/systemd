@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "conf-files.h"
-#include "constants.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -15,15 +13,12 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "log.h"
-#include "macro.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "set.h"
-#include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static int files_add(
                 DIR *dir,
@@ -31,7 +26,7 @@ static int files_add(
                 Hashmap **files,
                 Set **masked,
                 const char *suffix,
-                unsigned flags) {
+                ConfFilesFlags flags) {
 
         int r;
 
@@ -122,28 +117,21 @@ static int files_add(
         return 0;
 }
 
-static int base_cmp(char * const *a, char * const *b) {
-        assert(a);
-        assert(b);
-        return path_compare_filename(*a, *b);
-}
-
 static int copy_and_sort_files_from_hashmap(Hashmap *fh, char ***ret) {
         _cleanup_free_ char **sv = NULL;
         char **files;
+        int r;
 
         assert(ret);
 
-        sv = hashmap_get_strv(fh);
-        if (!sv)
-                return -ENOMEM;
+        r = hashmap_dump_sorted(fh, (void***) &sv, /* ret_n = */ NULL);
+        if (r < 0)
+                return r;
 
-        /* The entries in the array given by hashmap_get_strv() are still owned by the hashmap. */
+        /* The entries in the array given by hashmap_dump_sorted() are still owned by the hashmap. */
         files = strv_copy(sv);
         if (!files)
                 return -ENOMEM;
-
-        typesafe_qsort(files, strv_length(files), base_cmp);
 
         *ret = files;
         return 0;
@@ -153,7 +141,7 @@ int conf_files_list_strv(
                 char ***ret,
                 const char *suffix,
                 const char *root,
-                unsigned flags,
+                ConfFilesFlags flags,
                 const char * const *dirs) {
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
@@ -187,7 +175,7 @@ int conf_files_list_strv_at(
                 char ***ret,
                 const char *suffix,
                 int rfd,
-                unsigned flags,
+                ConfFilesFlags flags,
                 const char * const *dirs) {
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
@@ -237,7 +225,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         for (i = 0; i < n; i++) {
                 int c;
 
-                c = base_cmp((char* const*) *strv + i, (char* const*) &path);
+                c = path_compare_filename((*strv)[i], path);
                 if (c == 0)
                         /* Oh, there already is an entry with a matching name (the last component). */
                         STRV_FOREACH(dir, dirs) {
@@ -286,15 +274,15 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         return r;
 }
 
-int conf_files_list(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dir) {
+int conf_files_list(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dir) {
         return conf_files_list_strv(ret, suffix, root, flags, STRV_MAKE_CONST(dir));
 }
 
-int conf_files_list_at(char ***ret, const char *suffix, int rfd, unsigned flags, const char *dir) {
+int conf_files_list_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dir) {
         return conf_files_list_strv_at(ret, suffix, rfd, flags, STRV_MAKE_CONST(dir));
 }
 
-int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dirs) {
+int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs) {
         _cleanup_strv_free_ char **d = NULL;
 
         assert(ret);
@@ -306,7 +294,7 @@ int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, un
         return conf_files_list_strv(ret, suffix, root, flags, (const char**) d);
 }
 
-int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, unsigned flags, const char *dirs) {
+int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs) {
         _cleanup_strv_free_ char **d = NULL;
 
         assert(ret);
@@ -407,7 +395,7 @@ int conf_file_read(
                 f = stdin;
                 fn = "<stdin>";
 
-                log_debug("Reading config from stdin%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_debug("Reading config from stdin%s", glyph(GLYPH_ELLIPSIS));
 
         } else if (is_path(fn)) {
                 r = path_make_absolute_cwd(fn, &_fn);
@@ -419,14 +407,14 @@ int conf_file_read(
                 if (!_f)
                         r = -errno;
                 else
-                        log_debug("Reading config file \"%s\"%s", fn, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Reading config file \"%s\"%s", fn, glyph(GLYPH_ELLIPSIS));
 
         } else {
                 r = search_and_fopen(fn, "re", root, config_dirs, &_f, &_fn);
                 if (r >= 0) {
                         f = _f;
                         fn = _fn;
-                        log_debug("Reading config file \"%s\"%s", fn, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Reading config file \"%s\"%s", fn, glyph(GLYPH_ELLIPSIS));
                 }
         }
 

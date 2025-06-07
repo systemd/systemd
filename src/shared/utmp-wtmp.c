@@ -1,23 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
 #include <sys/utsname.h>
-#include <unistd.h>
 #include <utmpx.h>
 
-#include "alloc-util.h"
-#include "errno-util.h"
-#include "hostname-util.h"
-#include "macro.h"
+#include "log.h"
 #include "memory-util.h"
-#include "path-util.h"
 #include "string-util.h"
 #include "time-util.h"
-#include "user-util.h"
 #include "utmp-wtmp.h"
 
 int utmp_get_runlevel(int *runlevel, int *previous) {

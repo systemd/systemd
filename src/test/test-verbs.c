@@ -2,7 +2,6 @@
 
 #include <getopt.h>
 
-#include "macro.h"
 #include "strv.h"
 #include "tests.h"
 #include "verbs.h"

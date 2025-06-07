@@ -1,25 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fnmatch.h>
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "log.h"
-#include "macro.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+
+bool is_path(const char *p) {
+        if (!p) /* A NULL pointer is definitely not a path */
+                return false;
+
+        return strchr(p, '/');
+}
 
 int path_split_and_make_absolute(const char *p, char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
@@ -344,6 +349,10 @@ char** path_strv_resolve_uniq(char **l, const char *root) {
         return strv_uniq(l);
 }
 
+char* skip_leading_slash(const char *p) {
+        return skip_leading_chars(p, "/");
+}
+
 char* path_simplify_full(char *path, PathSimplifyFlags flags) {
         bool add_slash = false, keep_trailing_slash, absolute, beginning = true;
         char *f = path;
@@ -405,8 +414,24 @@ char* path_simplify_full(char *path, PathSimplifyFlags flags) {
         return path;
 }
 
-char* path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) {
-        assert(path);
+int path_simplify_alloc(const char *path, char **ret) {
+        assert(ret);
+
+        if (!path) {
+                *ret = NULL;
+                return 0;
+        }
+
+        char *t = strdup(path);
+        if (!t)
+                return -ENOMEM;
+
+        *ret = path_simplify(t);
+        return 0;
+}
+
+char* path_startswith_full(const char *original_path, const char *prefix, PathStartWithFlags flags) {
+        assert(original_path);
         assert(prefix);
 
         /* Returns a pointer to the start of the first component after the parts matched by
@@ -419,28 +444,45 @@ char* path_startswith_full(const char *path, const char *prefix, bool accept_dot
          * Returns NULL otherwise.
          */
 
+        const char *path = original_path;
+
         if ((path[0] == '/') != (prefix[0] == '/'))
                 return NULL;
 
         for (;;) {
                 const char *p, *q;
-                int r, k;
+                int m, n;
 
-                r = path_find_first_component(&path, accept_dot_dot, &p);
-                if (r < 0)
+                m = path_find_first_component(&path, !FLAGS_SET(flags, PATH_STARTSWITH_REFUSE_DOT_DOT), &p);
+                if (m < 0)
                         return NULL;
 
-                k = path_find_first_component(&prefix, accept_dot_dot, &q);
-                if (k < 0)
+                n = path_find_first_component(&prefix, !FLAGS_SET(flags, PATH_STARTSWITH_REFUSE_DOT_DOT), &q);
+                if (n < 0)
                         return NULL;
 
-                if (k == 0)
-                        return (char*) (p ?: path);
+                if (n == 0) {
+                        if (!p)
+                                p = path;
 
-                if (r != k)
+                        if (FLAGS_SET(flags, PATH_STARTSWITH_RETURN_LEADING_SLASH)) {
+
+                                if (p <= original_path)
+                                        return NULL;
+
+                                p--;
+
+                                if (*p != '/')
+                                        return NULL;
+                        }
+
+                        return (char*) p;
+                }
+
+                if (m != n)
                         return NULL;
 
-                if (!strneq(p, q, r))
+                if (!strneq(p, q, m))
                         return NULL;
         }
 }
@@ -613,37 +655,9 @@ char* path_extend_internal(char **x, ...) {
         return nx;
 }
 
-static int check_x_access(const char *path, int *ret_fd) {
+int open_and_check_executable(const char *name, const char *root, char **ret_path, int *ret_fd) {
         _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        /* We need to use O_PATH because there may be executables for which we have only exec
-         * permissions, but not read (usually suid executables). */
-        fd = open(path, O_PATH|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return r;
-
-        r = access_fd(fd, X_OK);
-        if (r == -ENOSYS) {
-                /* /proc is not mounted. Fallback to access(). */
-                if (access(path, X_OK) < 0)
-                        return -errno;
-        } else if (r < 0)
-                return r;
-
-        if (ret_fd)
-                *ret_fd = TAKE_FD(fd);
-
-        return 0;
-}
-
-static int find_executable_impl(const char *name, const char *root, char **ret_filename, int *ret_fd) {
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_free_ char *path_name = NULL;
+        _cleanup_free_ char *resolved = NULL;
         int r;
 
         assert(name);
@@ -654,23 +668,40 @@ static int find_executable_impl(const char *name, const char *root, char **ret_f
          * needed to avoid unforeseen regression or other complicated changes. */
         if (root) {
                 /* prefix root to name in case full paths are not specified */
-                r = chase(name, root, CHASE_PREFIX_ROOT, &path_name, /* ret_fd= */ NULL);
+                r = chase(name, root, CHASE_PREFIX_ROOT, &resolved, &fd);
                 if (r < 0)
                         return r;
 
-                name = path_name;
+                name = resolved;
+        } else {
+                /* We need to use O_PATH because there may be executables for which we have only exec permissions,
+                 * but not read (usually suid executables). */
+                fd = open(name, O_PATH|O_CLOEXEC);
+                if (fd < 0)
+                        return -errno;
         }
 
-        r = check_x_access(name, ret_fd ? &fd : NULL);
+        r = fd_verify_regular(fd);
         if (r < 0)
                 return r;
 
-        if (ret_filename) {
-                r = path_make_absolute_cwd(name, ret_filename);
-                if (r < 0)
-                        return r;
+        r = access_fd(fd, X_OK);
+        if (r == -ENOSYS)
+                /* /proc/ is not mounted. Fall back to access(). */
+                r = RET_NERRNO(access(name, X_OK));
+        if (r < 0)
+                return r;
 
-                path_simplify(*ret_filename);
+        if (ret_path) {
+                if (resolved)
+                        *ret_path = TAKE_PTR(resolved);
+                else {
+                        r = path_make_absolute_cwd(name, ret_path);
+                        if (r < 0)
+                                return r;
+
+                        path_simplify(*ret_path);
+                }
         }
 
         if (ret_fd)
@@ -692,7 +723,7 @@ int find_executable_full(
         assert(name);
 
         if (is_path(name))
-                return find_executable_impl(name, root, ret_filename, ret_fd);
+                return open_and_check_executable(name, root, ret_filename, ret_fd);
 
         if (exec_search_path) {
                 STRV_FOREACH(element, exec_search_path) {
@@ -707,7 +738,7 @@ int find_executable_full(
                         if (!full_path)
                                 return -ENOMEM;
 
-                        r = find_executable_impl(full_path, root, ret_filename, ret_fd);
+                        r = open_and_check_executable(full_path, root, ret_filename, ret_fd);
                         if (r >= 0)
                                 return 0;
                         if (r != -EACCES)
@@ -743,7 +774,7 @@ int find_executable_full(
                 if (!path_extend(&element, name))
                         return -ENOMEM;
 
-                r = find_executable_impl(element, root, ret_filename, ret_fd);
+                r = open_and_check_executable(element, root, ret_filename, ret_fd);
                 if (r >= 0) /* Found it! */
                         return 0;
                 /* PATH entries which we don't have access to are ignored, as per tradition. */
@@ -1369,6 +1400,10 @@ bool empty_or_root(const char *path) {
                 return true;
 
         return path_equal(path, "/");
+}
+
+const char* empty_to_root(const char *path) {
+        return isempty(path) ? "/" : path;
 }
 
 bool path_strv_contains(char * const *l, const char *path) {

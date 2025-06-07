@@ -3,13 +3,14 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <net/if_arp.h>
 
 #include "sd-dhcp-server.h"
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "hashmap.h"
+#include "siphash24.h"
 #include "tests.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
@@ -82,7 +83,9 @@ static int test_basic(bool bind_to_interface) {
 static void test_message_handler(void) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct {
-                DHCPMessage message;
+                struct {
+                        DHCP_MESSAGE_HEADER_DEFINITION;
+                } _packed_ message;
                 struct {
                         uint8_t code;
                         uint8_t length;

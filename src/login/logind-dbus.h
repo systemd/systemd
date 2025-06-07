@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "bus-object.h"
-#include "logind-action.h"
-#include "logind-session.h"
-#include "logind-user.h"
-#include "logind.h"
+#include "logind-forward.h"
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret);
@@ -22,7 +16,8 @@ int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *er
 int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
-int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;
+int manager_send_changed_strv(Manager *manager, char **properties);
+#define manager_send_changed(manager, ...) manager_send_changed_strv(manager, STRV_MAKE(__VA_ARGS__))
 
 int manager_start_scope(
                 Manager *manager,

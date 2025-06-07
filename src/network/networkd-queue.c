@@ -1,10 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "netdev.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
+#include "ordered-set.h"
+#include "siphash24.h"
 #include "string-table.h"
 
 #define REPLY_CALLBACK_COUNT_THRESHOLD 128
@@ -384,7 +389,12 @@ static const char *const request_type_table[_REQUEST_TYPE_MAX] = {
         [REQUEST_TYPE_SET_LINK_MAC]                     = "MAC address",
         [REQUEST_TYPE_SET_LINK_MASTER]                  = "master interface",
         [REQUEST_TYPE_SET_LINK_MTU]                     = "MTU",
-        [REQUEST_TYPE_SRIOV]                            = "SR-IOV",
+        [REQUEST_TYPE_SRIOV_VF_MAC]                     = "SR-IOV VF MAC address",
+        [REQUEST_TYPE_SRIOV_VF_SPOOFCHK]                = "SR-IOV VF spoof check",
+        [REQUEST_TYPE_SRIOV_VF_RSS_QUERY_EN]            = "SR-IOV VF RSS query",
+        [REQUEST_TYPE_SRIOV_VF_TRUST]                   = "SR-IOV VF trust",
+        [REQUEST_TYPE_SRIOV_VF_LINK_STATE]              = "SR-IOV VF link state",
+        [REQUEST_TYPE_SRIOV_VF_VLAN_LIST]               = "SR-IOV VF vlan list",
         [REQUEST_TYPE_TC_QDISC]                         = "QDisc",
         [REQUEST_TYPE_TC_CLASS]                         = "TClass",
         [REQUEST_TYPE_UP_DOWN]                          = "bring link up or down",

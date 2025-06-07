@@ -2,8 +2,12 @@
 
 #include "analyze.h"
 #include "analyze-timestamp.h"
+#include "ansi-color.h"
+#include "errno-util.h"
 #include "format-table.h"
-#include "terminal-util.h"
+#include "log.h"
+#include "strv.h"
+#include "time-util.h"
 
 static int test_timestamp_one(const char *p) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -75,11 +79,12 @@ static int test_timestamp_one(const char *p) {
 int verb_timestamp(int argc, char *argv[], void *userdata) {
         int r = 0;
 
-        STRV_FOREACH(p, strv_skip(argv, 1)) {
-                RET_GATHER(r, test_timestamp_one(*p));
+        char **args = strv_skip(argv, 1);
+        STRV_FOREACH(arg, args) {
+                if (arg != args)
+                        puts("");
 
-                if (p[1])
-                        putchar('\n');
+                RET_GATHER(r, test_timestamp_one(*arg));
         }
 
         return r;

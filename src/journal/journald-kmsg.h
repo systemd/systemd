@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "journald-server.h"
+#include "journald-forward.h"
 
-int server_open_dev_kmsg(Server *s);
-int server_flush_dev_kmsg(Server *s);
+int manager_open_dev_kmsg(Manager *m);
+int manager_flush_dev_kmsg(Manager *m);
 
-void server_forward_kmsg(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred);
+void manager_forward_kmsg(Manager *m, int priority, const char *identifier, const char *message, const struct ucred *ucred);
 
-int server_open_kernel_seqnum(Server *s);
+int manager_open_kernel_seqnum(Manager *m);
 
-void dev_kmsg_record(Server *s, char *p, size_t l);
+void dev_kmsg_record(Manager *m, char *p, size_t l);

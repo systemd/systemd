@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <netinet/icmp6.h>
 
+#include "sd-ndisc-protocol.h"
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "build.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
@@ -13,7 +18,8 @@
 #include "netlink-util.h"
 #include "network-common.h"
 #include "parse-util.h"
-#include "socket-util.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 
@@ -297,12 +303,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_set_source_mac) {
                 struct hw_addr_data hw_addr;
 
-                r = rtnl_get_link_info(&rtnl, arg_ifindex,
-                                       /* ret_iftype = */ NULL,
-                                       /* ret_flags = */ NULL,
-                                       /* ret_kind = */ NULL,
-                                       &hw_addr,
-                                       /* ret_permanent_hw_addr = */ NULL);
+                r = rtnl_get_link_hw_addr(&rtnl, arg_ifindex, &hw_addr);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get the source link-layer address: %m");
 

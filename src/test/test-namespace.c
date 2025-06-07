@@ -1,13 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sysexits.h>
+#include <sched.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sysexits.h>
+
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "namespace-util.h"
 #include "namespace.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -258,7 +263,7 @@ TEST(namespace_is_init) {
 TEST(userns_get_base_uid) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = userns_acquire("0 1 1", "0 2 1");
+        fd = userns_acquire("0 1 1", "0 2 1", /* setgroups_deny= */ true);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
                 return (void) log_tests_skipped("userns is not supported");
         if (ERRNO_IS_NEG_PRIVILEGE(fd))
@@ -412,6 +417,32 @@ TEST(namespace_get_leader) {
                         ASSERT_TRUE(!pidref_equal(&grandparent, &leader));
                 }
         }
+}
+
+TEST(detach_mount_namespace_harder) {
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        char x = 0;
+        int r;
+
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+
+        ASSERT_OK(r = pidref_safe_fork("(child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
+        if (r == 0) {
+                p[0] = safe_close(p[0]);
+
+                ASSERT_OK(detach_mount_namespace_harder(0, 0));
+
+                ASSERT_OK_EQ_ERRNO(write(p[1], &(const char[]) { 'x' }, 1), 1);
+                freeze();
+        }
+
+        p[1] = safe_close(p[1]);
+        ASSERT_OK_EQ_ERRNO(read(p[0], &x, 1), 1);
+        ASSERT_EQ(x, 'x');
+
+        ASSERT_OK_POSITIVE(pidref_in_same_namespace(NULL, &pid, NAMESPACE_USER));
+        ASSERT_OK_ZERO(pidref_in_same_namespace(NULL, &pid, NAMESPACE_MOUNT));
 }
 
 static int intro(void) {

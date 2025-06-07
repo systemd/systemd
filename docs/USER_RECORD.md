@@ -234,6 +234,13 @@ retrievable and resolvable under every name listed here, pretty much everywhere
 the primary user name is. If logging in is attempted via an alias name it
 should be normalized to the primary name.
 
+`uuid` -> A string containing a lowercase UUID that identifies this user.
+The UUID should be assigned to the user at creation, be the same across multiple machines,
+and never change (even if the user's username, realm, or other identifying attributes change).
+When the user database is backed by Microsoft Active Directory, this field should contain
+the value from the [objectGUID](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-ada3/937eb5c6-f6b3-4652-a276-5d6bb8979658)
+attribute. The same UUID can be retrieved via `mbr_uid_to_uuid` on macOS.
+
 `blobDirectory` → The absolute path to a world-readable copy of the user's blob
 directory. See [Blob Directories](/USER_RECORD_BLOB_DIRS) for more details.
 
@@ -312,6 +319,7 @@ and its value to set for the user's login session, in a format compatible with
 environment variable listed here is automatically set by
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
 for all login sessions of the user.
+
 `timeZone` → A string indicating a preferred timezone to use for the user. When
 logging in
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
@@ -343,6 +351,7 @@ will automatically initialize the login process' nice level to this value with,
 which is then inherited by all the user's processes, see
 [`setpriority()`](https://man7.org/linux/man-pages/man2/setpriority.2.html) for
 more information.
+
 `resourceLimits` → An object, where each key refers to a Linux resource limit
 (such as `RLIMIT_NOFILE` and similar).
 Their values should be an object with two keys `cur` and `max` for the soft and hard resource limit.
@@ -774,14 +783,23 @@ If any of the specified IDs match the system's local machine ID
 (As a special case, if only a single machine ID is listed this field may be a single
 string rather than an array of strings.)
 
+`matchNotMachineId` → Similar to `matchMachineId` but implements the inverse
+match: this section only applies if the local machine ID does *not* match any
+of the listed IDs.
+
 `matchHostname` → An array of strings that are valid hostnames.
 If any of the specified hostnames match the system's local hostname, the fields in this object are honored.
-If both `matchHostname` and `matchMachineId` are used within the same array entry, the object is honored when either match succeeds,
-i.e. the two match types are combined in OR, not in AND.
 (As a special case, if only a single hostname is listed this field may be a single string rather than an array of strings.)
 
-These two are the only two fields specific to this section.
-All other fields that may be used in this section are identical to the equally named ones in the
+`matchNotHostname` → Similar to `matchHostname`, but implement the inverse
+match, as above.
+
+If any of these four fields are used within the same array entry, the object is
+honored when either match succeeds, i.e. the match types are combined in OR,
+not in AND.
+
+These four are the only fields specific to this section. All other fields that
+may be used in this section are identical to the equally named ones in the
 `regular` section (i.e. at the top-level object). Specifically, these are:
 
 `blobDirectory`, `blobManifest`, `iconName`, `location`, `shell`, `umask`,

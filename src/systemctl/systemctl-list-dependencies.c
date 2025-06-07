@@ -1,13 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
+#include "alloc-util.h"
 #include "ansi-color.h"
-#include "locale-util.h"
+#include "bus-unit-util.h"
+#include "glyph-util.h"
+#include "log.h"
+#include "pager.h"
 #include "sort-util.h"
 #include "special.h"
+#include "string-util.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-list-dependencies.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
+#include "unit-def.h"
+#include "unit-name.h"
 
 static int list_dependencies_print(const char *name, UnitActiveState state, int level, unsigned branches, bool last) {
         _cleanup_free_ char *n = NULL;
@@ -36,7 +46,7 @@ static int list_dependencies_print(const char *name, UnitActiveState state, int 
                         on = ansi_highlight_red();
                 }
 
-                printf("%s%s%s ", on, special_glyph(unit_active_state_to_glyph(state)), ansi_normal());
+                printf("%s%s%s ", on, glyph(unit_active_state_to_glyph(state)), ansi_normal());
         }
 
         if (!arg_plain) {
@@ -46,7 +56,7 @@ static int list_dependencies_print(const char *name, UnitActiveState state, int 
                                 printf("%s...\n",max_len % 2 ? "" : " ");
                                 return 0;
                         }
-                        printf("%s", special_glyph(branches & (1 << i) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
+                        printf("%s", glyph(branches & (1 << i) ? GLYPH_TREE_VERTICAL : GLYPH_TREE_SPACE));
                 }
                 len += 2;
 
@@ -55,7 +65,7 @@ static int list_dependencies_print(const char *name, UnitActiveState state, int 
                         return 0;
                 }
 
-                printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
+                printf("%s", glyph(last ? GLYPH_TREE_RIGHT : GLYPH_TREE_BRANCH));
         }
 
         if (arg_full) {
@@ -171,14 +181,14 @@ int verb_list_dependencies(int argc, char *argv[], void *userdata) {
                 return r;
 
         patterns = strv_skip(argv, 1);
-        if (strv_isempty(patterns)) {
-                units = strv_new(SPECIAL_DEFAULT_TARGET);
-                if (!units)
-                        return log_oom();
-        } else {
+        if (patterns) {
                 r = expand_unit_names(bus, patterns, NULL, &units, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to expand names: %m");
+        } else {
+                units = strv_new(SPECIAL_DEFAULT_TARGET);
+                if (!units)
+                        return log_oom();
         }
 
         pager_open(arg_pager_flags);

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -10,11 +10,10 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "id128-util.h"
-#include "macro.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)
@@ -31,7 +30,7 @@ TEST(id128) {
         ASSERT_OK(sd_id128_randomize(&id));
         printf("random: %s\n", sd_id128_to_string(id, t));
 
-        ASSERT_OK(sd_id128_from_string(t, &id2) == 0);
+        ASSERT_OK(sd_id128_from_string(t, &id2));
         ASSERT_EQ_ID128(id, id2);
         ASSERT_TRUE(sd_id128_in_set(id, id));
         ASSERT_TRUE(sd_id128_in_set(id, id2));
@@ -116,7 +115,7 @@ TEST(id128) {
         ASSERT_OK(sd_id128_randomize(&id));
         ASSERT_OK(id128_write_fd(fd, ID128_FORMAT_PLAIN, id));
 
-        ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET) == 0);
+        ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
         ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_UUID, &id2), EUCLEAN);
 
         ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
@@ -307,28 +306,28 @@ TEST(id128_at) {
         ASSERT_EQ_ID128(id, i);
 
         /* id128_read() */
-        ASSERT_NOT_NULL(p = path_join(t, "/etc/machine-id"));
+        ASSERT_NOT_NULL((p = path_join(t, "/etc/machine-id")));
 
         i = SD_ID128_NULL;
         ASSERT_OK(id128_read(p, ID128_FORMAT_PLAIN, &i));
         ASSERT_EQ_ID128(id, i);
 
         free(p);
-        ASSERT_NOT_NULL(p = path_join(t, "/etc2/machine-id"));
+        ASSERT_NOT_NULL((p = path_join(t, "/etc2/machine-id")));
 
         i = SD_ID128_NULL;
         ASSERT_OK(id128_read(p, ID128_FORMAT_PLAIN, &i));
         ASSERT_EQ_ID128(id, i);
 
         free(p);
-        ASSERT_NOT_NULL(p = path_join(t, "/etc/hoge-id"));
+        ASSERT_NOT_NULL((p = path_join(t, "/etc/hoge-id")));
 
         i = SD_ID128_NULL;
         ASSERT_OK(id128_read(p, ID128_FORMAT_PLAIN, &i));
         ASSERT_EQ_ID128(id, i);
 
         free(p);
-        ASSERT_NOT_NULL(p = path_join(t, "/etc2/hoge-id"));
+        ASSERT_NOT_NULL((p = path_join(t, "/etc2/hoge-id")));
 
         i = SD_ID128_NULL;
         ASSERT_OK(id128_read(p, ID128_FORMAT_PLAIN, &i));

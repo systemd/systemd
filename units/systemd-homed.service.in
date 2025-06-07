@@ -34,7 +34,7 @@ StateDirectory=systemd/home
 CacheDirectory=systemd/home
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
-SystemCallFilter=@system-service @mount quotactl
+SystemCallFilter=@system-service @mount quotactl quotactl_fd
 TimeoutStopSec=3min
 {{SERVICE_WATCHDOG}}
 

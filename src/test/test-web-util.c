@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "macro.h"
 #include "tests.h"
 #include "web-util.h"
 

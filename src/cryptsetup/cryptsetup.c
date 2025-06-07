@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <mntent.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-event.h"
 #include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "cryptsetup-fido2.h"
@@ -20,11 +20,13 @@
 #include "cryptsetup-pkcs11.h"
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
-#include "device-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "fstab-util.h"
@@ -40,10 +42,11 @@
 #include "path-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "random-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "verbs.h"
@@ -1038,11 +1041,11 @@ static int measure_volume_key(
                 return log_error_errno(r, "Could not extend PCR: %m");
 
         log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_TPM_PCR_EXTEND_STR,
+                   LOG_MESSAGE_ID(SD_MESSAGE_TPM_PCR_EXTEND_STR),
                    LOG_MESSAGE("Successfully extended PCR index %u with '%s' and volume key (banks %s).", arg_tpm2_measure_pcr, s, joined),
-                   "MEASURING=%s", s,
-                   "PCR=%u", arg_tpm2_measure_pcr,
-                   "BANKS=%s", joined);
+                   LOG_ITEM("MEASURING=%s", s),
+                   LOG_ITEM("PCR=%u", arg_tpm2_measure_pcr),
+                   LOG_ITEM("BANKS=%s", joined));
 
         return 0;
 #else

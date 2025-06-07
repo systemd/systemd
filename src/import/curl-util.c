@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <fcntl.h>
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "curl-util.h"
 #include "fd-util.h"
-#include "locale-util.h"
+#include "hashmap.h"
+#include "log.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "version.h"
 
 static void curl_glue_check_finished(CurlGlue *g) {
@@ -16,7 +17,7 @@ static void curl_glue_check_finished(CurlGlue *g) {
         assert(g);
 
         /* sd_event_get_exit_code() returns -ENODATA if no exit was scheduled yet */
-        r = sd_event_get_exit_code(g->event, /* ret_code= */ NULL);
+        r = sd_event_get_exit_code(g->event, /* ret= */ NULL);
         if (r >= 0)
                 return; /* exit scheduled? Then don't process this anymore */
         if (r != -ENODATA)

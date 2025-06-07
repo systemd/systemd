@@ -21,6 +21,7 @@
 #include "ndisc-router-internal.h"
 #include "network-common.h"
 #include "random-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"

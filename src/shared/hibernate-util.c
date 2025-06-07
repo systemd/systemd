@@ -3,19 +3,16 @@
   Copyright © 2018 Dell Inc.
 ***/
 
+#include <linux/fiemap.h>
 #include <linux/magic.h>
-#include <stddef.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
-#include "device-util.h"
 #include "devnum-util.h"
 #include "efivars.h"
 #include "env-util.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hibernate-util.h"
@@ -25,8 +22,6 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "stat-util.h"
-#include "string-util.h"
-#include "strv.h"
 
 #define HIBERNATION_SWAP_THRESHOLD 0.98
 
@@ -262,7 +257,7 @@ static int read_swap_entries(SwapEntries *ret) {
 
         f = fopen("/proc/swaps", "re");
         if (!f)
-                return log_debug_errno(errno, "Failed to open /proc/swaps: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/swaps");
 
         /* Remove header */
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
@@ -428,7 +423,7 @@ static int get_proc_meminfo_active(unsigned long long *ret) {
 
         assert(ret);
 
-        r = get_proc_field("/proc/meminfo", "Active(anon)", WHITESPACE, &active_str);
+        r = get_proc_field("/proc/meminfo", "Active(anon)", &active_str);
         if (r < 0)
                 return log_debug_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
 

@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "console.h"
-#include "efivars.h"
+#include "efi-efivars.h"
+#include "efi-log.h"
+#include "efi-string-table.h"
 #include "proto/security-arch.h"
 #include "secure-boot.h"
 #include "util.h"
@@ -68,7 +70,7 @@ static EFI_STATUS set_custom_mode(bool enable) {
                                attr, sizeof(mode), &mode);
 }
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force) {
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, secure_boot_enroll_action action) {
         assert(root_dir);
         assert(path);
 
@@ -93,8 +95,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 for (;;) {
                         printf("\rEnrolling in %2u s, press any key to abort.", timeout_sec);
 
-                        uint64_t key;
-                        err = console_key_read(&key, 1000 * 1000);
+                        err = console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 1000 * 1000);
                         if (err == EFI_NOT_READY)
                                 continue;
                         if (err == EFI_TIMEOUT) {
@@ -185,11 +186,21 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 }
         }
 
-        printf("Custom Secure Boot keys successfully enrolled, rebooting the system now!\n");
         /* The system should be in secure boot mode now and we could continue a regular boot. But at least
-         * TPM PCR7 measurements should change on next boot. Reboot now so that any OS we load does not end
-         * up relying on the old PCR state. */
-        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+         * TPM PCR7 measurements should change on next boot. Reboot/poweroff now so that any OS we load
+         * does not end up relying on the old PCR state.
+         */
+
+        if (action == ENROLL_ACTION_SHUTDOWN) {
+                printf("Custom Secure Boot keys successfully enrolled, powering off the system now!\n");
+                console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 2 * 1000 * 1000); /* wait a bit so user can see the message */
+                RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
+        } else {
+                assert(action == ENROLL_ACTION_REBOOT);
+                printf("Custom Secure Boot keys successfully enrolled, rebooting the system now!\n");
+                console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 2 * 1000 * 1000); /* wait a bit so user can see the message */
+                RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+        }
         assert_not_reached();
 
 out_deallocate:
@@ -287,3 +298,18 @@ void uninstall_security_override(void) {
         if (security_override.original_hook2)
                 security_override.security2->FileAuthentication = security_override.original_hook2;
 }
+
+static const char *secure_boot_enroll_table[_SECURE_BOOT_ENROLL_MAX] = {
+        [ENROLL_OFF]     = "off",
+        [ENROLL_MANUAL]  = "manual",
+        [ENROLL_IF_SAFE] = "if-safe",
+        [ENROLL_FORCE]   = "force"
+};
+
+static const char *secure_boot_enroll_action_table[_SECURE_BOOT_ENROLL_ACTION_MAX] = {
+        [ENROLL_ACTION_REBOOT]   = "reboot",
+        [ENROLL_ACTION_SHUTDOWN] = "shutdown"
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll, secure_boot_enroll);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll_action, secure_boot_enroll_action);

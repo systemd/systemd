@@ -1,29 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
+#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
-#include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
 #include "chase.h"
-#include "constants.h"
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
 #include "fd-util.h"
@@ -31,10 +29,12 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "image-policy.h"
 #include "initrd-util.h"
+#include "label-util.h"
 #include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "missing_magic.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -46,12 +46,14 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "selinux-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "terminal-util.h"
-#include "user-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"
 #include "verbs.h"
@@ -736,8 +738,8 @@ static int mount_overlayfs(
                 if (r < 0)
                         return r;
                 /* redirect_dir=on and noatime prevent unnecessary upcopies, metacopy=off prevents broken
-                 * files from partial upcopies after umount. */
-                if (!strextend(&options, ",redirect_dir=on,noatime,metacopy=off"))
+                 * files from partial upcopies after umount, index=off allows reuse of the upper/work dirs */
+                if (!strextend(&options, ",redirect_dir=on,noatime,metacopy=off,index=off"))
                         return log_oom();
         }
 
@@ -1684,7 +1686,9 @@ static int merge_subprocess(
                 Hashmap *images,
                 const char *workspace) {
 
-        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *filename = NULL;
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
+                        *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
+                        *filename = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
@@ -1716,6 +1720,7 @@ static int merge_subprocess(
         r = parse_os_release(
                         arg_root,
                         "ID", &host_os_release_id,
+                        "ID_LIKE", &host_os_release_id_like,
                         "VERSION_ID", &host_os_release_version_id,
                         image_class_info[image_class].level_env, &host_os_release_api_level);
         if (r < 0)
@@ -1802,6 +1807,7 @@ static int merge_subprocess(
                                         &verity_settings,
                                         /* mount_options= */ NULL,
                                         pick_image_policy(img),
+                                        /* image_filter= */ NULL,
                                         flags,
                                         &m);
                         if (r < 0)
@@ -1810,6 +1816,12 @@ static int merge_subprocess(
                         r = dissected_image_load_verity_sig_partition(
                                         m,
                                         d->fd,
+                                        &verity_settings);
+                        if (r < 0)
+                                return r;
+
+                        r = dissected_image_guess_verity_roothash(
+                                        m,
                                         &verity_settings);
                         if (r < 0)
                                 return r;
@@ -1850,6 +1862,7 @@ static int merge_subprocess(
                         r = extension_release_validate(
                                         img->name,
                                         host_os_release_id,
+                                        host_os_release_id_like,
                                         host_os_release_version_id,
                                         host_os_release_api_level,
                                         in_initrd() ? "initrd" : "system",

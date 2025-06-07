@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -12,9 +14,11 @@
 #include "path-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 static const char *arg_test_dir = NULL;
 
@@ -468,7 +472,7 @@ TEST(chaseat) {
         struct stat st;
         const char *p;
 
-        ASSERT_OK((tfd = mkdtemp_open(NULL, 0, &t)));
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
 
         /* Test that AT_FDCWD with CHASE_AT_RESOLVE_IN_ROOT resolves against / and not the current working
          * directory. */
@@ -536,7 +540,7 @@ TEST(chaseat) {
 
         /* Test CHASE_PARENT */
 
-        ASSERT_OK((fd = open_mkdir_at(tfd, "chase", O_CLOEXEC, 0755)));
+        ASSERT_OK(fd = open_mkdir_at(tfd, "chase", O_CLOEXEC, 0755));
         ASSERT_OK(symlinkat("/def", fd, "parent"));
         fd = safe_close(fd);
 
@@ -668,24 +672,24 @@ TEST(chaseat) {
 
         /* Test chase_and_open_parent_at() */
 
-        ASSERT_OK((fd = chase_and_open_parent_at(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_NOFOLLOW, &result)));
+        ASSERT_OK(fd = chase_and_open_parent_at(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_NOFOLLOW, &result));
         ASSERT_OK(faccessat(fd, result, F_OK, AT_SYMLINK_NOFOLLOW));
         ASSERT_STREQ(result, "parent");
         fd = safe_close(fd);
         result = mfree(result);
 
-        ASSERT_OK((fd = chase_and_open_parent_at(tfd, "chase", CHASE_AT_RESOLVE_IN_ROOT, &result)));
+        ASSERT_OK(fd = chase_and_open_parent_at(tfd, "chase", CHASE_AT_RESOLVE_IN_ROOT, &result));
         ASSERT_OK(faccessat(fd, result, F_OK, 0));
         ASSERT_STREQ(result, "chase");
         fd = safe_close(fd);
         result = mfree(result);
 
-        ASSERT_OK((fd = chase_and_open_parent_at(tfd, "/", CHASE_AT_RESOLVE_IN_ROOT, &result)));
+        ASSERT_OK(fd = chase_and_open_parent_at(tfd, "/", CHASE_AT_RESOLVE_IN_ROOT, &result));
         ASSERT_STREQ(result, ".");
         fd = safe_close(fd);
         result = mfree(result);
 
-        ASSERT_OK((fd = chase_and_open_parent_at(tfd, ".", CHASE_AT_RESOLVE_IN_ROOT, &result)));
+        ASSERT_OK(fd = chase_and_open_parent_at(tfd, ".", CHASE_AT_RESOLVE_IN_ROOT, &result));
         ASSERT_STREQ(result, ".");
         fd = safe_close(fd);
         result = mfree(result);

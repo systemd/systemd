@@ -4,9 +4,7 @@
 #include <valgrind/memcheck.h>
 #endif
 
-#include <errno.h>
 #include <fcntl.h>
-#include <linux/blkpg.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -23,17 +21,16 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "loop-util.h"
-#include "missing_fs.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "tmpfile-util.h"
+#include "time-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
         if (*fd < 0)
@@ -198,21 +195,6 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
                 (void) usleep_safe(UINT64_C(10) * USEC_PER_MSEC +
                               random_u64_range(UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
-
-        /* Work around a kernel bug, where changing offset/size of the loopback device doesn't correctly
-         * invalidate the buffer cache. For details see:
-         *
-         *     https://android.googlesource.com/platform/system/apex/+/bef74542fbbb4cd629793f4efee8e0053b360570
-         *
-         * This was fixed in kernel 5.0, see:
-         *
-         *     https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5db470e229e22b7eda6e23b5566e532c96fb5bc3
-         *
-         * We'll run the work-around here in the legacy LOOP_SET_STATUS64 codepath. In the LOOP_CONFIGURE
-         * codepath above it should not be necessary. */
-        if (c->info.lo_offset != 0 || c->info.lo_sizelimit != 0)
-                if (ioctl(fd, BLKFLSBUF, 0) < 0)
-                        log_debug_errno(errno, "Failed to issue BLKFLSBUF ioctl, ignoring: %m");
 
         /* If a block size is requested then try to configure it. If that doesn't work, ignore errors, but
          * afterwards, let's validate what is in effect, and if it doesn't match what we want, fail */
@@ -515,7 +497,7 @@ static int loop_device_make_internal(
                 .block_size = sector_size,
                 .info = {
                         /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
-                        .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((open_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
+                        .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((open_flags & O_ACCMODE_STRICT) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
                         .lo_offset = offset,
                         .lo_sizelimit = size == UINT64_MAX ? 0 : size,
                 },

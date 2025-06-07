@@ -1,78 +1,81 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
+#include "forward.h"
 
-#include "macro.h"
-
-typedef enum SpecialGlyph {
-        SPECIAL_GLYPH_TREE_VERTICAL,
-        SPECIAL_GLYPH_TREE_BRANCH,
-        SPECIAL_GLYPH_TREE_RIGHT,
-        SPECIAL_GLYPH_TREE_SPACE,
-        SPECIAL_GLYPH_TREE_TOP,
-        SPECIAL_GLYPH_VERTICAL_DOTTED,
-        SPECIAL_GLYPH_HORIZONTAL_DOTTED,
-        SPECIAL_GLYPH_HORIZONTAL_FAT,
-        SPECIAL_GLYPH_TRIANGULAR_BULLET,
-        SPECIAL_GLYPH_BLACK_CIRCLE,
-        SPECIAL_GLYPH_WHITE_CIRCLE,
-        SPECIAL_GLYPH_MULTIPLICATION_SIGN,
-        SPECIAL_GLYPH_CIRCLE_ARROW,
-        SPECIAL_GLYPH_BULLET,
-        SPECIAL_GLYPH_MU,
-        SPECIAL_GLYPH_CHECK_MARK,
-        SPECIAL_GLYPH_CROSS_MARK,
-        SPECIAL_GLYPH_LIGHT_SHADE,
-        SPECIAL_GLYPH_DARK_SHADE,
-        SPECIAL_GLYPH_FULL_BLOCK,
-        SPECIAL_GLYPH_SIGMA,
-        SPECIAL_GLYPH_ARROW_UP,
-        SPECIAL_GLYPH_ARROW_DOWN,
-        SPECIAL_GLYPH_ARROW_LEFT,
-        SPECIAL_GLYPH_ARROW_RIGHT,
-        SPECIAL_GLYPH_ELLIPSIS,
-        SPECIAL_GLYPH_EXTERNAL_LINK,
-        _SPECIAL_GLYPH_FIRST_EMOJI,
-        SPECIAL_GLYPH_ECSTATIC_SMILEY = _SPECIAL_GLYPH_FIRST_EMOJI,
-        SPECIAL_GLYPH_HAPPY_SMILEY,
-        SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY,
-        SPECIAL_GLYPH_NEUTRAL_SMILEY,
-        SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY,
-        SPECIAL_GLYPH_UNHAPPY_SMILEY,
-        SPECIAL_GLYPH_DEPRESSED_SMILEY,
-        SPECIAL_GLYPH_LOCK_AND_KEY,
-        SPECIAL_GLYPH_TOUCH,
-        SPECIAL_GLYPH_RECYCLING,
-        SPECIAL_GLYPH_DOWNLOAD,
-        SPECIAL_GLYPH_SPARKLES,
-        SPECIAL_GLYPH_LOW_BATTERY,
-        SPECIAL_GLYPH_WARNING_SIGN,
-        SPECIAL_GLYPH_COMPUTER_DISK,
-        SPECIAL_GLYPH_WORLD,
-        SPECIAL_GLYPH_RED_CIRCLE,
-        SPECIAL_GLYPH_YELLOW_CIRCLE,
-        SPECIAL_GLYPH_BLUE_CIRCLE,
-        SPECIAL_GLYPH_GREEN_CIRCLE,
-        SPECIAL_GLYPH_SUPERHERO,
-        SPECIAL_GLYPH_IDCARD,
-        _SPECIAL_GLYPH_MAX,
-        _SPECIAL_GLYPH_INVALID = -EINVAL,
-} SpecialGlyph;
+typedef enum Glyph {
+        GLYPH_SPACE,
+        GLYPH_TREE_VERTICAL,
+        GLYPH_TREE_BRANCH,
+        GLYPH_TREE_RIGHT,
+        GLYPH_TREE_SPACE,
+        GLYPH_TREE_TOP,
+        GLYPH_VERTICAL_DOTTED,
+        GLYPH_HORIZONTAL_DOTTED,
+        GLYPH_HORIZONTAL_FAT,
+        GLYPH_TRIANGULAR_BULLET,
+        GLYPH_BLACK_CIRCLE,
+        GLYPH_WHITE_CIRCLE,
+        GLYPH_MULTIPLICATION_SIGN,
+        GLYPH_CIRCLE_ARROW,
+        GLYPH_BULLET,
+        GLYPH_MU,
+        GLYPH_CHECK_MARK,
+        GLYPH_CROSS_MARK,
+        GLYPH_LIGHT_SHADE,
+        GLYPH_DARK_SHADE,
+        GLYPH_FULL_BLOCK,
+        GLYPH_SIGMA,
+        GLYPH_ARROW_UP,
+        GLYPH_ARROW_DOWN,
+        GLYPH_ARROW_LEFT,
+        GLYPH_ARROW_RIGHT,
+        GLYPH_ELLIPSIS,
+        GLYPH_EXTERNAL_LINK,
+        _GLYPH_FIRST_EMOJI,
+        GLYPH_ECSTATIC_SMILEY = _GLYPH_FIRST_EMOJI,
+        GLYPH_HAPPY_SMILEY,
+        GLYPH_SLIGHTLY_HAPPY_SMILEY,
+        GLYPH_NEUTRAL_SMILEY,
+        GLYPH_SLIGHTLY_UNHAPPY_SMILEY,
+        GLYPH_UNHAPPY_SMILEY,
+        GLYPH_DEPRESSED_SMILEY,
+        GLYPH_LOCK_AND_KEY,
+        GLYPH_TOUCH,
+        GLYPH_RECYCLING,
+        GLYPH_DOWNLOAD,
+        GLYPH_SPARKLES,
+        GLYPH_LOW_BATTERY,
+        GLYPH_WARNING_SIGN,
+        GLYPH_COMPUTER_DISK,
+        GLYPH_WORLD,
+        GLYPH_RED_CIRCLE,
+        GLYPH_YELLOW_CIRCLE,
+        GLYPH_BLUE_CIRCLE,
+        GLYPH_GREEN_CIRCLE,
+        GLYPH_SUPERHERO,
+        GLYPH_IDCARD,
+        GLYPH_HOME,
+        _GLYPH_MAX,
+        _GLYPH_INVALID = -EINVAL,
+} Glyph;
 
 bool emoji_enabled(void);
 
-const char* special_glyph_full(SpecialGlyph code, bool force_utf) _const_;
+const char* glyph_full(Glyph code, bool force_utf) _const_;
 
-static inline const char* special_glyph(SpecialGlyph code) {
-        return special_glyph_full(code, false);
+static inline const char* glyph(Glyph code) {
+        return glyph_full(code, false);
 }
 
-static inline const char* special_glyph_check_mark(bool b) {
-        return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : special_glyph(SPECIAL_GLYPH_CROSS_MARK);
+static inline const char* optional_glyph(Glyph code) {
+        return emoji_enabled() ? glyph(code) : "";
 }
 
-static inline const char* special_glyph_check_mark_space(bool b) {
-        return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : " ";
+static inline const char* glyph_check_mark(bool b) {
+        return b ? glyph(GLYPH_CHECK_MARK) : glyph(GLYPH_CROSS_MARK);
+}
+
+static inline const char* glyph_check_mark_space(bool b) {
+        return b ? glyph(GLYPH_CHECK_MARK) : " ";
 }

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "macro.h"
+#include "forward.h"
 
 #if HAVE_VMLINUX_H
 #include "bpf/userns_restrict/userns-restrict-skel.h"

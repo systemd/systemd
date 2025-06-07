@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "format-table.h"
 #include "json-util.h"
-#include "string-util.h"
-#include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
 #include "time-util.h"
@@ -15,7 +14,7 @@ TEST(issue_9549) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(table = table_new("name", "type", "ro", "usage", "created", "modified"));
+        ASSERT_NOT_NULL((table = table_new("name", "type", "ro", "usage", "created", "modified")));
         ASSERT_OK(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100));
         ASSERT_OK(table_add_many(table,
                                  TABLE_STRING, "foooo",
@@ -38,7 +37,7 @@ TEST(multiline) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(table = table_new("foo", "bar"));
+        ASSERT_NOT_NULL((table = table_new("foo", "bar")));
 
         ASSERT_OK(table_set_align_percent(table, TABLE_HEADER_CELL(1), 100));
 
@@ -150,7 +149,7 @@ TEST(strv) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(table = table_new("foo", "bar"));
+        ASSERT_NOT_NULL((table = table_new("foo", "bar")));
 
         ASSERT_OK(table_set_align_percent(table, TABLE_HEADER_CELL(1), 100));
 
@@ -262,7 +261,7 @@ TEST(strv_wrapped) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(table = table_new("foo", "bar"));
+        ASSERT_NOT_NULL((table = table_new("foo", "bar")));
 
         ASSERT_OK(table_set_align_percent(table, TABLE_HEADER_CELL(1), 100));
 
@@ -364,7 +363,7 @@ TEST(json) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
 
-        ASSERT_NOT_NULL(t = table_new_raw(4));
+        ASSERT_NOT_NULL((t = table_new_raw(4)));
 
         ASSERT_OK(table_add_many(t,
                                  TABLE_HEADER, "foo bar",
@@ -432,7 +431,7 @@ TEST(json_mangling) {
 
         FOREACH_ELEMENT(i, cases) {
                 _cleanup_free_ char *ret = NULL;
-                ASSERT_NOT_NULL(ret = table_mangle_to_json_field_name(i->arg));
+                ASSERT_NOT_NULL((ret = table_mangle_to_json_field_name(i->arg)));
                 printf("\"%s\" -> \"%s\"\n", i->arg, ret);
                 ASSERT_STREQ(ret, i->exp);
         }
@@ -442,7 +441,7 @@ TEST(table) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(t = table_new("one", "two", "three", "four"));
+        ASSERT_NOT_NULL((t = table_new("one", "two", "three", "four")));
 
         ASSERT_OK(table_set_align_percent(t, TABLE_HEADER_CELL(3), 100));
 
@@ -584,7 +583,7 @@ TEST(signed_integers) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(t = table_new("int", "int8", "int16", "int32", "int64"));
+        ASSERT_NOT_NULL((t = table_new("int", "int8", "int16", "int32", "int64")));
         table_set_width(t, 0);
 
         ASSERT_OK(table_add_many(t,
@@ -649,7 +648,7 @@ TEST(unsigned_integers) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(t = table_new("uint", "uint8", "uint16", "uint32", "uhex32", "uint64", "uhex64"));
+        ASSERT_NOT_NULL((t = table_new("uint", "uint8", "uint16", "uint32", "uhex32", "uint64", "uhex64")));
         table_set_width(t, 0);
 
         ASSERT_OK(table_add_many(t,
@@ -709,7 +708,7 @@ TEST(vertical) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(t = table_new_vertical());
+        ASSERT_NOT_NULL((t = table_new_vertical()));
 
         ASSERT_OK(table_add_many(t,
                                  TABLE_FIELD, "pfft aa", TABLE_STRING, "foo",
@@ -745,7 +744,7 @@ TEST(path_basename) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(t = table_new("x"));
+        ASSERT_NOT_NULL((t = table_new("x")));
 
         table_set_header(t, false);
 
@@ -763,7 +762,7 @@ TEST(dup_cell) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(t = table_new("foo", "bar", "x", "baz", ".", "%", "!", "~", "+"));
+        ASSERT_NOT_NULL((t = table_new("foo", "bar", "x", "baz", ".", "%", "!", "~", "+")));
         table_set_width(t, 75);
 
         ASSERT_OK(table_add_many(t,
@@ -806,7 +805,7 @@ TEST(table_bps) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
-        ASSERT_NOT_NULL(table = table_new("uint64", "size", "bps"));
+        ASSERT_NOT_NULL((table = table_new("uint64", "size", "bps")));
         uint64_t v;
         FOREACH_ARGUMENT(v,
                          2500,

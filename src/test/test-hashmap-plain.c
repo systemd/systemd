@@ -5,7 +5,6 @@
 #include "log.h"
 #include "nulstr-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
@@ -76,14 +75,14 @@ TEST(hashmap_ensure_replace) {
 TEST(hashmap_copy) {
         _cleanup_hashmap_free_ Hashmap *m = NULL, *copy = NULL;
 
-        ASSERT_NOT_NULL(m = hashmap_new(&string_hash_ops));
+        ASSERT_NOT_NULL((m = hashmap_new(&string_hash_ops)));
 
         ASSERT_OK_POSITIVE(hashmap_put(m, "key 1", (void*) "val1"));
         ASSERT_OK_POSITIVE(hashmap_put(m, "key 2", (void*) "val2"));
         ASSERT_OK_POSITIVE(hashmap_put(m, "key 3", (void*) "val3"));
         ASSERT_OK_POSITIVE(hashmap_put(m, "key 4", (void*) "val4"));
 
-        ASSERT_NOT_NULL(copy = hashmap_copy(m));
+        ASSERT_NOT_NULL((copy = hashmap_copy(m)));
 
         ASSERT_STREQ(hashmap_get(copy, "key 1"), "val1");
         ASSERT_STREQ(hashmap_get(copy, "key 2"), "val2");
@@ -419,17 +418,10 @@ TEST(hashmap_remove_and_replace) {
 
 TEST(hashmap_ensure_allocated) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-        int r;
 
-        r = hashmap_ensure_allocated(&m, &string_hash_ops);
-        assert_se(r == 1);
-
-        r = hashmap_ensure_allocated(&m, &string_hash_ops);
-        assert_se(r == 0);
-
-        /* different hash ops shouldn't matter at this point */
-        r = hashmap_ensure_allocated(&m, &trivial_hash_ops);
-        assert_se(r == 0);
+        ASSERT_OK_POSITIVE(hashmap_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_OK_ZERO(hashmap_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_SIGNAL(hashmap_ensure_allocated(&m, &trivial_hash_ops), SIGABRT);
 }
 
 TEST(hashmap_foreach_key) {
@@ -764,29 +756,6 @@ TEST(hashmap_free) {
         }
 }
 
-typedef struct Item {
-        int seen;
-} Item;
-static void item_seen(Item *item) {
-        item->seen++;
-}
-
-TEST(hashmap_free_with_destructor) {
-        Hashmap *m;
-        struct Item items[4] = {};
-        unsigned i;
-
-        assert_se(m = hashmap_new(NULL));
-        for (i = 0; i < ELEMENTSOF(items) - 1; i++)
-                assert_se(hashmap_put(m, INT_TO_PTR(i), items + i) == 1);
-
-        m = hashmap_free_with_destructor(m, item_seen);
-        assert_se(items[0].seen == 1);
-        assert_se(items[1].seen == 1);
-        assert_se(items[2].seen == 1);
-        assert_se(items[3].seen == 0);
-}
-
 TEST(hashmap_first) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 
@@ -975,14 +944,14 @@ TEST(string_strv_hashmap) {
         assert_se(strv_equal(s, STRV_MAKE("bar", "BAR")));
 
         string_strv_hashmap_remove(m, "foo", "bar");
-        ASSERT_NOT_NULL(s = hashmap_get(m, "foo"));
+        ASSERT_NOT_NULL((s = hashmap_get(m, "foo")));
         ASSERT_TRUE(strv_equal(s, STRV_MAKE("BAR")));
 
         string_strv_hashmap_remove(m, "foo", "BAR");
         ASSERT_NULL(hashmap_get(m, "foo"));
 
         string_strv_hashmap_remove(m, "xxx", "BAR");
-        ASSERT_NOT_NULL(s = hashmap_get(m, "xxx"));
+        ASSERT_NOT_NULL((s = hashmap_get(m, "xxx")));
         ASSERT_TRUE(strv_equal(s, STRV_MAKE("bar")));
 
         string_strv_hashmap_remove(m, "xxx", "bar");

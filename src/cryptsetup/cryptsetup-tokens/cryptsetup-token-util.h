@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
 #include <libcryptsetup.h>
+
+#include "forward.h"
 
 /* crypt_dump() internal indentation magic */
 #define CRYPT_DUMP_LINE_SEP "\n\t            "
@@ -15,7 +15,7 @@
 #define crypt_log(cd, ...)         crypt_logf(cd, CRYPT_LOG_NORMAL,  __VA_ARGS__)
 
 #define crypt_log_full_errno(cd, e, lvl, ...) ({ \
-        int _e = abs(e), _s = errno; \
+        int _e = ABS(e), _s = errno; \
         errno = _e; \
         crypt_logf(cd, lvl, __VA_ARGS__); \
         errno = _s; \
@@ -34,7 +34,5 @@ int crypt_dump_buffer_to_hex_string(
                 const char *buf,
                 size_t buf_size,
                 char **ret_dump_str);
-
-int crypt_dump_hex_string(const char *hex_str, char **ret_dump_str);
 
 int crypt_normalize_pin(const void *pin, size_t pin_size, char **ret_pin_string);

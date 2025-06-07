@@ -150,9 +150,6 @@ All tools:
 
 `systemd-nspawn`:
 
-* `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force `systemd-nspawn` into
-  unified cgroup hierarchy mode.
-
 * `$SYSTEMD_NSPAWN_API_VFS_WRITABLE=1` — if set, make `/sys/`, `/proc/sys/`,
   and friends writable in the container. If set to "network", leave only
   `/proc/sys/net/` writable.
@@ -529,6 +526,14 @@ disk images with `--image=` or similar:
   images. Defaults to true, i.e. userspace signature validation is allowed. If
   false, authentication can be done only via the kernel's internal keyring.
 
+* `$SYSTEMD_DISSECT_VERITY_GUESS` – takes a boolean. Controls whether to guess
+  the Verity root hash from the partition UUIDs of a suitable pair of data
+  partition and matching Verity partition: the UUIDs two are simply joined and
+  used as root hash, in accordance with the recommendations in [Discoverable
+  Partitions
+  Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification). Defaults
+  to true.
+
 `systemd-cryptsetup`:
 
 * `$SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE` – takes a boolean, which controls
@@ -614,6 +619,11 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   firstboot --prompt-new-user` interactively ask for user creation, even if
   there already exists at least one regular user on the system. If set to "0"
   will make the tool skip any such query.
+
+* `$SYSTEMD_HOME_DRY_RUN` – if set to "1" will make `homectl create` and
+  `homectl update` operate in a "dry-run" mode: the new user record is
+  assembled, and displayed in JSON format, but not actually passed to
+  `systemd-homed` for execution of the operation.
 
 `kernel-install`:
 

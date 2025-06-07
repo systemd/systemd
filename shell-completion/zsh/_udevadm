@@ -67,6 +67,7 @@ _udevadm_control(){
         '(-p --property)'{-p,--property=}'[Set a global property for all events.]:KEY=VALUE' \
         '(-m --children-max=)'{-m,--children-max=}'[Set the maximum number of events.]:N' \
         '--trace=[Enable/disable trace logging.]:BOOL' \
+        '--revert[Revert previously set configurations.]' \
         '(-t --timeout=)'{-t,--timeout=}'[The maximum number of seconds to wait for a reply from systemd-udevd.]:SECONDS'
 }
 
@@ -103,7 +104,7 @@ _udevadm_test-builtin(){
         '(- *)'{-h,--help}'[Print help]' \
         '(- *)'{-V,--version}'[Print version of the program]' \
         '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
-        '*::builtins:(blkid btrfs hwdb input_id net_driver net_id net_setup_link kmod path_id uaccess usb_id)'
+        '*::builtins:(blkid btrfs dissect_image factory_reset hwdb input_id keyboard kmod net_driver net_id net_setup_link path_id uaccess usb_id)'
     elif  (( CURRENT == 3 )); then
         _arguments \
             '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \

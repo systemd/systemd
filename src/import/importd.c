@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/prctl.h>
-#include <sys/wait.h>
+#include <stdlib.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -11,7 +11,9 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "common-signal.h"
 #include "constants.h"
 #include "daemon-util.h"
@@ -20,33 +22,31 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "float.h"
-#include "hostname-util.h"
+#include "hashmap.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "json-util.h"
 #include "machine-pool.h"
 #include "main-func.h"
-#include "mkdir-label.h"
 #include "notify-recv.h"
 #include "os-util.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "service-util.h"
+#include "set.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "syslog-util.h"
-#include "user-util.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 #include "web-util.h"
 
-typedef struct Transfer Transfer;
 typedef struct Manager Manager;
 
 typedef enum TransferType {
@@ -61,7 +61,7 @@ typedef enum TransferType {
         _TRANSFER_TYPE_INVALID = -EINVAL,
 } TransferType;
 
-struct Transfer {
+typedef struct Transfer {
         Manager *manager;
 
         uint32_t id;
@@ -95,9 +95,9 @@ struct Transfer {
         int stdout_fd;
 
         Set *varlink_subscribed;
-};
+} Transfer;
 
-struct Manager {
+typedef struct Manager {
         sd_event *event;
         sd_bus *bus;
         sd_varlink_server *varlink_server;
@@ -107,15 +107,13 @@ struct Manager {
 
         Hashmap *polkit_registry;
 
-        int notify_fd;
-
-        sd_event_source *notify_event_source;
+        char *notify_socket_path;
 
         bool use_btrfs_subvol;
         bool use_btrfs_quota;
 
         RuntimeScope runtime_scope; /* for now: always RUNTIME_SCOPE_SYSTEM */
-};
+} Manager;
 
 #define TRANSFERS_MAX 64
 
@@ -467,7 +465,7 @@ static int transfer_start(Transfer *t) {
                 /* Child */
 
                 if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 ||
-                    setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {
+                    setenv("NOTIFY_SOCKET", t->manager->notify_socket_path, 1) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -624,8 +622,7 @@ static Manager *manager_unref(Manager *m) {
         if (!m)
                 return NULL;
 
-        sd_event_source_unref(m->notify_event_source);
-        safe_close(m->notify_fd);
+        free(m->notify_socket_path);
 
         while ((t = hashmap_first(m->transfers)))
                 transfer_unref(t);
@@ -687,10 +684,6 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/import/notify",
-        };
         int r;
 
         assert(ret);
@@ -725,26 +718,13 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable watchdog logic, ignoring: %m");
 
-        m->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->notify_fd < 0)
-                return -errno;
-
-        (void) mkdir_parents_label(sa.un.sun_path, 0755);
-        (void) sockaddr_un_unlink(&sa.un);
-
-        if (bind(m->notify_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return -errno;
-
-        r = setsockopt_int(m->notify_fd, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return r;
-
-        r = setsockopt_int(m->notify_fd, SOL_SOCKET, SO_PASSPIDFD, true);
-        if (r < 0)
-                log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring. %m");
-
-        r = sd_event_add_io(m->event, &m->notify_event_source,
-                            m->notify_fd, EPOLLIN, manager_on_notify, m);
+        r = notify_socket_prepare(
+                        m->event,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        manager_on_notify,
+                        m,
+                        &m->notify_socket_path,
+                        /* ret_event_source= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2065,7 +2045,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = sd_notify(false, NOTIFY_READY);
+        r = sd_notify(false, NOTIFY_READY_MESSAGE);
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 

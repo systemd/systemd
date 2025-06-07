@@ -1,41 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <linux/kd.h>
 #include <linux/tiocl.h>
 #include <linux/vt.h>
 #include <poll.h>
 #include <signal.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <stdlib.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <sys/sysmacros.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/utsname.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "chase.h"
-#include "constants.h"
 #include "devnum-util.h"
-#include "env-util.h"
-#include "errno-list.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "inotify-util.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "missing_magic.h"
 #include "namespace-util.h"
 #include "parse-util.h"
@@ -46,20 +37,25 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
-#include "user-util.h"
+#include "utf8.h"
+
+#define ANSI_RESET_CURSOR                          \
+        "\033?25h"     /* turn on cursor */        \
+        "\033?12l"     /* reset cursor blinking */ \
+        "\033 1q"      /* reset cursor style */
+
+/* How much to wait for a reply to a terminal sequence */
+#define CONSOLE_REPLY_WAIT_USEC  (333 * USEC_PER_MSEC)
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
 static volatile int cached_on_tty = -1;
 static volatile int cached_on_dev_null = -1;
-static volatile int cached_color_mode = _COLOR_MODE_INVALID;
-static volatile int cached_underline_enabled = -1;
 
 bool isatty_safe(int fd) {
         assert(fd >= 0);
@@ -739,7 +735,7 @@ int acquire_terminal(
                                                 .fd = notify,
                                                 .events = POLLIN,
                                         },
-                                        /* n_pollfds = */ 1,
+                                        /* n_fds = */ 1,
                                         left,
                                         &poll_ss);
                         if (r < 0)
@@ -812,6 +808,11 @@ int terminal_new_session(void) {
         return RET_NERRNO(ioctl(STDIN_FILENO, TIOCSCTTY, 0));
 }
 
+void terminal_detach_session(void) {
+        (void) setsid();
+        (void) release_terminal();
+}
+
 int terminal_vhangup_fd(int fd) {
         assert(fd >= 0);
         return RET_NERRNO(ioctl(fd, TIOCVHANGUP));
@@ -856,6 +857,7 @@ int vt_disallocate(const char *tty_path) {
                 return fd2;
 
         return loop_write_full(fd2,
+                               ANSI_RESET_CURSOR
                                "\033[r"   /* clear scrolling region */
                                "\033[H"   /* move home */
                                "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
@@ -972,9 +974,12 @@ static int terminal_reset_ansi_seq(int fd) {
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
 
         k = loop_write_full(fd,
+                            ANSI_RESET_CURSOR
                             "\033[!p"      /* soft terminal reset */
                             "\033]104\007" /* reset colors */
-                            "\033[?7h",    /* enable line-wrapping */
+                            "\033[?7h"     /* enable line-wrapping */
+                            "\033[1G"      /* place cursor at beginning of current line */
+                            "\033[0J",     /* erase till end of screen */
                             SIZE_MAX,
                             100 * USEC_PER_MSEC);
         if (k < 0)
@@ -1094,7 +1099,7 @@ bool tty_is_vc(const char *tty) {
 
         /* NB: for >= 0 values no range check is conducted here, on the assumption that the caller will
          * either extract vtnr through vtnr_from_tty() later where ERANGE would be reported, or doesn't care
-         * about whether it's strictly valid, but only asking "does this fall into the vt catogory?", for which
+         * about whether it's strictly valid, but only asking "does this fall into the vt category?", for which
          * "yes" seems to be a better answer. */
 
         return vtnr_from_tty_raw(tty, /* ret = */ NULL) >= 0;
@@ -1117,7 +1122,7 @@ int resolve_dev_console(char **ret) {
          * is a sign for container setups). */
 
         _cleanup_free_ char *chased = NULL;
-        r = chase("/dev/console", /* root= */ NULL, /* chase_flags= */ 0,  &chased, /* ret_fd= */ NULL);
+        r = chase("/dev/console", /* root= */ NULL, /* flags= */ 0,  &chased, /* ret_fd= */ NULL);
         if (r < 0)
                 return r;
         if (!path_equal(chased, "/dev/console")) {
@@ -1154,10 +1159,12 @@ int resolve_dev_console(char **ret) {
                 tty = active;
         }
 
-        if (tty != active)
-                return strdup_to(ret, tty);
+        _cleanup_free_ char *path = NULL;
+        path = path_join("/dev", tty);
+        if (!path)
+                return -ENOMEM;
 
-        *ret = TAKE_PTR(active);
+        *ret = TAKE_PTR(path);
         return 0;
 }
 
@@ -1229,9 +1236,7 @@ bool tty_is_vc_resolve(const char *tty) {
 
         assert(tty);
 
-        tty = skip_dev_prefix(tty);
-
-        if (streq(tty, "console")) {
+        if (streq(skip_dev_prefix(tty), "console")) {
                 if (resolve_dev_console(&resolved) < 0)
                         return false;
 
@@ -1239,10 +1244,6 @@ bool tty_is_vc_resolve(const char *tty) {
         }
 
         return tty_is_vc(tty);
-}
-
-const char* default_term_for_tty(const char *tty) {
-        return tty && tty_is_vc_resolve(tty) ? "linux" : "vt220";
 }
 
 int fd_columns(int fd) {
@@ -1429,10 +1430,10 @@ void reset_terminal_feature_caches(void) {
         cached_columns = 0;
         cached_lines = 0;
 
-        cached_color_mode = _COLOR_MODE_INVALID;
-        cached_underline_enabled = -1;
         cached_on_tty = -1;
         cached_on_dev_null = -1;
+
+        reset_ansi_feature_caches();
 }
 
 bool on_tty(void) {
@@ -1749,72 +1750,6 @@ bool terminal_is_dumb(void) {
         return getenv_terminal_is_dumb();
 }
 
-static const char* const color_mode_table[_COLOR_MODE_MAX] = {
-        [COLOR_OFF]   = "off",
-        [COLOR_16]    = "16",
-        [COLOR_256]   = "256",
-        [COLOR_24BIT] = "24bit",
-};
-
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_24BIT);
-
-static ColorMode parse_systemd_colors(void) {
-        const char *e;
-
-        e = getenv("SYSTEMD_COLORS");
-        if (!e)
-                return _COLOR_MODE_INVALID;
-
-        ColorMode m = color_mode_from_string(e);
-        if (m < 0)
-                return log_debug_errno(m, "Failed to parse $SYSTEMD_COLORS value '%s', ignoring: %m", e);
-
-        return m;
-}
-
-static ColorMode get_color_mode_impl(void) {
-        /* Returns the mode used to choose output colors. The possible modes are COLOR_OFF for no colors,
-         * COLOR_16 for only the base 16 ANSI colors, COLOR_256 for more colors, and COLOR_24BIT for
-         * unrestricted color output. */
-
-        /* First, we check $SYSTEMD_COLORS, which is the explicit way to change the mode. */
-        ColorMode m = parse_systemd_colors();
-        if (m >= 0)
-                return m;
-
-        /* Next, check for the presence of $NO_COLOR; value is ignored. */
-        if (getenv("NO_COLOR"))
-                return COLOR_OFF;
-
-        /* If the above didn't work, we turn colors off unless we are on a TTY. And if we are on a TTY we
-         * turn it off if $TERM is set to "dumb". There's one special tweak though: if we are PID 1 then we
-         * do not check whether we are connected to a TTY, because we don't keep /dev/console open
-         * continuously due to fear of SAK, and hence things are a bit weird. */
-        if (getpid_cached() == 1 ? getenv_terminal_is_dumb() : terminal_is_dumb())
-                return COLOR_OFF;
-
-        /* We failed to figure out any reason to *disable* colors. Let's see how many colors we shall use. */
-        if (STRPTR_IN_SET(getenv("COLORTERM"),
-                          "truecolor",
-                          "24bit"))
-                return COLOR_24BIT;
-
-        /* Note that the Linux console can only display 16 colors. We still enable 256 color mode
-         * even for PID1 output though (which typically goes to the Linux console), since the Linux
-         * console is able to parse the 256 color sequences and automatically map them to the closest
-         * color in the 16 color palette (since kernel 3.16). Doing 256 colors is nice for people who
-         * invoke systemd in a container or via a serial link or such, and use a true 256 color
-         * terminal to do so. */
-        return COLOR_256;
-}
-
-ColorMode get_color_mode(void) {
-        if (cached_color_mode < 0)
-                cached_color_mode = get_color_mode_impl();
-
-        return cached_color_mode;
-}
-
 bool dev_console_colors_enabled(void) {
         _cleanup_free_ char *s = NULL;
         ColorMode m;
@@ -1837,21 +1772,6 @@ bool dev_console_colors_enabled(void) {
                 (void) proc_cmdline_get_key("TERM", 0, &s);
 
         return !streq_ptr(s, "dumb");
-}
-
-bool underline_enabled(void) {
-
-        if (cached_underline_enabled < 0) {
-
-                /* The Linux console doesn't support underlining, turn it off, but only there. */
-
-                if (colors_enabled())
-                        cached_underline_enabled = !streq_ptr(getenv("TERM"), "linux");
-                else
-                        cached_underline_enabled = false;
-        }
-
-        return cached_underline_enabled;
 }
 
 int vt_restore(int fd) {
@@ -2049,7 +1969,8 @@ static int scan_background_color_response(
                 size_t *ret_processed) {
 
         assert(context);
-        assert(buf || size == 0);
+        assert(buf);
+        assert(ret_processed);
 
         for (size_t i = 0; i < size; i++) {
                 char c = buf[i];
@@ -2123,9 +2044,7 @@ static int scan_background_color_response(
                 case BACKGROUND_BLUE:
                         if (c == '\x07') {
                                 if (context->blue_bits > 0) {
-                                        if (ret_processed)
-                                                *ret_processed = i + 1;
-
+                                        *ret_processed = i + 1;
                                         return 1; /* success! */
                                 }
 
@@ -2145,9 +2064,7 @@ static int scan_background_color_response(
 
                 case BACKGROUND_STRING_TERMINATOR:
                         if (c == '\\') {
-                                if (ret_processed)
-                                        *ret_processed = i + 1;
-
+                                *ret_processed = i + 1;
                                 return 1; /* success! */
                         }
 
@@ -2164,9 +2081,7 @@ static int scan_background_color_response(
                 }
         }
 
-        if (ret_processed)
-                *ret_processed = size;
-
+        *ret_processed = size;
         return 0; /* all good, but not enough data yet */
 }
 
@@ -2208,11 +2123,11 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
          * else process the POLLIN. */
 
-        nonblock_input_fd = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (nonblock_input_fd < 0)
-                return nonblock_input_fd;
+        nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                goto finish;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
         char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
         size_t buf_full = 0;
         BackgroundColorContext context = {};
@@ -2293,7 +2208,8 @@ static int scan_cursor_position_response(
                 size_t *ret_processed) {
 
         assert(context);
-        assert(buf || size == 0);
+        assert(buf);
+        assert(ret_processed);
 
         for (size_t i = 0; i < size; i++) {
                 char c = buf[i];
@@ -2326,9 +2242,7 @@ static int scan_cursor_position_response(
                 case CURSOR_COLUMN:
                         if (c == 'R') {
                                 if (context->column > 0) {
-                                        if (ret_processed)
-                                                *ret_processed = i + 1;
-
+                                        *ret_processed = i + 1;
                                         return 1; /* success! */
                                 }
 
@@ -2336,7 +2250,7 @@ static int scan_cursor_position_response(
                         } else {
                                 int d = undecchar(c);
 
-                                /* As above, add the decimal charatcer to our column number */
+                                /* As above, add the decimal character to our column number */
                                 if (d < 0 || context->column > (UINT_MAX-d)/10)
                                         context->state = CURSOR_TEXT;
                                 else
@@ -2351,9 +2265,7 @@ static int scan_cursor_position_response(
                         context->row = context->column = 0;
         }
 
-        if (ret_processed)
-                *ret_processed = size;
-
+        *ret_processed = size;
         return 0; /* all good, but not enough data yet */
 }
 
@@ -2364,11 +2276,10 @@ int terminal_get_size_by_dsr(
                 unsigned *ret_columns) {
 
         _cleanup_close_ int nonblock_input_fd = -EBADF;
+        int r;
 
         assert(input_fd >= 0);
         assert(output_fd >= 0);
-
-        int r;
 
         /* Tries to determine the terminal dimension by means of ANSI sequences rather than TIOCGWINSZ
          * ioctl(). Why bother with this? The ioctl() information is often incorrect on serial terminals
@@ -2415,11 +2326,11 @@ int terminal_get_size_by_dsr(
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
          * else process the POLLIN. */
 
-        nonblock_input_fd = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (nonblock_input_fd < 0)
-                return nonblock_input_fd;
+        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                goto finish;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
         char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
         size_t buf_full = 0;
         CursorPositionContext context = {};
@@ -2546,6 +2457,178 @@ int terminal_fix_size(int input_fd, int output_fd) {
 
         log_debug("Fixed terminal dimensions to %ux%u based on ANSI sequence information.", columns, rows);
         return 1;
+}
+
+#define MAX_TERMINFO_LENGTH 64
+/* python -c 'print("".join(hex(ord(i))[2:] for i in "name").upper())' */
+#define DCS_TERMINFO_Q ANSI_DCS "+q" "6E616D65" ANSI_ST
+/* The answer is either 0+r… (invalid) or 1+r… (OK). */
+#define DCS_TERMINFO_R0 ANSI_DCS "0+r" ANSI_ST
+#define DCS_TERMINFO_R1 ANSI_DCS "1+r" "6E616D65" "=" /* This is followed by Pt ST. */
+assert_cc(STRLEN(DCS_TERMINFO_R0) <= STRLEN(DCS_TERMINFO_R1 ANSI_ST));
+
+static int scan_terminfo_response(
+                const char *buf,
+                size_t size,
+                char **ret_name) {
+        int r;
+
+        assert(buf);
+        assert(ret_name);
+
+        /* Check if we have enough space for the shortest possible answer. */
+        if (size < STRLEN(DCS_TERMINFO_R0))
+                return -EAGAIN;
+
+        /* Check if the terminating sequence is present */
+        if (memcmp(buf + size - STRLEN(ANSI_ST), ANSI_ST, STRLEN(ANSI_ST)) != 0)
+                return -EAGAIN;
+
+        if (size <= STRLEN(DCS_TERMINFO_R1 ANSI_ST))
+                return -EINVAL;  /* The answer is invalid or empty */
+
+        if (memcmp(buf, DCS_TERMINFO_R1, STRLEN(DCS_TERMINFO_R1)) != 0)
+                return -EINVAL;  /* The answer is not valid */
+
+        _cleanup_free_ void *dec = NULL;
+        size_t dec_size;
+        r = unhexmem_full(buf + STRLEN(DCS_TERMINFO_R1), size - STRLEN(DCS_TERMINFO_R1 ANSI_ST),
+                          /* secure= */ false,
+                          &dec, &dec_size);
+        if (r < 0)
+                return r;
+
+        assert(((const char *) dec)[dec_size] == '\0'); /* unhexmem appends NUL for our convenience */
+        if (memchr(dec, '\0', dec_size) || string_has_cc(dec, NULL) || !filename_is_valid(dec))
+                return -EUCLEAN;
+
+        *ret_name = TAKE_PTR(dec);
+        return 0;
+}
+
+int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
+        int r;
+
+        assert(fd >= 0);
+        assert(ret_name);
+
+        /* Note: fd must be in non-blocking read-write mode! */
+
+        struct termios old_termios;
+        if (tcgetattr(fd, &old_termios) < 0)
+                return -errno;
+
+        struct termios new_termios = old_termios;
+        termios_disable_echo(&new_termios);
+
+        if (tcsetattr(fd, TCSADRAIN, &new_termios) < 0)
+                return -errno;
+
+        r = loop_write(fd, DCS_TERMINFO_Q, SIZE_MAX);
+        if (r < 0)
+                goto finish;
+
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        char buf[STRLEN(DCS_TERMINFO_R1) + MAX_TERMINFO_LENGTH + STRLEN(ANSI_ST)];
+        size_t bytes = 0;
+
+        for (;;) {
+                usec_t n = now(CLOCK_MONOTONIC);
+                if (n >= end) {
+                        r = -EOPNOTSUPP;
+                        break;
+                }
+
+                r = fd_wait_for_event(fd, POLLIN, usec_sub_unsigned(end, n));
+                if (r < 0)
+                        break;
+                if (r == 0) {
+                        r = -EOPNOTSUPP;
+                        break;
+                }
+
+                /* On the first read, read multiple characters, i.e. the shortest valid reply. Afterwards
+                 * read byte by byte, since we don't want to read too much and drop characters from the input
+                 * queue. */
+                ssize_t l = read(fd, buf + bytes, bytes == 0 ? STRLEN(DCS_TERMINFO_R0) : 1);
+                if (l < 0) {
+                        if (errno == EAGAIN)
+                                continue;
+                        r = -errno;
+                        break;
+                }
+
+                assert((size_t) l <= sizeof(buf) - bytes);
+                bytes += l;
+
+                r = scan_terminfo_response(buf, bytes, ret_name);
+                if (r != -EAGAIN)
+                        break;
+
+                if (bytes == sizeof(buf)) {
+                        r = -EOPNOTSUPP; /* The response has the right prefix, but we didn't find a valid
+                                          * answer with a terminator in the allotted space. Something is
+                                          * wrong, possibly some unrelated bytes got injected into the
+                                          * answer. */
+                        break;
+                }
+        }
+
+finish:
+        /* We ignore failure here. We already got a reply and if cleanup fails, we can't help that. */
+        (void) tcsetattr(fd, TCSADRAIN, &old_termios);
+        return r;
+}
+
+int have_terminfo_file(const char *name) {
+        /* This is a heuristic check if we have the file, using the directory layout used on
+         * current Linux systems. Checks for other layouts can be added later if appropriate. */
+        int r;
+
+        assert(filename_is_valid(name));
+
+        _cleanup_free_ char *p = path_join("/usr/share/terminfo", CHAR_TO_STR(name[0]), name);
+        if (!p)
+                return log_oom_debug();
+
+        r = RET_NERRNO(access(p, F_OK));
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+        return true;
+}
+
+int query_term_for_tty(const char *tty, char **ret_term) {
+        _cleanup_free_ char *dcs_term = NULL;
+        int r;
+
+        assert(tty);
+        assert(ret_term);
+
+        if (tty_is_vc_resolve(tty))
+                return strdup_to(ret_term, "linux");
+
+        /* Try to query the terminal implementation that we're on. This will not work in all
+         * cases, which is fine, since this is intended to be used as a fallback. */
+
+        _cleanup_close_ int tty_fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (tty_fd < 0)
+                return log_debug_errno(tty_fd, "Failed to open %s to query terminfo: %m", tty);
+
+        r = terminal_get_terminfo_by_dcs(tty_fd, &dcs_term);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query %s for terminfo: %m", tty);
+
+        r = have_terminfo_file(dcs_term);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to look for terminfo %s: %m", dcs_term);
+        if (r == 0)
+                return log_info_errno(SYNTHETIC_ERRNO(ENODATA),
+                                      "Terminfo %s not found for %s.", dcs_term, tty);
+
+        *ret_term = TAKE_PTR(dcs_term);
+        return 0;
 }
 
 int terminal_is_pty_fd(int fd) {

@@ -3,16 +3,14 @@
   Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
-#include <errno.h>
 #include <netinet/if_ether.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "sd-ipv4acd.h"
 
 #include "alloc-util.h"
 #include "arp-util.h"
+#include "errno-util.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -20,22 +18,30 @@
 #include "memory-util.h"
 #include "network-common.h"
 #include "random-util.h"
-#include "siphash24.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 
-/* Constants from the RFC */
-#define PROBE_WAIT_USEC (1U * USEC_PER_SEC)
-#define PROBE_NUM 3U
-#define PROBE_MIN_USEC (1U * USEC_PER_SEC)
-#define PROBE_MAX_USEC (2U * USEC_PER_SEC)
-#define ANNOUNCE_WAIT_USEC (2U * USEC_PER_SEC)
-#define ANNOUNCE_NUM 2U
+/* Intervals from the RFC in seconds, need to be multiplied by the time unit */
+#define PROBE_WAIT 1U
+#define PROBE_MIN 1U
+#define PROBE_MAX 2U
+#define ANNOUNCE_WAIT 2U
+#define TOTAL_TIME_UNITS 7U
+
+/* Intervals from the RFC not adjusted to the time unit */
 #define ANNOUNCE_INTERVAL_USEC (2U * USEC_PER_SEC)
-#define MAX_CONFLICTS 10U
 #define RATE_LIMIT_INTERVAL_USEC (60U * USEC_PER_SEC)
 #define DEFEND_INTERVAL_USEC (10U * USEC_PER_SEC)
+
+/* Other constants from the RFC */
+#define PROBE_NUM 3U
+#define ANNOUNCE_NUM 2U
+#define MAX_CONFLICTS 10U
+
+/* Default timeout from the RFC */
+#define DEFAULT_ACD_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
 typedef enum IPv4ACDState {
         IPV4ACD_STATE_INIT,
@@ -59,6 +65,10 @@ struct sd_ipv4acd {
         char *ifname;
         unsigned n_iteration;
         unsigned n_conflict;
+
+        /* Indicates the duration of a "time unit", i.e. one second in the RFC but scaled to the
+         * chosen total duration. Represents 1/7 of the total conflict detection timeout. */
+        usec_t time_unit_usec;
 
         sd_event_source *receive_message_event_source;
         sd_event_source *timer_event_source;
@@ -150,6 +160,7 @@ int sd_ipv4acd_new(sd_ipv4acd **ret) {
         *acd = (sd_ipv4acd) {
                 .n_ref = 1,
                 .state = IPV4ACD_STATE_INIT,
+                .time_unit_usec = DEFAULT_ACD_TIMEOUT_USEC / TOTAL_TIME_UNITS,
                 .ifindex = -1,
                 .fd = -EBADF,
         };
@@ -218,14 +229,20 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
         case IPV4ACD_STATE_STARTED:
                 acd->defend_window = 0;
 
+                log_ipv4acd(acd,
+                            "Started on address " IPV4_ADDRESS_FMT_STR " with a max timeout of %s",
+                            IPV4_ADDRESS_FMT_VAL(acd->address),
+                            FORMAT_TIMESPAN(TOTAL_TIME_UNITS * acd->time_unit_usec, USEC_PER_MSEC));
+
                 ipv4acd_set_state(acd, IPV4ACD_STATE_WAITING_PROBE, true);
 
                 if (acd->n_conflict >= MAX_CONFLICTS) {
                         log_ipv4acd(acd, "Max conflicts reached, delaying by %s",
                                     FORMAT_TIMESPAN(RATE_LIMIT_INTERVAL_USEC, 0));
-                        r = ipv4acd_set_next_wakeup(acd, RATE_LIMIT_INTERVAL_USEC, PROBE_WAIT_USEC);
+                        r = ipv4acd_set_next_wakeup(
+                                        acd, RATE_LIMIT_INTERVAL_USEC, PROBE_WAIT * acd->time_unit_usec);
                 } else
-                        r = ipv4acd_set_next_wakeup(acd, 0, PROBE_WAIT_USEC);
+                        r = ipv4acd_set_next_wakeup(acd, 0, PROBE_WAIT * acd->time_unit_usec);
                 if (r < 0)
                         goto fail;
 
@@ -245,13 +262,16 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 if (acd->n_iteration < PROBE_NUM - 2) {
                         ipv4acd_set_state(acd, IPV4ACD_STATE_PROBING, false);
 
-                        r = ipv4acd_set_next_wakeup(acd, PROBE_MIN_USEC, (PROBE_MAX_USEC-PROBE_MIN_USEC));
+                        r = ipv4acd_set_next_wakeup(
+                                        acd,
+                                        PROBE_MIN * acd->time_unit_usec,
+                                        (PROBE_MAX - PROBE_MIN) * acd->time_unit_usec);
                         if (r < 0)
                                 goto fail;
                 } else {
                         ipv4acd_set_state(acd, IPV4ACD_STATE_WAITING_ANNOUNCE, true);
 
-                        r = ipv4acd_set_next_wakeup(acd, ANNOUNCE_WAIT_USEC, 0);
+                        r = ipv4acd_set_next_wakeup(acd, ANNOUNCE_WAIT * acd->time_unit_usec, 0);
                         if (r < 0)
                                 goto fail;
                 }
@@ -440,6 +460,19 @@ int sd_ipv4acd_set_ifname(sd_ipv4acd *acd, const char *ifname) {
                 return -EINVAL;
 
         return free_and_strdup(&acd->ifname, ifname);
+}
+
+int sd_ipv4acd_set_timeout(sd_ipv4acd *acd, uint64_t usec) {
+        assert_return(acd, -EINVAL);
+
+        if (usec == 0)
+                usec = DEFAULT_ACD_TIMEOUT_USEC;
+
+        /* Clamp the total duration to a value between 1ms and 1 minute */
+        acd->time_unit_usec = DIV_ROUND_UP(
+                        CLAMP(usec, 1U * USEC_PER_MSEC, 1U * USEC_PER_MINUTE), TOTAL_TIME_UNITS);
+
+        return 0;
 }
 
 int sd_ipv4acd_get_ifname(sd_ipv4acd *acd, const char **ret) {

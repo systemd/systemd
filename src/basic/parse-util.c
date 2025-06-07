@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <inttypes.h>
 #include <linux/ipv6.h>
 #include <linux/netfilter/nf_tables.h>
-#include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -13,11 +10,10 @@
 #include "errno-list.h"
 #include "extract-word.h"
 #include "locale-util.h"
-#include "macro.h"
+#include "log.h"
 #include "missing_network.h"
 #include "parse-util.h"
 #include "process-util.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -528,7 +524,7 @@ int safe_atollu_full(const char *s, unsigned base, unsigned long long *ret_llu) 
         return 0;
 }
 
-int safe_atolli(const char *s, long long int *ret_lli) {
+int safe_atolli(const char *s, long long *ret_lli) {
         unsigned base = 0;
         char *x = NULL;
         long long l;

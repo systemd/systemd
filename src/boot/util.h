@@ -2,30 +2,18 @@
 #pragma once
 
 #include "efi.h"
-#include "efi-string.h"
 #include "memory-util-fundamental.h"
-#include "string-util-fundamental.h"
 
 #if SD_BOOT
 
-#include "log.h"
 #include "proto/file-io.h"
 
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
 
-static inline void free(void *p) {
-        if (!p)
-                return;
-
-        /* Debugging an invalid free requires trace logging to find the call site or a debugger attached. For
-         * release builds it is not worth the bother to even warn when we cannot even print a call stack. */
-#ifdef EFI_DEBUG
-        assert_se(BS->FreePool(p) == EFI_SUCCESS);
-#else
-        (void) BS->FreePool(p);
-#endif
-}
+DISABLE_WARNING_REDUNDANT_DECLS;
+void free(void *p);
+REENABLE_WARNING;
 
 static inline void freep(void *p) {
         free(*(void **) p);
@@ -103,26 +91,32 @@ static inline Pages xmalloc_pages(
 }
 
 static inline Pages xmalloc_initrd_pages(size_t n_pages) {
-        /* The original native x86 boot protocol of the Linux kernel was not 64bit safe, hence we allocate
-         * memory for the initrds below the 4G boundary on x86, since we don't know early enough which
-         * protocol we'll use to ultimately boot the kernel. This restriction is somewhat obsolete, since
-         * these days we generally prefer the kernel's newer EFI entrypoint instead, which has no such
-         * limitations. On other architectures we do not bother with any restriction on this, in particular
-         * as some of them don't even have RAM mapped to such low addresses. */
+        /* The original native x86 boot protocol of the Linux kernel was not 64bit safe, hence we try to
+         * allocate memory for the initrds below the 4G boundary on x86, since we don't know early enough
+         * which protocol we'll use to ultimately boot the kernel. This restriction is somewhat obsolete,
+         * since these days we generally prefer the kernel's newer EFI entrypoint instead, which has no such
+         * limitations. There's a good chance that for large allocations we won't be successful, hence
+         * immediately fallback to an unrestricted allocation. On other architectures we do not bother with
+         * any restriction on this, in particular as some of them don't even have RAM mapped to such low
+         * addresses. */
 
 #if defined(__i386__) || defined(__x86_64__)
-        return xmalloc_pages(
+        EFI_PHYSICAL_ADDRESS addr = UINT32_MAX; /* Below 4G boundary. */
+        if (BS->AllocatePages(
                         AllocateMaxAddress,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(n_pages),
-                        UINT32_MAX /* Below 4G boundary. */);
-#else
+                        &addr) == EFI_SUCCESS)
+                return (Pages) {
+                        .addr = addr,
+                        .n_pages = EFI_SIZE_TO_PAGES(n_pages),
+                };
+#endif
         return xmalloc_pages(
                         AllocateAnyPages,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(n_pages),
                         0 /* Ignored. */);
-#endif
 }
 
 void convert_efi_path(char16_t *path);
@@ -165,9 +159,7 @@ bool is_ascii(const char16_t *f);
 
 char16_t **strv_free(char16_t **l);
 
-static inline void strv_freep(char16_t ***p) {
-        strv_free(*p);
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char16_t**, strv_free);
 
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
@@ -236,7 +228,10 @@ void *find_configuration_table(const EFI_GUID *guid);
 char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define be16toh(x) __builtin_bswap16(x)
 #  define be32toh(x) __builtin_bswap32(x)
+#  define le16toh(x) (x)
+#  define le32toh(x) (x)
 #else
 #  error "Unexpected byte order in EFI mode?"
 #endif

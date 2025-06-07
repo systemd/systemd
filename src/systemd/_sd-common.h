@@ -17,9 +17,16 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <inttypes.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <sys/types.h>
+
 /* This is a private header; never even think of including this directly! */
 
-#if defined(__INCLUDE_LEVEL__) && __INCLUDE_LEVEL__ <= 1 && !defined(__COVERITY__)
+#if defined(__INCLUDE_LEVEL__) && __INCLUDE_LEVEL__ <= 1 && !defined(__COVERITY__) && !defined(__clang_analyzer__)
 #  error "Do not include _sd-common.h directly; it is a private header."
 #endif
 

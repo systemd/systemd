@@ -1,34 +1,37 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <errno.h>
 #include <fcntl.h>
+#include <linux/sctp.h>
 #include <mqueue.h>
 #include <netinet/tcp.h>
-#include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <linux/sctp.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "bpf-firewall.h"
+#include "bpf-program.h"
 #include "bus-error.h"
-#include "bus-util.h"
-#include "chase.h"
-#include "constants.h"
 #include "copy.h"
 #include "dbus-socket.h"
 #include "dbus-unit.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "format-util.h"
+#include "fs-util.h"
+#include "glyph-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "ip-protocol-list.h"
-#include "label-util.h"
 #include "log.h"
+#include "manager.h"
 #include "mkdir-label.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
@@ -37,7 +40,8 @@
 #include "selinux-util.h"
 #include "serialize.h"
 #include "service.h"
-#include "signal-util.h"
+#include "set.h"
+#include "siphash24.h"
 #include "smack-util.h"
 #include "socket.h"
 #include "socket-netlink.h"
@@ -45,18 +49,18 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "user-util.h"
 
-struct SocketPeer {
+typedef struct SocketPeer {
         unsigned n_ref;
 
         Socket *socket;
         union sockaddr_union peer;
         socklen_t peer_salen;
         struct ucred peer_cred;
-};
+} SocketPeer;
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD]             = UNIT_INACTIVE,
@@ -821,7 +825,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         continue;
 
                 fprintf(f, "%s%s %s:\n",
-                        prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), socket_exec_command_to_string(c));
+                        prefix, glyph(GLYPH_ARROW_RIGHT), socket_exec_command_to_string(c));
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
@@ -829,7 +833,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
-static int instance_from_socket(int fd, unsigned nr, char **ret) {
+static int instance_from_socket(
+                int fd,
+                unsigned nr,
+                char **ret) {
+
         union sockaddr_union local, remote;
         socklen_t l;
         int r;
@@ -845,6 +853,11 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
         if (getpeername(fd, &remote.sa, &l) < 0)
                 return -errno;
 
+        uint64_t cookie;
+        r = socket_get_cookie(fd, &cookie);
+        if (r < 0)
+                return r;
+
         char *s;
 
         switch (local.sa.sa_family) {
@@ -855,8 +868,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                         b = be32toh(remote.in.sin_addr.s_addr);
 
                 if (asprintf(&s,
-                             "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                             "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                              nr,
+                             cookie,
                              a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
                              be16toh(local.in.sin_port),
                              b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
@@ -878,8 +892,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                                 *b = remote.in6.sin6_addr.s6_addr+12;
 
                         if (asprintf(&s,
-                                     "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                     "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                                      nr,
+                                     cookie,
                                      a[0], a[1], a[2], a[3],
                                      be16toh(local.in6.sin6_port),
                                      b[0], b[1], b[2], b[3],
@@ -887,8 +902,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                                 return -ENOMEM;
                 } else {
                         if (asprintf(&s,
-                                     "%u-%s:%u-%s:%u",
+                                     "%u-%" PRIu64 "-%s:%u-%s:%u",
                                      nr,
+                                     cookie,
                                      IN6_ADDR_TO_STRING(&local.in6.sin6_addr),
                                      be16toh(local.in6.sin6_port),
                                      IN6_ADDR_TO_STRING(&remote.in6.sin6_addr),
@@ -908,19 +924,20 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                         uint64_t pidfd_id;
 
                         if (pidfd >= 0 && pidfd_get_inode_id(pidfd, &pidfd_id) >= 0)
-                                r = asprintf(&s, "%u-" PID_FMT "_%" PRIu64 "-" UID_FMT,
-                                             nr, ucred.pid, pidfd_id, ucred.uid);
+                                r = asprintf(&s, "%u-%" PRIu64 "-" PID_FMT "_%" PRIu64 "-" UID_FMT,
+                                             nr, cookie, ucred.pid, pidfd_id, ucred.uid);
                         else
-                                r = asprintf(&s, "%u-" PID_FMT "-" UID_FMT,
-                                             nr, ucred.pid, ucred.uid);
+                                r = asprintf(&s, "%u-%" PRIu64 "-" PID_FMT "-" UID_FMT,
+                                             nr, cookie, ucred.pid, ucred.uid);
                         if (r < 0)
                                 return -ENOMEM;
                 } else if (r == -ENODATA) {
                         /* This handles the case where somebody is connecting from another pid/uid namespace
                          * (e.g. from outside of our container). */
                         if (asprintf(&s,
-                                     "%u-unknown",
-                                     nr) < 0)
+                                     "%u-%" PRIu64 "-unknown",
+                                     nr,
+                                     cookie) < 0)
                                 return -ENOMEM;
                 } else
                         return r;
@@ -930,8 +947,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
 
         case AF_VSOCK:
                 if (asprintf(&s,
-                             "%u-%u:%u-%u:%u",
+                             "%u-%" PRIu64 "-%u:%u-%u:%u",
                              nr,
+                             cookie,
                              local.vm.svm_cid, local.vm.svm_port,
                              remote.vm.svm_cid, remote.vm.svm_port) < 0)
                         return -ENOMEM;
@@ -1315,7 +1333,7 @@ static int socket_symlink(Socket *s) {
                 }
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
-                                               p, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), *i);
+                                               p, glyph(GLYPH_ARROW_RIGHT), *i);
         }
 
         return 0;
@@ -1476,9 +1494,7 @@ static int socket_address_listen_do(
                 log_unit_error_errno(u, error, fmt, strna(_t));  \
         })
 
-static int fork_needed(const SocketAddress *address, Socket *s) {
-        int r;
-
+static bool fork_needed(const SocketAddress *address, Socket *s) {
         assert(address);
         assert(s);
 
@@ -1492,13 +1508,9 @@ static int fork_needed(const SocketAddress *address, Socket *s) {
                         if (nft_set->source == NFT_SET_SOURCE_CGROUP)
                                 return true;
 
-        if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6)) {
-                r = bpf_firewall_supported();
-                if (r < 0)
-                        return r;
-                if (r != BPF_FIREWALL_UNSUPPORTED) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
-                        return true;
-        }
+        if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6) &&
+            bpf_program_supported() > 0) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
+                return true;
 
         return exec_needs_network_namespace(&s->exec_context);
 }
@@ -1520,10 +1532,7 @@ static int socket_address_listen_in_cgroup(
          * the socket is actually properly attached to the unit's cgroup for the purpose of BPF filtering and
          * such. */
 
-        r = fork_needed(address, s);
-        if (r < 0)
-                return r;
-        if (r == 0) {
+        if (!fork_needed(address, s)) {
                 /* Shortcut things... */
                 fd = socket_address_listen_do(s, address, label);
                 if (fd < 0)
@@ -1570,7 +1579,7 @@ static int socket_address_listen_in_cgroup(
                     s->exec_runtime->shared &&
                     s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
 
-                        if (ns_type_supported(NAMESPACE_NET)) {
+                        if (namespace_type_supported(NAMESPACE_NET)) {
                                 r = setup_shareable_ns(s->exec_runtime->shared->netns_storage_socket, CLONE_NEWNET);
                                 if (r < 0) {
                                         log_unit_error_errno(UNIT(s), r, "Failed to join network namespace: %m");
@@ -2187,8 +2196,12 @@ static void flush_ports(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                (void) flush_accept(p->fd);
-                (void) flush_fd(p->fd);
+                if (p->type == SOCKET_MQUEUE)
+                        (void) flush_mqueue(p->fd);
+                else {
+                        (void) flush_accept(p->fd);
+                        (void) flush_fd(p->fd);
+                }
         }
 }
 
@@ -2356,6 +2369,8 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         }
 
                         r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
+                        if (r == -EDEADLK)
+                                return (void) log_unit_debug_errno(UNIT(s), r, "Failed to queue service startup job, ignoring: %s", bus_error_message(&error, r));
                         if (r < 0)
                                 goto queue_error;
                 }
@@ -3023,10 +3038,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         if (!IN_SET(p->address.sockaddr.sa.sa_family, AF_INET, AF_INET6))
                 goto shortcut;
 
-        r = bpf_firewall_supported();
-        if (r < 0)
-                return r;
-        if (r == BPF_FIREWALL_UNSUPPORTED)
+        if (bpf_program_supported() <= 0)
                 goto shortcut;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)

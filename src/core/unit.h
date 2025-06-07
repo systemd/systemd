@@ -1,32 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
 #include "sd-id128.h"
 
-/* Circular dependency with manager.h, needs to be defined before local includes */
+#include "core-forward.h"
+#include "emergency-action.h"
+#include "execute.h"
+#include "hashmap.h"
+#include "install.h"
+#include "iterator.h"
+#include "job.h"
+#include "list.h"
+#include "log.h"
+#include "log-context.h"
+#include "ratelimit.h"
+#include "time-util.h"
+#include "unit-def.h"
+#include "unit-dependency-atom.h"
+#include "unit-file.h"
+
 typedef enum UnitMountDependencyType {
         UNIT_MOUNT_WANTS,
         UNIT_MOUNT_REQUIRES,
         _UNIT_MOUNT_DEPENDENCY_TYPE_MAX,
         _UNIT_MOUNT_DEPENDENCY_TYPE_INVALID = -EINVAL,
 } UnitMountDependencyType;
-
-#include "cgroup.h"
-#include "condition.h"
-#include "emergency-action.h"
-#include "install.h"
-#include "list.h"
-#include "mount-util.h"
-#include "pidref.h"
-#include "unit-file.h"
-
-typedef struct UnitRef UnitRef;
 
 typedef enum KillOperation {
         KILL_TERMINATE,
@@ -44,6 +42,21 @@ typedef enum CollectMode {
         _COLLECT_MODE_MAX,
         _COLLECT_MODE_INVALID = -EINVAL,
 } CollectMode;
+
+typedef enum OOMPolicy {
+        OOM_CONTINUE,          /* The kernel or systemd-oomd kills the process it wants to kill, and that's it */
+        OOM_STOP,              /* The kernel or systemd-oomd kills the process it wants to kill, and we stop the unit */
+        OOM_KILL,              /* The kernel or systemd-oomd kills the process it wants to kill, and all others in the unit, and we stop the unit */
+        _OOM_POLICY_MAX,
+        _OOM_POLICY_INVALID = -EINVAL,
+} OOMPolicy;
+
+typedef enum StatusType {
+        STATUS_TYPE_EPHEMERAL,
+        STATUS_TYPE_NORMAL,
+        STATUS_TYPE_NOTICE,
+        STATUS_TYPE_EMERGENCY,
+} StatusType;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
         return IN_SET(t, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING);
@@ -81,7 +94,7 @@ typedef enum UnitDependencyMask {
          * type) */
         UNIT_DEPENDENCY_IMPLICIT           = 1 << 1,
 
-        /* A dependency effected by DefaultDependencies=yes. Note that dependencies marked this way are conceptually
+        /* A dependency affected by DefaultDependencies=yes. Note that dependencies marked this way are conceptually
          * just a subset of UNIT_DEPENDENCY_FILE, as DefaultDependencies= is itself a unit file setting that can only
          * be set in unit files. We make this two separate bits only to help debugging how dependencies came to be. */
         UNIT_DEPENDENCY_DEFAULT            = 1 << 2,
@@ -130,7 +143,7 @@ typedef struct ActivationDetails {
 
 /* For casting an activation event into the various unit-specific types */
 #define DEFINE_ACTIVATION_DETAILS_CAST(UPPERCASE, MixedCase, UNIT_TYPE)         \
-        static inline MixedCase* UPPERCASE(ActivationDetails *a) {              \
+        static inline MixedCase* UPPERCASE(const ActivationDetails *a) {              \
                 if (_unlikely_(!a || a->trigger_unit_type != UNIT_##UNIT_TYPE)) \
                         return NULL;                                            \
                                                                                 \
@@ -148,10 +161,10 @@ typedef struct ActivationDetails {
 ActivationDetails *activation_details_new(Unit *trigger_unit);
 ActivationDetails *activation_details_ref(ActivationDetails *p);
 ActivationDetails *activation_details_unref(ActivationDetails *p);
-void activation_details_serialize(ActivationDetails *p, FILE *f);
+void activation_details_serialize(const ActivationDetails *p, FILE *f);
 int activation_details_deserialize(const char *key, const char *value, ActivationDetails **info);
-int activation_details_append_env(ActivationDetails *info, char ***strv);
-int activation_details_append_pair(ActivationDetails *info, char ***strv);
+int activation_details_append_env(const ActivationDetails *info, char ***strv);
+int activation_details_append_pair(const ActivationDetails *info, char ***strv);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ActivationDetails*, activation_details_unref);
 
 typedef struct ActivationDetailsVTable {
@@ -166,18 +179,18 @@ typedef struct ActivationDetailsVTable {
         void (*done)(ActivationDetails *info);
 
         /* This should serialize all type-specific variables. */
-        void (*serialize)(ActivationDetails *info, FILE *f);
+        void (*serialize)(const ActivationDetails *info, FILE *f);
 
         /* This should deserialize all type-specific variables, one at a time. */
         int (*deserialize)(const char *key, const char *value, ActivationDetails **info);
 
         /* This should format the type-specific variables for the env block of the spawned service,
          * and return the number of added items. */
-        int (*append_env)(ActivationDetails *info, char ***strv);
+        int (*append_env)(const ActivationDetails *info, char ***strv);
 
         /* This should append type-specific variables as key/value pairs for the D-Bus property of the job,
          * and return the number of added pairs. */
-        int (*append_pair)(ActivationDetails *info, char ***strv);
+        int (*append_pair)(const ActivationDetails *info, char ***strv);
 } ActivationDetailsVTable;
 
 extern const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX];
@@ -199,16 +212,14 @@ static inline void* UNIT_DEPENDENCY_TO_PTR(UnitDependency d) {
         return INT_TO_PTR(d);
 }
 
-#include "job.h"
-
-struct UnitRef {
+typedef struct UnitRef {
         /* Keeps tracks of references to a unit. This is useful so
          * that we can merge two units if necessary and correct all
          * references to them */
 
         Unit *source, *target;
         LIST_FIELDS(UnitRef, refs_by_target);
-};
+} UnitRef;
 
 /* The generic, dynamic definition of the unit */
 typedef struct Unit {
@@ -227,6 +238,7 @@ typedef struct Unit {
          * and whose value encodes why the dependency exists, using the UnitDependencyInfo type. i.e. a
          * Hashmap(UnitDependency → Hashmap(Unit* → UnitDependencyInfo)) */
         Hashmap *dependencies;
+        uint64_t dependency_generation;
 
         /* Similar, for RequiresMountsFor= and WantsMountsFor= path dependencies. The key is the path, the
          * value the UnitDependencyInfo type */
@@ -372,10 +384,6 @@ typedef struct Unit {
         /* Cached unit file state and preset */
         UnitFileState unit_file_state;
         PresetAction unit_file_preset;
-
-        /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
-         * ones which might have appeared. */
-        sd_event_source *rewatch_pids_event_source;
 
         /* How to start OnSuccess=/OnFailure= units */
         JobMode on_success_job_mode;
@@ -876,14 +884,9 @@ void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
 int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive);
-int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
 void unit_unwatch_pidref(Unit *u, const PidRef *pid);
-void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
 void unit_unwatch_pidref_done(Unit *u, PidRef *pidref);
-
-int unit_enqueue_rewatch_pids(Unit *u);
-void unit_dequeue_rewatch_pids(Unit *u);
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name);
 int unit_watch_bus_name(Unit *u, const char *name);
@@ -1011,11 +1014,9 @@ static inline bool unit_has_job_type(Unit *u, JobType type) {
         return u && u->job && u->job->type == type;
 }
 
-static inline bool unit_log_level_test(const Unit *u, int level) {
-        assert(u);
-        ExecContext *ec = unit_get_exec_context(u);
-        return !ec || ec->log_level_max < 0 || ec->log_level_max >= LOG_PRI(level) || u->debug_invocation;
-}
+int unit_get_log_level_max(const Unit *u);
+
+bool unit_log_level_test(const Unit *u, int level);
 
 /* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
  * after some execution, rather than succeeded or failed. */
@@ -1062,9 +1063,15 @@ bool unit_passes_filter(Unit *u, char * const *states, char * const *patterns);
 
 int unit_compare_priority(Unit *a, Unit *b);
 
+const char* unit_log_field(const Unit *u);
+const char* unit_invocation_log_field(const Unit *u);
+
 UnitMountDependencyType unit_mount_dependency_type_from_string(const char *s) _const_;
 const char* unit_mount_dependency_type_to_string(UnitMountDependencyType t) _const_;
 UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) _pure_;
+
+const char* oom_policy_to_string(OOMPolicy i) _const_;
+OOMPolicy oom_policy_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
@@ -1072,15 +1079,12 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
-                bool _do_log = !(log_get_max_level() < LOG_PRI(_l) ||   \
-                        (_u && !unit_log_level_test(_u, _l)));          \
-                const ExecContext *_c = _do_log && _u ?                 \
-                        unit_get_exec_context(_u) : NULL;               \
+                LOG_CONTEXT_SET_LOG_LEVEL(unit_get_log_level_max(_u));  \
+                const ExecContext *_c = _u ? unit_get_exec_context(_u) : NULL; \
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
-                !_do_log ? -ERRNO_VALUE(error) :                        \
-                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
-                                log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+                _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__,  unit_log_field(_u), _u->id, unit_invocation_log_field(_u), _u->invocation_id_string, ##__VA_ARGS__) : \
+                     log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_unit_full_errno(unit, level, error, ...) \
@@ -1116,14 +1120,11 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
-                bool _do_log = unit_log_level_test(_u, _l);             \
-                const ExecContext *_c = _do_log && _u ?                 \
-                        unit_get_exec_context(_u) : NULL;               \
+                LOG_CONTEXT_SET_LOG_LEVEL(unit_get_log_level_max(_u));  \
+                const ExecContext *_c = _u ? unit_get_exec_context(_u) : NULL; \
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
-                _do_log ?                                               \
-                        log_struct_errno(_l, error, __VA_ARGS__, LOG_UNIT_ID(_u)) : \
-                        -ERRNO_VALUE(error);                            \
+                log_struct_errno(_l, error, __VA_ARGS__, LOG_UNIT_ID(_u)); \
         })
 
 #define log_unit_struct(unit, level, ...) log_unit_struct_errno(unit, level, 0, __VA_ARGS__)
@@ -1132,22 +1133,19 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
-                bool _do_log = unit_log_level_test(_u, _l);             \
-                const ExecContext *_c = _do_log && _u ?                 \
-                        unit_get_exec_context(_u) : NULL;               \
+                LOG_CONTEXT_SET_LOG_LEVEL(unit_get_log_level_max(_u));  \
+                const ExecContext *_c = _u ? unit_get_exec_context(_u) : NULL; \
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
-                _do_log ?                                               \
-                        log_struct_iovec_errno(_l, error, iovec, n_iovec) : \
-                        -ERRNO_VALUE(error);                            \
+                log_struct_iovec_errno(_l, error, iovec, n_iovec);      \
         })
 
 #define log_unit_struct_iovec(unit, level, iovec, n_iovec) log_unit_struct_iovec_errno(unit, level, 0, iovec, n_iovec)
 
 /* Like LOG_MESSAGE(), but with the unit name prefixed. */
 #define LOG_UNIT_MESSAGE(unit, fmt, ...) LOG_MESSAGE("%s: " fmt, (unit)->id, ##__VA_ARGS__)
-#define LOG_UNIT_ID(unit) (unit)->manager->unit_log_format_string, (unit)->id
-#define LOG_UNIT_INVOCATION_ID(unit) (unit)->manager->invocation_log_format_string, (unit)->invocation_id_string
+#define LOG_UNIT_ID(unit) LOG_ITEM("%s%s", unit_log_field((unit)), (unit)->id)
+#define LOG_UNIT_INVOCATION_ID(unit) LOG_ITEM("%s%s", unit_invocation_log_field((unit)), (unit)->invocation_id_string)
 
 const char* collect_mode_to_string(CollectMode m) _const_;
 CollectMode collect_mode_from_string(const char *s) _pure_;
@@ -1155,26 +1153,43 @@ CollectMode collect_mode_from_string(const char *s) _pure_;
 typedef struct UnitForEachDependencyData {
         /* Stores state for the FOREACH macro below for iterating through all deps that have any of the
          * specified dependency atom bits set */
+        const Unit *unit;
         UnitDependencyAtom match_atom;
         Hashmap *by_type, *by_unit;
         void *current_type;
         Iterator by_type_iterator, by_unit_iterator;
         Unit **current_unit;
+        uint64_t generation;
+        unsigned n_restart;
+        bool restart_on_generation_change;
 } UnitForEachDependencyData;
+
+/* Let's not restart the loop infinitely. */
+#define MAX_FOREACH_DEPENDENCY_RESTART 100000
 
 /* Iterates through all dependencies that have a specific atom in the dependency type set. This tries to be
  * smart: if the atom is unique, we'll directly go to right entry. Otherwise we'll iterate through the
  * per-dependency type hashmap and match all dep that have the right atom set. */
-#define _UNIT_FOREACH_DEPENDENCY(other, u, ma, data)                    \
+#define _UNIT_FOREACH_DEPENDENCY(other, u, ma, restart, data)           \
         for (UnitForEachDependencyData data = {                         \
+                        .unit = (u),                                    \
                         .match_atom = (ma),                             \
-                        .by_type = (u)->dependencies,                   \
-                        .by_type_iterator = ITERATOR_FIRST,             \
                         .current_unit = &(other),                       \
+                        .restart_on_generation_change = (restart),      \
                 };                                                      \
              ({                                                         \
                      UnitDependency _dt = _UNIT_DEPENDENCY_INVALID;     \
                      bool _found;                                       \
+                                                                        \
+                     if (data.generation == 0 ||                        \
+                         (data.restart_on_generation_change &&          \
+                          data.generation != data.unit->dependency_generation)) { \
+                             data.generation = data.unit->dependency_generation; \
+                             data.by_type = data.unit->dependencies;    \
+                             data.by_type_iterator = ITERATOR_FIRST;    \
+                             assert_se(data.n_restart++ < MAX_FOREACH_DEPENDENCY_RESTART); \
+                     } else                                             \
+                             assert(data.generation == data.unit->dependency_generation); \
                                                                         \
                      if (data.by_type && ITERATOR_IS_FIRST(data.by_type_iterator)) { \
                              _dt = unit_dependency_from_unique_atom(data.match_atom); \
@@ -1188,12 +1203,13 @@ typedef struct UnitForEachDependencyData {
                      if (_dt < 0)                                       \
                              _found = hashmap_iterate(data.by_type,     \
                                                       &data.by_type_iterator, \
-                                                      (void**)&(data.by_unit), \
+                                                      (void**) &(data.by_unit), \
                                                       (const void**) &(data.current_type)); \
                      _found;                                            \
              }); )                                                      \
                 if ((unit_dependency_to_atom(UNIT_DEPENDENCY_FROM_PTR(data.current_type)) & data.match_atom) != 0) \
                         for (data.by_unit_iterator = ITERATOR_FIRST;    \
+                             data.generation == data.unit->dependency_generation && \
                                 hashmap_iterate(data.by_unit,           \
                                                 &data.by_unit_iterator, \
                                                 NULL,                   \
@@ -1201,15 +1217,17 @@ typedef struct UnitForEachDependencyData {
 
 /* Note: this matches deps that have *any* of the atoms specified in match_atom set */
 #define UNIT_FOREACH_DEPENDENCY(other, u, match_atom) \
-        _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, UNIQ_T(data, UNIQ))
+        _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, false, UNIQ_T(data, UNIQ))
+#define UNIT_FOREACH_DEPENDENCY_SAFE(other, u, match_atom) \
+        _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, true, UNIQ_T(data, UNIQ))
 
 #define _LOG_CONTEXT_PUSH_UNIT(unit, u, c)                                                              \
         const Unit *u = (unit);                                                                         \
         const ExecContext *c = unit_get_exec_context(u);                                                \
-        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->unit_log_field, u->id);                                  \
-        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->invocation_log_field, u->invocation_id_string);          \
+        LOG_CONTEXT_PUSH_KEY_VALUE(unit_log_field(u), u->id);                                           \
+        LOG_CONTEXT_PUSH_KEY_VALUE(unit_invocation_log_field(u), u->invocation_id_string);              \
         LOG_CONTEXT_PUSH_IOV(c ? c->log_extra_fields : NULL, c ? c->n_log_extra_fields : 0);            \
-        LOG_CONTEXT_SET_LOG_LEVEL(c->log_level_max >= 0 ? c->log_level_max : log_get_max_level())
+        LOG_CONTEXT_SET_LOG_LEVEL(unit_get_log_level_max(u))
 
 #define LOG_CONTEXT_PUSH_UNIT(unit) \
         _LOG_CONTEXT_PUSH_UNIT(unit, UNIQ_T(u, UNIQ), UNIQ_T(c, UNIQ))

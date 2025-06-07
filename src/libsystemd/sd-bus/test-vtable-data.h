@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* This is meant to be included in other files, hence no headers */
+#include <stdbool.h>
+
+#include "sd-bus-vtable.h"
 
 struct context {
         bool quit;

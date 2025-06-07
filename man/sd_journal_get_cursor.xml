@@ -28,7 +28,7 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_get_cursor</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
-        <paramdef>char **<parameter>cursor</parameter></paramdef>
+        <paramdef>char **<parameter>ret_cursor</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -43,23 +43,21 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_journal_get_cursor()</function> returns a
-    cursor string for the current journal entry. A cursor is a
-    serialization of the current journal position formatted as text.
-    The string only contains printable characters and can be passed
-    around in text form. The cursor identifies a journal entry
-    globally and in a stable way and may be used to later seek to it
-    via
+    <para><function>sd_journal_get_cursor()</function> returns a cursor string for the current journal
+    entry. A cursor is a serialization of the current journal position formatted as text.  The string only
+    contains printable characters and can be passed around in text form. The cursor identifies a journal
+    entry globally and in a stable way and may be used to later seek to it via
     <citerefentry><refentrytitle>sd_journal_seek_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    The cursor string should be considered opaque and not be parsed by
-    clients. Seeking to a cursor position without the specific entry
-    being available locally will seek to the next closest (in terms of
-    time) available entry. The call takes two arguments: a journal
-    context object and a pointer to a string pointer where the cursor
-    string will be placed. The string is allocated via libc
-    <citerefentry project='man-pages'><refentrytitle>malloc</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and should be freed after use with
-    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    The cursor string should be considered opaque and not be parsed by clients. Seeking to a cursor position
+    without the specific entry being available locally will seek to the next closest (in terms of time)
+    available entry. The call takes two arguments: a journal context object and a pointer to a string pointer
+    where the cursor string will be placed. The string is allocated via libc <citerefentry
+    project='man-pages'><refentrytitle>malloc</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    should be freed after use with <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
+    <parameter>ret_cursor</parameter> parameter may be passed as <constant>NULL</constant> in which case the
+    cursor string is not generated, however the return value will indicate whether the journal context is
+    currently positioned on an entry, and thus has a cursor associated.</para>
 
     <para><function>sd_journal_test_cursor()</function>
     may be used to check whether the current position in
@@ -91,6 +89,34 @@
     the current entry matches the specified cursor, 0 if it does not
     match the specified cursor or a negative errno-style error code on
     failure.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EADDRNOTAVAIL</constant></term>
+
+          <listitem><para>The journal context is currently not positioned on any entry, and hence no cursor
+          string can be generated.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The journal context parameter is <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The journal context object has been allocated in a different process than it is
+          being used in now.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

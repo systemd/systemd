@@ -1,26 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
 #include <poll.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "list.h"
+#include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -40,6 +44,7 @@
 #define VARLINK_BUFFER_MAX (16U*1024U*1024U)
 #define VARLINK_READ_SIZE (64U*1024U)
 #define VARLINK_COLLECT_MAX 1024U
+#define VARLINK_QUEUE_MAX (64U*1024U)
 
 static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_IDLE_CLIENT]              = "idle-client",
@@ -110,7 +115,7 @@ static void varlink_set_state(sd_varlink *v, VarlinkState state) {
         else
                 varlink_log(v, "Changing state %s %s %s",
                             varlink_state_to_string(v->state),
-                            special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                            glyph(GLYPH_ARROW_RIGHT),
                             varlink_state_to_string(state));
 
         v->state = state;
@@ -630,6 +635,7 @@ static void varlink_clear(sd_varlink *v) {
 
         LIST_CLEAR(queue, v->output_queue, varlink_json_queue_item_free);
         v->output_queue_tail = NULL;
+        v->n_output_queue = 0;
 
         v->event = sd_event_unref(v->event);
 
@@ -1945,6 +1951,9 @@ static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
         if (v->n_pushed_fds == 0 && !v->output_queue)
                 return varlink_format_json(v, m);
 
+        if (v->n_output_queue >= VARLINK_QUEUE_MAX)
+                return -ENOBUFS;
+
         /* Otherwise add a queue entry for this */
         q = varlink_json_queue_item_new(m, v->pushed_fds, v->n_pushed_fds);
         if (!q)
@@ -1954,6 +1963,7 @@ static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
 
         LIST_INSERT_AFTER(queue, v->output_queue, v->output_queue_tail, q);
         v->output_queue_tail = q;
+        v->n_output_queue++;
         return 0;
 }
 
@@ -1967,6 +1977,9 @@ static int varlink_format_queue(sd_varlink *v) {
 
         while (v->output_queue) {
                 _cleanup_free_ int *array = NULL;
+
+                assert(v->n_output_queue > 0);
+
                 VarlinkJsonQueueItem *q = v->output_queue;
 
                 if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
@@ -1991,6 +2004,7 @@ static int varlink_format_queue(sd_varlink *v) {
                 LIST_REMOVE(queue, v->output_queue, q);
                 if (!v->output_queue)
                         v->output_queue_tail = NULL;
+                v->n_output_queue--;
 
                 varlink_json_queue_item_free(q);
         }
@@ -2763,7 +2777,7 @@ _public_ int sd_varlink_notifyb(sd_varlink *v, ...) {
         return sd_varlink_notify(v, parameters);
 }
 
-_public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field table[], void *userdata) {
+_public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field dispatch_table[], void *userdata) {
         const char *bad_field = NULL;
         int r;
 
@@ -2771,7 +2785,7 @@ _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, con
 
         /* A wrapper around json_dispatch_full() that returns a nice InvalidParameter error if we hit a problem with some field. */
 
-        r = sd_json_dispatch_full(parameters, table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
+        r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
         if (r < 0) {
                 if (bad_field)
                         return sd_varlink_error_invalid_parameter_name(v, bad_field);
@@ -3111,8 +3125,8 @@ _public_ int sd_varlink_push_fd(sd_varlink *v, int fd) {
         if (!v->allow_fd_passing_output)
                 return -EPERM;
 
-        if (v->n_pushed_fds >= INT_MAX)
-                return -ENOMEM;
+        if (v->n_pushed_fds >= SCM_MAX_FD) /* Kernel doesn't support more than 253 fds per message, refuse early hence */
+                return -ENOBUFS;
 
         if (!GREEDY_REALLOC(v->pushed_fds, v->n_pushed_fds + 1))
                 return -ENOMEM;
@@ -3753,7 +3767,7 @@ _public_ int sd_varlink_server_add_connection_stdio(sd_varlink_server *s, sd_var
 
 _public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *name) {
         _cleanup_strv_free_ char **names = NULL;
-        int r, n = 0;
+        int r, m, n = 0;
 
         assert_return(s, -EINVAL);
         assert_return(name, -EINVAL);
@@ -3764,11 +3778,11 @@ _public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *nam
          * See https://varlink.org/#activation for the environment variables this is backed by and the
          * recommended "varlink" identifier in $LISTEN_FDNAMES. */
 
-        r = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
-        if (r < 0)
-                return r;
+        m = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
+        if (m < 0)
+                return m;
 
-        for (int i = 0; i < r; i++) {
+        for (int i = 0; i < m; i++) {
                 int b, fd;
                 socklen_t l = sizeof(b);
 

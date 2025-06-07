@@ -173,6 +173,10 @@
         specified, defaults to the four banks <literal>sha1</literal>, <literal>sha256</literal>,
         <literal>sha384</literal>, <literal>sha512</literal>.</para>
 
+        <para>Note that some operating systems disable support for SHA1-based signatures, in which case this
+        operation will fail. Please consult your OS' documentation for details on how to override the OS
+        security policy around this.</para>
+
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 

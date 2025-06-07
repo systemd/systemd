@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
@@ -9,11 +8,9 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "macro.h"
 #include "memfd-util.h"
-#include "missing_fcntl.h"
 #include "missing_mman.h"
-#include "missing_syscall.h"
+#include "missing_sched.h"
 #include "string-util.h"
 #include "utf8.h"
 
@@ -72,13 +69,13 @@ int memfd_new_full(const char *name, unsigned extra_flags) {
                         MFD_CLOEXEC | MFD_NOEXEC_SEAL | extra_flags);
 }
 
-int memfd_add_seals(int fd, unsigned seals) {
+static int memfd_add_seals(int fd, unsigned seals) {
         assert(fd >= 0);
 
         return RET_NERRNO(fcntl(fd, F_ADD_SEALS, seals));
 }
 
-int memfd_get_seals(int fd, unsigned *ret_seals) {
+static int memfd_get_seals(int fd, unsigned *ret_seals) {
         int r;
 
         assert(fd >= 0);
@@ -97,7 +94,7 @@ int memfd_set_sealed(int fd) {
 }
 
 int memfd_get_sealed(int fd) {
-        unsigned int seals;
+        unsigned seals;
         int r;
 
         r = memfd_get_seals(fd, &seals);

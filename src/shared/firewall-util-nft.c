@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
 #include <endian.h>
-#include <errno.h>
-#include <stddef.h>
-#include <string.h>
 #include <linux/netfilter/nf_tables.h>
-#include <linux/netfilter/nf_nat.h>
 #include <linux/netfilter_ipv4.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "sd-netlink.h"
 
@@ -19,11 +16,12 @@
 #include "firewall-util.h"
 #include "firewall-util-private.h"
 #include "in-addr-util.h"
-#include "macro.h"
+#include "log.h"
 #include "netlink-internal.h"
-#include "netlink-util.h"
+#include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #define NFT_SYSTEMD_DNAT_MAP_NAME "map_port_ipport"
@@ -857,10 +855,10 @@ void fw_nftables_exit(FirewallContext *ctx) {
 static int nft_message_append_setelem_iprange(
                 sd_netlink_message *m,
                 const union in_addr_union *source,
-                unsigned int prefixlen) {
+                unsigned prefixlen) {
 
         uint32_t mask, start, end;
-        unsigned int nplen;
+        unsigned nplen;
         int r;
 
         assert(m);
@@ -896,7 +894,7 @@ static int nft_message_append_setelem_iprange(
 static int nft_message_append_setelem_ip6range(
                 sd_netlink_message *m,
                 const union in_addr_union *source,
-                unsigned int prefixlen) {
+                unsigned prefixlen) {
 
         union in_addr_union start, end;
         int r;
@@ -931,7 +929,7 @@ int nft_set_element_modify_iprange(
                 const char *table,
                 const char *set,
                 const union in_addr_union *source,
-                unsigned int source_prefixlen) {
+                unsigned source_prefixlen) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
@@ -1041,7 +1039,7 @@ int fw_nftables_add_masquerade(
                 bool add,
                 int af,
                 const union in_addr_union *source,
-                unsigned int source_prefixlen) {
+                unsigned source_prefixlen) {
 
         int r;
 

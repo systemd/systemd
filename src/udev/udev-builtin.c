@@ -3,33 +3,36 @@
 #include <getopt.h>
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "extract-word.h"
 #include "string-util.h"
 #include "strv.h"
 #include "udev-builtin.h"
 
 static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
 #if HAVE_BLKID
-        [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
+        [UDEV_BUILTIN_BLKID]         = &udev_builtin_blkid,
 #endif
-        [UDEV_BUILTIN_BTRFS] = &udev_builtin_btrfs,
+        [UDEV_BUILTIN_BTRFS]         = &udev_builtin_btrfs,
+        [UDEV_BUILTIN_DISSECT_IMAGE] = &udev_builtin_dissect_image,
         [UDEV_BUILTIN_FACTORY_RESET] = &udev_builtin_factory_reset,
-        [UDEV_BUILTIN_HWDB] = &udev_builtin_hwdb,
-        [UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id,
-        [UDEV_BUILTIN_KEYBOARD] = &udev_builtin_keyboard,
+        [UDEV_BUILTIN_HWDB]          = &udev_builtin_hwdb,
+        [UDEV_BUILTIN_INPUT_ID]      = &udev_builtin_input_id,
+        [UDEV_BUILTIN_KEYBOARD]      = &udev_builtin_keyboard,
 #if HAVE_KMOD
-        [UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
+        [UDEV_BUILTIN_KMOD]          = &udev_builtin_kmod,
 #endif
-        [UDEV_BUILTIN_NET_DRIVER] = &udev_builtin_net_driver,
-        [UDEV_BUILTIN_NET_ID] = &udev_builtin_net_id,
-        [UDEV_BUILTIN_NET_LINK] = &udev_builtin_net_setup_link,
-        [UDEV_BUILTIN_PATH_ID] = &udev_builtin_path_id,
+        [UDEV_BUILTIN_NET_DRIVER]    = &udev_builtin_net_driver,
+        [UDEV_BUILTIN_NET_ID]        = &udev_builtin_net_id,
+        [UDEV_BUILTIN_NET_LINK]      = &udev_builtin_net_setup_link,
+        [UDEV_BUILTIN_PATH_ID]       = &udev_builtin_path_id,
 #if HAVE_ACL
-        [UDEV_BUILTIN_UACCESS] = &udev_builtin_uaccess,
+        [UDEV_BUILTIN_UACCESS]       = &udev_builtin_uaccess,
 #endif
-        [UDEV_BUILTIN_USB_ID] = &udev_builtin_usb_id,
+        [UDEV_BUILTIN_USB_ID]        = &udev_builtin_usb_id,
 };
 
 void udev_builtin_init(void) {

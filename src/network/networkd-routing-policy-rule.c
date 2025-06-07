@@ -1,28 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/fib_rules.h>
 
-#include "af-list.h"
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "fileio.h"
-#include "format-util.h"
+#include "errno-util.h"
 #include "hashmap.h"
-#include "ip-protocol-list.h"
 #include "netlink-util.h"
 #include "network-util.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
-#include "socket-util.h"
+#include "set.h"
+#include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
 #include "user-util.h"
 
 static const char *const fr_act_type_table[__FR_ACT_MAX] = {
@@ -615,7 +614,7 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
         if (r < 0)
                 return r;
 
-        if (rule->fwmark > 0) {
+        if (rule->fwmark > 0 || rule->fwmask > 0) {
                 r = sd_netlink_message_append_u32(m, FRA_FWMARK, rule->fwmark);
                 if (r < 0)
                         return r;
@@ -1315,14 +1314,12 @@ static int parse_fwmark_fwmask(const char *s, uint32_t *ret_fwmark, uint32_t *re
         if (r < 0)
                 return r;
 
-        if (fwmark > 0) {
-                if (slash) {
-                        r = safe_atou32(slash + 1, &fwmask);
-                        if (r < 0)
-                                return r;
-                } else
-                        fwmask = UINT32_MAX;
-        }
+        if (slash) {
+                r = safe_atou32(slash + 1, &fwmask);
+                if (r < 0)
+                        return r;
+        } else if (fwmark > 0)
+                fwmask = UINT32_MAX;
 
         *ret_fwmark = fwmark;
         *ret_fwmask = fwmask;

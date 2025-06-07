@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/uio.h>
+
 #include "memory-util.h"
 #include "tests.h"
 

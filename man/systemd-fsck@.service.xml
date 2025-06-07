@@ -64,10 +64,11 @@
     returns the "Filesystem errors left uncorrected" condition.</para>
 
     <para><filename>systemd-fsck@.service</filename> will fail if
-    <command>fsck</command> returns with either "System should reboot"
-    or "Filesystem errors left uncorrected" conditions. For filesystems
+    <citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    returns either the "System should reboot"
+    or the "Filesystem errors left uncorrected" condition. For filesystems
     listed in <filename>/etc/fstab</filename> without <literal>nofail</literal>
-    or <literal>noauto</literal> options, <literal>local-fs.target</literal>
+    or <literal>noauto</literal> options, <filename>local-fs.target</filename>
     will then activate <filename>emergency.target</filename>.</para>
   </refsect1>
 

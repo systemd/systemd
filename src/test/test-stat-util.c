@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <linux/magic.h>
-#include <sched.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <unistd.h>
@@ -11,13 +10,12 @@
 #include "errno-list.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "namespace-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 

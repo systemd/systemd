@@ -9,7 +9,7 @@
  */
 
 #include "device-path-util.h"
-#include "efivars.h"
+#include "efi-efivars.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "util.h"
@@ -33,10 +33,24 @@ struct ShimLock {
 #define SHIM_LOCK_GUID \
         { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
 
+#define SHIM_IMAGE_LOADER_GUID \
+        { 0x1f492041, 0xfadb, 0x4e59, { 0x9e, 0x57, 0x7c, 0xaf, 0xe7, 0x3a, 0x55, 0xab } }
+
 bool shim_loaded(void) {
         struct ShimLock *shim_lock;
 
         return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_LOCK), NULL, (void **) &shim_lock) == EFI_SUCCESS;
+}
+
+/* The shim lock protocol is for pre-v16 shim, where it was not hooked up to the BS->LoadImage() system
+ * table and friends, and it has to be checked manually via the shim_validate() helper. If the shim image
+ * loader protocol is available (shim v16 and newer), then it will have overridden BS->LoadImage() and
+ * friends in the system table, so no specific helper is needed, and the standard BS->LoadImage() and
+ * friends can be called instead. */
+bool shim_loader_available(void) {
+        void *shim_image_loader;
+
+        return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) == EFI_SUCCESS;
 }
 
 static bool shim_validate(
@@ -90,7 +104,8 @@ EFI_STATUS shim_load_image(
         assert(device_path);
         assert(ret_image);
 
-        bool have_shim = shim_loaded();
+        // TODO: drop lock protocol and just use plain BS->LoadImage once Shim < 16 is no longer supported
+        bool have_shim = shim_loaded() && !shim_loader_available();
 
         if (have_shim)
                 install_security_override(shim_validate, NULL);
@@ -110,6 +125,10 @@ EFI_STATUS shim_load_image(
 
 void shim_retain_protocol(void) {
         uint8_t value = 1;
+
+        // TODO: drop setting this var once Shim < 16 is no longer supported, as the lock protocol is no longer needed
+        if (shim_loader_available() || !shim_loaded())
+                return;
 
         /* Ask Shim to avoid uninstalling its security protocol, so that we can use it from sd-stub to
          * validate PE addons. By default, Shim uninstalls its protocol when calling StartImage().

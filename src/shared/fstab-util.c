@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fstab-util.h"
 #include "initrd-util.h"
 #include "libmount-util.h"
-#include "macro.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -389,6 +390,10 @@ char* fstab_node_to_udev_node(const char *p) {
                 return tag_to_udev_node(q, "partlabel");
 
         return strdup(p);
+}
+
+const char* fstab_path(void) {
+        return secure_getenv("SYSTEMD_FSTAB") ?: "/etc/fstab";
 }
 
 bool fstab_is_bind(const char *options, const char *fstype) {

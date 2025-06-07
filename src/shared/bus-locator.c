@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "bus-locator.h"
-#include "macro.h"
 
 const BusLocator* const bus_home_mgr = &(BusLocator){
         .destination = "org.freedesktop.home1",

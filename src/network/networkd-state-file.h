@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Link Link;
-typedef struct Manager Manager;
+#include "networkd-forward.h"
 
 void link_dirty(Link *link);
 void link_clean(Link *link);

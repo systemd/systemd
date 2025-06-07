@@ -1,27 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
 #include <linux/vt.h>
+#include <sys/ioctl.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
 #include "battery-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "bus-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "device-util.h"
 #include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "limits-util.h"
 #include "logind.h"
+#include "logind-button.h"
+#include "logind-device.h"
+#include "logind-seat.h"
+#include "logind-session.h"
+#include "logind-user.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -29,7 +33,6 @@
 #include "udev-util.h"
 #include "user-util.h"
 #include "userdb.h"
-#include "utmp-wtmp.h"
 
 void manager_reset_config(Manager *m) {
         assert(m);
@@ -39,7 +42,7 @@ void manager_reset_config(Manager *m) {
         m->remove_ipc = true;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
         m->user_stop_delay = 10 * USEC_PER_SEC;
-        m->enable_wall_messages = true;
+        m->wall_messages = true;
 
         m->handle_action_sleep_mask = HANDLE_ACTION_SLEEP_MASK_DEFAULT;
 
@@ -195,6 +198,9 @@ int manager_add_user_by_name(
         if (r < 0)
                 return r;
 
+        if (!uid_is_valid(ur->uid)) /* Refuse users without UID */
+                return -ESRCH;
+
         return manager_add_user(m, ur, ret_user);
 }
 
@@ -281,8 +287,9 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
                 bool master;
                 Seat *seat;
 
-                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
-                        sn = "seat0";
+                r = device_get_seat(d, &sn);
+                if (r < 0)
+                        return r;
 
                 if (!seat_name_is_valid(sn)) {
                         log_device_warning(d, "Device with invalid seat name %s found, ignoring.", sn);
@@ -344,8 +351,9 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 if (r < 0)
                         return r;
 
-                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
-                        sn = "seat0";
+                r = device_get_seat(d, &sn);
+                if (r < 0)
+                        return r;
 
                 button_set_seat(b, sn);
 
@@ -600,7 +608,6 @@ static int manager_count_external_displays(Manager *m) {
                 return r;
 
         FOREACH_DEVICE(e, d) {
-                const char *status, *enabled, *dash, *nn;
                 sd_device *p;
 
                 if (sd_device_get_parent(d, &p) < 0)
@@ -609,17 +616,22 @@ static int manager_count_external_displays(Manager *m) {
                 /* If the parent shares the same subsystem as the
                  * device we are looking at then it is a connector,
                  * which is what we are interested in. */
-                if (!device_in_subsystem(p, "drm"))
+                r = device_in_subsystem(p, "drm");
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
-                if (sd_device_get_sysname(d, &nn) < 0)
-                        continue;
+                const char *nn;
+                r = sd_device_get_sysname(d, &nn);
+                if (r < 0)
+                        return r;
 
                 /* Ignore internal displays: the type is encoded in the sysfs name, as the second dash
                  * separated item (the first is the card name, the last the connector number). We implement a
                  * deny list of external displays here, rather than an allow list of internal ones, to ensure
                  * we don't block suspends too eagerly. */
-                dash = strchr(nn, '-');
+                const char *dash = strchr(nn, '-');
                 if (!dash)
                         continue;
 
@@ -631,12 +643,21 @@ static int manager_count_external_displays(Manager *m) {
                         continue;
 
                 /* Ignore ports that are not enabled */
-                if (sd_device_get_sysattr_value(d, "enabled", &enabled) < 0 || !streq(enabled, "enabled"))
+                const char *enabled;
+                r = sd_device_get_sysattr_value(d, "enabled", &enabled);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+                if (!streq(enabled, "enabled"))
                         continue;
 
-                /* We count any connector which is not explicitly
-                 * "disconnected" as connected. */
-                if (sd_device_get_sysattr_value(d, "status", &status) < 0 || !streq(status, "disconnected"))
+                /* We count any connector which is not explicitly "disconnected" as connected. */
+                const char *status = NULL;
+                r = sd_device_get_sysattr_value(d, "status", &status);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (!streq_ptr(status, "disconnected"))
                         n++;
         }
 
@@ -708,137 +729,6 @@ bool manager_all_buttons_ignored(Manager *m) {
         return true;
 }
 
-int manager_read_utmp(Manager *m) {
-#if ENABLE_UTMP
-        int r;
-        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
-
-        assert(m);
-
-        if (utmpxname(UTMPX_FILE) < 0)
-                return log_error_errno(errno, "Failed to set utmp path to " UTMPX_FILE ": %m");
-
-        utmpx = utxent_start();
-
-        for (;;) {
-                _cleanup_free_ char *t = NULL;
-                struct utmpx *u;
-                const char *c;
-                Session *s;
-
-                errno = 0;
-                u = getutxent();
-                if (!u) {
-                        if (errno == ENOENT)
-                                log_debug_errno(errno, UTMPX_FILE " does not exist, ignoring.");
-                        else if (errno != 0)
-                                log_warning_errno(errno, "Failed to read " UTMPX_FILE ", ignoring: %m");
-                        return 0;
-                }
-
-                if (u->ut_type != USER_PROCESS)
-                        continue;
-
-                if (!pid_is_valid(u->ut_pid))
-                        continue;
-
-                t = strndup(u->ut_line, sizeof(u->ut_line));
-                if (!t)
-                        return log_oom();
-
-                c = path_startswith(t, "/dev/");
-                if (c) {
-                        r = free_and_strdup(&t, c);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                if (isempty(t))
-                        continue;
-
-                if (manager_get_session_by_pidref(m, &PIDREF_MAKE_FROM_PID(u->ut_pid), &s) <= 0)
-                        continue;
-
-                if (s->tty_validity == TTY_FROM_UTMP && !streq_ptr(s->tty, t)) {
-                        /* This may happen on multiplexed SSH connection (i.e. 'SSH connection sharing'). In
-                         * this case PAM and utmp sessions don't match. In such a case let's invalidate the TTY
-                         * information and never acquire it again. */
-
-                        s->tty = mfree(s->tty);
-                        s->tty_validity = TTY_UTMP_INCONSISTENT;
-                        log_debug("Session '%s' has inconsistent TTY information, dropping TTY information.", s->id);
-                        continue;
-                }
-
-                /* Never override what we figured out once */
-                if (s->tty || s->tty_validity >= 0)
-                        continue;
-
-                s->tty = TAKE_PTR(t);
-                s->tty_validity = TTY_FROM_UTMP;
-                log_debug("Acquired TTY information '%s' from utmp for session '%s'.", s->tty, s->id);
-        }
-
-#else
-        return 0;
-#endif
-}
-
-#if ENABLE_UTMP
-static int manager_dispatch_utmp(sd_event_source *s, const struct inotify_event *event, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-
-        /* If there's indication the file itself might have been removed or became otherwise unavailable, then let's
-         * reestablish the watch on whatever there's now. */
-        if ((event->mask & (IN_ATTRIB|IN_DELETE_SELF|IN_MOVE_SELF|IN_Q_OVERFLOW|IN_UNMOUNT)) != 0)
-                manager_connect_utmp(m);
-
-        (void) manager_read_utmp(m);
-        return 0;
-}
-#endif
-
-void manager_connect_utmp(Manager *m) {
-#if ENABLE_UTMP
-        sd_event_source *s = NULL;
-        int r;
-
-        assert(m);
-
-        /* Watch utmp for changes via inotify. We do this to deal with tools such as ssh, which will register the PAM
-         * session early, and acquire a TTY only much later for the connection. Thus during PAM the TTY won't be known
-         * yet. ssh will register itself with utmp when it finally acquired the TTY. Hence, let's make use of this, and
-         * watch utmp for the TTY asynchronously. We use the PAM session's leader PID as key, to find the right entry.
-         *
-         * Yes, relying on utmp is pretty ugly, but it's good enough for informational purposes, as well as idle
-         * detection (which, for tty sessions, relies on the TTY used) */
-
-        r = sd_event_add_inotify(m->event, &s, UTMPX_FILE, IN_MODIFY|IN_MOVE_SELF|IN_DELETE_SELF|IN_ATTRIB, manager_dispatch_utmp, m);
-        if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG: LOG_WARNING, r, "Failed to create inotify watch on " UTMPX_FILE ", ignoring: %m");
-        else {
-                r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to adjust utmp event source priority, ignoring: %m");
-
-                (void) sd_event_source_set_description(s, "utmp");
-        }
-
-        sd_event_source_unref(m->utmp_event_source);
-        m->utmp_event_source = s;
-#endif
-}
-
-void manager_reconnect_utmp(Manager *m) {
-#if ENABLE_UTMP
-        assert(m);
-
-        if (m->utmp_event_source)
-                return;
-
-        manager_connect_utmp(m);
-#endif
-}
 
 int manager_read_efi_boot_loader_entries(Manager *m) {
 #if ENABLE_EFI

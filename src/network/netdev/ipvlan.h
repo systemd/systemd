@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <netinet/in.h>
-#include <linux/if_link.h>
 
 #include "ipvlan-util.h"
 #include "netdev.h"

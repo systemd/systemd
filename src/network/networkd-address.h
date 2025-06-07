@@ -1,24 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "conf-parser.h"
 #include "firewall-util.h"
-#include "hash-funcs.h"
+#include "forward.h"
 #include "in-addr-util.h"
-#include "network-util.h"
-#include "networkd-address-generation.h"
-#include "networkd-link.h"
+#include "networkd-forward.h"
 #include "networkd-util.h"
-#include "time-util.h"
 
-typedef struct Address Address;
-typedef struct Manager Manager;
-typedef struct Network Network;
-typedef struct Request Request;
 typedef int (*address_ready_callback_t)(Address *address);
 typedef int (*address_netlink_handler_t)(
                 sd_netlink *rtnl,
@@ -27,7 +15,7 @@ typedef int (*address_netlink_handler_t)(
                 Link *link,
                 Address *address);
 
-struct Address {
+typedef struct Address {
         Link *link;
         Network *network;
         ConfigSection *section;
@@ -71,7 +59,7 @@ struct Address {
         address_ready_callback_t callback;
 
         NFTSetContext nft_set_context;
-};
+} Address;
 
 void log_address_debug(const Address *address, const char *str, const Link *link);
 
@@ -103,7 +91,7 @@ int address_new(Address **ret);
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret);
 int address_get(Link *link, const Address *in, Address **ret);
 int address_get_harder(Link *link, const Address *in, Address **ret);
-int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
+int address_configure_handler_internal(sd_netlink_message *m, Link *link, Address *address);
 int address_remove(Address *address, Link *link);
 int address_remove_and_cancel(Address *address, Link *link);
 int address_dup(const Address *src, Address **ret);

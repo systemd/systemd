@@ -1,100 +1,77 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <pthread.h>
+#include "sd-id128.h"
 
-#include "sd-bus.h"
-
-#include "bus-error.h"
+#include "bus-forward.h"
 #include "bus-kernel.h"
 #include "bus-match.h"
 #include "constants.h"
-#include "hashmap.h"
 #include "list.h"
-#include "prioq.h"
 #include "runtime-scope.h"
 #include "socket-util.h"
-#include "time-util.h"
 
 /* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and
  * that way we become independent of /var being mounted */
 #define DEFAULT_SYSTEM_BUS_ADDRESS "unix:path=/run/dbus/system_bus_socket"
 #define DEFAULT_USER_BUS_ADDRESS_FMT "unix:path=%s/bus"
 
-struct reply_callback {
+typedef struct BusReplyCallback {
         sd_bus_message_handler_t callback;
         usec_t timeout_usec; /* this is a relative timeout until we reach the BUS_HELLO state, and an absolute one right after */
         uint64_t cookie;
         unsigned prioq_idx;
-};
+} BusReplyCallback;
 
-struct filter_callback {
+typedef struct BusFilterCallback {
         sd_bus_message_handler_t callback;
 
         unsigned last_iteration;
 
-        LIST_FIELDS(struct filter_callback, callbacks);
-};
+        LIST_FIELDS(BusFilterCallback, callbacks);
+} BusFilterCallback;
 
-struct match_callback {
-        sd_bus_message_handler_t callback;
-        sd_bus_message_handler_t install_callback;
-
-        sd_bus_slot *install_slot; /* The AddMatch() call */
-
-        unsigned last_iteration;
-
-        /* Don't dispatch this slot with messages that arrived in any iteration before or at the this
-         * one. We use this to ensure that matches don't apply "retroactively" and confuse the caller:
-         * only messages received after the match was installed will be considered. */
-        uint64_t after;
-
-        char *match_string;
-
-        struct bus_match_node *match_node;
-};
-
-struct node {
+typedef struct BusNode {
         char *path;
-        struct node *parent;
-        LIST_HEAD(struct node, child);
-        LIST_FIELDS(struct node, siblings);
+        BusNode *parent;
+        LIST_HEAD(BusNode, child);
+        LIST_FIELDS(BusNode, siblings);
 
-        LIST_HEAD(struct node_callback, callbacks);
-        LIST_HEAD(struct node_vtable, vtables);
-        LIST_HEAD(struct node_enumerator, enumerators);
-        LIST_HEAD(struct node_object_manager, object_managers);
-};
+        LIST_HEAD(BusNodeCallback, callbacks);
+        LIST_HEAD(BusNodeVTable, vtables);
+        LIST_HEAD(BusNodeEnumerator, enumerators);
+        LIST_HEAD(BusNodeObjectManager, object_managers);
+} BusNode;
 
-struct node_callback {
-        struct node *node;
+typedef struct BusNodeCallback {
+        BusNode *node;
 
         bool is_fallback;
         unsigned last_iteration;
 
         sd_bus_message_handler_t callback;
 
-        LIST_FIELDS(struct node_callback, callbacks);
-};
+        LIST_FIELDS(BusNodeCallback, callbacks);
+} BusNodeCallback;
 
-struct node_enumerator {
-        struct node *node;
+typedef struct BusNodeEnumerator {
+        BusNode *node;
 
         sd_bus_node_enumerator_t callback;
 
         unsigned last_iteration;
 
-        LIST_FIELDS(struct node_enumerator, enumerators);
-};
+        LIST_FIELDS(BusNodeEnumerator, enumerators);
+} BusNodeEnumerator;
 
-struct node_object_manager {
-        struct node *node;
+typedef struct BusNodeObjectManager {
+        BusNode *node;
 
-        LIST_FIELDS(struct node_object_manager, object_managers);
-};
+        LIST_FIELDS(BusNodeObjectManager, object_managers);
+} BusNodeObjectManager;
 
-struct node_vtable {
-        struct node *node;
+typedef struct BusNodeVTable {
+        BusNode *node;
 
         bool is_fallback;
         unsigned last_iteration;
@@ -103,17 +80,17 @@ struct node_vtable {
         const sd_bus_vtable *vtable;
         sd_bus_object_find_t find;
 
-        LIST_FIELDS(struct node_vtable, vtables);
-};
+        LIST_FIELDS(BusNodeVTable, vtables);
+} BusNodeVTable;
 
-struct vtable_member {
+typedef struct BusVTableMember {
         const char *path;
         const char *interface;
         const char *member;
-        struct node_vtable *parent;
+        BusNodeVTable *parent;
         unsigned last_iteration;
         const sd_bus_vtable *vtable;
-};
+} BusVTableMember;
 
 typedef enum BusSlotType {
         BUS_REPLY_CALLBACK,
@@ -126,7 +103,7 @@ typedef enum BusSlotType {
         _BUS_SLOT_INVALID = -EINVAL,
 } BusSlotType;
 
-struct sd_bus_slot {
+typedef struct sd_bus_slot {
         unsigned n_ref;
         BusSlotType type:8;
 
@@ -149,17 +126,17 @@ struct sd_bus_slot {
         LIST_FIELDS(sd_bus_slot, slots);
 
         union {
-                struct reply_callback reply_callback;
-                struct filter_callback filter_callback;
-                struct match_callback match_callback;
-                struct node_callback node_callback;
-                struct node_enumerator node_enumerator;
-                struct node_object_manager node_object_manager;
-                struct node_vtable node_vtable;
+                BusReplyCallback reply_callback;
+                BusFilterCallback filter_callback;
+                BusMatchCallback match_callback;
+                BusNodeCallback node_callback;
+                BusNodeEnumerator node_enumerator;
+                BusNodeObjectManager node_object_manager;
+                BusNodeVTable node_vtable;
         };
-};
+} sd_bus_slot;
 
-enum bus_state {
+typedef enum BusState {
         BUS_UNSET,
         BUS_WATCH_BIND,      /* waiting for the socket to appear via inotify */
         BUS_OPENING,         /* the kernel's connect() is still not ready */
@@ -169,22 +146,22 @@ enum bus_state {
         BUS_CLOSING,
         BUS_CLOSED,
         _BUS_STATE_MAX,
-};
+} BusState;
 
-static inline bool BUS_IS_OPEN(enum bus_state state) {
+static inline bool BUS_IS_OPEN(BusState state) {
         return state > BUS_UNSET && state < BUS_CLOSING;
 }
 
-enum bus_auth {
+typedef enum BusAuth {
         _BUS_AUTH_INVALID,
         BUS_AUTH_EXTERNAL,
         BUS_AUTH_ANONYMOUS
-};
+} BusAuth;
 
-struct sd_bus {
+typedef struct sd_bus {
         unsigned n_ref;
 
-        enum bus_state state;
+        BusState state;
         int input_fd, output_fd;
         int inotify_fd;
         int message_version;
@@ -234,10 +211,10 @@ struct sd_bus {
         char *unique_name;
         uint64_t unique_id;
 
-        struct bus_match_node match_callbacks;
+        BusMatchNode match_callbacks;
         Prioq *reply_callbacks_prioq;
         OrderedHashmap *reply_callbacks;
-        LIST_HEAD(struct filter_callback, filter_callbacks);
+        LIST_HEAD(BusFilterCallback, filter_callbacks);
 
         Hashmap *nodes;
         Set *vtable_methods;
@@ -259,7 +236,7 @@ struct sd_bus {
 
         int last_connect_error;
 
-        enum bus_auth auth;
+        BusAuth auth;
         unsigned auth_index;
         struct iovec auth_iovec[3];
         size_t auth_rbegin;
@@ -327,7 +304,7 @@ struct sd_bus {
 
         /* zero means use value specified by $SYSTEMD_BUS_TIMEOUT= environment variable or built-in default */
         usec_t method_call_timeout;
-};
+} sd_bus;
 
 /* For method calls we timeout at 25s, like in the D-Bus reference implementation */
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
@@ -428,4 +405,4 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 
 void bus_enter_closing(sd_bus *bus);
 
-void bus_set_state(sd_bus *bus, enum bus_state state);
+void bus_set_state(sd_bus *bus, BusState state);

@@ -15,10 +15,10 @@
 
 #include "vmlinux.h"
 
+#include <errno.h>
+#include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-#include <bpf/bpf_core_read.h>
-#include <errno.h>
 
 #ifndef bpf_core_cast
 /* bpf_rdonly_cast() was introduced in libbpf commit 688879f together with
@@ -141,7 +141,7 @@ int BPF_PROG(userns_restrict_path_mkdir, struct path *dir, struct dentry *dentry
 }
 
 SEC("lsm/path_mknod")
-int BPF_PROG(userns_restrict_path_mknod, const struct path *dir, struct dentry *dentry, umode_t mode, unsigned int dev, int ret) {
+int BPF_PROG(userns_restrict_path_mknod, const struct path *dir, struct dentry *dentry, umode_t mode, unsigned dev, int ret) {
         return validate_path(dir, ret);
 }
 

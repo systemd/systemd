@@ -1,27 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
-#include <net/if.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "devnum-util.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "format-ifname.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "glyph-util.h"
 #include "gunicode.h"
-#include "id128-util.h"
 #include "in-addr-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "pager.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -29,6 +24,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -1651,7 +1647,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 return yes_no(d->boolean);
 
         case TABLE_BOOLEAN_CHECKMARK:
-                return special_glyph(d->boolean ? SPECIAL_GLYPH_CHECK_MARK : SPECIAL_GLYPH_CROSS_MARK);
+                return glyph(d->boolean ? GLYPH_CHECK_MARK : GLYPH_CROSS_MARK);
 
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
@@ -2341,7 +2337,7 @@ int table_print(Table *t, FILE *f) {
 
                                         req_width = MAX(req_width,
                                                         utf8_console_width(last) +
-                                                        utf8_console_width(special_glyph(SPECIAL_GLYPH_ELLIPSIS)));
+                                                        utf8_console_width(glyph(GLYPH_ELLIPSIS)));
                                 }
 
                                 /* Determine the biggest width that any cell in this column would like to have */
@@ -2563,7 +2559,7 @@ int table_print(Table *t, FILE *f) {
                                                  * right after. This will truncate the ellipsis and add a new
                                                  * one. */
 
-                                                padded = strjoin(field, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                                padded = strjoin(field, glyph(GLYPH_ELLIPSIS));
                                                 if (!padded)
                                                         return -ENOMEM;
 

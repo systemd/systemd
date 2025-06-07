@@ -22,6 +22,10 @@ src/core/org.freedesktop.systemd1.policy
 src/hostname/hostnamed.c
 src/locale/localed.c
 src/timedate/timedated.c
+units/breakpoint-pre-basic.service.in
+units/breakpoint-pre-mount.service.in
+units/breakpoint-pre-switch-root.service.in
+units/breakpoint-pre-udev.service.in
 units/capsule@.service.in
 units/debug-shell.service.in
 units/systemd-battery-check.service.in

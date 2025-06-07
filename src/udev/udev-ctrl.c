@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <poll.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -15,6 +11,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "socket-util.h"
 #include "strxcpyx.h"
 #include "udev-ctrl.h"
@@ -72,7 +69,7 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
                 .sun_path = "/run/udev/control",
         };
 
-        uctrl->addrlen = SOCKADDR_UN_LEN(uctrl->saddr.un);
+        uctrl->addrlen = sockaddr_un_len(&uctrl->saddr.un);
 
         *ret = TAKE_PTR(uctrl);
         return 0;
@@ -292,7 +289,7 @@ int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdat
 
 int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) {
         UdevCtrlMessageWire ctrl_msg_wire = {
-                .version = "udev-" STRINGIFY(PROJECT_VERSION),
+                .version = "udev-" PROJECT_VERSION_STR,
                 .magic = UDEV_CTRL_MAGIC,
                 .type = type,
         };

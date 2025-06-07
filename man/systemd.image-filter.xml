@@ -1,0 +1,80 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.image-filter">
+
+  <refentryinfo>
+    <title>systemd.image-filter</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.image-filter</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.image-filter</refname>
+    <refpurpose>Disk Image Dissection Filter</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>In systemd, whenever a disk image (DDI) implementing the <ulink
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+    Partitions Specification</ulink> is activated, a filter may be specified controlling which partitions to
+    consider for mounting. Such a disk image dissection filter is a string that contains per-partition-type
+    patterns, separated by colons (<literal>:</literal>). The individual rules consist of a partition
+    identifier, an equal sign (<literal>=</literal>), and a shell globbing pattern applied to the GPT label
+    string of the partition. See <citerefentry
+    project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details on shell globbing.</para>
+
+    <para>The partition identifiers currently defined are: <option>root</option>, <option>usr</option>,
+    <option>home</option>, <option>srv</option>, <option>esp</option>, <option>xbootldr</option>,
+    <option>swap</option>, <option>root-verity</option>, <option>root-verity-sig</option>,
+    <option>usr-verity</option>, <option>usr-verity-sig</option>, <option>tmp</option>,
+    <option>var</option>. These identifiers match the relevant partition types in the Discoverable Partitions
+    Specification, but are agnostic to CPU architectures.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Use</title>
+
+    <para>Various systemd components that support operating with disk images support a
+    <option>--image-filter=</option> command line option to specify the image filter to use. If no filter is
+    specified all partitions in partition table are considered and no per-label filtering is applied (except
+    that partitions with the <literal>_empty</literal> label are always ignored).</para>
+
+    <para>For the host root file system image itself
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is responsible for processing the GPT partition table and making use of the included discoverable
+    partitions. It accepts an image filter via the kernel command line option
+    <option>systemd.image_filter=</option>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>The following image filter string dictates that for the root file system partition only partitions
+    shall be considered whose label begins with <literal>ParticleOS-</literal>. For the
+    <filename>/usr/</filename> partition the precise label <literal>ParticleOS_47110815</literal> is
+    required.</para>
+
+    <programlisting>root=ParticleOS-*:usr=ParticleOS_47110815</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

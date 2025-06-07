@@ -263,16 +263,10 @@
     returns the user slice (as managed by the user's systemd instance)
     of a process.</para>
 
-    <para><function>sd_pid_get_cgroup()</function> returns the control
-    group path of the specified process, relative to the root of the
-    hierarchy. Returns the path without trailing slash, except for
-    processes located in the root control group, where "/" is
-    returned. To find the actual control group path in the file system,
-    the returned path needs to be prefixed with
-    <filename>/sys/fs/cgroup/</filename> (if the unified control group
-    setup is used), or
-    <filename>/sys/fs/cgroup/<replaceable>HIERARCHY</replaceable>/</filename>
-    (if the legacy multi-hierarchy control group setup is used).</para>
+    <para><function>sd_pid_get_cgroup()</function> returns the control group path of the specified process,
+    relative to the root of the hierarchy. Returns the path without trailing slash, except for processes
+    located in the root control group, where "/" is returned. To find the actual control group path
+    in the file system, the returned path needs to be prefixed with <filename>/sys/fs/cgroup/</filename>.</para>
 
     <para>If the <varname>pid</varname> parameter of any of these
     functions is passed as 0, the operation is executed for the
@@ -328,7 +322,7 @@
         <varlistentry>
           <term><constant>-EBADF</constant></term>
 
-          <listitem><para>The specified socket file descriptor was invalid.</para></listitem>
+          <listitem><para>The specified file descriptor is invalid.</para></listitem>
         </varlistentry>
 
         <varlistentry>

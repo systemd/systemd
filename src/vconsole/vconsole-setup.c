@@ -3,25 +3,18 @@
   Copyright © 2016 Michal Soltys <soltys@ziu.info>
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <linux/kd.h>
 #include <linux/tiocl.h>
 #include <linux/vt.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sysexits.h>
 #include <termios.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "creds-util.h"
-#include "dev-setup.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -32,12 +25,10 @@
 #include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "virt.h"
 
 typedef struct Context {
         char *keymap;
@@ -607,7 +598,7 @@ static int run(int argc, char **argv) {
         } else {
                 fd = find_source_vc(&vc, &idx);
                 if (fd < 0 && fd != -EBUSY)
-                        return log_error_errno(fd, "No usable source console found: %m");
+                        return log_error_errno(fd, "No virtual console that can be configured found: %m");
         }
 
         utf8 = is_locale_utf8();
@@ -617,7 +608,7 @@ static int run(int argc, char **argv) {
                 /* We found only busy VCs, which might happen during the boot process when the boot splash is
                  * displayed on the only allocated VC. In this case we don't interfere and avoid initializing
                  * the VC partially as some operations are likely to fail. */
-                log_notice("All allocated VCs are currently busy, skipping initialization of font and keyboard settings.");
+                log_notice("All allocated virtual consoles are busy, will not configure key mapping and font.");
                 return EXIT_SUCCESS;
         }
 
@@ -641,7 +632,7 @@ static int run(int argc, char **argv) {
                         setup_remaining_vcs(fd, idx, utf8);
                 else
                         log_full(r == EX_OSERR ? LOG_NOTICE : LOG_WARNING,
-                                 "Setting source virtual console failed, ignoring remaining ones.");
+                                 "Configuration of first virtual console failed, ignoring remaining ones.");
         }
 
         return IN_SET(r, 0, EX_OSERR) && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;

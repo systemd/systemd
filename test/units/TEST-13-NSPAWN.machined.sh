@@ -113,8 +113,8 @@ machinectl disable long-running
 test ! -L /etc/systemd/system/machines.target.wants/systemd-nspawn@long-running.service
 machinectl disable long-running long-running long-running container1
 
-[[ "$(machinectl shell testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "" ]]
-[[ "$(machinectl shell --setenv=FOO=bar testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "bar" ]]
+[[ "$(TERM=dumb machinectl shell testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "" ]]
+[[ "$(TERM=dumb machinectl shell --setenv=FOO=bar testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "bar" ]]
 
 [[ "$(machinectl show --property=State --value long-running)" == "running" ]]
 # Equivalent to machinectl kill --signal=SIGRTMIN+4 --kill-whom=leader
@@ -286,6 +286,10 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 rm -f /var/lib/machines/long-running/trap
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Kill '{"name":"long-running", "whom": "leader", "signal": 5}'
 timeout 120 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
+
+# sending KILL signal
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Kill '{"name":"long-running", "signal": 9}'
+timeout 30 bash -c "while varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{\"name\":\"long-running\"}'; do sleep 0.5; done"
 
 # test io.systemd.Machine.Terminate
 long_running_machine_start

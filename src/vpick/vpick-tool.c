@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <dirent.h>
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "format-table.h"
-#include "fs-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -13,7 +15,6 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "vpick.h"
 
 static char *arg_filter_basename = NULL;

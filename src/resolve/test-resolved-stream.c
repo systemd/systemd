@@ -1,37 +1,33 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <net/if.h>
-#include <net/if_arp.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "fd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
-#if ENABLE_DNS_OVER_TLS
-#include "resolved-dnstls.h"
-#endif
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dnstls.h"
 #include "resolved-manager.h"
-#include "sd-event.h"
 #include "sparse-endian.h"
 #include "tests.h"
+#include "time-util.h"
 
 static union sockaddr_union server_address;
 
@@ -112,7 +108,7 @@ static void *tcp_dns_server(void *p) {
 
         assert_se((bindfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
         assert_se(setsockopt(bindfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) >= 0);
-        assert_se(bind(bindfd, &server_address.sa, SOCKADDR_LEN(server_address)) >= 0);
+        assert_se(bind(bindfd, &server_address.sa, sockaddr_len(&server_address)) >= 0);
         assert_se(listen(bindfd, 1) >= 0);
         assert_se((acceptfd = accept(bindfd, NULL, NULL)) >= 0);
         server_handle(acceptfd);
@@ -247,7 +243,7 @@ static void test_dns_stream(bool tls) {
         assert_se((clientfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
 
         for (int i = 0; i < 100; i++) {
-                r = connect(clientfd, &server_address.sa, SOCKADDR_LEN(server_address));
+                r = connect(clientfd, &server_address.sa, sockaddr_len(&server_address));
                 if (r >= 0)
                         break;
                 usleep_safe(EVENT_TIMEOUT_USEC / 100);

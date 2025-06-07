@@ -1,18 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if_arp.h>
-#include <stdio.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "missing_socket.h"
-#include "parse-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -37,11 +35,11 @@ static int process_vsock_cid(unsigned cid, const char *port) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate AF_VSOCK socket: %m");
 
-        if (connect(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0)
+        if (connect(fd, &sa.sa, sockaddr_len(&sa)) < 0)
                 return log_error_errno(errno, "Failed to connect to vsock:%u:%u: %m", sa.vm.svm_cid, sa.vm.svm_port);
 
         /* OpenSSH wants us to send a single byte along with the file descriptor, hence do so */
-        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* n_iovec= */ 1, /* flags= */ 0);
+        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* iovlen= */ 1, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send socket via STDOUT: %m");
 
@@ -86,7 +84,7 @@ static int process_unix(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to AF_UNIX socket %s: %m", path);
 
-        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* n_iovec= */ 1, /* flags= */ 0);
+        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* iovlen= */ 1, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send socket via STDOUT: %m");
 
@@ -130,7 +128,7 @@ static int process_vsock_mux(const char *path, const char *port) {
         if (r < 0)
                 return log_error_errno(r, "Failed to send CONNECT to %s:%s: %m", path, port);
 
-        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* n_iovec= */ 1, /* flags= */ 0);
+        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* iovlen= */ 1, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send socket via STDOUT: %m");
 
@@ -175,6 +173,15 @@ static int process_machine(const char *machine, const char *port) {
         return process_vsock_cid(cid, port);
 }
 
+static char *startswith_sep(const char *s, const char *prefix) {
+        const char *p = startswith(s, prefix);
+
+        if (p && IN_SET(*p, '/', '%'))
+                return (char*) p + 1;
+
+        return NULL;
+}
+
 static int run(int argc, char* argv[]) {
 
         log_setup();
@@ -184,19 +191,19 @@ static int run(int argc, char* argv[]) {
 
         const char *host = argv[1], *port = argv[2];
 
-        const char *p = startswith(host, "vsock/");
+        const char *p = startswith_sep(host, "vsock");
         if (p)
                 return process_vsock_string(p, port);
 
-        p = startswith(host, "unix/");
+        p = startswith_sep(host, "unix");
         if (p)
                 return process_unix(p);
 
-        p = startswith(host, "vsock-mux/");
+        p = startswith_sep(host, "vsock-mux");
         if (p)
                 return process_vsock_mux(p, port);
 
-        p = startswith(host, "machine/");
+        p = startswith_sep(host, "machine");
         if (p)
                 return process_machine(p, port);
 

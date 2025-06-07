@@ -24,7 +24,7 @@ at_exit() {
 
 trap at_exit EXIT
 
-udevadm settle
+udevadm settle --timeout=30
 
 mkdir -p /run/udev/udev.conf.d/
 cat >/run/udev/udev.conf.d/timeout.conf <<EOF
@@ -63,7 +63,7 @@ grep -q -F 'ID_PROCESSING=1' "/run/udev/data/n${IFINDEX}"
 
 # Forcibly kill sleep command invoked by the udev rule to finish processing the add event.
 killall sleep
-udevadm settle --timeout=20
+udevadm settle --timeout=30
 
 # Check if ID_PROCESSING flag is unset, and the device units are active.
 (! grep -q -F 'ID_PROCESSING=1' "/run/udev/data/n${IFINDEX}")

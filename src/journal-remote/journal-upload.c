@@ -1,25 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <curl/curl.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "build.h"
 #include "conf-parser.h"
-#include "constants.h"
 #include "daemon-util.h"
 #include "env-file.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "hashmap.h"
+#include "journal-header-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
 #include "log.h"
@@ -30,10 +31,9 @@
 #include "parse-helpers.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "rlimit-util.h"
-#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "version.h"
 
@@ -59,6 +59,7 @@ static int arg_follow = -1;
 static char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
 static OrderedHashmap *arg_compression = NULL;
+static OrderedHashmap *arg_headers = NULL;
 static bool arg_force_compression = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
@@ -72,6 +73,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_namespace, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_save_state, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compression, ordered_hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_headers, ordered_hashmap_freep);
 
 static void close_fd_input(Uploader *u);
 
@@ -217,6 +219,28 @@ int start_upload(Uploader *u,
 
                 if (u->compression) {
                         _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(u->compression->algorithm));
+                        if (!header)
+                                return log_oom();
+
+                        l = curl_slist_append(h, header);
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
+
+                char **values;
+                const char *name;
+                ORDERED_HASHMAP_FOREACH_KEY(values, name, arg_headers) {
+                        _cleanup_free_ char *joined = strv_join(values, ", ");
+                        if (!joined)
+                                return log_oom();
+
+                        if (!header_value_is_valid(joined)) {
+                                log_warning("Concatenated header value for %s is invalid, ignoring", name);
+                                continue;
+                        }
+
+                        _cleanup_free_ char *header = strjoin(name, ": ", joined);
                         if (!header)
                                 return log_oom();
 
@@ -657,6 +681,7 @@ static int parse_config(void) {
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
+                { "Upload",  "Header",                 config_parse_header,         0,                        &arg_headers              },
                 { "Upload",  "Compression",            config_parse_compression,    /* with_level */ true,    &arg_compression          },
                 { "Upload",  "ForceCompression",       config_parse_bool,           0,                        &arg_force_compression    },
                 {}
@@ -956,7 +981,7 @@ static int run(int argc, char **argv) {
 
         notify_message = notify_start("READY=1\n"
                                       "STATUS=Processing input...",
-                                      NOTIFY_STOPPING);
+                                      NOTIFY_STOPPING_MESSAGE);
 
         for (;;) {
                 r = sd_event_get_state(u.event);

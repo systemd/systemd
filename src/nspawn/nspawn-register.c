@@ -2,16 +2,21 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
+#include "nspawn-mount.h"
 #include "nspawn-register.h"
 #include "nspawn-settings.h"
+#include "pidref.h"
 #include "special.h"
 #include "stat-util.h"
-#include "strv.h"
+#include "string-util.h"
+#include "unit-def.h"
+#include "unit-name.h"
 
 static int append_machine_properties(
                 sd_bus_message *m,
@@ -129,7 +134,7 @@ static int can_set_coredump_receive(sd_bus *bus) {
 int register_machine(
                 sd_bus *bus,
                 const char *machine_name,
-                pid_t pid,
+                const PidRef *pid,
                 const char *directory,
                 sd_id128_t uuid,
                 int local_ifindex,
@@ -160,7 +165,7 @@ int register_machine(
                                 SD_BUS_MESSAGE_APPEND_ID128(uuid),
                                 service,
                                 "container",
-                                (uint32_t) pid,
+                                pidref_is_set(pid) ? (uint32_t) pid->pid : 0,
                                 strempty(directory),
                                 local_ifindex > 0 ? 1 : 0, local_ifindex);
         } else {
@@ -177,7 +182,7 @@ int register_machine(
                                 SD_BUS_MESSAGE_APPEND_ID128(uuid),
                                 service,
                                 "container",
-                                (uint32_t) pid,
+                                pidref_is_set(pid) ? (uint32_t) pid->pid : 0,
                                 strempty(directory),
                                 local_ifindex > 0 ? 1 : 0, local_ifindex);
                 if (r < 0)
@@ -247,7 +252,7 @@ int unregister_machine(
 int allocate_scope(
                 sd_bus *bus,
                 const char *machine_name,
-                pid_t pid,
+                const PidRef* pid,
                 const char *slice,
                 CustomMount *mounts,
                 unsigned n_mounts,
@@ -289,12 +294,7 @@ int allocate_scope(
 
         description = strjoina("Container ", machine_name);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate PID reference: %m");
-
-        r = bus_append_scope_pidref(m, &pidref, FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD));
+        r = bus_append_scope_pidref(m, pid, FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD));
         if (r < 0)
                 return bus_log_create_error(r);
 

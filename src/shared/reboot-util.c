@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <linux/reboot.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/reboot.h>
 #include <unistd.h>
 
 #if HAVE_XENCTRL
 #define __XEN_INTERFACE_VERSION__ 0x00040900
-#include <xen/xen.h>
 #include <xen/kexec.h>
 #include <xen/sys/privcmd.h>
+#include <xen/xen.h>
 #endif
 
 #include "alloc-util.h"

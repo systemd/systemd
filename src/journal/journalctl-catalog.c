@@ -1,8 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
+#include "alloc-util.h"
 #include "catalog.h"
 #include "journalctl.h"
 #include "journalctl-catalog.h"
+#include "log.h"
+#include "pager.h"
 #include "path-util.h"
 
 int action_update_catalog(void) {

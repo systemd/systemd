@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "macro.h"
 #include "network-generator.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void test_network_one(const char *ifname, const char *key, const char *value, const char *expected) {
@@ -13,7 +11,7 @@ static void test_network_one(const char *ifname, const char *key, const char *va
         log_debug("/* %s(%s=%s) */", __func__, key, value);
 
         ASSERT_OK(parse_cmdline_item(key, value, &context));
-        ASSERT_NOT_NULL(network = network_get(&context, ifname));
+        ASSERT_NOT_NULL((network = network_get(&context, ifname)));
         ASSERT_OK(network_format(network, &output));
         ASSERT_STREQ(output, expected);
 }
@@ -31,7 +29,7 @@ static void test_network_two(const char *ifname,
         ASSERT_OK(parse_cmdline_item(key1, value1, &context));
         ASSERT_OK(parse_cmdline_item(key2, value2, &context));
         ASSERT_OK(context_merge_networks(&context));
-        ASSERT_NOT_NULL(network = network_get(&context, ifname));
+        ASSERT_NOT_NULL((network = network_get(&context, ifname)));
         ASSERT_OK(network_format(network, &output));
         ASSERT_STREQ(output, expected);
 }
@@ -44,7 +42,7 @@ static void test_netdev_one(const char *ifname, const char *key, const char *val
         log_debug("/* %s(%s=%s) */", __func__, key, value);
 
         ASSERT_OK(parse_cmdline_item(key, value, &context));
-        ASSERT_NOT_NULL(netdev = netdev_get(&context, ifname));
+        ASSERT_NOT_NULL((netdev = netdev_get(&context, ifname)));
         ASSERT_OK(netdev_format(netdev, &output));
         ASSERT_STREQ(output, expected);
 }
@@ -57,7 +55,7 @@ static void test_link_one(const char *filename, const char *key, const char *val
         log_debug("/* %s(%s=%s) */", __func__, key, value);
 
         ASSERT_OK(parse_cmdline_item(key, value, &context));
-        ASSERT_NOT_NULL(link = link_get(&context, filename));
+        ASSERT_NOT_NULL((link = link_get(&context, filename)));
         ASSERT_OK(link_format(link, &output));
         ASSERT_STREQ(output, expected);
 }

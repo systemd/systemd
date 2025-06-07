@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
-#include <limits.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -16,17 +12,16 @@
 #include "conf-parser.h"
 #include "constants.h"
 #include "dirent-util.h"
-#include "errno-list.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
-#include "install-printf.h"
 #include "install.h"
-#include "locale-util.h"
+#include "install-printf.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir-label.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -38,6 +33,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-file.h"
+#include "unit-name.h"
 
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 
@@ -348,7 +344,7 @@ static void install_change_dump_success(const InstallChange *change) {
 
         case INSTALL_CHANGE_SYMLINK:
                 return log_info("Created symlink '%s' %s '%s'.",
-                                change->path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), change->source);
+                                change->path, glyph(GLYPH_ARROW_RIGHT), change->source);
 
         case INSTALL_CHANGE_UNLINK:
                 return log_info("Removed '%s'.", change->path);
@@ -604,7 +600,7 @@ static int create_symlink(
 
         if (chroot_unit_symlinks_equivalent(lp, new_path, dest, old_path)) {
                 log_debug("Symlink %s %s %s already exists",
-                          new_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dest);
+                          new_path, glyph(GLYPH_ARROW_RIGHT), dest);
                 return 1;
         }
 
@@ -634,7 +630,7 @@ static int mark_symlink_for_removal(
 
         assert(p);
 
-        r = set_ensure_allocated(remove_symlinks_to, &path_hash_ops);
+        r = set_ensure_allocated(remove_symlinks_to, &path_hash_ops_free);
         if (r < 0)
                 return r;
 
@@ -1126,11 +1122,16 @@ static InstallInfo* install_info_free(InstallInfo *i) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(InstallInfo*, install_info_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                install_info_hash_ops,
+                char, string_hash_func, string_compare_func,
+                InstallInfo, install_info_free);
+
 static void install_context_done(InstallContext *ctx) {
         assert(ctx);
 
-        ctx->will_process = ordered_hashmap_free_with_destructor(ctx->will_process, install_info_free);
-        ctx->have_processed = ordered_hashmap_free_with_destructor(ctx->have_processed, install_info_free);
+        ctx->will_process = ordered_hashmap_free(ctx->will_process);
+        ctx->have_processed = ordered_hashmap_free(ctx->have_processed);
 }
 
 static InstallInfo *install_info_find(InstallContext *ctx, const char *name) {
@@ -1229,7 +1230,7 @@ static int install_info_add(
         if (r < 0)
                 return r;
 
-        r = ordered_hashmap_ensure_put(&ctx->will_process, &string_hash_ops, new_info->name, new_info);
+        r = ordered_hashmap_ensure_put(&ctx->will_process, &install_info_hash_ops, new_info->name, new_info);
         if (r < 0)
                 return r;
         i = TAKE_PTR(new_info);
@@ -1777,9 +1778,9 @@ static int install_info_add_auto(
         assert(name_or_path);
 
         if (path_is_absolute(name_or_path)) {
-                const char *pp;
-
-                pp = prefix_roota(lp->root_dir, name_or_path);
+                _cleanup_free_ char *pp = path_join(lp->root_dir, name_or_path);
+                if (!pp)
+                        return -ENOMEM;
 
                 return install_info_add(ctx, NULL, pp, lp->root_dir, /* auxiliary= */ false, ret);
         } else
@@ -2195,7 +2196,7 @@ static int install_context_apply(
         if (ordered_hashmap_isempty(ctx->will_process))
                 return 0;
 
-        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &string_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &install_info_hash_ops);
         if (r < 0)
                 return r;
 
@@ -2267,7 +2268,7 @@ static int install_context_mark_for_removal(
         if (ordered_hashmap_isempty(ctx->will_process))
                 return 0;
 
-        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &string_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &install_info_hash_ops);
         if (r < 0)
                 return r;
 
@@ -2371,7 +2372,7 @@ int unit_file_unmask(
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
         _cleanup_strv_free_ char **todo = NULL;
         const char *config_path;
         size_t n_todo = 0;
@@ -2587,7 +2588,7 @@ int unit_file_revert(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_strv_free_ char **todo = NULL;
         size_t n_todo = 0;
@@ -2874,7 +2875,6 @@ static int do_unit_file_disable(
                 size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         bool has_install_info = false;
         int r;
 
@@ -2901,6 +2901,7 @@ static int do_unit_file_disable(
                 has_install_info = has_install_info || install_info_has_rules(info) || install_info_has_also(info);
         }
 
+        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
         r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to, config_path, changes, n_changes);
         if (r >= 0)
                 r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
@@ -3538,7 +3539,7 @@ static int execute_preset(
         assert(config_path);
 
         if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
-                _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+                _cleanup_set_free_ Set *remove_symlinks_to = NULL;
 
                 r = install_context_mark_for_removal(minus, lp, &remove_symlinks_to, config_path, changes, n_changes);
                 if (r < 0)

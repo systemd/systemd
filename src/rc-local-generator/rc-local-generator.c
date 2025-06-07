@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdio.h>
 #include <unistd.h>
 
 #include "generator.h"
@@ -64,7 +62,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return EXIT_SUCCESS;
         }
 
-        if (check_executable(RC_LOCAL_PATH) >= 0) {
+        if (check_executable(SYSTEM_SYSVRCLOCAL_PATH) >= 0) {
                 log_debug("Automatically adding rc-local.service.");
 
                 r = add_symlink("rc-local.service", "multi-user.target");

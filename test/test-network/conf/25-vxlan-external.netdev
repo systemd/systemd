@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=vxlan-external
+Kind=vxlan
+
+[VXLAN]
+External=true
+VNIFilter=true
+L2MissNotification=true
+L3MissNotification=true
+RouteShortCircuit=true
+UDPChecksum=true
+UDP6ZeroChecksumTx=true
+UDP6ZeroChecksumRx=true
+RemoteChecksumTx=true
+RemoteChecksumRx=true
+GroupPolicyExtension=true
+Independent=true
+DestinationPort=4444

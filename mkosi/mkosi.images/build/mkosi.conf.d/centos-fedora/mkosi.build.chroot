@@ -1,0 +1,118 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+. mkosi/mkosi.functions
+
+if [[ "$1" == "clangd" ]]; then
+    exit 0
+fi
+
+if [[ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]]; then
+    echo "spec not found at pkg/$PKG_SUBDIR/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
+    exit 1
+fi
+
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
+
+if [[ "$(rpm --eval "%{lua:print(rpm.vercmp('$(rpm --version | cut -d ' ' -f3)', '4.19.91'))}")" == "-1" ]]; then
+    # Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
+    # See https://github.com/rpm-software-management/rpm/issues/3042.
+    tee --append /usr/lib/rpm/redhat/macros <<'EOF'
+%install %{?_enable_debug_packages:%{debug_package}}\
+%%install\
+%{nil}
+EOF
+fi
+
+VERSION="$(cat meson.version)"
+RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"
+
+COMMON_MACRO_OVERRIDES=(
+    --define "toolchain $( ((LLVM)) && echo clang || echo gcc)"
+    --define "_fortify_level 0"
+    --undefine _lto_cflags
+    # TODO: Remove once redhat-rpm-config 292 is available everywhere.
+    --define "_hardening_clang_cflags --config=/usr/lib/rpm/redhat/redhat-hardened-clang.cfg"
+    --define "_hardening_clang_ldflags --config=/usr/lib/rpm/redhat/redhat-hardened-clang-ld.cfg"
+)
+
+# TODO: Drop -U_FORTIFY_SOURCE when we switch to CentOS Stream 10.
+MKOSI_CFLAGS="-O0 -g -Wp,-U_FORTIFY_SOURCE"
+if ((WITH_DEBUG)); then
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -fdebug-prefix-map=../src=/usr/src/debug/systemd"
+fi
+if ((LLVM)); then
+    # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -shared-libasan -fno-sanitize=function"
+fi
+
+MKOSI_LDFLAGS=""
+if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
+    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(realpath "$(clang --print-runtime-dir)")"
+fi
+
+MKOSI_MESON_OPTIONS="-D mode=developer -D vcs-tag=${VCS_TAG:-true} -D b_sanitize=${SANITIZERS:-none} -Dtime-epoch=1744207869"
+if ((WIPE)) && [[ -d "$BUILDDIR/meson-private" ]]; then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
+fi
+if ((COVERAGE)); then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS -D b_coverage=true"
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -fprofile-dir=/coverage"
+fi
+
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR"/*.rpm
+)
+
+IFS=
+# TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
+# https://github.com/mesonbuild/meson/pull/12835 is available.
+# shellcheck disable=SC2046
+env \
+--unset=CFLAGS \
+--unset=CXXFLAGS \
+--unset=LDFLAGS \
+ANNOBIN="no-active-checks" \
+CC_LD="$( ((LLVM)) && echo lld)" \
+CXX_LD="$( ((LLVM)) && echo lld)" \
+    rpmbuild \
+    -bb \
+    --noprep \
+    --build-in-place \
+    --with upstream \
+    $( ((WITH_TESTS)) || echo "--nocheck") \
+    $( ((WITH_DOCS))  || echo "--without=docs") \
+    --define "_topdir /var/tmp" \
+    --define "_sourcedir $PWD/pkg/$PKG_SUBDIR" \
+    --define "_rpmdir $BUILDDIR" \
+    ${BUILDDIR:+"--define=_vpath_builddir $BUILDDIR"} \
+    --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
+    --define "_binary_payload w.ufdio" \
+    $( ((WITH_DEBUG)) || echo "--define=debug_package %{nil}") \
+    --define "version_override $VERSION" \
+    --define "release_override $RELEASE" \
+    "${COMMON_MACRO_OVERRIDES[@]}" \
+    --define "build_cflags $(rpm "${COMMON_MACRO_OVERRIDES[@]}" --eval "%{?build_cflags}") $MKOSI_CFLAGS $CFLAGS" \
+    --define "build_cxxflags $(rpm "${COMMON_MACRO_OVERRIDES[@]}" --eval "%{?build_cxxflags}") $MKOSI_CFLAGS $CFLAGS" \
+    --define "build_ldflags $(rpm "${COMMON_MACRO_OVERRIDES[@]}" --eval "%{?build_ldflags}") $MKOSI_LDFLAGS $LDFLAGS" \
+    --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} $( ((MESON_VERBOSE)) && echo --verbose) %{nil}}" \
+    --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
+    --define "meson_extra_configure_options $MKOSI_MESON_OPTIONS $MESON_OPTIONS" \
+    $( ((WITH_DEBUG)) || echo "--define=__brp_strip %{nil}") \
+    --define "__brp_compress %{nil}" \
+    --define "__brp_mangle_shebangs %{nil}" \
+    --define "__brp_strip_comment_note %{nil}" \
+    --define "__brp_strip_static_archive %{nil}" \
+    --define "__brp_check_rpaths %{nil}" \
+    --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
+    --define "__script_requires %{nil}" \
+    --define "_find_debuginfo_opts --unique-debug-src-base \"%{name}\"" \
+    --define "_find_debuginfo_dwz_opts %{nil}" \
+    --undefine _package_note_flags \
+    "pkg/$PKG_SUBDIR/systemd.spec"
+
+cp "$BUILDDIR"/*.rpm "$PACKAGEDIR"
+
+make_sysext_unsigned /var/tmp/BUILD/*/BUILDROOT

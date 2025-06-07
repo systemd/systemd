@@ -13,7 +13,7 @@ executables += [
         },
         executable_template + {
                 'name' : 'systemd-sysusers.standalone',
-                'public' : have_standalone_binaries,
+                'public' : true,
                 'sources' : files('sysusers.c'),
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
@@ -22,7 +22,5 @@ executables += [
                         libsystemd_static,
                 ],
                 'dependencies' : libaudit,
-                'build_by_default' : have_standalone_binaries,
-                'install' : have_standalone_binaries,
         },
 ]

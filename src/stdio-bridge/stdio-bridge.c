@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stddef.h>
-#include <string.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
 
-#include "alloc-util.h"
 #include "build.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -17,10 +14,9 @@
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "time-util.h"
 
-#define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
-
-static const char *arg_bus_path = DEFAULT_BUS_PATH;
+static const char *arg_bus_path = DEFAULT_SYSTEM_BUS_ADDRESS;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
@@ -33,7 +29,7 @@ static int help(void) {
                "     --system            Connect to system bus\n"
                "     --user              Connect to user bus\n"
                "  -M --machine=CONTAINER Name of local container to connect to\n",
-               program_invocation_short_name, DEFAULT_BUS_PATH);
+               program_invocation_short_name, DEFAULT_SYSTEM_BUS_ADDRESS);
 
         return 0;
 }
@@ -92,9 +88,13 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Unknown option code %c", c);
+                        assert_not_reached();
                 }
+
+        if (argc > optind)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s takes no arguments.",
+                                       program_invocation_short_name);
 
         return 1;
 }

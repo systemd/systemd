@@ -1,19 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
-
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "fileio.h"
 #include "glob-util.h"
 #include "log.h"
-#include "macro.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
-#include "path-util.h"
-#include "string-util.h"
-#include "strv.h"
+#include "siphash24.h"
 #include "tests.h"
 #include "unaligned.h"
 

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mount.h>
-#include <sys/wait.h>
+#include <stdlib.h>
 
 #include "sd-daemon.h"
 
@@ -12,8 +11,11 @@
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
+#include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "nsresourced-manager.h"
 #include "parse-util.h"
@@ -22,9 +24,10 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "unaligned.h"
 #include "user-util.h"
@@ -78,13 +81,6 @@ static int on_deferred_start_worker(sd_event_source *s, uint64_t usec, void *use
         (void) start_workers(m, /* explicit_request=*/ false);
         return 0;
 }
-
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-                event_source_hash_ops,
-                sd_event_source,
-                (void (*)(const sd_event_source*, struct siphash*)) trivial_hash_func,
-                (int (*)(const sd_event_source*, const sd_event_source*)) trivial_compare_func,
-                sd_event_source_disable_unref);
 
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -283,7 +279,7 @@ static int start_workers(Manager *m, bool explicit_request) {
                                                 &m->deferred_start_worker_event_source,
                                                 CLOCK_MONOTONIC,
                                                 ratelimit_end(&m->worker_ratelimit),
-                                                /* accuracy_usec= */ 0,
+                                                /* accuracy= */ 0,
                                                 on_deferred_start_worker,
                                                 m);
                                 if (r < 0)
@@ -350,10 +346,12 @@ static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to find userns for inode %" PRIu64 ", ignoring: %m", inode);
 
-        if (userns_info && uid_is_valid(userns_info->start))
-                log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", inode, userns_info->start);
-        else
-                log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
+        if (DEBUG_LOGGING) {
+                if (userns_info && uid_is_valid(userns_info->start_uid))
+                        log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", inode, userns_info->start_uid);
+                else
+                        log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
+        }
 
         /* Remove the BPF rules */
         manager_release_userns_bpf(m, inode);
@@ -366,7 +364,12 @@ static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
                 /* Remove the cgroups of this userns */
                 r = userns_info_remove_cgroups(userns_info);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to remove cgroups of user namespace: %m");
+                        log_warning_errno(r, "Failed to remove cgroups of user namespace, ignoring: %m");
+
+                /* Remove the netifs of this userns */
+                r = userns_info_remove_netifs(userns_info);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove netifs of user namespace, ignoring: %m");
 
                 r = userns_registry_remove(m->registry_fd, userns_info);
                 if (r < 0)
@@ -443,7 +446,7 @@ static int manager_make_listen_socket(Manager *m) {
         (void) sockaddr_un_unlink(&sockaddr.un);
 
         WITH_UMASK(0000)
-                if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
+                if (bind(m->listen_fd, &sockaddr.sa, sockaddr_un_len(&sockaddr.un)) < 0)
                         return log_error_errno(errno, "Failed to bind socket: %m");
 
         r = mkdir_p("/run/systemd/userdb", 0755);
@@ -520,15 +523,15 @@ static int ringbuf_event(void *userdata, void *data, size_t size) {
         Manager *m = ASSERT_PTR(userdata);
         size_t n;
 
-        if ((size % sizeof(unsigned int)) != 0) /* Not multiples of "unsigned int"? */
+        if ((size % sizeof(unsigned)) != 0) /* Not multiples of "unsigned"? */
                 return -EIO;
 
-        n = size / sizeof(unsigned int);
+        n = size / sizeof(unsigned);
         for (size_t i = 0; i < n; i++) {
                 const void *d;
                 uint64_t inode;
 
-                d = (const uint8_t*) data + i * sizeof(unsigned int);
+                d = (const uint8_t*) data + i * sizeof(unsigned);
                 inode = unaligned_read_ne32(d);
 
                 log_debug("Got BPF ring buffer notification that user namespace %" PRIu64 " is now dead.", inode);

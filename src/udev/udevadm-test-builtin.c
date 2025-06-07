@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "device-private.h"
 #include "device-util.h"
@@ -58,16 +55,11 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        arg_command = argv[optind++];
-        if (!arg_command)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Command missing.");
+        if (argc != optind + 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected two arguments: command string and device path.");
 
-        arg_syspath = argv[optind++];
-        if (!arg_syspath)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "device is missing.");
-
+        arg_command = ASSERT_PTR(argv[optind]);
+        arg_syspath = ASSERT_PTR(argv[optind+1]);
         return 1;
 }
 

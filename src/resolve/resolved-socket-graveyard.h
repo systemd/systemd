@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct SocketGraveyard SocketGraveyard;
+#include "list.h"
+#include "resolved-forward.h"
 
-#include "resolved-manager.h"
-
-struct SocketGraveyard {
+typedef struct SocketGraveyard {
         Manager *manager;
         usec_t deadline;
         sd_event_source *io_event_source;
         LIST_FIELDS(SocketGraveyard, graveyard);
-};
+} SocketGraveyard;
 
 void manager_socket_graveyard_process(Manager *m);
 void manager_socket_graveyard_clear(Manager *m);

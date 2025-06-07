@@ -1,18 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-
-#include "sd-device.h"
-
-#include "macro.h"
-#include "time-util.h"
-
-typedef struct LoopDevice LoopDevice;
+#include "forward.h"
 
 /* Some helpers for setting up loopback block devices */
 
-struct LoopDevice {
+typedef struct LoopDevice {
         unsigned n_ref;
         int fd;
         int lock_fd;
@@ -28,7 +21,7 @@ struct LoopDevice {
         uint64_t diskseq; /* Block device sequence number, monothonically incremented by the kernel on create/attach, or 0 if we don't know */
         uint32_t sector_size;
         uint64_t device_size;
-};
+} LoopDevice;
 
 /* Returns true if LoopDevice object is not actually a loopback device but some other block device we just wrap */
 #define LOOP_DEVICE_IS_FOREIGN(d) ((d)->nr < 0)

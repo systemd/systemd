@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <sys/stat.h>
+
 #include "sd-bus.h"
 #include "sd-json.h"
 
@@ -9,9 +12,11 @@
 #include "bus-get-properties.h"
 #include "bus-label.h"
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "common-signal.h"
+#include "constants.h"
 #include "discover-image.h"
 #include "dropin.h"
 #include "env-util.h"
@@ -19,19 +24,24 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
-#include "mkdir-label.h"
 #include "notify-recv.h"
 #include "os-util.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "service-util.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "sysupdate-util.h"
+#include "utf8.h"
 
 #define FEATURES_DROPIN_NAME "systemd-sysupdate-enabled"
 
@@ -46,7 +56,7 @@ typedef struct Manager {
 
         Hashmap *polkit_registry;
 
-        sd_event_source *notify_event;
+        char *notify_socket_path;
 
         RuntimeScope runtime_scope; /* For now only RUNTIME_SCOPE_SYSTEM */
 } Manager;
@@ -456,7 +466,7 @@ static int job_start(Job *j) {
                 };
                 size_t k = 2;
 
-                if (setenv("NOTIFY_SOCKET", "/run/systemd/sysupdate/notify", /* overwrite= */ 1) < 0) {
+                if (setenv("NOTIFY_SOCKET", j->manager->notify_socket_path, /* overwrite= */ 1) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -1637,7 +1647,7 @@ static Manager *manager_free(Manager *m) {
         hashmap_free(m->jobs);
 
         m->bus = sd_bus_flush_close_unref(m->bus);
-        sd_event_source_unref(m->notify_event);
+        free(m->notify_socket_path);
         sd_event_unref(m->event);
 
         return mfree(m);
@@ -1698,11 +1708,6 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
-        _cleanup_close_ int notify_fd = -EBADF;
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/sysupdate/notify",
-        };
         int r;
 
         assert(ret);
@@ -1738,34 +1743,15 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (notify_fd < 0)
-                return -errno;
-
-        (void) mkdir_parents_label(sa.un.sun_path, 0755);
-        (void) sockaddr_un_unlink(&sa.un);
-
-        if (bind(notify_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return -errno;
-
-        r = setsockopt_int(notify_fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = notify_socket_prepare(
+                        m->event,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        manager_on_notify,
+                        m,
+                        &m->notify_socket_path,
+                        /* ret_event_source= */ NULL);
         if (r < 0)
                 return r;
-
-        r = setsockopt_int(notify_fd, SOL_SOCKET, SO_PASSPIDFD, true);
-        if (r < 0)
-                log_debug_errno(r, "Failed to enable SO_PASSPIDFD, ignoring: %m");
-
-        r = sd_event_add_io(m->event, &m->notify_event, notify_fd, EPOLLIN, manager_on_notify, m);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(m->notify_event, "notify-socket");
-
-        r = sd_event_source_set_io_fd_own(m->notify_event, true);
-        if (r < 0)
-                return r;
-        TAKE_FD(notify_fd);
 
         *ret = TAKE_PTR(m);
         return 0;
@@ -1788,7 +1774,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                 _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
 
-                if (IMAGE_IS_HOST(image))
+                if (image_is_host(image))
                         continue; /* We already enroll the host ourselves */
 
                 r = target_new(m, class, image->name, image->path, &t);

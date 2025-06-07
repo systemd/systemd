@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/bpf.h>
 #include <linux/bpf_insn.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "bpf-firewall.h"
@@ -10,8 +10,10 @@
 #include "load-fragment.h"
 #include "manager.h"
 #include "memory-util.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "service.h"
+#include "set.h"
 #include "tests.h"
 #include "unit-serialize.h"
 #include "virt.h"
@@ -31,13 +33,17 @@ int main(int argc, char *argv[]) {
         struct rlimit rl;
         int r;
         union bpf_attr attr;
-        bool test_custom_filter = false;
         const char *test_prog = "/sys/fs/bpf/test-dropper";
 
         test_setup_logging(LOG_DEBUG);
 
         if (detect_container() > 0)
                 return log_tests_skipped("test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
+
+        r = bpf_program_supported();
+        if (r < 0)
+                return log_tests_skipped_errno(r, "BPF firewalling not supported");
+        ASSERT_TRUE(r);
 
         ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
@@ -65,34 +71,17 @@ int main(int argc, char *argv[]) {
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
         ASSERT_EQ(r, 0);
 
-        r = bpf_firewall_supported();
-        if (r == BPF_FIREWALL_UNSUPPORTED)
-                return log_tests_skipped("BPF firewalling not supported");
-        ASSERT_GT(r, 0);
-
-        if (r == BPF_FIREWALL_SUPPORTED_WITH_MULTI) {
-                log_notice("BPF firewalling with BPF_F_ALLOW_MULTI supported. Yay!");
-                test_custom_filter = true;
-        } else
-                log_notice("BPF firewalling (though without BPF_F_ALLOW_MULTI) supported. Good.");
-
         r = bpf_program_load_kernel(p, log_buf, ELEMENTSOF(log_buf));
         ASSERT_OK(r);
 
-        if (test_custom_filter) {
-                zero(attr);
-                attr.pathname = PTR_TO_UINT64(test_prog);
-                attr.bpf_fd = p->kernel_fd;
-                attr.file_flags = 0;
+        zero(attr);
+        attr.pathname = PTR_TO_UINT64(test_prog);
+        attr.bpf_fd = p->kernel_fd;
+        attr.file_flags = 0;
 
-                (void) unlink(test_prog);
+        (void) unlink(test_prog);
 
-                r = bpf(BPF_OBJ_PIN, &attr, sizeof(attr));
-                if (r < 0) {
-                        log_warning_errno(errno, "BPF object pinning failed, will not run custom filter test: %m");
-                        test_custom_filter = false;
-                }
-        }
+        ASSERT_OK(bpf(BPF_OBJ_PIN, &attr, sizeof(attr)));
 
         p = bpf_program_free(p);
 
@@ -181,6 +170,7 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(r);
 
+        ASSERT_OK(unit_patch_contexts(u));
         ASSERT_OK(unit_start(u, NULL));
 
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
@@ -192,31 +182,31 @@ int main(int argc, char *argv[]) {
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.code != CLD_EXITED ||
                   SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.status != EXIT_SUCCESS);
 
-        if (test_custom_filter) {
-                assert_se(u = unit_new(m, sizeof(Service)));
-                assert_se(unit_add_name(u, "custom-filter.service") == 0);
-                assert_se(cc = unit_get_cgroup_context(u));
-                u->perpetual = true;
+        /* testing custom filter */
+        assert_se(u = unit_new(m, sizeof(Service)));
+        assert_se(unit_add_name(u, "custom-filter.service") == 0);
+        assert_se(cc = unit_get_cgroup_context(u));
+        u->perpetual = true;
 
-                cc->ip_accounting = true;
+        cc->ip_accounting = true;
 
-                assert_se(config_parse_ip_filter_bpf_progs(u->id, "filename", 1, "Service", 1, "IPIngressFilterPath", 0, test_prog, &cc->ip_filters_ingress, u) == 0);
-                assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "-/bin/ping -c 1 127.0.0.1 -W 5", SERVICE(u)->exec_command, u) == 0);
+        assert_se(config_parse_ip_filter_bpf_progs(u->id, "filename", 1, "Service", 1, "IPIngressFilterPath", 0, test_prog, &cc->ip_filters_ingress, u) == 0);
+        assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "-/bin/ping -c 1 127.0.0.1 -W 5", SERVICE(u)->exec_command, u) == 0);
 
-                SERVICE(u)->type = SERVICE_ONESHOT;
-                u->load_state = UNIT_LOADED;
+        SERVICE(u)->type = SERVICE_ONESHOT;
+        u->load_state = UNIT_LOADED;
 
-                ASSERT_OK(unit_start(u, NULL));
+        ASSERT_OK(unit_patch_contexts(u));
+        ASSERT_OK(unit_start(u, NULL));
 
-                while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
-                        assert_se(sd_event_run(m->event, UINT64_MAX) >= 0);
+        while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
+                assert_se(sd_event_run(m->event, UINT64_MAX) >= 0);
 
-                assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.code != CLD_EXITED ||
-                          SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.status != EXIT_SUCCESS);
+        assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.code != CLD_EXITED ||
+                  SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.status != EXIT_SUCCESS);
 
-                (void) unlink(test_prog);
-                assert_se(SERVICE(u)->state == SERVICE_DEAD);
-        }
+        (void) unlink(test_prog);
+        assert_se(SERVICE(u)->state == SERVICE_DEAD);
 
         return 0;
 }

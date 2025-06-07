@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-json.h"
+#include "sd-bus.h"
 
 #include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "image.h"
 #include "io-util.h"
+#include "log.h"
+#include "machined.h"
 #include "operation.h"
 #include "process-util.h"
 #include "string-table.h"
@@ -60,7 +64,7 @@ int clean_pool_read_next_entry(FILE *file, char **ret_name, uint64_t *ret_usage)
         /* Return value:
          * r < 0: error
          * r == 0 last record returned
-         * r > 0 more recoreds expected */
+         * r > 0 more records expected */
 
         _cleanup_free_ char *name = NULL;
         uint64_t usage;
@@ -135,11 +139,11 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
 
                 HASHMAP_FOREACH(image, images) {
                         /* We can't remove vendor images (i.e. those in /usr) */
-                        if (IMAGE_IS_VENDOR(image))
+                        if (image_is_vendor(image))
                                 continue;
-                        if (IMAGE_IS_HOST(image))
+                        if (image_is_host(image))
                                 continue;
-                        if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN && !IMAGE_IS_HIDDEN(image))
+                        if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN && !image_is_hidden(image))
                                 continue;
 
                         r = image_remove(image);

@@ -1,21 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
 
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "log.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "reboot-util.h"
+#include "systemctl.h"
 #include "systemctl-compat-halt.h"
 #include "systemctl-compat-telinit.h"
 #include "systemctl-logind.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
-#include "terminal-util.h"
 #include "utmp-wtmp.h"
 
 static int halt_help(void) {

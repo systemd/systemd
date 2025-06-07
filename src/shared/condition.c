@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
-#include <limits.h>
-#include <stdlib.h>
+#include <gnu/libc-version.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
@@ -17,7 +13,6 @@
 #include "alloc-util.h"
 #include "apparmor-util.h"
 #include "architecture.h"
-#include "audit-util.h"
 #include "battery-util.h"
 #include "bitfield.h"
 #include "blockdev-util.h"
@@ -29,8 +24,8 @@
 #include "confidential-virt.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
-#include "efi-api.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "extract-word.h"
@@ -38,19 +33,21 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
-#include "hostname-util.h"
-#include "ima-util.h"
+#include "hostname-setup.h"
 #include "id128-util.h"
+#include "ima-util.h"
 #include "initrd-util.h"
+#include "libaudit-util.h"
 #include "limits-util.h"
 #include "list.h"
-#include "macro.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
@@ -60,6 +57,8 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "tomoyo-util.h"
 #include "tpm2-util.h"
 #include "uid-classification.h"
@@ -184,18 +183,14 @@ static int condition_test_credential(Condition *c, char **env) {
         return false;
 }
 
-static int condition_test_kernel_version(Condition *c, char **env) {
+static int condition_test_version_cmp(const char *condition, const char *ver) {
         CompareOperator operator;
-        struct utsname u;
         bool first = true;
 
-        assert(c);
-        assert(c->parameter);
-        assert(c->type == CONDITION_KERNEL_VERSION);
+        assert(condition);
+        assert(ver);
 
-        assert_se(uname(&u) >= 0);
-
-        for (const char *p = c->parameter;;) {
+        for (const char *p = condition;;) {
                 _cleanup_free_ char *word = NULL;
                 const char *s;
                 int r;
@@ -227,7 +222,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
                 }
 
-                r = version_or_fnmatch_compare(operator, u.release, s);
+                r = version_or_fnmatch_compare(operator, ver, s);
                 if (r < 0)
                         return r;
                 if (!r)
@@ -237,6 +232,40 @@ static int condition_test_kernel_version(Condition *c, char **env) {
         }
 
         return true;
+}
+
+static int condition_test_version(Condition *c, char **env) {
+        int r;
+
+        assert(c);
+        assert(c->type == CONDITION_VERSION);
+
+        /* An empty condition is considered true. */
+        if (isempty(c->parameter))
+                return true;
+
+        const char *p = c->parameter;
+        _cleanup_free_ char *word = NULL;
+        r = extract_first_word(&p, &word, COMPARE_OPERATOR_WITH_FNMATCH_CHARS WHITESPACE,
+                               EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_RETAIN_SEPARATORS);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse compare predicate \"%s\": %m", p);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing right operand in condition: %s", c->parameter);
+
+        if (streq(word, "systemd"))
+                return condition_test_version_cmp(p, STRINGIFY(PROJECT_VERSION));
+
+        if (streq(word, "glibc"))
+                return condition_test_version_cmp(p, gnu_get_libc_version());
+
+        /* if no predicate has been set, default to "kernel" and use the whole parameter as condition */
+        if (!streq(word, "kernel"))
+                p = c->parameter;
+
+        struct utsname u;
+        assert_se(uname(&u) >= 0);
+        return condition_test_version_cmp(p, u.release);
 }
 
 static int condition_test_osrelease(Condition *c, char **env) {
@@ -379,21 +408,17 @@ static int condition_test_user(Condition *c, char **env) {
 }
 
 static int condition_test_control_group_controller(Condition *c, char **env) {
+        CGroupMask system_mask, wanted_mask;
         int r;
-        CGroupMask system_mask, wanted_mask = 0;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_CONTROL_GROUP_CONTROLLER);
 
         if (streq(c->parameter, "v2"))
-                return cg_all_unified();
-        if (streq(c->parameter, "v1")) {
-                r = cg_all_unified();
-                if (r < 0)
-                        return r;
-                return !r;
-        }
+                return true;
+        if (streq(c->parameter, "v1"))
+                return false;
 
         r = cg_mask_supported(&system_mask);
         if (r < 0)
@@ -405,7 +430,7 @@ static int condition_test_control_group_controller(Condition *c, char **env) {
                  * mixed in with valid ones -- these are only assessed on the
                  * validity of the valid controllers found. */
                 log_debug("Failed to parse cgroup string: %s", c->parameter);
-                return 1;
+                return true;
         }
 
         return FLAGS_SET(system_mask, wanted_mask);
@@ -494,7 +519,7 @@ static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
         if (r < 0) {
                 /* if the path doesn't exist it is incompatible */
                 if (r != -ENOENT)
-                        log_debug_errno(r, "Failed to open() '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
+                        log_debug_errno(r, "Failed to open '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
                 return false;
         }
 
@@ -1053,14 +1078,6 @@ static int condition_test_psi(Condition *c, char **env) {
                 if (!slice)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s.", c->parameter);
 
-                r = cg_all_unified();
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
-                if (r == 0) {
-                        log_debug("PSI condition check requires the unified cgroups hierarchy, skipping.");
-                        return 1;
-                }
-
                 r = cg_mask_supported(&mask);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get supported cgroup controllers: %m");
@@ -1221,7 +1238,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_FILE_NOT_EMPTY]           = condition_test_file_not_empty,
                 [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
                 [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
-                [CONDITION_KERNEL_VERSION]           = condition_test_kernel_version,
+                [CONDITION_VERSION]                  = condition_test_version,
                 [CONDITION_CREDENTIAL]               = condition_test_credential,
                 [CONDITION_VIRTUALIZATION]           = condition_test_virtualization,
                 [CONDITION_SECURITY]                 = condition_test_security,
@@ -1334,89 +1351,113 @@ void condition_dump_list(Condition *first, FILE *f, const char *prefix, conditio
                 condition_dump(c, f, prefix, to_string);
 }
 
-static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
-        [CONDITION_ARCHITECTURE] = "ConditionArchitecture",
-        [CONDITION_FIRMWARE] = "ConditionFirmware",
-        [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
-        [CONDITION_HOST] = "ConditionHost",
-        [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
-        [CONDITION_KERNEL_VERSION] = "ConditionKernelVersion",
-        [CONDITION_CREDENTIAL] = "ConditionCredential",
-        [CONDITION_SECURITY] = "ConditionSecurity",
-        [CONDITION_CAPABILITY] = "ConditionCapability",
-        [CONDITION_AC_POWER] = "ConditionACPower",
-        [CONDITION_NEEDS_UPDATE] = "ConditionNeedsUpdate",
-        [CONDITION_FIRST_BOOT] = "ConditionFirstBoot",
-        [CONDITION_PATH_EXISTS] = "ConditionPathExists",
-        [CONDITION_PATH_EXISTS_GLOB] = "ConditionPathExistsGlob",
-        [CONDITION_PATH_IS_DIRECTORY] = "ConditionPathIsDirectory",
-        [CONDITION_PATH_IS_SYMBOLIC_LINK] = "ConditionPathIsSymbolicLink",
-        [CONDITION_PATH_IS_MOUNT_POINT] = "ConditionPathIsMountPoint",
-        [CONDITION_PATH_IS_READ_WRITE] = "ConditionPathIsReadWrite",
-        [CONDITION_PATH_IS_ENCRYPTED] = "ConditionPathIsEncrypted",
-        [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
-        [CONDITION_FILE_NOT_EMPTY] = "ConditionFileNotEmpty",
-        [CONDITION_FILE_IS_EXECUTABLE] = "ConditionFileIsExecutable",
-        [CONDITION_USER] = "ConditionUser",
-        [CONDITION_GROUP] = "ConditionGroup",
+static const char* const _condition_type_table[_CONDITION_TYPE_MAX] = {
+        [CONDITION_ARCHITECTURE]             = "ConditionArchitecture",
+        [CONDITION_FIRMWARE]                 = "ConditionFirmware",
+        [CONDITION_VIRTUALIZATION]           = "ConditionVirtualization",
+        [CONDITION_HOST]                     = "ConditionHost",
+        [CONDITION_KERNEL_COMMAND_LINE]      = "ConditionKernelCommandLine",
+        [CONDITION_VERSION]                  = "ConditionVersion",
+        [CONDITION_CREDENTIAL]               = "ConditionCredential",
+        [CONDITION_SECURITY]                 = "ConditionSecurity",
+        [CONDITION_CAPABILITY]               = "ConditionCapability",
+        [CONDITION_AC_POWER]                 = "ConditionACPower",
+        [CONDITION_NEEDS_UPDATE]             = "ConditionNeedsUpdate",
+        [CONDITION_FIRST_BOOT]               = "ConditionFirstBoot",
+        [CONDITION_PATH_EXISTS]              = "ConditionPathExists",
+        [CONDITION_PATH_EXISTS_GLOB]         = "ConditionPathExistsGlob",
+        [CONDITION_PATH_IS_DIRECTORY]        = "ConditionPathIsDirectory",
+        [CONDITION_PATH_IS_SYMBOLIC_LINK]    = "ConditionPathIsSymbolicLink",
+        [CONDITION_PATH_IS_MOUNT_POINT]      = "ConditionPathIsMountPoint",
+        [CONDITION_PATH_IS_READ_WRITE]       = "ConditionPathIsReadWrite",
+        [CONDITION_PATH_IS_ENCRYPTED]        = "ConditionPathIsEncrypted",
+        [CONDITION_DIRECTORY_NOT_EMPTY]      = "ConditionDirectoryNotEmpty",
+        [CONDITION_FILE_NOT_EMPTY]           = "ConditionFileNotEmpty",
+        [CONDITION_FILE_IS_EXECUTABLE]       = "ConditionFileIsExecutable",
+        [CONDITION_USER]                     = "ConditionUser",
+        [CONDITION_GROUP]                    = "ConditionGroup",
         [CONDITION_CONTROL_GROUP_CONTROLLER] = "ConditionControlGroupController",
-        [CONDITION_CPUS] = "ConditionCPUs",
-        [CONDITION_MEMORY] = "ConditionMemory",
-        [CONDITION_ENVIRONMENT] = "ConditionEnvironment",
-        [CONDITION_CPU_FEATURE] = "ConditionCPUFeature",
-        [CONDITION_OS_RELEASE] = "ConditionOSRelease",
-        [CONDITION_MEMORY_PRESSURE] = "ConditionMemoryPressure",
-        [CONDITION_CPU_PRESSURE] = "ConditionCPUPressure",
-        [CONDITION_IO_PRESSURE] = "ConditionIOPressure",
-        [CONDITION_KERNEL_MODULE_LOADED] = "ConditionKernelModuleLoaded",
+        [CONDITION_CPUS]                     = "ConditionCPUs",
+        [CONDITION_MEMORY]                   = "ConditionMemory",
+        [CONDITION_ENVIRONMENT]              = "ConditionEnvironment",
+        [CONDITION_CPU_FEATURE]              = "ConditionCPUFeature",
+        [CONDITION_OS_RELEASE]               = "ConditionOSRelease",
+        [CONDITION_MEMORY_PRESSURE]          = "ConditionMemoryPressure",
+        [CONDITION_CPU_PRESSURE]             = "ConditionCPUPressure",
+        [CONDITION_IO_PRESSURE]              = "ConditionIOPressure",
+        [CONDITION_KERNEL_MODULE_LOADED]     = "ConditionKernelModuleLoaded",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(_condition_type, ConditionType);
 
-static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
-        [CONDITION_ARCHITECTURE] = "AssertArchitecture",
-        [CONDITION_FIRMWARE] = "AssertFirmware",
-        [CONDITION_VIRTUALIZATION] = "AssertVirtualization",
-        [CONDITION_HOST] = "AssertHost",
-        [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
-        [CONDITION_KERNEL_VERSION] = "AssertKernelVersion",
-        [CONDITION_CREDENTIAL] = "AssertCredential",
-        [CONDITION_SECURITY] = "AssertSecurity",
-        [CONDITION_CAPABILITY] = "AssertCapability",
-        [CONDITION_AC_POWER] = "AssertACPower",
-        [CONDITION_NEEDS_UPDATE] = "AssertNeedsUpdate",
-        [CONDITION_FIRST_BOOT] = "AssertFirstBoot",
-        [CONDITION_PATH_EXISTS] = "AssertPathExists",
-        [CONDITION_PATH_EXISTS_GLOB] = "AssertPathExistsGlob",
-        [CONDITION_PATH_IS_DIRECTORY] = "AssertPathIsDirectory",
-        [CONDITION_PATH_IS_SYMBOLIC_LINK] = "AssertPathIsSymbolicLink",
-        [CONDITION_PATH_IS_MOUNT_POINT] = "AssertPathIsMountPoint",
-        [CONDITION_PATH_IS_READ_WRITE] = "AssertPathIsReadWrite",
-        [CONDITION_PATH_IS_ENCRYPTED] = "AssertPathIsEncrypted",
-        [CONDITION_DIRECTORY_NOT_EMPTY] = "AssertDirectoryNotEmpty",
-        [CONDITION_FILE_NOT_EMPTY] = "AssertFileNotEmpty",
-        [CONDITION_FILE_IS_EXECUTABLE] = "AssertFileIsExecutable",
-        [CONDITION_USER] = "AssertUser",
-        [CONDITION_GROUP] = "AssertGroup",
+const char* condition_type_to_string(ConditionType t) {
+        return _condition_type_to_string(t);
+}
+
+ConditionType condition_type_from_string(const char *s) {
+        /* for backward compatibility */
+        if (streq_ptr(s, "ConditionKernelVersion"))
+                return CONDITION_VERSION;
+
+        return _condition_type_from_string(s);
+}
+
+static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
+        [CONDITION_ARCHITECTURE]             = "AssertArchitecture",
+        [CONDITION_FIRMWARE]                 = "AssertFirmware",
+        [CONDITION_VIRTUALIZATION]           = "AssertVirtualization",
+        [CONDITION_HOST]                     = "AssertHost",
+        [CONDITION_KERNEL_COMMAND_LINE]      = "AssertKernelCommandLine",
+        [CONDITION_VERSION]                  = "AssertVersion",
+        [CONDITION_CREDENTIAL]               = "AssertCredential",
+        [CONDITION_SECURITY]                 = "AssertSecurity",
+        [CONDITION_CAPABILITY]               = "AssertCapability",
+        [CONDITION_AC_POWER]                 = "AssertACPower",
+        [CONDITION_NEEDS_UPDATE]             = "AssertNeedsUpdate",
+        [CONDITION_FIRST_BOOT]               = "AssertFirstBoot",
+        [CONDITION_PATH_EXISTS]              = "AssertPathExists",
+        [CONDITION_PATH_EXISTS_GLOB]         = "AssertPathExistsGlob",
+        [CONDITION_PATH_IS_DIRECTORY]        = "AssertPathIsDirectory",
+        [CONDITION_PATH_IS_SYMBOLIC_LINK]    = "AssertPathIsSymbolicLink",
+        [CONDITION_PATH_IS_MOUNT_POINT]      = "AssertPathIsMountPoint",
+        [CONDITION_PATH_IS_READ_WRITE]       = "AssertPathIsReadWrite",
+        [CONDITION_PATH_IS_ENCRYPTED]        = "AssertPathIsEncrypted",
+        [CONDITION_DIRECTORY_NOT_EMPTY]      = "AssertDirectoryNotEmpty",
+        [CONDITION_FILE_NOT_EMPTY]           = "AssertFileNotEmpty",
+        [CONDITION_FILE_IS_EXECUTABLE]       = "AssertFileIsExecutable",
+        [CONDITION_USER]                     = "AssertUser",
+        [CONDITION_GROUP]                    = "AssertGroup",
         [CONDITION_CONTROL_GROUP_CONTROLLER] = "AssertControlGroupController",
-        [CONDITION_CPUS] = "AssertCPUs",
-        [CONDITION_MEMORY] = "AssertMemory",
-        [CONDITION_ENVIRONMENT] = "AssertEnvironment",
-        [CONDITION_CPU_FEATURE] = "AssertCPUFeature",
-        [CONDITION_OS_RELEASE] = "AssertOSRelease",
-        [CONDITION_MEMORY_PRESSURE] = "AssertMemoryPressure",
-        [CONDITION_CPU_PRESSURE] = "AssertCPUPressure",
-        [CONDITION_IO_PRESSURE] = "AssertIOPressure",
-        [CONDITION_KERNEL_MODULE_LOADED] = "AssertKernelModuleLoaded",
+        [CONDITION_CPUS]                     = "AssertCPUs",
+        [CONDITION_MEMORY]                   = "AssertMemory",
+        [CONDITION_ENVIRONMENT]              = "AssertEnvironment",
+        [CONDITION_CPU_FEATURE]              = "AssertCPUFeature",
+        [CONDITION_OS_RELEASE]               = "AssertOSRelease",
+        [CONDITION_MEMORY_PRESSURE]          = "AssertMemoryPressure",
+        [CONDITION_CPU_PRESSURE]             = "AssertCPUPressure",
+        [CONDITION_IO_PRESSURE]              = "AssertIOPressure",
+        [CONDITION_KERNEL_MODULE_LOADED]     = "AssertKernelModuleLoaded",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(_assert_type, ConditionType);
+
+const char* assert_type_to_string(ConditionType t) {
+        return _assert_type_to_string(t);
+}
+
+ConditionType assert_type_from_string(const char *s) {
+        /* for backward compatibility */
+        if (streq_ptr(s, "AssertKernelVersion"))
+                return CONDITION_VERSION;
+
+        return _assert_type_from_string(s);
+}
 
 static const char* const condition_result_table[_CONDITION_RESULT_MAX] = {
-        [CONDITION_UNTESTED] = "untested",
+        [CONDITION_UNTESTED]  = "untested",
         [CONDITION_SUCCEEDED] = "succeeded",
-        [CONDITION_FAILED] = "failed",
-        [CONDITION_ERROR] = "error",
+        [CONDITION_FAILED]    = "failed",
+        [CONDITION_ERROR]     = "error",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_result, ConditionResult);

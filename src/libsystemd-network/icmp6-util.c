@@ -3,22 +3,14 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <errno.h>
-#include <linux/if_packet.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
-#include <netinet/ip6.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
-#include "iovec-util.h"
 #include "network-common.h"
 #include "socket-util.h"
 
@@ -34,13 +26,13 @@ int icmp6_bind(int ifindex, bool is_router) {
         if (is_router) {
                 mreq = (struct ipv6_mreq) {
                         .ipv6mr_multiaddr = IN6_ADDR_ALL_ROUTERS_MULTICAST,
-                        .ipv6mr_interface = ifindex,
+                        .ipv6mr_ifindex = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
         } else {
                 mreq = (struct ipv6_mreq) {
                         .ipv6mr_multiaddr = IN6_ADDR_ALL_NODES_MULTICAST,
-                        .ipv6mr_interface = ifindex,
+                        .ipv6mr_ifindex = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
                 ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
@@ -76,7 +68,7 @@ int icmp6_bind(int ifindex, bool is_router) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(s, SOL_IPV6, IPV6_RECVHOPLIMIT, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
         if (r < 0)
                 return r;
 
@@ -118,7 +110,8 @@ int icmp6_receive(
                 struct in6_addr *ret_sender,
                 triple_timestamp *ret_timestamp) {
 
-        /* This needs to be initialized with zero. See #20741. */
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
                          CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov = { buffer, size };
@@ -148,7 +141,7 @@ int icmp6_receive(
 
         assert(!(msg.msg_flags & MSG_TRUNC));
 
-        int *hops = CMSG_FIND_DATA(&msg, SOL_IPV6, IPV6_HOPLIMIT, int);
+        int *hops = CMSG_FIND_DATA(&msg, IPPROTO_IPV6, IPV6_HOPLIMIT, int);
         if (hops && *hops != 255)
                 return -EMULTIHOP;
 

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "cap-list.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
@@ -12,8 +12,11 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "sha256.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
+#include "user-record.h"
+#include "group-record.h"
 #include "user-record-show.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -216,18 +219,18 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         }
         if (uid_is_valid(hr->uid))
                 printf("         UID: " UID_FMT "\n", hr->uid);
-        if (gid_is_valid(hr->gid)) {
+        if (gid_is_valid(user_record_gid(hr))) {
                 if (show_full_group_info) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                        r = groupdb_by_gid(hr->gid, /* match= */ NULL, /* flags= */ 0, &gr);
+                        r = groupdb_by_gid(user_record_gid(hr), /* match= */ NULL, /* flags= */ 0, &gr);
                         if (r < 0) {
                                 errno = -r;
-                                printf("         GID: " GID_FMT " (unresolvable: %m)\n", hr->gid);
+                                printf("         GID: " GID_FMT " (unresolvable: %m)\n", user_record_gid(hr));
                         } else
-                                printf("         GID: " GID_FMT " (%s)\n", hr->gid, gr->group_name);
+                                printf("         GID: " GID_FMT " (%s)\n", user_record_gid(hr), gr->group_name);
                 } else
-                        printf("         GID: " GID_FMT "\n", hr->gid);
+                        printf("         GID: " GID_FMT "\n", user_record_gid(hr));
         } else if (uid_is_valid(hr->uid)) /* Show UID as GID if not separately configured */
                 printf("         GID: " GID_FMT "\n", (gid_t) hr->uid);
 
@@ -258,6 +261,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         }
                 }
         }
+
+        if (!sd_id128_is_null(hr->uuid))
+                printf("        UUID: " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(hr->uuid));
 
         if (hr->real_name && !streq(hr->real_name, hr->user_name))
                 printf("   Real Name: %s\n", hr->real_name);
@@ -298,7 +304,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         hash = hexmem(hash_bytes, SHA256_DIGEST_SIZE);
 
                         printf("              %s %s %s(%s)%s\n",
-                               special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH),
+                               glyph(last ? GLYPH_TREE_RIGHT : GLYPH_TREE_BRANCH),
                                link ?: filename,
                                ansi_grey(),
                                hash ?: "can't display hash",
@@ -669,6 +675,9 @@ void group_record_show(GroupRecord *gr, bool show_full_user_info) {
 
         if (gid_is_valid(gr->gid))
                 printf("         GID: " GID_FMT "\n", gr->gid);
+
+        if (!sd_id128_is_null(gr->uuid))
+                printf("        UUID: " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(gr->uuid));
 
         if (show_full_user_info) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;

@@ -1,20 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
+#include <sys/stat.h>
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "terminal-util.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
 
@@ -186,7 +188,7 @@ static int load_public_key_disk(const char *path, struct public_key_data *ret) {
         } else {
                 log_debug("Loaded SRK public key from '%s'.", path);
 
-                r = openssl_pkey_from_pem(blob, blob_size, &data.pkey);
+                r = openssl_pubkey_from_pem(blob, blob_size, &data.pkey);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse SRK public key file '%s': %m", path);
 
@@ -296,7 +298,7 @@ static int run(int argc, char *argv[]) {
         if (r == -EDEADLK) {
                 log_struct_errno(LOG_INFO, r,
                                  LOG_MESSAGE("Insufficient permissions to access TPM, not generating SRK."),
-                                 "MESSAGE_ID=" SD_MESSAGE_SRK_ENROLLMENT_NEEDS_AUTHORIZATION_STR);
+                                 LOG_MESSAGE_ID(SD_MESSAGE_SRK_ENROLLMENT_NEEDS_AUTHORIZATION_STR));
                 return 76; /* Special return value which means "Insufficient permissions to access TPM,
                             * cannot generate SRK". This isn't really an error when called at boot. */;
         }
@@ -307,7 +309,7 @@ static int run(int argc, char *argv[]) {
 
         if (runtime_key.pkey) {
                 if (memcmp_nn(tpm2_key.fingerprint, tpm2_key.fingerprint_size,
-                             runtime_key.fingerprint, runtime_key.fingerprint_size) != 0)
+                              runtime_key.fingerprint, runtime_key.fingerprint_size) != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Saved runtime SRK differs from TPM SRK, refusing.");
 
@@ -381,6 +383,8 @@ static int run(int argc, char *argv[]) {
         r = flink_tmpfile(f, t, tpm2b_public_path, LINK_TMPFILE_SYNC|LINK_TMPFILE_REPLACE);
         if (r < 0)
                 return log_error_errno(r, "Failed to move SRK public key file to '%s': %m", tpm2b_public_path);
+
+        t = mfree(t);
 
         log_info("SRK public key saved to '%s' in TPM2B_PUBLIC format.", tpm2b_public_path);
         return 0;

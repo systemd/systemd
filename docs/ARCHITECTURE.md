@@ -39,7 +39,7 @@ Thus code that is used by "higher-level" components (e.g. our binaries which are
 would go to a subdirectory specific to that component if it is only used there.
 If the code is to be shared between components, it'd go to `src/shared/`.
 Shared code that is used by multiple components that do not link to `libsystemd-shared-<nnn>.so` may live either in `src/libsystemd/`, `src/basic/`, or `src/fundamental/`.
-Any code that is used only for EFI goes under `src/boot/efi/`, and `src/fundamental/` if is shared with non-EFI compoenents.
+Any code that is used only for EFI goes under `src/boot/efi/`, and `src/fundamental/` if is shared with non-EFI components.
 
 To summarize:
 
@@ -122,7 +122,7 @@ Sources in `test/TEST-*` implement system-level testing for executables, librari
 Most of those tests should be able to run via `systemd-nspawn`, which is orders-of-magnitude faster than `qemu`, but some tests require privileged operations like using `dm-crypt` or `loopdev`.
 They are clearly marked if that is the case.
 
-See [`test/README.md`](https://github.com/systemd/systemd/blob/main/test/README.md) for more specific details.
+See [`test/integration-tests/README.md`](https://github.com/systemd/systemd/blob/main/test/integration-tests/README.md) for more specific details.
 
 ## hwdb
 

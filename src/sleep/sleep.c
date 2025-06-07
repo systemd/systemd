@@ -4,14 +4,12 @@
   Copyright © 2018 Dell Inc.
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <poll.h>
+#include <stdlib.h>
 #include <sys/timerfd.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
-#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
@@ -19,39 +17,65 @@
 #include "sd-json.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "battery-capacity.h"
 #include "battery-util.h"
+#include "blockdev-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "constants.h"
-#include "devnum-util.h"
 #include "efivars.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
 #include "hibernate-util.h"
-#include "id128-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "os-util.h"
-#include "parse-util.h"
 #include "pretty-print.h"
 #include "sleep-config.h"
 #include "special.h"
-#include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 
 #define DEFAULT_HIBERNATE_DELAY_USEC_NO_BATTERY (2 * USEC_PER_HOUR)
 
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
+
+#if ENABLE_EFI
+static int determine_auto_swap(sd_device *device) {
+        _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
+        const char *part_designator;
+        int r;
+
+        /* Check if the selected hibernation device is the "auto" one. Specifically, trace to the partition
+         * block device and check if ID_DISSECT_PART_DESIGNATOR property is set to "swap" by udev
+         * dissect_image builtin. Later hibernate-resume-generator will generate cryptsetup unit based on
+         * this info. */
+
+        assert(device);
+
+        r = block_device_get_originating(device, &origin);
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r >= 0)
+                device = origin;
+
+        r = sd_device_get_property_value(device, "ID_DISSECT_PART_DESIGNATOR", &part_designator);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        return streq(part_designator, "swap");
+}
+#endif
 
 static int write_efi_hibernate_location(const HibernationDevice *hibernation_device, bool required) {
         int log_level = required ? LOG_ERR : LOG_DEBUG;
@@ -64,7 +88,7 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
         const char *uuid_str;
         sd_id128_t uuid;
         struct utsname uts = {};
-        int r, log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
+        int r, auto_swap, log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
 
         assert(hibernation_device);
 
@@ -87,6 +111,11 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
                 return log_full_errno(log_level, r, "Failed to parse ID_FS_UUID '%s' for device '%s': %m",
                                       uuid_str, hibernation_device->path);
 
+        auto_swap = determine_auto_swap(device);
+        if (auto_swap < 0)
+                log_full_errno(log_level_ignore, auto_swap,
+                               "Failed to get partition designator of '%s', ignoring: %m", hibernation_device->path);
+
         if (uname(&uts) < 0)
                 log_full_errno(log_level_ignore, errno, "Failed to get kernel info, ignoring: %m");
 
@@ -102,6 +131,7 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
                         &v,
                         SD_JSON_BUILD_PAIR_UUID("uuid", uuid),
                         SD_JSON_BUILD_PAIR_UNSIGNED("offset", hibernation_device->offset),
+                        SD_JSON_BUILD_PAIR_CONDITION(auto_swap >= 0, "autoSwap", SD_JSON_BUILD_BOOLEAN(auto_swap)),
                         SD_JSON_BUILD_PAIR_CONDITION(!isempty(uts.release), "kernelVersion", SD_JSON_BUILD_STRING(uts.release)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!id, "osReleaseId", SD_JSON_BUILD_STRING(id)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!image_id, "osReleaseImageId", SD_JSON_BUILD_STRING(image_id)),
@@ -236,9 +266,9 @@ static int execute(
         /* This file is opened first, so that if we hit an error, we can abort before modifying any state. */
         state_fd = open("/sys/power/state", O_WRONLY|O_CLOEXEC);
         if (state_fd < 0)
-                return log_error_errno(errno, "Failed to open /sys/power/state: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/sys/power/state");
 
-        if (SLEEP_NEEDS_MEM_SLEEP(sleep_config, operation)) {
+        if (sleep_needs_mem_sleep(sleep_config, operation)) {
                 r = write_mode("/sys/power/mem_sleep", sleep_config->mem_modes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write mode to /sys/power/mem_sleep: %m");
@@ -285,21 +315,21 @@ static int execute(
         (void) lock_all_homes();
 
         log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR,
+                   LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_START_STR),
                    LOG_MESSAGE("Performing sleep operation '%s'...", sleep_operation_to_string(operation)),
-                   "SLEEP=%s", sleep_operation_to_string(arg_operation));
+                   LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
 
         r = write_state(state_fd, sleep_config->states[operation]);
         if (r < 0)
                 log_struct_errno(LOG_ERR, r,
-                                 "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
+                                 LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_STOP_STR),
                                  LOG_MESSAGE("Failed to put system to sleep. System resumed again: %m"),
-                                 "SLEEP=%s", sleep_operation_to_string(arg_operation));
+                                 LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
         else
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
+                           LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_STOP_STR),
                            LOG_MESSAGE("System returned from sleep operation '%s'.", sleep_operation_to_string(arg_operation)),
-                           "SLEEP=%s", sleep_operation_to_string(arg_operation));
+                           LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
 
         arguments[1] = "post";
         (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char **) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);

@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stddef.h>
-#include <stdint.h>
+#include <stdio.h>
 
-#include "env-util.h"
+#include "forward.h"
+
 #include "fileio.h"
+#include "log.h"
 
 /* The entry point into the fuzzer */
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);

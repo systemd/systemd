@@ -3,11 +3,13 @@
 #include "alloc-util.h"
 #include "hexdecoct.h"
 #include "list.h"
+#include "log.h"
 #include "parse-util.h"
-#include "path-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
+#include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
+#include "time-util.h"
 
 typedef enum PatternElementType {
         PATTERN_LITERAL,

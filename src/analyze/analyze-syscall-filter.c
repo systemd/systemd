@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze-syscall-filter.h"
+#include "alloc-util.h"
 #include "analyze.h"
+#include "analyze-syscall-filter.h"
+#include "ansi-color.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "nulstr-util.h"
+#include "pager.h"
 #include "seccomp-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 #if HAVE_SECCOMP
 
@@ -103,12 +107,30 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
 }
 
 int verb_syscall_filters(int argc, char *argv[], void *userdata) {
-        bool first = true;
         int r;
 
         pager_open(arg_pager_flags);
 
-        if (strv_isempty(strv_skip(argv, 1))) {
+        char **args = strv_skip(argv, 1);
+        if (args)
+                STRV_FOREACH(name, args) {
+                        const SyscallFilterSet *set;
+
+                        if (name != args)
+                                puts("");
+
+                        set = syscall_filter_set_find(*name);
+                        if (!set) {
+                                /* make sure the error appears below normal output */
+                                fflush(stdout);
+
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                                       "Filter set \"%s\" not found.", *name);
+                        }
+
+                        dump_syscall_filter(set);
+                }
+        else {
                 _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
                 int k = 0;  /* explicit initialization to appease gcc */
 
@@ -121,27 +143,24 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
 
                 for (int i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
                         const SyscallFilterSet *set = syscall_filter_sets + i;
-                        if (!first)
+                        if (i > 0)
                                 puts("");
 
                         dump_syscall_filter(set);
                         syscall_set_remove(kernel, set);
                         if (i != SYSCALL_FILTER_SET_KNOWN)
                                 syscall_set_remove(known, set);
-                        first = false;
                 }
 
                 if (arg_quiet)  /* Let's not show the extra stuff in quiet mode */
                         return 0;
 
                 if (!set_isempty(known)) {
-                        _cleanup_free_ char **l = NULL;
-
                         printf("\n"
                                "# %sUngrouped System Calls%s (known but not included in any of the groups except @known):\n",
                                ansi_highlight(), ansi_normal());
 
-                        l = set_get_strv(known);
+                        _cleanup_free_ char **l = set_get_strv(known);
                         if (!l)
                                 return log_oom();
 
@@ -157,13 +176,11 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
                         if (!arg_quiet)
                                 log_notice_errno(k, "# Not showing unlisted system calls, couldn't retrieve kernel system call list: %m");
                 } else if (!set_isempty(kernel)) {
-                        _cleanup_free_ char **l = NULL;
-
                         printf("\n"
                                "# %sUnlisted System Calls%s (supported by the local kernel, but not included in any of the groups listed above):\n",
                                ansi_highlight(), ansi_normal());
 
-                        l = set_get_strv(kernel);
+                        _cleanup_free_ char **l = set_get_strv(kernel);
                         if (!l)
                                 return log_oom();
 
@@ -172,25 +189,7 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
                         STRV_FOREACH(syscall, l)
                                 printf("#   %s\n", *syscall);
                 }
-        } else
-                STRV_FOREACH(name, strv_skip(argv, 1)) {
-                        const SyscallFilterSet *set;
-
-                        if (!first)
-                                puts("");
-
-                        set = syscall_filter_set_find(*name);
-                        if (!set) {
-                                /* make sure the error appears below normal output */
-                                fflush(stdout);
-
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                                       "Filter set \"%s\" not found.", *name);
-                        }
-
-                        dump_syscall_filter(set);
-                        first = false;
-                }
+        }
 
         return EXIT_SUCCESS;
 }

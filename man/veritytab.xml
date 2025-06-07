@@ -53,7 +53,9 @@ This is based on crypttab(5).
     <para>The third field contains a path to the underlying block hash device, or a specification of a block device via
     <varname>UUID=</varname> followed by the <replaceable>UUID</replaceable>.</para>
 
-    <para>The fourth field is the <replaceable>roothash</replaceable> in hexadecimal.</para>
+    <para>The fourth field is the <replaceable>roothash</replaceable> in hexadecimal. If this field is
+    specified as dash, it is attempted to read the root hash from the udev property
+    <literal>ID_DISSECT_PART_ROOTHASH=</literal> (encoded in hexadecimal) of the data device.</para>
 
     <para>The fifth field, if present, is a comma-delimited list of options. The following options are
     recognized:</para>
@@ -213,11 +215,14 @@ This is based on crypttab(5).
       </varlistentry>
 
       <varlistentry>
-        <term><option>root-hash-signature=<replaceable>PATH</replaceable>|base64:<replaceable>HEX</replaceable></option></term>
+        <term><option>root-hash-signature=<replaceable>PATH</replaceable>|base64:<replaceable>BASE64</replaceable>|auto</option></term>
 
-        <listitem><para>A base64 string encoding the root hash signature prefixed by <literal>base64:</literal> or a
-        path to roothash signature file used to verify the root hash (in kernel). This feature requires Linux kernel
-        version 5.4 or more recent.</para>
+        <listitem><para>A Base64 string encoding the root hash signature prefixed by
+        <literal>base64:</literal>, or an absolute path to a root hash signature file used to verify the root
+        hash (in kernel). If the special string <literal>auto</literal> is specified, the root hash signature
+        is attempted to be read from the udev property <literal>ID_DISSECT_PART_ROOTHASH_SIG=</literal> (in
+        Base64 format) of the data device. This feature requires Linux kernel version 5.4 or more
+        recent.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>

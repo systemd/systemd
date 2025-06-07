@@ -1,25 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
-#include <errno.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
-#include "bus-util.h"
+#include "calendarspec.h"
 #include "dbus-timer.h"
 #include "dbus-unit.h"
 #include "fs-util.h"
-#include "parse-util.h"
+#include "manager.h"
 #include "random-util.h"
 #include "serialize.h"
+#include "siphash24.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "timer.h"
-#include "unit-name.h"
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"
@@ -905,8 +906,8 @@ static int timer_can_start(Unit *u) {
         return 1;
 }
 
-static void activation_details_timer_serialize(ActivationDetails *details, FILE *f) {
-        ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
+static void activation_details_timer_serialize(const ActivationDetails *details, FILE *f) {
+        const ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
 
         assert(f);
         assert(t);
@@ -937,8 +938,8 @@ static int activation_details_timer_deserialize(const char *key, const char *val
         return 0;
 }
 
-static int activation_details_timer_append_env(ActivationDetails *details, char ***strv) {
-        ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
+static int activation_details_timer_append_env(const ActivationDetails *details, char ***strv) {
+        const ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
         int r;
 
         assert(strv);
@@ -958,8 +959,8 @@ static int activation_details_timer_append_env(ActivationDetails *details, char 
         return 2; /* Return the number of variables added to the env block */
 }
 
-static int activation_details_timer_append_pair(ActivationDetails *details, char ***strv) {
-        ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
+static int activation_details_timer_append_pair(const ActivationDetails *details, char ***strv) {
+        const ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
         int r;
 
         assert(strv);

@@ -1,15 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-event.h"
+#include "sd-bus.h"
 #include "sd-daemon.h"
+#include "sd-event.h"
 
-#include "systemctl-util.h"
-#include "systemctl-is-system-running.h"
-#include "virt.h"
-#include "systemctl.h"
-#include "bus-util.h"
-#include "bus-locator.h"
+#include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "systemctl.h"
+#include "systemctl-is-system-running.h"
+#include "systemctl-util.h"
+#include "virt.h"
 
 static int match_startup_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         char **state = ASSERT_PTR(userdata);

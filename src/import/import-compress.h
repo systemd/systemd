@@ -5,10 +5,12 @@
 #include <bzlib.h>
 #endif
 #include <lzma.h>
-#include <sys/types.h>
 #include <zlib.h>
+#if HAVE_ZSTD
+#include <zstd.h>
+#endif
 
-#include "macro.h"
+#include "forward.h"
 
 typedef enum ImportCompressType {
         IMPORT_COMPRESS_UNKNOWN,
@@ -16,6 +18,7 @@ typedef enum ImportCompressType {
         IMPORT_COMPRESS_XZ,
         IMPORT_COMPRESS_GZIP,
         IMPORT_COMPRESS_BZIP2,
+        IMPORT_COMPRESS_ZSTD,
         _IMPORT_COMPRESS_TYPE_MAX,
         _IMPORT_COMPRESS_TYPE_INVALID = -EINVAL,
 } ImportCompressType;
@@ -28,6 +31,10 @@ typedef struct ImportCompress {
                 z_stream gzip;
 #if HAVE_BZIP2
                 bz_stream bzip2;
+#endif
+#if HAVE_ZSTD
+                ZSTD_CCtx *c_zstd;
+                ZSTD_DCtx *d_zstd;
 #endif
         };
 } ImportCompress;

@@ -1,12 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
+#include "alloc-util.h"
 #include "bus-polkit.h"
+#include "dns-domain.h"
+#include "dns-type.h"
+#include "errno-util.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "json-util.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-dnssec.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-synthesize.h"
+#include "resolved-dns-transaction.h"
+#include "resolved-link.h"
+#include "resolved-manager.h"
 #include "resolved-varlink.h"
+#include "set.h"
 #include "socket-netlink.h"
+#include "string-util.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.service.h"
@@ -398,7 +418,7 @@ static int json_dispatch_address(const char *name, sd_json_variant *variant, sd_
                 if (b < 0 || b > 0xff)
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "Element %zu of JSON field '%s' is out of range 0%s255.",
-                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                        k, strna(name), glyph(GLYPH_ELLIPSIS));
 
                 buf.bytes[k++] = (uint8_t) b;
         }
@@ -1174,17 +1194,12 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
 }
 
 static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
-        static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_POLKIT_FIELD,
-                {}
-        };
-
         int r;
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
 
         assert(action);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -1409,9 +1424,14 @@ static int varlink_monitor_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
-        r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0666);
+        r = sd_varlink_server_listen_name(server, "varlink-monitor");
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to get varlink listen fd: %m");
+        if (r == 0) {
+                r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+        }
 
         r = sd_varlink_server_attach_event(server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -1458,9 +1478,14 @@ static int varlink_main_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
-        r = sd_varlink_server_listen_address(s, "/run/systemd/resolve/io.systemd.Resolve", 0666);
+        r = sd_varlink_server_listen_auto(s);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to get varlink listen fd: %m");
+        if (r == 0) {
+                r = sd_varlink_server_listen_address(s, "/run/systemd/resolve/io.systemd.Resolve", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+        }
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

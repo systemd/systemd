@@ -15,6 +15,7 @@ libefitest = static_library(
                 basic_includes,
                 include_directories('.'),
         ],
+        implicit_include_directories : false,
         dependencies : userspace)
 
 efitest_base = {
@@ -37,8 +38,10 @@ if conf.get('ENABLE_UKIFY') == 1
                 capture : true,
                 build_by_default : want_tests != 'false')
 else
-        test_hwids_section_c = ''
+        test_hwids_section_c = []
 endif
+
+generated_sources += test_hwids_section_c
 
 executables += [
         efi_test_template + {
@@ -92,6 +95,7 @@ endforeach
 efi_conf.set_quoted('PROJECT_VERSION', project_major_version)
 efi_conf.set_quoted('VERSION_TAG', version_tag)
 efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
+efi_conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 if meson.is_cross_build() and get_option('sbat-distro') == 'auto'
         warning('Auto detection of SBAT information not supported when cross-building, disabling SBAT.')
@@ -150,9 +154,9 @@ configure_file(
 ############################################################
 
 efi_includes = [
-        build_dir_include,
         fundamental_include,
         include_directories('.'),
+        version_include,
 ]
 
 efi_c_args = [
@@ -178,7 +182,6 @@ if get_option('mode') == 'developer' and get_option('debug')
 endif
 
 efi_c_ld_args = [
-        '-lgcc',
         '-nostdlib',
         '-static-pie',
         '-Wl,--entry=efi_main',
@@ -201,6 +204,17 @@ efi_c_ld_args = [
         '-z', 'relro',
         '-z', 'separate-code',
 ]
+
+linker_sanity_code = 'void a(void) {}; void _start(void) { a(); }'
+linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings']
+
+# Check if libgcc is available and then use it. It is needed for gcc builds
+# and for ia32 builds with clang.
+if cc.links(linker_sanity_code,
+            name : 'libgcc is available',
+            args : [linker_sanity_args, '-lgcc'])
+        efi_c_ld_args += ['-lgcc']
+endif
 
 efi_c_ld_args += cc.get_supported_link_arguments(
         # binutils >= 2.38
@@ -253,8 +267,6 @@ efi_arch_c_ld_args = {
         'x86'    : ['-m32'],
 }
 
-linker_sanity_code = 'void a(void) {}; void _start(void) { a(); }'
-linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings']
 if not cc.links(linker_sanity_code,
                 name : 'linker supports -static-pie',
                 args : [linker_sanity_args, '-static-pie'])
@@ -285,13 +297,14 @@ libefi_sources = files(
         'device-path-util.c',
         'devicetree.c',
         'drivers.c',
+        'edid.c',
+        'efi-efivars.c',
         'efi-firmware.c',
+        'efi-log.c',
         'efi-string.c',
-        'efivars.c',
         'export-vars.c',
         'graphics.c',
         'initrd.c',
-        'log.c',
         'measure.c',
         'part-discovery.c',
         'pe.c',
@@ -299,6 +312,7 @@ libefi_sources = files(
         'secure-boot.c',
         'shim.c',
         'smbios.c',
+        'sysfail.c',
         'ticks.c',
         'url-discovery.c',
         'util.c',
@@ -333,6 +347,11 @@ endif
 if host_machine.cpu_family() in ['aarch64', 'arm', 'x86_64', 'x86']
         systemd_boot_sources += files('bcd.c')
 endif
+
+sources += libefi_sources
+sources += systemd_boot_sources
+sources += stub_sources
+sources += addon_sources
 
 boot_targets = []
 efi_elf_binaries = []
@@ -372,6 +391,7 @@ foreach archspec : efi_archspecs
                 libefi_sources,
                 version_h,
                 include_directories : efi_includes,
+                implicit_include_directories : false,
                 c_args : archspec['c_args'],
                 gnu_symbol_visibility : 'hidden',
                 override_options : efi_override_options,
@@ -379,6 +399,7 @@ foreach archspec : efi_archspecs
 
         kwargs = {
                 'include_directories' : efi_includes,
+                'implicit_include_directories' : false,
                 'c_args' : archspec['c_args'],
                 'link_args' : archspec['link_args'],
                 'gnu_symbol_visibility' : 'hidden',

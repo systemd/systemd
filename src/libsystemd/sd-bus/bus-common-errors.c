@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "sd-bus.h"
 
 #include "bus-common-errors.h"
@@ -27,11 +25,15 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_UNIT_GENERATED,               EADDRNOTAVAIL),
         SD_BUS_ERROR_MAP(BUS_ERROR_UNIT_LINKED,                  ELOOP),
         SD_BUS_ERROR_MAP(BUS_ERROR_JOB_TYPE_NOT_APPLICABLE,      EBADR),
+        SD_BUS_ERROR_MAP(BUS_ERROR_CONCURRENCY_LIMIT_REACHED,    ETOOMANYREFS),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_ISOLATION,                 EPERM),
         SD_BUS_ERROR_MAP(BUS_ERROR_SHUTTING_DOWN,                ECANCELED),
         SD_BUS_ERROR_MAP(BUS_ERROR_SCOPE_NOT_RUNNING,            EHOSTDOWN),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_DYNAMIC_USER,         ESRCH),
         SD_BUS_ERROR_MAP(BUS_ERROR_NOT_REFERENCED,               EUNATCH),
+        SD_BUS_ERROR_MAP(BUS_ERROR_UNIT_BUSY,                    EBUSY),
+        SD_BUS_ERROR_MAP(BUS_ERROR_UNIT_INACTIVE,                EHOSTDOWN),
+        SD_BUS_ERROR_MAP(BUS_ERROR_FREEZE_CANCELLED,             ECANCELED),
         SD_BUS_ERROR_MAP(BUS_ERROR_FILE_DESCRIPTOR_STORE_DISABLED,
                                                                  EHOSTDOWN),
         SD_BUS_ERROR_MAP(BUS_ERROR_FROZEN_BY_PARENT,             EDEADLK),
@@ -82,6 +84,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_STUB_LOOP,                    ELOOP),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_DNSSD_SERVICE,        ENOENT),
         SD_BUS_ERROR_MAP(BUS_ERROR_DNSSD_SERVICE_EXISTS,         EEXIST),
+        SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_DELEGATE,             ENXIO),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_DNS_FORMERR,                  EBADMSG),
         SD_BUS_ERROR_MAP(BUS_ERROR_DNS_SERVFAIL,                 EHOSTDOWN),
@@ -150,6 +153,8 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_HOME_IN_USE,                  EADDRINUSE),
         SD_BUS_ERROR_MAP(BUS_ERROR_REBALANCE_NOT_NEEDED,         EALREADY),
         SD_BUS_ERROR_MAP(BUS_ERROR_HOME_NOT_REFERENCED,          EBADR),
+        SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_KEY,                  ENOKEY),
+        SD_BUS_ERROR_MAP(BUS_ERROR_UNRECOGNIZED_HOME_FORMAT,     EMEDIUMTYPE),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_UPDATE_CANDIDATE,          EALREADY),
 

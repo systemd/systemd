@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stddef.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -13,11 +11,10 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "log.h"
-#include "macro.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "set.h"
 #include "stat-util.h"
+#include "string-util.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
@@ -254,25 +251,32 @@ int fdset_cloexec(FDSet *fds, bool b) {
 
 int fdset_new_listen_fds(FDSet **ret, bool unset) {
         _cleanup_(fdset_shallow_freep) FDSet *s = NULL;
-        int n, fd, r;
+        int n, r;
 
         assert(ret);
 
         /* Creates an fdset and fills in all passed file descriptors */
 
+        n = sd_listen_fds(unset);
+        if (n < 0)
+                return n;
+        if (n == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
         s = fdset_new();
         if (!s)
                 return -ENOMEM;
 
-        n = sd_listen_fds(unset);
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
+        for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 r = fdset_put(s, fd);
                 if (r < 0)
                         return r;
         }
 
         *ret = TAKE_PTR(s);
-        return 0;
+        return n;
 }
 
 int fdset_to_array(FDSet *fds, int **ret) {

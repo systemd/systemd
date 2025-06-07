@@ -1,18 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <linux/if_arp.h>
 #include <linux/l2tp.h>
-#include <linux/genetlink.h>
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "hashmap.h"
 #include "l2tp-tunnel.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-route-util.h"
-#include "parse-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -54,6 +57,11 @@ static L2tpSession* l2tp_session_free(L2tpSession *s) {
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(L2tpSession, l2tp_session_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                l2tp_session_hash_ops_by_section,
+                ConfigSection, config_section_hash_func, config_section_compare_func,
+                L2tpSession, l2tp_session_free);
+
 static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned section_line, L2tpSession **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(l2tp_session_freep) L2tpSession *s = NULL;
@@ -84,7 +92,7 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
                 .section = TAKE_PTR(n),
         };
 
-        r = ordered_hashmap_ensure_put(&t->sessions_by_section, &config_section_hash_ops, s->section, s);
+        r = ordered_hashmap_ensure_put(&t->sessions_by_section, &l2tp_session_hash_ops_by_section, s->section, s);
         if (r < 0)
                 return r;
 
@@ -904,7 +912,7 @@ static int netdev_l2tp_tunnel_get_ifindex(NetDev *netdev, const char *name) {
 static void l2tp_tunnel_done(NetDev *netdev) {
         L2tpTunnel *t = L2TP(netdev);
 
-        ordered_hashmap_free_with_destructor(t->sessions_by_section, l2tp_session_free);
+        ordered_hashmap_free(t->sessions_by_section);
         free(t->local_ifname);
 }
 

@@ -1,19 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
-#include <stddef.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
-#include "cgroup-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "macro.h"
+#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -24,7 +21,7 @@
  * after all: we can create arbitrary directory hierarchies in it, and hence can also use rm_rf() on it
  * to remove those again. */
 static bool is_physical_fs(const struct statfs *sfs) {
-        return !is_temporary_fs(sfs) && !is_cgroup_fs(sfs);
+        return !is_temporary_fs(sfs) && !is_fs_type(sfs, CGROUP2_SUPER_MAGIC);
 }
 
 static int patch_dirfd_mode(
@@ -516,4 +513,34 @@ int rm_rf_child(int fd, const char *name, RemoveFlags flags) {
                 return -EINVAL;
 
         return rm_rf_inner_child(fd, name, -1, flags, NULL, true);
+}
+
+const char* rm_rf_safe(const char *p) {
+        PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        return NULL;
+}
+
+char* rm_rf_physical_and_free(char *p) {
+        PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        return mfree(p);
+}
+
+char* rm_rf_subvolume_and_free(char *p) {
+        PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        return mfree(p);
 }

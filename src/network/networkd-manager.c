@@ -1,50 +1,40 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <linux/if.h>
-#include <linux/fib_rules.h>
-#include <linux/nexthop.h>
+#include <linux/filter.h>
 #include <linux/nl80211.h>
+#include <sys/socket.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-netlink.h"
+#include "sd-resolve.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
-#include "bus-polkit.h"
+#include "bus-object.h"
 #include "bus-util.h"
 #include "capability-util.h"
 #include "common-signal.h"
-#include "conf-parser.h"
-#include "constants.h"
 #include "daemon-util.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "dns-domain.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "firewall-util.h"
-#include "fs-util.h"
 #include "initrd-util.h"
-#include "local-addresses.h"
 #include "mount-util.h"
 #include "netlink-util.h"
-#include "network-internal.h"
+#include "networkd-address.h"
 #include "networkd-address-label.h"
 #include "networkd-address-pool.h"
-#include "networkd-address.h"
-#include "networkd-dhcp-server-bus.h"
-#include "networkd-dhcp6.h"
-#include "networkd-link-bus.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager-varlink.h"
 #include "networkd-neighbor.h"
-#include "networkd-network-bus.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
@@ -55,16 +45,12 @@
 #include "networkd-wifi.h"
 #include "networkd-wiphy.h"
 #include "ordered-set.h"
-#include "path-lookup.h"
-#include "path-util.h"
 #include "qdisc.h"
-#include "selinux-util.h"
 #include "set.h"
-#include "signal-util.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "sysctl-util.h"
 #include "tclass.h"
-#include "tmpfile-util.h"
 #include "tuntap.h"
 #include "udev-util.h"
 
@@ -171,11 +157,11 @@ static int manager_process_uevent(sd_device_monitor *monitor, sd_device *device,
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to get udev action, ignoring: %m");
 
-        if (device_in_subsystem(device, "net"))
+        if (device_in_subsystem(device, "net") > 0)
                 r = manager_udev_process_link(m, device, action);
-        else if (device_in_subsystem(device, "ieee80211"))
+        else if (device_in_subsystem(device, "ieee80211") > 0)
                 r = manager_udev_process_wiphy(m, device, action);
-        else if (device_in_subsystem(device, "rfkill"))
+        else if (device_in_subsystem(device, "rfkill") > 0)
                 r = manager_udev_process_rfkill(m, device, action);
         if (r < 0)
                 log_device_warning_errno(device, r, "Failed to process \"%s\" uevent, ignoring: %m",
@@ -613,7 +599,7 @@ static int persistent_storage_open(void) {
 
         fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open /var/lib/systemd/network/, ignoring: %m");
+                return log_debug_errno(errno, "Failed to open %s, ignoring: %m", "/var/lib/systemd/network/");
 
         r = fd_is_read_only_fs(fd);
         if (r < 0)
@@ -672,18 +658,18 @@ Manager* manager_free(Manager *m) {
         m->request_queue = ordered_set_free(m->request_queue);
         m->remove_request_queue = ordered_set_free(m->remove_request_queue);
 
-        m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
         m->new_wlan_ifindices = set_free(m->new_wlan_ifindices);
+
+        m->dirty_links = set_free(m->dirty_links);
         m->links_by_name = hashmap_free(m->links_by_name);
         m->links_by_hw_addr = hashmap_free(m->links_by_hw_addr);
         m->links_by_dhcp_pd_subnet_prefix = hashmap_free(m->links_by_dhcp_pd_subnet_prefix);
-        m->links_by_index = hashmap_free_with_destructor(m->links_by_index, link_unref);
+        m->links_by_index = hashmap_free(m->links_by_index);
 
         m->dhcp_pd_subnet_ids = set_free(m->dhcp_pd_subnet_ids);
-        m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
+        m->networks = ordered_hashmap_free(m->networks);
 
-        /* The same object may be registered with multiple names, and netdev_detach() may drop multiple
-         * entries. Hence, hashmap_free_with_destructor() cannot be used. */
+        /* The same object may be registered with multiple names, and netdev_detach() may drop multiple entries. */
         for (NetDev *n; (n = hashmap_first(m->netdevs)); )
                 netdev_detach(n);
         m->netdevs = hashmap_free(m->netdevs);
@@ -691,7 +677,7 @@ Manager* manager_free(Manager *m) {
         m->tuntap_fds_by_name = hashmap_free(m->tuntap_fds_by_name);
 
         m->wiphy_by_name = hashmap_free(m->wiphy_by_name);
-        m->wiphy_by_index = hashmap_free_with_destructor(m->wiphy_by_index, wiphy_free);
+        m->wiphy_by_index = hashmap_free(m->wiphy_by_index);
 
         ordered_set_free(m->address_pools);
 
@@ -1230,6 +1216,6 @@ int manager_reload(Manager *m, sd_bus_message *message) {
         log_debug("Reloaded.");
         r = 0;
 finish:
-        (void) sd_notify(/* unset= */ false, NOTIFY_READY);
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
         return r;
 }

@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "log.h"
 #include "parse-argument.h"
 #include "pretty-print.h"

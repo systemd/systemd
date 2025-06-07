@@ -1,22 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/ethtool.h>
+#include <linux/sockios.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
-#include <linux/ethtool.h>
-#include <linux/netdevice.h>
-#include <linux/sockios.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
+#include "errno-util.h"
+#include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro-fundamental.h"
 #include "memory-util.h"
+#include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 
 static const char* const duplex_table[_DUP_MAX] = {
         [DUP_FULL] = "full",
@@ -152,7 +157,7 @@ static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
 };
 
 static const char* const ethtool_link_mode_bit_table[] = {
-#  include "ethtool-link-mode.h"
+#  include "ethtool-link-mode.inc"
 };
 /* Make sure the array is large enough to fit all bits */
 assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < N_ADVERTISE);
@@ -254,9 +259,9 @@ int ethtool_get_link_info(
 
 int ethtool_get_permanent_hw_addr(int *ethtool_fd, const char *ifname, struct hw_addr_data *ret) {
         _cleanup_close_ int fd = -EBADF;
-        struct {
+        union {
                 struct ethtool_perm_addr addr;
-                uint8_t space[HW_ADDR_MAX_SIZE];
+                uint8_t buf[offsetof(struct ethtool_perm_addr, data) + HW_ADDR_MAX_SIZE];
         } epaddr = {
                 .addr.cmd = ETHTOOL_GPERMADDR,
                 .addr.size = HW_ADDR_MAX_SIZE,
@@ -429,15 +434,9 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
 
 static int get_stringset(int ethtool_fd, const char *ifname, enum ethtool_stringset stringset_id, struct ethtool_gstrings **ret) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
-        struct {
-                struct ethtool_sset_info info;
-                uint32_t space;
-        } buffer = {
-                .info.cmd = ETHTOOL_GSSET_INFO,
-                .info.sset_mask = UINT64_C(1) << stringset_id,
-        };
+        uint8_t buffer[offsetof(struct ethtool_sset_info, data) + sizeof(uint32_t)] = {};
         struct ifreq ifr = {
-                .ifr_data = (void*) &buffer,
+                .ifr_data = (void*) buffer,
         };
         uint32_t len;
 
@@ -445,17 +444,18 @@ static int get_stringset(int ethtool_fd, const char *ifname, enum ethtool_string
         assert(ifname);
         assert(ret);
 
+        struct ethtool_sset_info *info = (struct ethtool_sset_info*) buffer;
+        info->cmd = ETHTOOL_GSSET_INFO;
+        info->sset_mask = UINT64_C(1) << stringset_id;
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         if (ioctl(ethtool_fd, SIOCETHTOOL, &ifr) < 0)
                 return -errno;
 
-        if (buffer.info.sset_mask == 0)
+        if (info->sset_mask == 0)
                 return -EOPNOTSUPP;
 
-        DISABLE_WARNING_ZERO_LENGTH_BOUNDS;
-        len = buffer.info.data[0];
-        REENABLE_WARNING;
+        len = *info->data;
         if (len == 0)
                 return -EOPNOTSUPP;
 
@@ -652,15 +652,10 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         return 0;
 }
 
-static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_usettings **ret) {
-        struct ecmd {
-                struct ethtool_link_settings req;
-                uint32_t link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
-        } ecmd = {
-                .req.cmd = ETHTOOL_GLINKSETTINGS,
+static int get_glinksettings(int fd, struct ifreq *ifr, union ethtool_link_usettings **ret) {
+        union ethtool_link_usettings ecmd = {
+                .base.cmd = ETHTOOL_GLINKSETTINGS,
         };
-        struct ethtool_link_usettings *u;
-        unsigned offset;
 
         assert(fd >= 0);
         assert(ifr);
@@ -674,48 +669,33 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
            https://github.com/torvalds/linux/commit/3f1ac7a700d039c61d8d8b99f28d605d489a60cf
         */
 
+        ifr->ifr_data = (void*) &ecmd;
+
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
+                return -errno;
+
+        if (ecmd.base.link_mode_masks_nwords >= 0 || ecmd.base.cmd != ETHTOOL_GLINKSETTINGS)
+                return -EOPNOTSUPP;
+
+        ecmd.base.link_mode_masks_nwords = -ecmd.base.link_mode_masks_nwords;
+
         ifr->ifr_data = (void *) &ecmd;
 
         if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
-        if (ecmd.req.link_mode_masks_nwords >= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
+        if (ecmd.base.link_mode_masks_nwords <= 0 || ecmd.base.cmd != ETHTOOL_GLINKSETTINGS)
                 return -EOPNOTSUPP;
 
-        ecmd.req.link_mode_masks_nwords = -ecmd.req.link_mode_masks_nwords;
-
-        ifr->ifr_data = (void *) &ecmd;
-
-        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
-                return -errno;
-
-        if (ecmd.req.link_mode_masks_nwords <= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
-                return -EOPNOTSUPP;
-
-        u = new(struct ethtool_link_usettings, 1);
+        union ethtool_link_usettings *u = newdup(union ethtool_link_usettings, &ecmd, 1);
         if (!u)
                 return -ENOMEM;
 
-        *u = (struct ethtool_link_usettings) {
-                .base = ecmd.req,
-        };
-
-        offset = 0;
-        memcpy(u->link_modes.supported, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
-
-        offset += ecmd.req.link_mode_masks_nwords;
-        memcpy(u->link_modes.advertising, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
-
-        offset += ecmd.req.link_mode_masks_nwords;
-        memcpy(u->link_modes.lp_advertising, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
-
         *ret = u;
-
         return 0;
 }
 
-static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **ret) {
-        struct ethtool_link_usettings *e;
+static int get_gset(int fd, struct ifreq *ifr, union ethtool_link_usettings **ret) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
         };
@@ -729,11 +709,11 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **r
         if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
-        e = new(struct ethtool_link_usettings, 1);
-        if (!e)
+        union ethtool_link_usettings *u = new(union ethtool_link_usettings, 1);
+        if (!u)
                 return -ENOMEM;
 
-        *e = (struct ethtool_link_usettings) {
+        *u = (union ethtool_link_usettings) {
                 .base.cmd = ETHTOOL_GSET,
                 .base.link_mode_masks_nwords = 1,
                 .base.speed = ethtool_cmd_speed(&ecmd),
@@ -744,24 +724,17 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **r
                 .base.mdio_support = ecmd.mdio_support,
                 .base.eth_tp_mdix = ecmd.eth_tp_mdix,
                 .base.eth_tp_mdix_ctrl = ecmd.eth_tp_mdix_ctrl,
-
-                .link_modes.supported[0] = ecmd.supported,
-                .link_modes.advertising[0] = ecmd.advertising,
-                .link_modes.lp_advertising[0] = ecmd.lp_advertising,
         };
 
-        *ret = e;
+        u->link_modes.supported[0] = ecmd.supported;
+        u->link_modes.advertising[0] = ecmd.advertising;
+        u->link_modes.lp_advertising[0] = ecmd.lp_advertising;
 
+        *ret = u;
         return 0;
 }
 
-static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_link_usettings *u) {
-        struct {
-                struct ethtool_link_settings req;
-                uint32_t link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
-        } ecmd = {};
-        unsigned offset;
-
+static int set_slinksettings(int fd, struct ifreq *ifr, const union ethtool_link_usettings *u) {
         assert(fd >= 0);
         assert(ifr);
         assert(u);
@@ -769,23 +742,14 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_lin
         if (u->base.cmd != ETHTOOL_GLINKSETTINGS || u->base.link_mode_masks_nwords <= 0)
                 return -EINVAL;
 
-        ecmd.req = u->base;
-        ecmd.req.cmd = ETHTOOL_SLINKSETTINGS;
-        offset = 0;
-        memcpy(&ecmd.link_mode_data[offset], u->link_modes.supported, 4 * ecmd.req.link_mode_masks_nwords);
-
-        offset += ecmd.req.link_mode_masks_nwords;
-        memcpy(&ecmd.link_mode_data[offset], u->link_modes.advertising, 4 * ecmd.req.link_mode_masks_nwords);
-
-        offset += ecmd.req.link_mode_masks_nwords;
-        memcpy(&ecmd.link_mode_data[offset], u->link_modes.lp_advertising, 4 * ecmd.req.link_mode_masks_nwords);
-
+        union ethtool_link_usettings ecmd = *u;
+        ecmd.base.cmd = ETHTOOL_SLINKSETTINGS;
         ifr->ifr_data = (void *) &ecmd;
 
         return RET_NERRNO(ioctl(fd, SIOCETHTOOL, ifr));
 }
 
-static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettings *u) {
+static int set_sset(int fd, struct ifreq *ifr, const union ethtool_link_usettings *u) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_SSET,
         };
@@ -826,7 +790,7 @@ int ethtool_set_glinksettings(
                 NetDevPort port,
                 uint8_t mdi) {
 
-        _cleanup_free_ struct ethtool_link_usettings *u = NULL;
+        _cleanup_free_ union ethtool_link_usettings *u = NULL;
         struct ifreq ifr = {};
         bool changed = false;
         int r;

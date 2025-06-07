@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <poll.h>
 
 #include "libudev.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "device-monitor-private.h"
-#include "device-private.h"
-#include "device-util.h"
+#include "errno-util.h"
 #include "io-util.h"
 #include "libudev-device-internal.h"
 #include "string-util.h"
@@ -63,7 +62,7 @@ static MonitorNetlinkGroup monitor_netlink_group_from_string(const char *name) {
  *
  * Returns: a new udev monitor, or #NULL, in case of an error
  **/
-_public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name) {
+_public_ struct udev_monitor* udev_monitor_new_from_netlink(struct udev *udev, const char *name) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         struct udev_monitor *udev_monitor;
         MonitorNetlinkGroup g;
@@ -73,7 +72,7 @@ _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, c
         if (g < 0)
                 return_with_errno(NULL, EINVAL);
 
-        r = device_monitor_new_full(&m, g, -1);
+        r = device_monitor_new_full(&m, g, -EBADF);
         if (r < 0)
                 return_with_errno(NULL, r);
 
@@ -133,7 +132,7 @@ _public_ int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_moni
         return sd_device_monitor_set_receive_buffer_size(udev_monitor->monitor, (size_t) size);
 }
 
-static struct udev_monitor *udev_monitor_free(struct udev_monitor *udev_monitor) {
+static struct udev_monitor* udev_monitor_free(struct udev_monitor *udev_monitor) {
         assert(udev_monitor);
 
         sd_device_monitor_unref(udev_monitor->monitor);
@@ -169,7 +168,7 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_monitor, udev_monitor, udev_mon
  *
  * Returns: the udev library context
  **/
-_public_ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor) {
+_public_ struct udev* udev_monitor_get_udev(struct udev_monitor *udev_monitor) {
         assert_return(udev_monitor, NULL);
 
         return udev_monitor->udev;
@@ -236,7 +235,7 @@ static int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_
  *
  * Returns: a new udev device, or #NULL, in case of an error
  **/
-_public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor) {
+_public_ struct udev_device* udev_monitor_receive_device(struct udev_monitor *udev_monitor) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 

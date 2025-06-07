@@ -9,9 +9,11 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
+#include "condition.h"
 #include "conf-parser.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
+#include "hsr.h"
 #include "ipoib.h"
 #include "ipvlan.h"
 #include "l2tp-tunnel.h"
@@ -45,7 +47,8 @@ struct ConfigPerfItem;
 Match.Host,                               config_parse_net_condition,                CONDITION_HOST,                offsetof(NetDev, conditions)
 Match.Virtualization,                     config_parse_net_condition,                CONDITION_VIRTUALIZATION,      offsetof(NetDev, conditions)
 Match.KernelCommandLine,                  config_parse_net_condition,                CONDITION_KERNEL_COMMAND_LINE, offsetof(NetDev, conditions)
-Match.KernelVersion,                      config_parse_net_condition,                CONDITION_KERNEL_VERSION,      offsetof(NetDev, conditions)
+Match.KernelVersion,                      config_parse_net_condition,                CONDITION_VERSION,             offsetof(NetDev, conditions)
+Match.Version,                            config_parse_net_condition,                CONDITION_VERSION,             offsetof(NetDev, conditions)
 Match.Credential,                         config_parse_net_condition,                CONDITION_CREDENTIAL,          offsetof(NetDev, conditions)
 Match.Architecture,                       config_parse_net_condition,                CONDITION_ARCHITECTURE,        offsetof(NetDev, conditions)
 Match.Firmware,                           config_parse_net_condition,                CONDITION_FIRMWARE,            offsetof(NetDev, conditions)
@@ -156,6 +159,8 @@ VXLAN.DestinationPort,                    config_parse_ip_port,                 
 VXLAN.FlowLabel,                          config_parse_flow_label,                   0,                             0
 VXLAN.IPDoNotFragment,                    config_parse_df,                           0,                             offsetof(VxLan, df)
 VXLAN.Independent,                        config_parse_bool,                         0,                             offsetof(VxLan, independent)
+VXLAN.External,                           config_parse_bool,                         0,                             offsetof(VxLan, external)
+VXLAN.VNIFilter,                          config_parse_bool,                         0,                             offsetof(VxLan, vnifilter)
 GENEVE.Id,                                config_parse_geneve_vni,                   0,                             offsetof(Geneve, id)
 GENEVE.Remote,                            config_parse_geneve_address,               0,                             offsetof(Geneve, remote)
 GENEVE.TOS,                               config_parse_uint8,                        0,                             offsetof(Geneve, tos)
@@ -169,6 +174,9 @@ GENEVE.DestinationPort,                   config_parse_ip_port,                 
 GENEVE.IPDoNotFragment,                   config_parse_geneve_df,                    0,                             offsetof(Geneve, geneve_df)
 GENEVE.FlowLabel,                         config_parse_geneve_flow_label,            0,                             0
 GENEVE.InheritInnerProtocol,              config_parse_bool,                         0,                             offsetof(Geneve, inherit_inner_protocol)
+HSR.Ports,                                config_parse_ifnames,                      IFNAME_VALID_ALTERNATIVE,      offsetof(Hsr, ports)
+HSR.Protocol,                             config_parse_hsr_protocol,                 0,                             offsetof(Hsr, protocol)
+HSR.Supervision,                          config_parse_uint8,                        0,                             offsetof(Hsr, supervision)
 MACsec.Port,                              config_parse_macsec_port,                  0,                             0
 MACsec.Encrypt,                           config_parse_tristate,                     0,                             offsetof(MACsec, encrypt)
 MACsecReceiveChannel.Port,                config_parse_macsec_port,                  0,                             0
@@ -237,7 +245,7 @@ Bridge.MulticastSnooping,                 config_parse_tristate,                
 Bridge.VLANFiltering,                     config_parse_tristate,                     0,                             offsetof(Bridge, vlan_filtering)
 Bridge.VLANProtocol,                      config_parse_vlanprotocol,                 0,                             offsetof(Bridge, vlan_protocol)
 Bridge.STP,                               config_parse_tristate,                     0,                             offsetof(Bridge, stp)
-Bridge.MulticastIGMPVersion,              config_parse_uint8,                        0,                             offsetof(Bridge, igmp_version)
+Bridge.MulticastIGMPVersion,              config_parse_bridge_igmp_version,          0,                             offsetof(Bridge, igmp_version)
 Bridge.FDBMaxLearned,                     config_parse_bridge_fdb_max_learned,       0,                             offsetof(Bridge, fdb_max_learned)
 Bridge.LinkLocalLearning,                 config_parse_tristate,                     0,                             offsetof(Bridge, linklocal_learn)
 VRF.TableId,                              config_parse_uint32,                       0,                             offsetof(Vrf, table) /* deprecated */

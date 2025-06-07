@@ -1,10 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "bus-get-properties.h"
 #include "bus-message-util.h"
+#include "pidref.h"
 #include "rlimit-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
+
+BUS_DEFINE_PROPERTY_GET_GLOBAL(bus_property_get_bool_false, "b", 0);
+BUS_DEFINE_PROPERTY_GET_GLOBAL(bus_property_get_bool_true, "b", 1);
+BUS_DEFINE_PROPERTY_GET_GLOBAL(bus_property_get_uint64_max, "t", UINT64_MAX);
 
 int bus_property_get_bool(
                 sd_bus *bus,
@@ -182,4 +188,24 @@ int bus_property_get_string_set(
         assert(reply);
 
         return bus_message_append_string_set(reply, *s);
+}
+
+int bus_property_get_pidfdid(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        PidRef *pidref = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(property);
+        assert(reply);
+
+        (void) pidref_acquire_pidfd_id(pidref);
+
+        return sd_bus_message_append(reply, "t", pidref->fd_id);
 }

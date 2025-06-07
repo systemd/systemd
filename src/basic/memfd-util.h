@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
-
-#include "macro.h"
+#include "forward.h"
 
 int memfd_create_wrapper(const char *name, unsigned mode);
 
@@ -19,9 +14,6 @@ int memfd_new_and_seal(const char *name, const void *data, size_t sz) _nonnull_i
 static inline int memfd_new_and_seal_string(const char *name, const char *s) {
         return memfd_new_and_seal(name, s, SIZE_MAX);
 }
-
-int memfd_add_seals(int fd, unsigned seals);
-int memfd_get_seals(int fd, unsigned *ret_seals);
 
 int memfd_set_sealed(int fd);
 int memfd_get_sealed(int fd);

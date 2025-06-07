@@ -6,37 +6,30 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "device-util.h"
+#include "errno-util.h"
+#include "missing_syscall.h"
 #include "quota-util.h"
 
-int quotactl_devnum(int cmd, dev_t devnum, int id, void *addr) {
-        _cleanup_free_ char *devnode = NULL;
+int quotactl_fd_with_fallback(int fd, int cmd, int id, void *addr) {
         int r;
 
-        /* Like quotactl() but takes a dev_t instead of a path to a device node, and fixes caddr_t → void*,
-         * like we should, today */
+        /* Emulates quotactl_fd() on older kernels that lack it. (i.e. kernels < 5.14) */
 
-        r = devname_from_devnum(S_IFBLK, devnum, &devnode);
-        if (r < 0)
+        r = RET_NERRNO(quotactl_fd(fd, cmd, id, addr));
+        if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return r;
 
-        if (quotactl(cmd, devnode, id, addr) < 0)
-                return -errno;
-
-        return 0;
-}
-
-int quotactl_path(int cmd, const char *path, int id, void *addr) {
         dev_t devno;
-        int r;
-
-        /* Like quotactl() but takes a path to some fs object, and changes the backing file system. I.e. the
-         * argument shouldn't be a block device but a regular file system object */
-
-        r = get_block_device(path, &devno);
+        r = get_block_device_fd(fd, &devno);
         if (r < 0)
                 return r;
         if (devno == 0) /* Doesn't have a block device */
                 return -ENODEV;
 
-        return quotactl_devnum(cmd, devno, id, addr);
+        _cleanup_free_ char *devnode = NULL;
+        r = devname_from_devnum(S_IFBLK, devno, &devnode);
+        if (r < 0)
+                return r;
+
+        return RET_NERRNO(quotactl(cmd, devnode, id, addr));
 }
