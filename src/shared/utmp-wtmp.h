@@ -6,6 +6,16 @@
 #if ENABLE_UTMP
 #include <utmpx.h>
 
+#ifndef ACCOUNTING
+#define ACCOUNTING 9
+#endif
+#ifndef UTMPX_FILE
+#define UTMPX_FILE _PATH_UTMP
+#endif
+#ifndef WTMPX_FILE
+#define WTMPX_FILE _PATH_WTMP
+#endif
+
 int utmp_get_runlevel(int *runlevel, int *previous);
 
 int utmp_put_shutdown(void);
