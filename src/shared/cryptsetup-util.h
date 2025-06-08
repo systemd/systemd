@@ -56,11 +56,7 @@ extern DLSYM_PROTOTYPE(crypt_token_json_set);
 extern DLSYM_PROTOTYPE(crypt_token_max);
 #else
 /* As a fallback, use the same hard-coded value libcryptsetup uses internally. */
-static inline int crypt_token_max(_unused_ const char *type) {
-    assert(streq(type, CRYPT_LUKS2));
-
-    return 32;
-}
+int crypt_token_max(_unused_ const char *type);
 #define sym_crypt_token_max(type) crypt_token_max(type)
 #endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
