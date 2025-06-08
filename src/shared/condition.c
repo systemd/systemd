@@ -2,7 +2,9 @@
 
 #include <fcntl.h>
 #include <fnmatch.h>
+#if HAVE_GNU_LIBC_VERSION_H
 #include <gnu/libc-version.h>
+#endif
 #include <sys/stat.h>
 #include <sys/utsname.h>
 #include <time.h>
@@ -257,7 +259,11 @@ static int condition_test_version(Condition *c, char **env) {
                 return condition_test_version_cmp(p, STRINGIFY(PROJECT_VERSION));
 
         if (streq(word, "glibc"))
+#if HAVE_GNU_LIBC_VERSION_H
                 return condition_test_version_cmp(p, gnu_get_libc_version());
+#else
+                return false;
+#endif
 
         /* if no predicate has been set, default to "kernel" and use the whole parameter as condition */
         if (!streq(word, "kernel"))
