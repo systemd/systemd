@@ -87,8 +87,8 @@ struct sd_event_source {
                         int fd;
                         uint32_t events;
                         uint32_t revents;
-                        bool registered:1;
-                        bool owned:1;
+                        bool registered;
+                        bool owned;
                 } io;
                 struct {
                         sd_event_time_handler_t callback;
@@ -130,14 +130,14 @@ struct sd_event_source {
                 } inotify;
                 struct {
                         int fd;
+                        bool registered;
+                        bool locked;
+                        bool in_write_list;
                         sd_event_handler_t callback;
                         void *write_buffer;
                         size_t write_buffer_size;
                         uint32_t events, revents;
                         LIST_FIELDS(sd_event_source, write_list);
-                        bool registered:1;
-                        bool locked:1;
-                        bool in_write_list:1;
                 } memory_pressure;
         };
 };
@@ -157,7 +157,7 @@ struct clock_data {
         Prioq *latest;
         usec_t next;
 
-        bool needs_rearm:1;
+        bool needs_rearm;
 };
 
 struct signal_data {
