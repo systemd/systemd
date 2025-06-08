@@ -142,13 +142,13 @@ option('create-log-dirs', type : 'boolean',
        description : 'create /var/log/journal{,/remote}')
 option('nsresourced', type : 'boolean',
        description : 'install the systemd-nsresourced stack')
-option('nss-myhostname', type : 'boolean',
+option('nss-myhostname', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-myhostname module')
 option('nss-mymachines', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-mymachines module')
 option('nss-resolve', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-resolve module')
-option('nss-systemd', type : 'boolean',
+option('nss-systemd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-systemd module')
 option('firstboot', type : 'boolean',
        description : 'support for firstboot mechanism')
