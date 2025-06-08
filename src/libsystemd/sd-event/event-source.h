@@ -43,6 +43,7 @@ typedef enum WakeupType {
 } WakeupType;
 
 typedef struct inode_data InodeData;
+typedef struct inotify_data InotifyData;
 
 struct sd_event_source {
         WakeupType wakeup;
@@ -201,7 +202,7 @@ struct inode_data {
         LIST_HEAD(sd_event_source, event_sources);
 
         /* The inotify object we watch this inode with */
-        struct inotify_data *inotify_data;
+        InotifyData *inotify_data;
 
         /* A linked list of all inode data objects with fds to close (see above) */
         LIST_FIELDS(InodeData, to_close);
@@ -230,9 +231,9 @@ struct inotify_data {
          * is gone. */
         unsigned n_busy;
 
-        /* A linked list of all inotify objects with data already read, that still need processing. We keep this list
-         * to make it efficient to figure out what inotify objects to process data on next. */
-        LIST_FIELDS(struct inotify_data, buffered);
+        /* A linked list of all InotifyData objects with data already read, that still need processing. We
+         * keep this list to make it efficient to figure out what inotify objects to process data on next. */
+        LIST_FIELDS(InotifyData, buffered);
 
         /* The buffer we read inotify events into */
         size_t buffer_filled; /* fill level of the buffer */

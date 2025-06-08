@@ -142,7 +142,7 @@ struct sd_event {
         LIST_HEAD(InodeData, inode_data_to_close_list);
 
         /* A list of inotify objects that already have events buffered which aren't processed yet */
-        LIST_HEAD(struct inotify_data, buffered_inotify_data_list);
+        LIST_HEAD(InotifyData, buffered_inotify_data_list);
 
         /* A list of memory pressure event sources that still need their subscription string written */
         LIST_HEAD(sd_event_source, memory_pressure_write_list);
@@ -1015,7 +1015,7 @@ static void source_disconnect(sd_event_source *s) {
 
                 inode_data = s->inotify.inode_data;
                 if (inode_data) {
-                        struct inotify_data *inotify_data;
+                        InotifyData *inotify_data;
                         assert_se(inotify_data = inode_data->inotify_data);
 
                         /* Detach this event source from the inode object */
@@ -2113,7 +2113,7 @@ _public_ int sd_event_add_memory_pressure(
         return 0;
 }
 
-static void event_free_inotify_data(sd_event *e, struct inotify_data *d) {
+static void event_free_inotify_data(sd_event *e, InotifyData *d) {
         assert(e);
 
         if (!d)
@@ -2140,13 +2140,9 @@ static void event_free_inotify_data(sd_event *e, struct inotify_data *d) {
         free(d);
 }
 
-static int event_make_inotify_data(
-                sd_event *e,
-                int64_t priority,
-                struct inotify_data **ret) {
-
+static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **ret) {
         _cleanup_close_ int fd = -EBADF;
-        struct inotify_data *d;
+        InotifyData *d;
         int r;
 
         assert(e);
@@ -2164,11 +2160,11 @@ static int event_make_inotify_data(
 
         fd = fd_move_above_stdio(fd);
 
-        d = new(struct inotify_data, 1);
+        d = new(InotifyData, 1);
         if (!d)
                 return -ENOMEM;
 
-        *d = (struct inotify_data) {
+        *d = (InotifyData) {
                 .wakeup = WAKEUP_INOTIFY_DATA,
                 .fd = TAKE_FD(fd),
                 .priority = priority,
@@ -2259,16 +2255,14 @@ static void event_free_inode_data(sd_event *e, InodeData *d) {
         free(d);
 }
 
-static void event_gc_inotify_data(
-                sd_event *e,
-                struct inotify_data *d) {
-
+static void event_gc_inotify_data(sd_event *e, InotifyData *d) {
         assert(e);
 
-        /* GCs the inotify data object if we don't need it anymore. That's the case if we don't want to watch
-         * any inode with it anymore, which in turn happens if no event source of this priority is interested
-         * in any inode any longer. That said, we maintain an extra busy counter: if non-zero we'll delay GC
-         * (under the expectation that the GC is called again once the counter is decremented). */
+        /* Collects the InotifyData object if we don't need it anymore. That's the case if we don't want to
+         * watch any inode with it anymore, which in turn happens if no event source of this priority is
+         * interested in any inode any longer. That said, we maintain an extra busy counter: if non-zero
+         * we'll delay GC (under the expectation that the GC is called again once the counter is
+         * decremented). */
 
         if (!d)
                 return;
@@ -2283,7 +2277,7 @@ static void event_gc_inotify_data(
 }
 
 static void event_gc_inode_data(sd_event *e, InodeData *d) {
-        struct inotify_data *inotify_data;
+        InotifyData *inotify_data;
 
         assert(e);
 
@@ -2301,7 +2295,7 @@ static void event_gc_inode_data(sd_event *e, InodeData *d) {
 
 static int event_make_inode_data(
                 sd_event *e,
-                struct inotify_data *inotify_data,
+                InotifyData *inotify_data,
                 dev_t dev,
                 ino_t ino,
                 InodeData **ret) {
@@ -2435,7 +2429,7 @@ static int event_add_inotify_fd_internal(
 
         _cleanup_close_ int donated_fd = donate ? fd : -EBADF;
         _cleanup_(source_freep) sd_event_source *s = NULL;
-        struct inotify_data *inotify_data = NULL;
+        InotifyData *inotify_data = NULL;
         InodeData *inode_data = NULL;
         struct stat st;
         int r;
@@ -2748,7 +2742,7 @@ _public_ int sd_event_source_get_priority(sd_event_source *s, int64_t *ret) {
 
 _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) {
         bool rm_inotify = false, rm_inode = false;
-        struct inotify_data *new_inotify_data = NULL;
+        InotifyData *new_inotify_data = NULL;
         InodeData *new_inode_data = NULL;
         int r;
 
@@ -3844,7 +3838,7 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, i
         }
 }
 
-static int event_inotify_data_read(sd_event *e, struct inotify_data *d, uint32_t revents, int64_t threshold) {
+static int event_inotify_data_read(sd_event *e, InotifyData *d, uint32_t revents, int64_t threshold) {
         ssize_t n;
 
         assert(e);
@@ -3878,7 +3872,7 @@ static int event_inotify_data_read(sd_event *e, struct inotify_data *d, uint32_t
         return 1;
 }
 
-static void event_inotify_data_drop(sd_event *e, struct inotify_data *d, size_t sz) {
+static void event_inotify_data_drop(sd_event *e, InotifyData *d, size_t sz) {
         assert(e);
         assert(d);
         assert(sz <= d->buffer_filled);
@@ -3894,7 +3888,7 @@ static void event_inotify_data_drop(sd_event *e, struct inotify_data *d, size_t 
                 LIST_REMOVE(buffered, e->buffered_inotify_data_list, d);
 }
 
-static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
+static int event_inotify_data_process(sd_event *e, InotifyData *d) {
         int r;
 
         assert(e);
@@ -4216,7 +4210,7 @@ static int source_dispatch(sd_event_source *s) {
 
         case SOURCE_INOTIFY: {
                 struct sd_event *e = s->event;
-                struct inotify_data *d;
+                InotifyData *d;
                 size_t sz;
 
                 assert(s->inotify.inode_data);
