@@ -139,7 +139,7 @@ struct sd_event {
         Hashmap *inotify_data; /* indexed by priority */
 
         /* A list of inode structures that still have an fd open, that we need to close before the next loop iteration */
-        LIST_HEAD(struct inode_data, inode_data_to_close_list);
+        LIST_HEAD(InodeData, inode_data_to_close_list);
 
         /* A list of inotify objects that already have events buffered which aren't processed yet */
         LIST_HEAD(struct inotify_data, buffered_inotify_data_list);
@@ -182,7 +182,7 @@ DEFINE_PRIVATE_ORIGIN_ID_HELPERS(sd_event, event);
 static thread_local sd_event *default_event = NULL;
 
 static void source_disconnect(sd_event_source *s);
-static void event_gc_inode_data(sd_event *e, struct inode_data *d);
+static void event_gc_inode_data(sd_event *e, InodeData *d);
 
 static sd_event* event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
@@ -1011,7 +1011,7 @@ static void source_disconnect(sd_event_source *s) {
                 break;
 
         case SOURCE_INOTIFY: {
-                struct inode_data *inode_data;
+                InodeData *inode_data;
 
                 inode_data = s->inotify.inode_data;
                 if (inode_data) {
@@ -2201,7 +2201,7 @@ static int event_make_inotify_data(
         return 1;
 }
 
-static int inode_data_compare(const struct inode_data *x, const struct inode_data *y) {
+static int inode_data_compare(const InodeData *x, const InodeData *y) {
         int r;
 
         assert(x);
@@ -2214,19 +2214,16 @@ static int inode_data_compare(const struct inode_data *x, const struct inode_dat
         return CMP(x->ino, y->ino);
 }
 
-static void inode_data_hash_func(const struct inode_data *d, struct siphash *state) {
+static void inode_data_hash_func(const InodeData *d, struct siphash *state) {
         assert(d);
 
         siphash24_compress_typesafe(d->dev, state);
         siphash24_compress_typesafe(d->ino, state);
 }
 
-DEFINE_PRIVATE_HASH_OPS(inode_data_hash_ops, struct inode_data, inode_data_hash_func, inode_data_compare);
+DEFINE_PRIVATE_HASH_OPS(inode_data_hash_ops, InodeData, inode_data_hash_func, inode_data_compare);
 
-static void event_free_inode_data(
-                sd_event *e,
-                struct inode_data *d) {
-
+static void event_free_inode_data(sd_event *e, InodeData *d) {
         assert(e);
 
         if (!d)
@@ -2285,10 +2282,7 @@ static void event_gc_inotify_data(
         event_free_inotify_data(e, d);
 }
 
-static void event_gc_inode_data(
-                sd_event *e,
-                struct inode_data *d) {
-
+static void event_gc_inode_data(sd_event *e, InodeData *d) {
         struct inotify_data *inotify_data;
 
         assert(e);
@@ -2310,15 +2304,15 @@ static int event_make_inode_data(
                 struct inotify_data *inotify_data,
                 dev_t dev,
                 ino_t ino,
-                struct inode_data **ret) {
+                InodeData **ret) {
 
-        struct inode_data *d, key;
+        InodeData *d, key;
         int r;
 
         assert(e);
         assert(inotify_data);
 
-        key = (struct inode_data) {
+        key = (InodeData) {
                 .ino = ino,
                 .dev = dev,
         };
@@ -2335,11 +2329,11 @@ static int event_make_inode_data(
         if (r < 0)
                 return r;
 
-        d = new(struct inode_data, 1);
+        d = new(InodeData, 1);
         if (!d)
                 return -ENOMEM;
 
-        *d = (struct inode_data) {
+        *d = (InodeData) {
                 .dev = dev,
                 .ino = ino,
                 .wd = -1,
@@ -2359,7 +2353,7 @@ static int event_make_inode_data(
         return 1;
 }
 
-static uint32_t inode_data_determine_mask(struct inode_data *d) {
+static uint32_t inode_data_determine_mask(InodeData *d) {
         bool excl_unlink = true;
         uint32_t combined = 0;
 
@@ -2384,7 +2378,7 @@ static uint32_t inode_data_determine_mask(struct inode_data *d) {
         return (combined & ~(IN_ONESHOT|IN_DONT_FOLLOW|IN_ONLYDIR|IN_EXCL_UNLINK)) | (excl_unlink ? IN_EXCL_UNLINK : 0);
 }
 
-static int inode_data_realize_watch(sd_event *e, struct inode_data *d) {
+static int inode_data_realize_watch(sd_event *e, InodeData *d) {
         uint32_t combined_mask;
         int wd, r;
 
@@ -2442,7 +2436,7 @@ static int event_add_inotify_fd_internal(
         _cleanup_close_ int donated_fd = donate ? fd : -EBADF;
         _cleanup_(source_freep) sd_event_source *s = NULL;
         struct inotify_data *inotify_data = NULL;
-        struct inode_data *inode_data = NULL;
+        InodeData *inode_data = NULL;
         struct stat st;
         int r;
 
@@ -2755,7 +2749,7 @@ _public_ int sd_event_source_get_priority(sd_event_source *s, int64_t *ret) {
 _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) {
         bool rm_inotify = false, rm_inode = false;
         struct inotify_data *new_inotify_data = NULL;
-        struct inode_data *new_inode_data = NULL;
+        InodeData *new_inode_data = NULL;
         int r;
 
         assert_return(s, -EINVAL);
@@ -2766,7 +2760,7 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) 
                 return 0;
 
         if (s->type == SOURCE_INOTIFY) {
-                struct inode_data *old_inode_data;
+                InodeData *old_inode_data;
 
                 assert(s->inotify.inode_data);
                 old_inode_data = s->inotify.inode_data;
@@ -3922,7 +3916,7 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
                         return -EIO;
 
                 if (d->buffer.ev.mask & IN_Q_OVERFLOW) {
-                        struct inode_data *inode_data;
+                        InodeData *inode_data;
 
                         /* The queue overran, let's pass this event to all event sources connected to this inotify
                          * object */
@@ -3938,7 +3932,7 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
                                                 return r;
                                 }
                 } else {
-                        struct inode_data *inode_data;
+                        InodeData *inode_data;
 
                         /* Find the inode object for this watch descriptor. If IN_IGNORED is set we also remove it from
                          * our watch descriptor table. */
@@ -4397,7 +4391,7 @@ static int process_watchdog(sd_event *e) {
 }
 
 static void event_close_inode_data_fds(sd_event *e) {
-        struct inode_data *d;
+        InodeData *d;
 
         assert(e);
 
