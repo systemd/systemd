@@ -667,8 +667,10 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         /* Test glibc version */
+        bool expected = !!gnu_get_libc_version();
+
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 1", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), expected);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 2", false, false)));
@@ -676,7 +678,7 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 9999", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), expected);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 9999", false, false)));
@@ -686,7 +688,7 @@ TEST(condition_test_version) {
         v = strjoina("glibc = ", gnu_get_libc_version());
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), expected);
         condition_free(condition);
 
         v = strjoina("glibc != ", gnu_get_libc_version());
