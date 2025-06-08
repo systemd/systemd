@@ -104,7 +104,7 @@ static int write_entry_wtmp(const struct utmpx *store) {
          * simply appended to the end; i.e. basically a log. */
 
         errno = 0;
-        updwtmpx(_PATH_WTMPX, store);
+        updwtmpx(WTMPX_FILE, store);
         if (errno == ENOENT) {
                 /* If utmp/wtmp have been disabled, that's a good thing, hence ignore the error. */
                 log_debug_errno(errno, "Not writing wtmp: %m");
