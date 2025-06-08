@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#include <sys/quota.h>
 
 #include "btrfs-util.h"
 #include "errno-util.h"
