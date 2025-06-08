@@ -2,10 +2,6 @@
 
 #include <unistd.h>
 
-#if HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
-
 #include "sd-messages.h"
 
 #include "errno-util.h"
