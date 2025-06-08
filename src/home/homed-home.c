@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mman.h>
-#include <sys/quota.h>
 #include <sys/vfs.h>
 
 #include "sd-bus.h"
