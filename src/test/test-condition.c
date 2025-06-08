@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <features.h>
+#if HAVE_GNU_LIBC_VERSION_H
 #include <gnu/libc-version.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/utsname.h>
@@ -670,7 +673,11 @@ TEST(condition_test_version) {
 
         /* Test glibc version */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 1", false, false)));
+#if HAVE_GNU_LIBC_VERSION_H
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
+#else
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+#endif
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 2", false, false)));
@@ -678,13 +685,18 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 9999", false, false)));
+#if HAVE_GNU_LIBC_VERSION_H
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
+#else
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+#endif
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 9999", false, false)));
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
+#if HAVE_GNU_LIBC_VERSION_H
         v = strjoina("glibc = ", gnu_get_libc_version());
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
@@ -696,6 +708,7 @@ TEST(condition_test_version) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
+#endif
 }
 
 TEST(condition_test_credential) {
