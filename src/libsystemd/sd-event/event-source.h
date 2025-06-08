@@ -42,7 +42,7 @@ typedef enum WakeupType {
         _WAKEUP_TYPE_INVALID = -EINVAL,
 } WakeupType;
 
-struct inode_data;
+typedef struct inode_data InodeData;
 
 struct sd_event_source {
         WakeupType wakeup;
@@ -125,7 +125,7 @@ struct sd_event_source {
                 struct {
                         sd_event_inotify_handler_t callback;
                         uint32_t mask;
-                        struct inode_data *inode_data;
+                        InodeData *inode_data;
                         LIST_FIELDS(sd_event_source, by_inode_data);
                 } inotify;
                 struct {
@@ -182,7 +182,7 @@ struct inode_data {
         /* An fd of the inode to watch. The fd is kept open until the next iteration of the loop, so that we can
          * rearrange the priority still until then, as we need the original inode to change the priority as we need to
          * add a watch descriptor to the right inotify for the priority which we can only do if we have a handle to the
-         * original inode. We keep a list of all inode_data objects with an open fd in the to_close list (see below) of
+         * original inode. We keep a list of all InodeData objects with an open fd in the to_close list (see below) of
          * the sd-event object, so that it is efficient to close everything, before entering the next event loop
          * iteration. */
         int fd;
@@ -204,7 +204,7 @@ struct inode_data {
         struct inotify_data *inotify_data;
 
         /* A linked list of all inode data objects with fds to close (see above) */
-        LIST_FIELDS(struct inode_data, to_close);
+        LIST_FIELDS(InodeData, to_close);
 };
 
 /* A structure encapsulating an inotify fd */
@@ -217,8 +217,8 @@ struct inotify_data {
         int fd;
         int64_t priority;
 
-        Hashmap *inodes; /* The inode_data structures keyed by dev+ino */
-        Hashmap *wd;     /* The inode_data structures keyed by the watch descriptor for each */
+        Hashmap *inodes; /* The InodeData structures keyed by dev+ino */
+        Hashmap *wd;     /* The InodeData structures keyed by the watch descriptor for each */
 
         /* How many event sources are currently marked pending for this inotify. We won't read new events off the
          * inotify fd as long as there are still pending events on the inotify (because we have no strategy of queuing
