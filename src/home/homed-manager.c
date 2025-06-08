@@ -8,7 +8,6 @@
 #include <pwd.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
-#include <sys/quota.h>
 #include <sys/stat.h>
 
 #include "sd-bus.h"
