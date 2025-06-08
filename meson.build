@@ -707,6 +707,7 @@ if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
 foreach header : ['crypt.h',
+                  'nss.h',
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
@@ -1628,8 +1629,6 @@ foreach term : ['analyze',
                 'mountfsd',
                 'networkd',
                 'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
                 'oomd',
                 'portabled',
                 'pstore',
@@ -1655,13 +1654,25 @@ endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
-foreach tuple : [['nss-mymachines', 'machined'],
-                 ['nss-resolve',    'resolve']]
+foreach tuple : [['nss-myhostname',           ],
+                 ['nss-mymachines', 'machined'],
+                 ['nss-resolve',    'resolve' ],
+                 ['nss-systemd',              ]]
         want = get_option(tuple[0])
         if want.allowed()
-                have = get_option(tuple[1])
-                if want.enabled() and not have
-                        error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
+                have_nss_h = conf.get('HAVE_NSS_H') == 1
+                if tuple.length() > 1
+                        have = have_nss_h and get_option(tuple[1])
+                else
+                        have = have_nss_h
+                endif
+                if want.enabled()
+                        if not have_nss_h
+                                error('@0@ is requested but nss.h does not exist'.format(tuple[0]))
+                        endif
+                        if not have
+                                error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
+                        endif
                 endif
         else
                 have = false
