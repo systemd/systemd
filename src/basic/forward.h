@@ -6,6 +6,7 @@
 #include <errno.h>              /* IWYU pragma: export */
 #include <inttypes.h>           /* IWYU pragma: export */
 #include <limits.h>             /* IWYU pragma: export */
+#include <paths.h>              /* IWYU pragma: export */
 #include <stdarg.h>             /* IWYU pragma: export */
 #include <stdbool.h>            /* IWYU pragma: export */
 #include <stddef.h>             /* IWYU pragma: export */
