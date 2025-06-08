@@ -706,15 +706,22 @@ conf.set('GPERF_LEN_TYPE', gperf_len_type,
 if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
-foreach header : ['crypt.h',
-                  'sys/sdt.h',
-                  'threads.h',
-                  'valgrind/memcheck.h',
-                  'valgrind/valgrind.h',
-                 ]
 
-        conf.set10('HAVE_' + header.underscorify().to_upper(),
-                   cc.has_header(header))
+foreach tuple : [
+        ['crypt.h'],
+        ['nss.h',     'musl'],
+        ['sys/sdt.h'],
+        ['threads.h'],
+        ['valgrind/memcheck.h'],
+        ['valgrind/valgrind.h'],
+]
+
+        if tuple.length() <= 1 or get_option('libc') == tuple[1]
+                have = cc.has_header(tuple[0])
+        else
+                have = true
+        endif
+        conf.set10('HAVE_' + tuple[0].underscorify().to_upper(), have)
 endforeach
 
 #####################################################################
@@ -1627,8 +1634,6 @@ foreach term : ['analyze',
                 'mountfsd',
                 'networkd',
                 'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
                 'oomd',
                 'portabled',
                 'pstore',
@@ -1669,15 +1674,29 @@ if have and get_option('libc') == 'musl'
 endif
 conf.set10('ENABLE_IDN', have)
 
+have_nss_h = conf.get('HAVE_NSS_H') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
         if want.allowed()
-                have = get_option(tuple[1])
+                have = get_option(tuple[1]) and have_nss_h
                 if want.enabled() and not have
+                        if not have_nss_h
+                                error('@0@ is requested but nss.h does not exist'.format(tuple[0]))
+                        endif
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
         else
+                have = false
+        endif
+        name = 'ENABLE_' + tuple[0].underscorify().to_upper()
+        conf.set10(name, have)
+endforeach
+foreach tuple : [['nss-myhostname'],
+                 ['nss-systemd']]
+        have = get_option(tuple[0])
+        if have and not have_nss_h
+                warning('@0@ is requested but nss.h does not exist, disabling it.'.format(tuple[0]))
                 have = false
         endif
         name = 'ENABLE_' + tuple[0].underscorify().to_upper()
