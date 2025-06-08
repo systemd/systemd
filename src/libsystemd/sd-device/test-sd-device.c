@@ -52,7 +52,12 @@ TEST(mdio_bus) {
 
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_DEVICE_VERIFY_SYSFS", "0", /* overwrite = */ false));
                 ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", "/sys/bus/", "tmpfs", 0, NULL));
-                ASSERT_OK(mkdir_p(syspath, 0755));
+                r = mkdir_p(syspath, 0755);
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                        log_tests_skipped("Lacking privileges to create %s", syspath);
+                        _exit(EXIT_SUCCESS);
+                }
+                ASSERT_OK(r);
 
                 _cleanup_free_ char *uevent = path_join(syspath, "uevent");
                 ASSERT_NOT_NULL(uevent);
