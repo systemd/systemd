@@ -106,9 +106,9 @@ struct sd_event_source {
                         pid_t pid;
                         int options;
                         int pidfd;
-                        bool registered:1; /* whether the pidfd is registered in the epoll */
-                        bool pidfd_owned:1; /* close pidfd when event source is freed */
-                        bool process_owned:1; /* kill+reap process when event source is freed */
+                        bool registered; /* whether the pidfd is registered in the epoll */
+                        bool pidfd_owned; /* close pidfd when event source is freed */
+                        bool process_owned; /* kill+reap process when event source is freed */
                         bool exited:1; /* true if process exited (i.e. if there's value in SIGKILLing it if we want to get rid of it) */
                         bool waited:1; /* true if process was waited for (i.e. if there's value in waitid(P_PID)'ing it if we want to get rid of it) */
                 } child;
