@@ -594,6 +594,7 @@ foreach ident : [
         ['posix_getdents',    '''#include <dirent.h>'''],       # glibc does not implement it, but musl does
         ['malloc_trim',       '''#include <malloc.h>'''],       # since glibc-2.2.5 (x86_64, depending on arch?), check anyway for musl
         ['malloc_info',       '''#include <malloc.h>'''],       # since glibc-2.10, but check it for musl
+        ['renameat2',         '''#include <stdio.h>'''],        # since glibc-2.28, but check it for musl
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
         ['mallinfo',          '''#include <malloc.h>'''],       # deprecated since glibc-2.33, but check it for musl
         ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
