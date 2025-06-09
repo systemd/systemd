@@ -142,13 +142,13 @@ option('create-log-dirs', type : 'boolean',
        description : 'create /var/log/journal{,/remote}')
 option('nsresourced', type : 'boolean',
        description : 'install the systemd-nsresourced stack')
-option('nss-myhostname', type : 'boolean',
+option('nss-myhostname', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-myhostname module')
 option('nss-mymachines', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-mymachines module')
 option('nss-resolve', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-resolve module')
-option('nss-systemd', type : 'boolean',
+option('nss-systemd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-systemd module')
 option('firstboot', type : 'boolean',
        description : 'support for firstboot mechanism')
@@ -333,7 +333,7 @@ option('tty-mode', type : 'string', value : '0600',
        description : 'Access mode for tty/pts device nodes.')
 option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
-option('gshadow', type : 'boolean',
+option('gshadow', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'support for shadow group')
 option('default-locale', type : 'string', value : 'C.UTF-8',
        description : 'default locale used when /etc/locale.conf does not exist')
@@ -423,7 +423,7 @@ option('libcryptsetup-plugins', type : 'feature', deprecated : { 'true' : 'enabl
        description : 'libcryptsetup LUKS2 external token handlers support (plugins)')
 option('libcurl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcurl support')
-option('idn', type : 'boolean',
+option('idn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'use IDN when printing hostnames')
 option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn2 support')
