@@ -581,6 +581,7 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', f'@long_max@')
 
 foreach ident : [
+        ['renameat2',         '''#include <stdio.h>''',         get_option('libc') == 'musl'], # since musl-1.2.6
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
@@ -613,6 +614,10 @@ foreach ident : [
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
         ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
+
+        if ident.length() >= 3 and not ident[2]
+                continue
+        endif
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
