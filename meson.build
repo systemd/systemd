@@ -1617,7 +1617,6 @@ foreach term : ['analyze',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
-                'idn',
                 'ima',
                 'ipe',
                 'initrd',
@@ -1653,6 +1652,17 @@ foreach term : ['analyze',
 endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
+
+want = get_option('idn')
+if want.allowed()
+        have = cc.has_define('NI_IDN', prefix : '#include <netdb.h>', args : '-D_GNU_SOURCE')
+else
+        have = false
+endif
+if want.enabled() and not have
+        error('IDN support is requested but NI_IDN is not defined')
+endif
+conf.set10('ENABLE_IDN', have)
 
 want = get_option('gshadow')
 if want.allowed()

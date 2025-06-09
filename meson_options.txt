@@ -423,7 +423,7 @@ option('libcryptsetup-plugins', type : 'feature', deprecated : { 'true' : 'enabl
        description : 'libcryptsetup LUKS2 external token handlers support (plugins)')
 option('libcurl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcurl support')
-option('idn', type : 'boolean',
+option('idn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'use IDN when printing hostnames')
 option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn2 support')
