@@ -708,6 +708,7 @@ endif
 
 foreach tuple : [
         ['crypt.h'],
+        ['gshadow.h', 'musl'],
         ['nss.h',     'musl'],
         ['sys/sdt.h'],
         ['threads.h'],
@@ -1618,7 +1619,6 @@ foreach term : ['analyze',
                 'efi',
                 'environment-d',
                 'firstboot',
-                'gshadow',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
@@ -1672,6 +1672,13 @@ if have and get_option('libc') == 'musl'
         endif
 endif
 conf.set10('ENABLE_IDN', have)
+
+have = get_option('gshadow')
+if have and conf.get('HAVE_GSHADOW_H') == 0
+        warning('support for shadow group is requested but gshadow.h does not exist, disabling it.')
+        have = false
+endif
+conf.set10('ENABLE_GSHADOW', have)
 
 have_nss_h = conf.get('HAVE_NSS_H') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
