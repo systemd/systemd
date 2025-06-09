@@ -580,7 +580,7 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
-        ['struct dirent64',   '''#include <dirent.h>'''],       # for musl, but only for compile time check, see dirent-util.h
+        ['struct dirent64',   '''#include <dirent.h>'''],       # for musl, see dirent-util.h
         ['struct sched_attr', '''#include <sched.h>'''],        # since glibc-2.41
 ]
         # We get -1 if the size cannot be determined
