@@ -1617,7 +1617,6 @@ foreach term : ['analyze',
                 'efi',
                 'environment-d',
                 'firstboot',
-                'gshadow',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
@@ -1663,6 +1662,13 @@ if have and get_option('libc') == 'musl'
         have = false
 endif
 conf.set10('ENABLE_IDN', have)
+
+have = get_option('gshadow')
+if have and get_option('libc') == 'musl'
+        warning('support for shadow group is requested but it is not supported when building with musl, disabling it.')
+        have = false
+endif
+conf.set10('ENABLE_GSHADOW', have)
 
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
