@@ -308,7 +308,7 @@ typedef struct VeritySettings VeritySettings;
 #define AT_FDCWD                -100
 #define AT_EMPTY_PATH           0x1000
 #define AT_SYMLINK_FOLLOW       0x400
-#define AT_SYMLINK_NOFOLLOW	0x100
+#define AT_SYMLINK_NOFOLLOW     0x100
 
 #define MODE_INVALID            ((mode_t) -1)
 
