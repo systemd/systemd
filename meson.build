@@ -716,6 +716,7 @@ if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
 foreach header : ['crypt.h',
+                  'gshadow.h',
                   'nss.h',
                   'sys/sdt.h',
                   'threads.h',
@@ -1622,7 +1623,6 @@ foreach term : ['analyze',
                 'efi',
                 'environment-d',
                 'firstboot',
-                'gshadow',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
@@ -1675,6 +1675,13 @@ if have
         endif
 endif
 conf.set10('ENABLE_IDN', have)
+
+have = get_option('gshadow')
+if have and conf.get('HAVE_GSHADOW_H') == 0
+        warning('support for shadow group is requested but gshadow.h does not exist, disabling it.')
+        have = false
+endif
+conf.set10('ENABLE_GSHADOW', have)
 
 have_nss_h = conf.get('HAVE_NSS_H') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
