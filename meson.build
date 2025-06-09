@@ -559,6 +559,9 @@ conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 # compilation result tests
 
 conf.set('_GNU_SOURCE', 1)
+# glibc always defines _LARGEFILE64_SOURCE, but musl does not,
+# and it is necessary for making getdents64() and struct dirent64 exist.
+conf.set('_LARGEFILE64_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
