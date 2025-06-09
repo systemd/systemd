@@ -106,14 +106,10 @@ static int open_label_db(void) {
         struct selabel_handle *hnd;
         /* Avoid maybe-uninitialized false positives */
         usec_t before_timestamp = USEC_INFINITY, after_timestamp = USEC_INFINITY;
-#  if HAVE_GENERIC_MALLINFO
         generic_mallinfo before_mallinfo = {};
-#  endif
 
         if (DEBUG_LOGGING) {
-#  if HAVE_GENERIC_MALLINFO
                 before_mallinfo = generic_mallinfo_get();
-#  endif
                 before_timestamp = now(CLOCK_MONOTONIC);
         }
 
@@ -123,16 +119,11 @@ static int open_label_db(void) {
 
         if (DEBUG_LOGGING) {
                 after_timestamp = now(CLOCK_MONOTONIC);
-#  if HAVE_GENERIC_MALLINFO
                 generic_mallinfo after_mallinfo = generic_mallinfo_get();
                 size_t l = LESS_BY((size_t) after_mallinfo.uordblks, (size_t) before_mallinfo.uordblks);
                 log_debug("Successfully loaded SELinux database in %s, size on heap is %zuK.",
                           FORMAT_TIMESPAN(after_timestamp - before_timestamp, 0),
                           DIV_ROUND_UP(l, 1024));
-#  else
-                log_debug("Successfully loaded SELinux database in %s.",
-                          FORMAT_TIMESPAN(after_timestamp - before_timestamp, 0));
-#  endif
         }
 
         /* release memory after measurement */
