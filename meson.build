@@ -486,12 +486,6 @@ if get_option('b_sanitize') == 'none'
         possible_link_flags += '-Wl,--warn-common'
 endif
 
-if cc.get_id() == 'clang'
-        possible_common_cc_flags += [
-                '-Wno-typedef-redefinition',
-        ]
-endif
-
 if get_option('mode') == 'release'
         # We could enable 'pattern' for developer mode, but that can interfere with
         # valgrind and sanitizer builds. Also, clang does not zero-initialize unions,
