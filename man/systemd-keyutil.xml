@@ -72,7 +72,8 @@
         <option>--signature=</option> in a PKCS#7 signature using the certificate given with
         <option>--certificate=</option> and writes it to the file specified with <option>--output=</option>
         in PKCS#7 format (p7s). If <option>--content=</option> is provided it is included in the p7s,
-        otherwise a "detached" signature is created.</para>
+        otherwise a "detached" signature is created. The <option>--hash-alg</option> option, which defaults
+        to SHA-256, specifies what hash algorithm was used to generate the signature.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -115,6 +116,15 @@
 
         <listitem><para>Input data that corresponds to the PKCS#1 signature for the <command>pkcs7</command>
         command, used for generating inline (i.e. non-"detached") PKCS#7 signatures.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--hash-alg=<replaceable>ALG</replaceable></option></term>
+
+        <listitem><para>Hash algorithm used to generate the PKCS#1 signature for the <command>pkcs7</command>
+        command. Defaults to SHA-256.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
