@@ -39,7 +39,11 @@ static inline ssize_t posix_getdents(int fd, void *buf, size_t nbyte, int flags)
         if (flags != 0)
                 return -EINVAL; /* Currently flags must be zero. */
 
+#if HAVE_STRUCT_DIRENT64
         return getdents64(fd, buf, nbyte);
+#else
+        return getdents(fd, buf, nbyte);
+#endif
 }
 #endif
 
@@ -47,7 +51,7 @@ static inline ssize_t posix_getdents(int fd, void *buf, size_t nbyte, int flags)
 #define DIRENT_SIZE_MAX CONST_MAX(sizeof(struct dirent), offsetof(struct dirent, d_name) + NAME_MAX + 1)
 
 /* Only if 64-bit off_t is enabled struct dirent + struct dirent64 are actually the same. We require this, and
- * we want them to be interchangeable to make getdents64() work, hence verify that. */
+ * we want them to be interchangeable to make posix_getdents() work, hence verify that. */
 assert_cc(_FILE_OFFSET_BITS == 64);
 /* These asserts would fail on musl where the LFS extensions don't exist. They should
  * always be present on glibc however. */
