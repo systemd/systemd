@@ -327,15 +327,11 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
         if (!h)
                 return log_oom_debug();
 
-        _cleanup_free_ char *c = strdup(e + 1);
-        if (!c)
-                return log_oom_debug();
-
-        if (!path_is_absolute(c))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote AF_UNIX socket path is not absolute, refusing: %s", c);
+        if (!path_is_absolute(e + 1))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote AF_UNIX socket path is not absolute, refusing: %s", e + 1);
 
         _cleanup_free_ char *p = NULL;
-        r = path_simplify_alloc(c, &p);
+        r = path_simplify_alloc(e + 1, &p);
         if (r < 0)
                 return r;
 
