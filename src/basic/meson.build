@@ -30,6 +30,7 @@ basic_sources = files(
         'env-file.c',
         'env-util.c',
         'errno-list.c',
+        'errno-util.c',
         'escape.c',
         'ether-addr-util.c',
         'extract-word.c',
@@ -121,7 +122,6 @@ basic_sources = files(
 sources += basic_sources
 
 missing_audit_h = files('missing_audit.h')
-missing_socket_h = files('missing_socket.h')
 
 missing_syscall_def_h = files('missing_syscall_def.h')
 basic_sources += missing_syscall_def_h
@@ -130,14 +130,14 @@ generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         'af-list.txt',
         output : 'af-list.txt',
-        command : [generate_af_list, cpp, config_h, missing_socket_h],
+        command : [generate_af_list, cpp, files('missing_socket.h')],
         capture : true)
 
 generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         'arphrd-list.txt',
         output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, files('include/linux/if_arp.h'), config_h],
+        command : [generate_arphrd_list, cpp, files('include/linux/if_arp.h')],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')
@@ -195,6 +195,10 @@ endforeach
 
 generated_sources += generated_gperf_headers
 basic_sources += generated_gperf_headers
+
+if conf.get('HAVE_PRINTF_H') != 1
+        basic_sources += [files('parse-printf-format.c')]
+endif
 
 ############################################################
 

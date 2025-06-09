@@ -349,3 +349,11 @@ const char* mangle_none(const char *s) {
         /* A helper that turns cryptsetup/integritysetup/veritysetup "options" strings into NULL if they are effectively empty */
         return isempty(s) || STR_IN_SET(s, "-", "none") ? NULL : s;
 }
+
+#if !HAVE_CRYPT_TOKEN_MAX
+int crypt_token_max(_unused_ const char *type) {
+    assert(streq(type, CRYPT_LUKS2));
+
+    return 32;
+}
+#endif

@@ -580,7 +580,7 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
-        ['struct dirent64',   '''##include <dirent.h>'''],      # for musl, but only for compile time check, see dirent-util.h
+        ['struct dirent64',   '''#include <dirent.h>'''],       # for musl, see dirent-util.h
         ['struct sched_attr', '''#include <sched.h>'''],        # since glibc-2.41
 ]
         # We get -1 if the size cannot be determined
@@ -592,6 +592,9 @@ foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['posix_getdents',    '''#include <dirent.h>'''],       # glibc does not implement it, but musl does
+        ['malloc_trim',       '''#include <malloc.h>'''],       # since glibc-2.2.5 (x86_64, depending on arch?), check anyway for musl
+        ['malloc_info',       '''#include <malloc.h>'''],       # since glibc-2.10, but check it for musl
+        ['renameat2',         '''#include <stdio.h>'''],        # since glibc-2.28, but check it for musl
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
         ['mallinfo',          '''#include <malloc.h>'''],       # deprecated since glibc-2.33, but check it for musl
         ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
@@ -625,6 +628,25 @@ foreach ident : [
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
+
+rlim_test = '''
+#include <sys/resource.h>
+#include <stdio.h>
+int main(void) {
+        rlim_t x = 1;
+        printf("@0@", x);
+        return 0;
+}
+'''
+foreach fmt : ['%u', '%lu', '%llu']
+        if cc.compiles(rlim_test.format(fmt), args : ['-Werror=format', '-D_GNU_SOURCE'])
+                conf.set_quoted('RLIM_FMT', fmt)
+                break
+        endif
+endforeach
+if not conf.has('RLIM_FMT')
+        error('Cannot determine format string for rlim_t')
+endif
 
 #####################################################################
 
@@ -707,6 +729,10 @@ if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
 foreach header : ['crypt.h',
+                  'gnu/libc-version.h',
+                  'gshadow.h',
+                  'nss.h',
+                  'printf.h',
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
@@ -1612,11 +1638,9 @@ foreach term : ['analyze',
                 'efi',
                 'environment-d',
                 'firstboot',
-                'gshadow',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
-                'idn',
                 'ima',
                 'ipe',
                 'initrd',
@@ -1628,8 +1652,6 @@ foreach term : ['analyze',
                 'mountfsd',
                 'networkd',
                 'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
                 'oomd',
                 'portabled',
                 'pstore',
@@ -1655,13 +1677,57 @@ endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
-foreach tuple : [['nss-mymachines', 'machined'],
-                 ['nss-resolve',    'resolve']]
+want = get_option('idn')
+if want.allowed()
+        if meson.version().version_compare('>=1.3.0')
+                have = cc.has_define('NI_IDN', prefix : '#include <netdb.h>', args : '-D_GNU_SOURCE')
+        else
+                have = cc.compiles('''
+                        #include <netdb.h>
+                        int main(void) {
+                                return NI_IDN;
+                        }
+                        ''',
+                        args : '-D_GNU_SOURCE')
+        endif
+else
+        have = false
+endif
+if want.enabled() and not have
+        error('IDN support is requested but NI_IDN is not defined')
+endif
+conf.set10('ENABLE_IDN', have)
+
+want = get_option('gshadow')
+if want.allowed()
+        have = conf.get('HAVE_GSHADOW_H') == 1
+else
+        have = false
+endif
+if want.enabled() and not have
+        error('support for shadow group is requested but could not find gshadow.h')
+endif
+conf.set10('ENABLE_GSHADOW', have)
+
+foreach tuple : [['nss-myhostname',           ],
+                 ['nss-mymachines', 'machined'],
+                 ['nss-resolve',    'resolve' ],
+                 ['nss-systemd',              ]]
         want = get_option(tuple[0])
         if want.allowed()
-                have = get_option(tuple[1])
-                if want.enabled() and not have
-                        error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
+                have_nss_h = conf.get('HAVE_NSS_H') == 1
+                if tuple.length() > 1
+                        have = have_nss_h and get_option(tuple[1])
+                else
+                        have = have_nss_h
+                endif
+                if want.enabled()
+                        if not have_nss_h
+                                error('@0@ is requested but nss.h does not exist'.format(tuple[0]))
+                        endif
+                        if not have
+                                error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
+                        endif
                 endif
         else
                 have = false
