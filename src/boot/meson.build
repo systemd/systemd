@@ -168,6 +168,7 @@ efi_c_args = [
         '-ffreestanding',
         '-fno-strict-aliasing',
         '-fshort-wchar',
+        '-D__DEFINED_wchar_t', # To make musl not define wchar_t as int, rather than short.
         '-include', 'efi_config.h',
 ]
 
