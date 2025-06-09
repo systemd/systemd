@@ -4,6 +4,7 @@
 
 #include <sched.h>
 #include <signal.h>
+#include <stdio.h>
 #include <sys/mount.h>
 #include <sys/pidfd.h>
 #include <sys/quota.h>
@@ -18,6 +19,14 @@
 #include "missing_kcmp.h"
 #include "missing_keyctl.h"
 #include "missing_mempolicy.h"
+
+/* ======================================================================= */
+
+#if !HAVE_RENAMEAT2
+int renameat2(int __oldfd, const char *__old, int __newfd, const char *__new, unsigned int __flags) {
+        return syscall(__NR_renameat2, __oldfd, __old, __newfd, __new, __flags);
+}
+#endif
 
 /* ======================================================================= */
 
