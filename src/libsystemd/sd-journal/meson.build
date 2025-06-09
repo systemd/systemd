@@ -12,18 +12,11 @@
 # the custom_target() has to be defined here in src/libsystemd/sd-journal
 # in the source directory.
 
-audit_type_includes = [config_h,
-                       missing_audit_h,
-                       'linux/audit.h']
-if conf.get('HAVE_AUDIT') == 1
-        audit_type_includes += 'libaudit.h'
-endif
-
 generate_audit_type_list = find_program('generate-audit_type-list.sh')
 audit_type_list_txt = custom_target(
         'audit_type-list.txt',
         output : 'audit_type-list.txt',
-        command : [generate_audit_type_list, cpp] + audit_type_includes,
+        command : [generate_audit_type_list, cpp, missing_audit_h],
         capture : true)
 
 audit_type_to_name = custom_target(
