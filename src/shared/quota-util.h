@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/quota.h> /* IWYU pragma: export */
+#include <linux/quota.h> /* IWYU pragma: export */
+#include <sys/quota.h>   /* IWYU pragma: export */
 
 #include "forward.h"
 
