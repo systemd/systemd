@@ -584,6 +584,7 @@ foreach ident : [
         ['mallinfo',          '''#include <malloc.h>''', 'musl'],
         ['malloc_info',       '''#include <malloc.h>''', 'musl'],
         ['malloc_trim',       '''#include <malloc.h>''', 'musl'],
+        ['renameat2',         '''#include <stdio.h>''',  'musl'],
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
