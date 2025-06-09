@@ -561,7 +561,6 @@ conf.set('__SANE_USERSPACE_TYPES__', true)
 
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>'))
-conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>'))
 conf.set('SIZEOF_TIME_T', cc.sizeof('time_t', prefix : '#include <sys/time.h>'))
 conf.set('SIZEOF_TIMEX_MEMBER', cc.sizeof('typeof(((struct timex *)0)->freq)', prefix : '#include <sys/timex.h>'))
 
@@ -622,6 +621,25 @@ foreach ident : [
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
+
+rlim_test = '''
+#include <sys/resource.h>
+#include <stdio.h>
+int main(void) {
+        rlim_t x = 1;
+        printf("@0@", x);
+        return 0;
+}
+'''
+foreach fmt : ['%u', '%lu', '%llu']
+        if cc.compiles(rlim_test.format(fmt), args : ['-Werror=format', '-D_GNU_SOURCE'])
+                conf.set_quoted('RLIM_FMT', fmt)
+                break
+        endif
+endforeach
+if not conf.has('RLIM_FMT')
+        error('Cannot determine format string for rlim_t')
+endif
 
 #####################################################################
 
