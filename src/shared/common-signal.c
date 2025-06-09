@@ -69,6 +69,7 @@ int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, vo
                 break;
 
         case COMMON_SIGNAL_COMMAND_MALLOC_INFO: {
+#if HAVE_MALLOC_INFO
                 _cleanup_(memstream_done) MemStream m = {};
                 FILE *f;
 
@@ -84,6 +85,9 @@ int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, vo
                 }
 
                 (void) memstream_dump(LOG_INFO, &m);
+#else
+                log_debug_errno(errno, "malloc_info() is not supported.");
+#endif
                 break;
         }
 
