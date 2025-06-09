@@ -573,6 +573,9 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
+        ['mallinfo',          '''#include <malloc.h>''', 'musl'],
+        ['malloc_info',       '''#include <malloc.h>''', 'musl'],
+        ['malloc_trim',       '''#include <malloc.h>''', 'musl'],
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
@@ -606,7 +609,11 @@ foreach ident : [
         ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
 
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        if ident.length() <= 2 or get_option('libc') == ident[2]
+                have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        else
+                have = true
+        endif
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
