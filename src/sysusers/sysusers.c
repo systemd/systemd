@@ -405,7 +405,6 @@ static int putgrent_with_members(
         return putgrent_sane(gr, group);
 }
 
-#if ENABLE_GSHADOW
 static int putsgent_with_members(
                 Context *c,
                 const struct sgrp *sg,
@@ -452,7 +451,6 @@ static int putsgent_with_members(
 
         return putsgent_sane(sg, gshadow);
 }
-#endif
 
 static const char* pick_shell(const Item *i) {
         assert(i);
@@ -866,7 +864,6 @@ static int write_temporary_gshadow(
                 FILE **ret_tmpfile,
                 char **ret_tmpfile_path) {
 
-#if ENABLE_GSHADOW
         _cleanup_fclose_ FILE *original = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *gshadow_tmp = NULL;
         bool group_changed = false;
@@ -943,9 +940,7 @@ done:
         if (group_changed) {
                 *ret_tmpfile = TAKE_PTR(gshadow);
                 *ret_tmpfile_path = TAKE_PTR(gshadow_tmp);
-        } else
-#endif
-        {
+        } else {
                 *ret_tmpfile = NULL;
                 *ret_tmpfile_path = NULL;
         }

@@ -76,6 +76,10 @@ CHANGES WITH 258 in spe:
           option has been deprecated. Also, the 'cryptolib' meson option has
           been deprecated. They will be removed in a future release.
 
+        * systemd-sysusers now unconditionally reads and updates gshadow file
+          when necessary. The meson option 'gshadow' has been deprecated and
+          will be removed in a future release.
+
         * systemd-logind's session tracking, which used to be performed via a
           FIFO installed in the client, has been fully switched to be
           pidfd-based. The fd returned by CreateSession() and related calls is
