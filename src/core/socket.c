@@ -1075,7 +1075,7 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (s->pass_sec) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_PASSSEC failed: %m");
+                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r, "SO_PASSSEC failed: %m");
         }
 
         if (s->pass_pktinfo) {
