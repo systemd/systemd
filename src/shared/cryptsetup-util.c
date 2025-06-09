@@ -54,6 +54,12 @@ DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
 #if HAVE_CRYPT_TOKEN_MAX
 DLSYM_PROTOTYPE(crypt_token_max) = NULL;
+#else
+int crypt_token_max(_unused_ const char *type) {
+    assert(streq(type, CRYPT_LUKS2));
+
+    return 32;
+}
 #endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
 DLSYM_PROTOTYPE(crypt_token_set_external_path) = NULL;

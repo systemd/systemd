@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <features.h>
+#if HAVE_GNU_LIBC_VERSION_H
 #include <gnu/libc-version.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/utsname.h>
@@ -668,6 +671,7 @@ TEST(condition_test_version) {
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
+#if HAVE_GNU_LIBC_VERSION_H
         /* Test glibc version */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 1", false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
@@ -696,6 +700,7 @@ TEST(condition_test_version) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
+#endif
 }
 
 TEST(condition_test_credential) {
