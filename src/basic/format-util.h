@@ -39,12 +39,21 @@ assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 #  error Unknown timex member size
 #endif
 
-#if SIZEOF_RLIM_T == 8
-#  define RLIM_FMT "%" PRIu64
-#elif SIZEOF_RLIM_T == 4
-#  define RLIM_FMT "%" PRIu32
+/* glibc uses uint32_t or uint64_t for rlim_t, while musl uses unsigned long long. */
+#ifdef __GLIBC__
+#  if SIZEOF_RLIM_T == 8
+#    define RLIM_FMT "%" PRIu64
+#  elif SIZEOF_RLIM_T == 4
+#    define RLIM_FMT "%" PRIu32
+#  else
+#    error Unknown rlim_t size
+#  endif
 #else
-#  error Unknown rlim_t size
+#  if SIZEOF_RLIM_T == 8
+#    define RLIM_FMT "%llu"
+#  else
+#    error Unknown rlim_t size
+#  endif
 #endif
 
 #if SIZEOF_DEV_T == 8
