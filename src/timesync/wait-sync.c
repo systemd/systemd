@@ -3,7 +3,6 @@
 
 #include <stdio.h>
 #include <sys/inotify.h>
-#include <sys/timex.h>
 #include <unistd.h>
 
 #include "sd-event.h"
