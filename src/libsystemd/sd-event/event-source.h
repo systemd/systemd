@@ -237,6 +237,12 @@ struct inotify_data {
 
         /* The buffer we read inotify events into */
         size_t buffer_filled; /* fill level of the buffer */
-        union inotify_event_buffer buffer; /* struct inotify_event in union inotify_event_buffer has flex
-                                            * array. Hence, this must be at the end. */
+        union inotify_event_buffer buffer; /* We use a union to allow type-punning. One of the variants in
+                                            * the union — struct inotify_event — has a flex array, so C99
+                                            * only allows this union to be used at the end of the structure.
+                                            * The other variant in the union defines a fixed-size buffer that
+                                            * covers the maximum size that can be used for the flex variant,
+                                            * so in fact this field has a fixed size and could be safely
+                                            * placed in the middle of the struct. Unfortunately, there is no
+                                            * mechanism to let the compiler know that. */
 };
