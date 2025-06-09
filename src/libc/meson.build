@@ -12,6 +12,7 @@ libc_wrapper_sources = files(
         'sched.c',
         'signal.c',
         'stat.c',
+        'stdio.c',
         'unistd.c',
         'xattr.c',
 )
