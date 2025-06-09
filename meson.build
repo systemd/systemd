@@ -582,6 +582,8 @@ foreach ident : [
 endforeach
 
 foreach ident : [
+        ['getdents64',        '''#include <dirent.h>'''],       # for musl
+        ['posix_getdents',    '''#include <dirent.h>'''],       # for musl
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
