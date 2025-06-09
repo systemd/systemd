@@ -580,6 +580,7 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
+        ['renameat2',         '''#include <stdio.h>''',         get_option('libc') == 'musl'], # since musl-1.2.6
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>''',        get_option('oss-fuzz')], # since glibc-2.32
