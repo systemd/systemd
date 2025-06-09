@@ -47,31 +47,50 @@ testcase_public() {
     (! /usr/lib/systemd/systemd-keyutil public)
 }
 
+generate_pkcs1() {
+    openssl dgst -$1 -sign /tmp/test.key -out /tmp/payload.p1s /tmp/payload
+}
+
+verify_pkcs7() {
+    local not="${1:-}"
+
+    # Verify using internal certificate
+    eval $not openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify > /dev/null
+    # Verify using external (original) certificate
+    eval $not openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify -certfile /tmp/test.crt -nointern > /dev/null
+}
+
+verify_pkcs7_fail() {
+    verify_pkcs7 "!"
+}
+
 testcase_pkcs7() {
     echo -n "test" > /tmp/payload
 
-    # Generate PKCS#1 signature
-    openssl dgst -sha256 -sign /tmp/test.key -out /tmp/payload.sig /tmp/payload
+    for hashalg in sha256 sha384 sha512; do
+        generate_pkcs1 $hashalg
 
-    # Generate PKCS#7 "detached" signature
-    /usr/lib/systemd/systemd-keyutil --certificate /tmp/test.crt --output /tmp/payload.p7s --signature /tmp/payload.sig pkcs7
+        # Test with and without content in the PKCS7
+        for content_param in "" "--content /tmp/payload"; do
+            # Test with and without specifying signing hash alg
+            for hashalg_param in "" "--hash-alg $hashalg"; do
+                /usr/lib/systemd/systemd-keyutil --certificate /tmp/test.crt --output /tmp/payload.p7s --signature /tmp/payload.p1s $content_param $hashalg_param pkcs7
 
-    # Verify using internal x509 certificate
-    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify > /dev/null
+                # Should always pass, except when not specifying hash alg and hash alg != sha256
+                if [ -z "$hashalg_param" -a "$hashalg" != "sha256" ]; then
+                    verify_pkcs7_fail
+                else
+                    verify_pkcs7
+                fi
 
-    # Verify using external (original) x509 certificate
-    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -certificate /tmp/test.crt -nointern -noverify > /dev/null
+                rm -f /tmp/payload.p7s
+            done
+        done
 
-    rm -f /tmp/payload.p7s
+        rm -f /tmp/payload.p1s
+    done
 
-    # Generate PKCS#7 non-"detached" signature
-    /usr/lib/systemd/systemd-keyutil --certificate /tmp/test.crt --output /tmp/payload.p7s --signature /tmp/payload.sig --content /tmp/payload pkcs7
-
-    # Verify using internal x509 certificate
-    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -noverify > /dev/null
-
-    # Verify using external (original) x509 certificate
-    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -certificate /tmp/test.crt -nointern -noverify > /dev/null
+    rm -f /tmp/payload
 }
 
 run_testcases
