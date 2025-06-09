@@ -573,6 +573,13 @@ conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h
 conf.set('SIZEOF_TIME_T', cc.sizeof('time_t', prefix : '#include <sys/time.h>'))
 conf.set('SIZEOF_TIMEX_MEMBER', cc.sizeof('typeof(((struct timex *)0)->freq)', prefix : '#include <sys/timex.h>'))
 
+if get_option('libc') == 'musl'
+        if conf.get('SIZEOF_RLIM_T') != 8
+                error('Unexpected size of rlim_t: @0@'.format(conf.get('SIZEOF_RLIM_T')))
+        endif
+        conf.set_quoted('RLIM_FMT', '%llu')
+endif
+
 long_max = cc.compute_int(
         'LONG_MAX',
         prefix : '#include <limits.h>',
