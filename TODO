@@ -120,9 +120,6 @@ Deprecations and removals:
 
 Features:
 
-* Add PassPidFileDescriptor= similar in style to PassCredentials= to .socket
-  units
-
 * automatically reset specific EFI vars on factory reset (make this generic
   enough so that infrac can be used to erase shim's mok vars?)
 
