@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "iovec-util.h"
@@ -490,7 +491,7 @@ int server_open_native_socket(Server *s, const char *native_socket) {
         if (mac_selinux_use()) {
                 r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_warning_errno(r, "SO_PASSSEC failed: %m");
+                        log_full_errno(ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r, "SO_PASSSEC failed: %m");
         }
 
         r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, true);
