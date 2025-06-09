@@ -558,6 +558,7 @@ conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 # compilation result tests
 
 conf.set('_GNU_SOURCE', 1)
+conf.set('_LARGEFILE64_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
@@ -614,7 +615,7 @@ foreach ident : [
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
 ]
 
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        have = cc.has_function(ident[0], prefix : ident[1], args : ['-D_GNU_SOURCE', '-D_LARGEFILE64_SOURCE'])
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
