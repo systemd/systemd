@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <features.h>
 #include <linux/if.h>   /* IWYU pragma: export */
 
 #define IF_NAMESIZE       16
