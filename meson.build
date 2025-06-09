@@ -576,6 +576,9 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
+        ['mallinfo',          '''#include <malloc.h>'''],       # for musl
+        ['malloc_info',       '''#include <malloc.h>'''],       # for musl
+        ['malloc_trim',       '''#include <malloc.h>'''],       # for musl
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
