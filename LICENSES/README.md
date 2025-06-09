@@ -31,7 +31,8 @@ The following exceptions apply:
 
  * some sources under src/udev/ are licensed under **GPL-2.0-or-later**,
    so all udev programs (`systemd-udevd`, `udevadm`, and the udev builtins
-   and test programs) are also distributed under **GPL-2.0-or-later**.
+   and test programs), except for `libudev`, are also distributed under
+   **GPL-2.0-or-later**. `libudev` is distributed under **LGPL-2.1-or-later**.
  * the header files contained in src/basic/include/linux are copied
    verbatim from the Linux kernel source tree and are licensed under **GPL-2.0 WITH
    Linux-syscall-note** and are used within the scope of the Linux-syscall-note
