@@ -628,6 +628,25 @@ foreach ident : [
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
+rlim_test = '''
+#include <sys/resource.h>
+#include <stdio.h>
+int main(void) {
+        rlim_t x = 1;
+        printf("@0@", x);
+        return 0;
+}
+'''
+foreach fmt : ['%u', '%lu', '%llu']
+        if cc.compiles(rlim_test.format(fmt), args : ['-Werror=format', '-D_GNU_SOURCE'])
+                conf.set_quoted('RLIM_FMT', fmt)
+                break
+        endif
+endforeach
+if not conf.has('RLIM_FMT')
+        error('Cannot determine format string for rlim_t')
+endif
+
 #####################################################################
 
 awk = find_program('awk')
