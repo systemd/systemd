@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2025-06-09 18:02+0000\n"
+"PO-Revision-Date: 2025-06-09 18:29+0000\n"
 "Last-Translator: Américo Monteiro <a_monteiro@gmx.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
 "systemd/main/pt/>\n"
@@ -388,7 +388,7 @@ msgstr "Importar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import an image."
-msgstr "É necessária autenticação para importar uma imagem"
+msgstr "É necessária autenticação para importar uma imagem."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
@@ -396,7 +396,7 @@ msgstr "Exportar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export disk image."
-msgstr "É necessária autenticação para exportar uma imagem de disco"
+msgstr "É necessária autenticação para exportar a imagem de disco."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
@@ -404,7 +404,7 @@ msgstr "Baixar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a disk image."
-msgstr "É necessária autenticação para descarregar uma imagem de disco"
+msgstr "É necessária autenticação para descarregar uma imagem de disco."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
@@ -1111,9 +1111,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Remover um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr "É necessária autenticação para remover um serviço DNS-SD"
+msgstr "É necessária autenticação para remover o registo dum serviço DNS-SD."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1126,96 +1125,87 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Subscrever resultados da consulta"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
-#, fuzzy
 msgid "Authentication is required to subscribe query results."
-msgstr "É necessária autenticação para suspender o sistema."
+msgstr "É necessária autenticação para subscrever resultados da pesquisa."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Dump cache"
-msgstr ""
+msgstr "Despejar a cache"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to dump cache."
-msgstr "É necessária autenticação para definir domínios."
+msgstr "É necessária autenticação para despejar a cache."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump server state"
-msgstr ""
+msgstr "Despejar estado do servidor"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
-#, fuzzy
 msgid "Authentication is required to dump server state."
-msgstr "É necessária autenticação para definir os servidores NTP."
+msgstr "É necessária autenticação para despejar estado do servidor."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump statistics"
-msgstr ""
+msgstr "Despejar estatísticas"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
-#, fuzzy
 msgid "Authentication is required to dump statistics."
-msgstr "É necessária autenticação para definir domínios."
+msgstr "É necessária autenticação para despejar estatísticas."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
-msgstr ""
+msgstr "Reiniciar estatísticas"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
-#, fuzzy
 msgid "Authentication is required to reset statistics."
-msgstr "É necessária autenticação para redefinir as definições de NTP."
+msgstr "É necessária autenticação para reiniciar estatísticas."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Verificar atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "É necessária autenticação para definir o horário do sistema."
+msgstr "É necessária autenticação para verificar atualizações do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Instalar atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "É necessária autenticação para definir o horário do sistema."
+msgstr "É necessária autenticação para instalar atualizações do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Instalar versão de sistema específica"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
-#, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "É necessária autenticação para definir o fuso horário do sistema."
+msgstr ""
+"É necessária autenticação para instalar versão de sistema específica ("
+"possivelmente antiga)."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Limpar atualizações de sistema antigas"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
 msgid "Authentication is required to cleanup old system updates."
-msgstr "É necessária autenticação para definir o horário do sistema."
+msgstr "É necessária autenticação para limpar atualizações de sistema antigas."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Gerir funcionalidades opcionais"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr ""
-"É necessária autenticação para gerir estações, utilizadores e sessões ativas."
+msgstr "É necessária autenticação para gerir funcionalidades opcionais."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
