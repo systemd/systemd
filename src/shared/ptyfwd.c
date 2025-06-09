@@ -1286,7 +1286,7 @@ int pty_forward_set_window_title(
         if (!joined)
                 return -ENOMEM;
 
-        r = pty_forward_set_titlef(f, "%s%s%s%s", strempty(dot), joined, hn ? " on " : "", strempty(hn));
+        r = pty_forward_set_titlef(f, "%s%s%s%s", strempty(dot), joined, hostname ? " on " : "", strempty(hostname));
         if (r < 0)
                 return r;
 
