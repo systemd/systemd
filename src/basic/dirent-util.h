@@ -6,6 +6,17 @@
 #include "forward.h"
 #include "path-util.h"
 
+#if !HAVE_GETDENTS64
+#define dirent64 dirent
+static inline ssize_t getdents64(int fd, void *buf, size_t nbytes) {
+#if HAVE_POSIX_GETDENTS
+        return posix_getdents(fd, buf, nbytes, /* flags = */ 0);
+#else
+        return getdents(fd, buf, nbytes);
+#endif
+}
+#endif
+
 bool dirent_is_file(const struct dirent *de) _pure_;
 bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pure_;
 int dirent_ensure_type(int dir_fd, struct dirent *de);
