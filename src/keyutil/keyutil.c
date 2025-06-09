@@ -26,6 +26,7 @@ static char *arg_certificate_source = NULL;
 static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 static char *arg_signature = NULL;
 static char *arg_content = NULL;
+static char *arg_hashalg = NULL;
 static char *arg_output = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
@@ -66,6 +67,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                         from an OpenSSL provider\n"
                "     --content=PATH      Raw data content to embed in PKCS#7 signature\n"
                "     --signature=PATH    PKCS#1 signature to embed in PKCS#7 signature\n"
+               "     --hash-alg=ALG      Hash algorithm function used to create the PKCS#1 signature\n"
                "     --output=PATH       Where to write the PKCS#7 signature\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -87,6 +89,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CERTIFICATE_SOURCE,
                 ARG_SIGNATURE,
                 ARG_CONTENT,
+                ARG_HASHALG,
                 ARG_OUTPUT,
         };
 
@@ -99,6 +102,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "certificate-source", required_argument, NULL, ARG_CERTIFICATE_SOURCE },
                 { "signature",          required_argument, NULL, ARG_SIGNATURE          },
                 { "content",            required_argument, NULL, ARG_CONTENT            },
+                { "hash-alg",           required_argument, NULL, ARG_HASHALG            },
                 { "output",             required_argument, NULL, ARG_OUTPUT             },
                 {}
         };
@@ -162,6 +166,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_HASHALG:
+                        arg_hashalg = optarg;
                         break;
 
                 case ARG_OUTPUT:
@@ -355,7 +363,7 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
 
         _cleanup_(PKCS7_freep) PKCS7 *pkcs7 = NULL;
         PKCS7_SIGNER_INFO *signer_info;
-        r = pkcs7_new(certificate, /* private_key= */ NULL, &pkcs7, &signer_info);
+        r = pkcs7_new(certificate, /* private_key= */ NULL, arg_hashalg, &pkcs7, &signer_info);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate PKCS#7 context: %m");
 
