@@ -38,7 +38,8 @@ typedef struct Timer {
         Unit meta;
 
         usec_t accuracy_usec;
-        usec_t random_usec;
+        usec_t random_delay_usec;
+        usec_t random_offset_usec;
 
         LIST_HEAD(TimerValue, values);
         usec_t next_elapse_realtime;
