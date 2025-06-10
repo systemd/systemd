@@ -2,7 +2,7 @@
 #pragma once
 
 #include <grp.h>
-#if ENABLE_GSHADOW
+#if HAVE_GSHADOW_H
 #  include <gshadow.h>
 #endif
 #include <pwd.h>
@@ -121,7 +121,7 @@ int fgetgrent_sane(FILE *stream, struct group **gr);
 int putpwent_sane(const struct passwd *pw, FILE *stream);
 int putspent_sane(const struct spwd *sp, FILE *stream);
 int putgrent_sane(const struct group *gr, FILE *stream);
-#if ENABLE_GSHADOW
+#if HAVE_GSHADOW_H
 int fgetsgent_sane(FILE *stream, struct sgrp **sg);
 int putsgent_sane(const struct sgrp *sg, FILE *stream);
 #endif

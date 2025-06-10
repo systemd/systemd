@@ -818,6 +818,7 @@ int bus_reply_pair_array(sd_bus_message *m, char **l) {
         return sd_bus_send(NULL, reply, NULL);
 }
 
+#if HAVE_MALLOC_INFO
 static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         _cleanup_(memstream_done) MemStream m = {};
         _cleanup_free_ char *dump = NULL;
@@ -831,7 +832,6 @@ static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdat
         f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
-
         r = RET_NERRNO(malloc_info(/* options= */ 0, f));
         if (r < 0)
                 return r;
@@ -856,8 +856,10 @@ static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdat
 static int dummy_install_callback(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         return 1;
 }
+#endif
 
 int bus_register_malloc_status(sd_bus *bus, const char *destination) {
+#if HAVE_MALLOC_INFO
         const char *match;
         int r;
 
@@ -873,7 +875,7 @@ int bus_register_malloc_status(sd_bus *bus, const char *destination) {
         r = sd_bus_add_match_async(bus, NULL, match, method_dump_memory_state_by_fd, dummy_install_callback, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to subscribe to GetMallocInfo() calls on MemoryAllocation1 interface: %m");
-
+#endif
         return 0;
 }
 

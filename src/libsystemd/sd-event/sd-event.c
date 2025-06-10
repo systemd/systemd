@@ -1860,8 +1860,6 @@ _public_ int sd_event_add_exit(
 }
 
 _public_ int sd_event_trim_memory(void) {
-        int r;
-
         /* A default implementation of a memory pressure callback. Simply releases our own allocation caches
          * and glibc's. This is automatically used when people call sd_event_add_memory_pressure() with a
          * NULL callback parameter. */
@@ -1874,13 +1872,19 @@ _public_ int sd_event_trim_memory(void) {
 
         usec_t before_timestamp = now(CLOCK_MONOTONIC);
         hashmap_trim_pools();
-        r = malloc_trim(0);
+#if HAVE_MALLOC_TRIM
+        int r = malloc_trim(0);
+#endif
         usec_t after_timestamp = now(CLOCK_MONOTONIC);
 
+#if HAVE_MALLOC_TRIM
         if (r > 0)
                 log_debug("Successfully trimmed some memory.");
         else
                 log_debug("Couldn't trim any memory.");
+#else
+        log_debug("malloc_trim() is not supported.");
+#endif
 
         usec_t period = after_timestamp - before_timestamp;
 
