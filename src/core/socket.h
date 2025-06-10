@@ -131,6 +131,7 @@ typedef struct Socket {
         bool transparent;
         bool broadcast;
         bool pass_cred;
+        bool pass_pidfd;
         bool pass_sec;
         bool pass_pktinfo;
         SocketTimestamping timestamping;
