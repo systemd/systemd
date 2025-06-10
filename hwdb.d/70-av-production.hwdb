@@ -30,6 +30,29 @@
 usb:v2982p1967*
  ID_AV_PRODUCTION_CONTROLLER=1
 
+####################
+# Beacn
+####################
+# Beacn Mic
+usb:v33AEp0001*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Beacn Studio
+usb:v33AEp0003*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Beacn Studio (PC2 Port)
+usb:v33AEp4003*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Beacn Mix
+usb:v33AEp0004*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Beacn Mix Create
+usb:v33AEp0007*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
 ################
 # Contour
 ################
@@ -231,6 +254,17 @@ usb:v1532p0D09*
 ####################
 # E-Coder 2 Controller
 usb:v1FC9p0003*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+####################
+# TC-Helicon
+####################
+# GoXLR
+usb:v1220p8FE4*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# GoXLR Mini
+usb:v1220p8FE0*
  ID_AV_PRODUCTION_CONTROLLER=1
 
 ####################
