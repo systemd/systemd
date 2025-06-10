@@ -481,11 +481,11 @@ static int write_temporary_passwd(
         assert(c);
 
         if (ordered_hashmap_isempty(c->todo_uids))
-                return 0;
+                goto done;
 
         if (arg_dry_run) {
                 log_info("Would write /etc/passwd%s", glyph(GLYPH_ELLIPSIS));
-                return 0;
+                goto done;
         }
 
         r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
@@ -590,9 +590,9 @@ static int write_temporary_passwd(
         if (r < 0)
                 return log_debug_errno(r, "Failed to flush %s: %m", passwd_tmp);
 
+done:
         *ret_tmpfile = TAKE_PTR(passwd);
         *ret_tmpfile_path = TAKE_PTR(passwd_tmp);
-
         return 0;
 }
 
@@ -624,11 +624,11 @@ static int write_temporary_shadow(
         assert(c);
 
         if (ordered_hashmap_isempty(c->todo_uids))
-                return 0;
+                goto done;
 
         if (arg_dry_run) {
                 log_info("Would write /etc/shadow%s", glyph(GLYPH_ELLIPSIS));
-                return 0;
+                goto done;
         }
 
         r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
@@ -737,9 +737,9 @@ static int write_temporary_shadow(
         if (r < 0)
                 return log_debug_errno(r, "Failed to flush %s: %m", shadow_tmp);
 
+done:
         *ret_tmpfile = TAKE_PTR(shadow);
         *ret_tmpfile_path = TAKE_PTR(shadow_tmp);
-
         return 0;
 }
 
@@ -759,11 +759,11 @@ static int write_temporary_group(
         assert(c);
 
         if (ordered_hashmap_isempty(c->todo_gids) && ordered_hashmap_isempty(c->members))
-                return 0;
+                goto done;
 
         if (arg_dry_run) {
                 log_info("Would write /etc/group%s", glyph(GLYPH_ELLIPSIS));
-                return 0;
+                goto done;
         }
 
         r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
@@ -849,9 +849,13 @@ static int write_temporary_group(
         if (r < 0)
                 return log_error_errno(r, "Failed to flush %s: %m", group_tmp);
 
+done:
         if (group_changed) {
                 *ret_tmpfile = TAKE_PTR(group);
                 *ret_tmpfile_path = TAKE_PTR(group_tmp);
+        } else {
+                *ret_tmpfile = NULL;
+                *ret_tmpfile_path = NULL;
         }
         return 0;
 }
@@ -872,11 +876,11 @@ static int write_temporary_gshadow(
         assert(c);
 
         if (ordered_hashmap_isempty(c->todo_gids) && ordered_hashmap_isempty(c->members))
-                return 0;
+                goto done;
 
         if (arg_dry_run) {
                 log_info("Would write /etc/gshadow%s", glyph(GLYPH_ELLIPSIS));
-                return 0;
+                goto done;
         }
 
         r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
@@ -935,11 +939,16 @@ static int write_temporary_gshadow(
         if (r < 0)
                 return log_error_errno(r, "Failed to flush %s: %m", gshadow_tmp);
 
+done:
         if (group_changed) {
                 *ret_tmpfile = TAKE_PTR(gshadow);
                 *ret_tmpfile_path = TAKE_PTR(gshadow_tmp);
-        }
+        } else
 #endif
+        {
+                *ret_tmpfile = NULL;
+                *ret_tmpfile_path = NULL;
+        }
         return 0;
 }
 
