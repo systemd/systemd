@@ -165,6 +165,7 @@ int write_string_stream_full(
 
         needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
 
+#ifdef __GLIBC__
         if (needs_nl && (flags & WRITE_STRING_FILE_DISABLE_BUFFER)) {
                 /* If STDIO buffering was disabled, then let's append the newline character to the string
                  * itself, so that the write goes out in one go, instead of two */
@@ -172,6 +173,7 @@ int write_string_stream_full(
                 line = strjoina(line, "\n");
                 needs_nl = false;
         }
+#endif
 
         if (fputs(line, f) == EOF)
                 return -errno;
@@ -350,8 +352,10 @@ int write_string_file_full(
         if (r < 0)
                 goto fail;
 
+#ifdef __GLIBC__
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
                 setvbuf(f, NULL, _IONBF, 0);
+#endif
 
         r = write_string_stream_full(f, line, flags, ts);
         if (r < 0)
