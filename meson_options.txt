@@ -333,7 +333,7 @@ option('tty-mode', type : 'string', value : '0600',
        description : 'Access mode for tty/pts device nodes.')
 option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
-option('gshadow', type : 'boolean',
+option('gshadow', type : 'boolean', value : true, deprecated : false,
        description : 'support for shadow group')
 option('default-locale', type : 'string', value : 'C.UTF-8',
        description : 'default locale used when /etc/locale.conf does not exist')

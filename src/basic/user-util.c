@@ -970,7 +970,7 @@ int putgrent_sane(const struct group *gr, FILE *stream) {
         return 0;
 }
 
-#if ENABLE_GSHADOW
+#if HAVE_GSHADOW_H
 int putsgent_sane(const struct sgrp *sg, FILE *stream) {
         assert(sg);
         assert(stream);
@@ -1022,7 +1022,7 @@ int fgetgrent_sane(FILE *stream, struct group **gr) {
         return !!g;
 }
 
-#if ENABLE_GSHADOW
+#if HAVE_GSHADOW_H
 int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
         assert(stream);
         assert(sg);
