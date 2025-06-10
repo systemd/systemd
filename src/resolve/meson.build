@@ -208,6 +208,9 @@ executables += [
         resolve_fuzz_template + {
                 'sources' : files('fuzz-resource-record.c'),
         },
+        resolve_test_template + {
+                'sources' : files('test-dns-browse-services.c'),
+        },
 ]
 
 install_data('org.freedesktop.resolve1.conf',
