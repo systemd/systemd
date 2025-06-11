@@ -147,6 +147,12 @@ int journal_file_open(
                 JournalFile *template,
                 JournalFile **ret);
 
+int journal_file_reload(
+        JournalFile *f,
+        JournalFileFlags file_flags,
+        uint64_t compress_threshold_bytes,
+        JournalMetrics *metrics);
+
 int journal_file_set_offline_thread_join(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *j);
 int journal_file_fstat(JournalFile *f);
