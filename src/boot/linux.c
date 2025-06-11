@@ -22,6 +22,60 @@
 #define STUB_PAYLOAD_GUID \
         { 0x55c5d1f8, 0x04cd, 0x46b5, { 0x8a, 0x20, 0xe5, 0x6c, 0xbb, 0x30, 0x52, 0xd0 } }
 
+static EFI_STATUS load_via_boot_services(
+                EFI_HANDLE parent,
+                EFI_LOADED_IMAGE_PROTOCOL* parent_loaded_image,
+                uint32_t compat_entry_point,
+                const struct iovec *kernel,
+                const struct iovec *initrd) {
+        _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
+        EFI_LOADED_IMAGE_PROTOCOL* loaded_image = NULL;
+        EFI_STATUS err;
+
+        VENDOR_DEVICE_PATH device_node = {
+                .Header = {
+                        .Type = MEDIA_DEVICE_PATH,
+                        .SubType = MEDIA_VENDOR_DP,
+                        .Length = sizeof(device_node),
+                },
+                .Guid = STUB_PAYLOAD_GUID,
+        };
+
+        _cleanup_free_ EFI_DEVICE_PATH* file_path = device_path_replace_node(parent_loaded_image->FilePath, NULL, &device_node.Header);
+
+        err = BS->LoadImage(/* BootPolicy= */false,
+                            parent,
+                            file_path,
+                            kernel->iov_base,
+                            kernel->iov_len,
+                            &kernel_image);
+
+        if (err != EFI_SUCCESS)
+                return log_error_status(EFI_LOAD_ERROR, "Error loading inner kernel with shim: %m");
+
+        err = BS->HandleProtocol(
+                        kernel_image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
+        if (err != EFI_SUCCESS)
+                return log_error_status(EFI_LOAD_ERROR, "Error getting kernel image from protocol from shim: %m");
+
+        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
+        err = initrd_register(initrd->iov_base, initrd->iov_len, &initrd_handle);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Error registering initrd: %m");
+
+        log_wait();
+
+        err = BS->StartImage(kernel_image, NULL, NULL);
+        /* Try calling the kernel compat entry point if one exists. */
+        if (err == EFI_UNSUPPORTED && compat_entry_point > 0) {
+                EFI_IMAGE_ENTRY_POINT compat_entry =
+                        (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *) loaded_image->ImageBase + compat_entry_point);
+                err = compat_entry(kernel_image, ST);
+        }
+
+        return log_error_status(err, "Error starting kernel image with shim: %m");
+}
+
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,
                 const char16_t *cmdline,
@@ -57,6 +111,17 @@ EFI_STATUS linux_exec(
                         parent, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &parent_loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot get parent loaded image: %m");
+
+        /* If shim is inner kernel aware, it may load inner kernel without measurement and signature,
+         * while still able to do some additional verifications, like dbx or mokx.
+         */
+        if (secure_boot_enabled() && shim_loader_available())
+                return load_via_boot_services(
+                                parent,
+                                parent_loaded_image,
+                                compat_entry_point,
+                                kernel,
+                                initrd);
 
         err = pe_kernel_check_no_relocation(kernel->iov_base);
         if (err != EFI_SUCCESS)
