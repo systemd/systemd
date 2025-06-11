@@ -519,9 +519,9 @@ static int server_message_init(
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY,
-                              be32toh(req->message->xid), type,
+                              be32toh(req->message->xid),
                               req->message->htype, req->message->hlen, req->message->chaddr,
-                              req->max_optlen, &optoffset);
+                              type, req->max_optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -714,7 +714,7 @@ static int server_send_forcerenew(
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY, 0,
-                              DHCP_FORCERENEW, htype, hlen, chaddr,
+                              htype, hlen, chaddr, DHCP_FORCERENEW,
                               DHCP_MIN_OPTIONS_SIZE, &optoffset);
         if (r < 0)
                 return r;
