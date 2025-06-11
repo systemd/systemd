@@ -5862,6 +5862,10 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'MASTER,UP,LOWER_UP')
 
+        # test case for issue #32186
+        restart_networkd()
+        self.wait_online('dummy98:enslaved', 'test1:enslaved', 'bond99:routable')
+
         self.wait_operstate('dummy98', 'enslaved')
         self.wait_operstate('test1', 'enslaved')
         self.wait_operstate('bond99', 'routable')
