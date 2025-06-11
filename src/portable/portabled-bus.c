@@ -141,11 +141,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
 
         assert(message);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = manager_image_cache_discover(m, images, error);
+        r = manager_image_cache_discover(m, &images, error);
         if (r < 0)
                 return r;
 
