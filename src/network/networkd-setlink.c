@@ -1061,6 +1061,10 @@ static int link_up_dsa_slave(Link *link) {
         return 1;
 }
 
+static const char* up_or_down(bool up) {
+        return up ? "up" : "down";
+}
+
 static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         bool on_activate, up;
         int r;
@@ -1076,7 +1080,7 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         if (r == -ENETDOWN && up && link_up_dsa_slave(link) > 0)
                 log_link_message_debug_errno(link, m, r, "Could not bring up dsa slave, retrying again after dsa master becomes up");
         else if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up ? "up" : "down");
+                log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up_or_down(up));
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
@@ -1092,10 +1096,6 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         }
 
         return 0;
-}
-
-static const char *up_or_down(bool up) {
-        return up ? "up" : "down";
 }
 
 static int link_up_or_down(Link *link, bool up, Request *req) {
@@ -1292,7 +1292,7 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up ? "up" : "down");
+                log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up_or_down(up));
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
@@ -1320,7 +1320,7 @@ int link_up_or_down_now(Link *link, bool up) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        log_link_debug(link, "Bringing link %s", up ? "up" : "down");
+        log_link_debug(link, "Bringing link %s", up_or_down(up));
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
