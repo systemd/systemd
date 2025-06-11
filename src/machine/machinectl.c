@@ -68,14 +68,14 @@ typedef enum MachineRunner {
 } MachineRunner;
 
 static const char* const machine_runner_table[_RUNNER_MAX] = {
-        [RUNNER_NSPAWN] = "nspawn",
+        [RUNNER_NSPAWN]  = "nspawn",
         [RUNNER_VMSPAWN] = "vmspawn",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(machine_runner, MachineRunner);
 
 static const char* const machine_runner_unit_prefix_table[_RUNNER_MAX] = {
-        [RUNNER_NSPAWN] = "systemd-nspawn",
+        [RUNNER_NSPAWN]  = "systemd-nspawn",
         [RUNNER_VMSPAWN] = "systemd-vmspawn",
 };
 
@@ -1694,7 +1694,7 @@ static int make_service_name(const char *name, char **ret) {
 
         assert(name);
         assert(ret);
-        assert(arg_runner >= 0 && arg_runner < (MachineRunner) ELEMENTSOF(machine_runner_unit_prefix_table));
+        assert(arg_runner >= 0 && arg_runner < _RUNNER_MAX);
 
         if (!hostname_is_valid(name, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
