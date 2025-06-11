@@ -3230,6 +3230,17 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
+    def test_ID_NET_MANAGED_BY(self):
+        copy_network_unit('11-dummy.netdev', '11-dummy-unmanaged.link', '11-dummy.network')
+        start_networkd()
+        self.wait_online('test1:off', setup_state='unmanaged')
+
+        check_output('ip link set dev test1 up')
+        self.wait_online('test1:degraded', setup_state='unmanaged')
+
+        check_output('ip link set dev test1 down')
+        self.wait_online('test1:off', setup_state='unmanaged')
+
     def verify_address_static(
             self,
             label1: str,
