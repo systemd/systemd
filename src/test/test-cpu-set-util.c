@@ -354,4 +354,23 @@ TEST(print_cpu_alloc_size) {
         log_info("CPU_ALLOC_SIZE(8191) = %zu", CPU_ALLOC_SIZE(8191));
 }
 
+TEST(cpu_set_copy) {
+        CPUSet a = {};
+        CPUSet b = {};
+
+        cpu_set_add(&a, 1);
+        cpu_set_add(&a, 2);
+        assert_se(CPU_ISSET_S(1, a.allocated, a.set));
+        assert_se(CPU_ISSET_S(2, a.allocated, a.set));
+
+        /* basic copy */
+        assert_se(cpu_set_copy(&b, &a) == 0);
+        assert_se(CPU_ISSET_S(1, b.allocated, b.set));
+        assert_se(CPU_ISSET_S(2, b.allocated, b.set));
+        assert_se(a.allocated == b.allocated);
+
+        cpu_set_reset(&a);
+        cpu_set_reset(&b);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

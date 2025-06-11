@@ -183,6 +183,38 @@ int cpu_set_add_all(CPUSet *a, const CPUSet *b) {
         return 1;
 }
 
+int cpu_set_copy(CPUSet *dst, const CPUSet *src) {
+        cpu_set_t *t;
+
+        assert(src);
+        assert(dst);
+
+        cpu_set_reset(dst);
+
+        if (cpu_set_is_empty(src))
+                return 0;
+
+        t = malloc(src->allocated);
+        if (!t)
+                return -ENOMEM;
+
+        dst->set = t;
+        dst->allocated = src->allocated;
+
+        memcpy(dst->set, src->set, dst->allocated);
+
+        return 0;
+}
+
+bool cpu_set_is_empty(const CPUSet *cpu_set) {
+    assert(cpu_set);
+
+    if (!cpu_set->set || cpu_set->allocated == 0)
+            return true;
+
+    return false;
+}
+
 int parse_cpu_set_full(
                 const char *rvalue,
                 CPUSet *cpu_set,
