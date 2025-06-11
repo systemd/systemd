@@ -5862,6 +5862,10 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'MASTER,UP,LOWER_UP')
 
+        # test case for issue #32186
+        restart_networkd()
+        self.wait_online('dummy98:enslaved', 'test1:enslaved', 'bond99:routable')
+
         self.wait_operstate('dummy98', 'enslaved')
         self.wait_operstate('test1', 'enslaved')
         self.wait_operstate('bond99', 'routable')
@@ -5887,6 +5891,8 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         if not self.wait_operstate('bond99', 'no-carrier', setup_timeout=30, fail_assert=False):
             # Huh? Kernel does not recognize that all slave interfaces are down?
             # Let's confirm that networkd's operstate is consistent with ip's result.
+            output = check_output('ip -d link show bond99')
+            print(output)
             self.assertNotRegex(output, 'NO-CARRIER')
 
 class NetworkdBridgeTests(unittest.TestCase, Utilities):
