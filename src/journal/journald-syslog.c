@@ -127,7 +127,7 @@ static void forward_syslog_raw(
         assert(m);
         assert(buffer);
 
-        if (LOG_PRI(priority) > m->max_level_syslog)
+        if (LOG_PRI(priority) > m->config.max_level_syslog)
                 return;
 
         iovec = IOVEC_MAKE((char *) buffer, buffer_len);
@@ -154,7 +154,7 @@ void manager_forward_syslog(
         assert(priority <= 999);
         assert(message);
 
-        if (LOG_PRI(priority) > m->max_level_syslog)
+        if (LOG_PRI(priority) > m->config.max_level_syslog)
                 return;
 
         /* First: priority field */
@@ -403,16 +403,16 @@ void manager_process_syslog_message(
 
         syslog_parse_identifier(&msg, &identifier, &pid);
 
-        if (m->forward_to_syslog)
+        if (m->config.forward_to_syslog)
                 forward_syslog_raw(m, priority, buf, raw_len, ucred, tv);
 
-        if (m->forward_to_kmsg)
+        if (m->config.forward_to_kmsg)
                 manager_forward_kmsg(m, priority, identifier, msg, ucred);
 
-        if (m->forward_to_console)
+        if (m->config.forward_to_console)
                 manager_forward_console(m, priority, identifier, msg, ucred);
 
-        if (m->forward_to_wall)
+        if (m->config.forward_to_wall)
                 manager_forward_wall(m, priority, identifier, msg, ucred);
 
         mm = N_IOVEC_META_FIELDS + 8 + client_context_extra_fields_n_iovec(context);

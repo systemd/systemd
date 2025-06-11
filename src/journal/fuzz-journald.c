@@ -9,7 +9,7 @@
 void dummy_manager_init(Manager *m, const uint8_t *buffer, size_t size) {
         assert(m);
 
-        m->storage = STORAGE_NONE;
+        m->config.storage = STORAGE_NONE;
         assert_se(sd_event_default(&m->event) >= 0);
 
         if (buffer) {
@@ -33,7 +33,7 @@ void fuzz_journald_processing_function(
         if (size == 0)
                 return;
 
-        assert_se(manager_new(&m) >= 0);
+        assert_se(manager_new(&m, NULL) >= 0);
         dummy_manager_init(m, data, size);
         (*f)(m, m->buffer, size, ucred, tv, label, label_len);
 }
