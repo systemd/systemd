@@ -5,6 +5,7 @@
 
 int manager_open_dev_kmsg(Manager *m);
 int manager_flush_dev_kmsg(Manager *m);
+int manager_reload_dev_kmsg(Manager *m);
 
 void manager_forward_kmsg(Manager *m, int priority, const char *identifier, const char *message, const struct ucred *ucred);
 
