@@ -2362,29 +2362,24 @@ static int verb_list(int argc, char **argv, void *userdata) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
-typedef struct MethodListParameters {
-        const char *class;
-} MethodListParameters;
-
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(MethodListParameters, class), 0 },
+                { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
                 {}
-        };
-        MethodListParameters p = {
         };
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        const char *class;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &class);
         if (r != 0)
                 return r;
 
         ImageClass image_class = arg_image_class;
-        r = parse_image_class_parameter(link, p.class, &image_class, NULL);
+        r = parse_image_class_parameter(link, class, &image_class, NULL);
         if (r < 0)
                 return r;
 
