@@ -99,6 +99,7 @@
 
 static int manager_schedule_sync(Manager *m, int priority);
 static int manager_refresh_idle_timer(Manager *m);
+static int dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
 
 static int manager_determine_path_usage(
                 Manager *m,
@@ -268,6 +269,12 @@ static void manager_add_acls(JournalFile *f, uid_t uid) {
 #endif
 }
 
+static int manager_get_file_flags(Manager *m, bool seal) {
+        return (m->compress.enabled ? JOURNAL_COMPRESS : 0) |
+               (seal ? JOURNAL_SEAL : 0) |
+               JOURNAL_STRICT_ORDER;
+}
+
 static int manager_open_journal(
                 Manager *m,
                 bool reliably,
@@ -285,10 +292,7 @@ static int manager_open_journal(
         assert(fname);
         assert(ret);
 
-        file_flags =
-                (m->compress.enabled ? JOURNAL_COMPRESS : 0) |
-                (seal ? JOURNAL_SEAL : 0) |
-                JOURNAL_STRICT_ORDER;
+        file_flags = manager_get_file_flags(m, seal);
 
         set_clear(m->deferred_closes);
 
@@ -362,7 +366,7 @@ static int manager_system_journal_open(
         int r = 0;
 
         if (!m->system_journal &&
-            IN_SET(m->storage, STORAGE_PERSISTENT, STORAGE_AUTO) &&
+            IN_SET(m->config.storage, STORAGE_PERSISTENT, STORAGE_AUTO) &&
             (flush_requested || manager_flushed_flag_is_set(m)) &&
             !relinquish_requested) {
 
@@ -370,7 +374,7 @@ static int manager_system_journal_open(
                  *
                  * If in persistent mode: create /var/log/journal and the machine path */
 
-                if (m->storage == STORAGE_PERSISTENT)
+                if (m->config.storage == STORAGE_PERSISTENT)
                         (void) mkdir_parents(m->system_storage.path, 0755);
 
                 (void) mkdir(m->system_storage.path, 0755);
@@ -407,7 +411,7 @@ static int manager_system_journal_open(
         }
 
         if (!m->runtime_journal &&
-            (m->storage != STORAGE_NONE)) {
+            (m->config.storage != STORAGE_NONE)) {
 
                 fn = strjoina(m->runtime_storage.path, "/system.journal");
 
@@ -531,7 +535,7 @@ static JournalFile* manager_find_journal(Manager *m, uid_t uid) {
          * persistent journal of any sort.
          *
          * Fixes https://github.com/systemd/systemd/issues/20390 */
-        if (!IN_SET(m->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
+        if (!IN_SET(m->config.storage, STORAGE_AUTO, STORAGE_PERSISTENT))
                 return NULL;
 
         if (!uid_for_system_journal(uid)) {
@@ -1278,12 +1282,12 @@ void manager_dispatch_message(
         if (n == 0)
                 return;
 
-        if (LOG_PRI(priority) > m->max_level_store)
+        if (LOG_PRI(priority) > m->config.max_level_store)
                 return;
 
         /* Stop early in case the information will not be stored
          * in a journal. */
-        if (m->storage == STORAGE_NONE)
+        if (m->config.storage == STORAGE_NONE)
                 return;
 
         if (c && c->unit) {
@@ -1319,7 +1323,7 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
 
         assert(m);
 
-        if (!IN_SET(m->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
+        if (!IN_SET(m->config.storage, STORAGE_AUTO, STORAGE_PERSISTENT))
                 return 0;
 
         if (m->namespace) /* Flushing concept does not exist for namespace instances */
@@ -1467,7 +1471,7 @@ finish:
 int manager_relinquish_var(Manager *m) {
         assert(m);
 
-        if (m->storage == STORAGE_NONE)
+        if (m->config.storage == STORAGE_NONE)
                 return 0;
 
         if (m->namespace) /* Concept does not exist for namespaced instances */
@@ -1858,6 +1862,10 @@ static int manager_setup_signals(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = sd_event_add_signal(m->event, NULL, SIGHUP|SD_EVENT_SIGNAL_PROCMASK, dispatch_reload_signal, m);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -1871,7 +1879,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to syslog switch \"%s\". Ignoring.", value);
                 else
-                        m->forward_to_syslog = r;
+                        m->config_by_cmdline.forward_to_syslog = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_kmsg")) {
 
@@ -1879,7 +1887,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to kmsg switch \"%s\". Ignoring.", value);
                 else
-                        m->forward_to_kmsg = r;
+                        m->config_by_cmdline.forward_to_kmsg = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_console")) {
 
@@ -1887,7 +1895,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to console switch \"%s\". Ignoring.", value);
                 else
-                        m->forward_to_console = r;
+                        m->config_by_cmdline.forward_to_console = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_wall")) {
 
@@ -1895,7 +1903,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to wall switch \"%s\". Ignoring.", value);
                 else
-                        m->forward_to_wall = r;
+                        m->config_by_cmdline.forward_to_wall = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_console")) {
 
@@ -1906,7 +1914,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level console value \"%s\". Ignoring.", value);
                 else
-                        m->max_level_console = r;
+                        m->config_by_cmdline.max_level_console = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_store")) {
 
@@ -1917,7 +1925,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level store value \"%s\". Ignoring.", value);
                 else
-                        m->max_level_store = r;
+                        m->config_by_cmdline.max_level_store = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_syslog")) {
 
@@ -1928,7 +1936,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level syslog value \"%s\". Ignoring.", value);
                 else
-                        m->max_level_syslog = r;
+                        m->config_by_cmdline.max_level_syslog = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_kmsg")) {
 
@@ -1939,7 +1947,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level kmsg value \"%s\". Ignoring.", value);
                 else
-                        m->max_level_kmsg = r;
+                        m->config_by_cmdline.max_level_kmsg = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_wall")) {
 
@@ -1950,7 +1958,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level wall value \"%s\". Ignoring.", value);
                 else
-                        m->max_level_wall = r;
+                        m->config_by_cmdline.max_level_wall = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_socket")) {
 
@@ -1961,7 +1969,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level socket value \"%s\". Ignoring.", value);
                 else
-                        m->max_level_socket = r;
+                        m->config_by_cmdline.max_level_socket = r;
 
         } else if (startswith(key, "systemd.journald"))
                 log_warning("Unknown journald kernel command line option \"%s\". Ignoring.", key);
@@ -2393,7 +2401,7 @@ static void manager_load_credentials(Manager *m) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
         else {
-                r = socket_address_parse(&m->forward_to_socket, data);
+                r = socket_address_parse(&m->config_by_cred.forward_to_socket, data);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse socket address '%s' from credential journal.forward_to_socket, ignoring: %m", (char *) data);
         }
@@ -2408,12 +2416,220 @@ static void manager_load_credentials(Manager *m) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse storage '%s' from credential journal.storage, ignoring: %m", (char *) data);
                 else
-                        m->storage = r;
+                        m->config_by_cred.storage = r;
         }
 }
 
-int manager_new(Manager **ret) {
+static void manager_set_defaults(Manager *m) {
+        assert(m);
+
+        m->compress.enabled = true;
+        m->compress.threshold_bytes = UINT64_MAX;
+
+        m->seal = true;
+
+        /* By default, only read from /dev/kmsg if are the main namespace */
+        m->read_kmsg = !m->namespace;
+
+        m->set_audit = true;
+
+        m->sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC;
+
+        m->ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
+        m->ratelimit_burst = DEFAULT_RATE_LIMIT_BURST;
+
+        m->system_storage.name = "System Journal";
+        journal_reset_metrics(&m->system_storage.metrics);
+
+        m->runtime_storage.name = "Runtime Journal";
+        journal_reset_metrics(&m->runtime_storage.metrics);
+
+        m->max_file_usec = DEFAULT_MAX_FILE_USEC;
+
+        m->config.forward_to_wall = true;
+
+        m->config.max_level_store = LOG_DEBUG;
+        m->config.max_level_syslog = LOG_DEBUG;
+        m->config.max_level_kmsg = LOG_NOTICE;
+        m->config.max_level_console = LOG_INFO;
+        m->config.max_level_wall = LOG_EMERG;
+        m->config.max_level_socket = LOG_DEBUG;
+
+        m->line_max = DEFAULT_LINE_MAX;
+}
+
+static void manager_reset_configs(Manager *m) {
+        assert(m);
+
+        m->config_by_cmdline = JOURNAL_CONFIG_INIT;
+        m->config_by_conf = JOURNAL_CONFIG_INIT;
+        m->config_by_cred = JOURNAL_CONFIG_INIT;
+}
+
+static void manager_adjust_configs(Manager *m) {
+        assert(m);
+
+        if (!!m->ratelimit_interval != !!m->ratelimit_burst) { /* One set to 0 and the other not? */
+                log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
+                          m->ratelimit_interval, m->ratelimit_burst);
+                m->ratelimit_interval = m->ratelimit_burst = 0;
+        }
+}
+
+static void manager_merge_forward_to_socket(Manager *m) {
+        assert(m);
+
+        /* Conf file takes precendence over credentials. */
+        if (m->config_by_conf.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
+                memcpy(&m->config.forward_to_socket, &m->config_by_conf.forward_to_socket, sizeof(SocketAddress));
+        else if (m->config_by_cred.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
+                memcpy(&m->config.forward_to_socket, &m->config_by_cred.forward_to_socket, sizeof(SocketAddress));
+        else
+                m->config.forward_to_socket = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC };
+}
+
+static void manager_merge_storage(Manager *m) {
+        assert(m);
+
+        /* Conf file takes precendence over credentials. */
+        if (m->config_by_conf.storage != _STORAGE_INVALID)
+                m->config.storage = m->config_by_conf.storage;
+        else if (m->config_by_cred.storage != _STORAGE_INVALID)
+                m->config.storage = m->config_by_cred.storage;
+        else
+                m->config.storage = m->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
+}
+
+#define MERGE_BOOL_JOURNALD(name, default_value)        \
+        m->config.name =                                \
+                m->config_by_cmdline.name ||            \
+                m->config_by_conf.name ||               \
+                m->config_by_cred.name ||               \
+                default_value;
+
+#define MERGE_NON_NEGATIVE_JOURNALD(name, default_value)                        \
+        m->config.name =                                                        \
+                m->config_by_cmdline.name >= 0 ? m->config_by_cmdline.name :    \
+                m->config_by_conf.name >= 0 ? m->config_by_conf.name :          \
+                m->config_by_cred.name >= 0 ? m->config_by_cred.name :          \
+                default_value;
+
+static void manager_merge_configs(Manager *m) {
+        assert(m);
+
+        /*
+         * From highest to lowest priority: cmdline, conf, cred
+         */
+        manager_merge_storage(m);
+        manager_merge_forward_to_socket(m);
+
+        MERGE_BOOL_JOURNALD(forward_to_syslog, false);
+        MERGE_BOOL_JOURNALD(forward_to_kmsg, false);
+        MERGE_BOOL_JOURNALD(forward_to_console, false);
+        MERGE_BOOL_JOURNALD(forward_to_wall, true);
+
+        MERGE_NON_NEGATIVE_JOURNALD(max_level_store, LOG_DEBUG);
+        MERGE_NON_NEGATIVE_JOURNALD(max_level_syslog, LOG_DEBUG);
+        MERGE_NON_NEGATIVE_JOURNALD(max_level_kmsg, LOG_NOTICE);
+        MERGE_NON_NEGATIVE_JOURNALD(max_level_console, LOG_INFO);
+        MERGE_NON_NEGATIVE_JOURNALD(max_level_wall, LOG_EMERG);
+        MERGE_NON_NEGATIVE_JOURNALD(max_level_socket, LOG_DEBUG);
+}
+
+static void manager_load_config(Manager *m) {
+        assert(m);
+
+        int r;
+
+        manager_set_defaults(m);
+        manager_reset_configs(m);
+
+        manager_load_credentials(m);
+        manager_parse_config_file(m);
+
+        if (!m->namespace) {
+                /* Parse kernel command line, but only if we are not a namespace instance */
+                r = proc_cmdline_parse(parse_proc_cmdline_item, m, PROC_CMDLINE_STRIP_RD_PREFIX);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        }
+
+        manager_merge_configs(m);
+
+        manager_adjust_configs(m);
+}
+
+static void manager_reload_config(Manager *m) {
+        assert(m);
+
+        manager_set_defaults(m);
+
+        m->config_by_conf = JOURNAL_CONFIG_INIT;
+        manager_parse_config_file(m);
+
+        manager_merge_configs(m);
+        manager_adjust_configs(m);
+}
+
+static int manager_reload_journals(Manager *m) {
+        assert(m);
+
+        int r;
+
+        if (m->system_journal && IN_SET(m->config.storage, STORAGE_PERSISTENT, STORAGE_AUTO)) {
+                /* Current journal can continue being used. Update config values as needed. */
+                journal_file_reload(
+                        m->system_journal,
+                        manager_get_file_flags(m, m->seal),
+                        m->compress.threshold_bytes,
+                        &m->system_storage.metrics);
+        } else if (m->system_journal && m->config.storage == STORAGE_VOLATILE) {
+                /* Journal needs to be switched from system to runtime. */
+                r = manager_relinquish_var(m);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to relinquish to runtime journal on reload, ignoring: %m");
+        } else if (m->runtime_journal && IN_SET(m->config.storage, STORAGE_PERSISTENT, STORAGE_AUTO, STORAGE_VOLATILE)) {
+                /* Current journal can continue being used. Update config values as needed.*/
+                journal_file_reload(
+                        m->runtime_journal,
+                        manager_get_file_flags(m, /* seal */ false),
+                        m->compress.threshold_bytes,
+                        &m->runtime_storage.metrics);
+        }
+
+        /* If journal-related configuration, such as SystemMaxUse, SystemMaxFileSize, RuntimeMaxUse, RuntimeMaxFileSize,
+         * were to change, then we can vacuum for the change to take effect. For example, if pre-reload SystemMaxUse=2M,
+         * current usage=1.5M, and the post-reload SystemMaxUse=1M, the vacuum can shrink it to 1M.
+         */
+        manager_vacuum(m, /* verbose */ false);
+
+        return 0;
+}
+
+static int dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        (void) notify_reloading();
+
+        manager_reload_config(m);
+
+        r = manager_reload_dev_kmsg(m);
+        if (r < 0)
+                return r;
+
+        r = manager_reload_journals(m);
+        if (r < 0)
+                return r;
+
+        (void) sd_notify(/* unset= */ false, NOTIFY_READY_MESSAGE);
+
+        return 0;
+}
+
+int manager_new(Manager **ret, const char *namespace) {
         _cleanup_(manager_freep) Manager *m = NULL;
+        int r;
 
         assert(ret);
 
@@ -2431,36 +2647,9 @@ int manager_new(Manager **ret) {
                 .notify_fd = -EBADF,
                 .forward_socket_fd = -EBADF,
 
-                .compress.enabled = true,
-                .compress.threshold_bytes = UINT64_MAX,
-                .seal = true,
-
-                .set_audit = true,
-
                 .watchdog_usec = USEC_INFINITY,
 
-                .sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC,
                 .sync_scheduled = false,
-
-                .ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL,
-                .ratelimit_burst = DEFAULT_RATE_LIMIT_BURST,
-
-                .forward_to_wall = true,
-                .forward_to_socket = { .sockaddr.sa.sa_family = AF_UNSPEC },
-
-                .max_file_usec = DEFAULT_MAX_FILE_USEC,
-
-                .max_level_store = LOG_DEBUG,
-                .max_level_syslog = LOG_DEBUG,
-                .max_level_kmsg = LOG_NOTICE,
-                .max_level_console = LOG_INFO,
-                .max_level_wall = LOG_EMERG,
-                .max_level_socket = LOG_DEBUG,
-
-                .line_max = DEFAULT_LINE_MAX,
-
-                .runtime_storage.name = "Runtime Journal",
-                .system_storage.name = "System Journal",
 
                 .kmsg_own_ratelimit = {
                         .interval = DEFAULT_KMSG_OWN_INTERVAL,
@@ -2471,44 +2660,23 @@ int manager_new(Manager **ret) {
                 .sigrtmin18_info.memory_pressure_userdata = m,
         };
 
+        r = manager_set_namespace(m, namespace);
+        if (r < 0)
+                return r;
+
+        manager_load_config(m);
+
         *ret = TAKE_PTR(m);
         return 0;
 }
 
-int manager_init(Manager *m, const char *namespace) {
+int manager_init(Manager *m) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, varlink_fd = -EBADF;
         bool no_sockets;
 
         assert(m);
-
-        r = manager_set_namespace(m, namespace);
-        if (r < 0)
-                return r;
-
-        /* By default, only read from /dev/kmsg if are the main namespace */
-        m->read_kmsg = !m->namespace;
-        m->storage = m->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
-
-        journal_reset_metrics(&m->system_storage.metrics);
-        journal_reset_metrics(&m->runtime_storage.metrics);
-
-        manager_load_credentials(m);
-        manager_parse_config_file(m);
-
-        if (!m->namespace) {
-                /* Parse kernel command line, but only if we are not a namespace instance */
-                r = proc_cmdline_parse(parse_proc_cmdline_item, m, PROC_CMDLINE_STRIP_RD_PREFIX);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
-        }
-
-        if (!!m->ratelimit_interval != !!m->ratelimit_burst) { /* One set to 0 and the other not? */
-                log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
-                          m->ratelimit_interval, m->ratelimit_burst);
-                m->ratelimit_interval = m->ratelimit_burst = 0;
-        }
 
         e = getenv("RUNTIME_DIRECTORY");
         if (e)
