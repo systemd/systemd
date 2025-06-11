@@ -117,7 +117,7 @@ static const char *const image_root_runtime_table[_IMAGE_CLASS_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(image_root_runtime, ImageClass);
 
-static Image *image_free(Image *i) {
+static Image* image_free(Image *i) {
         assert(i);
 
         free(i->name);
@@ -136,7 +136,7 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(Image, image, image_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, string_compare_func,
                                       Image, image_unref);
 
-static char **image_settings_path(Image *image) {
+static char** image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *fn = NULL;
         size_t i = 0;
@@ -653,7 +653,7 @@ static int pick_image_search_path(
         return 0;
 }
 
-static char **make_possible_filenames(ImageClass class, const char *image_name) {
+static char** make_possible_filenames(ImageClass class, const char *image_name) {
         _cleanup_strv_free_ char **l = NULL;
 
         assert(image_name);
