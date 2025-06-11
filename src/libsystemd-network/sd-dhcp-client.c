@@ -789,9 +789,9 @@ static int client_message_init(
         if (!packet)
                 return -ENOMEM;
 
-        r = dhcp_message_init(&packet->dhcp, BOOTREQUEST, client->xid, type,
+        r = dhcp_message_init(&packet->dhcp, BOOTREQUEST, client->xid,
                               client->arp_type, client->hw_addr.length, client->hw_addr.bytes,
-                              optlen, &optoffset);
+                              type, optlen, &optoffset);
         if (r < 0)
                 return r;
 
