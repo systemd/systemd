@@ -887,7 +887,7 @@ int image_discover(
                 RuntimeScope scope,
                 ImageClass class,
                 const char *root,
-                Hashmap *h) {
+                Hashmap **images) {
 
         /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people to
          * symlink block devices into the search path. (For now, we disable that when operating relative to
@@ -897,7 +897,7 @@ int image_discover(
         assert(scope < _RUNTIME_SCOPE_MAX && scope != RUNTIME_SCOPE_GLOBAL);
         assert(class >= 0);
         assert(class < _IMAGE_CLASS_MAX);
-        assert(h);
+        assert(images);
 
         _cleanup_strv_free_ char **search = NULL;
         r = pick_image_search_path(scope, class, &search);
@@ -1039,7 +1039,7 @@ int image_discover(
                                 continue;
                         }
 
-                        if (hashmap_contains(h, pretty))
+                        if (hashmap_contains(*images, pretty))
                                 continue;
 
                         r = image_make(class, pretty, dirfd(d), resolved, fname, fd, &st, &image);
@@ -1050,7 +1050,7 @@ int image_discover(
 
                         image->discoverable = true;
 
-                        r = hashmap_put(h, image->name, image);
+                        r = hashmap_ensure_put(images, &image_hash_ops, image->name, image);
                         if (r < 0)
                                 return r;
 
@@ -1058,7 +1058,7 @@ int image_discover(
                 }
         }
 
-        if (scope == RUNTIME_SCOPE_SYSTEM && class == IMAGE_MACHINE && !hashmap_contains(h, ".host")) {
+        if (scope == RUNTIME_SCOPE_SYSTEM && class == IMAGE_MACHINE && !hashmap_contains(*images, ".host")) {
                 _cleanup_(image_unrefp) Image *image = NULL;
 
                 r = image_make(IMAGE_MACHINE,
@@ -1074,7 +1074,7 @@ int image_discover(
 
                 image->discoverable = true;
 
-                r = hashmap_put(h, image->name, image);
+                r = hashmap_ensure_put(images, &image_hash_ops, image->name, image);
                 if (r < 0)
                         return r;
 

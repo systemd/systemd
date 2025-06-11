@@ -1762,11 +1762,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
         Image *image;
         int r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(m->runtime_scope, (ImageClass) class, NULL, images);
+        r = image_discover(m->runtime_scope, (ImageClass) class, NULL, &images);
         if (r < 0)
                 return r;
 

@@ -53,7 +53,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 int image_find(RuntimeScope scope, ImageClass class, const char *name, const char *root, Image **ret);
 int image_from_path(const char *path, Image **ret);
 int image_find_harder(RuntimeScope scope, ImageClass class, const char *name_or_path, const char *root, Image **ret);
-int image_discover(RuntimeScope scope, ImageClass class, const char *root, Hashmap *map);
+int image_discover(RuntimeScope scope, ImageClass class, const char *root, Hashmap **images);
 
 int image_remove(Image *i);
 int image_rename(Image *i, const char *new_name, RuntimeScope scope);
