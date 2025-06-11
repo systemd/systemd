@@ -11,10 +11,30 @@
 #include <asm/sgidefs.h>
 #endif
 
+#ifndef _MIPS_SIM_ABI32
+#define _MIPS_SIM_ABI32  1
+#define _MIPS_SIM_NABI32 2
+#define _MIPS_SIM_ABI64  3
+#endif
+
 #include "forward.h"
 #include "missing_keyctl.h"
 #include "missing_sched.h"
 #include "missing_syscall_def.h"
+
+/* ======================================================================= */
+
+#if !HAVE_RENAMEAT2
+#define RENAME_NOREPLACE (1 << 0)
+#define RENAME_EXCHANGE  (1 << 1)
+#define RENAME_WHITEOUT  (1 << 2)
+
+static inline int missing_renameat2(int oldfd, const char *old, int newfd, const char *new, unsigned flags) {
+        return syscall(SYS_renameat2, oldfd, old, newfd, new, flags);
+}
+
+#  define renameat2 missing_renameat2
+#endif
 
 /* ======================================================================= */
 

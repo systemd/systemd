@@ -10,6 +10,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "memstream-util.h"
+#include "missing_malloc.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"

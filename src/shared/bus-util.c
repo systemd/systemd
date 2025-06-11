@@ -27,6 +27,7 @@
 #include "log.h"
 #include "memfd-util.h"
 #include "memstream-util.h"
+#include "missing_malloc.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "socket-util.h"
