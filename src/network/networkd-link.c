@@ -1369,6 +1369,32 @@ static void link_enter_unmanaged(Link *link) {
         link_set_state(link, LINK_STATE_UNMANAGED);
 }
 
+static int link_managed_by_us(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->dev)
+                return true;
+
+        const char *s;
+        r = sd_device_get_property_value(link->dev, "ID_NET_MANAGED_BY", &s);
+        if (r == -ENOENT)
+                return true;
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get ID_NET_MANAGED_BY udev property: %m");
+
+        if (streq(s, "io.systemd.Network"))
+                return true;
+
+        if (link->state == LINK_STATE_UNMANAGED)
+                return false; /* Already in unmanaged state */
+
+        log_link_debug(link, "Interface is requested to be managed by '%s', unmanaging the interface.", s);
+        link_set_state(link, LINK_STATE_UNMANAGED);
+        return false;
+}
+
 int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
         Network *network = NULL;
         int r;
@@ -1383,6 +1409,10 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
                 return 0;
+
+        r = link_managed_by_us(link);
+        if (r <= 0)
+                return r;
 
         r = link_get_network(link, &network);
         if (r == -ENOENT) {
@@ -1621,6 +1651,10 @@ static int link_initialized(Link *link, sd_device *device) {
          * or sysattrs) may be outdated. */
         device_unref_and_replace(link->dev, device);
 
+        r = link_managed_by_us(link);
+        if (r <= 0)
+                return r;
+
         if (link->dhcp_client) {
                 r = sd_dhcp_client_attach_device(link->dhcp_client, link->dev);
                 if (r < 0)
@@ -1688,7 +1722,6 @@ int link_check_initialized(Link *link) {
 
 int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action) {
         int r, ifindex;
-        const char *s;
         Link *link;
 
         assert(m);
@@ -1720,15 +1753,6 @@ int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t 
                 /* TODO:
                  * What happens when a device is initialized, then soon renamed after that? When we detect
                  * such, maybe we should cancel or postpone all queued requests for the interface. */
-                return 0;
-        }
-
-        r = sd_device_get_property_value(device, "ID_NET_MANAGED_BY", &s);
-        if (r < 0 && r != -ENOENT)
-                log_device_debug_errno(device, r, "Failed to get ID_NET_MANAGED_BY udev property, ignoring: %m");
-        if (r >= 0 && !streq(s, "io.systemd.Network")) {
-                log_device_debug(device, "Interface is requested to be managed by '%s', not managing the interface.", s);
-                link_set_state(link, LINK_STATE_UNMANAGED);
                 return 0;
         }
 
