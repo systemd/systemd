@@ -2082,20 +2082,14 @@ static int merge(ImageClass image_class,
         return 1;
 }
 
-static int image_discover_and_read_metadata(
-                ImageClass image_class,
-                Hashmap **ret_images) {
+static int image_discover_and_read_metadata(ImageClass image_class, Hashmap **ret_images) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         Image *img;
         int r;
 
         assert(ret_images);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return log_oom();
-
-        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, images);
+        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, &images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
@@ -2105,7 +2099,8 @@ static int image_discover_and_read_metadata(
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
 
-        *ret_images = TAKE_PTR(images);
+        if (ret_images)
+                *ret_images = TAKE_PTR(images);
 
         return 0;
 }
@@ -2338,11 +2333,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         Image *img;
         int r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return log_oom();
-
-        r = image_discover(RUNTIME_SCOPE_SYSTEM, arg_image_class, arg_root, images);
+        r = image_discover(RUNTIME_SCOPE_SYSTEM, arg_image_class, arg_root, &images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
@@ -2384,9 +2375,6 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         MethodListParameters p = {
         };
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
-        ImageClass image_class = arg_image_class;
-        Image *img;
         int r;
 
         assert(link);
@@ -2395,18 +2383,17 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
+        ImageClass image_class = arg_image_class;
         r = parse_image_class_parameter(link, p.class, &image_class, NULL);
         if (r < 0)
                 return r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, images);
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, &images);
         if (r < 0)
                 return r;
 
+        Image *img;
         HASHMAP_FOREACH(img, images) {
                 if (v) {
                         /* Send previous item with more=true */

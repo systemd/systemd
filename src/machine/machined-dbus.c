@@ -490,18 +490,13 @@ static int method_get_machine_os_release(sd_bus_message *message, void *userdata
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
-        _unused_ Manager *m = ASSERT_PTR(userdata);
-        Image *image;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, images);
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, &images);
         if (r < 0)
                 return r;
 
@@ -513,6 +508,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
+        Image *image;
         HASHMAP_FOREACH(image, images) {
                 _cleanup_free_ char *p = NULL;
 

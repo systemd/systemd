@@ -1333,13 +1333,9 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
              class < 0 ? (c < _IMAGE_CLASS_MAX) : (c == class);
              c++) {
 
-                _cleanup_hashmap_free_ Hashmap *h = NULL;
+                _cleanup_hashmap_free_ Hashmap *images = NULL;
 
-                h = hashmap_new(&image_hash_ops);
-                if (!h)
-                        return -ENOMEM;
-
-                r = image_discover(m->runtime_scope, c, /* root= */ NULL, h);
+                r = image_discover(m->runtime_scope, c, /* root= */ NULL, &images);
                 if (r < 0) {
                         if (class >= 0)
                                 return r;
@@ -1349,7 +1345,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
                 }
 
                 Image *i;
-                HASHMAP_FOREACH(i, h) {
+                HASHMAP_FOREACH(i, images) {
                         r = sd_bus_message_append(
                                         reply,
                                         "(ssssbtttttt)",

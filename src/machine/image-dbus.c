@@ -396,24 +396,20 @@ char* image_bus_path(const char *name) {
 }
 
 static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
-        _cleanup_strv_free_ char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        Image *image;
         int r;
 
         assert(bus);
         assert(path);
         assert(nodes);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, images);
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, &images);
         if (r < 0)
                 return r;
 
+        _cleanup_strv_free_ char **l = NULL;
+        Image *image;
         HASHMAP_FOREACH(image, images) {
                 char *p;
 
