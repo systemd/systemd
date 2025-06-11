@@ -55,7 +55,6 @@ executables += [
                         libshared,
                 ],
                 'dependencies' : [
-                        libacl,
                         threads,
                 ],
         },
