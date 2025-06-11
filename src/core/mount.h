@@ -42,6 +42,12 @@ typedef enum MountProcFlags {
         MOUNT_PROC_JUST_CHANGED = 1 << 2,
 } MountProcFlags;
 
+typedef struct RemountContext {
+        sd_bus_message *request;
+        char *options;
+        RemountFlags flags;
+} RemountContext;
+
 typedef struct Mount {
         Unit meta;
 
@@ -49,6 +55,8 @@ typedef struct Mount {
 
         MountParameters parameters_proc_self_mountinfo;
         MountParameters parameters_fragment;
+
+        RemountContext remount_context;
 
         bool from_proc_self_mountinfo:1;
         bool from_fragment:1;
@@ -93,6 +101,8 @@ typedef struct Mount {
 extern const UnitVTable mount_vtable;
 
 void mount_fd_event(Manager *m, int events);
+
+void mount_remount_context_clear(RemountContext *ctx);
 
 char* mount_get_what_escaped(const Mount *m);
 char* mount_get_options_escaped(const Mount *m);
