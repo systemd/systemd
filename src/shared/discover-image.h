@@ -45,8 +45,8 @@ typedef struct Image {
         void *userdata;
 } Image;
 
-Image *image_unref(Image *i);
-Image *image_ref(Image *i);
+Image* image_unref(Image *i);
+Image* image_ref(Image *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 
@@ -73,7 +73,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy);
 
 bool image_in_search_path(RuntimeScope scope, ImageClass class, const char *root, const char *image);
 
-static inline char **image_extension_release(Image *image, ImageClass class) {
+static inline char** image_extension_release(Image *image, ImageClass class) {
         assert(image);
 
         if (class == IMAGE_SYSEXT)
