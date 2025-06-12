@@ -30,7 +30,7 @@ Conflicts=rescue.service
 Before=rescue.service
 
 [Service]
-ExecStart=-/sbin/agetty --noreset --noclear --keep-baud 115200,57600,38400,9600 - ${TERM}
+ExecStart=-/sbin/agetty --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d --keep-baud 115200,57600,38400,9600 - ${TERM}
 Type=idle
 Restart=always
 UtmpIdentifier=%I
