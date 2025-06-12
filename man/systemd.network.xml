@@ -2603,6 +2603,17 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>BOOTP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. The DHCPv4 client can be configured to communicate with BOOTP servers that
+          don't accept Option 53, DHCP Message Type. In this configuration, a BOOTP Request is sent without
+          any options by default instead of trying DHCP. Defaults to off.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
       <!-- How to use the DHCP lease -->
 
       <varlistentry>
