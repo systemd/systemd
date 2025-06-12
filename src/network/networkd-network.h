@@ -169,6 +169,7 @@ typedef struct Network {
         OrderedHashmap *dhcp_client_send_vendor_options;
         char *dhcp_netlabel;
         NFTSetContext dhcp_nft_set_context;
+        bool use_bootp;
 
         /* DHCPv6 Client support */
         bool dhcp6_use_address;
