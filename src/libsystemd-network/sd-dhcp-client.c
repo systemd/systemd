@@ -1055,10 +1055,6 @@ static int client_send_discover(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
-        /* We currently ignore:
-           The client SHOULD wait a random time between one and ten seconds to
-           desynchronize the use of DHCP at startup.
-         */
         r = dhcp_client_send_raw(client, discover, sizeof(DHCPPacket) + optoffset);
         if (r < 0)
                 return r;
@@ -2207,6 +2203,9 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         if (client->last_addr && !client->anonymize)
                 client_set_state(client, DHCP_STATE_INIT_REBOOT);
 
+        /* We currently ignore:
+         * The client SHOULD wait a random time between one and ten seconds to desynchronize the use of
+         * DHCP at startup. */
         r = client_start(client);
         if (r >= 0)
                 log_dhcp_client(client, "STARTED on ifindex %i", client->ifindex);
