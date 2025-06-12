@@ -9,6 +9,10 @@ executables += [
                 'name' : 'systemd-ssh-proxy',
                 'sources' : files('ssh-proxy.c'),
         },
+        libexec_template + {
+                'name' : 'systemd-ssh-issue',
+                'sources' : files('ssh-issue.c'),
+        },
 ]
 
 if conf.get('ENABLE_SSH_PROXY_CONFIG') == 1
