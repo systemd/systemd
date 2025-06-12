@@ -297,7 +297,9 @@ static void copy_files_free_many(CopyFiles *f, size_t n) {
 
 typedef enum SubvolumeFlags {
         SUBVOLUME_RO               = 1 << 0,
-        _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_RO,
+        SUBVOLUME_NODATACOW        = 1 << 1,
+        SUBVOLUME_NODATASUM        = 1 << 2,
+        _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_NODATASUM|SUBVOLUME_NODATACOW|SUBVOLUME_RO,
         _SUBVOLUME_FLAGS_INVALID   = -EINVAL,
         _SUBVOLUME_FLAGS_ERRNO_MAX = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
 } SubvolumeFlags;
@@ -309,6 +311,12 @@ static SubvolumeFlags subvolume_flags_from_string_one(const char *s) {
 
         if (streq(s, "ro"))
                 return SUBVOLUME_RO;
+
+        if (streq(s, "nodatacow"))
+                return SUBVOLUME_NODATACOW;
+
+        if (streq(s, "nodatasum"))
+                return SUBVOLUME_NODATASUM;
 
         return _SUBVOLUME_FLAGS_INVALID;
 }
@@ -337,6 +345,23 @@ static SubvolumeFlags subvolume_flags_from_string(const char *s) {
         }
 
         return flags;
+}
+
+static int subvolume_flags_to_string(SubvolumeFlags flags, char **s) {
+        if (FLAGS_SET(flags, SUBVOLUME_RO) && !strextend_with_separator(&s, "-", "ro"))
+                return log_oom();
+
+        return 0;
+}
+
+static int subvolume_inode_flags_to_string(SubvolumeFlags flags, char **s) {
+        if (FLAGS_SET(flags, SUBVOLUME_NODATACOW) && !strextend_with_separator(s, ",", "nodatacow"))
+                return log_oom();
+
+        if (FLAGS_SET(flags, SUBVOLUME_NODATASUM) && !strextend_with_separator(s, ",", "nodatasum"))
+                return log_oom();
+
+        return 0;
 }
 
 typedef struct Subvolume {
@@ -6228,8 +6253,9 @@ static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const cha
                 if (streq_ptr(subvolume->path, default_subvolume) && !strextend(&s, "default"))
                         return log_oom();
 
-                if (FLAGS_SET(subvolume->flags, SUBVOLUME_RO) && !strextend_with_separator(&s, "-", "ro"))
-                        return log_oom();
+                int r = subvolume_flags_to_string(subvolume->flags, &s);
+                if (r < 0)
+                        return r;
 
                 if (!strextend_with_separator(&s, ":", subvolume->path))
                         return log_oom();
@@ -6242,32 +6268,67 @@ static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const cha
         return 0;
 }
 
+static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
+        Subvolume *subvolume;
+        int r;
+
+        assert(l);
+
+        ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
+                _cleanup_free_ char *s = NULL;
+
+                int r = subvolume_inode_flags_to_string(subvolume->flags, &s);
+                if (r < 0)
+                        return r;
+
+                if (!s)
+                        continue;
+
+                if (!strextend_with_separator(&s, ":", subvolume->path))
+                        return log_oom();
+
+                r = strv_extend_many(l, "--inode-flags", s);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_strv_free_ char **ops = NULL;
         int r;
 
         assert(p);
         assert(ret);
 
-        r = mkfs_options_from_env("REPART", p->format, &sv);
+        r = mkfs_options_from_env("REPART", p->format, &ops);
         if (r < 0)
                 return log_error_errno(r,
                                        "Failed to determine mkfs command line options for '%s': %m",
                                        p->format);
 
         if (partition_needs_populate(p) && root && streq(p->format, "btrfs")) {
-                r = append_btrfs_subvols(&sv, p->subvolumes, p->default_subvolume);
+                r = append_btrfs_subvols(&ops, p->subvolumes, p->default_subvolume);
+                if (r < 0)
+                        return r;
+
+                r = append_btrfs_inode_flags(&ops, p->subvolumes);
                 if (r < 0)
                         return r;
 
                 if (p->suppressing) {
-                        r = append_btrfs_subvols(&sv, p->suppressing->subvolumes, NULL);
+                        r = append_btrfs_subvols(&ops, p->suppressing->subvolumes, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = append_btrfs_inode_flags(&ops, p->suppressing->subvolumes);
                         if (r < 0)
                                 return r;
                 }
         }
 
-        *ret = TAKE_PTR(sv);
+        *ret = TAKE_PTR(ops);
         return 0;
 }
 
