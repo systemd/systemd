@@ -254,7 +254,7 @@ REQUIREMENTS:
         python >= 3.7 (required by meson too, >= 3.9 is required for ukify)
         python-jinja2
         python-pefile (optional, required for ukify)
-        python-lxml (optional, required to build the indices)
+        python-lxml (optional, required to build the indices and better shell completion)
         pyelftools (optional, required for systemd-boot)
         meson >= 0.62.0
         ninja
