@@ -118,6 +118,10 @@ Deprecations and removals:
 
 * Consider removing root=gpt-auto, and push people to use root=dissect instead.
 
+* Once
+  https://github.com/util-linux/util-linux/commit/508fb0e7ac103b68531a59db2a4473897853ab52
+  has hit the prominent distributions, revert --issue-file= hack in units/*getty*sevice.in
+
 Features:
 
 * replace bootctl's PE version check to actually use APIs from pe-binary.[ch]
