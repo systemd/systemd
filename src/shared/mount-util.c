@@ -853,7 +853,7 @@ int mount_option_mangle(
                 _cleanup_free_ char *word = NULL;
                 const struct libmnt_optmap *ent;
 
-                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
+                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE | EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
                         return r;
                 if (r == 0)
