@@ -5493,13 +5493,13 @@ static int run_container(
 
                 r = sd_bus_match_signal_async(
                                 runtime_bus,
-                                NULL,
+                                /* ret= */ NULL,
                                 "org.freedesktop.systemd1",
-                                NULL,
+                                /* path= */ NULL,
                                 "org.freedesktop.systemd1.Scope",
                                 "RequestStop",
                                 on_request_stop,
-                                NULL,
+                                /* install_callback= */ NULL,
                                 pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to request RequestStop match: %m");
