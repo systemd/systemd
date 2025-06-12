@@ -347,6 +347,23 @@ static SubvolumeFlags subvolume_flags_from_string(const char *s) {
         return flags;
 }
 
+static int subvolume_flags_to_string(SubvolumeFlags flags, char **s) {
+        if (FLAGS_SET(flags, SUBVOLUME_RO) && !strextend_with_separator(&s, "-", "ro"))
+                return log_oom();
+
+        return 0;
+}
+
+static int subvolume_inode_flags_to_string(SubvolumeFlags flags, char **s) {
+        if (FLAGS_SET(flags, SUBVOLUME_NODATACOW) && !strextend_with_separator(s, ",", "nodatacow"))
+                return log_oom();
+
+        if (FLAGS_SET(flags, SUBVOLUME_NODATASUM) && !strextend_with_separator(s, ",", "nodatasum"))
+                return log_oom();
+
+        return 0;
+}
+
 typedef struct Subvolume {
         char *path;
         SubvolumeFlags flags;
@@ -6236,8 +6253,9 @@ static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const cha
                 if (streq_ptr(subvolume->path, default_subvolume) && !strextend(&s, "default"))
                         return log_oom();
 
-                if (FLAGS_SET(subvolume->flags, SUBVOLUME_RO) && !strextend_with_separator(&s, "-", "ro"))
-                        return log_oom();
+                int r = subvolume_flags_to_string(subvolume->flags, &s);
+                if (r < 0)
+                        return r:
 
                 if (!strextend_with_separator(&s, ":", subvolume->path))
                         return log_oom();
@@ -6259,11 +6277,9 @@ static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
         ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
                 _cleanup_free_ char *s = NULL;
 
-                if (FLAGS_SET(subvolume->flags, SUBVOLUME_NODATACOW) && !strextend_with_separator(&s, ",", "nodatacow"))
-                        return log_oom();
-
-                if (FLAGS_SET(subvolume->flags, SUBVOLUME_NODATASUM) && !strextend_with_separator(&s, ",", "nodatasum"))
-                        return log_oom();
+                int r = subvolume_inode_flags_to_string(subvolume->flags, &s);
+                if (r < 0)
+                        return r:
 
                 if (!s)
                         continue;
