@@ -22,13 +22,15 @@ int dhcp_message_init(
                 const uint8_t *chaddr,
                 uint8_t type,
                 size_t optlen,
-                size_t *optoffset) {
+                size_t *ret_optoffset) {
 
         size_t offset = 0;
         int r;
 
+        assert(message);
         assert(IN_SET(op, BOOTREQUEST, BOOTREPLY));
         assert(chaddr || hlen == 0);
+        assert(ret_optoffset);
 
         message->op = op;
         message->htype = arp_type;
@@ -55,8 +57,7 @@ int dhcp_message_init(
         if (r < 0)
                 return r;
 
-        *optoffset = offset;
-
+        *ret_optoffset = offset;
         return 0;
 }
 
