@@ -243,6 +243,8 @@ typedef struct Network {
         usec_t router_reachable_usec;
         usec_t router_retransmit_usec;
         uint8_t router_hop_limit;
+        uint32_t router_mtu;
+        bool router_mtu_auto;
         bool router_managed;
         bool router_other_information;
         bool router_emit_dns;

@@ -4261,6 +4261,19 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MTUBytes=</varname></term>
+        <listitem>
+          <para>Specifies the size of the router advertisement MTU or one of the special
+          value <literal>auto</literal>. When suffixed with K, M, or G, the specified
+          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024.
+          When <literal>auto</literal>, is specified the MTU of the link is automatically taken as
+          router advertisement MTU. Defaults to<literal>auto</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UplinkInterface=</varname></term>
         <listitem><para>Specifies the name or the index of the uplink interface, or one of the special
         values <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS servers or
