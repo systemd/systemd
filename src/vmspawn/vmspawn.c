@@ -52,6 +52,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -1543,6 +1544,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         const char *accel, *shm;
         int r;
 
+        polkit_agent_open();
+
         if (arg_privileged)
                 r = sd_bus_default_system(&bus);
         else
@@ -2361,6 +2364,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
         }
+
+        /* All operations that might need Polkit authorizations (i.e. machine registration, netif
+         * acquisition, …) are complete now, get rid of the agent again, so that we retain exclusive control
+         * of the TTY from now on. */
+        polkit_agent_close();
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
