@@ -4,12 +4,13 @@
 # Dimitris Spingos <dmtrs32@gmail.com>, 2014.
 # Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>, 2014.
 # Dimitrys Meliates <demetresmeliates+fedora@gmail.com>, 2024.
+# Jim Spentzos <jimspentzos2000@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2024-08-04 03:41+0000\n"
-"Last-Translator: Dimitrys Meliates <demetresmeliates+fedora@gmail.com>\n"
+"PO-Revision-Date: 2025-06-12 22:49+0000\n"
+"Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
 "main/el/>\n"
 "Language: el\n"
@@ -17,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.6.2\n"
+"X-Generator: Weblate 5.11.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -184,7 +185,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
-msgstr ""
+msgstr "Κλειδί ανάκτησης: "
 
 #: src/home/pam_systemd_home.c:337
 #, c-format
