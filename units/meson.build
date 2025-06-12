@@ -519,6 +519,10 @@ units = [
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
+          'file' : 'systemd-devlinkd.service.in',
+          'conditions' : ['ENABLE_DEVLINKD'],
+        },
+        {
           'file' : 'systemd-nspawn@.service.in',
           'conditions' : ['ENABLE_NSPAWN'],
         },

@@ -1,0 +1,66 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-devlinkd.service" conditional='ENABLE_DEVLINKD'>
+
+  <refentryinfo>
+    <title>systemd-devlinkd.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-devlinkd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-devlinkd.service</refname>
+    <refname>systemd-devlinkd</refname>
+    <refpurpose>Devlink manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-devlinkd.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-devlinkd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-devlinkd</command> is a system service that
+    manages devlink devices. It detects and configures devlink objects as they appear.</para>
+
+    <para><command>systemd-devlinkd</command> will manage devlink objects for which it finds
+    a <filename>.devlink</filename> file with an appropriate [Kind] and [Match*] sections, see
+    <citerefentry><refentrytitle>systemd.devlink</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    Any objects not matched by one of the <filename>.devlink</filename> files will be ignored.</para>
+
+    <para>When <filename>systemd-devlinkd</filename> exits, it leaves devlink object configuration intact.
+    This makes it possible to transition from the initrd and to restart the service
+    without causing distruption.</para>
+  </refsect1>
+
+  <refsect1><title>Configuration Files</title>
+    <para>The configuration files are read from the files located in the
+    system devlink directory <filename>/usr/lib/systemd/devlink</filename>,
+    the volatile runtime devlink directory
+    <filename>/run/systemd/devlink</filename> and the local administration
+    devlink directory <filename>/etc/systemd/devlink</filename>.</para>
+
+    <para>Devlink objects are configured in <filename>.devlink</filename>
+    files, see
+    <citerefentry><refentrytitle>systemd.devlink</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.devlink</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
