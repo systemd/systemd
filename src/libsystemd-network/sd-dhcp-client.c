@@ -764,10 +764,10 @@ static int cmp_uint8(const uint8_t *a, const uint8_t *b) {
 
 static int client_message_init(
                 sd_dhcp_client *client,
-                DHCPPacket **ret,
                 uint8_t type,
-                size_t *_optlen,
-                size_t *_optoffset) {
+                DHCPPacket **ret_packet,
+                size_t *ret_optlen,
+                size_t *ret_optoffset) {
 
         _cleanup_free_ DHCPPacket *packet = NULL;
         size_t optlen, optoffset, size;
@@ -776,11 +776,10 @@ static int client_message_init(
         int r;
 
         assert(client);
-        assert(client->start_time);
-        assert(ret);
-        assert(_optlen);
-        assert(_optoffset);
         assert(IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST, DHCP_RELEASE, DHCP_DECLINE));
+        assert(ret_packet);
+        assert(ret_optlen);
+        assert(ret_optoffset);
 
         optlen = DHCP_MIN_OPTIONS_SIZE;
         size = sizeof(DHCPPacket) + optlen;
@@ -900,9 +899,9 @@ static int client_message_init(
                         return r;
         }
 
-        *_optlen = optlen;
-        *_optoffset = optoffset;
-        *ret = TAKE_PTR(packet);
+        *ret_optlen = optlen;
+        *ret_optoffset = optoffset;
+        *ret_packet = TAKE_PTR(packet);
 
         return 0;
 }
@@ -1020,8 +1019,7 @@ static int client_send_discover(sd_dhcp_client *client) {
         assert(client);
         assert(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_SELECTING));
 
-        r = client_message_init(client, &discover, DHCP_DISCOVER,
-                                &optlen, &optoffset);
+        r = client_message_init(client, DHCP_DISCOVER, &discover, &optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -1077,7 +1075,7 @@ static int client_send_request(sd_dhcp_client *client) {
 
         assert(client);
 
-        r = client_message_init(client, &request, DHCP_REQUEST, &optlen, &optoffset);
+        r = client_message_init(client, DHCP_REQUEST, &request, &optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -2224,7 +2222,7 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
         if (!sd_dhcp_client_is_running(client) || !client->lease)
                 return 0; /* do nothing */
 
-        r = client_message_init(client, &release, DHCP_RELEASE, &optlen, &optoffset);
+        r = client_message_init(client, DHCP_RELEASE, &release, &optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -2262,7 +2260,7 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
         if (!sd_dhcp_client_is_running(client) || !client->lease)
                 return 0; /* do nothing */
 
-        r = client_message_init(client, &release, DHCP_DECLINE, &optlen, &optoffset);
+        r = client_message_init(client, DHCP_DECLINE, &release, &optlen, &optoffset);
         if (r < 0)
                 return r;
 

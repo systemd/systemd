@@ -13,7 +13,7 @@ int dhcp_message_init(
                 const uint8_t *chaddr,
                 uint8_t type,
                 size_t optlen,
-                size_t *optoffset);
+                size_t *ret_optoffset);
 
 uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len);
 
