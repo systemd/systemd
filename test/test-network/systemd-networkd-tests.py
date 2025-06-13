@@ -7017,10 +7017,11 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
 
         if persist_leases:
-            with open('/var/lib/systemd/network/dhcp-server-lease/veth-peer', encoding='utf-8') as f:
-                check_json(f.read())
+            path = '/var/lib/systemd/network/dhcp-server-lease/veth-peer'
         else:
-            self.assertFalse(os.path.exists('/var/lib/systemd/network/dhcp-server-lease/veth-peer'))
+            path = '/run/systemd/netif/dhcp-server-lease/veth-peer'
+        with open(path, encoding='utf-8') as f:
+            check_json(f.read())
 
     def test_dhcp_server(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server.network')
