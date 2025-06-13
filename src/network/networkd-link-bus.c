@@ -506,12 +506,14 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid negative trust anchor domain: %s", *i);
         }
 
+        /* The method accepts an empty strv, to override the negative trust anchors set in .network.
+         * Hence, we need to explicitly allocate an empty set here. */
         ns = set_new(&dns_name_hash_ops_free);
         if (!ns)
                 return -ENOMEM;
 
         STRV_FOREACH(i, ntas) {
-                r = set_put_strdup(&ns, *i);
+                r = set_put_strdup_full(&ns, &dns_name_hash_ops_free, *i);
                 if (r < 0)
                         return r;
         }
