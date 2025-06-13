@@ -872,6 +872,18 @@ sub-object of the top-level user record object is keyed by the machine ID,
 which points to the object with the fields defined here.
 The following fields are defined:
 
+`aliases` → An array of strings, each being a valid UNIX user name. This is
+similar to the top-level field of the same name. The purpose of this field is
+to allow user record providers to dynamically insert additional alias names
+into the user record, depending on the precise query. This is useful to
+implement case-insensitive user names (or support for similar non-normalized
+user record naming), as it allows the provider to insert the precise
+casing/spelling of the user name used for the look-up in the record data,
+without this being part of the persisted record. Note that clients doing a
+look-up typically re-validate user records against the lookup keys they
+provided, hence it's essential that any dynamic alias name appears in the
+user record, without this being part of the persistent part of the record.
+
 `diskUsage` → An unsigned 64-bit integer.
 The currently used disk space of the home directory in bytes.
 This value might be determined in different ways, depending on the selected storage mechanism.
