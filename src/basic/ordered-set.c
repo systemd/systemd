@@ -39,14 +39,14 @@ int ordered_set_consume(OrderedSet *s, void *p) {
         return r;
 }
 
-int ordered_set_put_strdup(OrderedSet **s, const char *p) {
+int ordered_set_put_strdup_full(OrderedSet **s, const struct hash_ops *hash_ops, const char *p) {
         char *c;
         int r;
 
         assert(s);
         assert(p);
 
-        r = ordered_set_ensure_allocated(s, &string_hash_ops_free);
+        r = ordered_set_ensure_allocated(s, hash_ops);
         if (r < 0)
                 return r;
 
@@ -60,11 +60,13 @@ int ordered_set_put_strdup(OrderedSet **s, const char *p) {
         return ordered_set_consume(*s, c);
 }
 
-int ordered_set_put_strdupv(OrderedSet **s, char **l) {
+int ordered_set_put_strdupv_full(OrderedSet **s, const struct hash_ops *hash_ops, char **l) {
         int n = 0, r;
 
+        assert(s);
+
         STRV_FOREACH(i, l) {
-                r = ordered_set_put_strdup(s, *i);
+                r = ordered_set_put_strdup_full(s, hash_ops, *i);
                 if (r < 0)
                         return r;
 
@@ -74,14 +76,16 @@ int ordered_set_put_strdupv(OrderedSet **s, char **l) {
         return n;
 }
 
-int ordered_set_put_string_set(OrderedSet **s, OrderedSet *l) {
+int ordered_set_put_string_set_full(OrderedSet **s, const struct hash_ops *hash_ops, OrderedSet *l) {
         int n = 0, r;
         char *p;
+
+        assert(s);
 
         /* Like ordered_set_put_strv, but for an OrderedSet of strings */
 
         ORDERED_SET_FOREACH(p, l) {
-                r = ordered_set_put_strdup(s, p);
+                r = ordered_set_put_strdup_full(s, hash_ops, p);
                 if (r < 0)
                         return r;
 
