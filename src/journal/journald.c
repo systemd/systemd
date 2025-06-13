@@ -52,11 +52,11 @@ static int run(int argc, char *argv[]) {
 
         sigbus_install();
 
-        r = manager_new(&m);
+        r = manager_new(&m, namespace);
         if (r < 0)
                 return log_oom();
 
-        r = manager_init(m, namespace);
+        r = manager_init(m);
         if (r < 0)
                 return r;
 
