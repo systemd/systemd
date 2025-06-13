@@ -197,11 +197,13 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        search_domains = ordered_set_new(&string_hash_ops_free);
+        /* The method accepts an empty strv, to override the domains set in .network.
+         * Hence, we need to explicitly allocate empty sets here. */
+        search_domains = ordered_set_new(&dns_name_hash_ops_free);
         if (!search_domains)
                 return -ENOMEM;
 
-        route_domains = ordered_set_new(&string_hash_ops_free);
+        route_domains = ordered_set_new(&dns_name_hash_ops_free);
         if (!route_domains)
                 return -ENOMEM;
 
