@@ -473,7 +473,7 @@ CAN.DataPropagationSegment,                  config_parse_uint32,               
 CAN.DataPhaseBufferSegment1,                 config_parse_uint32,                                      0,                             offsetof(Network, can_data_phase_buffer_segment_1)
 CAN.DataPhaseBufferSegment2,                 config_parse_uint32,                                      0,                             offsetof(Network, can_data_phase_buffer_segment_2)
 CAN.DataSyncJumpWidth,                       config_parse_uint32,                                      0,                             offsetof(Network, can_data_sync_jump_width)
-CAN.RestartSec,                              config_parse_can_restart_usec,                            0,                             offsetof(Network, can_restart_us)
+CAN.RestartSec,                              config_parse_can_restart_usec,                            0,                             0
 CAN.Loopback,                                config_parse_can_control_mode,                            CAN_CTRLMODE_LOOPBACK,         0
 CAN.ListenOnly,                              config_parse_can_control_mode,                            CAN_CTRLMODE_LISTENONLY,       0
 CAN.TripleSampling,                          config_parse_can_control_mode,                            CAN_CTRLMODE_3_SAMPLES,        0

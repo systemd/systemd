@@ -89,7 +89,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                         return r;
         }
 
-        if (link->network->can_restart_us > 0) {
+        if (link->network->can_restart_us_set) {
                 uint64_t restart_ms;
 
                 if (link->network->can_restart_us == USEC_INFINITY)
@@ -221,7 +221,8 @@ int config_parse_can_restart_usec(
                 void *data,
                 void *userdata) {
 
-        usec_t usec, *restart_usec = ASSERT_PTR(data);
+        Network *network = ASSERT_PTR(userdata);
+        usec_t usec;
         int r;
 
         assert(filename);
@@ -242,7 +243,8 @@ int config_parse_can_restart_usec(
                 return 0;
         }
 
-        *restart_usec = usec;
+        network->can_restart_us_set = true;
+        network->can_restart_us = usec;
         return 0;
 }
 
