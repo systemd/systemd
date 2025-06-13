@@ -17,7 +17,8 @@ _udevadm_info(){
         '--export-db[Export the content of the udev database.]' \
         '--cleanup-db[Cleanup the udev database.]' \
         '--value[When showing properties, print only their values.]' \
-        '--property=[Show only properties by this name.]:NAME'
+        '--property=[Show only properties by this name.]:NAME' \
+        '*::devpath:_path_files -g "*(-/,-%)"'
 }
 
 (( $+functions[_udevadm_trigger] )) ||
@@ -42,7 +43,8 @@ _udevadm_trigger(){
         '--initialized-match[Trigger events for devices that are already initialized.]' \
         '--initialized-nomatch[Trigger events for devices that are not initialized yet.]' \
         '--uuid[Print synthetic uevent UUID.]' \
-        '--prioritized-subsystem=[Trigger events for devices which belong to a matching subsystem earlier.]:SUBSYSTEM'
+        '--prioritized-subsystem=[Trigger events for devices which belong to a matching subsystem earlier.]:SUBSYSTEM' \
+        '*::devpath:_path_files -g "*(-/,-%)"'
 }
 
 (( $+functions[_udevadm_settle] )) ||
