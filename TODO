@@ -120,6 +120,14 @@ Deprecations and removals:
 
 Features:
 
+* maybe reconsider whether virtualization consoles (hvc1) are considered local
+  or remote. i.e. are they more like an ssh login, or more like a /dev/tty1
+  login? Lennart used to believe the former, but maybe the latter is more
+  appropriate? This has effect on polkit interactivity, since it would mean
+  questions via hvc0 would suddenly use the local polkit property. But this
+  also raises the question whether such sessions shall be considered active or
+  not
+
 * Add PassPidFileDescriptor= similar in style to PassCredentials= to .socket
   units
 
