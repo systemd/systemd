@@ -12,6 +12,7 @@ Description=Virtual Machine %i
 Documentation=man:systemd-vmspawn(1)
 PartOf=machines.target
 Before=machines.target
+Wants=modprobe@tun.service
 After=network.target modprobe@tun.service
 RequiresMountsFor=/var/lib/machines/%i
 
