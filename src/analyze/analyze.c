@@ -45,6 +45,7 @@
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
+#include "analyze-unit-shell.h"
 #include "analyze-verify.h"
 #include "build.h"
 #include "bus-error.h"
@@ -678,6 +679,7 @@ static int run(int argc, char *argv[]) {
                 { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
                 { "smbios11",          VERB_ANY, 1,        0,            verb_smbios11          },
                 { "chid",              VERB_ANY, VERB_ANY, 0,            verb_chid              },
+                { "unit-shell",        2,        2,        0,            verb_unit_shell        },
                 {}
         };
 
