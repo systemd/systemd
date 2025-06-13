@@ -89,19 +89,17 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                         return r;
         }
 
-        if (link->network->can_restart_us > 0) {
-                uint64_t restart_ms;
+        uint64_t restart_ms;
 
-                if (link->network->can_restart_us == USEC_INFINITY)
-                        restart_ms = 0;
-                else
-                        restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
+        if (link->network->can_restart_us == USEC_INFINITY)
+                restart_ms = 0;
+        else
+                restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
 
-                log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
-                r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
-                if (r < 0)
-                        return r;
-        }
+        log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
+        r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
+        if (r < 0)
+                return r;
 
         if (link->network->can_control_mode_mask != 0) {
                 struct can_ctrlmode cm = {
