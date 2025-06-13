@@ -443,7 +443,7 @@
 
           <para>Even if this is enabled, the DHCP server will not be started automatically and wait for the
           persistent storage being ready to load/save leases in the storage, unless
-          <varname>RelayTarget=</varname> or <varname>PersistLeases=no</varname> are specified in the
+          <varname>RelayTarget=</varname> or <varname>PersistLeases=no/runtime</varname> are specified in the
           [DHCPServer] section. It will be started after
           <filename>systemd-networkd-persistent-storage.service</filename> is started, which calls
           <command>networkctl persistent-storage yes</command>. See
@@ -4140,15 +4140,23 @@ ServerAddress=192.168.0.1/24</programlisting>
       <varlistentry>
         <term><varname>PersistLeases=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true, the DHCP server will load and save leases in the persistent
-          storage. When false, the DHCP server will neither load nor save leases in the persistent storage.
-          Hence, bound leases will be lost when the interface is reconfigured e.g. by
+          <para>Takes a boolean or special value <literal>runtime</literal>. When <literal>yes</literal>, the
+          DHCP server will load and save leases in the persistent storage. When <literal>runtime</literal>,
+          the DHCP server will load and save leases in the runtime storage, hence bound leases will be lost
+          when the runtime storage is cleared by e.g. by calling
+          <command>systemctl clean systemd-networkd.service</command> or the system is rebooted. When
+          <literal>no</literal>, the DHCP server will neither load nor save leases in the persistent storage,
+          hence bound leases will be lost when the interface is reconfigured e.g. by
           <command>networkctl reconfigure</command>, or
           <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          is restarted. That may cause address conflict on the network. So, please take an extra care when
-          disable this setting. When unspecified, the value specified in the same setting in
+          is restarted. Using <literal>runtime</literal> and <literal>no</literal> may cause address conflict
+          on the network after the leases are lost. So, please take an extra care when disable this setting.
+          When unspecified, the value specified in the same setting in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           which defaults to <literal>yes</literal>, will be used.</para>
+
+          <para>When <varname>RelayTarget=</varname> is specified, this setting will be ignored and no leases
+          will be saved, as there will be no bound lease on the server.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
