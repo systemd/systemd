@@ -73,6 +73,13 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">unit-shell</arg>
+      <arg choice="plain"><replaceable>SERVICE</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>Command</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">exit-status</arg>
       <arg choice="opt" rep="repeat"><replaceable>STATUS</replaceable></arg>
     </cmdsynopsis>
@@ -1116,6 +1123,22 @@ TYPE INPUT  CHID
 LEGEND: M → sys_vendor (LENOVO) ┄ F → product_family (ThinkPad X1 Carbon Gen 9) ┄ P → product_name (20XW0055GE)
         S → product_sku (LENOVO_MT_20XW_BU_Think_FM_ThinkPad X1 Carbon Gen 9) ┄ m → board_vendor (LENOVO)
         p → board_name (20XW0055GE)</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v258"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze unit-shell <replaceable>SERVICE</replaceable> <optional><replaceable>command</replaceable>...</optional></command></title>
+
+      <para>The given command runs on the namespace of the specified running service. If no command is given,
+      spawn and attach a shell with the namespace to the service.</para>
+
+      <example>
+        <title>Example output</title>
+        <programlisting>$ systemd-analyze unit-shell systemd-resolved.service ls
+bin   dev  etc	   home  lib	lib64	lost+found  mnt  proc  run   srv  tmp  var	vmlinuz.old
+boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlinuz	work</programlisting>
       </example>
 
       <xi:include href="version-info.xml" xpointer="v258"/>
