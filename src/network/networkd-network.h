@@ -312,6 +312,7 @@ typedef struct Network {
         uint32_t can_data_phase_buffer_segment_2;
         uint32_t can_data_sync_jump_width;
         usec_t can_restart_us;
+        bool can_restart_us_set;
         uint32_t can_control_mode_mask;
         uint32_t can_control_mode_flags;
         uint16_t can_termination;
