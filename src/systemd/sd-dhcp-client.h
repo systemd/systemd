@@ -145,6 +145,9 @@ int sd_dhcp_client_set_socket_priority(
 int sd_dhcp_client_set_fallback_lease_lifetime(
                 sd_dhcp_client *client,
                 uint64_t fallback_lease_lifetime);
+int sd_dhcp_client_set_bootp(
+                sd_dhcp_client *client,
+                int bootp);
 
 int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
 int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
