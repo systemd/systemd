@@ -4960,6 +4960,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly t PollLimitIntervalUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u PollLimitBurst = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DeferTrigger = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DeferTriggerMaxUSec = ...;
       readonly u UID = ...;
       readonly u GID = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
@@ -5620,6 +5624,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property TriggerLimitBurst is not documented!-->
 
+    <!--property DeferTrigger is not documented!-->
+
+    <!--property DeferTriggerMaxUSec is not documented!-->
+
     <!--property UID is not documented!-->
 
     <!--property GID is not documented!-->
@@ -6233,6 +6241,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="PollLimitIntervalUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PollLimitBurst"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeferTrigger"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeferTriggerMaxUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
 
@@ -12092,8 +12104,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
-      <varname>DelegateNamespaces</varname>, and
-      <function>RemoveSubgroup()</function> were added in version 258.</para>
+      <varname>DelegateNamespaces</varname>,
+      <function>RemoveSubgroup()</function>,
+      <varname>DeferTrigger</varname>, and
+      <varname>DeferTriggerMaxUSec</varname> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>

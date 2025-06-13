@@ -936,6 +936,36 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DeferTrigger=</varname></term>
+
+        <listitem><para>Takes a boolean argument. May only be used when <varname>Accept=no</varname>.
+        If enabled, job mode <literal>meek</literal> instead of <literal>replace</literal> is used when
+        triggering the service, which means currently activating/running units that conflict with the service
+        won't be disturbed/brought down. Furthermore, if a conflict exists, the socket unit will wait for
+        current job queue to complete and potentially defer the activation by then. An upper limit of
+        total time to wait can be configured via <varname>DeferTriggerMaxSec=</varname>. The socket unit
+        will fail if all jobs have finished or the timeout has been reached but the conflict remains.
+        Defaults to false.</para>
+
+        <para>This setting is particularly useful if the socket unit should stay active across switch-root/soft-reboot
+        operations while the triggered service is stopped.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DeferTriggerMaxSec=</varname></term>
+
+        <listitem><para>Configures the maximum time to defer the triggering when <varname>DeferTrigger=</varname>
+        is enabled. If the service cannot be activated within the specified time, the socket will be considered
+        failed and get terminated. Takes a unit-less value in seconds, or a time span value such as "5min 20s".
+        Pass <literal>0</literal> or <literal>infinity</literal> to disable the timeout logic (the default).
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PassFileDescriptorsToExec=</varname></term>
 
         <listitem><para>Takes a boolean argument. Defaults to off. If enabled, file descriptors created by
