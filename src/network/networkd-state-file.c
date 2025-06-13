@@ -8,6 +8,7 @@
 #include "sd-dhcp6-lease.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "dns-resolver-internal.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -280,9 +281,9 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
         use_domains = is_route ? USE_DOMAINS_ROUTE : USE_DOMAINS_YES;
 
         if (link_domains)
-                return ordered_set_put_string_set(s, link_domains);
+                return ordered_set_put_string_set_full(s, &dns_name_hash_ops_free, link_domains);
 
-        r = ordered_set_put_string_set(s, network_domains);
+        r = ordered_set_put_string_set_full(s, &dns_name_hash_ops_free, network_domains);
         if (r < 0)
                 return r;
 
@@ -292,14 +293,14 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
 
                 r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                 if (r >= 0) {
-                        r = ordered_set_put_strdup(s, domainname);
+                        r = ordered_set_put_strdup_full(s, &dns_name_hash_ops_free, domainname);
                         if (r < 0)
                                 return r;
                 }
 
                 r = sd_dhcp_lease_get_search_domains(link->dhcp_lease, &domains);
                 if (r >= 0) {
-                        r = ordered_set_put_strdupv(s, domains);
+                        r = ordered_set_put_strdupv_full(s, &dns_name_hash_ops_free, domains);
                         if (r < 0)
                                 return r;
                 }
@@ -310,7 +311,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
 
                 r = sd_dhcp6_lease_get_domains(link->dhcp6_lease, &domains);
                 if (r >= 0) {
-                        r = ordered_set_put_strdupv(s, domains);
+                        r = ordered_set_put_strdupv_full(s, &dns_name_hash_ops_free, domains);
                         if (r < 0)
                                 return r;
                 }
@@ -320,7 +321,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
                 NDiscDNSSL *a;
 
                 SET_FOREACH(a, link->ndisc_dnssl) {
-                        r = ordered_set_put_strdup(s, ndisc_dnssl_domain(a));
+                        r = ordered_set_put_strdup_full(s, &dns_name_hash_ops_free, ndisc_dnssl_domain(a));
                         if (r < 0)
                                 return r;
                 }
