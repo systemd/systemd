@@ -251,16 +251,16 @@ static int stdout_stream_log(
         if (r <= 0)
                 return r;
 
-        if (s->forward_to_syslog || s->manager->forward_to_syslog)
+        if (s->forward_to_syslog || s->manager->config.forward_to_syslog)
                 manager_forward_syslog(s->manager, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
 
-        if (s->forward_to_kmsg || s->manager->forward_to_kmsg)
+        if (s->forward_to_kmsg || s->manager->config.forward_to_kmsg)
                 manager_forward_kmsg(s->manager, priority, s->identifier, p, &s->ucred);
 
-        if (s->forward_to_console || s->manager->forward_to_console)
+        if (s->forward_to_console || s->manager->config.forward_to_console)
                 manager_forward_console(s->manager, priority, s->identifier, p, &s->ucred);
 
-        if (s->manager->forward_to_wall)
+        if (s->manager->config.forward_to_wall)
                 manager_forward_wall(s->manager, priority, s->identifier, p, &s->ucred);
 
         m = N_IOVEC_META_FIELDS + 7 + client_context_extra_fields_n_iovec(s->context);
