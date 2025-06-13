@@ -4141,12 +4141,11 @@ ServerAddress=192.168.0.1/24</programlisting>
         <term><varname>PersistLeases=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, the DHCP server will load and save leases in the persistent
-          storage. When false, the DHCP server will neither load nor save leases in the persistent storage.
-          Hence, bound leases will be lost when the interface is reconfigured e.g. by
-          <command>networkctl reconfigure</command>, or
-          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          is restarted. That may cause address conflict on the network. So, please take an extra care when
-          disable this setting. When unspecified, the value specified in the same setting in
+          storage. When false, the DHCP server will load and save leases in the runtime storage, hence bound
+          leases will be lost when the runtime storage is cleared by e.g. by calling
+          <command>systemctl clean systemd-networkd.service</command> or the system is rebooted. That may
+          cause address conflict on the network. So, please take an extra care when disable this setting.
+          When unspecified, the value specified in the same setting in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           which defaults to <literal>yes</literal>, will be used.</para>
 

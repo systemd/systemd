@@ -164,9 +164,36 @@ static bool dhcp_server_persist_leases(Link *link) {
         return link->manager->dhcp_server_persist_leases;
 }
 
+static int link_get_dhcp_server_lease_file(Link *link, int *ret_dir_fd, char **ret_path) {
+        _cleanup_free_ char *p = NULL;
+        int fd;
+
+        assert(link);
+        assert(link->ifname);
+        assert(ret_dir_fd);
+        assert(ret_path);
+
+        /* This does not copy fd. Do not close fd stored in ret_dir_fd. */
+
+        if (dhcp_server_persist_leases(link)) {
+                if (link->manager->persistent_storage_fd < 0)
+                        return -EBUSY; /* persistent storage is not ready. */
+
+                fd = link->manager->persistent_storage_fd;
+                p = path_join("dhcp-server-lease", link->ifname);
+        } else {
+                fd = AT_FDCWD;
+                p = path_join("/run/systemd/netif/dhcp-server-lease", link->ifname);
+        }
+        if (!p)
+                return -ENOMEM;
+
+        *ret_dir_fd = fd;
+        *ret_path = TAKE_PTR(p);
+        return 0;
+}
+
 int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *address, union in_addr_union *ret) {
-        struct in_addr a;
-        uint8_t prefixlen;
         int r;
 
         assert(link);
@@ -185,18 +212,16 @@ int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *addr
         if (!link_dhcp4_server_enabled(link))
                 return -ENOENT;
 
-        if (!dhcp_server_persist_leases(link))
-                return -ENOENT;
+        _cleanup_free_ char *lease_file = NULL;
+        int dir_fd;
+        r = link_get_dhcp_server_lease_file(link, &dir_fd, &lease_file);
+        if (r < 0)
+                return r;
 
-        if (link->manager->persistent_storage_fd < 0)
-                return -EBUSY; /* The persistent storage is not ready, try later again. */
-
-        _cleanup_free_ char *lease_file = path_join("dhcp-server-lease", link->ifname);
-        if (!lease_file)
-                return -ENOMEM;
-
+        struct in_addr a;
+        uint8_t prefixlen;
         r = dhcp_server_leases_file_get_server_address(
-                        link->manager->persistent_storage_fd,
+                        dir_fd,
                         lease_file,
                         &a,
                         &prefixlen);
@@ -234,19 +259,17 @@ int link_start_dhcp4_server(Link *link) {
         /* TODO: Maybe, also check the system time is synced. If the system does not have RTC battery, then
          * the realtime clock in not usable in the early boot stage, and all saved leases may be wrongly
          * handled as expired and dropped. */
-        if (dhcp_server_persist_leases(link)) {
+        _cleanup_free_ char *lease_file = NULL;
+        int dir_fd;
+        r = link_get_dhcp_server_lease_file(link, &dir_fd, &lease_file);
+        if (r == -EBUSY)
+                return 0; /* persistent storage is not ready. */
+        if (r < 0)
+                return r;
 
-                if (link->manager->persistent_storage_fd < 0)
-                        return 0; /* persistent storage is not ready. */
-
-                _cleanup_free_ char *lease_file = path_join("dhcp-server-lease", link->ifname);
-                if (!lease_file)
-                        return -ENOMEM;
-
-                r = sd_dhcp_server_set_lease_file(link->dhcp_server, link->manager->persistent_storage_fd, lease_file);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_dhcp_server_set_lease_file(link->dhcp_server, dir_fd, lease_file);
+        if (r < 0)
+                return r;
 
         r = sd_dhcp_server_start(link->dhcp_server);
         if (r < 0)
