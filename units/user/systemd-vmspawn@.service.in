@@ -18,6 +18,7 @@ ExecStart=systemd-vmspawn --quiet --keep-unit --register=yes --network-tap --mac
 KillMode=mixed
 Type=notify
 Slice=machine.slice
+TimeoutSec=2min
 {{SERVICE_WATCHDOG}}
 
 [Install]
