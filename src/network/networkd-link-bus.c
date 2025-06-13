@@ -197,11 +197,13 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        search_domains = ordered_set_new(&string_hash_ops_free);
+        /* The method accepts an empty strv, to override the domains set in .network.
+         * Hence, we need to explicitly allocate empty sets here. */
+        search_domains = ordered_set_new(&dns_name_hash_ops_free);
         if (!search_domains)
                 return -ENOMEM;
 
-        route_domains = ordered_set_new(&string_hash_ops_free);
+        route_domains = ordered_set_new(&dns_name_hash_ops_free);
         if (!route_domains)
                 return -ENOMEM;
 
@@ -506,12 +508,14 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid negative trust anchor domain: %s", *i);
         }
 
+        /* The method accepts an empty strv, to override the negative trust anchors set in .network.
+         * Hence, we need to explicitly allocate an empty set here. */
         ns = set_new(&dns_name_hash_ops_free);
         if (!ns)
                 return -ENOMEM;
 
         STRV_FOREACH(i, ntas) {
-                r = set_put_strdup(&ns, *i);
+                r = set_put_strdup_full(&ns, &dns_name_hash_ops_free, *i);
                 if (r < 0)
                         return r;
         }
