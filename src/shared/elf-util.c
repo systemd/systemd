@@ -89,7 +89,10 @@ static DLSYM_PROTOTYPE(elf_version) = NULL;
 static DLSYM_PROTOTYPE(gelf_getphdr) = NULL;
 static DLSYM_PROTOTYPE(gelf_getnote) = NULL;
 
+#endif
+
 int dlopen_dw(void) {
+#if HAVE_ELFUTILS
         int r;
 
         ELF_NOTE_DLOPEN("dw",
@@ -138,9 +141,13 @@ int dlopen_dw(void) {
                 return r;
 
         return 1;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int dlopen_elf(void) {
+#if HAVE_ELFUTILS
         int r;
 
         ELF_NOTE_DLOPEN("elf",
@@ -165,7 +172,12 @@ int dlopen_elf(void) {
                 return r;
 
         return 1;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
+
+#if HAVE_ELFUTILS
 
 typedef struct StackContext {
         MemStream m;
