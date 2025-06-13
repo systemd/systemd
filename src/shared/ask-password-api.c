@@ -819,6 +819,8 @@ static int create_socket(const char *askpwdir, char **ret) {
         if (r < 0)
                 return r;
 
+        (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+
         *ret = TAKE_PTR(path);
         return TAKE_FD(fd);
 }

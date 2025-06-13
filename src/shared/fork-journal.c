@@ -108,11 +108,12 @@ int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref) {
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         _cleanup_free_ char *addr_string = NULL;
-        r = notify_socket_prepare(
+        r = notify_socket_prepare_full(
                         event,
                         SD_EVENT_PRIORITY_NORMAL-10, /* We want the notification message from the child before the SIGCHLD */
                         on_child_notify,
                         &child,
+                        /* accept_fds = */ false,
                         &addr_string,
                         &notify_event_source);
         if (r < 0)

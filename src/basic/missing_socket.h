@@ -13,6 +13,11 @@
 #define SO_PEERPIDFD 77
 #endif
 
+/* Supported since kernel v6.16 (77cbe1a6d8730a07f99f9263c2d5f2304cf5e830) */
+#ifndef SO_PASSRIGHTS
+#define SO_PASSRIGHTS 83
+#endif
+
 /* Not exposed yet. Defined in include/linux/socket.h. */
 #ifndef SOL_SCTP
 #define SOL_SCTP 132

@@ -1136,6 +1136,10 @@ static int manager_setup_user_lookup_fd(Manager *m) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->user_lookup_fds) < 0)
                         return log_error_errno(errno, "Failed to allocate user lookup socket: %m");
 
+                r = setsockopt_int(m->user_lookup_fds[0], SOL_SOCKET, SO_PASSRIGHTS, false);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_warning_errno(r, "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: %m");
+
                 (void) fd_increase_rxbuf(m->user_lookup_fds[0], MANAGER_SOCKET_RCVBUF_SIZE);
         }
 
@@ -1176,7 +1180,11 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
 
                 r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
-                        return log_error_errno(r, "SO_PASSCRED failed: %m");
+                        return log_error_errno(r, "Failed to enable SO_PASSCRED on handoff timestamp socket: %m");
+
+                r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSRIGHTS, false);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_warning_errno(r, "Failed to turn off SO_PASSRIGHTS on handoff timestamp socket, ignoring: %m");
 
                 /* Mark the receiving socket as O_NONBLOCK (but leave sending side as-is) */
                 r = fd_nonblock(m->handoff_timestamp_fds[0], true);
@@ -1223,7 +1231,7 @@ static int manager_setup_pidref_transport_fd(Manager *m) {
 
                 r = setsockopt_int(m->pidref_transport_fds[0], SOL_SOCKET, SO_PASSPIDFD, true);
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        log_debug("SO_PASSPIDFD is not supported for pidref socket, ignoring.");
+                        log_debug_errno(r, "SO_PASSPIDFD is not supported for pidref socket, ignoring.");
                 else if (r < 0)
                         log_warning_errno(r, "Failed to enable SO_PASSPIDFD for pidref socket, ignoring: %m");
 

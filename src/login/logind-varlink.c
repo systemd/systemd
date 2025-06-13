@@ -335,15 +335,14 @@ int manager_varlink_init(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        r = sd_varlink_server_new(
+        r = varlink_server_new(
                         &s,
                         SD_VARLINK_SERVER_ACCOUNT_UID|
                         SD_VARLINK_SERVER_INHERIT_USERDATA|
-                        SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT);
+                        SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT,
+                        m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
-
-        sd_varlink_server_set_userdata(s, m);
 
         r = sd_varlink_server_add_interface_many(
                         s,

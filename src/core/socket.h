@@ -86,7 +86,7 @@ typedef struct Socket {
         usec_t keep_alive_interval;
         usec_t defer_accept;
 
-        ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
+        ExecCommand *exec_command[_SOCKET_EXEC_COMMAND_MAX];
         ExecContext exec_context;
         KillContext kill_context;
         CGroupContext cgroup_context;
@@ -103,9 +103,11 @@ typedef struct Socket {
 
         sd_event_source *timer_event_source;
 
-        ExecCommand* control_command;
+        ExecCommand *control_command;
         SocketExecCommand control_command_id;
         PidRef control_pid;
+
+        bool pass_fds_to_exec;
 
         mode_t directory_mode;
         mode_t socket_mode;
@@ -129,9 +131,10 @@ typedef struct Socket {
         bool transparent;
         bool broadcast;
         bool pass_cred;
-        bool pass_fds_to_exec;
+        bool pass_pidfd;
         bool pass_sec;
         bool pass_pktinfo;
+        bool pass_rights;
         SocketTimestamping timestamping;
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */

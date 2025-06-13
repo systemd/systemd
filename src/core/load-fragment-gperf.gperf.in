@@ -510,9 +510,10 @@ Socket.FreeBind,                              config_parse_bool,                
 Socket.Transparent,                           config_parse_bool,                                  0,                                  offsetof(Socket, transparent)
 Socket.Broadcast,                             config_parse_bool,                                  0,                                  offsetof(Socket, broadcast)
 Socket.PassCredentials,                       config_parse_bool,                                  0,                                  offsetof(Socket, pass_cred)
-Socket.PassFileDescriptorsToExec,             config_parse_bool,                                  0,                                  offsetof(Socket, pass_fds_to_exec)
+Socket.PassPIDFD,                             config_parse_bool,                                  0,                                  offsetof(Socket, pass_pidfd)
 Socket.PassSecurity,                          config_parse_bool,                                  0,                                  offsetof(Socket, pass_sec)
 Socket.PassPacketInfo,                        config_parse_bool,                                  0,                                  offsetof(Socket, pass_pktinfo)
+Socket.AcceptFileDescriptors,                 config_parse_bool,                                  0,                                  offsetof(Socket, pass_rights)
 Socket.Timestamping,                          config_parse_socket_timestamping,                   0,                                  offsetof(Socket, timestamping)
 Socket.TCPCongestion,                         config_parse_string,                                0,                                  offsetof(Socket, tcp_congestion)
 Socket.ReusePort,                             config_parse_bool,                                  0,                                  offsetof(Socket, reuse_port)
@@ -522,6 +523,7 @@ Socket.RemoveOnStop,                          config_parse_bool,                
 Socket.Symlinks,                              config_parse_unit_path_strv_printf,                 0,                                  offsetof(Socket, symlinks)
 Socket.FileDescriptorName,                    config_parse_fdname,                                0,                                  0
 Socket.Service,                               config_parse_socket_service,                        0,                                  0
+Socket.PassFileDescriptorsToExec,             config_parse_bool,                                  0,                                  offsetof(Socket, pass_fds_to_exec)
 Socket.TriggerLimitIntervalSec,               config_parse_sec,                                   0,                                  offsetof(Socket, trigger_limit.interval)
 Socket.TriggerLimitBurst,                     config_parse_unsigned,                              0,                                  offsetof(Socket, trigger_limit.burst)
 Socket.PollLimitIntervalSec,                  config_parse_sec,                                   0,                                  offsetof(Socket, poll_limit.interval)

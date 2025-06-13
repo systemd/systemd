@@ -166,11 +166,11 @@ struct sd_varlink {
         bool prefer_write:1;
         bool got_pollhup:1;
 
-        bool allow_fd_passing_input:1;
-        bool allow_fd_passing_output:1;
-
         bool output_buffer_sensitive:1; /* whether to erase the output buffer after writing it to the socket */
         bool input_sensitive:1; /* Whether incoming messages might be sensitive */
+
+        bool allow_fd_passing_output;
+        int allow_fd_passing_input;
 
         int af; /* address family if socket; AF_UNSPEC if not socket; negative if not known */
 

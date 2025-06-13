@@ -743,6 +743,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PassPIDFD=</varname></term>
+
+        <listitem><para>Takes a boolean value. This controls the <constant>SO_PASSPIDFD</constant> socket
+        option, which allows <constant>AF_UNIX</constant> sockets to receive the pidfd of the sending
+        process in an ancillary message. Defaults to <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PassSecurity=</varname></term>
         <listitem><para>Takes a boolean value. This controls the <constant>SO_PASSSEC</constant> socket
         option, which allows <constant>AF_UNIX</constant> sockets to receive the security context of the
@@ -759,6 +769,17 @@
         <option>false</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AcceptFileDescriptors=</varname></term>
+
+        <listitem><para>Takes a boolean value. This controls the <constant>SO_PASSRIGHTS</constant> socket
+        option, which when disabled prohibits the peer from sending <constant>SCM_RIGHTS</constant>
+        ancillary messages (aka file descriptors) via <constant>AF_UNIX</constant> sockets. Defaults to
+        <option>true</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
