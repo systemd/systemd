@@ -523,6 +523,23 @@ static int get_firmware_date(Context *c, usec_t *ret) {
         return 0;
 }
 
+static int property_get_hardware_serial(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *serial = NULL;
+        Context *c = ASSERT_PTR(userdata);
+
+        (void) get_hardware_serial(c, &serial);
+
+        return sd_bus_message_append(reply, "s", serial);
+}
+
 static const char* valid_chassis(const char *chassis) {
         assert(chassis);
 
@@ -1785,6 +1802,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("HardwareVendor", "s", property_get_hardware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareModel", "s", property_get_hardware_model, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareSKU", "s", property_get_hardware_sku, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareSerial", "s", property_get_hardware_serial, 0, SD_BUS_VTABLE_PROPERTY_CONST), // <-- add this line
         SD_BUS_PROPERTY("HardwareVersion", "s", property_get_hardware_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FirmwareVersion", "s", property_get_firmware_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FirmwareVendor", "s", property_get_firmware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
