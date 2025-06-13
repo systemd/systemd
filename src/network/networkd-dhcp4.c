@@ -1498,6 +1498,11 @@ static int dhcp4_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to allocate DHCPv4 client: %m");
 
+        r = sd_dhcp_client_set_bootp(link->dhcp_client, link->network->dhcp_use_bootp);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to %s BOOTP: %m",
+                                            enable_disable(link->network->dhcp_use_bootp));
+
         r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to attach event to DHCPv4 client: %m");
@@ -1855,7 +1860,7 @@ int link_request_dhcp4_client(Link *link) {
 }
 
 int link_drop_dhcp4_config(Link *link, Network *network) {
-        int ret = 0;
+        int r, ret = 0;
 
         assert(link);
         assert(link->network);
@@ -1872,6 +1877,17 @@ int link_drop_dhcp4_config(Link *link, Network *network) {
                  * .network file may match to the interface, and DHCPv4 client may be disabled. In that case,
                  * the DHCPv4 client is not running, hence sd_dhcp_client_stop() in the above does nothing. */
                 RET_GATHER(ret, dhcp4_remove_address_and_routes(link, /* only_marked = */ false));
+        }
+
+        if (link->dhcp_client && link->network->dhcp_use_bootp &&
+            network && !network->dhcp_use_bootp && network->dhcp_send_release) {
+                /* If the client was enabled as a DHCP client, and is now enabled as a BOOTP client, release
+                 * the previous lease. Note, this can be easily fail, e.g. when the interface is down. Hence,
+                 * ignore any failures here. */
+                r = sd_dhcp_client_send_release(link->dhcp_client);
+                if (r < 0)
+                        log_link_full_errno(link, ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            "Failed to send DHCP RELEASE, ignoring: %m");
         }
 
         /* Even if the client is currently enabled and also enabled in the new .network file, detailed

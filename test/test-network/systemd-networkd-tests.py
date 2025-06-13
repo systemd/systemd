@@ -7746,6 +7746,62 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('DHCPREQUEST(veth-peer)', output)
         self.assertIn('DHCPACK(veth-peer)', output)
 
+    def check_bootp_client(self, check_log):
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+        output = check_output('ip -4 address show dev veth99')
+        print(output)
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24')
+
+        state = get_dhcp4_client_state('veth99')
+        print(f"DHCPv4 client state = {state}")
+        self.assertEqual(state, 'bound')
+
+        if check_log:
+            output = read_dnsmasq_log_file()
+            print(output)
+            self.assertIn('BOOTP(veth-peer)', output)
+            self.assertNotIn('DHCPDISCOVER(veth-peer)', output)
+            self.assertNotIn('DHCPOFFER(veth-peer)', output)
+            self.assertNotIn('DHCPREQUEST(veth-peer)', output)
+            self.assertNotIn('DHCPACK(veth-peer)', output)
+
+    def test_bootp_client(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-bootp-client.network')
+        start_networkd()
+        self.wait_online('veth-peer:carrier')
+        start_dnsmasq('--dhcp-host=12:34:56:78:9a:bc,192.168.5.42,trixie-mule')
+        self.check_bootp_client(check_log=True)
+
+        touch_network_unit('25-bootp-client.network')
+        networkctl_reload()
+        self.check_bootp_client(check_log=True)
+
+        with open(os.path.join(network_unit_dir, '25-bootp-client.network'), mode='a', encoding='utf-8') as f:
+            f.write('[DHCPv4]\nBOOTP=no\n')
+
+        networkctl_reload()
+        self.check_bootp_client(check_log=False)
+
+        output = read_dnsmasq_log_file()
+        print(output)
+        # Note, on reload, the DHCP client will be started from INIT-REBOOT state,
+        # hence DISCOVER and OFFER message will not be sent/received.
+        self.assertNotIn('DHCPDISCOVER(veth-peer)', output)
+        self.assertNotIn('DHCPOFFER(veth-peer)', output)
+        self.assertIn('DHCPREQUEST(veth-peer)', output)
+        self.assertIn('DHCPACK(veth-peer)', output)
+
+        with open(os.path.join(network_unit_dir, '25-bootp-client.network'), mode='a', encoding='utf-8') as f:
+            f.write('[DHCPv4]\nBOOTP=yes\n')
+
+        since = datetime.datetime.now()
+
+        networkctl_reload()
+        self.check_bootp_client(check_log=False)
+
+        # Check if the client send RELEASE message of the previous lease
+        self.check_networkd_log('veth99: DHCPv4 client: RELEASE', since=since)
+
     def test_dhcp_client_ipv6_only_mode_without_ipv6_connectivity(self):
         copy_network_unit('25-veth.netdev',
                           '25-dhcp-server-ipv6-only-mode.network',
