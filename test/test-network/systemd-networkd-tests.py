@@ -4404,6 +4404,42 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('local 192.0.2.1 table local proto kernel scope host src 192.0.2.1', output)
         self.assertIn('198.51.100.0/24 via 192.0.2.2 proto static', output)
 
+    def test_route_static_issue_37714(self):
+        copy_network_unit('12-dummy.netdev', '25-route-static-issue-37714.network')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -4 rule list table 249')
+        output = check_output('ip -4 rule list table 249')
+        print(output)
+        self.assertIn('32765:	from 192.168.0.227 lookup 249 proto static', output)
+
+        print('### ip -6 rule list table 249')
+        output = check_output('ip -6 rule list table 249')
+        print(output)
+        self.assertIn('32765:	from 2000:f00::227 lookup 249 proto static', output)
+
+        print('### ip -4 route show table all dev dummy98')
+        output = check_output('ip -4 route show table all dev dummy98')
+        print(output)
+        self.assertIn('default via 192.168.0.193 table 249 proto static src 192.168.0.227 metric 128 onlink', output)
+        self.assertIn('192.168.0.192/26 table 249 proto static scope link src 192.168.0.227 metric 128', output)
+        self.assertIn('10.1.2.2 via 192.168.0.193 proto static src 192.168.0.227 metric 128 onlink', output)
+        self.assertIn('192.168.0.72 via 192.168.0.193 proto static src 192.168.0.227 metric 128 onlink', output)
+        self.assertIn('192.168.0.193 proto static scope link src 192.168.0.227 metric 128', output)
+        self.assertIn('local 192.168.0.227 table local proto kernel scope host src 192.168.0.227', output)
+        self.assertIn('broadcast 192.168.0.255 table local proto kernel scope link src 192.168.0.227', output)
+
+        print('### ip -6 route show table all dev dummy98')
+        output = check_output('ip -6 route show table all dev dummy98')
+        print(output)
+        self.assertIn('2000:f00::/64 table 249 proto static src 2000:f00::227 metric 128 pref medium', output)
+        self.assertIn('default via 2000:f00::1 table 249 proto static src 2000:f00::227 metric 128 onlink pref medium', output)
+        self.assertIn('fe80::/64 proto kernel metric 256 pref medium', output)
+        self.assertIn('local 2000:f00::227 table local proto kernel metric 0 pref medium', output)
+        self.assertRegex(output, 'local fe80:[a-f0-9:]* table local proto kernel metric 0 pref medium', output)
+        self.assertIn('multicast ff00::/8 table local proto kernel metric 256 pref medium', output)
+
     @expectedFailureIfRTA_VIAIsNotSupported()
     def test_route_via_ipv6(self):
         copy_network_unit('25-route-via-ipv6.network', '12-dummy.netdev')
