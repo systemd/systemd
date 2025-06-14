@@ -1605,9 +1605,13 @@ int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, int dir_fd, const char
         if (!path_is_safe(path))
                 return -EINVAL;
 
-        _cleanup_close_ int fd = fd_reopen(dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (fd < 0)
-                return fd;
+        _cleanup_close_ int fd = AT_FDCWD; /* Unlike our usual coding style, AT_FDCWD needs to be set,
+                                            * to pass a 'valid' fd. */
+        if (dir_fd >= 0) {
+                fd = fd_reopen(dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (fd < 0)
+                        return fd;
+        }
 
         r = free_and_strdup(&server->lease_file, path);
         if (r < 0)
