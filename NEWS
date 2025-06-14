@@ -101,6 +101,12 @@ CHANGES WITH 258 in spe:
           IPv4DuplicateAddressDetectionTimeoutSec=. The default timeout value
           has been changed from 7 seconds to 200 milliseconds.
 
+        * systemd-networkd previously emitted the machine ID as chassis ID
+          through LLDP protocol, but now emits a random (but based on the
+          machine ID, hence it is static) chassis ID. If you want to use the
+          previous behavior, please set SD_LLDP_SEND_MACHINE_ID=1 environment
+          variable to systemd-networkd.
+
         * Support for the !! command line prefix on ExecStart= lines (and
           related) has been removed, and if specified will be ignored. The
           concept was supposed to provide compatibility with kernels that
