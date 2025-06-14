@@ -5,6 +5,7 @@
 #include "sd-lldp-tx.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hostname-setup.h"
@@ -16,6 +17,8 @@
 #include "time-util.h"
 #include "unaligned.h"
 #include "web-util.h"
+
+#define LLDP_APP_ID SD_ID128_MAKE(07,3a,43,bf,54,de,40,8d,8e,c4,96,ed,fd,94,72,dc)
 
 /* The LLDP spec calls this "txFastInit", see 9.2.5.19 */
 #define LLDP_FAST_TX_INIT 4U
@@ -343,7 +346,15 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         if (r < 0)
                 return r;
 
-        r = sd_id128_get_machine(&machine_id);
+        /* Unfortunately we previously exposed machine ID. If the environment variable is set, then
+         * use the machine ID as is. Otherwise, use application specific one. */
+        r = secure_getenv_bool("SD_LLDP_SEND_MACHINE_ID");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SD_LLDP_SEND_MACHINE_ID, ignoring: %m");
+        if (r > 0)
+                r = sd_id128_get_machine(&machine_id);
+        else
+                r = sd_id128_get_machine_app_specific(LLDP_APP_ID, &machine_id);
         if (r < 0)
                 return r;
 
