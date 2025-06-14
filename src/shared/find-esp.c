@@ -914,3 +914,56 @@ int find_xbootldr_and_warn(
 
         return 0;
 }
+
+int find_esp_and_xbootldr_paths_and_warn(
+                const char *root,
+                const char *esp_path,
+                const char *xbootldr_path,
+                int unprivileged_mode,
+                char ***ret_paths,
+                sd_id128_t *ret_esp_uuid,
+                sd_id128_t *ret_xbootldr_uuid,
+                dev_t *ret_esp_devid,
+                dev_t *ret_xbootldr_devid) {
+
+        _cleanup_free_ char *esp = NULL, *xbootldr = NULL;
+        dev_t esp_devid = 0, xbootldr_devid = 0;
+        sd_id128_t esp_uuid, xbootldr_uuid;
+        char **a;
+        int r;
+
+        assert(ret_paths);
+
+        r = find_esp_and_warn(root, esp_path, unprivileged_mode, &esp, /* ret_part= */ NULL, /* ret_pstart= */ NULL, /* ret_psize= */ NULL, &esp_uuid, &esp_devid);
+        if (r < 0 && r != -ENOKEY) /* ENOKEY means not found */
+                return r;
+
+        r = find_xbootldr_and_warn(root, xbootldr_path, unprivileged_mode, &xbootldr, &xbootldr_uuid, &xbootldr_devid);
+        if (r < 0 && r != -ENOKEY)
+                return r;
+
+        if (!esp && !xbootldr)
+                return -ENOENT;
+
+        if (esp && xbootldr && !devnum_set_and_equal(esp_devid, xbootldr_devid)) /* in case the two paths refer to the same inode, suppress one */
+                a = strv_new(esp, xbootldr);
+        else if (esp)
+                a = strv_new(esp);
+        else
+                a = strv_new(xbootldr);
+        if (!a)
+                return -ENOMEM;
+
+        *ret_paths = a;
+
+        if (ret_esp_uuid)
+                *ret_esp_uuid = esp_uuid;
+        if (ret_xbootldr_uuid)
+                *ret_xbootldr_uuid = xbootldr_uuid;
+        if (ret_esp_devid)
+                *ret_esp_devid = esp_devid;
+        if (ret_xbootldr_devid)
+                *ret_xbootldr_devid = xbootldr_devid;
+
+        return 0;
+}
