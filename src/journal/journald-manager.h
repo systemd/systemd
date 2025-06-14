@@ -55,6 +55,23 @@ typedef struct SeqnumData {
         uint64_t seqnum;
 } SeqnumData;
 
+typedef struct JournalConfig {
+        SocketAddress forward_to_socket;
+        Storage storage;
+
+        bool forward_to_kmsg;
+        bool forward_to_syslog;
+        bool forward_to_console;
+        bool forward_to_wall;
+
+        int max_level_store;
+        int max_level_syslog;
+        int max_level_kmsg;
+        int max_level_console;
+        int max_level_wall;
+        int max_level_socket;
+} JournalConfig;
+
 typedef struct Manager {
         char *namespace;
 
@@ -111,12 +128,6 @@ typedef struct Manager {
         bool sent_notify_ready;
         bool sync_scheduled;
 
-        bool forward_to_kmsg;
-        bool forward_to_syslog;
-        bool forward_to_console;
-        bool forward_to_wall;
-        SocketAddress forward_to_socket;
-
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
 
@@ -130,14 +141,6 @@ typedef struct Manager {
 
         char *tty_path;
 
-        int max_level_store;
-        int max_level_syslog;
-        int max_level_kmsg;
-        int max_level_console;
-        int max_level_wall;
-        int max_level_socket;
-
-        Storage storage;
         SplitMode split_mode;
 
         MMapCache *mmap;
@@ -183,6 +186,11 @@ typedef struct Manager {
 
         /* Pending synchronization requests with non-zero rqlen counter */
         LIST_HEAD(SyncReq, sync_req_pending_rqlen);
+
+        JournalConfig config;
+        JournalConfig config_by_cred;
+        JournalConfig config_by_conf;
+        JournalConfig config_by_cmdline;
 } Manager;
 
 #define MANAGER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
@@ -209,6 +217,21 @@ void manager_dispatch_message(Manager *m, struct iovec *iovec, size_t n, size_t 
 void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *format, ...) _sentinel_;
 #define manager_driver_message(...) manager_driver_message_internal(__VA_ARGS__, NULL)
 
+#define JOURNAL_CONFIG_INIT                                                                     \
+        (JournalConfig) {                                                                       \
+                .forward_to_socket = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC },    \
+                .storage = _STORAGE_INVALID,                                                    \
+                .forward_to_kmsg = false,                                                       \
+                .forward_to_syslog = false,                                                     \
+                .forward_to_console = false,                                                    \
+                .forward_to_wall = false,                                                       \
+                .max_level_store = -1,                                                          \
+                .max_level_syslog = -1,                                                         \
+                .max_level_kmsg = -1,                                                           \
+                .max_level_console = -1,                                                        \
+                .max_level_wall = -1,                                                           \
+        }
+
 /* gperf lookup function */
 const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
@@ -225,8 +248,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
 const char* split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;
 
-int manager_new(Manager **ret);
-int manager_init(Manager *m, const char *namespace);
+int manager_new(Manager **ret, const char *namespace);
+int manager_init(Manager *m);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 void manager_full_sync(Manager *m, bool wait);

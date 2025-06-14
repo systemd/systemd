@@ -52,7 +52,7 @@ void manager_forward_console(
         assert(m);
         assert(message);
 
-        if (LOG_PRI(priority) > m->max_level_console)
+        if (LOG_PRI(priority) > m->config.max_level_console)
                 return;
 
         /* First: timestamp */
