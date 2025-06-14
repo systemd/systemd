@@ -723,7 +723,7 @@ static int context_inspect_kernel(Context *c) {
         if (!c->kernel)
                 return 0;
 
-        return inspect_kernel(c->rfd, c->kernel, &c->kernel_image_type, NULL, NULL, NULL);
+        return inspect_kernel(/* kernel_fd= */ -EBADF, c->rfd, c->kernel, &c->kernel_image_type, NULL, NULL, NULL);
 }
 
 static int context_ensure_layout(Context *c) {

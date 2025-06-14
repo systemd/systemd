@@ -120,6 +120,7 @@ static int inspect_uki(
 }
 
 int inspect_kernel(
+                int kernel_fd,
                 int dir_fd,
                 const char *filename,
                 KernelImageType *ret_type,
@@ -134,34 +135,37 @@ int inspect_kernel(
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(filename);
+        assert(kernel_fd >= 0 || dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(kernel_fd >= 0 || filename);
 
-        fd = openat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open kernel image file '%s': %m", filename);
+        if (kernel_fd < 0) {
+                fd = openat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open kernel image file '%s': %m", filename);
+                kernel_fd = fd;
+        }
 
-        r = pe_load_headers(fd, &dos_header, &pe_header);
+        r = pe_load_headers(kernel_fd, &dos_header, &pe_header);
         if (r == -EBADMSG) /* not a valid PE file */
                 goto not_uki;
         if (r < 0)
                 return log_error_errno(r, "Failed to parse kernel image file '%s': %m", filename);
 
-        r = pe_load_sections(fd, dos_header, pe_header, &sections);
+        r = pe_load_sections(kernel_fd, dos_header, pe_header, &sections);
         if (r == -EBADMSG) /* not a valid PE file */
                 goto not_uki;
         if (r < 0)
                 return log_error_errno(r, "Failed to load PE sections from kernel image file '%s': %m", filename);
 
         if (pe_is_uki(pe_header, sections)) {
-                r = inspect_uki(fd, pe_header, sections, ret_cmdline, ret_uname, ret_pretty_name);
+                r = inspect_uki(kernel_fd, pe_header, sections, ret_cmdline, ret_uname, ret_pretty_name);
                 if (r < 0)
                         return r;
 
                 t = KERNEL_IMAGE_TYPE_UKI;
                 goto done;
         } else if (pe_is_addon(pe_header, sections)) {
-                r = inspect_uki(fd, pe_header, sections, ret_cmdline, ret_uname, /* ret_pretty_name= */ NULL);
+                r = inspect_uki(kernel_fd, pe_header, sections, ret_cmdline, ret_uname, /* ret_pretty_name= */ NULL);
                 if (r < 0)
                         return r;
 
