@@ -70,6 +70,13 @@ typedef struct CoffFileHeader {
 #define OPTHDR32_MAGIC 0x10B /* PE32  OptionalHeader */
 #define OPTHDR64_MAGIC 0x20B /* PE32+ OptionalHeader */
 
+typedef struct PeImageDataDirectory {
+        uint32_t VirtualAddress;
+        uint32_t Size;
+} _packed_ PeImageDataDirectory;
+
+#define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
+
 typedef struct PeOptionalHeader {
         uint16_t Magic;
         uint8_t  LinkerMajor;
@@ -100,7 +107,28 @@ typedef struct PeOptionalHeader {
         uint32_t CheckSum;
         uint16_t Subsystem;
         uint16_t DllCharacteristics;
-        /* fields with different sizes for 32/64 omitted */
+        union {
+                struct {
+                        uint64_t SizeOfStackReserve64;
+                        uint64_t SizeOfStackCommit64;
+                        uint64_t SizeOfHeapReserve64;
+                        uint64_t SizeOfHeapCommit64;
+                        uint32_t LoaderFlags64;
+                        uint32_t NumberOfRvaAndSizes64;
+
+                        PeImageDataDirectory DataDirectory64[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
+                };
+                struct {
+                        uint32_t SizeOfStackReserve32;
+                        uint32_t SizeOfStackCommit32;
+                        uint32_t SizeOfHeapReserve32;
+                        uint32_t SizeOfHeapCommit32;
+                        uint32_t LoaderFlags32;
+                        uint32_t NumberOfRvaAndSizes32;
+
+                        PeImageDataDirectory DataDirectory32[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
+                };
+        };
 } _packed_ PeOptionalHeader;
 
 typedef struct PeFileHeader {
@@ -430,9 +458,8 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t *ret_size_in_memory) {
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t *ret_compat_entry_point, uint64_t *ret_image_base, size_t *ret_size_in_memory) {
         assert(base);
-        assert(ret_compat_address);
 
         const DosFileHeader *dos = (const DosFileHeader *) base;
         if (!verify_dos(dos))
@@ -442,26 +469,89 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t
         if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
+        uint64_t image_base;
+        switch (pe->OptionalHeader.Magic) {
+        case OPTHDR32_MAGIC:
+                image_base = pe->OptionalHeader.ImageBase32;
+                break;
+        case OPTHDR64_MAGIC:
+                image_base = pe->OptionalHeader.ImageBase64;
+                break;
+        default:
+                assert_not_reached();
+        }
+
         /* When allocating we need to also consider the virtual/uninitialized data sections, so parse it out
          * of the SizeOfImage field in the PE header and return it */
-        if (ret_size_in_memory)
-                *ret_size_in_memory = pe->OptionalHeader.SizeOfImage;
+        size_t size_in_memory = pe->OptionalHeader.SizeOfImage;
 
         /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
         if (pe->OptionalHeader.MajorImageVersion < 1)
                 return EFI_UNSUPPORTED;
 
         if (pe->FileHeader.Machine == TARGET_MACHINE_TYPE) {
-                *ret_compat_address = 0;
+                if (ret_entry_point)
+                        *ret_entry_point = pe->OptionalHeader.AddressOfEntryPoint;
+                if (ret_compat_entry_point)
+                        *ret_compat_entry_point = 0;
+                if (ret_image_base)
+                        *ret_image_base = image_base;
+                if (ret_size_in_memory)
+                        *ret_size_in_memory = size_in_memory;
                 return EFI_SUCCESS;
         }
 
-        uint32_t compat_address = get_compatibility_entry_address(dos, pe);
-        if (compat_address == 0)
+        uint32_t compat_entry_point = get_compatibility_entry_address(dos, pe);
+        if (compat_entry_point == 0)
                 /* Image type not supported and no compat entry found. */
                 return EFI_UNSUPPORTED;
 
-        *ret_compat_address = compat_address;
+        if (ret_entry_point)
+                *ret_entry_point = 0;
+        if (ret_compat_entry_point)
+                *ret_compat_entry_point = compat_entry_point;
+        if (ret_image_base)
+                *ret_image_base = image_base;
+        if (ret_size_in_memory)
+                *ret_size_in_memory = size_in_memory;
+
+        return EFI_SUCCESS;
+}
+
+/* https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#optional-header-data-directories-image-only */
+#define BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY 5
+
+/* We do not expect PE inner kernels to have any relocations. However that might be wrong for some
+ * architectures, or it might change in the future. If the case of relocation arise, we should transform this
+ * function in a function applying the relocations. However for now, since it would not be exercised and
+ * would bitrot, we leave it as a check that relocations are never expected.
+ */
+EFI_STATUS pe_kernel_check_no_relocation(const void *base) {
+        assert(base);
+
+        const DosFileHeader *dos = base;
+        if (!verify_dos(dos))
+                return EFI_LOAD_ERROR;
+
+        const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
+        if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
+                return EFI_LOAD_ERROR;
+
+        const PeImageDataDirectory *data_directory;
+        switch (pe->OptionalHeader.Magic) {
+        case OPTHDR32_MAGIC:
+                data_directory = pe->OptionalHeader.DataDirectory32;
+                break;
+        case OPTHDR64_MAGIC:
+                data_directory = pe->OptionalHeader.DataDirectory64;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        if (data_directory[BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY].Size != 0)
+                return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains base relocations, which we do not support.");
+
         return EFI_SUCCESS;
 }
 
