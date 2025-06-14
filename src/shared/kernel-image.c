@@ -120,6 +120,7 @@ static int inspect_uki(
 }
 
 int inspect_kernel(
+                int fd,
                 int dir_fd,
                 const char *filename,
                 KernelImageType *ret_type,
@@ -131,15 +132,18 @@ int inspect_kernel(
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
         KernelImageType t = KERNEL_IMAGE_TYPE_UNKNOWN;
         _cleanup_free_ PeHeader *pe_header = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_close_ int internal_fd = -EBADF;
         int r;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(filename);
+        assert(fd >= 0 || dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(fd >= 0 || filename);
 
-        fd = openat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open kernel image file '%s': %m", filename);
+        if (fd < 0) {
+                internal_fd = openat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
+                if (internal_fd < 0)
+                        return log_error_errno(errno, "Failed to open kernel image file '%s': %m", filename);
+                fd = internal_fd;
+        }
 
         r = pe_load_headers(fd, &dos_header, &pe_header);
         if (r == -EBADMSG) /* not a valid PE file */
