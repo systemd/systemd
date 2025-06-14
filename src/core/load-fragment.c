@@ -132,6 +132,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGrou
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_private_bpf, private_bpf, PrivateBPF);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_tmp, private_tmp, PrivateTmp);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_users, private_users, PrivateUsers);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_pids, private_pids, PrivatePIDs);
@@ -6226,6 +6227,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_personality,           "PERSONALITY" },
                 { config_parse_log_filter_patterns,   "REGEX" },
                 { config_parse_mount_node,            "NODE" },
+                { config_parse_bpf_delegate,          "BPF_DELEGATE" },
         };
 
         const char *prev = NULL;
@@ -6642,5 +6644,37 @@ int config_parse_protect_hostname(
 
         c->protect_hostname = t;
         free_and_replace(c->private_hostname, h);
+        return 1;
+}
+
+int config_parse_bpf_delegate(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        uint64_t *number = data;
+
+        if (streq(lvalue, "BPFDelegateCommands"))
+                bpf_delegate_commands_from_string(rvalue, number);
+        else if (streq(lvalue, "BPFDelegateMaps"))
+                puts("BPF_DELEGATE_MAPS"); // WIP
+        else if (streq(lvalue, "BPFDelegatePrograms"))
+                puts("BPF_DELEGATE_PROGRAMS");
+        else if (streq(lvalue, "BPFDelegateAttachments")) // WIP
+                puts("BPF_DELEGATE_ATTACHMENTS"); // WIP
+        else
+                return 0;
+
         return 1;
 }

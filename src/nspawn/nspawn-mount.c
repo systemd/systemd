@@ -514,6 +514,14 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
 
         (void) mkdir_p(x, 0755);
 
+        /* Same for bpf */
+        free(x);
+        x = path_join(top, "/fs/bpf");
+        if (!x)
+                return log_oom();
+
+        (void) mkdir_p(x, 0755);
+
         return mount_nofollow_verbose(LOG_ERR, NULL, top, NULL,
                                       MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
 }
