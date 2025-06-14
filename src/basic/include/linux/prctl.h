@@ -2,6 +2,12 @@
 #ifndef _LINUX_PRCTL_H
 #define _LINUX_PRCTL_H
 
+#include <features.h>
+
+#ifndef __GLIBC__
+#include <sys/prctl.h>
+#endif
+
 #include <linux/types.h>
 
 /* Values to pass as first argument to prctl() */
@@ -125,6 +131,8 @@
 # define PR_SET_MM_MAP			14
 # define PR_SET_MM_MAP_SIZE		15
 
+#ifdef __GLIBC__
+
 /*
  * This structure provides new memory descriptor
  * map which mostly modifies /proc/pid/stat[m]
@@ -147,6 +155,8 @@ struct prctl_mm_map {
 	__u32	auxv_size;		/* vector size */
 	__u32	exe_fd;			/* /proc/$pid/exe link file */
 };
+
+#endif
 
 /*
  * Set specific pid that is allowed to ptrace the current task.

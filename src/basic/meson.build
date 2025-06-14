@@ -30,6 +30,7 @@ basic_sources = files(
         'env-file.c',
         'env-util.c',
         'errno-list.c',
+        'errno-util.c',
         'escape.c',
         'ether-addr-util.c',
         'extract-word.c',
@@ -194,6 +195,10 @@ endforeach
 
 generated_sources += generated_gperf_headers
 basic_sources += generated_gperf_headers
+
+if conf.get('HAVE_PRINTF_H') != 1
+        basic_sources += [files('parse-printf-format.c')]
+endif
 
 ############################################################
 

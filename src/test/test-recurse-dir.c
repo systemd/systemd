@@ -11,6 +11,10 @@
 #include "tests.h"
 #include "time-util.h"
 
+#ifndef FTW_CONTINUE
+#define FTW_CONTINUE 0
+#endif
+
 static char **list_nftw = NULL;
 
 static int nftw_cb(

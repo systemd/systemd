@@ -10,6 +10,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "umask-util.h"

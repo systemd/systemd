@@ -22,6 +22,11 @@
 #ifndef _LINUX_IF_ETHER_H
 #define _LINUX_IF_ETHER_H
 
+#include <features.h>
+#ifndef __GLIBC__
+#include <netinet/if_ether.h>
+#endif
+
 #include <linux/types.h>
 
 /*

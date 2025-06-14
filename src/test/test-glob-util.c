@@ -33,6 +33,12 @@ TEST(glob_first) {
         ASSERT_NULL(first);
 }
 
+/* Don't fail if the standard library
+ * doesn't provide brace expansion */
+#ifndef GLOB_BRACE
+#define GLOB_BRACE 0
+#endif
+
 TEST(glob_exists) {
         char name[] = "/tmp/test-glob_exists.XXXXXX";
         int fd = -EBADF;
@@ -51,20 +57,24 @@ TEST(glob_exists) {
         assert_se(r == 0);
 }
 
+#ifdef GLOB_ALTDIRFUNC
 static void closedir_wrapper(void* v) {
         (void) closedir(v);
 }
+#endif
 
 TEST(glob_no_dot) {
         char template[] = "/tmp/test-glob-util.XXXXXXX";
         const char *fn;
 
         _cleanup_globfree_ glob_t g = {
+#ifdef GLOB_ALTDIRFUNC
                 .gl_closedir = closedir_wrapper,
                 .gl_readdir = (struct dirent *(*)(void *)) readdir_no_dot,
                 .gl_opendir = (void *(*)(const char *)) opendir,
                 .gl_lstat = lstat,
                 .gl_stat = stat,
+#endif
         };
 
         int r;
@@ -72,11 +82,19 @@ TEST(glob_no_dot) {
         assert_se(mkdtemp(template));
 
         fn = strjoina(template, "/*");
+#ifdef GLOB_ALTDIRFUNC
         r = glob(fn, GLOB_NOSORT|GLOB_BRACE|GLOB_ALTDIRFUNC, NULL, &g);
+#else
+        r = glob(fn, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
+#endif
         assert_se(r == GLOB_NOMATCH);
 
         fn = strjoina(template, "/.*");
+#ifdef GLOB_ALTDIRFUNC
         r = glob(fn, GLOB_NOSORT|GLOB_BRACE|GLOB_ALTDIRFUNC, NULL, &g);
+#else
+        r = glob(fn, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
+#endif
         assert_se(r == GLOB_NOMATCH);
 
         (void) rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL);
