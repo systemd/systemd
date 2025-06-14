@@ -1973,6 +1973,9 @@ static int add_object_vtable_internal(
                 }
         }
 
+        if (!existing)
+                existing = LIST_FIND_TAIL(vtables, n->vtables);
+
         s->node_vtable.node = n;
         LIST_INSERT_AFTER(vtables, n->vtables, existing, &s->node_vtable);
         bus->nodes_modified = true;
