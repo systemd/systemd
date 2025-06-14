@@ -21,4 +21,5 @@ int inspect_kernel(
                 KernelImageType *ret_type,
                 char **ret_cmdline,
                 char **ret_uname,
-                char **ret_pretty_name);
+                char **ret_pretty_name,
+                char **ret_osrel);

@@ -83,9 +83,10 @@ static int inspect_uki(
                 const IMAGE_SECTION_HEADER *sections,
                 char **ret_cmdline,
                 char **ret_uname,
-                char **ret_pretty_name) {
+                char **ret_pretty_name,
+                char **ret_osrel) {
 
-        _cleanup_free_ char *cmdline = NULL, *uname = NULL, *pname = NULL;
+        _cleanup_free_ char *cmdline = NULL, *uname = NULL, *pname = NULL, *osrel = NULL;
         int r;
 
         assert(fd >= 0);
@@ -109,12 +110,20 @@ static int inspect_uki(
                         return r;
         }
 
+        if (ret_osrel) {
+                r = pe_read_section_data_by_name(fd, pe_header, sections, ".osrel", PE_SECTION_READ_MAX, (void**) &osrel, NULL);
+                if (r < 0 && r != -ENXIO) /* If the section doesn't exist, that's fine */
+                        return r;
+        }
+
         if (ret_cmdline)
                 *ret_cmdline = TAKE_PTR(cmdline);
         if (ret_uname)
                 *ret_uname = TAKE_PTR(uname);
         if (ret_pretty_name)
                 *ret_pretty_name = TAKE_PTR(pname);
+        if (ret_osrel)
+                *ret_osrel = TAKE_PTR(osrel);
 
         return 0;
 }
@@ -126,7 +135,8 @@ int inspect_kernel(
                 KernelImageType *ret_type,
                 char **ret_cmdline,
                 char **ret_uname,
-                char **ret_pretty_name) {
+                char **ret_pretty_name,
+                char **ret_osrel) {
 
         _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
@@ -158,19 +168,22 @@ int inspect_kernel(
                 return log_error_errno(r, "Failed to load PE sections from kernel image file '%s': %m", filename);
 
         if (pe_is_uki(pe_header, sections)) {
-                r = inspect_uki(fd, pe_header, sections, ret_cmdline, ret_uname, ret_pretty_name);
+                r = inspect_uki(fd, pe_header, sections, ret_cmdline, ret_uname, ret_pretty_name, ret_osrel);
                 if (r < 0)
                         return r;
 
                 t = KERNEL_IMAGE_TYPE_UKI;
                 goto done;
         } else if (pe_is_addon(pe_header, sections)) {
-                r = inspect_uki(fd, pe_header, sections, ret_cmdline, ret_uname, /* ret_pretty_name= */ NULL);
+                r = inspect_uki(fd, pe_header, sections, ret_cmdline, ret_uname, /* ret_pretty_name= */ NULL, /* ret_osrel= */ NULL);
                 if (r < 0)
                         return r;
 
                 if (ret_pretty_name)
                         *ret_pretty_name = NULL;
+
+                if (ret_osrel)
+                        *ret_osrel = NULL;
 
                 t = KERNEL_IMAGE_TYPE_ADDON;
                 goto done;
@@ -184,6 +197,8 @@ not_uki:
                 *ret_uname = NULL;
         if (ret_pretty_name)
                 *ret_pretty_name = NULL;
+        if (ret_osrel)
+                *ret_osrel = NULL;
 
 done:
         if (ret_type)
