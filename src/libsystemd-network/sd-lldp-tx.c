@@ -64,6 +64,7 @@ struct sd_lldp_tx {
         char *mud_url;
         uint16_t supported_capabilities;
         uint16_t enabled_capabilities;
+        uint16_t vlan_id;
 };
 
 #define log_lldp_tx_errno(lldp_tx, error, fmt, ...)     \
@@ -221,6 +222,13 @@ int sd_lldp_tx_set_mud_url(sd_lldp_tx *lldp_tx, const char *mud_url) {
         return free_and_strdup(&lldp_tx->mud_url, empty_to_null(mud_url));
 }
 
+int sd_lldp_tx_set_vlan_id(sd_lldp_tx *lldp_tx, uint16_t vlan_id) {
+        assert_return(lldp_tx, -EINVAL);
+
+        lldp_tx->vlan_id = vlan_id;
+        return 0;
+}
+
 static size_t lldp_tx_calculate_maximum_packet_size(sd_lldp_tx *lldp_tx, const char *hostname, const char *pretty_hostname) {
         assert(lldp_tx);
         assert(lldp_tx->ifindex > 0);
@@ -242,6 +250,8 @@ static size_t lldp_tx_calculate_maximum_packet_size(sd_lldp_tx *lldp_tx, const c
                 2 + 4 +
                 /* MUD URL */
                 2 + sizeof(SD_LLDP_OUI_IANA_MUD) + strlen_ptr(lldp_tx->mud_url) +
+                /* VLAN ID */
+                2 + sizeof(SD_LLDP_OUI_802_1_VLAN_ID) + sizeof(uint16_t) +
                 /* End */
                 2;
 }
@@ -456,6 +466,19 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
                                           lldp_tx->mud_url);
         if (r < 0)
                 return r;
+
+        /* VLAN ID */
+        if (lldp_tx->vlan_id > 0) {
+                r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_PRIVATE,
+                                             sizeof(SD_LLDP_OUI_802_1_VLAN_ID) + sizeof(uint16_t));
+                if (r < 0)
+                        return r;
+
+                memcpy_safe(packet + offset, SD_LLDP_OUI_802_1_VLAN_ID, sizeof(SD_LLDP_OUI_802_1_VLAN_ID));
+                offset += sizeof(SD_LLDP_OUI_802_1_VLAN_ID);
+                unaligned_write_be16(packet + offset, lldp_tx->vlan_id);
+                offset += 2;
+        }
 
         r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_END, 0);
         if (r < 0)
