@@ -2099,6 +2099,8 @@ int manager_add_job_full(
         assert(mode >= 0 && mode < _JOB_MODE_MAX);
         assert((extra_flags & ~_TRANSACTION_FLAGS_MASK_PUBLIC) == 0);
 
+        LOG_CONTEXT_PUSH_UNIT(unit);
+
         if (mode == JOB_ISOLATE && type != JOB_START)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
 
