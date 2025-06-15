@@ -51,6 +51,13 @@ typedef enum ProcSubset {
         _PROC_SUBSET_INVALID = -EINVAL,
 } ProcSubset;
 
+typedef enum PrivateBPF {
+        PRIVATE_BPF_NO,
+        PRIVATE_BPF_YES,
+        _PRIVATE_BPF_MAX,
+        _PRIVATE_BPF_INVALID = -EINVAL,
+} PrivateBPF;
+
 typedef enum PrivateTmp {
         PRIVATE_TMP_NO,
         PRIVATE_TMP_CONNECTED, /* Bind mounted from the host's filesystem */
@@ -188,9 +195,13 @@ typedef struct NamespaceParameters {
         ProtectSystem protect_system;
         ProtectProc protect_proc;
         ProcSubset proc_subset;
+        PrivateBPF private_bpf;
         PrivateTmp private_tmp;
         PrivateTmp private_var_tmp;
         PrivatePIDs private_pids;
+
+        int bpffs_socket_fd;
+        PidRef *bpffs_pid;
 } NamespaceParameters;
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path);
@@ -222,6 +233,16 @@ ProtectProc protect_proc_from_string(const char *s) _pure_;
 
 const char* proc_subset_to_string(ProcSubset i) _const_;
 ProcSubset proc_subset_from_string(const char *s) _pure_;
+
+const char* private_bpf_to_string(PrivateBPF i) _const_;
+PrivateBPF private_bpf_from_string(const char *s) _pure_;
+
+const char* bpf_delegate_command_to_string(uint64_t u) _const_;
+uint64_t bpf_delegate_command_from_string(const char *s) _pure_;
+
+int bpf_dump_delegate_commands(FILE *f, uint64_t u);
+char* bpf_delegate_commands_to_string(uint64_t u);
+int bpf_delegate_commands_from_string(const char *s, uint64_t *ret);
 
 const char* private_tmp_to_string(PrivateTmp i) _const_;
 PrivateTmp private_tmp_from_string(const char *s) _pure_;
