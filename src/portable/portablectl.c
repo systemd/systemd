@@ -35,7 +35,7 @@ static bool arg_legend = true;
 static bool arg_ask_password = true;
 static bool arg_quiet = false;
 static const char *arg_profile = "default";
-static const char* arg_copy_mode = NULL;
+static const char *arg_copy_mode = NULL;
 static bool arg_runtime = false;
 static bool arg_reload = true;
 static bool arg_cat = false;
@@ -1396,6 +1396,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
+                        r = machine_spec_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate --machine= argument '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid --machine= specified: %s", optarg);
+
                         arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;
