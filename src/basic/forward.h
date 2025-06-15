@@ -11,8 +11,10 @@
 #include <stdbool.h>            /* IWYU pragma: export */
 #include <stddef.h>             /* IWYU pragma: export */
 #include <stdint.h>             /* IWYU pragma: export */
+#include <sys/stat.h>           /* IWYU pragma: export */
 #include <sys/types.h>          /* IWYU pragma: export */
 #include <uchar.h>              /* IWYU pragma: export */
+#include <unistd.h>             /* IWYU pragma: export */
 
 #include "assert-util.h"        /* IWYU pragma: export */
 #include "cleanup-util.h"       /* IWYU pragma: export */
@@ -305,6 +307,7 @@ typedef struct VeritySettings VeritySettings;
 /* We duplicate various commonly used constants here so we can keep most static inline functions without
  * having to include the full header that provides these constants. */
 
+#undef AT_FDCWD
 #define AT_FDCWD                -100
 #define AT_EMPTY_PATH           0x1000
 #define AT_SYMLINK_FOLLOW       0x400
@@ -320,3 +323,5 @@ typedef struct VeritySettings VeritySettings;
 
 /* MAX_ERRNO is defined as 4095 in linux/err.h. We use the same value here. */
 #define ERRNO_MAX               4095
+
+#define ETH_ALEN                6

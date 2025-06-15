@@ -13,6 +13,10 @@
 #include "missing_fs.h"
 #include "missing_syscall_def.h"
 
+#ifndef __THROW
+#define __THROW
+#endif
+
 /* Possible value for FLAGS parameter of `umount2'.  */
 enum
 {
