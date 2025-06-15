@@ -18,6 +18,7 @@
 ***/
 
 #include "_sd-common.h"
+#include "sd-json.h"
 #include "sd-lldp.h"    /* IWYU pragma: export*/
 
 _SD_BEGIN_DECLARATIONS;
@@ -59,6 +60,8 @@ int sd_lldp_tx_set_pretty_hostname(sd_lldp_tx *lldp_tx, const char *pretty_hostn
 int sd_lldp_tx_set_capabilities(sd_lldp_tx *lldp_tx, uint16_t supported, uint16_t enabled);
 int sd_lldp_tx_set_mud_url(sd_lldp_tx *lldp_tx, const char *mud_url);
 int sd_lldp_tx_set_vlan_id(sd_lldp_tx *lldp_tx, uint16_t vlan_id);
+
+int sd_lldp_tx_describe(sd_lldp_tx *lldp_tx, sd_json_variant **ret);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp_tx, sd_lldp_tx_unref);
 

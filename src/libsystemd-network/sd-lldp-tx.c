@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "json-util.h"
 #include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
@@ -368,7 +369,7 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         assert(ret_packet);
 
         /* If ifname is not set yet, set ifname from ifindex. */
-        r = sd_lldp_tx_get_ifname(lldp_tx, NULL);
+        r = sd_lldp_tx_get_ifname(lldp_tx, /* ret = */ NULL);
         if (r < 0)
                 return r;
 
@@ -665,4 +666,61 @@ int sd_lldp_tx_start(sd_lldp_tx *lldp_tx) {
         (void) sd_event_source_set_priority(lldp_tx->timer_event_source, lldp_tx->event_priority);
 
         return 0;
+}
+
+int sd_lldp_tx_describe(sd_lldp_tx *lldp_tx, sd_json_variant **ret) {
+        int r;
+
+        assert(lldp_tx);
+        assert(ret);
+
+        /* If ifname is not set yet, set ifname from ifindex. */
+        const char *ifname;
+        r = sd_lldp_tx_get_ifname(lldp_tx, &ifname);
+        if (r < 0)
+                return r;
+
+        size_t port_id_len = strlen(ifname) + 1; /* +1 for subtype */
+        _cleanup_free_ uint8_t *port_id = new(uint8_t, port_id_len + 1); /* +1 for unused zero suffix for safety */
+        if (!port_id)
+                return -ENOMEM;
+
+        port_id[0] = SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME;
+        memcpy(port_id + 1, ifname, port_id_len) /* also copy the final NUL for safety */
+        assert(port_id[port_id_len] == 0);
+
+        sd_id128_t machine_id;
+        r = lldp_tx_get_machine_id(&machine_id);
+        if (r < 0)
+                return r;
+
+        size_t chassis_id_len = (SD_ID128_STRING_MAX - 1) + 1;
+        _cleanup_free_ uint8_t *chassis_id = new(uint8_t, chassis_id_len + 1);
+        if (!chassis_id)
+                return -ENOMEM;
+
+        chassis_id[0] = SD_LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED;
+        memcpy(chassis_id + 1, SD_ID128_TO_STRING(machine_id), chassis_id_len);
+        assert(chassis_id[chassis_id_len] == 0);
+
+        _cleanup_free_ char *hostname = NULL;
+        if (!lldp_tx->hostname)
+                (void) gethostname_strict(&hostname);
+
+        _cleanup_free_ char *pretty_hostname = NULL;
+        if (!lldp_tx->pretty_hostname)
+                (void) get_pretty_hostname(&pretty_hostname);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("ChassisID", SD_ID128_TO_STRING(machine_id)),
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawChassisID", chassis_id, chassis_id_len),
+                        SD_JSON_BUILD_PAIR_STRING("PortID", lldp_tx->ifname),
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawPortID", port_id, port_id_len),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", lldp_tx->port_description),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", lldp_tx->hostname ?: hostname),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", lldp_tx->pretty_hostname ?: pretty_hostname),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("EnabledCapabilities", lldp_tx->enabled_capabilities),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("MUDURL", lldp_tx->mud_url),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("VlanID", lldp_tx->vlan_id));
 }
