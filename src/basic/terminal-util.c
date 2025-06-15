@@ -1583,33 +1583,25 @@ int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
 }
 
 int ptsname_malloc(int fd, char **ret) {
-        size_t l = 100;
-
         assert(fd >= 0);
         assert(ret);
 
-        for (;;) {
-                char *c;
+        for (size_t l = 50;;) {
+                _cleanup_free_ char *c = NULL;
 
                 c = new(char, l);
                 if (!c)
                         return -ENOMEM;
 
-                if (ptsname_r(fd, c, l) == 0) {
-                        *ret = c;
+                if (ptsname_r(fd, c, l) >= 0) {
+                        *ret = TAKE_PTR(c);
                         return 0;
                 }
-                if (errno != ERANGE) {
-                        free(c);
+                if (errno != ERANGE)
                         return -errno;
-                }
 
-                free(c);
-
-                if (l > SIZE_MAX / 2)
+                if (!MUL_ASSIGN_SAFE(&l, 2))
                         return -ENOMEM;
-
-                l *= 2;
         }
 }
 
