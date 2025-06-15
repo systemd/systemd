@@ -37,7 +37,7 @@
 static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_adjust_system_clock = false;
 static bool arg_monitor = false;
 static char **arg_property = NULL;
@@ -996,6 +996,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
+                        r = machine_spec_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate --machine= argument '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid --machine= specified: %s", optarg);
+
                         arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;

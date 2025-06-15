@@ -47,7 +47,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static const char *arg_kill_whom = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
@@ -1654,6 +1654,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
+                        r = machine_spec_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate --machine= argument '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid --machine= specified: %s", optarg);
+
                         arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;

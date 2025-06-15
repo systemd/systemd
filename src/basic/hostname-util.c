@@ -179,6 +179,8 @@ int split_user_at_host(const char *s, char **ret_user, char **ret_host) {
         /* Splits a user@host expression (one of those we accept on --machine= and similar). Returns NULL in
          * each of the two return parameters if that part was left empty. */
 
+        assert(s);
+
         const char *rhs = strchr(s, '@');
         if (rhs) {
                 if (ret_user && rhs > s) {
@@ -192,10 +194,16 @@ int split_user_at_host(const char *s, char **ret_user, char **ret_host) {
                         if (!h)
                                 return -ENOMEM;
                 }
-        } else if (!isempty(s) && ret_host) {
-                h = strdup(s);
-                if (!h)
-                        return -ENOMEM;
+
+        } else {
+                if (isempty(s))
+                        return -EINVAL;
+
+                if (ret_host) {
+                        h = strdup(s);
+                        if (!h)
+                                return -ENOMEM;
+                }
         }
 
         if (ret_user)
@@ -204,4 +212,25 @@ int split_user_at_host(const char *s, char **ret_user, char **ret_host) {
                 *ret_host = TAKE_PTR(h);
 
         return !!rhs; /* return > 0 if '@' was specified, 0 otherwise */
+}
+
+int machine_spec_valid(const char *s) {
+        _cleanup_free_ char *u = NULL, *h = NULL;
+        int r;
+
+        assert(s);
+
+        r = split_user_at_host(s, &u, &h);
+        if (r == -EINVAL)
+                return false;
+        if (r < 0)
+                return r;
+
+        if (u && !valid_user_group_name(u, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
+                return false;
+
+        if (h && !hostname_is_valid(h, VALID_HOSTNAME_DOT_HOST))
+                return false;
+
+        return true;
 }
