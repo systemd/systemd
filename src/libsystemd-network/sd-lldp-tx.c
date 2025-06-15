@@ -238,10 +238,10 @@ static size_t lldp_tx_calculate_maximum_packet_size(sd_lldp_tx *lldp_tx, const c
                 2 + strlen_ptr(hostname) +
                 /* System description */
                 2 + strlen_ptr(pretty_hostname) +
-                /* MUD URL */
-                2 + sizeof(SD_LLDP_OUI_IANA_MUD) + strlen_ptr(lldp_tx->mud_url) +
                 /* System Capabilities */
                 2 + 4 +
+                /* MUD URL */
+                2 + sizeof(SD_LLDP_OUI_IANA_MUD) + strlen_ptr(lldp_tx->mud_url) +
                 /* End */
                 2;
 }
@@ -428,6 +428,15 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         if (r < 0)
                 return r;
 
+        r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_SYSTEM_CAPABILITIES, 4);
+        if (r < 0)
+                return r;
+
+        unaligned_write_be16(packet + offset, lldp_tx->supported_capabilities);
+        offset += 2;
+        unaligned_write_be16(packet + offset, lldp_tx->enabled_capabilities);
+        offset += 2;
+
         /* See section 12 of RFC 8520.
          * +--------+--------+----------+---------+--------------
          * |TLV Type|  len   |   OUI    |subtype  | MUDString
@@ -447,15 +456,6 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
                                           lldp_tx->mud_url);
         if (r < 0)
                 return r;
-
-        r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_SYSTEM_CAPABILITIES, 4);
-        if (r < 0)
-                return r;
-
-        unaligned_write_be16(packet + offset, lldp_tx->supported_capabilities);
-        offset += 2;
-        unaligned_write_be16(packet + offset, lldp_tx->enabled_capabilities);
-        offset += 2;
 
         r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_END, 0);
         if (r < 0)

@@ -56,8 +56,8 @@ int sd_lldp_tx_set_hwaddr(sd_lldp_tx *lldp_tx, const struct ether_addr *hwaddr);
 int sd_lldp_tx_set_port_description(sd_lldp_tx *lldp_tx, const char *port_description);
 int sd_lldp_tx_set_hostname(sd_lldp_tx *lldp_tx, const char *hostname);
 int sd_lldp_tx_set_pretty_hostname(sd_lldp_tx *lldp_tx, const char *pretty_hostname);
-int sd_lldp_tx_set_mud_url(sd_lldp_tx *lldp_tx, const char *mud_url);
 int sd_lldp_tx_set_capabilities(sd_lldp_tx *lldp_tx, uint16_t supported, uint16_t enabled);
+int sd_lldp_tx_set_mud_url(sd_lldp_tx *lldp_tx, const char *mud_url);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp_tx, sd_lldp_tx_unref);
 
