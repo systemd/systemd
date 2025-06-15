@@ -213,3 +213,24 @@ int split_user_at_host(const char *s, char **ret_user, char **ret_host) {
 
         return !!rhs; /* return > 0 if '@' was specified, 0 otherwise */
 }
+
+int machine_spec_valid(const char *s) {
+        _cleanup_free_ char *u = NULL, *h = NULL;
+        int r;
+
+        assert(s);
+
+        r = split_user_at_host(s, &u, &h);
+        if (r == -EINVAL)
+                return false;
+        if (r < 0)
+                return r;
+
+        if (u && !valid_user_group_name(u, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
+                return false;
+
+        if (h && !hostname_is_valid(h, VALID_HOSTNAME_DOT_HOST))
+                return false;
+
+        return true;
+}
