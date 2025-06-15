@@ -7,10 +7,6 @@
 
 #include "forward.h"
 
-/* Some structures we reference but don't want to pull in headers for */
-struct iovec;
-struct signalfd_siginfo;
-
 typedef enum LogTarget{
         LOG_TARGET_CONSOLE,
         LOG_TARGET_KMSG,
