@@ -2460,27 +2460,38 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         networkctl_reload()
         self.wait_online('geneve99:degraded')
 
-    def test_ipip_tunnel(self):
+    def _test_ipip_tunnel(self, mode):
         copy_network_unit('12-dummy.netdev', '25-ipip.network',
                           '25-ipip-tunnel.netdev', '25-tunnel.network',
                           '25-ipip-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                           '25-ipip-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
                           '25-ipip-tunnel-any-any.netdev', '25-tunnel-any-any.network')
+
+        if mode:
+            for netdev in ['25-ipip-tunnel.netdev',
+                           '25-ipip-tunnel-local-any.netdev',
+                           '25-ipip-tunnel-remote-any.netdev',
+                           '25-ipip-tunnel-any-any.netdev']:
+                with open(os.path.join(network_unit_dir, netdev), mode='a', encoding='utf-8') as f:
+                    f.write(f'[Tunnel]\nMode={mode}\n')
+        else:
+            mode = 'ipip' # kernel default
+
         start_networkd()
         self.wait_online('ipiptun99:routable', 'ipiptun98:routable', 'ipiptun97:routable', 'ipiptun96:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show ipiptun99')
         print(output)
-        self.assertRegex(output, 'ipip (ipip )?remote 192.169.224.239 local 192.168.223.238 dev dummy98')
+        self.assertIn(f'ipip {mode} remote 192.169.224.239 local 192.168.223.238 dev dummy98', output)
         output = check_output('ip -d link show ipiptun98')
         print(output)
-        self.assertRegex(output, 'ipip (ipip )?remote 192.169.224.239 local any dev dummy98')
+        self.assertIn(f'ipip {mode} remote 192.169.224.239 local any dev dummy98', output)
         output = check_output('ip -d link show ipiptun97')
         print(output)
-        self.assertRegex(output, 'ipip (ipip )?remote any local 192.168.223.238 dev dummy98')
+        self.assertIn(f'ipip {mode} remote any local 192.168.223.238 dev dummy98', output)
         output = check_output('ip -d link show ipiptun96')
         print(output)
-        self.assertRegex(output, 'ipip (ipip )?remote any local any dev dummy98')
+        self.assertIn(f'ipip {mode} remote any local any dev dummy98', output)
 
         touch_network_unit(
             '25-ipip-tunnel.netdev',
@@ -2494,6 +2505,18 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             'ipiptun97:routable',
             'ipiptun96:routable',
             'dummy98:degraded')
+
+    def test_ipip_tunnel(self):
+        first = True
+        for mode in [None, 'ipip', 'any']:
+            if first:
+                first = False
+            else:
+                self.tearDown()
+
+            print(f'### test_ipip_tunnel(mode={mode})')
+            with self.subTest(mode=mode):
+                self._test_ipip_tunnel(mode)
 
     def test_gre_tunnel(self):
         copy_network_unit('12-dummy.netdev', '25-gretun.network',
@@ -2724,7 +2747,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             'vti6tun97:routable',
             'dummy98:degraded')
 
-    def test_ip6tnl_tunnel(self):
+    def _test_ip6tnl_tunnel(self, mode):
         copy_network_unit('12-dummy.netdev', '25-ip6tnl.network',
                           '25-ip6tnl-tunnel.netdev', '25-tunnel.network',
                           '25-ip6tnl-tunnel-local-any.netdev', '25-tunnel-local-any.network',
@@ -2732,6 +2755,18 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-veth.netdev', '25-ip6tnl-slaac.network', '25-ipv6-prefix.network',
                           '25-ip6tnl-tunnel-local-slaac.netdev', '25-ip6tnl-tunnel-local-slaac.network',
                           '25-ip6tnl-tunnel-external.netdev', '26-netdev-link-local-addressing-yes.network')
+
+        if mode:
+            for netdev in ['25-ip6tnl-tunnel.netdev',
+                           '25-ip6tnl-tunnel-local-any.netdev',
+                           '25-ip6tnl-tunnel-remote-any.netdev',
+                           '25-ip6tnl-tunnel-local-slaac.netdev',
+                           '25-ip6tnl-tunnel-external.netdev']:
+                with open(os.path.join(network_unit_dir, netdev), mode='a', encoding='utf-8') as f:
+                    f.write(f'[Tunnel]\nMode={mode}\n')
+        else:
+            mode = 'any' # kernel default
+
         start_networkd()
         self.wait_online('ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable',
                          'ip6tnl-slaac:degraded', 'ip6tnl-external:degraded',
@@ -2747,20 +2782,20 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -d link show ip6tnl99')
         print(output)
-        self.assertIn('ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98', output)
+        self.assertIn(f'ip6tnl {mode} remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98', output)
         output = check_output('ip -d link show ip6tnl98')
         print(output)
-        self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local (any|::) dev dummy98')
+        self.assertIn(f'ip6tnl {mode} remote 2001:473:fece:cafe::5179 local any dev dummy98', output)
         output = check_output('ip -d link show ip6tnl97')
         print(output)
-        self.assertRegex(output, 'ip6tnl ip6ip6 remote (any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
+        self.assertIn(f'ip6tnl {mode} remote any local 2a00:ffde:4567:edde::4987 dev dummy98', output)
         output = check_output('ip -d link show ip6tnl-external')
         print(output)
         self.assertIn('ip6tnl-external@NONE:', output)
         self.assertIn('ip6tnl external ', output)
         output = check_output('ip -d link show ip6tnl-slaac')
         print(output)
-        self.assertIn('ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2002:da8:1:0:1034:56ff:fe78:9abc dev veth99', output)
+        self.assertIn(f'ip6tnl {mode} remote 2001:473:fece:cafe::5179 local 2002:da8:1:0:1034:56ff:fe78:9abc dev veth99', output)
 
         output = check_output('ip -6 address show veth99')
         print(output)
@@ -2787,12 +2822,35 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             'veth99:routable',
             'veth-peer:degraded')
 
-    def test_sit_tunnel(self):
+    def test_ip6tnl_tunnel(self):
+        first = True
+        for mode in [None, 'ipip6', 'ip6ip6', 'any']:
+            if first:
+                first = False
+            else:
+                self.tearDown()
+
+            print(f'### test_ip6tnl_tunnel(mode={mode})')
+            with self.subTest(mode=mode):
+                self._test_ip6tnl_tunnel(mode)
+
+    def _test_sit_tunnel(self, mode):
         copy_network_unit('12-dummy.netdev', '25-sit.network',
                           '25-sit-tunnel.netdev', '25-tunnel.network',
                           '25-sit-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                           '25-sit-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
                           '25-sit-tunnel-any-any.netdev', '25-tunnel-any-any.network')
+
+        if mode:
+            for netdev in ['25-sit-tunnel.netdev',
+                           '25-sit-tunnel-local-any.netdev',
+                           '25-sit-tunnel-remote-any.netdev',
+                           '25-sit-tunnel-any-any.netdev']:
+                with open(os.path.join(network_unit_dir, netdev), mode='a', encoding='utf-8') as f:
+                    f.write(f'[Tunnel]\nMode={mode}\n')
+        else:
+            mode = 'ip6ip' # kernel default
+
         start_networkd()
         self.wait_online('sittun99:routable', 'sittun98:routable', 'sittun97:routable', 'sittun96:routable', 'dummy98:degraded')
         self.networkctl_check_unit('sittun99', '25-sit-tunnel', '25-tunnel')
@@ -2803,16 +2861,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -d link show sittun99')
         print(output)
-        self.assertRegex(output, "sit (ip6ip )?remote 10.65.223.239 local 10.65.223.238 dev dummy98")
+        self.assertIn(f'sit {mode} remote 10.65.223.239 local 10.65.223.238 dev dummy98', output)
         output = check_output('ip -d link show sittun98')
         print(output)
-        self.assertRegex(output, "sit (ip6ip )?remote 10.65.223.239 local any dev dummy98")
+        self.assertIn(f'sit {mode} remote 10.65.223.239 local any dev dummy98', output)
         output = check_output('ip -d link show sittun97')
         print(output)
-        self.assertRegex(output, "sit (ip6ip )?remote any local 10.65.223.238 dev dummy98")
+        self.assertIn(f'sit {mode} remote any local 10.65.223.238 dev dummy98', output)
         output = check_output('ip -d link show sittun96')
         print(output)
-        self.assertRegex(output, "sit (ip6ip )?remote any local any dev dummy98")
+        self.assertIn(f'sit {mode} remote any local any dev dummy98', output)
 
         touch_network_unit(
             '25-sit-tunnel.netdev',
@@ -2826,6 +2884,18 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             'sittun97:routable',
             'sittun96:routable',
             'dummy98:degraded')
+
+    def test_sit_tunnel(self):
+        first = True
+        for mode in [None, 'ipip', 'ip6ip', 'any']:
+            if first:
+                first = False
+            else:
+                self.tearDown()
+
+            print(f'### test_sit_tunnel(mode={mode})')
+            with self.subTest(mode=mode):
+                self._test_sit_tunnel(mode)
 
     def test_isatap_tunnel(self):
         copy_network_unit('12-dummy.netdev', '25-isatap.network',
