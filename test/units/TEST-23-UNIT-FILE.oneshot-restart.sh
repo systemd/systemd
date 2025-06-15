@@ -90,9 +90,9 @@ read -r x <"$FIFO_FILE"
 assert_eq "$x" "finished"
 
 cmp -b <(systemctl show "$UNIT_NAME" -p Result -p NRestarts -p SubState) <<EOF
+SubState=dead
 Result=success
 NRestarts=1
-SubState=dead
 EOF
 
 systemctl disable "$UNIT_NAME"
