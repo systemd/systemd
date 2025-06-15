@@ -32,6 +32,7 @@
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
 #include "homectl-recovery-key.h"
+#include "hostname-util.h"
 #include "json-util.h"
 #include "libfido2-util.h"
 #include "locale-util.h"
@@ -3418,6 +3419,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
+                        r = machine_spec_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate --machine= argument '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid --machine= specified: %s", optarg);
+
                         arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;
