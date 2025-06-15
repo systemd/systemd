@@ -20,6 +20,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fstab-util.h"
+#include "hostname-util.h"
 #include "libmount-util.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
@@ -279,6 +280,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
+                        r = machine_spec_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate --machine= argument '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid --machine= specified: %s", optarg);
+
                         arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;
