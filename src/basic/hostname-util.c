@@ -179,6 +179,8 @@ int split_user_at_host(const char *s, char **ret_user, char **ret_host) {
         /* Splits a user@host expression (one of those we accept on --machine= and similar). Returns NULL in
          * each of the two return parameters if that part was left empty. */
 
+        assert(s);
+
         const char *rhs = strchr(s, '@');
         if (rhs) {
                 if (ret_user && rhs > s) {
@@ -192,10 +194,16 @@ int split_user_at_host(const char *s, char **ret_user, char **ret_host) {
                         if (!h)
                                 return -ENOMEM;
                 }
-        } else if (!isempty(s) && ret_host) {
-                h = strdup(s);
-                if (!h)
-                        return -ENOMEM;
+
+        } else {
+                if (isempty(s))
+                        return -EINVAL;
+
+                if (ret_host) {
+                        h = strdup(s);
+                        if (!h)
+                                return -ENOMEM;
+                }
         }
 
         if (ret_user)
