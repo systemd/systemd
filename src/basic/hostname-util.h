@@ -39,4 +39,5 @@ static inline bool is_dns_proxy_stub_hostname(const char *hostname) {
 
 int get_pretty_hostname(char **ret);
 
+int machine_spec_valid(const char *s);
 int split_user_at_host(const char *s, char **ret_user, char **ret_host);
