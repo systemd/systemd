@@ -391,6 +391,7 @@ possible_common_cc_flags = [
         '-Werror=incompatible-pointer-types',
         '-Werror=int-conversion',
         '-Werror=missing-declarations',
+        '-Werror=missing-parameter-name',
         '-Werror=missing-prototypes',
         '-Werror=overflow',
         '-Werror=override-init',
