@@ -46,7 +46,7 @@ void manager_forward_kmsg(
         assert(priority <= 999);
         assert(message);
 
-        if (_unlikely_(LOG_PRI(priority) > m->max_level_kmsg))
+        if (_unlikely_(LOG_PRI(priority) > m->config.max_level_kmsg))
                 return;
 
         if (_unlikely_(m->dev_kmsg_fd < 0))
@@ -128,7 +128,7 @@ void dev_kmsg_record(Manager *m, char *p, size_t l) {
         if (r < 0 || priority < 0 || priority > 999)
                 return;
 
-        if (m->forward_to_kmsg && LOG_FAC(priority) != LOG_KERN)
+        if (m->config.forward_to_kmsg && LOG_FAC(priority) != LOG_KERN)
                 return;
 
         /* seqnum */
@@ -389,6 +389,10 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
         return manager_read_dev_kmsg(m);
 }
 
+static mode_t manager_kmsg_mode(bool read_kmsg) {
+        return O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(read_kmsg ? O_RDWR : O_WRONLY);
+}
+
 int manager_open_dev_kmsg(Manager *m) {
         int r;
 
@@ -396,7 +400,7 @@ int manager_open_dev_kmsg(Manager *m) {
         assert(m->dev_kmsg_fd < 0);
         assert(!m->dev_kmsg_event_source);
 
-        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(m->read_kmsg ? O_RDWR : O_WRONLY);
+        mode_t mode = manager_kmsg_mode(m->read_kmsg);
 
         _cleanup_close_ int fd = open("/dev/kmsg", mode);
         if (fd < 0) {
@@ -440,4 +444,35 @@ int manager_open_kernel_seqnum(Manager *m) {
                 return log_error_errno(r, "Failed to map kernel seqnum file: %m");
 
         return 0;
+}
+
+int manager_reload_dev_kmsg(Manager *m) {
+        int r;
+
+        assert(m);
+
+        /* Check if the fd has not yet been initialized. If so, open /dev/kmsg. */
+        if (m->dev_kmsg_fd < 0)
+                return manager_open_dev_kmsg(m);
+
+        mode_t mode = manager_kmsg_mode(m->read_kmsg);
+        int flags = fcntl(m->dev_kmsg_fd, F_GETFL);
+        if (flags < 0)
+                /* Proceed with reload in case the flags have changed. */
+                log_warning_errno(errno, "Failed to get flags for /dev/kmsg, ignoring: %m");
+        else if ((flags & O_ACCMODE) == mode)
+                /* Mode is the same. No-op. */
+                return 0;
+
+        /* Flush kmsg. */
+        r = manager_flush_dev_kmsg(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to flush /dev/kmsg on reload, ignoring: %m");
+
+        /* Set kmsg values to default. */
+        m->dev_kmsg_event_source = sd_event_source_disable_unref(m->dev_kmsg_event_source);
+        m->dev_kmsg_event_source = NULL;
+        m->dev_kmsg_fd = safe_close(m->dev_kmsg_fd);
+
+        return manager_open_dev_kmsg(m);
 }
