@@ -40,11 +40,6 @@
 #  define IDN_FLAGS 0
 #endif
 
-/* From the kernel's include/net/scm.h */
-#ifndef SCM_MAX_FD
-#  define SCM_MAX_FD 253
-#endif
-
 static const char* const socket_address_type_table[] = {
         [SOCK_STREAM] =    "Stream",
         [SOCK_DGRAM] =     "Datagram",
