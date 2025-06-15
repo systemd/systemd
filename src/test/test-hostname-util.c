@@ -107,7 +107,8 @@ static void test_split_user_at_host_one(const char *s, const char *expected_user
 }
 
 TEST(split_user_at_host) {
-        test_split_user_at_host_one("", NULL, NULL, 0);
+        ASSERT_ERROR(split_user_at_host("", NULL, NULL), EINVAL);
+
         test_split_user_at_host_one("@", NULL, NULL, 1);
         test_split_user_at_host_one("a", NULL, "a", 0);
         test_split_user_at_host_one("a@b", "a", "b", 1);
