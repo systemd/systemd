@@ -1404,6 +1404,23 @@ static int dhcp_client_append_json(Link *link, sd_json_variant **v) {
         return json_variant_set_field_non_null(v, "DHCPv4Client", w);
 }
 
+static int lldp_tx_append_json(Link *link, sd_json_variant **v) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->lldp_tx)
+                return 0;
+
+        r = sd_lldp_tx_describe(link->lldp_tx, &w);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field_non_null(v, "LLDP", w);
+}
+
 int link_build_json(Link *link, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -1537,6 +1554,10 @@ int link_build_json(Link *link, sd_json_variant **ret) {
                 return r;
 
         r = dhcp6_client_append_json(link, &v);
+        if (r < 0)
+                return r;
+
+        r = lldp_tx_append_json(link, &v);
         if (r < 0)
                 return r;
 
