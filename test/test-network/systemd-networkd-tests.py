@@ -6590,6 +6590,13 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'Connected To: .* on port veth-peer')
 
+        # Compare the json output from sender and receiver
+        sender_json = get_link_description('veth-peer')['LLDP']
+        receiver_json = json.loads(networkctl('--json=short', 'lldp', 'veth99'))['Neighbors'][0]['Neighbors'][0]
+        print(sender_json)
+        print(receiver_json)
+        self.assertEqual(sender_json, receiver_json)
+
 class NetworkdRATests(unittest.TestCase, Utilities):
 
     def setUp(self):
