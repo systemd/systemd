@@ -635,7 +635,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
-                .dhcp_server_persist_leases = true,
+                .dhcp_server_persist_leases = DHCP_SERVER_PERSIST_LEASES_YES,
                 .serialization_fd = -EBADF,
                 .ip_forwarding = { -1, -1, },
 #if HAVE_VMLINUX_H
