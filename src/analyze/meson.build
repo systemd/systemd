@@ -35,6 +35,7 @@ systemd_analyze_sources = files(
         'analyze-unit-paths.c',
         'analyze-verify.c',
         'analyze.c',
+        'analyze-unit-shell.c',
 )
 systemd_analyze_extract_sources = files(
         'analyze-verify-util.c'
