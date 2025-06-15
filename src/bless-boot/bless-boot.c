@@ -98,35 +98,27 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int acquire_path(void) {
-        _cleanup_free_ char *esp_path = NULL, *xbootldr_path = NULL;
-        dev_t esp_devid = 0, xbootldr_devid = 0;
         char **a;
         int r;
 
         if (!strv_isempty(arg_path))
                 return 0;
 
-        r = find_esp_and_warn(NULL, NULL, /* unprivileged_mode= */ false, &esp_path, NULL, NULL, NULL, NULL, &esp_devid);
-        if (r < 0 && r != -ENOKEY) /* ENOKEY means not found, and is the only error the function won't log about on its own */
-                return r;
-
-        r = find_xbootldr_and_warn(NULL, NULL, /* unprivileged_mode= */ false, &xbootldr_path, NULL, &xbootldr_devid);
-        if (r < 0 && r != -ENOKEY)
-                return r;
-
-        if (!esp_path && !xbootldr_path)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+        r = find_esp_and_xbootldr_paths_and_warn(/* root= */ NULL,
+                                                 /* esp_path= */ NULL,
+                                                 /* xbootldr_path= */ NULL,
+                                                 /* unprivileged_mode= */ false,
+                                                 &a,
+                                                 /* ret_esp_uuid= */ NULL,
+                                                 /* ret_xbootldr_uuid= */ NULL,
+                                                 /* ret_esp_devid= */ NULL,
+                                                 /* ret_xbootldr_devid= */ NULL);
+        if (r == -ENOENT)
+                return log_error_errno(r,
                                        "Couldn't find $BOOT partition. It is recommended to mount it to /boot.\n"
                                        "Alternatively, use --path= to specify path to mount point.");
-
-        if (esp_path && xbootldr_path && !devnum_set_and_equal(esp_devid, xbootldr_devid)) /* in case the two paths refer to the same inode, suppress one */
-                a = strv_new(esp_path, xbootldr_path);
-        else if (esp_path)
-                a = strv_new(esp_path);
-        else
-                a = strv_new(xbootldr_path);
-        if (!a)
-                return log_oom();
+        if (r < 0)
+                return r;
 
         strv_free_and_replace(arg_path, a);
 

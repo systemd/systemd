@@ -545,7 +545,7 @@
         <term><varname>StubImageIdentifier</varname></term>
 
         <listitem><para>Similar to <varname>LoaderDevicePartUUID</varname> and
-        <varname>StubImageIdentifier</varname>, but indicates the location of the unified kernel image EFI
+        <varname>LoaderImageIdentifier</varname>, but indicates the location of the unified kernel image EFI
         binary rather than the location of the boot loader binary, regardless of whether booted via a boot loader
         or not.</para>
 
