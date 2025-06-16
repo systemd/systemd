@@ -8,3 +8,4 @@ int parse_tristate_argument(const char *optname, const char *s, int *ret);
 int parse_json_argument(const char *s, sd_json_format_flags_t *ret);
 int parse_path_argument(const char *path, bool suppress_root, char **arg);
 int parse_signal_argument(const char *s, int *ret);
+int parse_machine_argument(const char *s, const char **ret_host, BusTransport *ret_transport);

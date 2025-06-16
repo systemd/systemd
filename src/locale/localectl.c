@@ -18,6 +18,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
@@ -452,7 +453,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int r, c;
 
         assert(argc >= 0);
         assert(argv);
@@ -489,8 +490,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
