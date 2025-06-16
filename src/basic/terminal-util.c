@@ -2297,13 +2297,13 @@ int terminal_get_size_by_dsr(
 
         struct termios old_termios;
         if (tcgetattr(input_fd, &old_termios) < 0)
-                return log_debug_errno(errno, "Failed to to get terminal settings: %m");
+                return log_debug_errno(errno, "Failed to get terminal settings: %m");
 
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
 
         if (tcsetattr(input_fd, TCSADRAIN, &new_termios) < 0)
-                return log_debug_errno(errno, "Failed to to set new terminal settings: %m");
+                return log_debug_errno(errno, "Failed to set new terminal settings: %m");
 
         unsigned saved_row = 0, saved_column = 0;
 
