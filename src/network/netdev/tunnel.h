@@ -9,6 +9,8 @@
 /* For IFLA_IPTUN_PROTO attribute */
 typedef enum TunnelMode {
         TUNNEL_MODE_ANY,    /* 0, "any" */
+        TUNNEL_MODE_IPIP,   /* IPPROTO_IPIP, "ipip", for ipip and sit */
+        TUNNEL_MODE_IP6IP,  /* IPPROTO_IPV6, "ip6ip", for sit */
         TUNNEL_MODE_IPIP6,  /* IPPROTO_IPIP, "ipip6", for ip6tnl */
         TUNNEL_MODE_IP6IP6, /* IPPROTO_IPV6, "ip6ip6", for ip6tnl */
         _TUNNEL_MODE_MAX,

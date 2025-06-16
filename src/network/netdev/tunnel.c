@@ -27,12 +27,16 @@
 
 static const uint8_t tunnel_mode_to_proto[_TUNNEL_MODE_MAX] = {
         [TUNNEL_MODE_ANY]    = 0,
+        [TUNNEL_MODE_IPIP]   = IPPROTO_IPIP,
+        [TUNNEL_MODE_IP6IP]  = IPPROTO_IPV6,
         [TUNNEL_MODE_IPIP6]  = IPPROTO_IPIP,
         [TUNNEL_MODE_IP6IP6] = IPPROTO_IPV6,
 };
 
 static const char* const tunnel_mode_table[_TUNNEL_MODE_MAX] = {
         [TUNNEL_MODE_ANY]    = "any",
+        [TUNNEL_MODE_IPIP]   = "ipip",
+        [TUNNEL_MODE_IP6IP]  = "ip6ip",
         [TUNNEL_MODE_IPIP6]  = "ipip6",
         [TUNNEL_MODE_IP6IP6] = "ip6ip6",
 };
@@ -200,6 +204,12 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
         union in_addr_union local;
         Tunnel *t = ASSERT_PTR(netdev)->kind == NETDEV_KIND_IPIP ? IPIP(netdev) : SIT(netdev);
         int r;
+
+        if (t->mode >= 0) {
+                r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, tunnel_mode_to_proto[t->mode]);
+                if (r < 0)
+                        return r;
+        }
 
         if (t->external) {
                 r = sd_netlink_message_append_flag(m, IFLA_IPTUN_COLLECT_METADATA);
@@ -697,6 +707,18 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         if (t->mode >= 0)
                 switch (netdev->kind) {
+                case NETDEV_KIND_IPIP:
+                        if (!IN_SET(t->mode, TUNNEL_MODE_ANY, TUNNEL_MODE_IPIP))
+                                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                                "Specified unsupported tunnel mode %s, ignoring.",
+                                                                tunnel_mode_to_string(t->mode));
+                        break;
+                case NETDEV_KIND_SIT:
+                        if (!IN_SET(t->mode, TUNNEL_MODE_ANY, TUNNEL_MODE_IPIP, TUNNEL_MODE_IP6IP))
+                                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                                "Specified unsupported tunnel mode %s, ignoring.",
+                                                                tunnel_mode_to_string(t->mode));
+                        break;
                 case NETDEV_KIND_IP6TNL:
                         if (!IN_SET(t->mode, TUNNEL_MODE_ANY, TUNNEL_MODE_IPIP6, TUNNEL_MODE_IP6IP6))
                                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),

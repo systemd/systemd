@@ -1672,6 +1672,28 @@ Ports=eth2</programlisting>
               </thead>
               <tbody>
                 <row>
+                  <entry morerows="1"><literal>ipip</literal></entry>
+                  <entry><literal>ipip</literal></entry>
+                  <entry>IPv4 over IPv4 (default)</entry>
+                </row>
+                <row>
+                  <entry><literal>any</literal></entry>
+                  <entry>both IPv4 and IPv6 over IPv4</entry>
+                </row>
+                <row>
+                  <entry morerows="2"><literal>sit</literal></entry>
+                  <entry><literal>ipip</literal></entry>
+                  <entry>IPv4 over IPv4</entry>
+                </row>
+                <row>
+                  <entry><literal>ip6ip</literal></entry>
+                  <entry>IPv6 over IPv4 (default)</entry>
+                </row>
+                <row>
+                  <entry><literal>any</literal></entry>
+                  <entry>both IPv4 and IPv6 over IPv4</entry>
+                </row>
+                <row>
                   <entry morerows="2"><literal>ip6tnl</literal></entry>
                   <entry><literal>ipip6</literal></entry>
                   <entry>IPv4 over IPv6</entry>
