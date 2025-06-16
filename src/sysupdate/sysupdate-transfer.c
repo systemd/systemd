@@ -10,16 +10,19 @@
 #include "chase.h"
 #include "conf-parser.h"
 #include "dirent-util.h"
+#include "efivars.h"
 #include "errno-util.h"
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "install-file.h"
+#include "kernel-image.h"
 #include "mkdir.h"
 #include "notify-recv.h"
 #include "parse-helpers.h"
@@ -56,6 +59,7 @@ Transfer* transfer_free(Transfer *t) {
 
         free(t->min_version);
         strv_free(t->protected_versions);
+        strv_free(t->protected_uki_versions);
         free(t->current_symlink);
         free(t->final_path);
 
@@ -105,6 +109,114 @@ Transfer* transfer_new(Context *ctx) {
         return t;
 }
 
+static int parse_uki_protect_version(const char *rvalue, char ***protected_versions) {
+        _cleanup_free_ char *stub_path = NULL, *osrel = NULL, *version = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tmproot = NULL;
+        _cleanup_close_ int tmproot_fd = -EBADF, uki = -EBADF;
+        _cleanup_strv_free_ char **parts_paths = NULL;
+        int r;
+
+        assert(rvalue);
+        assert(protected_versions);
+
+        r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("StubImageIdentifier"), &stub_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query StubImageIdentifier EFI variable: %m");
+
+        r = find_esp_and_xbootldr_paths_and_warn(
+                arg_root,
+                /* esp_path= */ NULL,
+                /* xbootldr_path= */ NULL,
+                /* unprivileged_mode= */ false,
+                &parts_paths,
+                /* ret_esp_uuid= */ NULL,
+                /* ret_xbootldr_uuid= */ NULL,
+                /* ret_esp_devid= */ NULL,
+                /* ret_xbootldr_devid= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to find ESP/XBOOTLDR paths: %m");
+
+        STRV_FOREACH(p, parts_paths) {
+                _cleanup_close_ int fd = -EBADF;
+                _cleanup_free_ char *joined = path_join(*p, stub_path);
+                if (!joined)
+                        return log_oom_debug();
+
+                r = chase(joined, *p, /* flags= */ 0, /* ret_path= */ NULL, &fd);
+                if (r >= 0) {
+                        uki = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
+                        if (uki < 0)
+                                return log_debug_errno(errno, "Failed to open UKI file '%s': %m", joined);
+                        break;
+                }
+
+                /* First time a UKI is booted it will be recorded with the tries left in efivar, but it will
+                 * have been removed from the filename by bless-boot, so check again. */
+
+                char *e = strrchr(joined, '+');
+                if (!e)
+                        continue;
+                *e = '\0';
+
+                _cleanup_free_ char *truncated = strjoin(joined, ".efi");
+                if (!truncated)
+                        return log_oom_debug();
+
+                r = chase(truncated, *p, /* flags= */ 0, /* ret_path= */ NULL, &fd);
+                if (r >= 0) {
+                        uki = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
+                        if (uki < 0)
+                                return log_debug_errno(errno, "Failed to open UKI file '%s': %m", joined);
+                        break;
+                }
+        }
+        if (uki < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Failed to find booted UKI in ESP/XBOOTLDR paths: %m");
+
+        r = inspect_kernel(uki,
+                           /* dir_fd= */ -EBADF,
+                           /* filename= */ NULL,
+                           /* ret_type= */ NULL,
+                           /* ret_cmdline= */ NULL,
+                           /* ret_uname= */ NULL,
+                           /* ret_pretty_name= */ NULL,
+                           &osrel);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to inspect UKI '%s': %m", stub_path);
+        if (!osrel)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "UKI '%s' does not contain '.osrel' section: %m", stub_path);
+
+        tmproot_fd = mkdtemp_open(/* template= */ NULL, 0, &tmproot);
+        if (tmproot_fd < 0)
+                return log_debug_errno(tmproot_fd, "Failed to create temporary directory for UKI inspection: %m");
+
+        r = mkdirat_parents(tmproot_fd, "usr/lib/os-release", 0755);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to create directory for os-release file: %m");
+
+        r = write_string_file_at(tmproot_fd, "usr/lib/os-release", osrel, WRITE_STRING_FILE_CREATE);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write os-release file: %m");
+
+        r = specifier_printf(rvalue, NAME_MAX, specifier_table, tmproot, NULL, &version);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to expand specifiers in ProtectVersion=: %s", rvalue);
+
+        if (!version_is_valid(version))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ProtectVersion= string is not valid: %s", version);
+
+        r = strv_extend(protected_versions, version);
+        if (r < 0)
+                return log_oom_debug();
+
+        log_debug("Parsed ProtectVersion=%s value from UKI '%s'", version, stub_path);
+
+        return 0;
+}
+
 static int config_parse_protect_version(
                 const char *unit,
                 const char *filename,
@@ -118,10 +230,14 @@ static int config_parse_protect_version(
                 void *userdata) {
 
         _cleanup_free_ char *resolved = NULL;
-        char ***protected_versions = ASSERT_PTR(data);
+        Transfer *t = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
+
+        /* The currently booted UKI needs to be preserved too, try to locate it using
+         * the StubImageIdentifier efivar. */
+        (void) parse_uki_protect_version(rvalue, &t->protected_uki_versions);
 
         r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
@@ -131,12 +247,12 @@ static int config_parse_protect_version(
         }
 
         if (!version_is_valid(resolved))  {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, isempty(resolved) ? LOG_DEBUG: LOG_WARNING, filename, line, 0,
                            "ProtectVersion= string is not valid, ignoring: %s", resolved);
                 return 0;
         }
 
-        r = strv_extend(protected_versions, resolved);
+        r = strv_extend(&t->protected_versions, resolved);
         if (r < 0)
                 return log_oom();
 
@@ -502,7 +618,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
 
         ConfigTableItem table[] = {
                 { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, &t->protected_versions      },
+                { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, t                           },
                 { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
@@ -804,6 +920,8 @@ int transfer_vacuum(
 
                         /* If this is listed among the protected versions, then let's not remove it */
                         if (!strv_contains(t->protected_versions, oldest->metadata.version) &&
+                            !(IN_SET(t->target.path_relative_to, PATH_RELATIVE_TO_ESP, PATH_RELATIVE_TO_XBOOTLDR, PATH_RELATIVE_TO_BOOT) &&
+                              strv_contains(t->protected_uki_versions, oldest->metadata.version)) &&
                             (!extra_protected_version || !streq(extra_protected_version, oldest->metadata.version)))
                                 break;
 
