@@ -829,7 +829,7 @@ int manager_start(Manager *m) {
         return 0;
 }
 
-Manager *manager_free(Manager *m) {
+Manager* manager_free(Manager *m) {
         Link *l;
 
         if (!m)
