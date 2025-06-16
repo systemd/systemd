@@ -7615,12 +7615,6 @@ static int context_open_copy_block_paths(
                 p->copy_blocks_size = size;
 
                 free_and_replace(p->copy_blocks_path, opened);
-
-                /* When copying from an existing partition copy that partitions UUID if none is configured explicitly */
-                if (!p->new_uuid_is_set && !sd_id128_is_null(uuid)) {
-                        p->new_uuid = uuid;
-                        p->new_uuid_is_set = true;
-                }
         }
 
         return 0;
