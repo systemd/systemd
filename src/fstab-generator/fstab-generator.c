@@ -1221,7 +1221,7 @@ static int add_sysroot_mount(void) {
                 if (!strextend_with_separator(&combined_options, ",", extra_opts))
                         return log_oom();
 
-        log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(arg_root_fstype), strempty(combined_options));
+        log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(fstype), strempty(combined_options));
 
         /* Only honor x-systemd.makefs and .validatefs here, others are not relevant in initrd/not used
          * at all (also see mandatory_mount_drop_unapplicable_options()) */
