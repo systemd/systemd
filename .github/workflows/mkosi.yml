@@ -221,6 +221,7 @@ jobs:
           sudo --preserve-env mkosi sandbox -- \
             env \
             TEST_PREFER_QEMU=${{ matrix.vm }} \
+            TEST_NO_QEMU="$(if [[ ${{ matrix.release }} == rawhide ]]; then echo 1; else echo 0; fi)" \
             meson test \
             -C build \
             --no-rebuild \
