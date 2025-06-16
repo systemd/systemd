@@ -651,13 +651,15 @@
         <term><option>--notify-ready=</option></term>
 
         <listitem><para>Configures support for notifications from the container's init process.
-        <option>--notify-ready=</option> takes a boolean (<option>no</option> and  <option>yes</option>).
-        With option <option>no</option> systemd-nspawn notifies systemd
-        with a <literal>READY=1</literal> message when the init process is created.
-        With option <option>yes</option> systemd-nspawn waits for the
-        <literal>READY=1</literal> message from the init process in the container
-        before sending its own to systemd. For more details about notifications
-        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-vmpawn</command>
+        notifies the calling service manager with a <literal>READY=1</literal> message when the init process is
+        created. If true it waits for a <literal>READY=1</literal> message from the init process in the VM
+        before sending its own to the service manager. For more details about notifications see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <para>Defaults to false. (Note that this is unlike the option of the same name to
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        that defaults to true.)</para>
 
         <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
