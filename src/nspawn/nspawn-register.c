@@ -266,7 +266,7 @@ int allocate_scope(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *scope = NULL;
-        const char *description, *object;
+        const char *object;
         int r;
 
         assert(bus);
@@ -292,11 +292,13 @@ int allocate_scope(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        description = strjoina("Container ", machine_name);
-
         r = bus_append_scope_pidref(m, pid, FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD));
         if (r < 0)
                 return bus_log_create_error(r);
+
+        _cleanup_free_ char *description = strjoin("Container ", machine_name);
+        if (!description)
+                return log_oom();
 
         r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
                                   "Description", "s", description,
@@ -387,11 +389,11 @@ int terminate_scope(
         _cleanup_free_ char *scope = NULL;
         int r;
 
-        r = unit_name_mangle_with_suffix(machine_name, "to terminate", 0, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, "to terminate", /* flags= */ 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 
-        r = bus_call_method(bus, bus_systemd_mgr, "AbandonScope", &error, NULL, "s", scope);
+        r = bus_call_method(bus, bus_systemd_mgr, "AbandonScope", &error, /* ret_reply= */ NULL, "s", scope);
         if (r < 0) {
                 log_debug_errno(r, "Failed to abandon scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
                 sd_bus_error_free(&error);
@@ -412,7 +414,7 @@ int terminate_scope(
                 sd_bus_error_free(&error);
         }
 
-        r = bus_call_method(bus, bus_systemd_mgr, "UnrefUnit", &error, NULL, "s", scope);
+        r = bus_call_method(bus, bus_systemd_mgr, "UnrefUnit", &error, /* ret_reply= */ NULL, "s", scope);
         if (r < 0)
                 log_debug_errno(r, "Failed to drop reference to scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
 
