@@ -1419,7 +1419,7 @@ int manager_dns_stub_start(Manager *m) {
                                                           r == -EADDRINUSE ? "Another process is already listening on %s.\n"
                                                           "Turning off local DNS stub support." :
                                                           "Failed to listen on %s: %m.\n"
-                                          "Turning off local DNS stub support.",
+                                                          "Turning off local DNS stub support.",
                                                           busy_socket);
                                         manager_dns_stub_stop(m);
                                         break;
