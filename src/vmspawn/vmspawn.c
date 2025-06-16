@@ -139,6 +139,7 @@ static uint64_t arg_grow_image = 0;
 static char *arg_tpm_state_path = NULL;
 static TpmStateMode arg_tpm_state_mode = TPM_STATE_AUTO;
 static bool arg_ask_password = true;
+static bool arg_notify_ready = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -196,7 +197,9 @@ static int help(void) {
                "     --firmware=PATH|list  Select firmware definition file (or list available)\n"
                "     --discard-disk=BOOL   Control processing of discard requests\n"
                "  -G --grow-image=BYTES    Grow image file to specified size in bytes\n"
+               "\n%3$sExecution:%4$s\n"
                "  -s --smbios11=STRING     Pass an arbitrary SMBIOS Type #11 string to the VM\n"
+               "     --notify-ready=BOOL   Wait for ready notification from the VM\n"
                "\n%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME        Set the machine name for the VM\n"
                "     --uuid=UUID           Set a specific machine UUID for the VM\n"
@@ -289,6 +292,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM_STATE,
                 ARG_NO_ASK_PASSWORD,
                 ARG_PROPERTY,
+                ARG_NOTIFY_READY,
         };
 
         static const struct option options[] = {
@@ -337,6 +341,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm-state",         required_argument, NULL, ARG_TPM_STATE         },
                 { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD   },
                 { "property",          required_argument, NULL, ARG_PROPERTY          },
+                { "notify-ready",      required_argument, NULL, ARG_NOTIFY_READY      },
                 {}
         };
 
@@ -673,6 +678,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_NOTIFY_READY:
+                        r = parse_boolean_argument("--notify-ready=", optarg, &arg_notify_ready);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -755,17 +767,20 @@ static int read_vsock_notify(NotifyConnectionData *d, int fd) {
                 log_debug("Received notification message with tags: %s", strnull(j));
         }
 
+        const char *status = strv_find_startswith(tags, "STATUS=");
+        if (status)
+                (void) sd_notifyf(/* unset_environment= */ false, "STATUS=VM running: %s", status);
+
         if (strv_contains(tags, "READY=1")) {
-                r = sd_notify(false, "READY=1");
+                r = sd_notify(/* unset_environment= */ false, "READY=1");
                 if (r < 0)
                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+
+                if (!status)
+                        (void) sd_notifyf(/* unset_environment= */ false, "STATUS=VM running.");
         }
 
-        const char *p = strv_find_startswith(tags, "STATUS=");
-        if (p)
-                (void) sd_notifyf(false, "STATUS=VM running: %s", p);
-
-        p = strv_find_startswith(tags, "EXIT_STATUS=");
+        const char *p = strv_find_startswith(tags, "EXIT_STATUS=");
         if (p) {
                 r = safe_atoi(p, d->exit_status);
                 if (r < 0)
@@ -2652,6 +2667,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
         child_vsock_fd = safe_close(child_vsock_fd);
         tap_fd = safe_close(tap_fd);
+
+        /* Report that the VM is now set up */
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=VM started.\n"
+                          "X_VMSPAWN_LEADER_PID=" PID_FMT, child_pidref.pid);
+        if (!arg_notify_ready) {
+                r = sd_notify(/* unset_environment= */ false, "READY=1\n");
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+        }
 
         /* All operations that might need Polkit authorizations (i.e. machine registration, netif
          * acquisition, …) are complete now, get rid of the agent again, so that we retain exclusive control
