@@ -650,44 +650,40 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         (void) notify_reloading();
 
-        manager_set_defaults(m);
-
         dns_server_unlink_on_reload(m->dns_servers);
         dns_server_unlink_on_reload(m->fallback_dns_servers);
         m->dns_extra_stub_listeners = ordered_set_free(m->dns_extra_stub_listeners);
         dnssd_service_clear_on_reload(m->dnssd_services);
         m->unicast_scope = dns_scope_free(m->unicast_scope);
         m->delegates = hashmap_free(m->delegates);
-
         dns_trust_anchor_flush(&m->trust_anchor);
+
+        manager_set_defaults(m);
 
         r = dns_trust_anchor_load(&m->trust_anchor);
         if (r < 0)
-                return r;
+                return sd_event_exit(sd_event_source_get_event(s), r);
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse config file on reload: %m");
+                log_warning_errno(r, "Failed to parse configuration file on reload, ignoring: %m");
         else
                 log_info("Config file reloaded.");
 
-        r = dnssd_load(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
-
-        manager_load_delegates(m);
+        (void) dnssd_load(m);
+        (void) manager_load_delegates(m);
 
         /* The default scope configuration is influenced by the manager's configuration (modes, etc.), so
          * recreate it on reload. */
         r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
-                return r;
+                return sd_event_exit(sd_event_source_get_event(s), r);
 
         /* The configuration has changed, so reload the per-interface configuration too in order to take
          * into account any changes (e.g.: enable/disable DNSSEC). */
         r = on_network_event(/* source= */ NULL, -EBADF, /* revents= */ 0, m);
         if (r < 0)
-                log_warning_errno(r, "Failed to update network information: %m");
+                log_warning_errno(r, "Failed to update network information on reload, ignoring: %m");
 
         /* We have new configuration, which means potentially new servers, so close all connections and drop
          * all caches, so that we can start fresh. */
