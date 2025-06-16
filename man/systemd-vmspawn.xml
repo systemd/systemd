@@ -303,6 +303,25 @@
 
           <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--notify-ready=</option></term>
+
+          <listitem><para>Configures support for notifications from the VM's init process to
+          <command>systemd-vmspawn</command>.  If true, <command>systemd-vmspawn</command> will consider the
+          machine as ready only when it has received a <literal>READY=1</literal> message from the init
+          process in the VM. If false, <command>systemd-vmspawn</command> will consider the machine as ready
+          immediately after creation.  In either case, <command>systemd-vmspawn</command> sends its own
+          readiness notification to its manager after the spawned VM is ready. For more details about
+          notifications see
+          <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+          <para>Defaults to true. (Note that this is unlike the option of the same name to
+          <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          that defaults to false.)</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
