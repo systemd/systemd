@@ -14,6 +14,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "time-util.h"
 
 static const char *arg_bus_path = DEFAULT_SYSTEM_BUS_ADDRESS;
@@ -35,9 +36,9 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+
         enum {
                 ARG_VERSION = 0x100,
-                ARG_MACHINE,
                 ARG_USER,
                 ARG_SYSTEM,
         };
@@ -52,7 +53,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {},
         };
 
-        int c;
+        int r, c;
 
         assert(argc >= 0);
         assert(argv);
@@ -80,8 +81,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_bus_path = optarg;
-                        arg_transport = BUS_TRANSPORT_MACHINE;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
