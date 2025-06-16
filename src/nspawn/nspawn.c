@@ -4613,15 +4613,18 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
                 log_debug("Got sd_notify() message: %s", strnull(joined));
         }
 
+        char *status = strv_find_startswith(tags, "STATUS=");
+        if (status)
+                (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Container running: %s", status);
+
         if (strv_contains(tags, "READY=1")) {
-                r = sd_notify(false, "READY=1\n");
+                r = sd_notify(/* unset_environment= */ false, "READY=1\n");
                 if (r < 0)
                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
-        }
 
-        char *p = strv_find_startswith(tags, "STATUS=");
-        if (p)
-                (void) sd_notifyf(false, "STATUS=Container running: %s", p);
+                if (!status)
+                        (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Container running.");
+        }
 
         return 0;
 }
@@ -5617,11 +5620,11 @@ static int run_container(
          * will make them appear in getpwuid(), thus we can release the /etc/passwd lock. */
         etc_passwd_lock = safe_close(etc_passwd_lock);
 
-        (void) sd_notifyf(false,
-                          "STATUS=Container running.\n"
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=Container started.\n"
                           "X_NSPAWN_LEADER_PID=" PID_FMT, pid->pid);
         if (!arg_notify_ready) {
-                r = sd_notify(false, "READY=1\n");
+                r = sd_notify(/* unset_environment= */ false, "READY=1\n");
                 if (r < 0)
                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
         }
