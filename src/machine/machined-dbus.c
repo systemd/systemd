@@ -228,6 +228,7 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
 static int method_create_or_register_machine(
                 Manager *manager,
                 sd_bus_message *message,
+                const char *polkit_action,
                 bool read_network,
                 Machine **ret,
                 sd_bus_error *error) {
@@ -300,6 +301,16 @@ static int method_create_or_register_machine(
         if (hashmap_get(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+        if (r < 0)
+                return r;
+
+        uid_t uid;
+        r = sd_bus_creds_get_euid(creds, &uid);
+        if (r < 0)
+                return r;
+
         const char *details[] = {
                 "name",  name,
                 "class", machine_class_to_string(c),
@@ -308,7 +319,7 @@ static int method_create_or_register_machine(
 
         r = bus_verify_polkit_async(
                         message,
-                        "org.freedesktop.machine1.create-machine",
+                        polkit_action,
                         details,
                         &manager->polkit_registry,
                         error);
@@ -324,6 +335,7 @@ static int method_create_or_register_machine(
         m->leader = TAKE_PIDREF(pidref);
         m->class = c;
         m->id = id;
+        m->uid = uid;
 
         if (!isempty(service)) {
                 m->service = strdup(service);
@@ -367,7 +379,7 @@ static int method_create_machine_internal(sd_bus_message *message, bool read_net
 
         assert(message);
 
-        r = method_create_or_register_machine(manager, message, read_network, &m, error);
+        r = method_create_or_register_machine(manager, message, "org.freedesktop.machine1.create-machine", read_network, &m, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -405,13 +417,13 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
 
         assert(message);
 
-        r = method_create_or_register_machine(manager, message, read_network, &m, error);
+        r = method_create_or_register_machine(manager, message, "org.freedesktop.machine1.register-machine", read_network, &m, error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = cg_pidref_get_unit(&m->leader, &m->unit);
+        r = cg_pidref_get_unit_full(&m->leader, &m->unit, &m->subgroup);
         if (r < 0) {
                 r = sd_bus_error_set_errnof(error, r,
                                             "Failed to determine unit of process "PID_FMT" : %m",
@@ -1276,11 +1288,14 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
         return 1;
 }
 
-int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_error *error) {
+int manager_kill_unit(Manager *manager, const char *unit, const char *subgroup, int signo, sd_bus_error *reterr_error) {
         assert(manager);
         assert(unit);
 
-        return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnit", error, NULL, "ssi", unit, "all", signo);
+        if (empty_or_root(subgroup))
+                return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnit", reterr_error, NULL, "ssi", unit, "all", signo);
+
+        return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnitSubgroup", reterr_error, NULL, "sssi", unit, "cgroup", subgroup, signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *reterr_error) {

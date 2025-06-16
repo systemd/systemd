@@ -112,6 +112,10 @@ node /org/freedesktop/systemd1 {
       KillUnit(in  s name,
                in  s whom,
                in  i signal);
+      KillUnitSubgroup(in  s name,
+                       in  s whom,
+                       in  s subgroup,
+                       in  i signal);
       QueueSignalUnit(in  s name,
                       in  s whom,
                       in  i signal,
@@ -831,6 +835,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="KillUnit()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="KillUnitSubgroup()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="QueueSignalUnit()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CleanUnit()"/>
@@ -1315,12 +1321,24 @@ node /org/freedesktop/systemd1 {
       <para><function>KillUnit()</function> may be used to kill (i.e. send a signal to) all processes of a
       unit. It takes the unit <varname>name</varname>, an enum <varname>who</varname> and a UNIX
       <varname>signal</varname> number to send. The <varname>who</varname> enum is one of
-      <literal>main</literal>, <literal>control</literal> or <literal>all</literal>. If
-      <literal>main</literal>, only the main process of the unit is killed. If <literal>control</literal>, only
-      the control process of the unit is killed. If <literal>all</literal>, all processes are killed. A
+      <literal>main</literal>, <literal>control</literal>, <literal>cgroup</literal> or
+      <literal>all</literal>. If <literal>main</literal>, only the main process of the unit is killed. If
+      <literal>control</literal>, only the control process of the unit is killed. If
+      <literal>cgroup</literal> is specified only the processes in the control group of the unit are killed,
+      which might or might not include the main and control processes too. If <literal>all</literal>, all
+      processes are killed, i.e. the main process, the control process and those in the control group. A
       <literal>control</literal> process is for example a process that is configured via
       <varname>ExecStop=</varname> and is spawned in parallel to the main daemon process in order to shut it
-      down.</para>
+      down. The value may be suffixed by <literal>-fail</literal> in which case the operation will fail of no
+      matching process was found (otherwise it will return successfully, executing no operation).</para>
+
+      <para><function>KillUnitSubgroup()</function> is just like <function>KillUnit()</function> but takes an
+      additional path argument that selects a sub-control-group of the unit's control group. Only processes
+      in that subgroup are killed. The path my be specified with our without leading <literal>/</literal>, in
+      both cases it is taken relatively to the unit's control group. If the subgroup path is specified as an
+      empty string or as <literal>/</literal> it has the same effect as <function>KillUnit()</function>. If
+      the it is specified as anything else the <literal>who</literal> parameter must be set to either
+      <literal>cgroup</literal> or <literal>cgroup-fail</literal>.</para>
 
       <para><function>QueueSignalUnit()</function> is similar to <function>KillUnit()</function> but may be
       used to enqueue a POSIX Realtime Signal (i.e. <constant>SIGRTMIN+…</constant> and
@@ -1886,8 +1904,8 @@ node /org/freedesktop/systemd1 {
       <para>Read access is generally granted to all clients. Additionally, for unprivileged clients, some
       operations are allowed through the polkit privilege system. Operations which modify unit state
       (<function>StartUnit()</function>, <function>StopUnit()</function>, <function>KillUnit()</function>,
-      <function>QueueSignalUnit()</function>, <function>RestartUnit()</function> and similar,
-      <function>SetProperty()</function>) require
+      <function>KillUnitSubgroup()</function>, <function>QueueSignalUnit()</function>,
+      <function>RestartUnit()</function> and similar, <function>SetProperty()</function>) require
       <interfacename>org.freedesktop.systemd1.manage-units</interfacename>. Operations which modify unit file
       enablement state (<function>EnableUnitFiles()</function>, <function>DisableUnitFiles()</function>,
       <function>EnableUnitFilesWithFlags()</function>, <function>DisableUnitFilesWithFlags()</function>,
@@ -1936,6 +1954,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
                  out a(uosos) affected_jobs);
       Kill(in  s whom,
            in  i signal);
+      KillSubgroup(in  s subgroup,
+                   in  i signal);
       QueueSignal(in  s whom,
                   in  i signal,
                   in  i value);
@@ -2259,6 +2279,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Kill()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="KillSubgroup()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="QueueSignal()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResetFailed()"/>
@@ -2487,13 +2509,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><function>Start()</function>, <function>Stop()</function>, <function>Reload()</function>,
       <function>Restart()</function>, <function>TryRestart()</function>,
       <function>ReloadOrRestart()</function>, <function>ReloadOrTryRestart()</function>,
-      <function>Kill()</function>, <function>QueueSignal()</function>, <function>ResetFailed()</function>,
-      and <function>SetProperties()</function> implement the same operation as the respective methods on the
-      <interfacename>Manager</interfacename> object (see above). However, these methods operate on the unit
-      object and hence do not take a unit name parameter. Invoking the methods directly on the Manager object
-      has the advantage of not requiring a <function>GetUnit()</function> call to get the unit object for a
-      specific unit name. Calling the methods on the Manager object is hence a round trip
-      optimization.</para>
+      <function>Kill()</function>, <function>KillSubgroup()</function>, <function>QueueSignal()</function>,
+      <function>ResetFailed()</function>, and <function>SetProperties()</function> implement the same
+      operation as the respective methods on the <interfacename>Manager</interfacename> object (see
+      above). However, these methods operate on the unit object and hence do not take a unit name
+      parameter. Invoking the methods directly on the Manager object has the advantage of not requiring a
+      <function>GetUnit()</function> call to get the unit object for a specific unit name. Calling the
+      methods on the Manager object is hence a round trip optimization.</para>
     </refsect2>
 
     <refsect2>
@@ -11978,7 +12000,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>ShutdownStartTimestamp</varname>,
       <varname>ShutdownStartTimestampMonotonic</varname>, and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
-      <para><function>RemoveSubgroupFromUnit()</function> was added in version 258.</para>
+      <para><function>RemoveSubgroupFromUnit()</function> and <function>KillUnitSubgroup()</function> were
+      added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -12045,9 +12068,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ProtectControlGroupsEx</varname>,
       <varname>PrivateUsersEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname>,
-      <varname>DelegateNamespaces</varname>, and
-      <function>RemoveSubGroup()</function> were added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname>, <varname>DelegateNamespaces</varname>, and
+      <function>RemoveSubgroup()</function> and <function>KillSubgroup()</function> were added in version
+      258.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
