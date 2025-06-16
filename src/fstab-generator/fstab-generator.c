@@ -1197,6 +1197,8 @@ static int add_sysroot_mount(void) {
                         return log_oom();
 
                 fstype = arg_root_fstype ?: "tmpfs"; /* tmpfs, unless overridden */
+                if (streq(fstype, "tmpfs") && !fstab_test_option(arg_root_options, "mode\0"))
+                        extra_opts = "mode=0755"; /* root directory should not be world/group writable, unless overridden */
         } else {
 
                 what = fstab_node_to_udev_node(arg_root_what);
