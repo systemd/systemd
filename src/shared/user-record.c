@@ -1403,6 +1403,7 @@ static int dispatch_status(const char *name, sd_json_variant *variant, sd_json_d
                 { "fallbackHomeDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0              },
                 { "useFallback",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(UserRecord, use_fallback),                  0              },
                 { "defaultArea",                SD_JSON_VARIANT_STRING,        json_dispatch_filename,         offsetof(UserRecord, default_area),                  0              },
+                { "aliases",                    SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(UserRecord, aliases),                       SD_JSON_RELAX  },
                 {},
         };
 
