@@ -1010,10 +1010,22 @@ static inline bool unit_has_job_type(Unit *u, JobType type) {
         return u && u->job && u->job->type == type;
 }
 
+static inline int unit_get_log_level_max(const Unit *u) {
+        if (u) {
+                if (u->debug_invocation)
+                        return LOG_DEBUG;
+
+                ExecContext *ec = unit_get_exec_context(u);
+                if (ec && ec->log_level_max >= 0)
+                        return ec->log_level_max;
+        }
+
+        return log_get_max_level();
+}
+
 static inline bool unit_log_level_test(const Unit *u, int level) {
         assert(u);
-        ExecContext *ec = unit_get_exec_context(u);
-        return !ec || ec->log_level_max < 0 || ec->log_level_max >= LOG_PRI(level) || u->debug_invocation;
+        return LOG_PRI(level) <= unit_get_log_level_max(u);
 }
 
 /* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
@@ -1071,15 +1083,12 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
-                bool _do_log = !(log_get_max_level() < LOG_PRI(_l) ||   \
-                        (_u && !unit_log_level_test(_u, _l)));          \
-                const ExecContext *_c = _do_log && _u ?                 \
-                        unit_get_exec_context(_u) : NULL;               \
+                LOG_CONTEXT_SET_LOG_LEVEL(unit_get_log_level_max(_u));  \
+                const ExecContext *_c = _u ? unit_get_exec_context(_u) : NULL; \
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
-                !_do_log ? -ERRNO_VALUE(error) :                        \
-                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
-                                log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+                _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__,  _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                     log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_unit_full_errno(unit, level, error, ...) \
@@ -1115,14 +1124,11 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
-                bool _do_log = unit_log_level_test(_u, _l);             \
-                const ExecContext *_c = _do_log && _u ?                 \
-                        unit_get_exec_context(_u) : NULL;               \
+                LOG_CONTEXT_SET_LOG_LEVEL(unit_get_log_level_max(_u));  \
+                const ExecContext *_c = _u ? unit_get_exec_context(_u) : NULL; \
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
-                _do_log ?                                               \
-                        log_struct_errno(_l, error, __VA_ARGS__, LOG_UNIT_ID(_u)) : \
-                        -ERRNO_VALUE(error);                            \
+                log_struct_errno(_l, error, __VA_ARGS__, LOG_UNIT_ID(_u)); \
         })
 
 #define log_unit_struct(unit, level, ...) log_unit_struct_errno(unit, level, 0, __VA_ARGS__)
@@ -1131,14 +1137,11 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
-                bool _do_log = unit_log_level_test(_u, _l);             \
-                const ExecContext *_c = _do_log && _u ?                 \
-                        unit_get_exec_context(_u) : NULL;               \
+                LOG_CONTEXT_SET_LOG_LEVEL(unit_get_log_level_max(_u));  \
+                const ExecContext *_c = _u ? unit_get_exec_context(_u) : NULL; \
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
-                _do_log ?                                               \
-                        log_struct_iovec_errno(_l, error, iovec, n_iovec) : \
-                        -ERRNO_VALUE(error);                            \
+                log_struct_iovec_errno(_l, error, iovec, n_iovec);      \
         })
 
 #define log_unit_struct_iovec(unit, level, iovec, n_iovec) log_unit_struct_iovec_errno(unit, level, 0, iovec, n_iovec)
@@ -1208,7 +1211,7 @@ typedef struct UnitForEachDependencyData {
         LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->unit_log_field, u->id);                                  \
         LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->invocation_log_field, u->invocation_id_string);          \
         LOG_CONTEXT_PUSH_IOV(c ? c->log_extra_fields : NULL, c ? c->n_log_extra_fields : 0);            \
-        LOG_CONTEXT_SET_LOG_LEVEL(c->log_level_max >= 0 ? c->log_level_max : log_get_max_level())
+        LOG_CONTEXT_SET_LOG_LEVEL(unit_get_log_level_max(u))
 
 #define LOG_CONTEXT_PUSH_UNIT(unit) \
         _LOG_CONTEXT_PUSH_UNIT(unit, UNIQ_T(u, UNIQ), UNIQ_T(c, UNIQ))

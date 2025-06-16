@@ -516,8 +516,11 @@ static inline void _reset_log_level(int *saved_log_level) {
         log_set_max_level(*saved_log_level);
 }
 
+#define _LOG_CONTEXT_SET_LOG_LEVEL(level, l) \
+        _cleanup_(_reset_log_level) _unused_ int l = log_set_max_level(level);
+
 #define LOG_CONTEXT_SET_LOG_LEVEL(level) \
-        _cleanup_(_reset_log_level) _unused_ int _saved_log_level_ = log_set_max_level(level);
+        _LOG_CONTEXT_SET_LOG_LEVEL(level, UNIQ_T(l, UNIQ))
 
 #define LOG_CONTEXT_PUSH(...) \
         LOG_CONTEXT_PUSH_STRV(STRV_MAKE(__VA_ARGS__))
