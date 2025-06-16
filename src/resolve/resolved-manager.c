@@ -734,7 +734,7 @@ int manager_new(Manager **ret) {
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse configuration file: %m");
+                log_warning_errno(r, "Failed to parse configuration file, ignoring: %m");
 
 #if ENABLE_DNS_OVER_TLS
         r = dnstls_manager_init(m);
@@ -756,11 +756,8 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = dnssd_load(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
-
-        manager_load_delegates(m);
+        (void) dnssd_load(m);
+        (void) manager_load_delegates(m);
 
         r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
