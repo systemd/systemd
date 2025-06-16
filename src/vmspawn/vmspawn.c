@@ -782,9 +782,12 @@ static int read_vsock_notify(NotifyConnectionData *d, int fd) {
 
         const char *p = strv_find_startswith(tags, "EXIT_STATUS=");
         if (p) {
-                r = safe_atoi(p, d->exit_status);
+                uint8_t k = 0;
+                r = safe_atou8(p, &k);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse exit status from %s, ignoring: %m", p);
+                else
+                        *d->exit_status = k;
         }
 
         return 1; /* done */
