@@ -14,5 +14,8 @@ typedef struct SocketServicePair {
 
 void socket_service_pair_done(SocketServicePair *p);
 
-int start_transient_scope(sd_bus *bus, const char *machine_name, bool allow_pidfd, char **ret_scope);
+int allocate_scope(sd_bus *bus, const char *machine_name, const PidRef *pid, const char *slice, char **properties, bool allow_pidfd, char **ret_scope);
+
+int terminate_scope(sd_bus *bus, const char *machine_name);
+
 int start_socket_service_pair(sd_bus *bus, const char *scope, SocketServicePair *p);
