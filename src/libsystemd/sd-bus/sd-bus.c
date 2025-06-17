@@ -1563,6 +1563,7 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
         _cleanup_free_ char *a = NULL;
 
         assert(b);
+        assert(IN_SET(runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
         assert(machine);
 
         _cleanup_free_ char *u = NULL, *h = NULL;
@@ -1648,42 +1649,9 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
         return free_and_replace(b->address, a);
 }
 
-static int user_and_machine_valid(const char *user_and_machine) {
-        const char *h;
-
-        /* Checks if a container specification in the form "user@container" or just "container" is valid.
-         *
-         * If the "@" syntax is used we'll allow either the "user" or the "container" part to be omitted, but
-         * not both. */
-
-        h = strchr(user_and_machine, '@');
-        if (!h)
-                h = user_and_machine;
-        else {
-                _cleanup_free_ char *user = NULL;
-
-                user = strndup(user_and_machine, h - user_and_machine);
-                if (!user)
-                        return -ENOMEM;
-
-                if (!isempty(user) && !valid_user_group_name(user, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
-                        return false;
-
-                h++;
-
-                if (isempty(h))
-                        return !isempty(user);
-        }
-
-        return hostname_is_valid(h, VALID_HOSTNAME_DOT_HOST);
-}
-
-static int user_and_machine_equivalent(const char *user_and_machine) {
-        _cleanup_free_ char *un = NULL;
-        const char *f;
-
+static int machine_spec_is_current_identity(const char *user_and_machine) {
         /* Returns true if the specified user+machine name are actually equivalent to our own identity and
-         * our own host. If so we can shortcut things.  Why bother? Because that way we don't have to fork
+         * our own host. If so we can shortcut things. Why bother? Because that way we don't have to fork
          * off short-lived worker processes that are then unavailable for authentication and logging in the
          * peer. Moreover joining a namespace requires privileges. If we are in the right namespace anyway,
          * we can avoid permission problems thus. */
@@ -1703,6 +1671,9 @@ static int user_and_machine_equivalent(const char *user_and_machine) {
                 return true;
 
         /* Otherwise, we have to figure out our user id and name, and compare things with that. */
+        _cleanup_free_ char *un = NULL;
+        const char *f;
+
         f = startswith(user_and_machine, FORMAT_UID(uid));
         if (!f) {
                 un = getusername_malloc();
@@ -1724,10 +1695,10 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machi
         assert_return(user_and_machine, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (user_and_machine_equivalent(user_and_machine))
+        if (machine_spec_is_current_identity(user_and_machine))
                 return sd_bus_open_system(ret);
 
-        r = user_and_machine_valid(user_and_machine);
+        r = machine_spec_valid(user_and_machine);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1761,11 +1732,11 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
 
         /* Shortcut things if we'd end up on this host and as the same user and have one of the necessary
          * environment variables set already.  */
-        if (user_and_machine_equivalent(user_and_machine) &&
+        if (machine_spec_is_current_identity(user_and_machine) &&
             (secure_getenv("DBUS_SESSION_BUS_ADDRESS") || secure_getenv("XDG_RUNTIME_DIR")))
                 return sd_bus_open_user(ret);
 
-        r = user_and_machine_valid(user_and_machine);
+        r = machine_spec_valid(user_and_machine);
         if (r < 0)
                 return r;
         if (r == 0)
