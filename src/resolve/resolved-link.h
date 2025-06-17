@@ -120,7 +120,7 @@ int link_address_new(Link *l,
                 const union in_addr_union *in_addr_broadcast);
 LinkAddress *link_address_free(LinkAddress *a);
 int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m);
-bool link_address_relevant(LinkAddress *l, bool local_multicast);
+bool link_address_relevant(LinkAddress *l, bool allow_link_local);
 void link_address_add_rrs(LinkAddress *a, bool force_remove);
 
 bool link_negative_trust_anchor_lookup(Link *l, const char *name);
