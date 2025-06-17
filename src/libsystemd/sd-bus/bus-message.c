@@ -1526,8 +1526,7 @@ static int bus_message_open_array(
                 sd_bus_message *m,
                 BusMessageContainer *c,
                 const char *contents,
-                uint32_t **array_size,
-                size_t *begin) {
+                uint32_t **array_size) {
 
         unsigned nindex;
         int alignment;
@@ -1539,7 +1538,6 @@ static int bus_message_open_array(
         assert(c);
         assert(contents);
         assert(array_size);
-        assert(begin);
 
         if (!signature_is_single(contents, true))
                 return -EINVAL;
@@ -1654,15 +1652,13 @@ static int bus_message_open_variant(
 static int bus_message_open_struct(
                 sd_bus_message *m,
                 BusMessageContainer *c,
-                const char *contents,
-                size_t *begin) {
+                const char *contents) {
 
         size_t nindex;
 
         assert(m);
         assert(c);
         assert(contents);
-        assert(begin);
 
         if (!signature_is_valid(contents, false))
                 return -EINVAL;
@@ -1706,13 +1702,11 @@ static int bus_message_open_struct(
 static int bus_message_open_dict_entry(
                 sd_bus_message *m,
                 BusMessageContainer *c,
-                const char *contents,
-                size_t *begin) {
+                const char *contents) {
 
         assert(m);
         assert(c);
         assert(contents);
-        assert(begin);
 
         if (!signature_is_pair(contents))
                 return -EINVAL;
@@ -1747,7 +1741,7 @@ _public_ int sd_bus_message_open_container(
         BusMessageContainer *c;
         uint32_t *array_size = NULL;
         _cleanup_free_ char *signature = NULL;
-        size_t before, begin = 0;
+        size_t before;
         int r;
 
         assert_return(m, -EINVAL);
@@ -1775,13 +1769,13 @@ _public_ int sd_bus_message_open_container(
         before = m->body_size;
 
         if (type == SD_BUS_TYPE_ARRAY)
-                r = bus_message_open_array(m, c, contents, &array_size, &begin);
+                r = bus_message_open_array(m, c, contents, &array_size);
         else if (type == SD_BUS_TYPE_VARIANT)
                 r = bus_message_open_variant(m, c, contents);
         else if (type == SD_BUS_TYPE_STRUCT)
-                r = bus_message_open_struct(m, c, contents, &begin);
+                r = bus_message_open_struct(m, c, contents);
         else if (type == SD_BUS_TYPE_DICT_ENTRY)
-                r = bus_message_open_dict_entry(m, c, contents, &begin);
+                r = bus_message_open_dict_entry(m, c, contents);
         else
                 r = -EINVAL;
         if (r < 0)
@@ -1793,7 +1787,6 @@ _public_ int sd_bus_message_open_container(
                 .signature = TAKE_PTR(signature),
                 .array_size = array_size,
                 .before = before,
-                .begin = begin,
         };
 
         return 0;
