@@ -21,7 +21,6 @@
 #include "daemon-util.h"
 #include "device-private.h"
 #include "env-file.h"
-#include "env-file-label.h"
 #include "env-util.h"
 #include "extract-word.h"
 #include "fileio.h"
@@ -860,7 +859,12 @@ static int context_write_data_machine_info(Context *c) {
                 return 0;
         }
 
-        r = write_env_file_label(AT_FDCWD, "/etc/machine-info", NULL, l);
+        r = write_env_file(
+                        AT_FDCWD,
+                        "/etc/machine-info",
+                        /* headers= */ NULL,
+                        l,
+                        WRITE_ENV_FILE_LABEL);
         if (r < 0)
                 return r;
 
