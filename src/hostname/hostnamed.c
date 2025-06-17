@@ -1413,7 +1413,7 @@ static int method_set_ansi_color(sd_bus_message *m,void *userdata, sd_bus_error 
                         "org.freedesktop.hostname1.set-machine-info",
                         NULL,
                         UID_INVALID,
-                        /* interactive= */ 0,
+                        /* flags= */ 0,
                         &c->polkit_registry,
                         error);
         if (r < 0)

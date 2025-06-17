@@ -181,7 +181,7 @@
         If it is not explicitly set, then a fallback color is automatically hashed from the hostname.</para>
 
         <para>Examples: <literal>ANSI_COLOR="0;31"</literal> for red, or <literal>ANSI_COLOR="1;34"</literal>
-        for the light blue.</para>
+        for light blue.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>

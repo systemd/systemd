@@ -110,7 +110,6 @@ static const char *os_support_end_color(usec_t n, usec_t eol) {
 }
 
 static int print_status_info(StatusInfo *i) {
-        _cleanup_free_ char *wrapped_color = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int r;
@@ -126,7 +125,8 @@ static int print_status_info(StatusInfo *i) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
 
-        wrapped_color = (i->ansi_color) ? strjoin("\x1B[", i->ansi_color, "m") : NULL; /* prefix/suffix ansi sequence */
+        /* not bothering with OOM check, this is decoration only anyway */
+        _cleanup_free_ char *wrapped_color = i->ansi_color ? strjoin("\x1B[", i->ansi_color, "m") : NULL;
         if (!isempty(i->hostname) &&
             !streq_ptr(i->hostname, i->static_hostname)) {
                 r = table_add_many(table,
