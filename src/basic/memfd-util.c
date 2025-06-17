@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
 #include <stdio.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
@@ -9,7 +10,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "memfd-util.h"
-#include "missing_sched.h"
 #include "string-util.h"
 #include "utf8.h"
 

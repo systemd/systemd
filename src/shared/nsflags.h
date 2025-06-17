@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sched.h>
+
 #include "forward.h"
-#include "missing_sched.h"
 
 /* The combination of all namespace flags defined by the kernel. The right type for this isn't clear. setns() and
  * unshare() expect these flags to be passed as (signed) "int", while clone() wants them as "unsigned long". The latter

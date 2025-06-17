@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
@@ -8,7 +9,6 @@
 #include "capability-util.h"
 #include "errno-util.h"
 #include "log.h"
-#include "missing_sched.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
