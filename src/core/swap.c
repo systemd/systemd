@@ -1421,16 +1421,16 @@ static void swap_reset_failed(Unit *u) {
 
 static void swap_handoff_timestamp(
                 Unit *u,
-                const struct ucred *ucred,
+                PidRef *pidref,
                 const dual_timestamp *ts) {
 
         Swap *s = ASSERT_PTR(SWAP(u));
 
-        assert(ucred);
+        assert(pidref);
         assert(ts);
 
-        if (s->control_pid.pid == ucred->pid && s->control_command) {
-                exec_status_handoff(&s->control_command->exec_status, ucred, ts);
+        if (pidref_equal(&s->control_pid, pidref) && s->control_command) {
+                exec_status_handoff(&s->control_command->exec_status, pidref, ts);
                 unit_add_to_dbus_queue(u);
         }
 }

@@ -646,7 +646,7 @@ typedef struct UnitVTable {
         void (*notify_message)(Unit *u, PidRef *pidref, const struct ucred *ucred, char * const *tags, FDSet *fds);
 
         /* Called whenever we learn a handoff timestamp */
-        void (*notify_handoff_timestamp)(Unit *u, const struct ucred *ucred, const dual_timestamp *ts);
+        void (*notify_handoff_timestamp)(Unit *u, PidRef *pidref, const dual_timestamp *ts);
 
         /* Called whenever we learn about a child process */
         void (*notify_pidref)(Unit *u, PidRef *parent_pidref, PidRef *child_pidref);

@@ -1985,16 +1985,16 @@ static void mount_shutdown(Manager *m) {
 
 static void mount_handoff_timestamp(
                 Unit *u,
-                const struct ucred *ucred,
+                PidRef *pidref,
                 const dual_timestamp *ts) {
 
         Mount *m = ASSERT_PTR(MOUNT(u));
 
-        assert(ucred);
+        assert(pidref);
         assert(ts);
 
-        if (m->control_pid.pid == ucred->pid && m->control_command) {
-                exec_status_handoff(&m->control_command->exec_status, ucred, ts);
+        if (pidref_equal(&m->control_pid, pidref) && m->control_command) {
+                exec_status_handoff(&m->control_command->exec_status, pidref, ts);
                 unit_add_to_dbus_queue(u);
         }
 }
