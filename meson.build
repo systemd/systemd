@@ -558,11 +558,11 @@ conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 # compilation result tests
 
 conf.set('_GNU_SOURCE', 1)
+conf.set('_LARGEFILE64_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>'))
-conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>'))
 conf.set('SIZEOF_TIME_T', cc.sizeof('time_t', prefix : '#include <sys/time.h>'))
 conf.set('SIZEOF_TIMEX_MEMBER', cc.sizeof('typeof(((struct timex *)0)->freq)', prefix : '#include <sys/timex.h>'))
 
@@ -575,7 +575,6 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
-        ['struct dirent64',   '''#include <dirent.h>'''],       # for musl, but only for compile time check, see dirent-util.h
         ['struct sched_attr', '''#include <sched.h>'''],        # since glibc-2.41
 ]
         # We get -1 if the size cannot be determined
@@ -584,11 +583,13 @@ foreach ident : [
 endforeach
 
 foreach ident : [
+        ['mallinfo',          '''#include <malloc.h>'''],       # for musl
+        ['malloc_info',       '''#include <malloc.h>'''],       # for musl
+        ['malloc_trim',       '''#include <malloc.h>'''],       # for musl
+        ['renameat2',         '''#include <stdio.h>'''],        # for musl
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['posix_getdents',    '''#include <dirent.h>'''],       # glibc does not implement it, but musl does
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
-        ['mallinfo',          '''#include <malloc.h>'''],       # deprecated since glibc-2.33, but check it for musl
         ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
         ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34
         ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34
@@ -617,9 +618,28 @@ foreach ident : [
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
 ]
 
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        have = cc.has_function(ident[0], prefix : ident[1], args : ['-D_GNU_SOURCE', '-D_LARGEFILE64_SOURCE'])
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
+
+rlim_test = '''
+#include <sys/resource.h>
+#include <stdio.h>
+int main(void) {
+        rlim_t x = 1;
+        printf("@0@", x);
+        return 0;
+}
+'''
+foreach fmt : ['%u', '%lu', '%llu']
+        if cc.compiles(rlim_test.format(fmt), args : ['-Werror=format', '-D_GNU_SOURCE'])
+                conf.set_quoted('RLIM_FMT', fmt)
+                break
+        endif
+endforeach
+if not conf.has('RLIM_FMT')
+        error('Cannot determine format string for rlim_t')
+endif
 
 #####################################################################
 
@@ -702,6 +722,10 @@ if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
 foreach header : ['crypt.h',
+                  'gnu/libc-version.h',
+                  'gshadow.h',
+                  'nss.h',
+                  'printf.h',
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
@@ -1607,7 +1631,6 @@ foreach term : ['analyze',
                 'efi',
                 'environment-d',
                 'firstboot',
-                'gshadow',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
@@ -1623,8 +1646,6 @@ foreach term : ['analyze',
                 'mountfsd',
                 'networkd',
                 'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
                 'oomd',
                 'portabled',
                 'pstore',
@@ -1650,15 +1671,36 @@ endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
+have = get_option('gshadow')
+if have and conf.get('HAVE_GSHADOW_H') == 0
+        warning('support for shadow group is requested but gshadow.h does not exist, disabling it.')
+        have = false
+endif
+conf.set10('ENABLE_GSHADOW', have)
+
+have_nss_h = conf.get('HAVE_NSS_H') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
         if want.allowed()
-                have = get_option(tuple[1])
+                have = get_option(tuple[1]) and have_nss_h
                 if want.enabled() and not have
+                        if not have_nss_h
+                                error('@0@ is requested but nss.h does not exist'.format(tuple[0]))
+                        endif
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
         else
+                have = false
+        endif
+        name = 'ENABLE_' + tuple[0].underscorify().to_upper()
+        conf.set10(name, have)
+endforeach
+foreach tuple : [['nss-myhostname'],
+                 ['nss-systemd']]
+        have = get_option(tuple[0])
+        if have and not have_nss_h
+                warning('@0@ is requested but nss.h does not exist, disabling it.'.format(tuple[0]))
                 have = false
         endif
         name = 'ENABLE_' + tuple[0].underscorify().to_upper()
