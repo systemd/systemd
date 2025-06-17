@@ -815,5 +815,6 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, sd_json_variant **ret) {
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", system_name),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", system_description),
                         SD_JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", SD_JSON_BUILD_UNSIGNED(cc)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("MUDURL", n->mud_url),
                         SD_JSON_BUILD_PAIR_CONDITION(valid_vlanid, "VlanID", SD_JSON_BUILD_UNSIGNED(vlanid)));
 }
