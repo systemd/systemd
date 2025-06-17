@@ -448,7 +448,12 @@ static int process_locale(int rfd) {
 
         locales[i] = NULL;
 
-        r = write_env_file(pfd, f, NULL, locales);
+        r = write_env_file(
+                        pfd,
+                        f,
+                        /* headers= */ NULL,
+                        locales,
+                        WRITE_ENV_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/locale.conf: %m");
 

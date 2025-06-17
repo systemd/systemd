@@ -143,7 +143,7 @@ TEST(parse_env_file) {
                 assert_se(fd >= 0);
         }
 
-        r = write_env_file(AT_FDCWD, p, NULL, a);
+        r = write_env_file(AT_FDCWD, p, /* headers= */ NULL, a, /* flags= */ 0);
         assert_se(r >= 0);
 
         r = load_env_file(NULL, p, &b);
@@ -206,7 +206,7 @@ TEST(parse_multiline_env_file) {
                 assert_se(fd >= 0);
         }
 
-        r = write_env_file(AT_FDCWD, p, NULL, a);
+        r = write_env_file(AT_FDCWD, p, /* headers= */ NULL, a, /* flags= */ 0);
         assert_se(r >= 0);
 
         r = load_env_file(NULL, p, &b);
