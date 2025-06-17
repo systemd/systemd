@@ -775,7 +775,7 @@ int machine_start_getty(Machine *m, const char *ptmx_name, sd_bus_error *error) 
         container_bus = allocated_bus ?: m->manager->bus;
         getty = strjoina("container-getty@", p, ".service");
 
-        r = bus_call_method(container_bus, bus_systemd_mgr, "StartUnit", error, /* reply = */ NULL, "ss", getty, "replace");
+        r = bus_call_method(container_bus, bus_systemd_mgr, "StartUnit", error, /* ret_reply = */ NULL, "ss", getty, "replace");
         if (r < 0)
                 return log_debug_errno(r, "Failed to StartUnit '%s' in container '%s': %m", getty, m->name);
 

@@ -427,7 +427,7 @@ int bus_print_all_properties(
                 bus_message_print_t func,
                 char **filter,
                 BusPrintPropertyFlags flags,
-                sd_bus_error *reterr) {
+                sd_bus_error *reterr_error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
@@ -440,7 +440,7 @@ int bus_print_all_properties(
                         path,
                         "org.freedesktop.DBus.Properties",
                         "GetAll",
-                        reterr,
+                        reterr_error,
                         &reply,
                         "s", "");
         if (r < 0)

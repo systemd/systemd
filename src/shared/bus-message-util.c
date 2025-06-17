@@ -42,7 +42,7 @@ int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret) {
         }
 }
 
-int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *error, int *ret) {
+int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *reterr_error, int *ret) {
         int ifindex, r;
 
         assert(message);
@@ -55,14 +55,14 @@ int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *error, int *
                 return r;
 
         if (ifindex <= 0)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
         *ret = ifindex;
 
         return 0;
 }
 
-int bus_message_read_family(sd_bus_message *message, sd_bus_error *error, int *ret) {
+int bus_message_read_family(sd_bus_message *message, sd_bus_error *reterr_error, int *ret) {
         int family, r;
 
         assert(message);
@@ -75,20 +75,20 @@ int bus_message_read_family(sd_bus_message *message, sd_bus_error *error, int *r
                 return r;
 
         if (!IN_SET(family, AF_INET, AF_INET6))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
         *ret = family;
         return 0;
 }
 
-int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *error, int *ret_family, union in_addr_union *ret_addr) {
+int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *reterr_error, int *ret_family, union in_addr_union *ret_addr) {
         int family, r;
         const void *d;
         size_t sz;
 
         assert(message);
 
-        r = bus_message_read_family(message, error, &family);
+        r = bus_message_read_family(message, reterr_error, &family);
         if (r < 0)
                 return r;
 
@@ -97,7 +97,7 @@ int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *error, 
                 return r;
 
         if (sz != FAMILY_ADDRESS_SIZE(family))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
 
         if (ret_family)
                 *ret_family = family;
@@ -108,7 +108,7 @@ int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *error, 
 
 static int bus_message_read_dns_one(
                         sd_bus_message *message,
-                        sd_bus_error *error,
+                        sd_bus_error *reterr_error,
                         bool extended,
                         int *ret_family,
                         union in_addr_union *ret_address,
@@ -129,12 +129,12 @@ static int bus_message_read_dns_one(
         if (r <= 0)
                 return r;
 
-        r = bus_message_read_in_addr_auto(message, error, &family, &a);
+        r = bus_message_read_in_addr_auto(message, reterr_error, &family, &a);
         if (r < 0)
                 return r;
 
         if (!dns_server_address_valid(family, &a)) {
-                r = sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+                r = sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
                 assert(r < 0);
                 return r;
         }
@@ -166,7 +166,7 @@ static int bus_message_read_dns_one(
 
 int bus_message_read_dns_servers(
                         sd_bus_message *message,
-                        sd_bus_error *error,
+                        sd_bus_error *reterr_error,
                         bool extended,
                         struct in_addr_full ***ret_dns,
                         size_t *ret_n_dns) {
@@ -189,7 +189,7 @@ int bus_message_read_dns_servers(
                 uint16_t port;
                 int family;
 
-                r = bus_message_read_dns_one(message, error, extended, &family, &a, &port, &server_name);
+                r = bus_message_read_dns_one(message, reterr_error, extended, &family, &a, &port, &server_name);
                 if (r < 0)
                         goto clear;
                 if (r == 0)

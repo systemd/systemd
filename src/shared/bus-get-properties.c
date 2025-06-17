@@ -19,7 +19,7 @@ int bus_property_get_bool(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         int b = *(bool*) userdata;
 
@@ -33,7 +33,7 @@ int bus_property_set_bool(
                 const char *property,
                 sd_bus_message *value,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         int b, r;
 
@@ -52,7 +52,7 @@ int bus_property_get_tristate(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         /* Defaults to false. */
 
@@ -68,7 +68,7 @@ int bus_property_get_id128(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         sd_id128_t *id = userdata;
 
@@ -86,7 +86,7 @@ int bus_property_get_size(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         uint64_t sz = *(size_t*) userdata;
 
@@ -102,7 +102,7 @@ int bus_property_get_long(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         int64_t l = *(long*) userdata;
 
@@ -116,7 +116,7 @@ int bus_property_get_ulong(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         uint64_t ul = *(unsigned long*) userdata;
 
@@ -131,7 +131,7 @@ int bus_property_get_rlimit(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         const char *is_soft;
         struct rlimit *rl;
@@ -179,7 +179,7 @@ int bus_property_get_string_set(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Set **s = ASSERT_PTR(userdata);
 
@@ -197,7 +197,7 @@ int bus_property_get_pidfdid(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         PidRef *pidref = ASSERT_PTR(userdata);
 

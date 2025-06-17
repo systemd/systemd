@@ -117,7 +117,7 @@ static void list_paths(
 int bus_introspect_implementations(
                 FILE *out,
                 const char *pattern,
-                const BusObjectImplementation* const* bus_objects) {
+                const BusObjectImplementation* const *bus_objects) {
 
         const BusObjectImplementation *impl, *main_impl = NULL;
         _cleanup_free_ char *s = NULL;
