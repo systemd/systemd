@@ -28,4 +28,4 @@ IPv6AcceptRA=no
 IPv6SendRA=yes
 
 [DHCPServer]
-PersistLeases=no
+PersistLeases=runtime

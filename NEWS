@@ -398,6 +398,10 @@ CHANGES WITH 258 in spe:
           networkd.conf. (Previously this had to be configured individually in
           each .network file.)
 
+        * PersistLeases= setting in [DHCPServer] section now also accepts
+          "runtime", to make the DHCP server saves and loads bound leases on
+          the runtime storage.
+
         * A new Preference= setting has been added to the [IPv6RoutePrefix]
           section to configure the route preference field.
 
