@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/auxv.h>
 #include <sys/ioctl.h>
+#include <sys/random.h>
 #include <threads.h>
 #include <unistd.h>
 
@@ -15,7 +16,6 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
-#include "missing_random.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
 #include "process-util.h"
