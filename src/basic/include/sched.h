@@ -5,9 +5,8 @@
  * to make struct sched_attr being defined.
  * Note, this must be included before sched.h, otherwise the headers conflict with each other. */
 #include <linux/sched/types.h>
-#include <sched.h>       /* IWYU pragma: export */
 
-#include "forward.h"
+#include_next <sched.h>
 
 /* 769071ac9f20b6a447410c7eaa55d1a5233ef40c (5.8),
  * defined in sched.h since glibc-2.36. */
