@@ -36,6 +36,7 @@
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -161,11 +162,15 @@ static const MountEntry protect_kernel_tunables_proc_table[] = {
 
 static const MountEntry protect_kernel_tunables_sys_table[] = {
         { "/sys",                MOUNT_READ_ONLY,           false },
-        { "/sys/fs/bpf",         MOUNT_READ_ONLY,           true  },
         { "/sys/fs/cgroup",      MOUNT_READ_WRITE_IMPLICIT, false }, /* READ_ONLY is set by ProtectControlGroups= option */
         { "/sys/fs/selinux",     MOUNT_READ_WRITE_IMPLICIT, true  },
         { "/sys/kernel/debug",   MOUNT_READ_ONLY,           true  },
         { "/sys/kernel/tracing", MOUNT_READ_ONLY,           true  },
+};
+
+/* PrivateBPF= option */
+static const MountEntry private_bpf_no_table[] = {
+        { "/sys/fs/bpf",         MOUNT_READ_ONLY,    true  },
 };
 
 /* ProtectKernelModules= option */
@@ -392,6 +397,48 @@ static MountEntry* mount_list_extend(MountList *ml) {
                 return NULL;
 
         return ml->mounts + ml->n_mounts++;
+}
+
+static int bpffs_finalize(int pipe_fd, PidRef *pid) {
+        _cleanup_close_ int fs_fd = -EBADF, fs_fd2 = -EBADF, mnt_fd = -EBADF;
+        int r;
+
+        assert(pipe_fd >= 0);
+        assert(pid);
+
+        fs_fd = fsopen("bpf", 0);
+        if (fs_fd < 0)
+                return log_debug_errno(errno, "Failed to fsopen: %m");
+
+        r = send_one_fd(pipe_fd, fs_fd, /* flags = */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send_one_fd to child: %m");
+
+        r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pid, /* flags = */ 0);
+        TAKE_PIDREF(*pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to pidref_wait_for_terminate_and_check: %m");
+        if (r != EXIT_SUCCESS) {
+                /* If something strange happened with the child, let's consider this fatal, too */
+                log_debug("Bogus return code from child: %d", r);
+                return -EIO;
+        }
+
+        fs_fd2 = receive_one_fd(pipe_fd, /* flags = */ 0);
+        if (fs_fd2 < 0)
+                return log_debug_errno(fs_fd2, "Failed to receive_one_fd from child: %m");
+
+        mnt_fd = fsmount(fs_fd2, 0, 0);
+        if (mnt_fd < 0) {
+                log_debug_errno(errno, "Failed to fsmount: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        r = move_mount(mnt_fd, "", AT_FDCWD, "/sys/fs/bpf", MOVE_MOUNT_F_EMPTY_PATH);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to move_mount: %m");
+
+        return 0;
 }
 
 static int append_access_mounts(MountList *ml, char **strv, MountMode mode, bool forcibly_require_prefix) {
@@ -922,6 +969,26 @@ static int append_protect_system(MountList *ml, ProtectSystem protect_system, bo
         case PROTECT_SYSTEM_FULL:
                 return append_static_mounts(ml, protect_system_full_table, ELEMENTSOF(protect_system_full_table), ignore_protect);
 
+        default:
+                assert_not_reached();
+        }
+}
+
+static int append_private_bpf(
+                MountList *ml,
+                PrivateBPF private_bpf,
+                bool protect_kernel_tunables,
+                bool ignore_protect) {
+
+        assert(ml);
+
+        switch (private_bpf) {
+        case PRIVATE_BPF_NO:
+                if (protect_kernel_tunables)
+                        return append_static_mounts(ml, private_bpf_no_table, ELEMENTSOF(private_bpf_no_table), ignore_protect);
+                return 0;
+        case PRIVATE_BPF_YES:
+                return 0;
         default:
                 assert_not_reached();
         }
@@ -2151,6 +2218,7 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
                 p->protect_kernel_tunables ||
                 p->protect_proc != PROTECT_PROC_DEFAULT ||
                 p->proc_subset != PROC_SUBSET_ALL ||
+                p->private_bpf != PRIVATE_BPF_NO ||
                 p->private_pids != PRIVATE_PIDS_NO;
 }
 
@@ -2540,6 +2608,26 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
         }
 
+        if (unshare(CLONE_NEWNS) < 0) {
+                r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
+
+                if (ERRNO_IS_PRIVILEGE(r) ||
+                    ERRNO_IS_NOT_SUPPORTED(r))
+                        /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
+                         * in place that doesn't allow us to create namespaces (or a missing cap), then
+                         * propagate a recognizable error back, which the caller can use to detect this case
+                         * (and only this) and optionally continue without namespacing applied. */
+                        return -ENOANO;
+
+                return r;
+        }
+
+        if (p->private_bpf != PRIVATE_BPF_NO) {
+                r = bpffs_finalize(p->bpffs_socket_fd, p->bpffs_pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mount bpffs in bpffs_finalize(): %m");
+        }
+
         r = append_access_mounts(&ml, p->read_write_paths, MOUNT_READ_WRITE, require_prefix);
         if (r < 0)
                 return r;
@@ -2650,6 +2738,10 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 return r;
 
         r = append_protect_system(&ml, p->protect_system, false);
+        if (r < 0)
+                return r;
+
+        r = append_private_bpf(&ml, p->private_bpf, p->protect_kernel_tunables, /* ignore_protect = */ false);
         if (r < 0)
                 return r;
 
@@ -2814,20 +2906,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         sort_and_drop_unused_mounts(&ml, root);
 
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
-
-        if (unshare(CLONE_NEWNS) < 0) {
-                r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
-
-                if (ERRNO_IS_PRIVILEGE(r) ||
-                    ERRNO_IS_NOT_SUPPORTED(r))
-                        /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
-                         * in place that doesn't allow us to create namespaces (or a missing cap), then
-                         * propagate a recognizable error back, which the caller can use to detect this case
-                         * (and only this) and optionally continue without namespacing applied. */
-                        return -ENOANO;
-
-                return r;
-        }
 
         /* Create the source directory to allow runtime propagation of mounts */
         if (setup_propagate)
@@ -3887,6 +3965,129 @@ static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
+
+static const char* const private_bpf_table[_PRIVATE_BPF_MAX] = {
+        [PRIVATE_BPF_NO]    = "no",
+        [PRIVATE_BPF_YES]   = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(private_bpf, PrivateBPF);
+
+static const char* const bpf_delegate_command_table[] = {
+        "BPFMapCreate",
+        "BPFMapLookupElem",
+        "BPFMapUpdateElem",
+        "BPFMapDeleteElem",
+        "BPFMapGetNextKey",
+        "BPFProgLoad",
+        "BPFObjPin",
+        "BPFObjGet",
+        "BPFProgAttach",
+        "BPFProgDetach",
+        "BPFProgRun",
+        "BPFProgGetNextId",
+        "BPFMapGetNextId",
+        "BPFProgGetFdById",
+        "BPFMapGetFdById",
+        "BPFObjGetInfoByFd",
+        "BPFProgQuery",
+        "BPFRawTracepointOpen",
+        "BPFBtfLoad",
+        "BPFBtfGetFdById",
+        "BPFTaskFdQuery",
+        "BPFMapLookupAndDeleteElem",
+        "BPFMapFreeze",
+        "BPFBtfGetNextId",
+        "BPFMapLookupBatch",
+        "BPFMapLookupAndDeleteBatch",
+        "BPFMapUpdateBatch",
+        "BPFMapDeleteBatch",
+        "BPFLinkCreate",
+        "BPFLinkUpdate",
+        "BPFLinkGetFdById",
+        "BPFLinkGetNextId",
+        "BPFEnableStats",
+        "BPFIterCreate",
+        "BPFLinkDetach",
+        "BPFProgBindMap",
+        "BPFTokenCreate",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_command, uint64_t);
+
+int bpf_dump_delegate_commands(FILE *fd, uint64_t u) {
+        assert(fd);
+
+        if (u == UINT64_MAX)
+                fprintf(fd, "any");
+        else {
+                bool first = true;
+                for (uint64_t i = 0; i < sizeof(u) * 8; i++) {
+                        if (u & (1UL << i)) {
+                                if (!first)
+                                        fprintf(fd, ",");
+                                first = false;
+                                fprintf(fd, "%s", bpf_delegate_command_to_string(i));
+                        }
+                }
+        }
+
+        return 0;
+}
+
+char* bpf_delegate_commands_to_string(uint64_t u) {
+        if (u == UINT64_MAX)
+                return strdup("any");
+
+        _cleanup_free_ char *buf = NULL;
+        size_t len = 1;
+
+        for (uint64_t i = 0; i < sizeof(u) * 8; i++)
+                if (u & (1UL << i))
+                        len += strlen(bpf_delegate_command_table[i]) + 1;
+
+        buf = malloc(len);
+        if (!buf)
+                return NULL;
+
+        buf[0] = 0;
+        char *end = buf;
+
+        for (uint64_t i = 0; i < sizeof(u) * 8; i++) {
+                if (u & (1UL << i)) {
+                        if (buf[0] != 0)
+                                end = stpcpy(end, ",");
+                        end = stpcpy(end, bpf_delegate_command_to_string(i));
+                }
+        }
+
+        return TAKE_PTR(buf);
+}
+
+int bpf_delegate_commands_from_string(const char *s, uint64_t *ret) {
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "any")) {
+                *ret = UINT64_MAX;
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **tokens = strv_split(s, ",");
+
+        *ret = 0;
+
+        for (char **token = tokens; *token; token++) {
+                int i = bpf_delegate_command_from_string(*token);
+
+                if (i < 0)
+                        return log_error_errno(i, "Invalid BPF delegate command %s", *token);
+
+                *ret |= 1UL << i;
+        }
+
+        return 0;
+}
 
 static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_NO]           = "no",

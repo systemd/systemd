@@ -2516,6 +2516,67 @@ RestrictNamespaces=~cgroup net</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PrivateBPF=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If set, mount a private instance of the BPF filesystem.
+        Otherwise, if <varname>ProtectKernelTunables=</varname> is also set, the instance from the host
+        is mounted read-only. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFDelegateCommands=</varname></term>
+
+        <listitem><para>Accepts a list of BPF commands to delegate or <literal>any</literal> to allow everything,
+        which is the default if not specified.
+        The accepted values are:
+        <literal>BPFMapCreate</literal>
+        <literal>BPFMapLookupElem</literal>
+        <literal>BPFMapUpdateElem</literal>
+        <literal>BPFMapDeleteElem</literal>
+        <literal>BPFMapGetNextKey</literal>
+        <literal>BPFProgLoad</literal>
+        <literal>BPFObjPin</literal>
+        <literal>BPFObjGet</literal>
+        <literal>BPFProgAttach</literal>
+        <literal>BPFProgDetach</literal>
+        <literal>BPFProgRun</literal>
+        <literal>BPFProgGetNextId</literal>
+        <literal>BPFMapGetNextId</literal>
+        <literal>BPFProgGetFdById</literal>
+        <literal>BPFMapGetFdById</literal>
+        <literal>BPFObjGetInfoByFd</literal>
+        <literal>BPFProgQuery</literal>
+        <literal>BPFRawTracepointOpen</literal>
+        <literal>BPFBtfLoad</literal>
+        <literal>BPFBtfGetFdById</literal>
+        <literal>BPFTaskFdQuery</literal>
+        <literal>BPFMapLookupAndDeleteElem</literal>
+        <literal>BPFMapFreeze</literal>
+        <literal>BPFBtfGetNextId</literal>
+        <literal>BPFMapLookupBatch</literal>
+        <literal>BPFMapLookupAndDeleteBatch</literal>
+        <literal>BPFMapUpdateBatch</literal>
+        <literal>BPFMapDeleteBatch</literal>
+        <literal>BPFLinkCreate</literal>
+        <literal>BPFLinkUpdate</literal>
+        <literal>BPFLinkGetFdById</literal>
+        <literal>BPFLinkGetNextId</literal>
+        <literal>BPFEnableStats</literal>
+        <literal>BPFIterCreate</literal>
+        <literal>BPFLinkDetach</literal>
+        <literal>BPFProgBindMap</literal>
+        <literal>BPFTokenCreate</literal>
+        Requires <varname>PrivateBPF=</varname> enabled to be effective.
+        This will set the <constant>delegate_cmds</constant> bpffs mount option.
+        A more detailed explanation of the feature can be found in this
+        <ulink url="https://lwn.net/Articles/947173/">LWN post</ulink></para>.
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LockPersonality=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, locks down the <citerefentry

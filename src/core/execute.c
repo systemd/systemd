@@ -324,6 +324,7 @@ bool exec_needs_mount_namespace(
             exec_needs_cgroup_mount(context) ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
+            context->private_bpf != PRIVATE_BPF_NO ||
             exec_needs_ipc_namespace(context) ||
             exec_needs_pid_namespace(context, params))
                 return true;
@@ -658,6 +659,7 @@ void exec_context_init(ExecContext *c) {
                 .memory_ksm = -1,
                 .private_var_tmp = _PRIVATE_TMP_INVALID,
                 .set_login_environment = -1,
+                .bpf_delegate_commands = UINT64_MAX,
         };
 
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
@@ -1124,7 +1126,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sKeyringMode: %s\n"
                 "%sProtectHostname: %s%s%s\n"
                 "%sProtectProc: %s\n"
-                "%sProcSubset: %s\n",
+                "%sProcSubset: %s\n"
+                "%sPrivateBPF: %s\n",
                 prefix, c->umask,
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
@@ -1151,7 +1154,14 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, exec_keyring_mode_to_string(c->keyring_mode),
                 prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
-                prefix, proc_subset_to_string(c->proc_subset));
+                prefix, proc_subset_to_string(c->proc_subset),
+                prefix, private_bpf_to_string(c->private_bpf));
+
+        if (c->private_bpf == PRIVATE_BPF_YES) {
+                fprintf(f, "%sBPFDelegateCommands: ", prefix);
+                bpf_dump_delegate_commands(f, c->bpf_delegate_commands);
+                fprintf(f, "\n");
+        }
 
         if (c->set_login_environment >= 0)
                 fprintf(f, "%sSetLoginEnvironment: %s\n", prefix, yes_no(c->set_login_environment > 0));
