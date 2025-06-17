@@ -238,7 +238,7 @@ static int enumerator3_callback(sd_bus *bus, const char *path, void *userdata, c
         return 1;
 }
 
-static void *server(void *p) {
+static void* server(void *p) {
         struct context *c = p;
         sd_bus *bus = NULL;
         sd_id128_t id;

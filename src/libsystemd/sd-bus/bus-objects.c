@@ -56,7 +56,7 @@ static int node_vtable_get_userdata(
         return 1;
 }
 
-static void *vtable_method_convert_userdata(const sd_bus_vtable *p, void *u) {
+static void* vtable_method_convert_userdata(const sd_bus_vtable *p, void *u) {
         assert(p);
 
         if (!u || FLAGS_SET(p->flags, SD_BUS_VTABLE_ABSOLUTE_OFFSET))
@@ -65,7 +65,7 @@ static void *vtable_method_convert_userdata(const sd_bus_vtable *p, void *u) {
         return (uint8_t*) u + p->x.method.offset;
 }
 
-static void *vtable_property_convert_userdata(const sd_bus_vtable *p, void *u) {
+static void* vtable_property_convert_userdata(const sd_bus_vtable *p, void *u) {
         assert(p);
 
         if (!u || FLAGS_SET(p->flags, SD_BUS_VTABLE_ABSOLUTE_OFFSET))
@@ -1600,7 +1600,7 @@ static int bus_find_parent_object_manager(sd_bus *bus, BusNode **out, const char
 
 static int bus_add_object(
                 sd_bus *bus,
-                sd_bus_slot **slot,
+                sd_bus_slot **ret_slot,
                 bool fallback,
                 const char *path,
                 sd_bus_message_handler_t callback,
@@ -1620,7 +1620,7 @@ static int bus_add_object(
         if (!n)
                 return -ENOMEM;
 
-        s = bus_slot_allocate(bus, !slot, BUS_NODE_CALLBACK, sizeof(BusNodeCallback), userdata);
+        s = bus_slot_allocate(bus, !ret_slot, BUS_NODE_CALLBACK, sizeof(BusNodeCallback), userdata);
         if (!s) {
                 r = -ENOMEM;
                 goto fail;
@@ -1633,8 +1633,8 @@ static int bus_add_object(
         LIST_PREPEND(callbacks, n->callbacks, &s->node_callback);
         bus->nodes_modified = true;
 
-        if (slot)
-                *slot = s;
+        if (ret_slot)
+                *ret_slot = s;
 
         return 0;
 
@@ -1647,22 +1647,22 @@ fail:
 
 _public_ int sd_bus_add_object(
                 sd_bus *bus,
-                sd_bus_slot **slot,
+                sd_bus_slot **ret_slot,
                 const char *path,
                 sd_bus_message_handler_t callback,
                 void *userdata) {
 
-        return bus_add_object(bus, slot, false, path, callback, userdata);
+        return bus_add_object(bus, ret_slot, false, path, callback, userdata);
 }
 
 _public_ int sd_bus_add_fallback(
                 sd_bus *bus,
-                sd_bus_slot **slot,
+                sd_bus_slot **ret_slot,
                 const char *prefix,
                 sd_bus_message_handler_t callback,
                 void *userdata) {
 
-        return bus_add_object(bus, slot, true, prefix, callback, userdata);
+        return bus_add_object(bus, ret_slot, true, prefix, callback, userdata);
 }
 
 static void vtable_member_hash_func(const BusVTableMember *m, struct siphash *state) {
@@ -1787,7 +1787,7 @@ const sd_bus_vtable* bus_vtable_next(const sd_bus_vtable *vtable, const sd_bus_v
 
 static int add_object_vtable_internal(
                 sd_bus *bus,
-                sd_bus_slot **slot,
+                sd_bus_slot **ret_slot,
                 const char *path,
                 const char *interface,
                 const sd_bus_vtable *vtable,
@@ -1839,7 +1839,7 @@ static int add_object_vtable_internal(
                 }
         }
 
-        s = bus_slot_allocate(bus, !slot, BUS_NODE_VTABLE, sizeof(BusNodeVTable), userdata);
+        s = bus_slot_allocate(bus, !ret_slot, BUS_NODE_VTABLE, sizeof(BusNodeVTable), userdata);
         if (!s) {
                 r = -ENOMEM;
                 goto fail;
@@ -1980,8 +1980,8 @@ static int add_object_vtable_internal(
         LIST_INSERT_AFTER(vtables, n->vtables, existing, &s->node_vtable);
         bus->nodes_modified = true;
 
-        if (slot)
-                *slot = s;
+        if (ret_slot)
+                *ret_slot = s;
 
         return 0;
 
@@ -1997,30 +1997,30 @@ _public_ const unsigned sd_bus_object_vtable_format = 242;
 
 _public_ int sd_bus_add_object_vtable(
                 sd_bus *bus,
-                sd_bus_slot **slot,
+                sd_bus_slot **ret_slot,
                 const char *path,
                 const char *interface,
                 const sd_bus_vtable *vtable,
                 void *userdata) {
 
-        return add_object_vtable_internal(bus, slot, path, interface, vtable, false, NULL, userdata);
+        return add_object_vtable_internal(bus, ret_slot, path, interface, vtable, false, NULL, userdata);
 }
 
 _public_ int sd_bus_add_fallback_vtable(
                 sd_bus *bus,
-                sd_bus_slot **slot,
+                sd_bus_slot **ret_slot,
                 const char *prefix,
                 const char *interface,
                 const sd_bus_vtable *vtable,
                 sd_bus_object_find_t find,
                 void *userdata) {
 
-        return add_object_vtable_internal(bus, slot, prefix, interface, vtable, true, find, userdata);
+        return add_object_vtable_internal(bus, ret_slot, prefix, interface, vtable, true, find, userdata);
 }
 
 _public_ int sd_bus_add_node_enumerator(
                 sd_bus *bus,
-                sd_bus_slot **slot,
+                sd_bus_slot **ret_slot,
                 const char *path,
                 sd_bus_node_enumerator_t callback,
                 void *userdata) {
@@ -2039,7 +2039,7 @@ _public_ int sd_bus_add_node_enumerator(
         if (!n)
                 return -ENOMEM;
 
-        s = bus_slot_allocate(bus, !slot, BUS_NODE_ENUMERATOR, sizeof(BusNodeEnumerator), userdata);
+        s = bus_slot_allocate(bus, !ret_slot, BUS_NODE_ENUMERATOR, sizeof(BusNodeEnumerator), userdata);
         if (!s) {
                 r = -ENOMEM;
                 goto fail;
@@ -2051,8 +2051,8 @@ _public_ int sd_bus_add_node_enumerator(
         LIST_PREPEND(enumerators, n->enumerators, &s->node_enumerator);
         bus->nodes_modified = true;
 
-        if (slot)
-                *slot = s;
+        if (ret_slot)
+                *ret_slot = s;
 
         return 0;
 
@@ -3022,7 +3022,7 @@ _public_ int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const
         return sd_bus_emit_interfaces_removed_strv(bus, path, interfaces);
 }
 
-_public_ int sd_bus_add_object_manager(sd_bus *bus, sd_bus_slot **slot, const char *path) {
+_public_ int sd_bus_add_object_manager(sd_bus *bus, sd_bus_slot **ret_slot, const char *path) {
         sd_bus_slot *s;
         BusNode *n;
         int r;
@@ -3036,7 +3036,7 @@ _public_ int sd_bus_add_object_manager(sd_bus *bus, sd_bus_slot **slot, const ch
         if (!n)
                 return -ENOMEM;
 
-        s = bus_slot_allocate(bus, !slot, BUS_NODE_OBJECT_MANAGER, sizeof(BusNodeObjectManager), NULL);
+        s = bus_slot_allocate(bus, !ret_slot, BUS_NODE_OBJECT_MANAGER, sizeof(BusNodeObjectManager), NULL);
         if (!s) {
                 r = -ENOMEM;
                 goto fail;
@@ -3046,8 +3046,8 @@ _public_ int sd_bus_add_object_manager(sd_bus *bus, sd_bus_slot **slot, const ch
         LIST_PREPEND(object_managers, n->object_managers, &s->node_object_manager);
         bus->nodes_modified = true;
 
-        if (slot)
-                *slot = s;
+        if (ret_slot)
+                *ret_slot = s;
 
         return 0;
 
