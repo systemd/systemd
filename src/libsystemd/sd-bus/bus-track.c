@@ -116,7 +116,7 @@ static int bus_track_remove_name_fully(sd_bus_track *track, const char *name) {
 
 _public_ int sd_bus_track_new(
                 sd_bus *bus,
-                sd_bus_track **track,
+                sd_bus_track **ret,
                 sd_bus_track_handler_t handler,
                 void *userdata) {
 
@@ -124,7 +124,7 @@ _public_ int sd_bus_track_new(
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(track, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (!bus->bus_client)
                 return -EINVAL;
@@ -143,11 +143,11 @@ _public_ int sd_bus_track_new(
 
         bus_track_add_to_queue(t);
 
-        *track = t;
+        *ret = t;
         return 0;
 }
 
-static sd_bus_track *track_free(sd_bus_track *track) {
+static sd_bus_track* track_free(sd_bus_track *track) {
         assert(track);
 
         if (track->in_list)
@@ -411,13 +411,13 @@ void bus_track_close(sd_bus_track *track) {
                 bus_track_dispatch(track);
 }
 
-_public_ void *sd_bus_track_get_userdata(sd_bus_track *track) {
+_public_ void* sd_bus_track_get_userdata(sd_bus_track *track) {
         assert_return(track, NULL);
 
         return track->userdata;
 }
 
-_public_ void *sd_bus_track_set_userdata(sd_bus_track *track, void *userdata) {
+_public_ void* sd_bus_track_set_userdata(sd_bus_track *track, void *userdata) {
         void *ret;
 
         assert_return(track, NULL);
