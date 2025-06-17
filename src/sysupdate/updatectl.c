@@ -36,7 +36,7 @@ static bool arg_reboot = false;
 static bool arg_offline = false;
 static bool arg_now = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 
 #define SYSUPDATE_HOST_PATH "/org/freedesktop/sysupdate1/target/host"
 #define SYSUPDATE_TARGET_INTERFACE "org.freedesktop.sysupdate1.Target"
