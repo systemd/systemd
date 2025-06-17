@@ -575,7 +575,6 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
-        ['struct dirent64',   '''#include <dirent.h>'''],       # for musl, but only for compile time check, see dirent-util.h
         ['struct sched_attr', '''#include <sched.h>'''],        # since glibc-2.41
 ]
         # We get -1 if the size cannot be determined
@@ -586,7 +585,6 @@ endforeach
 foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['posix_getdents',    '''#include <dirent.h>'''],       # glibc does not implement it, but musl does
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
         ['mallinfo',          '''#include <malloc.h>'''],       # deprecated since glibc-2.33, but check it for musl
         ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
