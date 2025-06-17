@@ -45,7 +45,7 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
         return mfree(d);
 }
 
-static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         assert(m);
 
         log_warning("D-Bus connection terminated while waiting for jobs.");
@@ -54,7 +54,7 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
         return 0;
 }
 
-static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         BusWaitForJobs *d = ASSERT_PTR(userdata);
         _cleanup_free_ char *job_found = NULL;
         const char *path, *unit, *result;
