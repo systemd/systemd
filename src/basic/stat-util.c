@@ -167,7 +167,7 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
                 struct dirent *de;
                 ssize_t n;
 
-                n = posix_getdents(fd, buf, m, /* flags = */ 0);
+                n = getdents64(fd, buf, m);
                 if (n < 0)
                         return -errno;
                 if (n == 0)

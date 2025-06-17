@@ -35,7 +35,12 @@
 #include "sysctl-util.h"
 
 #if ENABLE_IDN
-#  define IDN_FLAGS NI_IDN
+#  ifdef NI_IDN
+#    define IDN_FLAGS NI_IDN
+#  else
+#    warning "IDN support is requested but NI_IDN is not defined, disabling it."
+#    define IDN_FLAGS 0
+#  endif
 #else
 #  define IDN_FLAGS 0
 #endif
