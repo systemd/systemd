@@ -964,7 +964,8 @@ static int update_interrupted(sd_event_source *source, void *userdata) {
                                op->job_path,
                                "org.freedesktop.sysupdate1.Job",
                                "Cancel",
-                               &error, /* reply= */ NULL,
+                               &error,
+                               /* ret_reply= */ NULL,
                                NULL);
         if (r < 0)
                 return log_bus_error(r, &error, NULL, "call Cancel");
@@ -1412,7 +1413,7 @@ static int verb_enable(int argc, char **argv, void *userdata) {
                                        SYSUPDATE_TARGET_INTERFACE,
                                        "SetFeatureEnabled",
                                        &error,
-                                       /* reply= */ NULL,
+                                       /* ret_reply= */ NULL,
                                        "sit",
                                        *feature,
                                        (int) enable,

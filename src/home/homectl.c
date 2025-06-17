@@ -1706,7 +1706,7 @@ static int verb_unregister_home(int argc, char *argv[], void *userdata) {
                         return bus_log_create_error(r);
 
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* reply= */ NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0)
                         RET_GATHER(ret, log_error_errno(r, "Failed to unregister home: %s", bus_error_message(&error, r)));
         }
@@ -5117,7 +5117,7 @@ static int fallback_shell(int argc, char *argv[]) {
                                 "org.freedesktop.login1.Session",
                                 "SetClass",
                                 &error,
-                                /* reply= */ NULL,
+                                /* ret_reply= */ NULL,
                                 "s",
                                 "user");
                 if (r < 0)

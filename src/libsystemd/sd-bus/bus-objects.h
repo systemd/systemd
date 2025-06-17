@@ -16,4 +16,4 @@ int introspect_path(
                 bool ignore_nodes_modified,
                 bool *found_object,
                 char **ret,
-                sd_bus_error *error);
+                sd_bus_error *reterr_error);

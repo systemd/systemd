@@ -930,8 +930,7 @@ int bus_get_instance_id(sd_bus *bus, sd_id128_t *ret) {
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "GetId",
-                               /* ret_error = */ NULL, &reply,
-                               NULL);
+                               /* reterr_error = */ NULL, &reply, NULL);
         if (r < 0)
                 return r;
 

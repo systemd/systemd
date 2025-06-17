@@ -38,7 +38,7 @@ static bool gid_list_same(const gid_t *a, size_t n, const gid_t *b, size_t m) {
                 gid_list_contained(b, m, a, n);
 }
 
-static void *server(void *p) {
+static void* server(void *p) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int listen_fd = PTR_TO_INT(p), fd = -EBADF;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;

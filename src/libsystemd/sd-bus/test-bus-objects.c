@@ -19,7 +19,7 @@ struct context {
         uint32_t automatic_integer_property;
 };
 
-static int something_handler(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int something_handler(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         struct context *c = userdata;
         const char *s;
         char *n = NULL;
@@ -45,7 +45,7 @@ static int something_handler(sd_bus_message *m, void *userdata, sd_bus_error *er
         return 1;
 }
 
-static int exit_handler(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int exit_handler(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         struct context *c = userdata;
         int r;
 
@@ -59,7 +59,7 @@ static int exit_handler(sd_bus_message *m, void *userdata, sd_bus_error *error) 
         return 1;
 }
 
-static int get_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int get_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error) {
         struct context *c = userdata;
         int r;
 
@@ -71,7 +71,7 @@ static int get_handler(sd_bus *bus, const char *path, const char *interface, con
         return 1;
 }
 
-static int set_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error) {
+static int set_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *reterr_error) {
         struct context *c = userdata;
         const char *s;
         char *n;
@@ -91,7 +91,7 @@ static int set_handler(sd_bus *bus, const char *path, const char *interface, con
         return 1;
 }
 
-static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error) {
         _cleanup_free_ char *s = NULL;
         const char *x;
         int r;
@@ -107,7 +107,7 @@ static int value_handler(sd_bus *bus, const char *path, const char *interface, c
         return 1;
 }
 
-static int notify_test(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int notify_test(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         int r;
 
         assert_se(sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), m->path, "org.freedesktop.systemd.ValueTest", "Value", NULL) >= 0);
@@ -118,7 +118,7 @@ static int notify_test(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         return 1;
 }
 
-static int notify_test2(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int notify_test2(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         int r;
 
         assert_se(sd_bus_emit_properties_changed_strv(sd_bus_message_get_bus(m), m->path, "org.freedesktop.systemd.ValueTest", NULL) >= 0);
@@ -129,7 +129,7 @@ static int notify_test2(sd_bus_message *m, void *userdata, sd_bus_error *error) 
         return 1;
 }
 
-static int emit_interfaces_added(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int emit_interfaces_added(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         int r;
 
         assert_se(sd_bus_emit_interfaces_added(sd_bus_message_get_bus(m), "/value/a/x", "org.freedesktop.systemd.ValueTest", NULL) >= 0);
@@ -140,7 +140,7 @@ static int emit_interfaces_added(sd_bus_message *m, void *userdata, sd_bus_error
         return 1;
 }
 
-static int emit_interfaces_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int emit_interfaces_removed(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         int r;
 
         assert_se(sd_bus_emit_interfaces_removed(sd_bus_message_get_bus(m), "/value/a/x", "org.freedesktop.systemd.ValueTest", NULL) >= 0);
@@ -151,7 +151,7 @@ static int emit_interfaces_removed(sd_bus_message *m, void *userdata, sd_bus_err
         return 1;
 }
 
-static int emit_object_added(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int emit_object_added(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         int r;
 
         assert_se(sd_bus_emit_object_added(sd_bus_message_get_bus(m), "/value/a/x") >= 0);
@@ -162,13 +162,13 @@ static int emit_object_added(sd_bus_message *m, void *userdata, sd_bus_error *er
         return 1;
 }
 
-static int emit_object_with_manager_added(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int emit_object_with_manager_added(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         assert_se(sd_bus_emit_object_added(sd_bus_message_get_bus(m), "/value/a") >= 0);
 
         return ASSERT_SE_NONNEG(sd_bus_reply_method_return(m, NULL));
 }
 
-static int emit_object_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int emit_object_removed(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         int r;
 
         assert_se(sd_bus_emit_object_removed(sd_bus_message_get_bus(m), "/value/a/x") >= 0);
@@ -207,7 +207,7 @@ static const sd_bus_vtable vtable2[] = {
         SD_BUS_VTABLE_END
 };
 
-static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
 
         if (object_path_startswith("/value", path))
                 assert_se(*nodes = strv_new("/value/c", "/value/b", "/value/a"));
@@ -215,7 +215,7 @@ static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, ch
         return 1;
 }
 
-static int enumerator2_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int enumerator2_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
 
         if (object_path_startswith("/value/a", path))
                 assert_se(*nodes = strv_new("/value/a/z", "/value/a/x", "/value/a/y"));
@@ -223,7 +223,7 @@ static int enumerator2_callback(sd_bus *bus, const char *path, void *userdata, c
         return 1;
 }
 
-static int enumerator3_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int enumerator3_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
         _cleanup_strv_free_ char **v = NULL;
 
         if (!object_path_startswith("/value/b", path))
@@ -238,7 +238,7 @@ static int enumerator3_callback(sd_bus *bus, const char *path, void *userdata, c
         return 1;
 }
 
-static void *server(void *p) {
+static void* server(void *p) {
         struct context *c = p;
         sd_bus *bus = NULL;
         sd_id128_t id;
