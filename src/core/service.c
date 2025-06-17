@@ -5011,21 +5011,21 @@ static void service_notify_message(
 
 static void service_handoff_timestamp(
                 Unit *u,
-                const struct ucred *ucred,
+                PidRef *pidref,
                 const dual_timestamp *ts) {
 
         Service *s = ASSERT_PTR(SERVICE(u));
 
-        assert(ucred);
+        assert(pidref);
         assert(ts);
 
-        if (s->main_pid.pid == ucred->pid) {
+        if (pidref_equal(&s->main_pid, pidref)) {
                 if (s->main_command)
-                        exec_status_handoff(&s->main_command->exec_status, ucred, ts);
+                        exec_status_handoff(&s->main_command->exec_status, pidref, ts);
 
-                exec_status_handoff(&s->main_exec_status, ucred, ts);
-        } else if (s->control_pid.pid == ucred->pid && s->control_command)
-                exec_status_handoff(&s->control_command->exec_status, ucred, ts);
+                exec_status_handoff(&s->main_exec_status, pidref, ts);
+        } else if (pidref_equal(&s->control_pid, pidref) && s->control_command)
+                exec_status_handoff(&s->control_command->exec_status, pidref, ts);
         else
                 return;
 

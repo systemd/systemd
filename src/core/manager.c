@@ -1178,13 +1178,16 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
                 /* Make sure children never have to block */
                 (void) fd_increase_rxbuf(m->handoff_timestamp_fds[0], MANAGER_SOCKET_RCVBUF_SIZE);
 
-                r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSCRED, true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to enable SO_PASSCRED on handoff timestamp socket: %m");
+                // TODO: enforce SO_PASSPIDFD when our baseline of the kernel version is bumped to >= 6.5.
+                r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSPIDFD, true);
+                if (r < 0) {
+                        if (r != -ENOPROTOOPT)
+                                return log_error_errno(r, "Failed to enable SO_PASSPIDFD for timestamp handoff socket: %m");
 
-                r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSRIGHTS, false);
-                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        log_warning_errno(r, "Failed to turn off SO_PASSRIGHTS on handoff timestamp socket, ignoring: %m");
+                        r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSCRED, true);
+                        if (r < 0)
+                                return log_error_errno(r, "SO_PASSCRED failed: %m");
+                }
 
                 /* Mark the receiving socket as O_NONBLOCK (but leave sending side as-is) */
                 r = fd_nonblock(m->handoff_timestamp_fds[0], true);
@@ -4800,14 +4803,20 @@ static int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint
 static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         usec_t ts[2] = {};
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
+                         CMSG_SPACE(sizeof(int)) /* SCM_PIDFD */) control;
+        _cleanup_(pidref_done) PidRef unit_pidref = PIDREF_NULL;
+        _cleanup_close_ int unit_pidfd = -EBADF;
+        struct ucred *ucred = NULL;
         struct msghdr msghdr = {
                 .msg_iov = &IOVEC_MAKE(ts, sizeof(ts)),
                 .msg_iovlen = 1,
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
+        struct cmsghdr *cmsg;
         ssize_t n;
+        int r;
 
         assert(source);
 
@@ -4825,29 +4834,56 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
         if (n < 0)
                 return log_error_errno(n, "Failed to receive handoff timestamp message: %m");
 
-        cmsg_close_all(&msghdr);
-
         if (n != sizeof(ts)) {
                 log_warning("Got handoff timestamp message of unexpected size %zi (expected %zu), ignoring.", n, sizeof(ts));
                 return 0;
         }
 
-        struct ucred *ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
-        if (!ucred || !pid_is_valid(ucred->pid)) {
+        CMSG_FOREACH(cmsg, &msghdr) {
+                if (cmsg->cmsg_level != SOL_SOCKET)
+                        continue;
+
+                if (cmsg->cmsg_type == SCM_CREDENTIALS && cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+                        assert(!ucred);
+                        ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
+                } else if (cmsg->cmsg_type == SCM_PIDFD) {
+                        assert(unit_pidfd < 0);
+                        unit_pidfd = *CMSG_TYPED_DATA(cmsg, int);
+                }
+        }
+
+        if (!ucred && unit_pidfd < 0) {
+                log_warning("Received handoff timestamp message without credentials, ignoring.");
+                return 0;
+        }
+
+        if (ucred && !pid_is_valid(ucred->pid)) {
                 log_warning("Received handoff timestamp message without valid credentials. Ignoring.");
                 return 0;
         }
 
-        log_debug("Got handoff timestamp event for PID " PID_FMT ".", ucred->pid);
+        if (unit_pidfd >= 0)
+                r = pidref_set_pidfd_consume(&unit_pidref, TAKE_FD(unit_pidfd));
+        else
+                r = pidref_set_pid(&unit_pidref, ucred->pid);
+        if (r < 0) {
+                if (r == -ESRCH)
+                        log_debug_errno(r, "PidRef unit process died before message is processed. Ignoring.");
+                else
+                        log_warning_errno(r, "Failed to pin pidref unit process, ignoring message: %m");
+                return 0;
+        }
+
+        log_debug("Got handoff timestamp event for PID " PID_FMT ".", unit_pidref.pid);
 
         _cleanup_free_ Unit **units = NULL;
-        int n_units = manager_get_units_for_pidref(m, &PIDREF_MAKE_FROM_PID(ucred->pid), &units);
+        int n_units = manager_get_units_for_pidref(m, &unit_pidref, &units);
         if (n_units < 0) {
-                log_warning_errno(n_units, "Unable to determine units for PID " PID_FMT ", ignoring: %m", ucred->pid);
+                log_warning_errno(n_units, "Unable to determine units for PID " PID_FMT ", ignoring: %m", unit_pidref.pid);
                 return 0;
         }
         if (n_units == 0) {
-                log_debug("Got handoff timestamp for process " PID_FMT " we are not interested in, ignoring.", ucred->pid);
+                log_debug("Got handoff timestamp for process " PID_FMT " we are not interested in, ignoring.", unit_pidref.pid);
                 return 0;
         }
 
@@ -4860,7 +4896,7 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
                 if (!UNIT_VTABLE(*u)->notify_handoff_timestamp)
                         continue;
 
-                UNIT_VTABLE(*u)->notify_handoff_timestamp(*u, ucred, &dt);
+                UNIT_VTABLE(*u)->notify_handoff_timestamp(*u, &unit_pidref, &dt);
         }
 
         return 0;
