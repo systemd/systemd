@@ -2944,7 +2944,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
                                "Unknown assignment: %s", assignment);
 }
 
-int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char **l) {
+int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char * const *l) {
         int r;
 
         assert(m);
@@ -3014,7 +3014,7 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
         return 0;
 }
 
-int unit_load_state(sd_bus *bus, const char *name, char **load_state) {
+int unit_load_state(sd_bus *bus, const char *name, char **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         int r;
@@ -3033,7 +3033,7 @@ int unit_load_state(sd_bus *bus, const char *name, char **load_state) {
                         "org.freedesktop.systemd1.Unit",
                         "LoadState",
                         &error,
-                        load_state);
+                        ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to get load state of %s: %s", name, bus_error_message(&error, r));
 
