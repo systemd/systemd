@@ -3,7 +3,7 @@
 
 #include "forward.h"
 
-typedef int (*bus_property_set_t) (sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
+typedef int (*bus_property_set_t)(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *reterr_error, void *userdata);
 
 struct bus_properties_map {
         const char *member;
@@ -17,10 +17,10 @@ enum {
         BUS_MAP_BOOLEAN_AS_BOOL = 1 << 1, /* If set, each "b" message is written to a bool pointer. If not set, "b" is written to an int pointer. */
 };
 
-int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
-int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
-int bus_map_job_id(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
+int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *reterr_error, void *userdata);
+int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *reterr_error, void *userdata);
+int bus_map_job_id(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *reterr_error, void *userdata);
 
-int bus_message_map_all_properties(sd_bus_message *m, const struct bus_properties_map *map, unsigned flags, sd_bus_error *error, void *userdata);
+int bus_message_map_all_properties(sd_bus_message *m, const struct bus_properties_map *map, unsigned flags, sd_bus_error *reterr_error, void *userdata);
 int bus_map_all_properties(sd_bus *bus, const char *destination, const char *path, const struct bus_properties_map *map,
-                           unsigned flags, sd_bus_error *error, sd_bus_message **reply, void *userdata);
+                           unsigned flags, sd_bus_error *reterr_error, sd_bus_message **ret_reply, void *userdata);
