@@ -28,6 +28,7 @@
 #include "hostname-util.h"
 #include "image-policy.h"
 #include "kbd-util.h"
+#include "label.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "lock-util.h"
@@ -663,7 +664,12 @@ static int process_timezone(int rfd) {
 
         e = strjoina("../usr/share/zoneinfo/", arg_timezone);
 
+        r = label_ops_pre(pfd, f, S_IFLNK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to prepare label for /etc/localtime symlink: %m");
+
         r = symlinkat_atomic_full(e, pfd, f, /* make_relative= */ false);
+        RET_GATHER(r, label_ops_post(pfd, f, /* created= */ true));
         if (r < 0)
                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
