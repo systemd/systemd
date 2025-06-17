@@ -169,6 +169,7 @@ typedef enum SocketState {
         SOCKET_START_CHOWN,
         SOCKET_START_POST,
         SOCKET_LISTENING,
+        SOCKET_DEFERRED,
         SOCKET_RUNNING,
         SOCKET_STOP_PRE,
         SOCKET_STOP_PRE_SIGTERM,
@@ -282,6 +283,7 @@ typedef enum NotifyAccess {
 
 typedef enum JobMode {
         JOB_FAIL,                 /* Fail if a conflicting job is already queued */
+        JOB_MEEK,                 /* Fail if any conflicting unit is active (even weaker than JOB_FAIL) */
         JOB_REPLACE,              /* Replace an existing conflicting job */
         JOB_REPLACE_IRREVERSIBLY, /* Like JOB_REPLACE + produce irreversible jobs */
         JOB_ISOLATE,              /* Start a unit, and stop all others */
