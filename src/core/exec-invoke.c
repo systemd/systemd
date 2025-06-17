@@ -51,7 +51,6 @@
 #include "journal-send.h"
 #include "manager.h"
 #include "memfd-util.h"
-#include "missing_sched.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
