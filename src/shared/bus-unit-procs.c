@@ -332,7 +332,7 @@ int unit_show_processes(
                 const char *prefix,
                 unsigned n_columns,
                 OutputFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Hashmap *cgroups = NULL;
@@ -353,7 +353,7 @@ int unit_show_processes(
                         bus,
                         bus_systemd_mgr,
                         "GetUnitProcesses",
-                        error,
+                        reterr_error,
                         &reply,
                         "s",
                         unit);
