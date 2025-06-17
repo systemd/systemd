@@ -140,7 +140,7 @@ EFI_STATUS linux_exec(
         const PeSectionHeader *headers;
         size_t n_headers;
 
-        /* Do we need to validate anyting here? the len? */
+        /* Do we need to validate anything here? the len? */
         err = pe_section_table_from_base(kernel->iov_base, &headers, &n_headers);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot read sections: %m");
