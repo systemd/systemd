@@ -1727,7 +1727,7 @@ static int run_context_reconnect(RunContext *c) {
                                "org.freedesktop.systemd1.Unit",
                                "Ref",
                                &error,
-                               /* reply = */ NULL, NULL);
+                               /* ret_reply = */ NULL, NULL);
         if (r < 0) {
                 /* Hmm, the service manager probably hasn't finished reexecution just yet? Try again later. */
                 if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error))

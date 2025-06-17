@@ -69,12 +69,12 @@ int sd_bus_is_trusted(sd_bus *bus);
 int sd_bus_set_monitor(sd_bus *bus, int b);
 int sd_bus_is_monitor(sd_bus *bus);
 int sd_bus_set_description(sd_bus *bus, const char *description);
-int sd_bus_get_description(sd_bus *bus, const char **description);
+int sd_bus_get_description(sd_bus *bus, const char **ret);
 int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t creds_mask);
 int sd_bus_negotiate_timestamp(sd_bus *bus, int b);
 int sd_bus_negotiate_fds(sd_bus *bus, int b);
 int sd_bus_can_send(sd_bus *bus, char type);
-int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *creds_mask);
+int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *ret);
 int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b);
 int sd_bus_get_allow_interactive_authorization(sd_bus *bus);
 int sd_bus_set_exit_on_disconnect(sd_bus *bus, int b);
@@ -103,21 +103,21 @@ void sd_bus_default_flush_close(void);
 int sd_bus_is_open(sd_bus *bus);
 int sd_bus_is_ready(sd_bus *bus);
 
-int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id);
-int sd_bus_get_scope(sd_bus *bus, const char **scope);
-int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
+int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *ret);
+int sd_bus_get_scope(sd_bus *bus, const char **ret);
+int sd_bus_get_tid(sd_bus *bus, pid_t *ret);
 int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *ret_cookie);
-int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);
-int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *ret_error, sd_bus_message **reply);
-int sd_bus_call_async(sd_bus *bus, sd_bus_slot **slot, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec);
+int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *ret_cookie);
+int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *reterr_error, sd_bus_message **ret_reply);
+int sd_bus_call_async(sd_bus *bus, sd_bus_slot **ret_slot, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec);
 
 int sd_bus_get_fd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
-int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec);
-int sd_bus_process(sd_bus *bus, sd_bus_message **r);
-int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r) _sd_deprecated_;
+int sd_bus_get_timeout(sd_bus *bus, uint64_t *ret);
+int sd_bus_process(sd_bus *bus, sd_bus_message **ret);
+int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **ret) _sd_deprecated_;
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
 int sd_bus_enqueue_for_read(sd_bus *bus, sd_bus_message *m);
@@ -137,15 +137,15 @@ int sd_bus_get_n_queued_write(sd_bus *bus, uint64_t *ret);
 int sd_bus_set_method_call_timeout(sd_bus *bus, uint64_t usec);
 int sd_bus_get_method_call_timeout(sd_bus *bus, uint64_t *ret);
 
-int sd_bus_add_filter(sd_bus *bus, sd_bus_slot **slot, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_add_match(sd_bus *bus, sd_bus_slot **slot, const char *match, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_add_match_async(sd_bus *bus, sd_bus_slot **slot, const char *match, sd_bus_message_handler_t callback, sd_bus_message_handler_t install_callback, void *userdata);
-int sd_bus_add_object(sd_bus *bus, sd_bus_slot **slot, const char *path, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_add_fallback(sd_bus *bus, sd_bus_slot **slot, const char *prefix, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_add_object_vtable(sd_bus *bus, sd_bus_slot **slot, const char *path, const char *interface, const sd_bus_vtable *vtable, void *userdata);
-int sd_bus_add_fallback_vtable(sd_bus *bus, sd_bus_slot **slot, const char *prefix, const char *interface, const sd_bus_vtable *vtable, sd_bus_object_find_t find, void *userdata);
-int sd_bus_add_node_enumerator(sd_bus *bus, sd_bus_slot **slot, const char *path, sd_bus_node_enumerator_t callback, void *userdata);
-int sd_bus_add_object_manager(sd_bus *bus, sd_bus_slot **slot, const char *path);
+int sd_bus_add_filter(sd_bus *bus, sd_bus_slot **ret_slot, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_add_match(sd_bus *bus, sd_bus_slot **ret_slot, const char *match, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_add_match_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *match, sd_bus_message_handler_t callback, sd_bus_message_handler_t install_callback, void *userdata);
+int sd_bus_add_object(sd_bus *bus, sd_bus_slot **ret_slot, const char *path, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_add_fallback(sd_bus *bus, sd_bus_slot **ret_slot, const char *prefix, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_add_object_vtable(sd_bus *bus, sd_bus_slot **ret_slot, const char *path, const char *interface, const sd_bus_vtable *vtable, void *userdata);
+int sd_bus_add_fallback_vtable(sd_bus *bus, sd_bus_slot **ret_slot, const char *prefix, const char *interface, const sd_bus_vtable *vtable, sd_bus_object_find_t find, void *userdata);
+int sd_bus_add_node_enumerator(sd_bus *bus, sd_bus_slot **ret_slot, const char *path, sd_bus_node_enumerator_t callback, void *userdata);
+int sd_bus_add_object_manager(sd_bus *bus, sd_bus_slot **ret_slot, const char *path);
 
 int sd_bus_pending_method_calls(sd_bus *bus);
 
@@ -158,11 +158,11 @@ sd_bus* sd_bus_slot_get_bus(sd_bus_slot *slot);
 void* sd_bus_slot_get_userdata(sd_bus_slot *slot);
 void* sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata);
 int sd_bus_slot_set_description(sd_bus_slot *slot, const char *description);
-int sd_bus_slot_get_description(sd_bus_slot *slot, const char **description);
+int sd_bus_slot_get_description(sd_bus_slot *slot, const char **ret);
 int sd_bus_slot_get_floating(sd_bus_slot *slot);
 int sd_bus_slot_set_floating(sd_bus_slot *slot, int b);
 int sd_bus_slot_set_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t callback);
-int sd_bus_slot_get_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t *callback);
+int sd_bus_slot_get_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t *ret);
 
 sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
 sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *slot);
@@ -170,25 +170,25 @@ void* sd_bus_slot_get_current_userdata(sd_bus_slot *slot);
 
 /* Message object */
 
-int sd_bus_message_new(sd_bus *bus, sd_bus_message **m, uint8_t type);
-int sd_bus_message_new_signal(sd_bus *bus, sd_bus_message **m, const char *path, const char *interface, const char *member);
-int sd_bus_message_new_signal_to(sd_bus *bus, sd_bus_message **m, const char *destination, const char *path, const char *interface, const char *member);
-int sd_bus_message_new_method_call(sd_bus *bus, sd_bus_message **m, const char *destination, const char *path, const char *interface, const char *member);
-int sd_bus_message_new_method_return(sd_bus_message *call, sd_bus_message **m);
-int sd_bus_message_new_method_error(sd_bus_message *call, sd_bus_message **m, const sd_bus_error *e);
-int sd_bus_message_new_method_errorf(sd_bus_message *call, sd_bus_message **m, const char *name, const char *format, ...) _sd_printf_(4, 5);
-int sd_bus_message_new_method_errno(sd_bus_message *call, sd_bus_message **m, int error, const sd_bus_error *e);
-int sd_bus_message_new_method_errnof(sd_bus_message *call, sd_bus_message **m, int error, const char *format, ...) _sd_printf_(4, 5);
+int sd_bus_message_new(sd_bus *bus, sd_bus_message **ret, uint8_t type);
+int sd_bus_message_new_signal(sd_bus *bus, sd_bus_message **ret, const char *path, const char *interface, const char *member);
+int sd_bus_message_new_signal_to(sd_bus *bus, sd_bus_message **ret, const char *destination, const char *path, const char *interface, const char *member);
+int sd_bus_message_new_method_call(sd_bus *bus, sd_bus_message **ret, const char *destination, const char *path, const char *interface, const char *member);
+int sd_bus_message_new_method_return(sd_bus_message *call, sd_bus_message **ret);
+int sd_bus_message_new_method_error(sd_bus_message *call, sd_bus_message **ret, const sd_bus_error *e);
+int sd_bus_message_new_method_errorf(sd_bus_message *call, sd_bus_message **ret, const char *name, const char *format, ...) _sd_printf_(4, 5);
+int sd_bus_message_new_method_errno(sd_bus_message *call, sd_bus_message **ret, int error, const sd_bus_error *e);
+int sd_bus_message_new_method_errnof(sd_bus_message *call, sd_bus_message **ret, int error, const char *format, ...) _sd_printf_(4, 5);
 
 sd_bus_message* sd_bus_message_ref(sd_bus_message *m);
 sd_bus_message* sd_bus_message_unref(sd_bus_message *m);
 
 int sd_bus_message_seal(sd_bus_message *m, uint64_t cookie, uint64_t timeout_usec);
 
-int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
-int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie);
-int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie);
-int sd_bus_message_get_priority(sd_bus_message *m, int64_t *priority) _sd_deprecated_;
+int sd_bus_message_get_type(sd_bus_message *m, uint8_t *ret);
+int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *ret);
+int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *ret);
+int sd_bus_message_get_priority(sd_bus_message *m, int64_t *ret) _sd_deprecated_;
 
 int sd_bus_message_get_expect_reply(sd_bus_message *m);
 int sd_bus_message_get_auto_start(sd_bus_message *m);
@@ -203,9 +203,9 @@ const char* sd_bus_message_get_sender(sd_bus_message *m);
 const sd_bus_error* sd_bus_message_get_error(sd_bus_message *m);
 int sd_bus_message_get_errno(sd_bus_message *m);
 
-int sd_bus_message_get_monotonic_usec(sd_bus_message *m, uint64_t *usec);
-int sd_bus_message_get_realtime_usec(sd_bus_message *m, uint64_t *usec);
-int sd_bus_message_get_seqnum(sd_bus_message *m, uint64_t *seqnum);
+int sd_bus_message_get_monotonic_usec(sd_bus_message *m, uint64_t *ret);
+int sd_bus_message_get_realtime_usec(sd_bus_message *m, uint64_t *ret);
+int sd_bus_message_get_seqnum(sd_bus_message *m, uint64_t *ret);
 
 sd_bus* sd_bus_message_get_bus(sd_bus_message *m);
 sd_bus_creds* sd_bus_message_get_creds(sd_bus_message *m); /* do not unref the result */
@@ -243,7 +243,7 @@ int sd_bus_message_read(sd_bus_message *m, const char *types, ...);
 int sd_bus_message_readv(sd_bus_message *m, const char *types, va_list ap);
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
 int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
-int sd_bus_message_read_strv(sd_bus_message *m, char ***l); /* free the result! */
+int sd_bus_message_read_strv(sd_bus_message *m, char ***ret); /* free the result! */
 int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 int sd_bus_message_skip(sd_bus_message *m, const char *types);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
@@ -264,23 +264,23 @@ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags);
 int sd_bus_request_name_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_release_name(sd_bus *bus, const char *name);
 int sd_bus_release_name_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, sd_bus_message_handler_t callback, void *userdata);
-int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable); /* free the results */
-int sd_bus_get_name_creds(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */
-int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);
+int sd_bus_list_names(sd_bus *bus, char ***ret_acquired, char ***ret_activatable); /* free the results */
+int sd_bus_get_name_creds(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **ret); /* unref the result! */
+int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *ret);
 
 /* Convenience calls */
 
 int sd_bus_message_send(sd_bus_message *m);
-int sd_bus_call_methodv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, va_list ap);
-int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, ...);
-int sd_bus_call_method_asyncv(sd_bus *bus, sd_bus_slot **slot, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, va_list ap);
-int sd_bus_call_method_async(sd_bus *bus, sd_bus_slot **slot, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, ...);
-int sd_bus_get_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *type);
-int sd_bus_get_property_trivial(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, char type, void *ret_ptr);
-int sd_bus_get_property_string(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, char **ret); /* free the result! */
-int sd_bus_get_property_strv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, char ***ret); /* free the result! */
-int sd_bus_set_propertyv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, const char *type, va_list ap);
-int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, const char *type, ...);
+int sd_bus_call_methodv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *reterr_error, sd_bus_message **ret_reply, const char *types, va_list ap);
+int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *reterr_error, sd_bus_message **ret_reply, const char *types, ...);
+int sd_bus_call_method_asyncv(sd_bus *bus, sd_bus_slot **ret_slot, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, va_list ap);
+int sd_bus_call_method_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, ...);
+int sd_bus_get_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *reterr_error, sd_bus_message **ret_reply, const char *type);
+int sd_bus_get_property_trivial(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *reterr_error, char type, void *ret_ptr);
+int sd_bus_get_property_string(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *reterr_error, char **ret); /* free the result! */
+int sd_bus_get_property_strv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *reterr_error, char ***ret); /* free the result! */
+int sd_bus_set_propertyv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *reterr_error, const char *type, va_list ap);
+int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *reterr_error, const char *type, ...);
 
 int sd_bus_reply_method_returnv(sd_bus_message *call, const char *types, va_list ap);
 int sd_bus_reply_method_return(sd_bus_message *call, const char *types, ...);
@@ -306,7 +306,7 @@ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *inte
 int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces);
 int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_;
 
-int sd_bus_query_sender_creds(sd_bus_message *m, uint64_t mask, sd_bus_creds **creds);
+int sd_bus_query_sender_creds(sd_bus_message *m, uint64_t mask, sd_bus_creds **ret);
 int sd_bus_query_sender_privilege(sd_bus_message *m, int capability);
 
 int sd_bus_match_signal(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata);
@@ -321,41 +321,41 @@ sd_bus_creds* sd_bus_creds_unref(sd_bus_creds *c);
 uint64_t sd_bus_creds_get_mask(const sd_bus_creds *c);
 uint64_t sd_bus_creds_get_augmented_mask(const sd_bus_creds *c);
 
-int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid);
-int sd_bus_creds_get_pidfd_dup(sd_bus_creds *c, int *ret_fd);
-int sd_bus_creds_get_ppid(sd_bus_creds *c, pid_t *ppid);
-int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *tid);
-int sd_bus_creds_get_uid(sd_bus_creds *c, uid_t *uid);
-int sd_bus_creds_get_euid(sd_bus_creds *c, uid_t *euid);
-int sd_bus_creds_get_suid(sd_bus_creds *c, uid_t *suid);
-int sd_bus_creds_get_fsuid(sd_bus_creds *c, uid_t *fsuid);
-int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid);
-int sd_bus_creds_get_egid(sd_bus_creds *c, gid_t *egid);
-int sd_bus_creds_get_sgid(sd_bus_creds *c, gid_t *sgid);
-int sd_bus_creds_get_fsgid(sd_bus_creds *c, gid_t *fsgid);
-int sd_bus_creds_get_supplementary_gids(sd_bus_creds *c, const gid_t **gids);
-int sd_bus_creds_get_comm(sd_bus_creds *c, const char **comm);
-int sd_bus_creds_get_tid_comm(sd_bus_creds *c, const char **comm);
-int sd_bus_creds_get_exe(sd_bus_creds *c, const char **exe);
-int sd_bus_creds_get_cmdline(sd_bus_creds *c, char ***cmdline);
-int sd_bus_creds_get_cgroup(sd_bus_creds *c, const char **cgroup);
-int sd_bus_creds_get_unit(sd_bus_creds *c, const char **unit);
-int sd_bus_creds_get_slice(sd_bus_creds *c, const char **slice);
-int sd_bus_creds_get_user_unit(sd_bus_creds *c, const char **unit);
-int sd_bus_creds_get_user_slice(sd_bus_creds *c, const char **slice);
-int sd_bus_creds_get_session(sd_bus_creds *c, const char **session);
-int sd_bus_creds_get_owner_uid(sd_bus_creds *c, uid_t *uid);
+int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *ret);
+int sd_bus_creds_get_pidfd_dup(sd_bus_creds *c, int *ret);
+int sd_bus_creds_get_ppid(sd_bus_creds *c, pid_t *ret);
+int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *ret);
+int sd_bus_creds_get_uid(sd_bus_creds *c, uid_t *ret);
+int sd_bus_creds_get_euid(sd_bus_creds *c, uid_t *ret);
+int sd_bus_creds_get_suid(sd_bus_creds *c, uid_t *ret);
+int sd_bus_creds_get_fsuid(sd_bus_creds *c, uid_t *ret);
+int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *ret);
+int sd_bus_creds_get_egid(sd_bus_creds *c, gid_t *ret);
+int sd_bus_creds_get_sgid(sd_bus_creds *c, gid_t *ret);
+int sd_bus_creds_get_fsgid(sd_bus_creds *c, gid_t *ret);
+int sd_bus_creds_get_supplementary_gids(sd_bus_creds *c, const gid_t **ret);
+int sd_bus_creds_get_comm(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_tid_comm(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_exe(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_cmdline(sd_bus_creds *c, char ***ret);
+int sd_bus_creds_get_cgroup(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_unit(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_slice(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_user_unit(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_user_slice(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_session(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_owner_uid(sd_bus_creds *c, uid_t *ret);
 int sd_bus_creds_has_effective_cap(sd_bus_creds *c, int capability);
 int sd_bus_creds_has_permitted_cap(sd_bus_creds *c, int capability);
 int sd_bus_creds_has_inheritable_cap(sd_bus_creds *c, int capability);
 int sd_bus_creds_has_bounding_cap(sd_bus_creds *c, int capability);
-int sd_bus_creds_get_selinux_context(sd_bus_creds *c, const char **context);
-int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessionid);
-int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *loginuid);
-int sd_bus_creds_get_tty(sd_bus_creds *c, const char **tty);
-int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **name);
-int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***names);
-int sd_bus_creds_get_description(sd_bus_creds *c, const char **name);
+int sd_bus_creds_get_selinux_context(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *ret);
+int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *ret);
+int sd_bus_creds_get_tty(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **ret);
+int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***ret);
+int sd_bus_creds_get_description(sd_bus_creds *c, const char **ret);
 
 /* Error structures */
 
@@ -408,14 +408,14 @@ int sd_bus_error_add_map(const sd_bus_error_map *map);
 
 /* Label escaping */
 
-int sd_bus_path_encode(const char *prefix, const char *external_id, char **ret_path);
-int sd_bus_path_encode_many(char **out, const char *path_template, ...);
-int sd_bus_path_decode(const char *path, const char *prefix, char **ret_external_id);
+int sd_bus_path_encode(const char *prefix, const char *external_id, char **ret);
+int sd_bus_path_encode_many(char **ret, const char *path_template, ...);
+int sd_bus_path_decode(const char *path, const char *prefix, char **ret);
 int sd_bus_path_decode_many(const char *path, const char *path_template, ...);
 
 /* Tracking peers */
 
-int sd_bus_track_new(sd_bus *bus, sd_bus_track **track, sd_bus_track_handler_t handler, void *userdata);
+int sd_bus_track_new(sd_bus *bus, sd_bus_track **ret, sd_bus_track_handler_t handler, void *userdata);
 sd_bus_track* sd_bus_track_ref(sd_bus_track *track);
 sd_bus_track* sd_bus_track_unref(sd_bus_track *track);
 
