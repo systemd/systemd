@@ -915,7 +915,7 @@ static int shutdown_vm_graceful(sd_event_source *s, const struct signalfd_siginf
                 goto fallback;
         }
 
-        r = bus_call_method(bus, bus_login_mgr, "PowerOff", &error, /* reply= */ NULL, "b", false);
+        r = bus_call_method(bus, bus_login_mgr, "PowerOff", &error, /* ret_reply= */ NULL, "b", false);
         if (r >= 0) {
                 log_info("Requested powering off VM through D-Bus.");
                 return 0;
@@ -924,7 +924,7 @@ static int shutdown_vm_graceful(sd_event_source *s, const struct signalfd_siginf
         log_warning_errno(r, "Failed to shutdown VM via logind, ignoring: %s", bus_error_message(&error, r));
         sd_bus_error_free(&error);
 
-        r = bus_call_method(bus, bus_systemd_mgr, "PowerOff", &error, /* reply= */ NULL, /* types= */ NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "PowerOff", &error, /* ret_reply= */ NULL, /* types= */ NULL);
         if (r >= 0) {
                 log_info("Requested powering off VM through D-Bus.");
                 return 0;
