@@ -1721,7 +1721,12 @@ int cg_set_attribute(const char *controller, const char *path, const char *attri
         if (r < 0)
                 return r;
 
-        return write_string_file(p, value, WRITE_STRING_FILE_DISABLE_BUFFER);
+        /* https://lore.kernel.org/all/20250419183545.1982187-1-shakeel.butt@linux.dev/ adds O_NONBLOCK
+         * semantics to memory.max and memory.high to skip synchronous memory reclaim when O_NONBLOCK is
+         * enabled. Let's always open cgroupv2 attribute files in nonblocking mode to immediately take
+         * advantage of this and any other asynchronous resource reclaim that's added to the cgroupv2 API in
+         * the future. */
+        return write_string_file(p, value, WRITE_STRING_FILE_DISABLE_BUFFER|WRITE_STRING_FILE_OPEN_NONBLOCKING);
 }
 
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret) {
