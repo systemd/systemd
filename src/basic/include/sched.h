@@ -3,9 +3,10 @@
 
 /* sched.h includes linux/sched/types.h since glibc-2.41. */
 #include <linux/sched/types.h>
-#include <sched.h>       /* IWYU pragma: export */
 
-#include "forward.h"
+#include_next <sched.h>
+
+#include "macro.h"
 
 /* 769071ac9f20b6a447410c7eaa55d1a5233ef40c (5.8),
  * defined in sched.h since glibc-2.36. */
