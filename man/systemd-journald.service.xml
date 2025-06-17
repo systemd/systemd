@@ -218,6 +218,22 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
         <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>SIGHUP</term>
+
+        <listitem><para>Upon reception of the <constant>SIGHUP</constant> process signal
+         <command>systemd-journald</command> will reload its configuration values
+         and update the kernel log buffer and journals to reflect the new configuration.
+         If <varname>ReadKmsg=</varname> has changed, the kernel log buffer will be flushed
+         and updated as part of the reload. The active journal (e.g., persistent, volatile)
+         will continue to be used with the updated configuration.
+         However, if the storage mode has changed from persistent to volatile
+         and the current journal in use is the persistent journal, then the active journal will
+         be switched to the volatile journal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
