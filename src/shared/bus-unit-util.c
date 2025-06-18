@@ -1291,6 +1291,30 @@ static int bus_append_resource_limit(sd_bus_message *m, const char *field, const
         return 1;
 }
 
+static int bus_append_capabilities(sd_bus_message *m, const char *field, const char *eq) {
+        uint64_t sum = 0;
+        bool invert = false;
+        const char *p = eq;
+        int r;
+
+        if (*p == '~') {
+                invert = true;
+                p++;
+        }
+
+        r = capability_set_from_string(p, &sum);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
+
+        sum = invert ? ~sum : sum;
+
+        r = sd_bus_message_append(m, "(sv)", field, "t", sum);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1607,28 +1631,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         }
 
         if (STR_IN_SET(field, "CapabilityBoundingSet",
-                              "AmbientCapabilities")) {
-                uint64_t sum = 0;
-                bool invert = false;
-                const char *p = eq;
-
-                if (*p == '~') {
-                        invert = true;
-                        p++;
-                }
-
-                r = capability_set_from_string(p, &sum);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
-
-                sum = invert ? ~sum : sum;
-
-                r = sd_bus_message_append(m, "(sv)", field, "t", sum);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "AmbientCapabilities"))
+                return bus_append_capabilities(m, field, eq);
 
         if (streq(field, "CPUAffinity")) {
                 _cleanup_(cpu_set_done) CPUSet cpuset = {};
