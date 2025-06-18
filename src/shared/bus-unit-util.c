@@ -823,6 +823,19 @@ static int bus_append_parse_ip_address_filter(sd_bus_message *m, const char *fie
         return 1;
 }
 
+static int bus_append_ip_filter_path(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", field, "as", 0);
+        else
+                r = sd_bus_message_append(m, "(sv)", field, "as", 1, eq);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -985,17 +998,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return bus_append_parse_ip_address_filter(m, field, eq);
 
         if (STR_IN_SET(field, "IPIngressFilterPath",
-                              "IPEgressFilterPath")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field, "as", 0);
-                else
-                        r = sd_bus_message_append(m, "(sv)", field, "as", 1, eq);
-
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "IPEgressFilterPath"))
+                return bus_append_ip_filter_path(m, field, eq);
 
         if (streq(field, "BPFProgram")) {
                 if (isempty(eq))
