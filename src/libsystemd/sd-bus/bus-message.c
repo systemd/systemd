@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mman.h>
-
 #include "sd-bus.h"
 
 #include "alloc-util.h"
