@@ -67,6 +67,21 @@ curl -LSfs \
      --header "Range: entries=$BOOT_CURSOR:5:10" \
      http://localhost:19531/entries >"$LOG_FILE"
 jq -se "length == 10" "$LOG_FILE"
+# Check that follow with no num_entries follows "indefinitely"
+(
+    set +e; \
+    timeout 5 curl -LSfs \
+         --header "Accept: application/json" \
+         --header "Range: entries=:-1:" \
+         http://localhost:19531/entries?follow >"$LOG_FILE" ; \
+    test $? -eq 124 # timeout should kill the curl process waiting for new entries
+)
+# Check that follow with num_entries returns the specified number of entries and exits
+timeout 5 curl -LSfs \
+     --header "Accept: application/json" \
+     --header "Range: entries=:-20:10" \
+     http://localhost:19531/entries?follow >"$LOG_FILE"
+jq -se "length == 10" "$LOG_FILE"
 # Check if the specified cursor refers to an existing entry and return just that entry
 curl -LSfs \
      --header "Accept: application/json" \
