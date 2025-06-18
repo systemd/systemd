@@ -125,6 +125,7 @@ DEFINE_BUS_APPEND_PARSE("i", sched_policy_from_string);
 DEFINE_BUS_APPEND_PARSE("i", secure_bits_from_string);
 DEFINE_BUS_APPEND_PARSE("i", signal_from_string);
 DEFINE_BUS_APPEND_PARSE("i", parse_ip_protocol);
+DEFINE_BUS_APPEND_PARSE("i", mpol_from_string);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, ioprio_parse_priority);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, parse_nice);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, safe_atoi);
@@ -1661,17 +1662,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "CPUAffinity"))
                 return bus_append_cpu_affinity(m, field, eq);
 
-        if (streq(field, "NUMAPolicy")) {
-                r = mpol_from_string(eq);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
-
-                r = sd_bus_message_append(m, "(sv)", field, "i", (int32_t) r);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (streq(field, "NUMAPolicy"))
+                return bus_append_mpol_from_string(m, field, eq);
 
         if (streq(field, "NUMAMask")) {
                 _cleanup_(cpu_set_done) CPUSet nodes = {};
