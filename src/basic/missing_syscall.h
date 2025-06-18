@@ -108,14 +108,6 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 /* ======================================================================= */
 
 #if !HAVE_SET_MEMPOLICY
-enum {
-        MPOL_DEFAULT,
-        MPOL_PREFERRED,
-        MPOL_BIND,
-        MPOL_INTERLEAVE,
-        MPOL_LOCAL,
-};
-
 static inline long missing_set_mempolicy(int mode, const unsigned long *nodemask,
                            unsigned long maxnode) {
         return syscall(__NR_set_mempolicy, mode, nodemask, maxnode);

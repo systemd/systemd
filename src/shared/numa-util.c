@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/mempolicy.h>
 #include <sched.h>
 
 #include "alloc-util.h"
@@ -14,6 +15,14 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+
+bool mpol_is_valid(int t) {
+        return t >= MPOL_DEFAULT && t <= MPOL_LOCAL;
+}
+
+int numa_policy_get_type(const NUMAPolicy *p) {
+        return p->type < 0 ? (p->nodes.set ? MPOL_PREFERRED : -1) : p->type;
+}
 
 bool numa_policy_is_valid(const NUMAPolicy *policy) {
         assert(policy);
