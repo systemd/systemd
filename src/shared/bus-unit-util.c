@@ -1913,6 +1913,148 @@ static int bus_append_extension_images(sd_bus_message *m, const char *field, con
         return 1;
 }
 
+static int bus_append_directory(sd_bus_message *m, const char *field, const char *eq) {
+        _cleanup_strv_free_ char **symlinks = NULL, **symlinks_ro = NULL, **sources = NULL, **sources_ro = NULL;
+        const char *p = eq;
+        int r;
+
+        /* Adding new directories is supported from both *DirectorySymlink methods and the
+         * older ones, so first parse the input, and if we are given a new-style src:dst
+         * tuple use the new method, else use the old one. */
+
+        for (;;) {
+                _cleanup_free_ char *tuple = NULL, *source = NULL, *dest = NULL, *flags = NULL;
+
+                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse argument: %m");
+                if (r == 0)
+                        break;
+
+                const char *t = tuple;
+                r = extract_many_words(&t, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &source, &dest, &flags);
+                if (r <= 0)
+                        return log_error_errno(r ?: SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %m");
+
+                path_simplify(source);
+
+                if (isempty(dest) && isempty(flags)) {
+                        r = strv_consume(&sources, TAKE_PTR(source));
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                } else if (isempty(flags)) {
+                        path_simplify(dest);
+                        r = strv_consume_pair(&symlinks, TAKE_PTR(source), TAKE_PTR(dest));
+                        if (r < 0)
+                                return log_oom();
+                } else {
+                        ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
+                        if (exec_directory_flags < 0 || (exec_directory_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
+                                return log_error_errno(r, "Failed to parse flags: %s", flags);
+
+                        if (!isempty(dest)) {
+                                path_simplify(dest);
+                                r = strv_consume_pair(&symlinks_ro, TAKE_PTR(source), TAKE_PTR(dest));
+                        } else
+                                r = strv_consume(&sources_ro, TAKE_PTR(source));
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        if (!strv_isempty(sources)) {
+                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "as");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, sources);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        /* For State and Runtime directories we support an optional destination parameter, which
+         * will be used to create a symlink to the source. But it is new so we cannot change the
+         * old DBUS signatures, so append a new message type. */
+        if (!strv_isempty(symlinks) || !strv_isempty(symlinks_ro) || !strv_isempty(sources_ro)) {
+                const char *symlink_field;
+
+                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                if (streq(field, "StateDirectory"))
+                        symlink_field = "StateDirectorySymlink";
+                else if (streq(field, "RuntimeDirectory"))
+                        symlink_field = "RuntimeDirectorySymlink";
+                else if (streq(field, "CacheDirectory"))
+                        symlink_field = "CacheDirectorySymlink";
+                else if (streq(field, "LogsDirectory"))
+                        symlink_field = "LogsDirectorySymlink";
+                else
+                        assert_not_reached();
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, symlink_field);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "a(sst)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "(sst)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                STRV_FOREACH_PAIR(source, destination, symlinks) {
+                        r = sd_bus_message_append(m, "(sst)", *source, *destination, UINT64_C(0));
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                STRV_FOREACH_PAIR(source, destination, symlinks_ro) {
+                        r = sd_bus_message_append(m, "(sst)", *source, *destination, (uint64_t) EXEC_DIRECTORY_READ_ONLY);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                STRV_FOREACH(source, sources_ro) {
+                        r = sd_bus_message_append(m, "(sst)", *source, "", (uint64_t) EXEC_DIRECTORY_READ_ONLY);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -2274,146 +2416,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "ExtensionImages"))
                 return bus_append_extension_images(m, field, eq);
 
-        if (STR_IN_SET(field, "StateDirectory", "RuntimeDirectory", "CacheDirectory", "LogsDirectory")) {
-                _cleanup_strv_free_ char **symlinks = NULL, **symlinks_ro = NULL, **sources = NULL, **sources_ro = NULL;
-                const char *p = eq;
-
-                /* Adding new directories is supported from both *DirectorySymlink methods and the
-                 * older ones, so first parse the input, and if we are given a new-style src:dst
-                 * tuple use the new method, else use the old one. */
-
-                for (;;) {
-                        _cleanup_free_ char *tuple = NULL, *source = NULL, *dest = NULL, *flags = NULL;
-
-                        r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse argument: %m");
-                        if (r == 0)
-                                break;
-
-                        const char *t = tuple;
-                        r = extract_many_words(&t, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &source, &dest, &flags);
-                        if (r <= 0)
-                                return log_error_errno(r ?: SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %m");
-
-                        path_simplify(source);
-
-                        if (isempty(dest) && isempty(flags)) {
-                                r = strv_consume(&sources, TAKE_PTR(source));
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        } else if (isempty(flags)) {
-                                path_simplify(dest);
-                                r = strv_consume_pair(&symlinks, TAKE_PTR(source), TAKE_PTR(dest));
-                                if (r < 0)
-                                        return log_oom();
-                        } else {
-                                ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
-                                if (exec_directory_flags < 0 || (exec_directory_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
-                                        return log_error_errno(r, "Failed to parse flags: %s", flags);
-
-                                if (!isempty(dest)) {
-                                        path_simplify(dest);
-                                        r = strv_consume_pair(&symlinks_ro, TAKE_PTR(source), TAKE_PTR(dest));
-                                } else
-                                        r = strv_consume(&sources_ro, TAKE_PTR(source));
-                                if (r < 0)
-                                        return log_oom();
-                        }
-                }
-
-                if (!strv_isempty(sources)) {
-                        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_open_container(m, 'v', "as");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append_strv(m, sources);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                }
-
-                /* For State and Runtime directories we support an optional destination parameter, which
-                 * will be used to create a symlink to the source. But it is new so we cannot change the
-                 * old DBUS signatures, so append a new message type. */
-                if (!strv_isempty(symlinks) || !strv_isempty(symlinks_ro) || !strv_isempty(sources_ro)) {
-                        const char *symlink_field;
-
-                        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        if (streq(field, "StateDirectory"))
-                                symlink_field = "StateDirectorySymlink";
-                        else if (streq(field, "RuntimeDirectory"))
-                                symlink_field = "RuntimeDirectorySymlink";
-                        else if (streq(field, "CacheDirectory"))
-                                symlink_field = "CacheDirectorySymlink";
-                        else if (streq(field, "LogsDirectory"))
-                                symlink_field = "LogsDirectorySymlink";
-                        else
-                                assert_not_reached();
-
-                        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, symlink_field);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_open_container(m, 'v', "a(sst)");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_open_container(m, 'a', "(sst)");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        STRV_FOREACH_PAIR(source, destination, symlinks) {
-                                r = sd_bus_message_append(m, "(sst)", *source, *destination, UINT64_C(0));
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        }
-
-                        STRV_FOREACH_PAIR(source, destination, symlinks_ro) {
-                                r = sd_bus_message_append(m, "(sst)", *source, *destination, (uint64_t) EXEC_DIRECTORY_READ_ONLY);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        }
-
-                        STRV_FOREACH(source, sources_ro) {
-                                r = sd_bus_message_append(m, "(sst)", *source, "", (uint64_t) EXEC_DIRECTORY_READ_ONLY);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        }
-
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                }
-
-                return 1;
-        }
+        if (STR_IN_SET(field, "StateDirectory", "RuntimeDirectory", "CacheDirectory", "LogsDirectory"))
+                return bus_append_directory(m, field, eq);
 
         if (streq(field, "ProtectHostnameEx")) {
                 const char *colon = strchr(eq, ':');
