@@ -11,8 +11,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "missing_syscall_def.h"
-
 /* Since glibc-2.37 (774058d72942249f71d74e7f2b639f77184160a6), sys/mount.h includes linux/mount.h, and
  * we can safely include both headers in the same source file. However, we cannot do that with older glibc.
  * To avoid conflicts, let's not use glibc's sys/mount.h, and provide our own minimal implementation.
