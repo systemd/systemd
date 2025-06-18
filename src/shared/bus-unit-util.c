@@ -376,6 +376,28 @@ static int bus_append_parse_cpu_quota(sd_bus_message *m, const char *field, cons
         return 1;
 }
 
+static int bus_append_parse_device_allow(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 0);
+        else {
+                const char *path = eq, *rwm = NULL, *e;
+
+                e = strchr(eq, ' ');
+                if (e) {
+                        path = strndupa_safe(eq, e - eq);
+                        rwm = e + 1;
+                }
+
+                r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, path, strempty(rwm));
+        }
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -738,26 +760,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (streq(field, "CPUQuotaPeriodSec"))
                 return bus_append_parse_sec_rename(m, field, isempty(eq) ? "infinity" : eq);
 
-        if (streq(field, "DeviceAllow")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 0);
-                else {
-                        const char *path = eq, *rwm = NULL, *e;
+        if (streq(field, "DeviceAllow"))
+                return bus_append_parse_device_allow(m, field, eq);
 
-                        e = strchr(eq, ' ');
-                        if (e) {
-                                path = strndupa_safe(eq, e - eq);
-                                rwm = e+1;
-                        }
-
-                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, path, strempty(rwm));
-                }
-
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
 
         if (cgroup_io_limit_type_from_string(field) >= 0) {
 
