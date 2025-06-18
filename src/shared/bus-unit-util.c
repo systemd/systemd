@@ -2051,6 +2051,35 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
         return 1;
 }
 
+static int bus_append_protect_hostname(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        /* The command-line field is called "ProtectHostname". We also accept "ProtectHostnameEx" as the
+         * field name for backward compatibility. We set ProtectHostame or ProtectHostnameEx. */
+
+        r = parse_boolean(eq);
+        if (r >= 0)
+                r = sd_bus_message_append(m, "(sv)", "ProtectHostname", "b", r);
+        else {
+                const char *colon = strchr(eq, ':');
+                if (colon) {
+                        if (isempty(colon + 1))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %s=%s", field, eq);
+
+                        _cleanup_free_ char *p = strndup(eq, colon - eq);
+                        if (!p)
+                                return -ENOMEM;
+
+                        r = sd_bus_message_append(m, "(sv)", "ProtectHostnameEx", "(ss)", p, colon + 1);
+                } else
+                        r = sd_bus_message_append(m, "(sv)", "ProtectHostnameEx", "(ss)", eq, NULL);
+        }
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -2236,7 +2265,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "BindLogSockets",
                               "CPUSchedulingResetOnFork",
                               "LockPersonality",
-                              "ProtectHostname",
                               "MemoryKSM",
                               "RestrictSUIDSGID",
                               "RootEphemeral",
@@ -2415,24 +2443,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (STR_IN_SET(field, "StateDirectory", "RuntimeDirectory", "CacheDirectory", "LogsDirectory"))
                 return bus_append_directory(m, field, eq);
 
-        if (streq(field, "ProtectHostnameEx")) {
-                const char *colon = strchr(eq, ':');
-                if (colon) {
-                        if (isempty(colon + 1))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %s=%s", field, eq);
+        if (STR_IN_SET(field, "ProtectHostname", "ProtectHostnameEx"))
+                return bus_append_protect_hostname(m, field, eq);
 
-                        _cleanup_free_ char *p = strndup(eq, colon - eq);
-                        if (!p)
-                                return -ENOMEM;
-
-                        r = sd_bus_message_append(m, "(sv)", field, "(ss)", p, colon + 1);
-                } else
-                        r = sd_bus_message_append(m, "(sv)", field, "(ss)", eq, NULL);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
         return 0;
 }
 
