@@ -808,7 +808,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 const char *field_usec = "IODeviceLatencyTargetUSec";
 
                 if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field_usec, "a(st)", USEC_INFINITY);
+                        r = sd_bus_message_append(m, "(sv)", field_usec, "a(st)", 0);
                 else {
                         const char *path, *target, *e;
                         usec_t usec;
