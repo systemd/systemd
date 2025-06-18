@@ -4,7 +4,6 @@
 
 #include "fd-util.h"
 #include "lldp-network.h"
-#include "missing_network.h"
 #include "socket-util.h"
 
 int lldp_network_bind_raw_socket(int ifindex) {
@@ -18,7 +17,7 @@ int lldp_network_bind_raw_socket(int ifindex) {
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x000e, 1, 0),                        /* A != 00:0e */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                             /* drop packet */
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ethhdr, h_proto)),     /* A <- protocol */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_LLDP, 1, 0),                /* A != ETHERTYPE_LLDP */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETH_P_LLDP, 1, 0),                    /* A != ETH_P_LLDP */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                             /* drop packet */
                 BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                    /* accept packet */
         };
@@ -41,7 +40,7 @@ int lldp_network_bind_raw_socket(int ifindex) {
         assert(ifindex > 0);
 
         fd = socket(AF_PACKET, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK,
-                    htobe16(ETHERTYPE_LLDP));
+                    htobe16(ETH_P_LLDP));
         if (fd < 0)
                 return -errno;
 

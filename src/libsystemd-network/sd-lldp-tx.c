@@ -391,7 +391,7 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
                 return -ENOMEM;
 
         header = (struct ether_header*) packet;
-        header->ether_type = htobe16(ETHERTYPE_LLDP);
+        header->ether_type = htobe16(ETH_P_LLDP);
         memcpy(header->ether_dhost, lldp_multicast_addr + lldp_tx->mode, ETH_ALEN);
         memcpy(header->ether_shost, &lldp_tx->hwaddr, ETH_ALEN);
 
@@ -502,7 +502,7 @@ static int lldp_tx_send_packet(sd_lldp_tx *lldp_tx, size_t packet_size, const ui
 
         sa = (union sockaddr_union) {
                 .ll.sll_family = AF_PACKET,
-                .ll.sll_protocol = htobe16(ETHERTYPE_LLDP),
+                .ll.sll_protocol = htobe16(ETH_P_LLDP),
                 .ll.sll_ifindex = lldp_tx->ifindex,
                 .ll.sll_halen = ETH_ALEN,
         };
