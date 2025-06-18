@@ -396,13 +396,22 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
                 unit_ids = merge_unit_ids(unit_log_field(j->unit), array); /* ignore error */
 
-                STRV_FOREACH_PAIR(unit_id, job_type, array)
-                        /* logging for j not k here to provide a consistent narrative */
+                size_t m = strv_length(array);
+
+                _cleanup_free_ char *cycle_path_text = strdup("Found ordering cycle");
+                if (m > 0) {
+                        (void) strextendf(&cycle_path_text, " on %s/%s", array[0], array[1]);
+                        if (m > 2)
+                                (void) strextendf(&cycle_path_text, "; has dependency on %s/%s", array[2], array[3]);
+                }
+
+                STRV_FOREACH_PAIR(unit_id, job_type, strv_skip(array, 4))
+                        (void) strextendf(&cycle_path_text, ", %s/%s", *unit_id, *job_type);
+
+                /* logging for j not k here to provide a consistent narrative */
+                if (cycle_path_text)
                         log_struct(LOG_WARNING,
-                                   LOG_UNIT_MESSAGE(j->unit,
-                                                    "Found %s on %s/%s",
-                                                    unit_id == array ? "ordering cycle" : "dependency",
-                                                    *unit_id, *job_type),
+                                   LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
                                    LOG_ITEM("%s", strna(unit_ids)));
 
                 if (delete) {
