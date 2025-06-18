@@ -21,19 +21,19 @@ typedef bool (*check_idle_t)(void *userdata);
 
 int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout, check_idle_t check_idle, void *userdata);
 
-int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error);
+int bus_name_has_owner(sd_bus *bus, const char *name, sd_bus_error *reterr_error);
 
 bool bus_error_is_unknown_service(const sd_bus_error *error);
 bool bus_error_is_connection(const sd_bus_error *error);
 
-int bus_check_peercred(sd_bus *c);
+int bus_check_peercred(sd_bus *bus);
 
 int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_fd);
 
-int bus_connect_system_systemd(sd_bus **ret_bus);
-int bus_connect_user_systemd(sd_bus **ret_bus);
-int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret_bus);
-int bus_connect_capsule_bus(const char *capsule, sd_bus **ret_bus);
+int bus_connect_system_systemd(sd_bus **ret);
+int bus_connect_user_systemd(sd_bus **ret);
+int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret);
+int bus_connect_capsule_bus(const char *capsule, sd_bus **ret);
 
 int bus_connect_transport(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **bus);
@@ -62,7 +62,7 @@ static inline int bus_open_system_watch_bind(sd_bus **ret) {
         return bus_open_system_watch_bind_with_description(ret, NULL);
 }
 
-int bus_reply_pair_array(sd_bus_message *m, char **l);
+int bus_reply_pair_array(sd_bus_message *m, char * const *l);
 
 /* Listen to GetMallocInfo() calls to 'destination' and return malloc_info() via FD */
 int bus_register_malloc_status(sd_bus *bus, const char *destination);
