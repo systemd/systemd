@@ -5,7 +5,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
 #include "tests.h"
 
 TEST(memfd_get_sealed) {
