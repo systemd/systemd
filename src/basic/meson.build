@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+subdir('include/sys')
+
 basic_sources = files(
         'MurmurHash2.c',
         'af-list.c',
@@ -121,9 +123,6 @@ sources += basic_sources
 
 missing_audit_h = files('missing_audit.h')
 
-missing_syscall_def_h = files('missing_syscall_def.h')
-basic_sources += missing_syscall_def_h
-
 generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         output : 'af-list.txt',
@@ -186,50 +185,6 @@ endforeach
 
 generated_sources += generated_gperf_headers
 basic_sources += generated_gperf_headers
-
-############################################################
-
-arch_list = [
-        'alpha',
-        'arc',
-        'arm',
-        'arm64',
-        'i386',
-        'ia64',
-        'loongarch64',
-        'm68k',
-        'mips64',
-        'mips64n32',
-        'mipso32',
-        'parisc',
-        'powerpc',
-        'powerpc64',
-        'riscv32',
-        'riscv64',
-        's390',
-        's390x',
-        'sparc',
-        'x86_64'
-]
-
-run_target(
-        'update-syscall-tables',
-        command : [update_syscall_tables_sh, meson.current_source_dir()] + arch_list)
-
-syscall_list_txt = files('syscall-list.txt')
-
-syscall_lists = []
-foreach arch: arch_list
-        syscall_lists += files('syscalls-@0@.txt'.format(arch))
-endforeach
-
-missing_syscalls_py = find_program('missing_syscalls.py')
-
-run_target(
-        'update-syscall-header',
-        command : [missing_syscalls_py,
-                   missing_syscall_def_h,
-                   syscall_lists])
 
 ############################################################
 
