@@ -22,11 +22,6 @@
 #define LOOPBACK_IFINDEX 1
 #endif
 
-/* Not exposed yet. Similar values are defined in net/ethernet.h */
-#ifndef ETHERTYPE_LLDP
-#define ETHERTYPE_LLDP 0x88cc
-#endif
-
 /* Not exposed but defined in linux/netdevice.h */
 #ifndef MAX_PHYS_ITEM_ID_LEN
 #define MAX_PHYS_ITEM_ID_LEN 32
