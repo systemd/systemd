@@ -708,6 +708,125 @@ static int bus_append_ip_address_access(sd_bus_message *m, int family, const uni
         return sd_bus_message_close_container(m);
 }
 
+static int bus_append_parse_ip_address_filter(sd_bus_message *m, const char *field, const char *eq) {
+        union in_addr_union prefix = {};
+        unsigned char prefixlen;
+        int family, r;
+
+        if (isempty(eq)) {
+                r = sd_bus_message_append(m, "(sv)", field, "a(iayu)", 0);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "a(iayu)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(iayu)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (streq(eq, "any")) {
+                /* "any" is a shortcut for 0.0.0.0/0 and ::/0 */
+
+                r = bus_append_ip_address_access(m, AF_INET, &prefix, 0);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = bus_append_ip_address_access(m, AF_INET6, &prefix, 0);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+        } else if (is_localhost(eq)) {
+                /* "localhost" is a shortcut for 127.0.0.0/8 and ::1/128 */
+
+                prefix.in.s_addr = htobe32(0x7f000000);
+                r = bus_append_ip_address_access(m, AF_INET, &prefix, 8);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                prefix.in6 = (struct in6_addr) IN6ADDR_LOOPBACK_INIT;
+                r = bus_append_ip_address_access(m, AF_INET6, &prefix, 128);
+                if (r < 0)
+                        return r;
+
+        } else if (streq(eq, "link-local")) {
+                /* "link-local" is a shortcut for 169.254.0.0/16 and fe80::/64 */
+
+                prefix.in.s_addr = htobe32((UINT32_C(169) << 24 | UINT32_C(254) << 16));
+                r = bus_append_ip_address_access(m, AF_INET, &prefix, 16);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                prefix.in6 = (struct in6_addr) {
+                        .s6_addr32[0] = htobe32(0xfe800000)
+                };
+                r = bus_append_ip_address_access(m, AF_INET6, &prefix, 64);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+        } else if (streq(eq, "multicast")) {
+                /* "multicast" is a shortcut for 224.0.0.0/4 and ff00::/8 */
+
+                prefix.in.s_addr = htobe32((UINT32_C(224) << 24));
+                r = bus_append_ip_address_access(m, AF_INET, &prefix, 4);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                prefix.in6 = (struct in6_addr) {
+                        .s6_addr32[0] = htobe32(0xff000000)
+                };
+                r = bus_append_ip_address_access(m, AF_INET6, &prefix, 8);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+        } else
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+
+                        r = extract_first_word(&eq, &word, NULL, 0);
+                        if (r == 0)
+                                break;
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s: %s", field, eq);
+
+                        r = in_addr_prefix_from_string_auto(word, &family, &prefix, &prefixlen);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse IP address prefix: %s", word);
+
+                        r = bus_append_ip_address_access(m, family, &prefix, prefixlen);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -866,125 +985,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return bus_append_parse_io_device_latency(m, field, eq);
 
         if (STR_IN_SET(field, "IPAddressAllow",
-                              "IPAddressDeny")) {
-                unsigned char prefixlen;
-                union in_addr_union prefix = {};
-                int family;
-
-                if (isempty(eq)) {
-                        r = sd_bus_message_append(m, "(sv)", field, "a(iayu)", 0);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        return 1;
-                }
-
-                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'v', "a(iayu)");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'a', "(iayu)");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                if (streq(eq, "any")) {
-                        /* "any" is a shortcut for 0.0.0.0/0 and ::/0 */
-
-                        r = bus_append_ip_address_access(m, AF_INET, &prefix, 0);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = bus_append_ip_address_access(m, AF_INET6, &prefix, 0);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                } else if (is_localhost(eq)) {
-                        /* "localhost" is a shortcut for 127.0.0.0/8 and ::1/128 */
-
-                        prefix.in.s_addr = htobe32(0x7f000000);
-                        r = bus_append_ip_address_access(m, AF_INET, &prefix, 8);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        prefix.in6 = (struct in6_addr) IN6ADDR_LOOPBACK_INIT;
-                        r = bus_append_ip_address_access(m, AF_INET6, &prefix, 128);
-                        if (r < 0)
-                                return r;
-
-                } else if (streq(eq, "link-local")) {
-                        /* "link-local" is a shortcut for 169.254.0.0/16 and fe80::/64 */
-
-                        prefix.in.s_addr = htobe32((UINT32_C(169) << 24 | UINT32_C(254) << 16));
-                        r = bus_append_ip_address_access(m, AF_INET, &prefix, 16);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        prefix.in6 = (struct in6_addr) {
-                                .s6_addr32[0] = htobe32(0xfe800000)
-                        };
-                        r = bus_append_ip_address_access(m, AF_INET6, &prefix, 64);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                } else if (streq(eq, "multicast")) {
-                        /* "multicast" is a shortcut for 224.0.0.0/4 and ff00::/8 */
-
-                        prefix.in.s_addr = htobe32((UINT32_C(224) << 24));
-                        r = bus_append_ip_address_access(m, AF_INET, &prefix, 4);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        prefix.in6 = (struct in6_addr) {
-                                .s6_addr32[0] = htobe32(0xff000000)
-                        };
-                        r = bus_append_ip_address_access(m, AF_INET6, &prefix, 8);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                } else {
-                        for (;;) {
-                                _cleanup_free_ char *word = NULL;
-
-                                r = extract_first_word(&eq, &word, NULL, 0);
-                                if (r == 0)
-                                        break;
-                                if (r == -ENOMEM)
-                                        return log_oom();
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse %s: %s", field, eq);
-
-                                r = in_addr_prefix_from_string_auto(word, &family, &prefix, &prefixlen);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse IP address prefix: %s", word);
-
-                                r = bus_append_ip_address_access(m, family, &prefix, prefixlen);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        }
-                }
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "IPAddressDeny"))
+                return bus_append_parse_ip_address_filter(m, field, eq);
 
         if (STR_IN_SET(field, "IPIngressFilterPath",
                               "IPEgressFilterPath")) {
