@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/bpf.h>
 #include <linux/bpf_insn.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -21,6 +22,12 @@
 #include "set.h"
 #include "string-table.h"
 #include "string-util.h"
+
+#if !HAVE_BPF
+static int bpf(int cmd, union bpf_attr *attr, size_t size) {
+        return syscall(__NR_bpf, cmd, attr, size);
+}
+#endif
 
 static const char *const bpf_cgroup_attach_type_table[__MAX_BPF_ATTACH_TYPE] = {
         [BPF_CGROUP_INET_INGRESS] =     "ingress",

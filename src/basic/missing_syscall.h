@@ -48,18 +48,6 @@ static inline int missing_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long i
 
 /* ======================================================================= */
 
-#if !HAVE_BPF
-union bpf_attr;
-
-static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
-        return (int) syscall(__NR_bpf, cmd, attr, size);
-}
-
-#  define bpf missing_bpf
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_SET_MEMPOLICY
 enum {
         MPOL_DEFAULT,
