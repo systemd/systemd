@@ -1958,7 +1958,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
-        if (mpol_is_valid(numa_policy_get_type(&c->numa_policy))) {
+        if (numa_policy_is_valid(&c->numa_policy)) {
                 _cleanup_free_ char *nodes = NULL;
 
                 nodes = cpu_set_to_range_string(&c->numa_policy.nodes);
