@@ -29,6 +29,7 @@
 #include "image-policy.h"
 #include "kbd-util.h"
 #include "label.h"
+#include "label-util.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "lock-util.h"
@@ -1684,6 +1685,10 @@ static int run(int argc, char *argv[]) {
                         arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = arg_prompt_root_shell = false;
                 }
         }
+
+        r = mac_init();
+        if (r < 0)
+                return r;
 
         if (arg_image) {
                 assert(!arg_root);
