@@ -23,7 +23,6 @@
 #include "iovec-util.h"
 #include "keyctl-util.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"

@@ -66,6 +66,7 @@ basic_sources = files(
         'memory-util.c',
         'mempool.c',
         'memstream-util.c',
+        'missing_syscall.c',
         'mkdir.c',
         'mountpoint-util.c',
         'namespace-util.c',

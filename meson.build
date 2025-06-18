@@ -575,14 +575,6 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
-        ['struct sched_attr', '''#include <sched.h>'''],        # since glibc-2.41
-]
-        # We get -1 if the size cannot be determined
-        have = cc.sizeof(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE') > 0
-        conf.set10('HAVE_' + ident[0].underscorify().to_upper(), have)
-endforeach
-
-foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
@@ -611,9 +603,9 @@ foreach ident : [
         ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
         ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
         ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
-        ['pivot_root',        '''#include <sys/syscall.h>'''],  # no known header declares pivot_root
         ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
+        ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
