@@ -530,7 +530,7 @@ int exec_context_has_vpicked_extensions(const ExecContext *context);
 
 void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
-void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_timestamp *ts);
+void exec_status_handoff(ExecStatus *s, PidRef *pidref, const dual_timestamp *ts);
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
 void exec_status_reset(ExecStatus *s);
 

@@ -2085,14 +2085,14 @@ void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int 
                 (void) utmp_put_dead_process(context->utmp_id, pid, code, status);
 }
 
-void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_timestamp *ts) {
+void exec_status_handoff(ExecStatus *s, PidRef *pidref, const dual_timestamp *ts) {
         assert(s);
-        assert(ucred);
+        assert(pidref);
         assert(ts);
 
-        if (ucred->pid != s->pid)
+        if (!pidref_equal(pidref, &PIDREF_MAKE_FROM_PID(s->pid)) && pidref_verify(pidref) > 0)
                 *s = (ExecStatus) {
-                        .pid = ucred->pid,
+                        .pid = pidref->pid,
                 };
 
         s->handoff_timestamp = *ts;
