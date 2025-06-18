@@ -21,7 +21,6 @@
 #include "keyctl-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "nulstr-util.h"
