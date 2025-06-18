@@ -21,7 +21,7 @@
 #include "inotify-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
-#include "keyring-util.h"
+#include "keyctl-util.h"
 #include "log.h"
 #include "missing_syscall.h"
 #include "nulstr-util.h"

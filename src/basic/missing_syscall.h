@@ -13,7 +13,6 @@
 #endif
 
 #include "forward.h"
-#include "missing_keyctl.h"
 #include "missing_syscall_def.h"
 
 /* ======================================================================= */
@@ -65,32 +64,6 @@ static inline int missing_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long i
 }
 
 #  define kcmp missing_kcmp
-#endif
-
-/* ======================================================================= */
-
-#if !HAVE_KEYCTL
-static inline long missing_keyctl(int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) {
-        return syscall(__NR_keyctl, cmd, arg2, arg3, arg4, arg5);
-
-#  define keyctl missing_keyctl
-}
-
-/* ======================================================================= */
-
-static inline key_serial_t missing_add_key(const char *type, const char *description, const void *payload, size_t plen, key_serial_t ringid) {
-        return syscall(__NR_add_key, type, description, payload, plen, ringid);
-
-#  define add_key missing_add_key
-}
-
-/* ======================================================================= */
-
-static inline key_serial_t missing_request_key(const char *type, const char *description, const char * callout_info, key_serial_t destringid) {
-        return syscall(__NR_request_key, type, description, callout_info, destringid);
-
-#  define request_key missing_request_key
-}
 #endif
 
 /* ======================================================================= */
