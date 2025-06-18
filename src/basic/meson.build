@@ -128,7 +128,7 @@ generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         'af-list.txt',
         output : 'af-list.txt',
-        command : [generate_af_list, cpp, files('missing_socket.h')],
+        command : [generate_af_list, cpp, files('include/sys/socket.h')],
         capture : true)
 
 generate_arphrd_list = find_program('generate-arphrd-list.sh')
