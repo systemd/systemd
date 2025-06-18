@@ -3,11 +3,6 @@
 
 #include <netinet/in.h> /* IWYU pragma: export */
 
-/* linux/in.h or netinet/in.h (since glibc-2.32) */
-#ifndef IPPROTO_MPTCP
-#define IPPROTO_MPTCP 262
-#endif
-
 /* Not exposed but defined at include/net/ip.h */
 #ifndef IPV4_MIN_MTU
 #define IPV4_MIN_MTU 68
