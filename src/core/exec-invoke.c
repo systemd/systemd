@@ -49,6 +49,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
+#include "keyctl-util.h"
 #include "manager.h"
 #include "memfd-util.h"
 #include "missing_syscall.h"

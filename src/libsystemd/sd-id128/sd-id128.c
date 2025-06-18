@@ -12,7 +12,7 @@
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "id128-util.h"
-#include "keyring-util.h"
+#include "keyctl-util.h"
 #include "missing_syscall.h"
 #include "path-util.h"
 #include "random-util.h"
