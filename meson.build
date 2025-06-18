@@ -609,6 +609,8 @@ foreach ident : [
         ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
         ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
         ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
+        ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
+        ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
         ['pivot_root',        '''#include <sys/syscall.h>'''],  # no known header declares pivot_root
         ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat

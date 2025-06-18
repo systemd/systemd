@@ -6,7 +6,7 @@
 #include <security/pam_modules.h>
 #include <security/pam_modutil.h>
 
-#include "keyring-util.h"
+#include "keyctl-util.h"
 #include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "pam-util.h"

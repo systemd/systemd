@@ -44,3 +44,21 @@ typedef int32_t key_serial_t;
 #else
 assert_cc(KEY_OTH_ALL == 0x0000003f);
 #endif
+
+#if !HAVE_KEYCTL
+long keyctl(int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
+#endif
+
+#if !HAVE_ADD_KEY
+key_serial_t add_key(const char *type, const char *description, const void *payload, size_t plen, key_serial_t ringid);
+#endif
+
+#if !HAVE_REQUEST_KEY
+key_serial_t request_key(const char *type, const char *description, const char *callout_info, key_serial_t destringid);
+#endif
+
+/* Like TAKE_PTR() but for key_serial_t, resetting them to -1 */
+#define TAKE_KEY_SERIAL(key_serial) TAKE_GENERIC(key_serial, key_serial_t, -1)
+
+int keyring_read(key_serial_t serial, void **ret, size_t *ret_size);
+int keyring_describe(key_serial_t serial, char **ret);
