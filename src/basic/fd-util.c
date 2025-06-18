@@ -606,24 +606,6 @@ int same_fd(int a, int b) {
         return fa == fb;
 }
 
-void cmsg_close_all(struct msghdr *mh) {
-        assert(mh);
-
-        struct cmsghdr *cmsg;
-        CMSG_FOREACH(cmsg, mh) {
-                if (cmsg->cmsg_level != SOL_SOCKET)
-                        continue;
-
-                if (cmsg->cmsg_type == SCM_RIGHTS)
-                        close_many(CMSG_TYPED_DATA(cmsg, int),
-                                   (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
-                else if (cmsg->cmsg_type == SCM_PIDFD) {
-                        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
-                        safe_close(*CMSG_TYPED_DATA(cmsg, int));
-                }
-        }
-}
-
 bool fdname_is_valid(const char *s) {
         const char *p;
 
