@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -412,6 +413,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 if (cycle_path_text)
                         log_struct(LOG_WARNING,
                                    LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strna(unit_ids)));
 
                 if (delete) {
@@ -422,6 +424,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                                     "Job %s/%s deleted to break ordering cycle starting with %s/%s",
                                                     delete->unit->id, job_type_to_string(delete->type),
                                                     j->unit->id, job_type_to_string(j->type)),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_DELETING_JOB_BECAUSE_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strna(unit_ids)));
 
                         if (log_get_show_color())
@@ -441,6 +444,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 log_struct(LOG_ERR,
                            LOG_UNIT_MESSAGE(j->unit, "Unable to break cycle starting with %s/%s",
                                             j->unit->id, job_type_to_string(j->type)),
+                           LOG_MESSAGE_ID(SD_MESSAGE_CANT_BREAK_ORDERING_CYCLE_STR),
                            LOG_ITEM("%s", strna(unit_ids)));
 
                 return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
