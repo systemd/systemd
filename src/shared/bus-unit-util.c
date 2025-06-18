@@ -971,6 +971,21 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
         return 1;
 }
 
+static int bus_append_environment_files(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", "EnvironmentFiles", "a(sb)", 0);
+        else
+                r = sd_bus_message_append(m, "(sv)", "EnvironmentFiles", "a(sb)", 1,
+                                          eq[0] == '-' ? eq + 1 : eq,
+                                          eq[0] == '-');
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1238,18 +1253,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "PassEnvironment"))
                 return bus_append_strv(m, field, eq, /* separator= */ NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
 
-        if (streq(field, "EnvironmentFile")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", "EnvironmentFiles", "a(sb)", 0);
-                else
-                        r = sd_bus_message_append(m, "(sv)", "EnvironmentFiles", "a(sb)", 1,
-                                                  eq[0] == '-' ? eq + 1 : eq,
-                                                  eq[0] == '-');
-                if (r < 0)
-                        return bus_log_create_error(r);
+        if (streq(field, "EnvironmentFile"))
+                return bus_append_environment_files(m, field, eq);
 
-                return 1;
-        }
 
         if (STR_IN_SET(field, "SetCredential", "SetCredentialEncrypted")) {
                 r = sd_bus_message_open_container(m, 'r', "sv");
