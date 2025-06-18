@@ -70,7 +70,7 @@ static int node_create_symlink(sd_device *dev, const char *devnode, const char *
                 return log_device_debug_errno(dev, r, "Failed to create parent directory of '%s': %m", slink);
 
         /* use relative link */
-        r = symlink_atomic_full_label(devnode, slink, /* make_relative = */ true);
+        r = symlinkat_atomic_full(devnode, AT_FDCWD, slink, SYMLINK_MAKE_RELATIVE|SYMLINK_LABEL);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink, devnode);
 

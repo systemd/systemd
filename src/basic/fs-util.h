@@ -48,9 +48,14 @@ static inline int symlink_idempotent(const char *from, const char *to, bool make
         return symlinkat_idempotent(from, AT_FDCWD, to, make_relative);
 }
 
-int symlinkat_atomic_full(const char *from, int atfd, const char *to, bool make_relative);
+typedef enum SymlinkFlags {
+        SYMLINK_MAKE_RELATIVE = 1 << 0,
+        SYMLINK_LABEL         = 1 << 1,
+} SymlinkFlags;
+
+int symlinkat_atomic_full(const char *from, int atfd, const char *to, SymlinkFlags flags);
 static inline int symlink_atomic(const char *from, const char *to) {
-        return symlinkat_atomic_full(from, AT_FDCWD, to, false);
+        return symlinkat_atomic_full(from, AT_FDCWD, to, 0);
 }
 
 int mknodat_atomic(int atfd, const char *path, mode_t mode, dev_t dev);

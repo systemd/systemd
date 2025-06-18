@@ -16,10 +16,6 @@ static inline int label_fix(const char *path, LabelFixFlags flags) {
 }
 
 int symlink_label(const char *old_path, const char *new_path);
-int symlink_atomic_full_label(const char *from, const char *to, bool make_relative);
-static inline int symlink_atomic_label(const char *from, const char *to) {
-        return symlink_atomic_full_label(from, to, false);
-}
 
 int mknodat_label(int dirfd, const char *pathname, mode_t mode, dev_t dev);
 static inline int mknod_label(const char *pathname, mode_t mode, dev_t dev) {

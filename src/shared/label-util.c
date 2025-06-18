@@ -60,25 +60,6 @@ int symlink_label(const char *old_path, const char *new_path) {
         return mac_smack_fix(new_path, 0);
 }
 
-int symlink_atomic_full_label(const char *from, const char *to, bool make_relative) {
-        int r;
-
-        assert(from);
-        assert(to);
-
-        r = mac_selinux_create_file_prepare(to, S_IFLNK);
-        if (r < 0)
-                return r;
-
-        r = symlinkat_atomic_full(from, AT_FDCWD, to, make_relative);
-        mac_selinux_create_file_clear();
-
-        if (r < 0)
-                return r;
-
-        return mac_smack_fix(to, 0);
-}
-
 int mknodat_label(int dirfd, const char *pathname, mode_t mode, dev_t dev) {
         int r;
 

@@ -459,14 +459,14 @@ int symlinkat_idempotent(const char *from, int atfd, const char *to, bool make_r
         return 0;
 }
 
-int symlinkat_atomic_full(const char *from, int atfd, const char *to, bool make_relative) {
-        _cleanup_free_ char *relpath = NULL, *t = NULL;
+int symlinkat_atomic_full(const char *from, int atfd, const char *to, SymlinkFlags flags) {
         int r;
 
         assert(from);
         assert(to);
 
-        if (make_relative) {
+        _cleanup_free_ char *relpath = NULL;
+        if (FLAGS_SET(flags, SYMLINK_MAKE_RELATIVE)) {
                 r = path_make_relative_parent(to, from, &relpath);
                 if (r < 0)
                         return r;
@@ -474,12 +474,25 @@ int symlinkat_atomic_full(const char *from, int atfd, const char *to, bool make_
                 from = relpath;
         }
 
+        _cleanup_free_ char *t = NULL;
         r = tempfn_random(to, NULL, &t);
         if (r < 0)
                 return r;
 
-        if (symlinkat(from, atfd, t) < 0)
-                return -errno;
+        bool call_label_ops_post = false;
+        if (FLAGS_SET(flags, SYMLINK_LABEL)) {
+                r = label_ops_pre(atfd, to, S_IFLNK);
+                if (r < 0)
+                        return r;
+
+                call_label_ops_post = true;
+        }
+
+        r = RET_NERRNO(symlinkat(from, atfd, t));
+        if (call_label_ops_post)
+                RET_GATHER(r, label_ops_post(atfd, t, /* created= */ r >= 0));
+        if (r < 0)
+                return r;
 
         r = RET_NERRNO(renameat(atfd, t, atfd, to));
         if (r < 0) {
