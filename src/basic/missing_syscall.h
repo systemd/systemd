@@ -38,16 +38,6 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 
 /* ======================================================================= */
 
-#if !HAVE_KCMP
-static inline int missing_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2) {
-        return syscall(__NR_kcmp, pid1, pid2, type, idx1, idx2);
-}
-
-#  define kcmp missing_kcmp
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_PIDFD_SEND_SIGNAL
 /* since kernel v5.1 (3eb39f47934f9d5a3027fe00d906a45fe3a15fad) */
 static inline int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
