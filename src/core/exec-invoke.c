@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/ioprio.h>
 #include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
@@ -47,6 +46,7 @@
 #include "hostname-setup.h"
 #include "image-policy.h"
 #include "io-util.h"
+#include "ioprio-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
 #include "keyctl-util.h"
