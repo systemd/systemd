@@ -2052,6 +2052,7 @@ includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
+subdir('src/include/override/sys')
 subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
