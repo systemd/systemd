@@ -354,6 +354,28 @@ static int bus_append_parse_resource_limit(sd_bus_message *m, const char *field,
         return bus_append_parse_size(m, field, eq, 1024);
 }
 
+static int bus_append_parse_cpu_quota(sd_bus_message *m, const char *field, const char *eq) {
+        uint64_t x;
+        int r;
+
+        if (isempty(eq))
+                x = USEC_INFINITY;
+        else {
+                r = parse_permyriad_unbounded(eq);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "%s value too small.", field);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+                x = r * USEC_PER_SEC / 10000U;
+        }
+
+        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", x);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -710,24 +732,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "TasksMax"))
                 return bus_append_parse_resource_limit(m, field, eq);
 
-        if (streq(field, "CPUQuota")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", USEC_INFINITY);
-                else {
-                        r = parse_permyriad_unbounded(eq);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "CPU quota too small.");
-                        if (r < 0)
-                                return log_error_errno(r, "CPU quota '%s' invalid.", eq);
-
-                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", ((uint64_t) r * USEC_PER_SEC) / 10000U);
-                }
-
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (streq(field, "CPUQuota"))
+                return bus_append_parse_cpu_quota(m, field, eq);
 
         if (streq(field, "CPUQuotaPeriodSec"))
                 return bus_append_parse_sec_rename(m, field, isempty(eq) ? "infinity" : eq);
