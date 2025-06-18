@@ -16,7 +16,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "missing_magic.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

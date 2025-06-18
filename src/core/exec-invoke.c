@@ -52,7 +52,6 @@
 #include "keyctl-util.h"
 #include "manager.h"
 #include "memfd-util.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "namespace-util.h"

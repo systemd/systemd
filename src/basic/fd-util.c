@@ -17,7 +17,6 @@
 #include "fs-util.h"
 #include "log.h"
 #include "missing_fs.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"

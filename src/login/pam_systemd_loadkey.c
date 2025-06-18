@@ -7,7 +7,6 @@
 #include <security/pam_modutil.h>
 
 #include "keyctl-util.h"
-#include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "pam-util.h"
 #include "string-util.h"
