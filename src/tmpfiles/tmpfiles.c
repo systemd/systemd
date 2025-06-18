@@ -2477,9 +2477,7 @@ static int create_symlink(Context *c, Item *i) {
                         if (r < 0)
                                 return log_error_errno(r, "rm -rf %s failed: %m", i->path);
 
-                        mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                        r = RET_NERRNO(symlinkat(i->argument, pfd, i->path));
-                        mac_selinux_create_file_clear();
+                        r = symlinkat_atomic_full(i->argument, pfd, bn, SYMLINK_LABEL);
                 }
                 if (r < 0)
                         return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
