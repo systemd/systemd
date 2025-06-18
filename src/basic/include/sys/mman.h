@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/mman.h> /* IWYU pragma: export */
+#include_next <sys/mman.h>
 
-#include "forward.h"
+#include "macro.h"
 
 /* since glibc-2.38 */
 #ifndef MFD_NOEXEC_SEAL
