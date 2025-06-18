@@ -268,6 +268,21 @@ static int bus_append_parse_size(sd_bus_message *m, const char *field, const cha
         return 1;
 }
 
+static int bus_append_parse_permyriad(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        r = parse_permyriad(eq);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+
+        /* Pass around scaled to 2^32-1 == 100% */
+        r = sd_bus_message_append(m, "(sv)", field, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -582,18 +597,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "DelegateSubgroup"))
                 return bus_append_string(m, field, eq);
 
-        if (STR_IN_SET(field, "ManagedOOMMemoryPressureLimit")) {
-                r = parse_permyriad(eq);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
-
-                /* Pass around scaled to 2^32-1 == 100% */
-                r = sd_bus_message_append(m, "(sv)", field, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (STR_IN_SET(field, "ManagedOOMMemoryPressureLimit"))
+                return bus_append_parse_permyriad(m, field, eq);
 
         if (STR_IN_SET(field, "MemoryAccounting",
                               "MemoryZSwapWriteback",
