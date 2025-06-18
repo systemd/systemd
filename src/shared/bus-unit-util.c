@@ -1213,6 +1213,30 @@ static int bus_append_log_filter_patterns(sd_bus_message *m, const char *field, 
         return 1;
 }
 
+static int bus_append_standard_inputs(sd_bus_message *m, const char *field, const char *eq) {
+        const char *n, *appended;
+        int r;
+
+        if ((n = startswith(eq, "fd:"))) {
+                appended = strjoina(field, "FileDescriptorName");
+                r = sd_bus_message_append(m, "(sv)", appended, "s", n);
+        } else if ((n = startswith(eq, "file:"))) {
+                appended = strjoina(field, "File");
+                r = sd_bus_message_append(m, "(sv)", appended, "s", n);
+        } else if ((n = startswith(eq, "append:"))) {
+                appended = strjoina(field, "FileToAppend");
+                r = sd_bus_message_append(m, "(sv)", appended, "s", n);
+        } else if ((n = startswith(eq, "truncate:"))) {
+                appended = strjoina(field, "FileToTruncate");
+                r = sd_bus_message_append(m, "(sv)", appended, "s", n);
+        } else
+                r = sd_bus_message_append(m, "(sv)", field, "s", eq);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1500,28 +1524,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field, "StandardInput",
                               "StandardOutput",
-                              "StandardError")) {
-                const char *n, *appended;
-
-                if ((n = startswith(eq, "fd:"))) {
-                        appended = strjoina(field, "FileDescriptorName");
-                        r = sd_bus_message_append(m, "(sv)", appended, "s", n);
-                } else if ((n = startswith(eq, "file:"))) {
-                        appended = strjoina(field, "File");
-                        r = sd_bus_message_append(m, "(sv)", appended, "s", n);
-                } else if ((n = startswith(eq, "append:"))) {
-                        appended = strjoina(field, "FileToAppend");
-                        r = sd_bus_message_append(m, "(sv)", appended, "s", n);
-                } else if ((n = startswith(eq, "truncate:"))) {
-                        appended = strjoina(field, "FileToTruncate");
-                        r = sd_bus_message_append(m, "(sv)", appended, "s", n);
-                } else
-                        r = sd_bus_message_append(m, "(sv)", field, "s", eq);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "StandardError"))
+                return bus_append_standard_inputs(m, field, eq);
 
         if (streq(field, "StandardInputText")) {
                 _cleanup_free_ char *unescaped = NULL;
