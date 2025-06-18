@@ -11,12 +11,6 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
-#ifdef ARCH_MIPS
-#include <asm/sgidefs.h>
-#endif
-
-#include "missing_syscall_def.h"
-
 /* ======================================================================= */
 
 #if !HAVE_FCHMODAT2
