@@ -2,10 +2,10 @@
 #pragma once
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdio.h>
 
 #include "forward.h"
-#include "missing_fcntl.h"
 
 /* maximum length of fdname */
 #define FDNAME_MAX 255
