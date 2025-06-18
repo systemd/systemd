@@ -10,7 +10,6 @@
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "missing_socket.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
