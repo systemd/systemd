@@ -52,7 +52,6 @@ basic_sources = files(
         'initrd-util.c',
         'inotify-util.c',
         'io-util.c',
-        'ioprio-util.c',
         'iovec-util.c',
         'iovec-wrapper.c',
         'label.c',

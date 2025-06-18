@@ -1889,15 +1889,13 @@ static void update_cpu_affinity(bool skip_setup) {
 
 static void update_numa_policy(bool skip_setup) {
         int r;
-        _cleanup_free_ char *nodes = NULL;
-        const char * policy = NULL;
 
-        if (skip_setup || !mpol_is_valid(numa_policy_get_type(&arg_numa_policy)))
+        if (skip_setup || !numa_policy_is_valid(&arg_numa_policy))
                 return;
 
         if (DEBUG_LOGGING) {
-                policy = mpol_to_string(numa_policy_get_type(&arg_numa_policy));
-                nodes = cpu_set_to_range_string(&arg_numa_policy.nodes);
+                _cleanup_free_ char *nodes = cpu_set_to_range_string(&arg_numa_policy.nodes);
+                const char *policy = policy = mpol_to_string(numa_policy_get_type(&arg_numa_policy));
                 log_debug("Setting NUMA policy to %s, with nodes {%s}.", strnull(policy), strnull(nodes));
         }
 

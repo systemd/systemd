@@ -5,9 +5,7 @@
 #include "forward.h"
 #include "missing_syscall.h"
 
-static inline bool mpol_is_valid(int t) {
-        return t >= MPOL_DEFAULT && t <= MPOL_LOCAL;
-}
+bool mpol_is_valid(int t);
 
 typedef struct NUMAPolicy {
         /* Always use numa_policy_get_type() to read the value */
@@ -15,11 +13,9 @@ typedef struct NUMAPolicy {
         CPUSet nodes;
 } NUMAPolicy;
 
-bool numa_policy_is_valid(const NUMAPolicy *p);
+int numa_policy_get_type(const NUMAPolicy *p);
 
-static inline int numa_policy_get_type(const NUMAPolicy *p) {
-        return p->type < 0 ? (p->nodes.set ? MPOL_PREFERRED : -1) : p->type;
-}
+bool numa_policy_is_valid(const NUMAPolicy *p);
 
 static inline void numa_policy_reset(NUMAPolicy *p) {
         assert(p);
