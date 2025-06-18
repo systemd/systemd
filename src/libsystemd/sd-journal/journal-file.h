@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
+
 #include "compress.h"
 #include "forward.h"
 #include "gcrypt-util.h"
 #include "journal-def.h"
-#include "missing_fcntl.h"
 #include "mmap-cache.h"
 #include "sparse-endian.h"
 
