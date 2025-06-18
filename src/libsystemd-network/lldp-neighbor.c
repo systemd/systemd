@@ -10,7 +10,6 @@
 #include "lldp-neighbor.h"
 #include "lldp-rx-internal.h"
 #include "memory-util.h"
-#include "missing_network.h"
 #include "prioq.h"
 #include "siphash24.h"
 #include "unaligned.h"
@@ -181,7 +180,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
 
         memcpy(&h, LLDP_NEIGHBOR_RAW(n), sizeof(h));
 
-        if (h.ether_type != htobe16(ETHERTYPE_LLDP))
+        if (h.ether_type != htobe16(ETH_P_LLDP))
                 return log_lldp_rx_errno(n->lldp_rx, SYNTHETIC_ERRNO(EBADMSG),
                                          "Received packet with wrong type, ignoring.");
 
