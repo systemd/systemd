@@ -120,6 +120,10 @@ Deprecations and removals:
 
 Features:
 
+* replace symlink_label(), mknodat_label(), btrfs_subvol_make_label(),
+  mkdir_label() and related calls by flags-based calls that use
+  label_ops_pre()/label_ops_post().
+
 * maybe reconsider whether virtualization consoles (hvc1) are considered local
   or remote. i.e. are they more like an ssh login, or more like a /dev/tty1
   login? Lennart used to believe the former, but maybe the latter is more
