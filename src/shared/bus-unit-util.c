@@ -314,6 +314,46 @@ static int bus_append_parse_delegate(sd_bus_message *m, const char *field, const
         return 1;
 }
 
+static int bus_append_parse_resource_limit(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq) || streq(eq, "infinity")) {
+                uint64_t x = streq(eq, "infinity") ? CGROUP_LIMIT_MAX :
+                        STR_IN_SET(field,
+                                   "DefaultMemoryLow",
+                                   "DefaultMemoryMin",
+                                   "MemoryLow",
+                                   "MemoryMin") ? CGROUP_LIMIT_MIN : CGROUP_LIMIT_MAX;
+
+                r = sd_bus_message_append(m, "(sv)", field, "t", x);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        r = parse_permyriad(eq);
+        if (r >= 0) {
+                char *n;
+
+                /* When this is a percentage we'll convert this into a relative value in the range
+                 * 0…UINT32_MAX and pass it in the MemoryLowScale property (and related ones). This
+                 * way the physical memory size can be determined server-side. */
+
+                n = strjoina(field, "Scale");
+                r = sd_bus_message_append(m, "(sv)", n, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (streq(field, "TasksMax"))
+                return bus_append_safe_atou64(m, field, eq);
+
+        return bus_append_parse_size(m, field, eq, 1024);
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -667,49 +707,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "MemoryMax",
                               "MemorySwapMax",
                               "MemoryZSwapMax",
-                              "TasksMax")) {
-
-                if (streq(eq, "infinity")) {
-                        r = sd_bus_message_append(m, "(sv)", field, "t", CGROUP_LIMIT_MAX);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                        return 1;
-                } else if (isempty(eq)) {
-                        uint64_t empty_value = STR_IN_SET(field,
-                                                          "DefaultMemoryLow",
-                                                          "DefaultMemoryMin",
-                                                          "MemoryLow",
-                                                          "MemoryMin") ?
-                                               CGROUP_LIMIT_MIN :
-                                               CGROUP_LIMIT_MAX;
-
-                        r = sd_bus_message_append(m, "(sv)", field, "t", empty_value);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                        return 1;
-                }
-
-                r = parse_permyriad(eq);
-                if (r >= 0) {
-                        char *n;
-
-                        /* When this is a percentage we'll convert this into a relative value in the range
-                         * 0…UINT32_MAX and pass it in the MemoryLowScale property (and related ones). This
-                         * way the physical memory size can be determined server-side. */
-
-                        n = strjoina(field, "Scale");
-                        r = sd_bus_message_append(m, "(sv)", n, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        return 1;
-                }
-
-                if (streq(field, "TasksMax"))
-                        return bus_append_safe_atou64(m, field, eq);
-
-                return bus_append_parse_size(m, field, eq, 1024);
-        }
+                              "TasksMax"))
+                return bus_append_parse_resource_limit(m, field, eq);
 
         if (streq(field, "CPUQuota")) {
                 if (isempty(eq))
