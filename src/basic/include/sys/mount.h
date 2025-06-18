@@ -11,8 +11,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "missing_syscall_def.h"
-
 /* Possible value for FLAGS parameter of `umount2'.  */
 enum
 {
