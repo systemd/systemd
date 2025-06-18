@@ -3,6 +3,7 @@
 /* Missing glibc definitions to access certain kernel APIs */
 
 #include <sched.h>
+#include <sys/mount.h>
 #include <sys/pidfd.h>
 #include <sys/quota.h>
 #include <sys/stat.h>
@@ -110,5 +111,53 @@ int setxattrat(int fd, const char *path, int at_flags, const char *name, const s
 /* since kernel v6.13 (6140be90ec70c39fa844741ca3cc807dd0866394) */
 int removexattrat(int fd, const char *path, int at_flags, const char *name) {
         return syscall(__NR_removexattrat, fd, path, at_flags, name);
+}
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_FSOPEN
+int fsopen(const char *__fs_name, unsigned int __flags) {
+        return syscall(__NR_fsopen, __fs_name, __flags);
+}
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_FSMOUNT
+int fsmount(int __fd, unsigned int __flags, unsigned int __ms_flags) {
+        return syscall(__NR_fsmount, __fd, __flags, __ms_flags);
+}
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_MOVE_MOUNT
+int move_mount(int __from_dfd, const char *__from_pathname, int __to_dfd, const char *__to_pathname, unsigned int __flags) {
+        return syscall(__NR_move_mount, __from_dfd, __from_pathname, __to_dfd, __to_pathname, __flags);
+}
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_FSCONFIG
+int fsconfig(int __fd, unsigned int __cmd, const char *__key, const void *__value, int __aux) {
+        return syscall(__NR_fsconfig, __fd, __cmd, __key, __value, __aux);
+}
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_OPEN_TREE
+int open_tree(int __dfd, const char *__filename, unsigned int __flags) {
+        return syscall(__NR_open_tree, __dfd, __filename, __flags);
+}
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_MOUNT_SETATTR
+int mount_setattr(int __dfd, const char *__path, unsigned int __flags, struct mount_attr *__attr, size_t __size) {
+        return syscall(__NR_mount_setattr, __dfd, __path, __flags, __attr, __size);
 }
 #endif
