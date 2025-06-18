@@ -24,7 +24,6 @@
 #include "logarithm.h"
 #include "memory-util.h"
 #include "missing_magic.h"
-#include "missing_wait.h"
 #include "origin-id.h"
 #include "path-util.h"
 #include "pidfd-util.h"
