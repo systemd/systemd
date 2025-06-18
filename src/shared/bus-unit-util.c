@@ -1266,6 +1266,31 @@ static int bus_append_standard_input_data(sd_bus_message *m, const char *field, 
         return bus_append_byte_array(m, field, decoded, sz);
 }
 
+static int bus_append_resource_limit(sd_bus_message *m, const char *field, const char *eq) {
+        const char *suffix = ASSERT_PTR(startswith(field, "Limit"));
+        int rl, r;
+
+        rl = rlimit_from_string(suffix);
+        if (rl < 0)
+                return log_error_errno(rl, "Unknown setting '%s'.", field);
+
+        struct rlimit l;
+        r = rlimit_parse(rl, eq, &l);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse resource limit: %s", eq);
+
+        r = sd_bus_message_append(m, "(sv)", field, "t", (uint64_t) l.rlim_max);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        const char *sn = strjoina(field, "Soft");
+        r = sd_bus_message_append(m, "(sv)", sn, "t", (uint64_t) l.rlim_cur);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1393,7 +1418,6 @@ static int bus_append_automount_property(sd_bus_message *m, const char *field, c
 }
 
 static int bus_append_execute_property(sd_bus_message *m, const char *field, const char *eq) {
-        const char *suffix;
         int r;
 
         if (STR_IN_SET(field, "User",
@@ -1562,30 +1586,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "StandardInputData"))
                 return bus_append_standard_input_data(m, field, eq);
 
-        if ((suffix = startswith(field, "Limit"))) {
-                int rl;
-
-                rl = rlimit_from_string(suffix);
-                if (rl >= 0) {
-                        const char *sn;
-                        struct rlimit l;
-
-                        r = rlimit_parse(rl, eq, &l);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse resource limit: %s", eq);
-
-                        r = sd_bus_message_append(m, "(sv)", field, "t", (uint64_t) l.rlim_max);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        sn = strjoina(field, "Soft");
-                        r = sd_bus_message_append(m, "(sv)", sn, "t", (uint64_t) l.rlim_cur);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        return 1;
-                }
-        }
+        if (startswith(field, "Limit"))
+                return bus_append_resource_limit(m, field, eq);
 
         if (STR_IN_SET(field, "AppArmorProfile",
                               "SmackProcessLabel")) {
