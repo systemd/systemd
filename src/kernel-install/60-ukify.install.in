@@ -22,7 +22,10 @@
 import argparse
 import os
 import shlex
+import sys
 import types
+
+from contextlib import contextmanager, nullcontext
 from shutil import which
 from pathlib import Path
 from typing import Optional
@@ -256,6 +259,23 @@ def call_ukify(opts) -> None:
     log(f'{opts2.output} has been created')
 
 
+@contextmanager
+# Silence output when VERBOSE is not set
+def silence_fd():
+    with open(os.devnull, 'w') as devnull:
+        old_stdout_fd = os.dup(1)
+        old_stderr_fd = os.dup(2)
+        try:
+            os.dup2(devnull.fileno(), 1)
+            os.dup2(devnull.fileno(), 2)
+            yield
+        finally:
+            os.dup2(old_stdout_fd, 1)
+            os.dup2(old_stderr_fd, 2)
+            os.close(old_stdout_fd)
+            os.close(old_stderr_fd)
+
+
 def main():
     opts = parse_args()
     if opts.command != 'add':
@@ -263,7 +283,12 @@ def main():
     if not we_are_wanted():
         return
 
-    call_ukify(opts)
+    context = silence_fd() if not VERBOSE else nullcontext()
+    
+    with context:
+        call_ukify(opts)
+
+    print(f"+ kernel-install plugin '{__file__}' completed successfully")
 
 
 if __name__ == '__main__':
