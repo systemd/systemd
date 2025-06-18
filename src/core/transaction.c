@@ -411,7 +411,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
                 /* logging for j not k here to provide a consistent narrative */
                 if (cycle_path_text)
-                        log_struct(LOG_WARNING,
+                        log_struct(LOG_ERR,
                                    LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strna(unit_ids)));
@@ -419,7 +419,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 if (delete) {
                         const char *status;
                         /* logging for j not k here to provide a consistent narrative */
-                        log_struct(LOG_ERR,
+                        log_struct(LOG_WARNING,
                                    LOG_UNIT_MESSAGE(j->unit,
                                                     "Job %s/%s deleted to break ordering cycle starting with %s/%s",
                                                     delete->unit->id, job_type_to_string(delete->type),
