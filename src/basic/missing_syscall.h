@@ -48,35 +48,6 @@ static inline int missing_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long i
 
 /* ======================================================================= */
 
-#if !HAVE_SET_MEMPOLICY
-enum {
-        MPOL_DEFAULT,
-        MPOL_PREFERRED,
-        MPOL_BIND,
-        MPOL_INTERLEAVE,
-        MPOL_LOCAL,
-};
-
-static inline long missing_set_mempolicy(int mode, const unsigned long *nodemask,
-                           unsigned long maxnode) {
-        return syscall(__NR_set_mempolicy, mode, nodemask, maxnode);
-}
-
-#  define set_mempolicy missing_set_mempolicy
-#endif
-
-#if !HAVE_GET_MEMPOLICY
-static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
-                           unsigned long maxnode, void *addr,
-                           unsigned long flags) {
-        return syscall(__NR_get_mempolicy, mode, nodemask, maxnode, addr, flags);
-}
-
-#  define get_mempolicy missing_get_mempolicy
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_PIDFD_SEND_SIGNAL
 /* since kernel v5.1 (3eb39f47934f9d5a3027fe00d906a45fe3a15fad) */
 static inline int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
