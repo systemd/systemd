@@ -2,15 +2,17 @@
 #pragma once
 
 #include <linux/types.h>
+#include <sys/ioctl.h>
+
+/* since glibc-2.36 */
 #if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h> /* IWYU pragma: export */
+#include_next <sys/pidfd.h>
 #endif
 
+/* since glibc-2.41 */
 #ifndef PIDFS_IOCTL_MAGIC
 #  define PIDFS_IOCTL_MAGIC 0xFF
-#endif
 
-#ifndef PIDFD_GET_CGROUP_NAMESPACE
 #  define PIDFD_GET_CGROUP_NAMESPACE              _IO(PIDFS_IOCTL_MAGIC, 1)
 #  define PIDFD_GET_IPC_NAMESPACE                 _IO(PIDFS_IOCTL_MAGIC, 2)
 #  define PIDFD_GET_MNT_NAMESPACE                 _IO(PIDFS_IOCTL_MAGIC, 3)
@@ -23,6 +25,7 @@
 #  define PIDFD_GET_UTS_NAMESPACE                 _IO(PIDFS_IOCTL_MAGIC, 10)
 #endif
 
+/* defined in linux/pidfd.h */
 #ifndef PIDFD_GET_INFO
 struct pidfd_info {
         __u64 mask;
