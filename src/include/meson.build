@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+subdir('override/sys')
+
 # Source files that provides AF_XYZ
 af_sources = files(
         'override/sys/socket.h',
