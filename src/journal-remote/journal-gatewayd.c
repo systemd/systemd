@@ -333,14 +333,16 @@ static int request_parse_range_skip_and_n_entries(
         }
 
         p = (colon2 ?: colon) + 1;
-        r = safe_atou64(p, &m->n_entries);
-        if (r < 0)
-                return r;
+        if (strlen(p) > 0) {
+                r = safe_atou64(p, &m->n_entries);
+                if (r < 0)
+                        return r;
 
-        if (m->n_entries <= 0)
-                return -EINVAL;
+                if (m->n_entries <= 0)
+                        return -EINVAL;
 
-        m->n_entries_set = true;
+                m->n_entries_set = true;
+        }
 
         return 0;
 }
