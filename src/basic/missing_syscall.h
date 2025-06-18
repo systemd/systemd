@@ -70,16 +70,6 @@ static inline int missing_pidfd_open(pid_t pid, unsigned flags) {
 
 /* ======================================================================= */
 
-#if !HAVE_RT_TGSIGQUEUEINFO
-static inline int missing_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info) {
-        return syscall(__NR_rt_tgsigqueueinfo, tgid, tid, sig, info);
-}
-
-#  define rt_tgsigqueueinfo missing_rt_tgsigqueueinfo
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_EXECVEAT
 /* since kernel v3.19 (51f39a1f0cea1cacf8c787f652f26dfee9611874) */
 static inline int missing_execveat(int dirfd, const char *pathname,

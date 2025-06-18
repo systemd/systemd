@@ -1,14 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/syscall.h>
 #include <threads.h>
+#include <unistd.h>
 
 #include "errno-util.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+
+#if !HAVE_RT_TGSIGQUEUEINFO
+static int rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info) {
+        return syscall(__NR_rt_tgsigqueueinfo, tgid, tid, sig, info);
+}
+#endif
 
 int reset_all_signal_handlers(void) {
         int ret = 0, r;
