@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -30,6 +31,12 @@
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */
 #define MAX_FD_LOOP_LIMIT (1024*1024)
+
+#if !HAVE_KCMP
+static int kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2) {
+        return syscall(__NR_kcmp, pid1, pid2, type, idx1, idx2);
+}
+#endif
 
 int close_nointr(int fd) {
         assert(fd >= 0);
