@@ -10,13 +10,8 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
-#ifdef ARCH_MIPS
-#include <asm/sgidefs.h>
-#endif
-
 #include "forward.h"
 #include "missing_keyctl.h"
-#include "missing_syscall_def.h"
 
 /* ======================================================================= */
 
