@@ -3134,6 +3134,12 @@ int tpm2_make_policy_session(
                         &SESSION_TEMPLATE_SYM_AES_128_CFB,
                         TPM2_ALG_SHA256,
                         &session->esys_handle);
+        if ((rc & ~TPM2_RC_N_MASK) == TPM2_RC_AUTH_FAIL)
+                return log_debug_errno(SYNTHETIC_ERRNO(EILSEQ),
+                                       "Authorization failure from TPM: %s", sym_Tss2_RC_Decode(rc));
+        if (rc == TPM2_RC_LOCKOUT)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOLCK),
+                                       "TPM2 device is in dictionary attack lockout mode.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
@@ -5518,6 +5524,7 @@ int tpm2_unseal(Tpm2Context *c,
          *   -EUCLEAN         → PCR state doesn't match expectations
          *   -EPERM           → stored policy does not match TPM state
          *   -ENOTRECOVERABLE → all other kinds of TPM errors
+         *   -EILSEQ          → bad PIN
          *
          * Of these all four of EREMCHG, ENOANO, EUCLEAN, EPERM can all mean that PCR state is not matching
          * expectations. */
@@ -5657,7 +5664,7 @@ int tpm2_unseal(Tpm2Context *c,
                                         encryption_session,
                                         &policy_session);
                         if (r < 0)
-                                return r;
+                                return r; /* Will return EILSEQ on auth failure (i.e. bad PIN) */
 
                         /* If both public PCR key and pcrlock policies are requested, then generate the
                          * public PCR policy for the first shared, and the pcrlock policy for the 2nd */
