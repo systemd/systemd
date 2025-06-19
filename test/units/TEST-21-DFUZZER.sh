@@ -43,18 +43,82 @@ trap at_exit EXIT
 
 systemctl log-level info
 
-# FIXME: systemd-run doesn't play well with daemon-reexec
-# See: https://github.com/systemd/systemd/issues/27204
-add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:Reexecute FIXME"
-
-add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:SoftReboot destructive"
-add_suppression "org.freedesktop.login1" "Sleep destructive"
-
 # Skip calling start and stop methods on unit objects, as doing that is not only time consuming, but it also
 # starts/stops units that interfere with the machine state. The actual code paths should be covered (to some
 # degree) by the respective method counterparts on the manager object.
-for method in Start Stop Restart ReloadOrRestart ReloadOrTryRestart Kill; do
+MANAGER_METHOD_FILTER=(
+    StartUnit
+    StartUnitWithFlags
+    StartUnitReplace
+    StopUnit
+    RestartUnit
+    TryRestartUnit
+    ReloadOrRestartUnit
+    ReloadOrTryRestartUnit
+    KillUnit
+    QueueSignalUnit
+    FreezeUnit
+    AttachProcessesToUnit
+    RemoveSubgroupFromUnit
+    AbandonScope
+    CancelJob
+    Exit
+    Reboot
+    SoftReboot
+    PowerOff
+    Halt
+    KExec
+    SwitchRoot
+    EnqueueMarkedJobs
+)
+UNIT_METHOD_FILTER=(
+    Start
+    Stop
+    Restart
+    TryRestart
+    ReloadOrRestart
+    ReloadOrTryRestart
+    Kill
+    QueueSignal
+    Freeze
+)
+SCOPE_METHOD_FILTER=(
+    Abandon
+)
+JOB_METHOD_FILTER=(
+    Cancel
+)
+LOGIN_METHOD_FILTER=(
+    PowerOff
+    PowerOffWithFlags
+    Reboot
+    RebootWithFlags
+    Halt
+    HaltWithFlags
+    Suspend
+    SuspendWithFlags
+    Hibernate
+    HibernateWithFlags
+    HybridSleep
+    HybridSleepWithFlags
+    SuspendThenHibernate
+    SuspendThenHibernateWithFlags
+    ScheduleShutdown
+)
+for method in "${MANAGER_METHOD_FILTER[@]}"; do
+    add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:$method"
+done
+for method in "${UNIT_METHOD_FILTER[@]}"; do
     add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Unit:$method"
+done
+for method in "${SCOPE_METHOD_FILTER[@]}"; do
+    add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Scope:$method"
+done
+for method in "${JOB_METHOD_FILTER[@]}"; do
+    add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Job:$method"
+done
+for method in "${LOGIN_METHOD_FILTER[@]}"; do
+    add_suppression "org.freedesktop.login1" "org.freedesktop.login1.Manager:$method"
 done
 
 cat /etc/dfuzzer.conf
