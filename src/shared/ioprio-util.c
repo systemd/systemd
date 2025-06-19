@@ -1,8 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/syscall.h>
+#include <unistd.h>
+
 #include "ioprio-util.h"
 #include "parse-util.h"
 #include "string-table.h"
+
+#if !HAVE_IOPRIO_GET
+int ioprio_get(int which, int who) {
+        return syscall(__NR_ioprio_get, which, who);
+}
+#endif
+
+#if !HAVE_IOPRIO_SET
+int ioprio_set(int which, int who, int ioprio) {
+        return syscall(__NR_ioprio_set, which, who, ioprio);
+}
+#endif
 
 int ioprio_parse_priority(const char *s, int *ret) {
         int i, r;
