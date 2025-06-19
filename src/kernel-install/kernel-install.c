@@ -81,7 +81,22 @@ static const char * const layout_table[_LAYOUT_MAX] = {
         [LAYOUT_OTHER] = "other",
 };
 
+typedef enum EntryType {
+        ENTRY_TYPE_BOTH,
+        ENTRY_TYPE_BLS1,
+        ENTRY_TYPE_BLS2,
+        _ENTRY_TYPE_MAX,
+        _ENTRY_TYPE_INVALID = -EINVAL,
+} EntryType;
+
+static const char * const entry_type_table[_ENTRY_TYPE_MAX] = {
+        [ENTRY_TYPE_BOTH] = "both",
+        [ENTRY_TYPE_BLS1] = "bls1",
+        [ENTRY_TYPE_BLS2] = "bls2",
+};
+
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(layout, Layout);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(entry_type, EntryType);
 
 typedef struct Context {
         int rfd;
@@ -90,6 +105,7 @@ typedef struct Context {
         bool machine_id_is_random;
         KernelImageType kernel_image_type;
         Layout layout;
+        EntryType arg_entry_type;
         char *layout_other;
         char *conf_root;
         char *boot_root;
@@ -425,6 +441,16 @@ static int context_set_plugins(Context *c, const char *s, const char *source) {
 static int context_set_initrds(Context *c, char* const* strv) {
         assert(c);
         return context_set_path_strv(c, strv, "command line", "initrds", &c->initrds);
+}
+
+static int context_set_entry_type(Context *c, const char *s) {
+        assert(c);
+        EntryType b;
+        b = entry_type_from_string(s);
+        if (b < 0)
+                return log_error_errno(b, "Invalid entry-type: %s", s);
+        c->arg_entry_type = b;
+        return 1;
 }
 
 static int context_load_environment(Context *c) {
@@ -983,6 +1009,7 @@ static int context_build_environment(Context *c) {
                                  "KERNEL_INSTALL_LAYOUT",           context_get_layout(c),
                                  "KERNEL_INSTALL_INITRD_GENERATOR", strempty(c->initrd_generator),
                                  "KERNEL_INSTALL_UKI_GENERATOR",    strempty(c->uki_generator),
+                                 "KERNEL_INSTALL_ENTRY_TYPE",       entry_type_to_string(c->arg_entry_type),
                                  "KERNEL_INSTALL_STAGING_AREA",     c->staging_area);
         if (r < 0)
                 return log_error_errno(r, "Failed to build environment variables for plugins: %m");
@@ -1487,6 +1514,8 @@ static int help(void) {
                "     --root=PATH               Operate on an alternate filesystem root\n"
                "     --image=PATH              Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY     Specify disk image dissection policy\n"
+               "     --entry-type=bls1|bls2|both\n"
+               "                               Operate only on the specified bootloader\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1516,6 +1545,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_ROOT,
                 ARG_IMAGE,
                 ARG_IMAGE_POLICY,
+                ARG_ENTRY_TYPE,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1531,6 +1561,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
+                { "entry-type",           required_argument, NULL, ARG_ENTRY_TYPE             },
                 {}
         };
         int t, r;
@@ -1614,6 +1645,11 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
+                case ARG_ENTRY_TYPE:
+                        r = context_set_entry_type(c, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
                 case '?':
                         return -EINVAL;
 
@@ -1641,6 +1677,7 @@ static int run(int argc, char* argv[]) {
                 .action = _ACTION_INVALID,
                 .kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN,
                 .layout = _LAYOUT_INVALID,
+                .arg_entry_type = ENTRY_TYPE_BOTH,
                 .entry_token_type = BOOT_ENTRY_TOKEN_AUTO,
         };
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
