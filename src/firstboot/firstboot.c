@@ -28,6 +28,8 @@
 #include "hostname-util.h"
 #include "image-policy.h"
 #include "kbd-util.h"
+#include "label.h"
+#include "label-util.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "lock-util.h"
@@ -447,7 +449,12 @@ static int process_locale(int rfd) {
 
         locales[i] = NULL;
 
-        r = write_env_file(pfd, f, NULL, locales);
+        r = write_env_file(
+                        pfd,
+                        f,
+                        /* headers= */ NULL,
+                        locales,
+                        WRITE_ENV_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/locale.conf: %m");
 
@@ -640,7 +647,7 @@ static int process_timezone(int rfd) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read host's /etc/localtime: %m");
 
-                        r = symlinkat_atomic_full(s, pfd, f, /* make_relative= */ false);
+                        r = symlinkat_atomic_full(s, pfd, f, SYMLINK_LABEL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
@@ -658,7 +665,7 @@ static int process_timezone(int rfd) {
 
         e = strjoina("../usr/share/zoneinfo/", arg_timezone);
 
-        r = symlinkat_atomic_full(e, pfd, f, /* make_relative= */ false);
+        r = symlinkat_atomic_full(e, pfd, f, SYMLINK_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
@@ -725,7 +732,7 @@ static int process_hostname(int rfd) {
                 return 0;
 
         r = write_string_file_at(pfd, f, arg_hostname,
-                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC);
+                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/hostname: %m");
 
@@ -758,7 +765,7 @@ static int process_machine_id(int rfd) {
         }
 
         r = write_string_file_at(pfd, "machine-id", SD_ID128_TO_STRING(arg_machine_id),
-                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC);
+                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/machine-id: %m");
 
@@ -1184,7 +1191,7 @@ static int process_kernel_cmdline(int rfd) {
         }
 
         r = write_string_file_at(pfd, "cmdline", arg_kernel_cmdline,
-                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC);
+                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/kernel/cmdline: %m");
 
@@ -1678,6 +1685,10 @@ static int run(int argc, char *argv[]) {
                         arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = arg_prompt_root_shell = false;
                 }
         }
+
+        r = mac_init();
+        if (r < 0)
+                return r;
 
         if (arg_image) {
                 assert(!arg_root);
