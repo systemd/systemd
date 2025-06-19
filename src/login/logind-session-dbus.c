@@ -548,7 +548,7 @@ static int method_set_tty(sd_bus_message *message, void *userdata, sd_bus_error 
         flags = fcntl(fd, F_GETFL, 0);
         if (flags < 0)
                 return -errno;
-        if ((flags & O_ACCMODE_STRICT) != O_RDWR)
+        if ((flags & O_ACCMODE) != O_RDWR)
                 return -EACCES;
         if (FLAGS_SET(flags, O_PATH))
                 return -ENOTTY;
