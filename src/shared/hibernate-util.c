@@ -4,6 +4,7 @@
 ***/
 
 #include <linux/fiemap.h>
+#include <linux/fs.h>
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 
@@ -17,7 +18,6 @@
 #include "fileio.h"
 #include "hibernate-util.h"
 #include "log.h"
-#include "missing_fs.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
