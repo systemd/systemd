@@ -3,12 +3,11 @@
 
 #include <fcntl.h>
 #include <features.h>
+#include <linux/fs.h>
 #include <linux/mount.h> /* IWYU pragma: export */
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
-
-#include "missing_fs.h"
 
 /* Possible value for FLAGS parameter of `umount2'.  */
 enum
