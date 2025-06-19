@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/reboot.h>
 #include <unistd.h>
 
 #include "ansi-color.h"
 #include "emergency-action.h"
 #include "manager.h"
-#include "raw-reboot.h"
 #include "reboot-util.h"
 #include "special.h"
 #include "string-table.h"
