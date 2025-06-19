@@ -41,7 +41,6 @@
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
-#include "missing_fs.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
