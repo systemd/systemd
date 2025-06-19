@@ -221,8 +221,11 @@ static int dhcp6_request_address(
         addr->lifetime_preferred_usec = lifetime_preferred_usec;
         addr->lifetime_valid_usec = lifetime_valid_usec;
 
-        if (verify_dhcp6_address(link, addr) < 0)
+        if (verify_dhcp6_address(link, addr) < 0) {
+                if (link->state == LINK_STATE_CONFIGURING)
+                        link_set_state(link, LINK_STATE_CONFIGURED);
                 return 0;
+        }
 
         r = free_and_strdup_warn(&addr->netlabel, link->network->dhcp6_netlabel);
         if (r < 0)
