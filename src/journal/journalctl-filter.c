@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
+
 #include "sd-device.h"
 #include "sd-journal.h"
 
@@ -14,7 +16,6 @@
 #include "journalctl-util.h"
 #include "log.h"
 #include "logs-show.h"
-#include "missing_sched.h"
 #include "path-util.h"
 #include "set.h"
 #include "stat-util.h"

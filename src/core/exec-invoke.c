@@ -51,7 +51,6 @@
 #include "journal-send.h"
 #include "manager.h"
 #include "memfd-util.h"
-#include "missing_sched.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
@@ -267,7 +266,7 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
         assert(path);
 
-        if (IN_SET(flags & O_ACCMODE_STRICT, O_WRONLY, O_RDWR))
+        if (IN_SET(flags & O_ACCMODE, O_WRONLY, O_RDWR))
                 flags |= O_CREAT;
 
         fd = open(path, flags|O_NOCTTY, mode);
@@ -291,9 +290,9 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
         if (r < 0)
                 return r;
 
-        if ((flags & O_ACCMODE_STRICT) == O_RDONLY)
+        if ((flags & O_ACCMODE) == O_RDONLY)
                 r = shutdown(fd, SHUT_WR);
-        else if ((flags & O_ACCMODE_STRICT) == O_WRONLY)
+        else if ((flags & O_ACCMODE) == O_WRONLY)
                 r = shutdown(fd, SHUT_RD);
         else
                 r = 0;
