@@ -528,6 +528,32 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
+typedef enum RefuseRecordTypeResult {
+        REFUSE_BAD,
+        REFUSE_GOOD,
+        REFUSE_PARTIAL,
+} RefuseRecordTypeResult;
+
+static RefuseRecordTypeResult test_refuse_record_types(Set *refuse_record_types, DnsQuestion *question) {
+        bool has_good = false, has_bad = false;
+        DnsResourceKey *key;
+
+        DNS_QUESTION_FOREACH(key, question)
+                if (set_contains(refuse_record_types, INT_TO_PTR(key->type)))
+                        has_bad = true;
+                else
+                        has_good = true;
+
+        if (has_bad && !has_good)
+                return REFUSE_BAD;
+        if (!has_bad) {
+                assert(has_good); /* The question should have at least one key. */
+                return REFUSE_GOOD;
+        }
+
+        return REFUSE_PARTIAL;
+}
+
 static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **question, DnsQuestion **ret_allocated) {
         int r;
 
@@ -545,21 +571,15 @@ static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **
                 return 0; /* No filtering configured. Let's shortcut. */
         }
 
-        bool has_good = false, has_bad = false;
-        DnsResourceKey *key;
-        DNS_QUESTION_FOREACH(key, *question)
-                if (set_contains(manager->refuse_record_types, INT_TO_PTR(key->type)))
-                        has_bad = true;
-                else
-                        has_good = true;
-
-        if (has_bad && !has_good)
+        RefuseRecordTypeResult result = test_refuse_record_types(manager->refuse_record_types, *question);
+        if (result == REFUSE_BAD)
                 return -ENOANO; /* All bad, refuse.*/
-        if (!has_bad) {
-                assert(has_good); /* The question should have at least one key. */
+        if (result == REFUSE_GOOD) {
                 *ret_allocated = NULL;
                 return 0; /* All good. Not necessary to filter. */
         }
+
+        assert(result == REFUSE_PARTIAL);
 
         /* Mangle the question suppressing bad entries, leaving good entries */
         _cleanup_(dns_question_unrefp) DnsQuestion *new_question = dns_question_new(dns_question_size(*question));
