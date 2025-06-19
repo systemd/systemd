@@ -50,6 +50,7 @@ static char *arg_root = NULL;
 static char *arg_image = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_legend = true;
+static const char *arg_bls_type = "both";
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -983,6 +984,7 @@ static int context_build_environment(Context *c) {
                                  "KERNEL_INSTALL_LAYOUT",           context_get_layout(c),
                                  "KERNEL_INSTALL_INITRD_GENERATOR", strempty(c->initrd_generator),
                                  "KERNEL_INSTALL_UKI_GENERATOR",    strempty(c->uki_generator),
+                                 "KERNEL_INSTALL_BLS_TYPE",         arg_bls_type,
                                  "KERNEL_INSTALL_STAGING_AREA",     c->staging_area);
         if (r < 0)
                 return log_error_errno(r, "Failed to build environment variables for plugins: %m");
@@ -1257,8 +1259,8 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'remove' does not support --root= or --image=.");
 
-        if (argc > 2)
-                log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version. "
+        if (argc > 3)
+                log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version and bls_type. "
                           "Ignoring residual arguments.");
 
         if (bypass())
@@ -1487,6 +1489,7 @@ static int help(void) {
                "     --root=PATH               Operate on an alternate filesystem root\n"
                "     --image=PATH              Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY     Specify disk image dissection policy\n"
+               "     --bls-type=1|2|both       Operate only on the specified bootloader\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1516,6 +1519,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_ROOT,
                 ARG_IMAGE,
                 ARG_IMAGE_POLICY,
+                ARG_BLS_TYPE,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1531,6 +1535,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
+                { "bls-type",             required_argument, NULL, ARG_BLS_TYPE             },
                 {}
         };
         int t, r;
@@ -1614,6 +1619,13 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
+                case ARG_BLS_TYPE:
+                        if (!STR_IN_SET(optarg, "1", "2", "both")) {
+                               log_error("Invalid argument --bls-type: %s", optarg);
+                               return -EINVAL;
+                        }
+                        arg_bls_type = optarg;
+                        break;
                 case '?':
                         return -EINVAL;
 
