@@ -632,6 +632,13 @@ int dns_query_new(
                 if (question_utf8 || question_idna)
                         return -EINVAL;
 
+                assert(dns_question_size(question_bypass->question) == 1);
+
+                /* In bypass mode we'll never mangle the question, but only deny or allow. (In bypass mode
+                 * there's only going to be one entry in the query, hence there's no point in mangling
+                 * questions, i.e. leaving some entries in and removing others.) */
+                if (test_refuse_record_types(m->refuse_record_types, question_bypass->question) != REFUSE_GOOD)
+                        return -ENOANO;
         } else {
                 bool good = false;
 
