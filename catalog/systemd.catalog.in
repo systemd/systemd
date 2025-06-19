@@ -914,3 +914,55 @@ problems.
 
 If watchdog support is configured, but the watchdog hardware cannot be opened
 the system will not be protected by the watchdog logic.
+
+-- f27a3f94406a4783b946a9bc849e9452
+Subject: Unit ordering cycle found
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+A unit transaction was initiated that contains an ordering cycle, i.e. some
+unit that was requested to be started (either directly, or inderectly due to a
+requirement dependency such as Wants= or Requires=) is ordered before some
+other unit (via After=/Before=), but that latter unit is also ordered before
+the former by some dependency (either directly or indirectly).
+
+Ordering cycles consist of at least two units, but might involve many
+more. They generally indicate a bug in the unit definitions, as a unit
+conceptually cannot be run both before and after some other unit, it must be
+strictly ordered either before or after.
+
+The ordering cycle is shown in the log message. An attempt will be made to
+remove unit jobs from the transaction in order to make the transaction succeed
+at least partially. Note that such cycle breaking is not going to correct the
+issue, it is just an attempt to make the outcome less problematic.
+
+The correct fix is to analyze the cycle in question and then break the cycle at
+the right place by removing the right After= or Before= lines from one or more
+of the involved unit files.
+
+-- 5084367542f7472dbc6a94125d5debce
+Subject: Unit job deleted due to an ordering cycle
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+In order to address an ordering cycle between units that have been added to a
+transaction a job has been removed from the transaction.
+
+The removed job is '@DELETED_TYPE@' for unit @DELETED_UNIT@.
+
+The removal of the job is done in order to minimize the negative effect of an
+ordering cycle — it is not going to fix the underlying problem, which is a bug
+in the involved unit files. The deleted job might be fundamental for the other
+units in the transaction to operate, which hence might fail.
+
+-- b3112ddad19045538c76685ba5918a80
+Subject: Unable to break ordering cycle betwee units
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+It has been attempted to break an ordering cycle between units for which jobs
+have been enqueued as part of a transaction, but this was not successfull. The
+transaction will fail.
