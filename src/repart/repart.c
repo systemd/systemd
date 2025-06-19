@@ -3235,7 +3235,6 @@ static int context_load_partition_table(Context *context) {
         bool from_scratch = false;
         sd_id128_t disk_uuid;
         size_t n_partitions;
-        unsigned long secsz;
         uint64_t grainsz, fs_secsz = DEFAULT_FILESYSTEM_SECTOR_SIZE;
         int r;
 
@@ -3336,7 +3335,7 @@ static int context_load_partition_table(Context *context) {
          * it for all our needs. Note that the values we use ourselves always are in bytes though, thus mean
          * the same thing universally. Also note that regardless what kind of sector size is in use we'll
          * place partitions at multiples of 4K. */
-        secsz = fdisk_get_sector_size(c);
+        unsigned long secsz = fdisk_get_sector_size(c);
 
         /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
         if (secsz < 512 || !ISPOWEROF2(secsz))
@@ -3344,7 +3343,7 @@ static int context_load_partition_table(Context *context) {
 
         /* Use at least 4K, and ensure it's a multiple of the sector size, regardless if that is smaller or
          * larger */
-        grainsz = secsz < 4096 ? 4096 : secsz;
+        grainsz = MAX(secsz, 4096U);
 
         log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
