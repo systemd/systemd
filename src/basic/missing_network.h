@@ -3,11 +3,6 @@
 
 #include <netinet/in.h> /* IWYU pragma: export */
 
-/* linux/in.h or netinet/in.h (since glibc-2.32) */
-#ifndef IPPROTO_MPTCP
-#define IPPROTO_MPTCP 262
-#endif
-
 /* Not exposed but defined at include/net/ip.h */
 #ifndef IPV4_MIN_MTU
 #define IPV4_MIN_MTU 68
@@ -20,11 +15,6 @@
  * is compatible with the kernel's internal definition. */
 #ifndef LOOPBACK_IFINDEX
 #define LOOPBACK_IFINDEX 1
-#endif
-
-/* Not exposed yet. Similar values are defined in net/ethernet.h */
-#ifndef ETHERTYPE_LLDP
-#define ETHERTYPE_LLDP 0x88cc
 #endif
 
 /* Not exposed but defined in linux/netdevice.h */
