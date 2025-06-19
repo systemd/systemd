@@ -122,6 +122,8 @@ TEST(dns_query_new_bypass_ok) {
         ASSERT_NOT_NULL(question);
 
         ASSERT_OK(dns_packet_append_question(packet, question));
+        DNS_PACKET_HEADER(packet)->qdcount = htobe16(dns_question_size(question));
+        ASSERT_OK(dns_packet_extract(packet));
 
         ASSERT_OK(dns_query_new(&manager, &query, NULL, NULL, packet, 1, 0));
         ASSERT_NOT_NULL(query);
@@ -140,6 +142,8 @@ TEST(dns_query_new_bypass_conflict) {
         ASSERT_NOT_NULL(question);
 
         ASSERT_OK(dns_packet_append_question(packet, question));
+        DNS_PACKET_HEADER(packet)->qdcount = htobe16(dns_question_size(question));
+        ASSERT_OK(dns_packet_extract(packet));
 
         ASSERT_OK(dns_question_new_address(&extra_q, AF_INET, "www.example.com", false));
         ASSERT_NOT_NULL(extra_q);
