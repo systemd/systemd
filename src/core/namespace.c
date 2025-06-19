@@ -80,6 +80,7 @@ typedef enum MountMode {
         MOUNT_EXTENSION_IMAGE,     /* Mounted outside the root directory, and used by subsequent mounts */
         MOUNT_MQUEUEFS,
         MOUNT_READ_WRITE_IMPLICIT, /* Should have the lowest priority. */
+        MOUNT_BPFFS,               /* Special mount for bpffs, which is mounted with fsmount() and move_mount() */
         _MOUNT_MODE_MAX,
         _MOUNT_MODE_INVALID = -EINVAL,
 } MountMode;
@@ -102,6 +103,7 @@ typedef struct MountEntry {
         bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
         bool exec:1;              /* Shall clear MS_NOEXEC on the mount itself */
         bool create_source_dir:1; /* Create the source directory if it doesn't exist - for implicit bind mounts */
+        bool bpffs:1;             /* Entry is a BPF filesystem, and has to be mounted with fsmount() and move_mount() */
         mode_t source_dir_mode;   /* Mode for the source directory, if it is to be created */
         MountEntryState state;    /* Whether it was already processed or skipped */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
@@ -120,6 +122,7 @@ typedef struct MountEntry {
         bool idmapped;
         uid_t idmap_uid;
         gid_t idmap_gid;
+        int bpffs_fd;            /* If bpffs is true, this is the fd to the BPF filesystem, used for fsmount() */
 } MountEntry;
 
 typedef struct MountList {
@@ -399,8 +402,8 @@ static MountEntry* mount_list_extend(MountList *ml) {
         return ml->mounts + ml->n_mounts++;
 }
 
-static int bpffs_finalize(int pipe_fd) {
-        _cleanup_close_ int fs_fd = -EBADF, fs_fd2 = -EBADF, mnt_fd = -EBADF;
+static int bpffs_finalize(MountList *ml, int pipe_fd) {
+        _cleanup_close_ int fs_fd = -EBADF, fs_fd2 = -EBADF;
         int r;
 
         assert(pipe_fd >= 0);
@@ -417,15 +420,16 @@ static int bpffs_finalize(int pipe_fd) {
         if (fs_fd2 < 0)
                 return log_debug_errno(fs_fd2, "Failed to receive_one_fd from child: %m");
 
-        mnt_fd = fsmount(fs_fd2, 0, 0);
-        if (mnt_fd < 0) {
-                log_debug_errno(errno, "Failed to fsmount: %m");
-                _exit(EXIT_FAILURE);
-        }
+        MountEntry *me = mount_list_extend(ml);
+        if (!me)
+                return log_oom_debug();
 
-        r = move_mount(mnt_fd, "", AT_FDCWD, "/sys/fs/bpf", MOVE_MOUNT_F_EMPTY_PATH);
-        if (r < 0)
-                return log_debug_errno(errno, "Failed to move_mount: %m");
+        *me = (MountEntry) {
+                .path_const = "/sys/fs/bpf",
+                .mode = MOUNT_BPFFS,
+                .bpffs = true,
+                .bpffs_fd = TAKE_FD(fs_fd2),
+        };
 
         return 0;
 }
@@ -2009,6 +2013,28 @@ static int apply_one_mount(
         case MOUNT_OVERLAY:
                 return mount_overlay(m);
 
+        case MOUNT_BPFFS: {
+                log_warning("MOUNT_BPFFS HERE");
+                _cleanup_close_ int mnt_fd = fsmount(m->bpffs_fd, 0, 0);
+
+                m->bpffs_fd = safe_close(m->bpffs_fd);
+
+                if (mnt_fd < 0)
+                        log_debug_errno(errno, "Failed to fsmount: %m");
+
+                log_warning("MOUNT_BPFFS mnt_fd: %d", mnt_fd);
+
+                r = move_mount(mnt_fd, "", AT_FDCWD, m->path_const, MOVE_MOUNT_F_EMPTY_PATH);
+                if (r < 0)
+                        return log_debug_errno(errno, "Failed to move_mount: %m");
+
+                log_warning("MOUNT_BPFFS move_mount: %d", r);
+                system("ls -lh /sys/fs/bpf");
+                system("mount");
+
+                return 1;
+        }
+
         default:
                 assert_not_reached();
         }
@@ -2612,7 +2638,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         }
 
         if (p->private_bpf != PRIVATE_BPF_NO) {
-                r = bpffs_finalize(p->bpffs_socket_fd);
+                r = bpffs_finalize(&ml, p->bpffs_socket_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mount bpffs in bpffs_finalize(): %m");
 
