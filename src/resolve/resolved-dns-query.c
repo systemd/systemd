@@ -561,7 +561,7 @@ static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **
         assert(question);
         assert(ret_allocated);
 
-        if (!*question) {
+        if (dns_question_isempty(*question)) {
                 *ret_allocated = NULL;
                 return 0;
         }
