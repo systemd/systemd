@@ -1143,13 +1143,25 @@ testcase_14_refuse_record_types() {
     run dig localhost -t AAAA
     grep -qF "status: REFUSED" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
     run dig localhost -t SRV
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost @127.0.0.54 -t SRV
     grep -qF "status: REFUSED" "$RUN_OUT"
 
     run dig localhost -t TXT
     grep -qF "status: REFUSED" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t TXT
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
     run dig localhost -t A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    run dig localhost @127.0.0.54 -t A
     grep -qF "status: NOERROR" "$RUN_OUT"
 
     run resolvectl query localhost5
@@ -1180,10 +1192,19 @@ testcase_14_refuse_record_types() {
     run dig localhost -t SRV
     grep -qF "status: NOERROR" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t SRV
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
     run dig localhost -t TXT
     grep -qF "status: NOERROR" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t TXT
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
     run dig localhost -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost @127.0.0.54 -t AAAA
     grep -qF "status: REFUSED" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=SRV)
