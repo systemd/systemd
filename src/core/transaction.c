@@ -422,6 +422,8 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                                     delete->unit->id, job_type_to_string(delete->type),
                                                     j->unit->id, job_type_to_string(j->type)),
                                    LOG_MESSAGE_ID(SD_MESSAGE_DELETING_JOB_BECAUSE_ORDERING_CYCLE_STR),
+                                   LOG_ITEM("DELETED_UNIT=%s", delete->unit->id),
+                                   LOG_ITEM("DELETED_TYPE=%s", job_type_to_string(delete->type)),
                                    LOG_ITEM("%s", strna(unit_ids)));
 
                         if (log_get_show_color())
