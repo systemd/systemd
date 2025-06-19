@@ -1007,6 +1007,25 @@
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>FileSystemSectorSize=</varname></term>
+
+        <listitem><para>Controls the sector size for any file system, LUKS volume or Verity volume formatted
+        on this partition. Expects a power of 2 as value, and must be equal or larger than 512. Typically
+        it's recommended to set the file system sector size to 4096, even on 512 sector disks (and in
+        particular for images that are only ever intended to be stored as file on disks), in order to
+        optimize performance. However, for compatibility with foreign operating systems or firmware it might
+        be advisable to use the native sector size of the backing disk.</para>
+
+        <para>If unspecified and operating on a block device, defaults to the native sector size of the
+        device. If unspecified and operating on a disk image file defaults to 4096.</para>
+
+        <para>Regardless of what is configured here, or which default is picked, the file system sector size
+        is always increased to be equal or larger than the disk sector size.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
