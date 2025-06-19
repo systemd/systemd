@@ -122,6 +122,32 @@ if not have_lxml
         message('python-lxml not available, not making man page indices')
 endif
 
+generate_bpf_delegate_configs = find_program('../src/basic/generate-bpf-delegate-configs.py')
+
+fname = 'bpf-delegate-commands.xml'
+bpf_delegate_commands_xml = custom_target(
+        fname,
+        input : '../src/basic/include/linux/bpf.h',
+        output : fname,
+        command : [generate_bpf_delegate_configs,
+                   'doc',
+                   '@INPUT@',
+                   'bpf_cmd'],
+        capture : true)
+man_page_depends += bpf_delegate_commands_xml
+
+fname = 'bpf-delegate-attach-type.xml'
+bpf_delegate_attach_type_xml = custom_target(
+        fname,
+        input : '../src/basic/include/linux/bpf.h',
+        output : fname,
+        command : [generate_bpf_delegate_configs,
+                   'doc',
+                   '@INPUT@',
+                   'bpf_attach_type'],
+        capture : true)
+man_page_depends += bpf_delegate_attach_type_xml
+
 systemd_directives_xml = custom_target(
         'systemd.directives.xml',
         input : ['directives-template.xml', source_xml_files],
