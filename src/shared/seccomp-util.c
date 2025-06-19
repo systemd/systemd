@@ -649,6 +649,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "mount_setattr\0"
                 "move_mount\0"
                 "open_tree\0"
+                "open_tree_attr\0"
                 "pivot_root\0"
                 "umount\0"
                 "umount2\0"
