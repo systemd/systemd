@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <stdlib.h>
+#include <sys/random.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 #include <unistd.h>
@@ -17,7 +18,6 @@
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "missing_random.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"

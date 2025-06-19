@@ -34,8 +34,6 @@
 #include "locale-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_sched.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nulstr-util.h"
@@ -1445,6 +1443,18 @@ int must_be_root(void) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 }
+
+/* glibc does not provide clone() on ia64, only clone2(). Not only that, but it also doesn't provide a
+ * prototype, only the symbol in the shared library (it provides a prototype for clone(), but not the
+ * symbol in the shared library). */
+#if defined(__ia64__)
+int __clone2(int (*fn)(void *), void *stack_base, size_t stack_size, int flags, void *arg);
+#define HAVE_CLONE 0
+#else
+/* We know that everywhere else clone() is available, so we don't bother with a meson check (that takes time
+ * at build time) and just define it. Once the kernel drops ia64 support, we can drop this too. */
+#define HAVE_CLONE 1
+#endif
 
 pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
         size_t ps;
