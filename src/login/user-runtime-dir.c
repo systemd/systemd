@@ -246,7 +246,7 @@ static int apply_tmpfs_quota(
                 }
 
                 struct dqblk req;
-                r = RET_NERRNO(quotactl_fd(fd, QCMD_FIXED(Q_GETQUOTA, USRQUOTA), uid, &req));
+                r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_GETQUOTA, USRQUOTA), uid, &req);
                 if (r == -ESRCH)
                         zero(req);
                 else if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
@@ -277,7 +277,7 @@ static int apply_tmpfs_quota(
                 req.dqb_valid = QIF_BLIMITS;
                 req.dqb_bsoftlimit = req.dqb_bhardlimit = v;
 
-                r = RET_NERRNO(quotactl_fd(fd, QCMD_FIXED(Q_SETQUOTA, USRQUOTA), uid, &req));
+                r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_SETQUOTA, USRQUOTA), uid, &req);
                 if (r == -ESRCH) {
                         log_debug_errno(r, "Not setting UID quota on %s since UID quota is not supported: %m", *p);
                         continue;
