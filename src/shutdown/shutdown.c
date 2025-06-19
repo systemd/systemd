@@ -4,11 +4,9 @@
 ***/
 
 #include <getopt.h>
-#include <linux/reboot.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
-#include <sys/reboot.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
