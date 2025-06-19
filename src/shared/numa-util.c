@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "cpu-set-util.h"
@@ -8,12 +10,23 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "numa-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+
+#if !HAVE_SET_MEMPOLICY
+static long set_mempolicy(int mode, const unsigned long *nodemask, unsigned long maxnode) {
+        return syscall(__NR_set_mempolicy, mode, nodemask, maxnode);
+}
+#endif
+
+#if !HAVE_GET_MEMPOLICY
+static long get_mempolicy(int *mode, unsigned long *nodemask, unsigned long maxnode, void *addr, unsigned long flags) {
+        return syscall(__NR_get_mempolicy, mode, nodemask, maxnode, addr, flags);
+}
+#endif
 
 bool numa_policy_is_valid(const NUMAPolicy *policy) {
         assert(policy);

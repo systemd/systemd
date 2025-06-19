@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/fs.h>
 #include <linux/kcmp.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -15,9 +17,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_fcntl.h"
-#include "missing_fs.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -31,6 +30,12 @@
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */
 #define MAX_FD_LOOP_LIMIT (1024*1024)
+
+#if !HAVE_KCMP
+static int kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2) {
+        return syscall(__NR_kcmp, pid1, pid2, type, idx1, idx2);
+}
+#endif
 
 int close_nointr(int fd) {
         assert(fd >= 0);
@@ -971,7 +976,7 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
          *             and since we refuse O_PATH it should be safe.
          *
          * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
-         *                  See comment in missing_fcntl.h for more details about this.
+         *                  See comment in src/basic/include/fcntl.h for more details about this.
          *
          * If 'extra_flags' is specified as non-zero the included flags are also allowed.
          */
@@ -982,13 +987,13 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
         if (flags < 0)
                 return -errno;
 
-        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
+        unexpected_flags = flags & ~(O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
         if (unexpected_flags != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
                                        "Unexpected flags set for extrinsic fd: 0%o",
                                        (unsigned) unexpected_flags);
 
-        return flags & (O_ACCMODE_STRICT | extra_flags); /* return the flags variable, but remove the noise */
+        return flags & (O_ACCMODE | extra_flags); /* return the flags variable, but remove the noise */
 }
 
 int read_nr_open(void) {
@@ -1120,7 +1125,7 @@ char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
 }
 
 const char* accmode_to_string(int flags) {
-        switch (flags & O_ACCMODE_STRICT) {
+        switch (flags & O_ACCMODE) {
         case O_RDONLY:
                 return "ro";
         case O_WRONLY:
