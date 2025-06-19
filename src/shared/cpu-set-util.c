@@ -81,6 +81,7 @@ char* cpu_set_to_mask_string(const CPUSet *a) {
         bool found_nonzero = false;
 
         assert(a);
+        assert(a->set || a->allocated == 0);
 
         /* Return CPU set in hexadecimal bitmap mask, e.g.
          *   CPU   0 ->  "1"
@@ -97,11 +98,11 @@ char* cpu_set_to_mask_string(const CPUSet *a) {
          *  CPU 0-63 -> "ffffffff,ffffffff"
          *  CPU 0-71 -> "ff,ffffffff,ffffffff" */
 
-        for (ssize_t i = a->allocated * 8; i >= 0; i -= 4) {
+        for (size_t i = a->allocated * 8; i > 0; ) {
                 uint8_t m = 0;
 
-                for (size_t j = 0; j < 4; j++)
-                        if (CPU_ISSET_S(i + j, a->allocated, a->set))
+                for (int j = 3; j >= 0; j--)
+                        if (CPU_ISSET_S(--i, a->allocated, a->set))
                                 m |= 1U << j;
 
                 if (!found_nonzero)
@@ -115,7 +116,7 @@ char* cpu_set_to_mask_string(const CPUSet *a) {
                         return NULL;
 
                 str[len++] = hexchar(m);
-                if (i >= 4 && i % 32 == 0)
+                if (i > 0 && i % 32 == 0)
                         /* Separate by comma for each 32 CPUs. */
                         str[len++] = ',';
                 str[len] = 0;
@@ -172,10 +173,14 @@ int cpu_set_add(CPUSet *cpu_set, unsigned cpu) {
 int cpu_set_add_all(CPUSet *a, const CPUSet *b) {
         int r;
 
+        assert(a);
+        assert(b);
+        assert(b->set || b->allocated == 0);
+
         /* Do this backwards, so if we fail, we fail before changing anything. */
-        for (unsigned cpu_p1 = b->allocated * 8; cpu_p1 > 0; cpu_p1--)
-                if (CPU_ISSET_S(cpu_p1 - 1, b->allocated, b->set)) {
-                        r = cpu_set_add(a, cpu_p1 - 1);
+        for (size_t i = b->allocated * 8; i > 0; )
+                if (CPU_ISSET_S(--i, b->allocated, b->set)) {
+                        r = cpu_set_add(a, i);
                         if (r < 0)
                                 return r;
                 }
