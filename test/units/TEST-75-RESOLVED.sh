@@ -1152,6 +1152,32 @@ testcase_14_refuse_record_types() {
     run dig localhost -t A
     grep -qF "status: NOERROR" "$RUN_OUT"
 
+    # Test DNS Proxy
+    run dig @127.0.0.54 localhost -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig @127.0.0.54 localhost -t SRV
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig @127.0.0.54 localhost -t TXT
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig @127.0.0.54 localhost -t A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    # Test DNSSEC
+    run dig localhost -t AAAA +dnssec +answer
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t SRV +dnssec +answer
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t TXT +dnssec +answer
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t A +dnssec +answer
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
     run resolvectl query localhost5
     grep -qF "127.128.0.5" "$RUN_OUT"
 

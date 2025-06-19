@@ -612,6 +612,11 @@ int dns_query_new(
                 if (question_utf8 || question_idna)
                         return -EINVAL;
 
+                DnsQuestion *filtered_question_bypass = NULL;
+                r = manager_validate_and_mangle_question(m, &question_bypass->question, &filtered_question_bypass);
+                if (r < 0)
+                        return r;
+
         } else {
                 bool good = false;
 
