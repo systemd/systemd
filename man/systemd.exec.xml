@@ -2530,6 +2530,8 @@ RestrictNamespaces=~cgroup net</programlisting>
 
         <listitem><para>Accepts a list of BPF commands to allow or <literal>any</literal> to allow everything,
         which is the default if not specified.
+        The accepted values are:
+        <xi:include href="bpf-delegate-commands.xml" xpointer="v258"/>
         Requires <varname>PrivateBPF=</varname> enabled to be effective.
         This will set the <constant>delegate_cmds</constant> bpffs mount option.
         A more detailed explanation of the feature can be found in this

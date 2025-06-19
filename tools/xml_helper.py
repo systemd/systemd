@@ -10,6 +10,8 @@ class CustomResolver(tree.Resolver):
             return self.resolve_filename('man/custom-entities.ent', context)
         if 'ethtool-link-mode' in url:
             return self.resolve_filename('src/shared/ethtool-link-mode.xml', context)
+        if 'bpf-delegate-commands' in url:
+            return self.resolve_filename('man/bpf-delegate-commands.xml', context)
 
         return None
 
