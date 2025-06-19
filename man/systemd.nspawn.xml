@@ -578,8 +578,8 @@
 
         <listitem><para>Takes a boolean argument. Configures whether to create a virtual Ethernet connection
         (<literal>veth</literal>) between host and the container. This setting implies
-        <varname>Private=yes</varname>. This setting corresponds to the <option>--network-veth</option> command line
-        switch. This option is privileged (see above). This option is the default if the
+        <varname>Private=yes</varname>. This setting corresponds to the <option>--network-veth</option>
+        command line switch. This option is the default if the
         <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
 
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>
