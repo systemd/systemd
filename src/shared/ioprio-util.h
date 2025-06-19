@@ -5,6 +5,14 @@
 
 #include "forward.h"
 
+#if !HAVE_IOPRIO_GET
+int ioprio_get(int which, int who);
+#endif
+
+#if !HAVE_IOPRIO_SET
+int ioprio_set(int which, int who, int ioprio);
+#endif
+
 static inline int ioprio_prio_class(int value) {
         return IOPRIO_PRIO_CLASS(value);
 }
