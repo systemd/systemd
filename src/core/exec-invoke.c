@@ -5127,7 +5127,7 @@ int exec_invoke(
                 }
         }
 
-        if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
+        if (numa_policy_is_valid(&context->numa_policy)) {
                 r = apply_numa_policy(&context->numa_policy);
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         log_debug_errno(r, "NUMA support not available, ignoring.");
