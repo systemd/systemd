@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/fs.h>
 #include <linux/kcmp.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
@@ -15,7 +16,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_fs.h"
 #include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
