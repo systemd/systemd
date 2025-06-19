@@ -1069,7 +1069,7 @@ int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_
 
         if (flags & ~(O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_EXCL|O_NOATIME|O_NOFOLLOW|O_PATH))
                 return -EINVAL;
-        if ((flags & O_ACCMODE_STRICT) != O_RDONLY)
+        if ((flags & O_ACCMODE) != O_RDONLY)
                 return -EINVAL;
 
         /* Note that O_DIRECTORY|O_NOFOLLOW is implied, but we allow specifying it anyway. The following
