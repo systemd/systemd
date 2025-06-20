@@ -1396,7 +1396,7 @@ int config_parse_rps_cpu_mask(
                 cpu_set_reset(mask);
 
         else if (streq(rvalue, "all")) {
-                r = cpu_mask_add_all(mask);
+                r = cpu_set_add_all(mask);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to create CPU affinity mask representing \"all\" cpus, ignoring: %m");

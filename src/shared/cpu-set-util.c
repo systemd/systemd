@@ -159,7 +159,7 @@ int cpu_set_add(CPUSet *c, size_t i) {
         return 0;
 }
 
-int cpu_set_add_all(CPUSet *c, const CPUSet *src) {
+int cpu_set_add_set(CPUSet *c, const CPUSet *src) {
         int r;
 
         assert(c);
@@ -196,7 +196,7 @@ static int cpu_set_add_range(CPUSet *c, size_t start, size_t end) {
         return 0;
 }
 
-int cpu_mask_add_all(CPUSet *c) {
+int cpu_set_add_all(CPUSet *c) {
         assert(c);
 
         long m = sysconf(_SC_NPROCESSORS_ONLN);
@@ -292,7 +292,7 @@ int parse_cpu_set_extend(
                 return 1;
         }
 
-        return cpu_set_add_all(old, &cpuset);
+        return cpu_set_add_set(old, &cpuset);
 }
 
 int cpus_in_affinity_mask(void) {

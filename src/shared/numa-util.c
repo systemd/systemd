@@ -116,7 +116,7 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
                 if (r < 0)
                         return r;
 
-                r = cpu_set_add_all(&s, &part);
+                r = cpu_set_add_set(&s, &part);
                 if (r < 0)
                         return r;
         }

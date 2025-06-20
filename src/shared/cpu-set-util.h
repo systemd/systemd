@@ -23,8 +23,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(CPUSet*, cpu_set_free);
 
 int cpu_set_realloc(CPUSet *c, size_t n);
 int cpu_set_add(CPUSet *c, size_t i);
-int cpu_set_add_all(CPUSet *c, const CPUSet *src);
-int cpu_mask_add_all(CPUSet *c);
+int cpu_set_add_set(CPUSet *c, const CPUSet *src);
+int cpu_set_add_all(CPUSet *c);
 
 char* cpu_set_to_string(const CPUSet *c);
 char* cpu_set_to_range_string(const CPUSet *c);
