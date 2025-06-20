@@ -1514,10 +1514,10 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         (void) sd_bus_creds_get_comm(creds, &comm);
         caller = manager_get_unit_by_pidref(manager, &pidref);
 
-        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
-                   method, pidref.pid,
-                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
-                   caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
+        log_info("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
+                 method, pidref.pid,
+                 comm ? " ('" : "", strempty(comm), comm ? "')" : "",
+                 caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
