@@ -2901,9 +2901,9 @@ int bus_exec_context_set_transient_property(
                                         return -ENOMEM;
 
                                 /* We forego any optimizations here, and always create the structure using
-                                 * cpu_set_add_all(), because we don't want to care if the existing size we
+                                 * cpu_set_add_set(), because we don't want to care if the existing size we
                                  * got over dbus is appropriate. */
-                                r = cpu_set_add_all(affinity ? &c->cpu_set : &c->numa_policy.nodes, &set);
+                                r = cpu_set_add_set(affinity ? &c->cpu_set : &c->numa_policy.nodes, &set);
                                 if (r < 0)
                                         return r;
 
