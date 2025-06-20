@@ -372,7 +372,9 @@ int home_setup_fscrypt(
                 const PasswordCache *cache) {
 
         _cleanup_(erase_and_freep) void *volume_key = NULL;
+        struct fscrypt_policy_v2 policy_v2 = {}
         struct fscrypt_policy policy = {};
+        bool fscrypt_v2_policy = false;
         size_t volume_key_size = 0;
         const char *ip;
         int r;
@@ -388,7 +390,19 @@ int home_setup_fscrypt(
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");
 
-        if (ioctl(setup->root_fd, FS_IOC_GET_ENCRYPTION_POLICY, &policy) < 0) {
+        if (ioctl(setup->root_fd, FS_IOC_GET_ENCRYPTION_POLICY_EX, &policy_v2) < 0) {
+                if (errno == ENODATA) {
+                        /* No encryption policy set, let's use the old one */
+                        fscrypt_v2_policy = false;
+                } else if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                        log_error_errno(errno, "File system does not support fscrypt: %m");
+                        return -ENOLINK; /* make recognizable */
+                } else {
+                        return log_error_errno(errno, "Failed to acquire encryption policy of %s: %m", ip);
+                }
+        } else {
+                fscrypt_v2_policy = true;
+        } else if (ioctl(setup->root_fd, FS_IOC_GET_ENCRYPTION_POLICY, &policy) < 0) {
                 if (errno == ENODATA)
                         return log_error_errno(errno, "Home directory %s is not encrypted.", ip);
                 if (ERRNO_IS_NOT_SUPPORTED(errno)) {
@@ -612,6 +626,11 @@ int home_create_fscrypt(
         log_info("Generated volume key of size %zu.", volume_key_size);
 
         policy = (struct fscrypt_policy) {
+                .contents_encryption_mode = FS_ENCRYPTION_MODE_AES_256_XTS,
+                .filenames_encryption_mode = FS_ENCRYPTION_MODE_AES_256_CTS,
+                .flags = FS_POLICY_FLAGS_PAD_32,
+        };
+        policy_v2 = (struct fscrypt_policy_v2) {
                 .contents_encryption_mode = FS_ENCRYPTION_MODE_AES_256_XTS,
                 .filenames_encryption_mode = FS_ENCRYPTION_MODE_AES_256_CTS,
                 .flags = FS_POLICY_FLAGS_PAD_32,
