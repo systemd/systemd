@@ -13,65 +13,58 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-char* cpu_set_to_string(const CPUSet *a) {
+char* cpu_set_to_string(const CPUSet *c) {
         _cleanup_free_ char *str = NULL;
-        size_t len = 0;
-        int i, r;
 
-        for (i = 0; (size_t) i < a->allocated * 8; i++) {
-                if (!CPU_ISSET_S(i, a->allocated, a->set))
+        assert(c);
+
+        for (size_t i = 0; i < c->allocated * 8; i++) {
+                if (!CPU_ISSET_S(i, c->allocated, c->set))
                         continue;
 
-                if (!GREEDY_REALLOC(str, len + 1 + DECIMAL_STR_MAX(int)))
+                if (strextendf_with_separator(&str, " ", "%zu", i) < 0)
                         return NULL;
-
-                r = sprintf(str + len, len > 0 ? " %d" : "%d", i);
-                assert_se(r > 0);
-                len += r;
         }
 
         return TAKE_PTR(str) ?: strdup("");
 }
 
-char* cpu_set_to_range_string(const CPUSet *set) {
-        unsigned range_start = 0, range_end;
-        _cleanup_free_ char *str = NULL;
-        bool in_range = false;
-        size_t len = 0;
-        int r;
+static int add_range(char **str, size_t start, size_t end) {
+        assert(str);
+        assert(start <= end);
 
-        for (unsigned i = 0; i < set->allocated * 8; i++)
-                if (CPU_ISSET_S(i, set->allocated, set->set)) {
+        if (start == end)
+                return strextendf_with_separator(str, " ", "%zu", start);
+
+        return strextendf_with_separator(str, " ", "%zu-%zu", start, end);
+}
+
+char* cpu_set_to_range_string(const CPUSet *c) {
+        _cleanup_free_ char *str = NULL;
+        size_t start = 0, end;
+        bool in_range = false;
+
+        assert(c);
+
+        for (size_t i = 0; i < c->allocated * 8; i++) {
+                if (CPU_ISSET_S(i, c->allocated, c->set)) {
                         if (in_range)
-                                range_end++;
+                                end++;
                         else {
-                                range_start = range_end = i;
+                                start = end = i;
                                 in_range = true;
                         }
-                } else if (in_range) {
-                        in_range = false;
-
-                        if (!GREEDY_REALLOC(str, len + 2 + 2 * DECIMAL_STR_MAX(unsigned)))
-                                return NULL;
-
-                        if (range_end > range_start)
-                                r = sprintf(str + len, len > 0 ? " %u-%u" : "%u-%u", range_start, range_end);
-                        else
-                                r = sprintf(str + len, len > 0 ? " %u" : "%u", range_start);
-                        assert_se(r > 0);
-                        len += r;
+                        continue;
                 }
 
-        if (in_range) {
-                if (!GREEDY_REALLOC(str, len + 2 + 2 * DECIMAL_STR_MAX(int)))
+                if (in_range && add_range(&str, start, end) < 0)
                         return NULL;
 
-                if (range_end > range_start)
-                        r = sprintf(str + len, len > 0 ? " %u-%u" : "%u-%u", range_start, range_end);
-                else
-                        r = sprintf(str + len, len > 0 ? " %u" : "%u", range_start);
-                assert_se(r > 0);
+                in_range = false;
         }
+
+        if (in_range && add_range(&str, start, end) < 0)
+                return NULL;
 
         return TAKE_PTR(str) ?: strdup("");
 }
