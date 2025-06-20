@@ -3979,7 +3979,6 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
 }
 
 static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret) {
-        _cleanup_(cpu_set_reset) CPUSet s = {};
         int r;
 
         assert(c);
@@ -3987,16 +3986,17 @@ static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret
 
         if (!c->numa_policy.nodes.set) {
                 log_debug("Can't derive CPU affinity mask from NUMA mask because NUMA mask is not set, ignoring");
+                *ret = (CPUSet) {};
                 return 0;
         }
 
+        _cleanup_(cpu_set_reset) CPUSet s = {};
         r = numa_to_cpu_set(&c->numa_policy, &s);
         if (r < 0)
                 return r;
 
-        cpu_set_reset(ret);
-
-        return cpu_set_add_all(ret, &s);
+        *ret = TAKE_STRUCT(s);
+        return 0;
 }
 
 static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int *fd) {
