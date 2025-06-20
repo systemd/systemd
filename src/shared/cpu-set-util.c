@@ -13,6 +13,9 @@
 #include "parse-util.h"
 #include "string-util.h"
 
+/* As of kernel 5.1, CONFIG_NR_CPUS can be set to 8192 on PowerPC */
+#define CPU_SET_MAX_NCPU 8192
+
 char* cpu_set_to_string(const CPUSet *c) {
         _cleanup_free_ char *str = NULL;
 
@@ -122,55 +125,87 @@ CPUSet* cpu_set_free(CPUSet *c) {
         return mfree(c);
 }
 
-int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus) {
-        size_t need;
+int cpu_set_realloc(CPUSet *c, size_t n) {
+        assert(c);
 
-        assert(cpu_set);
+        if (n > CPU_SET_MAX_NCPU)
+                return -ERANGE;
 
-        need = CPU_ALLOC_SIZE(ncpus);
-        if (need > cpu_set->allocated) {
-                cpu_set_t *t;
+        n = CPU_ALLOC_SIZE(n);
+        if (n <= c->allocated)
+                return 0;
 
-                t = realloc(cpu_set->set, need);
-                if (!t)
-                        return -ENOMEM;
+        if (!GREEDY_REALLOC0(c->set, DIV_ROUND_UP(n, sizeof(cpu_set_t))))
+                return -ENOMEM;
 
-                memzero((uint8_t*) t + cpu_set->allocated, need - cpu_set->allocated);
-
-                cpu_set->set = t;
-                cpu_set->allocated = need;
-        }
-
+        c->allocated = n;
         return 0;
 }
 
-int cpu_set_add(CPUSet *cpu_set, unsigned cpu) {
+int cpu_set_add(CPUSet *c, size_t i) {
         int r;
 
-        if (cpu >= 8192)
-                /* As of kernel 5.1, CONFIG_NR_CPUS can be set to 8192 on PowerPC */
+        assert(c);
+
+        /* cpu_set_realloc() has similar check, but for avoiding overflow. */
+        if (i >= CPU_SET_MAX_NCPU)
                 return -ERANGE;
 
-        r = cpu_set_realloc(cpu_set, cpu + 1);
+        r = cpu_set_realloc(c, i + 1);
         if (r < 0)
                 return r;
 
-        CPU_SET_S(cpu, cpu_set->allocated, cpu_set->set);
+        CPU_SET_S(i, c->allocated, c->set);
         return 0;
 }
 
-int cpu_set_add_all(CPUSet *a, const CPUSet *b) {
+int cpu_set_add_all(CPUSet *c, const CPUSet *src) {
         int r;
 
-        /* Do this backwards, so if we fail, we fail before changing anything. */
-        for (unsigned cpu_p1 = b->allocated * 8; cpu_p1 > 0; cpu_p1--)
-                if (CPU_ISSET_S(cpu_p1 - 1, b->allocated, b->set)) {
-                        r = cpu_set_add(a, cpu_p1 - 1);
-                        if (r < 0)
-                                return r;
-                }
+        assert(c);
+        assert(src);
+
+        r = cpu_set_realloc(c, src->allocated * 8);
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < src->allocated * 8; i++)
+                if (CPU_ISSET_S(i, src->allocated, src->set))
+                        CPU_SET_S(i, c->allocated, c->set);
 
         return 1;
+}
+
+static int cpu_set_add_range(CPUSet *c, size_t start, size_t end) {
+        int r;
+
+        assert(c);
+        assert(start <= end);
+
+        /* cpu_set_realloc() has similar check, but for avoiding overflow. */
+        if (end >= CPU_SET_MAX_NCPU)
+                return -ERANGE;
+
+        r = cpu_set_realloc(c, end + 1);
+        if (r < 0)
+                return r;
+
+        for (size_t i = start; i <= end; i++)
+                CPU_SET_S(i, c->allocated, c->set);
+
+        return 0;
+}
+
+int cpu_mask_add_all(CPUSet *c) {
+        assert(c);
+
+        long m = sysconf(_SC_NPROCESSORS_ONLN);
+        if (m < 0)
+                return -errno;
+        if (m == 0)
+                return -ENXIO;
+
+        return cpu_set_add_range(c, 0, m - 1);
 }
 
 int parse_cpu_set_full(
@@ -328,24 +363,5 @@ int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set) {
                 }
 
         *set = TAKE_STRUCT(s);
-        return 0;
-}
-
-int cpu_mask_add_all(CPUSet *mask) {
-        long m;
-        int r;
-
-        assert(mask);
-
-        m = sysconf(_SC_NPROCESSORS_ONLN);
-        if (m < 0)
-                return -errno;
-
-        for (unsigned i = 0; i < (unsigned) m; i++) {
-                r = cpu_set_add(mask, i);
-                if (r < 0)
-                        return r;
-        }
-
         return 0;
 }

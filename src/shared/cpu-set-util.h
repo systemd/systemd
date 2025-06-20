@@ -21,13 +21,14 @@ static inline void cpu_set_reset(CPUSet *a) {
 CPUSet* cpu_set_free(CPUSet *c);
 DEFINE_TRIVIAL_CLEANUP_FUNC(CPUSet*, cpu_set_free);
 
-int cpu_set_add_all(CPUSet *a, const CPUSet *b);
-int cpu_set_add(CPUSet *a, unsigned cpu);
+int cpu_set_realloc(CPUSet *c, size_t n);
+int cpu_set_add(CPUSet *c, size_t i);
+int cpu_set_add_all(CPUSet *c, const CPUSet *src);
+int cpu_mask_add_all(CPUSet *c);
 
 char* cpu_set_to_string(const CPUSet *c);
 char* cpu_set_to_range_string(const CPUSet *c);
 char* cpu_set_to_mask_string(const CPUSet *c);
-int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus);
 
 int parse_cpu_set_full(
                 const char *rvalue,
@@ -53,4 +54,3 @@ int cpu_set_to_dbus(const CPUSet *set, uint8_t **ret, size_t *allocated);
 int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set);
 
 int cpus_in_affinity_mask(void);
-int cpu_mask_add_all(CPUSet *mask);
