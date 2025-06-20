@@ -98,6 +98,7 @@ void mount_fd_event(Manager *m, int events);
 
 int mount_invalidate_state_by_path(Manager *manager, const char *path);
 
+char* mount_get_where_escaped(const Mount *m);
 char* mount_get_what_escaped(const Mount *m);
 char* mount_get_options_escaped(const Mount *m);
 const char* mount_get_fstype(const Mount *m);
