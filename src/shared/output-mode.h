@@ -48,6 +48,7 @@ typedef enum OutputFlags {
         OUTPUT_KERNEL_THREADS    = 1 << 9,
         OUTPUT_CGROUP_XATTRS     = 1 << 10,
         OUTPUT_CGROUP_ID         = 1 << 11,
+        OUTPUT_HIDE_EXTRA        = 1 << 12,
 } OutputFlags;
 
 sd_json_format_flags_t output_mode_to_json_format_flags(OutputMode m);

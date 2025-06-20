@@ -155,7 +155,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         r = varlink_verify_polkit_async(
                         link,
                         manager->bus,
-                        "org.freedesktop.machine1.create-machine",
+                        machine->allocate_unit ? "org.freedesktop.machine1.create-machine" : "org.freedesktop.machine1.register-machine",
                         (const char**) STRV_MAKE("name", machine->name,
                                                  "class", machine_class_to_string(machine->class)),
                         &manager->polkit_registry);
@@ -168,6 +168,10 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                         return r;
         }
 
+        r = sd_varlink_get_peer_uid(link, &machine->uid);
+        if (r < 0)
+                return r;
+
         r = machine_link(manager, machine);
         if (r == -EEXIST)
                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_EXISTS, NULL);
@@ -175,7 +179,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 return r;
 
         if (!machine->allocate_unit) {
-                r = cg_pidref_get_unit(&machine->leader, &machine->unit);
+                r = cg_pidref_get_unit_full(&machine->leader, &machine->unit, &machine->subgroup);
                 if (r < 0)
                         return r;
         }
@@ -278,12 +282,14 @@ int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters,
         Manager *manager = ASSERT_PTR(machine->manager);
         int r;
 
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         manager->bus,
                         "org.freedesktop.machine1.manage-machines",
                         (const char**) STRV_MAKE("name", machine->name,
                                                  "verb", "unregister"),
+                        machine->uid,
+                        /* flags= */ 0,
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -300,12 +306,14 @@ int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, 
         Manager *manager = ASSERT_PTR(machine->manager);
         int r;
 
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         manager->bus,
                         "org.freedesktop.machine1.manage-machines",
                         (const char**) STRV_MAKE("name", machine->name,
                                                  "verb", "terminate"),
+                        machine->uid,
+                        /* flags= */ 0,
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -368,12 +376,14 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                         return sd_varlink_error_invalid_parameter_name(link, "whom");
         }
 
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         manager->bus,
                         "org.freedesktop.machine1.manage-machines",
                         (const char**) STRV_MAKE("name", machine->name,
                                                  "verb", "kill"),
+                        machine->uid,
+                        /* flags= */ 0,
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -510,11 +520,13 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         polkit_details = machine_open_polkit_details(p.mode, machine->name, user, path, command_line);
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         manager->bus,
                         machine_open_polkit_action(p.mode, machine->class),
                         (const char**) polkit_details,
+                        machine->uid,
+                        /* flags= */ 0,
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -788,6 +800,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (machine->class != MACHINE_CONTAINER)
                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
 
+        /* NB: For now not opened up to owner of machine without auth */
         r = varlink_verify_polkit_async(
                         link,
                         manager->bus,
@@ -899,6 +912,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         if (machine->class != MACHINE_CONTAINER)
                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
 
+        /* NB: For now not opened up to owner of machine without auth */
         r = varlink_verify_polkit_async(
                         link,
                         manager->bus,
@@ -928,6 +942,7 @@ int vl_method_open_root_directory_internal(sd_varlink *link, sd_json_variant *pa
         Manager *manager = ASSERT_PTR(machine->manager);
         int r;
 
+        /* NB: For now not opened up to owner of machine without auth */
         r = varlink_verify_polkit_async(
                         link,
                         manager->bus,
