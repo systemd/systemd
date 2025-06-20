@@ -3774,8 +3774,7 @@ int config_parse_unit_cpu_set(
                 void *data,
                 void *userdata) {
 
-        CPUSet *c = data;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *k = NULL;
         int r;
 
@@ -3791,11 +3790,7 @@ int config_parse_unit_cpu_set(
                 return 0;
         }
 
-        r = parse_cpu_set_extend(k, c, true, unit, filename, line, lvalue);
-        if (r < 0)
-                retunr 0;
-
-        return 1;
+        return config_parse_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
 }
 
 int config_parse_memory_limit(
@@ -6263,25 +6258,6 @@ void unit_dump_config_items(FILE *f) {
                 fprintf(f, "%s=%s\n", lvalue, rvalue);
                 prev = i;
         }
-}
-
-int config_parse_cpu_affinity2(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        CPUSet *affinity = ASSERT_PTR(data);
-
-        (void) parse_cpu_set_extend(rvalue, affinity, true, unit, filename, line, lvalue);
-
-        return 0;
 }
 
 int config_parse_show_status(
