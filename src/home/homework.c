@@ -1922,8 +1922,10 @@ static int home_lock(UserRecord *h) {
                 return r;
         if (r > 0) {
                 r = unit_freezer_freeze(f);
-                if (r < 0)
+                if (r < 0) {
+                        (void) unit_freezer_thaw(f);
                         return r;
+                }
         } else
                 log_notice("Session remains unfrozen on explicit request ($SYSTEMD_HOME_LOCK_FREEZE_SESSION=0).\n"
                            "This is not recommended, and might result in unexpected behavior including data loss!");
