@@ -335,15 +335,21 @@ int copy_bytes_full(
                                         break;
                                 return -errno;
                         }
+                        if (e == c)
+                                /* Empty data segment? Maybe concurrent hole punching taking place? Or EOF?
+                                 * Let's figure this out by copying the smallest amount possible */
+                                m = 1;
+                        else {
+                                assert(e > c);
 
-                        /* SEEK_HOLE modifies the file offset so we need to move back to the initial offset. */
-                        if (lseek(fdf, c, SEEK_SET) < 0)
-                                return -errno;
+                                /* SEEK_HOLE modifies the file offset so we need to move back to the initial offset. */
+                                if (lseek(fdf, c, SEEK_SET) < 0)
+                                        return -errno;
 
-                        /* Make sure we're not copying more than the current data segment. */
-                        m = MIN(m, (size_t) e - c);
-                        if (m <= 0)
-                                continue;
+                                /* Make sure we're not copying more than the current data segment. */
+                                m = MIN(m, (size_t) e - c);
+                                assert(m > 0);
+                        }
                 }
 
                 /* First try copy_file_range(), unless we already tried */
