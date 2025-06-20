@@ -24,3 +24,4 @@ Service=systemd-udevd.service
 ReceiveBuffer=128M
 ListenNetlink=kobject-uevent 1
 PassCredentials=yes
+DeferTrigger=yes

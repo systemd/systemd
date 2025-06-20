@@ -2590,7 +2590,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "ReusePort",
                               "RemoveOnStop",
                               "PassFileDescriptorsToExec",
-                              "SELinuxContextFromNet"))
+                              "SELinuxContextFromNet",
+                              "DeferTrigger"))
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field, "Priority",
@@ -2622,7 +2623,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "KeepAliveIntervalSec",
                               "DeferAcceptSec",
                               "TriggerLimitIntervalSec",
-                              "PollLimitIntervalSec"))
+                              "PollLimitIntervalSec",
+                              "DeferTriggerMaxSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
         if (STR_IN_SET(field, "ReceiveBuffer",

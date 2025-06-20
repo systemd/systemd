@@ -528,6 +528,8 @@ Socket.TriggerLimitIntervalSec,               config_parse_sec,                 
 Socket.TriggerLimitBurst,                     config_parse_unsigned,                              0,                                  offsetof(Socket, trigger_limit.burst)
 Socket.PollLimitIntervalSec,                  config_parse_sec,                                   0,                                  offsetof(Socket, poll_limit.interval)
 Socket.PollLimitBurst,                        config_parse_unsigned,                              0,                                  offsetof(Socket, poll_limit.burst)
+Socket.DeferTrigger,                          config_parse_bool,                                  0,                                  offsetof(Socket, defer_trigger)
+Socket.DeferTriggerMaxSec,                    config_parse_sec_fix_0,                             0,                                  offsetof(Socket, defer_trigger_max_usec)
 {% if ENABLE_SMACK %}
 Socket.SmackLabel,                            config_parse_unit_string_printf,                    0,                                  offsetof(Socket, smack)
 Socket.SmackLabelIPIn,                        config_parse_unit_string_printf,                    0,                                  offsetof(Socket, smack_ip_in)

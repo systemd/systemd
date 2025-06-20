@@ -1591,6 +1591,32 @@ static unsigned manager_dispatch_stop_when_bound_queue(Manager *m) {
         return n;
 }
 
+static unsigned manager_dispatch_stop_notify_queue(Manager *m) {
+        unsigned n = 0;
+
+        assert(m);
+
+        if (m->may_dispatch_stop_notify_queue < 0)
+                m->may_dispatch_stop_notify_queue = hashmap_isempty(m->jobs);
+
+        if (!m->may_dispatch_stop_notify_queue)
+                return 0;
+
+        m->may_dispatch_stop_notify_queue = false;
+
+        LIST_FOREACH(stop_notify_queue, u, m->stop_notify_queue) {
+                assert(u->in_stop_notify_queue);
+
+                assert(UNIT_VTABLE(u)->stop_notify);
+                if (UNIT_VTABLE(u)->stop_notify(u)) {
+                        assert(!u->in_stop_notify_queue);
+                        n++;
+                }
+        }
+
+        return n;
+}
+
 static void manager_clear_jobs_and_units(Manager *m) {
         Unit *u;
 
@@ -3266,6 +3292,9 @@ int manager_loop(Manager *m) {
                         continue;
 
                 if (manager_dispatch_release_resources_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_stop_notify_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)

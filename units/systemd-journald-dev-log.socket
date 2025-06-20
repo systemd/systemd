@@ -26,6 +26,7 @@ Service=systemd-journald.service
 SocketMode=0666
 Symlinks=/dev/log
 Timestamping=us
+DeferTrigger=yes
 
 # Increase both the send and receive buffer, so that things don't
 # block early. Note that journald internally uses the this socket both
