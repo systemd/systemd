@@ -9,6 +9,7 @@
 #include "build-path.h"
 #include "chase.h"
 #include "conf-parser.h"
+#include "copy.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "event-util.h"
@@ -56,6 +57,7 @@ Transfer* transfer_free(Transfer *t) {
 
         free(t->min_version);
         strv_free(t->protected_versions);
+        strv_free(t->protected_uki_versions);
         free(t->current_symlink);
         free(t->final_path);
 
@@ -105,6 +107,48 @@ Transfer* transfer_new(Context *ctx) {
         return t;
 }
 
+static int parse_uki_protect_version(const char *rvalue, char ***protected_versions) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmproot = NULL;
+        _cleanup_close_ int tmproot_fd = -EBADF;
+        _cleanup_free_ char *version = NULL;
+        int r;
+
+        assert(rvalue);
+        assert(protected_versions);
+
+        tmproot_fd = mkdtemp_open(/* template= */ NULL, 0, &tmproot);
+        if (tmproot_fd < 0)
+                return log_debug_errno(tmproot_fd, "Failed to create temporary directory for UKI inspection: %m");
+
+        r = mkdirat_parents(tmproot_fd, "usr/lib/os-release", 0755);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to create directory for os-release file: %m");
+
+        r = copy_file_at(AT_FDCWD, "/run/systemd/stub/os-release", tmproot_fd, "usr/lib/os-release", /* open_flags= */ 0, 0644, /* copy_flags= */ 0);
+        if (r == -ENOENT) {
+                log_debug("No /run/systemd/stub/os-release file found, skipping ProtectVersion= parsing from UKI.");
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to copy UKI's os-release file from /run/systemd/stub/os-release: %m");
+
+        r = specifier_printf(rvalue, NAME_MAX, specifier_table, tmproot, NULL, &version);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to expand specifiers in ProtectVersion=: %s", rvalue);
+
+        if (!version_is_valid(version))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ProtectVersion= string is not valid: %s", version);
+
+        r = strv_extend(protected_versions, version);
+        if (r < 0)
+                return log_oom_debug();
+
+        log_debug("Parsed ProtectVersion=%s value from UKI", version);
+
+        return 0;
+}
+
 static int config_parse_protect_version(
                 const char *unit,
                 const char *filename,
@@ -118,10 +162,14 @@ static int config_parse_protect_version(
                 void *userdata) {
 
         _cleanup_free_ char *resolved = NULL;
-        char ***protected_versions = ASSERT_PTR(data);
+        Transfer *t = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
+
+        /* The currently booted UKI needs to be preserved too, try to locate it using
+         * the StubImageIdentifier efivar. */
+        (void) parse_uki_protect_version(rvalue, &t->protected_uki_versions);
 
         r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
@@ -131,12 +179,12 @@ static int config_parse_protect_version(
         }
 
         if (!version_is_valid(resolved))  {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, isempty(resolved) ? LOG_DEBUG: LOG_WARNING, filename, line, 0,
                            "ProtectVersion= string is not valid, ignoring: %s", resolved);
                 return 0;
         }
 
-        r = strv_extend(protected_versions, resolved);
+        r = strv_extend(&t->protected_versions, resolved);
         if (r < 0)
                 return log_oom();
 
@@ -502,7 +550,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
 
         ConfigTableItem table[] = {
                 { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, &t->protected_versions      },
+                { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, t                           },
                 { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
@@ -804,6 +852,8 @@ int transfer_vacuum(
 
                         /* If this is listed among the protected versions, then let's not remove it */
                         if (!strv_contains(t->protected_versions, oldest->metadata.version) &&
+                            !(IN_SET(t->target.path_relative_to, PATH_RELATIVE_TO_ESP, PATH_RELATIVE_TO_XBOOTLDR, PATH_RELATIVE_TO_BOOT) &&
+                              strv_contains(t->protected_uki_versions, oldest->metadata.version)) &&
                             (!extra_protected_version || !streq(extra_protected_version, oldest->metadata.version)))
                                 break;
 
