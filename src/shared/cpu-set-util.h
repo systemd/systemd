@@ -3,6 +3,7 @@
 
 #include <sched.h>
 
+#include "conf-parser-forward.h"
 #include "forward.h"
 
 /* This wraps the libc interface with a variable to keep the allocated size. */
@@ -29,25 +30,8 @@ char* cpu_set_to_string(const CPUSet *c);
 char* cpu_set_to_range_string(const CPUSet *c);
 char* cpu_set_to_mask_string(const CPUSet *c);
 
-int parse_cpu_set_full(
-                const char *rvalue,
-                CPUSet *cpu_set,
-                bool warn,
-                const char *unit,
-                const char *filename, unsigned line,
-                const char *lvalue);
-int parse_cpu_set_extend(
-                const char *rvalue,
-                CPUSet *old,
-                bool warn,
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *lvalue);
-
-static inline int parse_cpu_set(const char *rvalue, CPUSet *cpu_set){
-        return parse_cpu_set_full(rvalue, cpu_set, false, NULL, NULL, 0, NULL);
-}
+CONFIG_PARSER_PROTOTYPE(config_parse_cpu_set);
+int parse_cpu_set(const char *s, CPUSet *ret);
 
 int cpu_set_to_dbus(const CPUSet *c, uint8_t **ret, size_t *ret_size);
 int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret);

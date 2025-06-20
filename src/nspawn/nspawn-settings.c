@@ -817,25 +817,6 @@ int config_parse_oom_score_adjust(
         return 0;
 }
 
-int config_parse_cpu_affinity(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Settings *settings = ASSERT_PTR(data);
-
-        assert(rvalue);
-
-        return parse_cpu_set_extend(rvalue, &settings->cpu_set, true, unit, filename, line, lvalue);
-}
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode);
 
 static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {

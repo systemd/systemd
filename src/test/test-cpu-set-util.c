@@ -132,12 +132,6 @@ TEST(parse_cpu_set) {
         ASSERT_CPUSET_STRING(c, "0 1 2 3 8 9 10 11", "0-3 8-11", "f0f");
         cpu_set_done(&c);
 
-        /* Negative range (returns empty cpu_set) */
-        ASSERT_OK(parse_cpu_set("3-0", &c));
-        ASSERT_CPUSET_COUNT(c, 0);
-        ASSERT_CPUSET_STRING(c, "", "", "0");
-        cpu_set_done(&c);
-
         /* Overlapping ranges */
         ASSERT_OK(parse_cpu_set("0-7 4-11", &c));
         ASSERT_CPUSET_COUNT(c, 12);
@@ -155,6 +149,10 @@ TEST(parse_cpu_set) {
                 ASSERT_CPUSET_ISSET(c, i);
         ASSERT_CPUSET_STRING(c, "0 2 4 5 6 7 8 9 10 11", "0 2 4-11", "ff5");
         cpu_set_done(&c);
+
+        /* Negative range */
+        ASSERT_ERROR(parse_cpu_set("3-0", &c), EINVAL);
+        ASSERT_CPUSET_EMPTY(c);
 
         /* Garbage */
         ASSERT_ERROR(parse_cpu_set("0 1 2 3 garbage", &c), EINVAL);
@@ -188,18 +186,31 @@ TEST(parse_cpu_set) {
         cpu_set_done(&c);
 }
 
-TEST(parse_cpu_set_extend) {
+#define parse(str, c)                                                   \
+        config_parse_cpu_set(                                           \
+                        "unit",                                         \
+                        "filename",                                     \
+                        /* line = */ 0,                                 \
+                        "[Section]",                                    \
+                        /* section_line = */ 0,                         \
+                        "CPUAffinity",                                  \
+                        /* ltype = */ 0,                                \
+                        str,                                            \
+                        c,                                              \
+                        /* userdata = */ NULL)
+
+TEST(config_parse_cpu_set) {
         CPUSet c = {};
 
-        ASSERT_OK_POSITIVE(parse_cpu_set_extend("1 3", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK_POSITIVE(parse("1 3", &c));
         ASSERT_CPUSET_COUNT(c, 2);
         ASSERT_CPUSET_STRING(c, "1 3", "1 3", "a");
 
-        ASSERT_OK_POSITIVE(parse_cpu_set_extend("4", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK_POSITIVE(parse("4", &c));
         ASSERT_CPUSET_COUNT(c, 3);
         ASSERT_CPUSET_STRING(c, "1 3 4", "1 3-4", "1a");
 
-        ASSERT_OK_ZERO(parse_cpu_set_extend("", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK_POSITIVE(parse("", &c));
         ASSERT_CPUSET_EMPTY(c);
 }
 
@@ -254,4 +265,4 @@ TEST(print_cpu_alloc_size) {
         log_info("CPU_ALLOC_SIZE(8191) = %zu", CPU_ALLOC_SIZE(8191));
 }
 
-DEFINE_TEST_MAIN(LOG_INFO);
+DEFINE_TEST_MAIN(LOG_DEBUG);

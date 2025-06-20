@@ -209,91 +209,118 @@ int cpu_set_add_all(CPUSet *c) {
         return cpu_set_add_range(c, 0, m - 1);
 }
 
-int parse_cpu_set_full(
-                const char *rvalue,
-                CPUSet *cpu_set,
-                bool warn,
+int config_parse_cpu_set(
                 const char *unit,
                 const char *filename,
                 unsigned line,
-                const char *lvalue) {
-
-        _cleanup_(cpu_set_done) CPUSet c = {};
-        const char *p = ASSERT_PTR(rvalue);
-
-        assert(cpu_set);
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                unsigned cpu_lower, cpu_upper;
-                int r;
-
-                r = extract_first_word(&p, &word, WHITESPACE ",", EXTRACT_UNQUOTE);
-                if (r == -ENOMEM)
-                        return warn ? log_oom() : -ENOMEM;
-                if (r < 0)
-                        return warn ? log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, rvalue) : r;
-                if (r == 0)
-                        break;
-
-                r = parse_range(word, &cpu_lower, &cpu_upper);
-                if (r < 0)
-                        return warn ? log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word) : r;
-
-                if (cpu_lower > cpu_upper) {
-                        if (warn)
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Range '%s' is invalid, %u > %u, ignoring.",
-                                           word, cpu_lower, cpu_upper);
-
-                        /* Make sure something is allocated, to distinguish this from the empty case */
-                        r = cpu_set_realloc(&c, 1);
-                        if (r < 0)
-                                return r;
-                }
-
-                for (unsigned cpu_p1 = MIN(cpu_upper, UINT_MAX-1) + 1; cpu_p1 > cpu_lower; cpu_p1--) {
-                        r = cpu_set_add(&c, cpu_p1 - 1);
-                        if (r < 0)
-                                return warn ? log_syntax(unit, LOG_ERR, filename, line, r,
-                                                         "Cannot add CPU %u to set: %m", cpu_p1 - 1) : r;
-                }
-        }
-
-        *cpu_set = TAKE_STRUCT(c);
-
-        return 0;
-}
-
-int parse_cpu_set_extend(
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype, /* 0 when used as conf parser, 1 when used as usual parser */
                 const char *rvalue,
-                CPUSet *old,
-                bool warn,
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *lvalue) {
+                void *data,
+                void *userdata) {
 
-        _cleanup_(cpu_set_done) CPUSet cpuset = {};
-        int r;
+        CPUSet *c = ASSERT_PTR(data);
+        int r, level = ltype ? LOG_DEBUG : LOG_DEBUG;
+        bool critical = ltype;
 
-        assert(old);
+        assert(critical || lvalue);
 
-        r = parse_cpu_set_full(rvalue, &cpuset, true, unit, filename, line, lvalue);
-        if (r < 0)
-                return r;
-
-        if (!cpuset.set) {
-                /* An empty assignment clears the CPU list */
-                cpu_set_done(old);
-                return 0;
-        }
-
-        if (!old->set) {
-                *old = TAKE_STRUCT(cpuset);
+        if (isempty(rvalue)) {
+                cpu_set_done(c);
                 return 1;
         }
 
-        return cpu_set_add_set(old, &cpuset);
+        _cleanup_(cpu_set_done) CPUSet cpuset = {};
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, WHITESPACE ",", EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom_full(level);
+                if (r < 0) {
+                        if (critical)
+                                return log_debug_errno(r, "Failed to parse CPU set: %s", rvalue);
+
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s= setting, ignoring assignment: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                unsigned lower, upper;
+                r = parse_range(word, &lower, &upper);
+                if (r < 0) {
+                        if (critical)
+                                return log_debug_errno(r, "Failed to parse CPU range: %s", word);
+
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse CPU range, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                if (lower > upper) {
+                        if (critical)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid CPU range (%u > %u): %s",
+                                                       lower, upper, word);
+
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid CPU range (%u > %u), ignoring assignment: %s",
+                                   lower, upper, word);
+                        continue;
+                }
+
+                r = cpu_set_add_range(&cpuset, lower, upper);
+                if (r == -ENOMEM)
+                        return log_oom_full(level);
+                if (r < 0) {
+                        if (critical)
+                                return log_debug_errno(r, "Failed to set CPU(s) '%s': %m", word);
+
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to set CPU(s), ignoring assignment: %s", word);
+                }
+        }
+
+        if (!c->set) {
+                *c = TAKE_STRUCT(cpuset);
+                return 1;
+        }
+
+        r = cpu_set_add_set(c, &cpuset);
+        if (r == -ENOMEM)
+                return log_oom_full(level);
+        assert(r >= 0);
+
+        return 1;
+}
+
+int parse_cpu_set(const char *s, CPUSet *ret) {
+        _cleanup_(cpu_set_done) CPUSet c = {};
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        r = config_parse_cpu_set(
+                        /* unit = */ NULL,
+                        /* filename = */ NULL,
+                        /* line = */ 0,
+                        /* section = */ NULL,
+                        /* section_line = */ 0,
+                        /* lvalue = */ NULL,
+                        /* ltype = */ 1,
+                        /* rvalue = */ s,
+                        /* data = */ &c,
+                        /* userdata = */ NULL);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(c);
+        return 0;
 }
 
 int cpus_in_affinity_mask(void) {
