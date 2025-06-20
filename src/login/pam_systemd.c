@@ -1845,10 +1845,16 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                                         &error_id,
                                         SD_JSON_BUILD_PAIR_STRING("Id", id));
                         if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to register session: %s", error_id);
-                        if (error_id)
-                                return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
-                                                        "Failed to issue ReleaseSession() varlink call: %s", error_id);
+                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to release session: %s", error_id);
+                        if (error_id) {
+                                if (!streq(error_id, "io.systemd.Login.NoSuchSession"))
+                                        return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
+                                                                "Failed to issue ReleaseSession() varlink call: %s", error_id);
+
+                                /* This may occur if logind was quicker than (sd-pam) in releasing the
+                                 * session after detecting that the session leader has terminated. */
+                                pam_debug_syslog(handle, debug, "Session '%s' has already been released.", id);
+                        }
 
                         done = true;
                 }
@@ -1866,9 +1872,15 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                                 return r;
 
                         r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, NULL, "s", id);
-                        if (r < 0)
-                                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SESSION_ERR,
-                                                            "Failed to release session: %s", bus_error_message(&error, r));
+                        if (r < 0) {
+                                if (!sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_SESSION))
+                                        return pam_syslog_pam_error(handle, LOG_ERR, PAM_SESSION_ERR,
+                                                                    "Failed to release session: %s", bus_error_message(&error, r));
+
+                                /* This may occur if logind was quicker than (sd-pam) in releasing the
+                                 * session after detecting that the session leader has terminated. */
+                                pam_debug_syslog(handle, debug, "Session '%s' has already been released.", id);
+                        }
                 }
         }
 
