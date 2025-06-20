@@ -97,6 +97,16 @@ test ! -e "$entry"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 
+# Test --bls-type options
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+"$kernel_install" -v remove 1.1.1 --bls-type=2
+test -f "$BOOT_ROOT/the-token/1.1.1/linux"
+test -f "$BOOT_ROOT/the-token/1.1.1/initrd"
+"$kernel_install" -v remove 1.1.1 --bls-type=1
+test ! -e "$entry"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
+
 # Invoke kernel-install as installkernel
 ln -s --relative -v "$kernel_install" "$D/sources/installkernel"
 "$D/sources/installkernel" -v 1.1.2 "$D/sources/linux" System.map /somedirignored
