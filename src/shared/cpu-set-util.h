@@ -11,12 +11,14 @@ typedef struct CPUSet {
         size_t allocated; /* in bytes */
 } CPUSet;
 
-static inline void cpu_set_reset(CPUSet *a) {
-        assert((a->allocated > 0) == !!a->set);
-        if (a->set)
-                CPU_FREE(a->set);
-        *a = (CPUSet) {};
-}
+void cpu_set_done(CPUSet *c);
+#define cpu_set_done_and_replace(a, b)                      \
+        ({                                                  \
+                CPUSet *_a = &(a), *_b = &(b);              \
+                cpu_set_done(_a);                           \
+                *_a = TAKE_STRUCT(*_b);                     \
+                0;                                          \
+        })
 
 CPUSet* cpu_set_free(CPUSet *c);
 DEFINE_TRIVIAL_CLEANUP_FUNC(CPUSet*, cpu_set_free);

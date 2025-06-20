@@ -455,7 +455,7 @@ empty:
 
 static int effective_cpuset_build_json(sd_json_variant **ret, const char *name, void *userdata, const char *cpuset_name) {
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_reset) CPUSet cpus = {};
+        _cleanup_(cpu_set_done) CPUSet cpus = {};
         int r;
 
         assert(ret);

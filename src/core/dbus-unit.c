@@ -1154,7 +1154,7 @@ static int property_get_cpuset_cpus(
                 sd_bus_error *error) {
 
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_reset) CPUSet cpus = {};
+        _cleanup_(cpu_set_done) CPUSet cpus = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -1176,7 +1176,7 @@ static int property_get_cpuset_mems(
                 sd_bus_error *error) {
 
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_reset) CPUSet mems = {};
+        _cleanup_(cpu_set_done) CPUSet mems = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
