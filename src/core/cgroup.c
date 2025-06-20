@@ -267,10 +267,10 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->restrict_network_interfaces = set_free(c->restrict_network_interfaces);
 
-        cpu_set_reset(&c->cpuset_cpus);
-        cpu_set_reset(&c->startup_cpuset_cpus);
-        cpu_set_reset(&c->cpuset_mems);
-        cpu_set_reset(&c->startup_cpuset_mems);
+        cpu_set_done(&c->cpuset_cpus);
+        cpu_set_done(&c->startup_cpuset_cpus);
+        cpu_set_done(&c->cpuset_mems);
+        cpu_set_done(&c->startup_cpuset_mems);
 
         c->delegate_subgroup = mfree(c->delegate_subgroup);
 

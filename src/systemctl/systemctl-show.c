@@ -1775,7 +1775,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                       "EffectiveCPUs", "EffectiveMemoryNodes")) {
 
                         _cleanup_free_ char *affinity = NULL;
-                        _cleanup_(cpu_set_reset) CPUSet set = {};
+                        _cleanup_(cpu_set_done) CPUSet set = {};
                         const void *a;
                         size_t n;
 

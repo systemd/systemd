@@ -2787,7 +2787,7 @@ static void reset_arguments(void) {
         arg_machine_id = (sd_id128_t) {};
         arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
 
-        cpu_set_reset(&arg_cpu_affinity);
+        cpu_set_done(&arg_cpu_affinity);
         numa_policy_reset(&arg_numa_policy);
 
         arg_random_seed = mfree(arg_random_seed);

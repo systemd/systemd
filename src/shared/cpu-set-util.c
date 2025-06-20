@@ -117,11 +117,20 @@ char* cpu_set_to_mask_string(const CPUSet *c) {
         return TAKE_PTR(str) ?: strdup("0");
 }
 
+void cpu_set_done(CPUSet *c) {
+        assert(c);
+
+        if (c->set)
+                CPU_FREE(c->set);
+
+        *c = (CPUSet) {};
+}
+
 CPUSet* cpu_set_free(CPUSet *c) {
         if (!c)
                 return c;
 
-        cpu_set_reset(c);
+        cpu_set_done(c);
         return mfree(c);
 }
 
@@ -217,7 +226,7 @@ int parse_cpu_set_full(
                 unsigned line,
                 const char *lvalue) {
 
-        _cleanup_(cpu_set_reset) CPUSet c = {};
+        _cleanup_(cpu_set_done) CPUSet c = {};
         const char *p = ASSERT_PTR(rvalue);
 
         assert(cpu_set);
@@ -272,7 +281,7 @@ int parse_cpu_set_extend(
                 unsigned line,
                 const char *lvalue) {
 
-        _cleanup_(cpu_set_reset) CPUSet cpuset = {};
+        _cleanup_(cpu_set_done) CPUSet cpuset = {};
         int r;
 
         assert(old);
@@ -282,8 +291,8 @@ int parse_cpu_set_extend(
                 return r;
 
         if (!cpuset.set) {
-                /* An empty assignment resets the CPU list */
-                cpu_set_reset(old);
+                /* An empty assignment clears the CPU list */
+                cpu_set_done(old);
                 return 0;
         }
 
@@ -348,7 +357,7 @@ int cpu_set_to_dbus(const CPUSet *c, uint8_t **ret, size_t *ret_size) {
 }
 
 int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret) {
-        _cleanup_(cpu_set_reset) CPUSet c = {};
+        _cleanup_(cpu_set_done) CPUSet c = {};
         int r;
 
         assert(bits || size == 0);

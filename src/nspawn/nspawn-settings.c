@@ -136,7 +136,7 @@ Settings* settings_free(Settings *s) {
         strv_free(s->syscall_deny_list);
         rlimit_free_all(s->rlimit);
         free(s->hostname);
-        cpu_set_reset(&s->cpu_set);
+        cpu_set_done(&s->cpu_set);
         strv_free(s->bind_user);
 
         strv_free(s->network_interfaces);
