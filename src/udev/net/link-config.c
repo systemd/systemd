@@ -1371,14 +1371,7 @@ int config_parse_rps_cpu_mask(
         CPUSet *mask = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(lvalue);
         assert(rvalue);
-
-        if (isempty(rvalue)) {
-                cpu_set_done(mask);
-                return 0;
-        }
 
         if (streq(rvalue, "disable")) {
                 _cleanup_(cpu_set_done) CPUSet c = {};
@@ -1403,11 +1396,7 @@ int config_parse_rps_cpu_mask(
                 return cpu_set_done_and_replace(*mask, c);
         }
 
-        r = parse_cpu_set_extend(rvalue, mask, /* warn= */ true, unit, filename, line, lvalue);
-        if (r < 0)
-                return 0;
-
-        return 0;
+        return config_parse_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
 static const char* const mac_address_policy_table[_MAC_ADDRESS_POLICY_MAX] = {

@@ -1572,15 +1572,9 @@ int config_parse_numa_mask(
         }
 
         /* When parsing system.conf or user.conf, rather than unit files, userdata is NULL. */
-        if (!userdata) {
-                r = parse_cpu_set_extend(rvalue, cpu_set, true, unit, filename, line, lvalue);
-                if (r < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse NUMA node mask, ignoring: %s", rvalue);
-
-                return 0;
-        }
-
-        return config_parse_unit_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+        return userdata ?
+                config_parse_unit_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata) :
+                config_parse_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
 int config_parse_exec_cpu_sched_prio(const char *unit,
@@ -3783,8 +3777,7 @@ int config_parse_unit_cpu_set(
                 void *data,
                 void *userdata) {
 
-        CPUSet *c = data;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *k = NULL;
         int r;
 
@@ -3800,11 +3793,7 @@ int config_parse_unit_cpu_set(
                 return 0;
         }
 
-        r = parse_cpu_set_extend(k, c, true, unit, filename, line, lvalue);
-        if (r < 0)
-                return 0;
-
-        return 1;
+        return config_parse_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
 }
 
 int config_parse_memory_limit(
@@ -6272,25 +6261,6 @@ void unit_dump_config_items(FILE *f) {
                 fprintf(f, "%s=%s\n", lvalue, rvalue);
                 prev = i;
         }
-}
-
-int config_parse_cpu_affinity2(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        CPUSet *affinity = ASSERT_PTR(data);
-
-        (void) parse_cpu_set_extend(rvalue, affinity, true, unit, filename, line, lvalue);
-
-        return 0;
 }
 
 int config_parse_show_status(
