@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -383,7 +384,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
                         /* For logging below */
                         if (strv_push_pair(&array, k->unit->id, (char*) job_type_to_string(k->type)) < 0)
-                                log_oom();
+                                (void) log_oom();
 
                         if (!delete && hashmap_contains(tr->jobs, k->unit) && !job_matters_to_anchor(k))
                                 /* Ok, we can drop this one, so let's do so. */
@@ -396,23 +397,33 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
                 unit_ids = merge_unit_ids(unit_log_field(j->unit), array); /* ignore error */
 
+                _cleanup_free_ char *cycle_path_text = NULL;
                 STRV_FOREACH_PAIR(unit_id, job_type, array)
-                        /* logging for j not k here to provide a consistent narrative */
-                        log_struct(LOG_WARNING,
-                                   LOG_UNIT_MESSAGE(j->unit,
-                                                    "Found %s on %s/%s",
-                                                    unit_id == array ? "ordering cycle" : "dependency",
-                                                    *unit_id, *job_type),
+                        (void) strextendf_with_separator(
+                                        &cycle_path_text,
+                                        "; ",
+                                        "Found %s on %s/%s",
+                                        unit_id == array ? "ordering cycle" : "dependency",
+                                        *unit_id, *job_type);
+
+                /* logging for j not k here to provide a consistent narrative */
+                if (cycle_path_text)
+                        log_struct(LOG_ERR,
+                                   LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strna(unit_ids)));
 
                 if (delete) {
                         const char *status;
                         /* logging for j not k here to provide a consistent narrative */
-                        log_struct(LOG_ERR,
+                        log_struct(LOG_WARNING,
                                    LOG_UNIT_MESSAGE(j->unit,
                                                     "Job %s/%s deleted to break ordering cycle starting with %s/%s",
                                                     delete->unit->id, job_type_to_string(delete->type),
                                                     j->unit->id, job_type_to_string(j->type)),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_DELETING_JOB_BECAUSE_ORDERING_CYCLE_STR),
+                                   LOG_ITEM("DELETED_UNIT=%s", delete->unit->id),
+                                   LOG_ITEM("DELETED_TYPE=%s", job_type_to_string(delete->type)),
                                    LOG_ITEM("%s", strna(unit_ids)));
 
                         if (log_get_show_color())
@@ -432,6 +443,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 log_struct(LOG_ERR,
                            LOG_UNIT_MESSAGE(j->unit, "Unable to break cycle starting with %s/%s",
                                             j->unit->id, job_type_to_string(j->type)),
+                           LOG_MESSAGE_ID(SD_MESSAGE_CANT_BREAK_ORDERING_CYCLE_STR),
                            LOG_ITEM("%s", strna(unit_ids)));
 
                 return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
