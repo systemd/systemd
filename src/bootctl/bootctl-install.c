@@ -20,6 +20,7 @@
 #include "os-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
+#include "pe-binary.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "sync-util.h"
@@ -345,20 +346,27 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
+                r = pe_is_native_fd(fd);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to detect if \"%s/%s\" is native architecture, ignoring: %m", p, de->d_name);
+                        continue;
+                }
+                if (r == 0)
+                        continue;
+
                 r = get_file_version(fd, &v);
                 if (r == -ESRCH)
                         continue;  /* No version information */
                 if (r < 0)
                         return r;
-                if (startswith(v, "systemd-boot ")) {
-                        _cleanup_free_ char *dest_path = NULL;
+                if (!startswith(v, "systemd-boot "))
+                        continue;
 
-                        dest_path = path_join(p, de->d_name);
-                        if (!dest_path)
-                                return log_oom();
+                _cleanup_free_ char *dest_path = path_join(p, de->d_name);
+                if (!dest_path)
+                        return log_oom();
 
-                        RET_GATHER(ret, copy_file_with_version_check(source_path, dest_path, /* force = */ false));
-                }
+                RET_GATHER(ret, copy_file_with_version_check(source_path, dest_path, /* force = */ false));
         }
 
         return ret;
@@ -1106,14 +1114,21 @@ static int remove_boot_efi(const char *esp_path) {
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
+                r = pe_is_native_fd(fd);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to detect if \"%s/%s\" is native architecture, ignoring: %m", p, de->d_name);
+                        continue;
+                }
+                if (r == 0)
+                        continue;
+
                 r = get_file_version(fd, &v);
                 if (r == -ESRCH)
                         continue;  /* No version information */
                 if (r < 0)
                         return r;
                 if (startswith(v, "systemd-boot ")) {
-                        r = unlinkat(dirfd(d), de->d_name, 0);
-                        if (r < 0)
+                        if (unlinkat(dirfd(d), de->d_name, 0) < 0)
                                 return log_error_errno(errno, "Failed to remove \"%s/%s\": %m", p, de->d_name);
 
                         log_info("Removed \"%s/%s\".", p, de->d_name);
