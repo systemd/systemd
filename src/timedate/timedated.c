@@ -292,22 +292,32 @@ static int context_write_data_timezone(Context *c) {
 
                 if (access("/usr/share/zoneinfo/UTC", F_OK) < 0) {
 
-                        if (unlink("/etc/localtime") < 0 && errno != ENOENT)
+                        if (unlink(etc_localtime()) < 0 && errno != ENOENT)
                                 return -errno;
 
                         return 0;
                 }
 
-                source = "../usr/share/zoneinfo/UTC";
+                source = "/usr/share/zoneinfo/UTC";
         } else {
-                p = path_join("../usr/share/zoneinfo", c->zone);
+                p = path_join("/usr/share/zoneinfo", c->zone);
                 if (!p)
                         return -ENOMEM;
 
                 source = p;
         }
 
-        return symlink_atomic(source, "/etc/localtime");
+        return symlinkat_atomic_full(source, AT_FDCWD, etc_localtime(),
+                                     !secure_getenv("SYSTEMD_ETC_LOCALTIME"));
+}
+
+static const char* etc_adjtime(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_ADJTIME") ?: "/etc/adjtime";
+
+        return cached;
 }
 
 static int context_write_data_local_rtc(Context *c) {
@@ -316,7 +326,7 @@ static int context_write_data_local_rtc(Context *c) {
 
         assert(c);
 
-        r = read_full_file("/etc/adjtime", &s, NULL);
+        r = read_full_file(etc_adjtime(), &s, NULL);
         if (r < 0) {
                 if (r != -ENOENT)
                         return r;
@@ -368,7 +378,7 @@ static int context_write_data_local_rtc(Context *c) {
                 *mempcpy_typesafe(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
-                        if (unlink("/etc/adjtime") < 0)
+                        if (unlink(etc_adjtime()) < 0)
                                 if (errno != ENOENT)
                                         return -errno;
 
@@ -380,7 +390,7 @@ static int context_write_data_local_rtc(Context *c) {
         if (r < 0)
                 return r;
 
-        return write_string_file("/etc/adjtime", w, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        return write_string_file(etc_adjtime(), w, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
 }
 
 static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m) {
