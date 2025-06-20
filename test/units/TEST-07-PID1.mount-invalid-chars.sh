@@ -23,12 +23,13 @@ TMP_MOUNTINFO="$(mktemp)"
 
 cp /proc/1/mountinfo "$TMP_MOUNTINFO"
 # Add a mount entry with a "Unicode non-character" in it
-LANG="C.UTF-8" printf '69 1 252:2 / /foo/mountinfo rw,relatime shared:1 - cifs //foo\ufffebar rw,seclabel\n' >>"$TMP_MOUNTINFO"
+LANG="C.UTF-8" printf '69 1 252:2 / /foo/mount\ufffeinfo rw,relatime shared:1 - cifs //foo\ufffebar rw,seclabel\n' >>"$TMP_MOUNTINFO"
 mount --bind "$TMP_MOUNTINFO" /proc/1/mountinfo
 systemctl daemon-reload
 # On affected versions this would throw an error:
 #   Failed to get properties: Bad message
-systemctl status foo-mountinfo.mount
+systemctl list-units -t mount
+systemctl status foo-mount\\xef\\xbf\\xbeinfo.mount
 
 umount /proc/1/mountinfo
 systemctl daemon-reload
