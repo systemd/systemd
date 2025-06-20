@@ -45,6 +45,7 @@
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
+#include "analyze-unit-shell.h"
 #include "analyze-verify.h"
 #include "build.h"
 #include "bus-error.h"
@@ -362,7 +363,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hqH:M:U:m", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hqH:M:U:m", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -658,6 +659,7 @@ static int run(int argc, char *argv[]) {
                 { "cat-config",        2,        VERB_ANY, 0,            verb_cat_config        },
                 { "unit-files",        VERB_ANY, VERB_ANY, 0,            verb_unit_files        },
                 { "unit-paths",        1,        1,        0,            verb_unit_paths        },
+                { "unit-shell",        2,        VERB_ANY, 0,            verb_unit_shell        },
                 { "exit-status",       VERB_ANY, VERB_ANY, 0,            verb_exit_status       },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            verb_syscall_filters   },
                 { "capability",        VERB_ANY, VERB_ANY, 0,            verb_capabilities      },
