@@ -41,14 +41,14 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Single value */
-        ASSERT_OK(parse_cpu_set_full("0", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("0", &c));
         ASSERT_CPUSET_COUNT(c, 1);
         ASSERT_CPUSET_ISSET(c, 0);
         ASSERT_CPUSET_STRING(c, "0", "0", "1");
         cpu_set_reset(&c);
 
         /* Simple range (from CPUAffinity example) */
-        ASSERT_OK(parse_cpu_set_full("1 2 4", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("1 2 4", &c));
         ASSERT_CPUSET_COUNT(c, 3);
         ASSERT_CPUSET_ISSET(c, 1);
         ASSERT_CPUSET_ISSET(c, 2);
@@ -57,7 +57,7 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* A more interesting range */
-        ASSERT_OK(parse_cpu_set_full("0 1 2 3 8 9 10 11", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("0 1 2 3 8 9 10 11", &c));
         ASSERT_CPUSET_COUNT(c, 8);
         for (unsigned i = 0; i < 4; i++)
                 ASSERT_CPUSET_ISSET(c, i);
@@ -67,7 +67,7 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Quoted strings */
-        ASSERT_OK(parse_cpu_set_full("8 '9' 10 \"11\"", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("8 '9' 10 \"11\"", &c));
         ASSERT_CPUSET_COUNT(c, 4);
         for (unsigned i = 8; i < 12; i++)
                 ASSERT_CPUSET_ISSET(c, i);
@@ -75,7 +75,7 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Use commas as separators */
-        ASSERT_OK(parse_cpu_set_full("0,1,2,3 8,9,10,11", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("0,1,2,3 8,9,10,11", &c));
         ASSERT_CPUSET_COUNT(c, 8);
         for (unsigned i = 0; i < 4; i++)
                 ASSERT_CPUSET_ISSET(c, i);
@@ -85,7 +85,7 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Commas with spaces (and trailing comma, space) */
-        ASSERT_OK(parse_cpu_set_full("0, 1, 2, 3, 4, 5, 6, 7, 63, ", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("0, 1, 2, 3, 4, 5, 6, 7, 63, ", &c));
         ASSERT_CPUSET_COUNT(c, 9);
         for (unsigned i = 0; i < 8; i++)
                 ASSERT_CPUSET_ISSET(c, i);
@@ -94,7 +94,7 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Ranges */
-        ASSERT_OK(parse_cpu_set_full("0-3,8-11", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("0-3,8-11", &c));
         ASSERT_CPUSET_COUNT(c, 8);
         for (unsigned i = 0; i < 4; i++)
                 ASSERT_CPUSET_ISSET(c, i);
@@ -103,7 +103,7 @@ TEST(parse_cpu_set) {
         ASSERT_CPUSET_STRING(c, "0 1 2 3 8 9 10 11", "0-3 8-11", "f0f");
         cpu_set_reset(&c);
 
-        ASSERT_OK(parse_cpu_set_full("36-39,44-47", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("36-39,44-47", &c));
         ASSERT_CPUSET_COUNT(c, 8);
         for (unsigned i = 36; i < 40; i++)
                 ASSERT_CPUSET_ISSET(c, i);
@@ -112,7 +112,7 @@ TEST(parse_cpu_set) {
         ASSERT_CPUSET_STRING(c, "36 37 38 39 44 45 46 47", "36-39 44-47", "f0f0,00000000");
         cpu_set_reset(&c);
 
-        ASSERT_OK(parse_cpu_set_full("64-71", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("64-71", &c));
         ASSERT_CPUSET_COUNT(c, 8);
         for (unsigned i = 64; i < 72; i++)
                 ASSERT_CPUSET_ISSET(c, i);
@@ -120,7 +120,7 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Ranges with trailing comma, space */
-        ASSERT_OK(parse_cpu_set_full("0-3  8-11, ", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("0-3  8-11, ", &c));
         ASSERT_CPUSET_COUNT(c, 8);
         for (unsigned i = 0; i < 4; i++)
                 ASSERT_CPUSET_ISSET(c, i);
@@ -130,13 +130,13 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Negative range (returns empty cpu_set) */
-        ASSERT_OK(parse_cpu_set_full("3-0", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("3-0", &c));
         ASSERT_CPUSET_COUNT(c, 0);
         ASSERT_CPUSET_STRING(c, "", "", "0");
         cpu_set_reset(&c);
 
         /* Overlapping ranges */
-        ASSERT_OK(parse_cpu_set_full("0-7 4-11", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("0-7 4-11", &c));
         ASSERT_CPUSET_COUNT(c, 12);
         for (unsigned i = 0; i < 12; i++)
                 ASSERT_CPUSET_ISSET(c, i);
@@ -144,7 +144,7 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Mix ranges and individual CPUs */
-        ASSERT_OK(parse_cpu_set_full("0,2 4-11", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("0,2 4-11", &c));
         ASSERT_CPUSET_COUNT(c, 10);
         ASSERT_CPUSET_ISSET(c, 0);
         ASSERT_CPUSET_ISSET(c, 2);
@@ -154,23 +154,23 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Garbage */
-        ASSERT_ERROR(parse_cpu_set_full("0 1 2 3 garbage", &c, true, NULL, "fake", 1, "CPUAffinity"), EINVAL);
+        ASSERT_ERROR(parse_cpu_set("0 1 2 3 garbage", &c), EINVAL);
         ASSERT_CPUSET_EMPTY(c);
 
         /* Range with garbage */
-        ASSERT_ERROR(parse_cpu_set_full("0-3 8-garbage", &c, true, NULL, "fake", 1, "CPUAffinity"), EINVAL);
+        ASSERT_ERROR(parse_cpu_set("0-3 8-garbage", &c), EINVAL);
         ASSERT_CPUSET_EMPTY(c);
 
         /* Empty string */
-        ASSERT_OK(parse_cpu_set_full("", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("", &c));
         ASSERT_CPUSET_EMPTY(c); /* empty string returns NULL */
 
         /* Runaway quoted string */
-        ASSERT_ERROR(parse_cpu_set_full("0 1 2 3 \"4 5 6 7 ", &c, true, NULL, "fake", 1, "CPUAffinity"), EINVAL);
+        ASSERT_ERROR(parse_cpu_set("0 1 2 3 \"4 5 6 7 ", &c), EINVAL);
         ASSERT_CPUSET_EMPTY(c);
 
         /* Maximum allocation */
-        ASSERT_OK(parse_cpu_set_full("8000-8191", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("8000-8191", &c));
         ASSERT_CPUSET_COUNT(c, 192);
 
         _cleanup_free_ char *expected_str = NULL;
@@ -203,7 +203,7 @@ TEST(parse_cpu_set_extend) {
 TEST(cpu_set_to_from_dbus) {
         _cleanup_(cpu_set_reset) CPUSet c = {}, c2 = {};
 
-        ASSERT_OK_POSITIVE(parse_cpu_set_extend("1 3 8 100-200", &c, true, NULL, "fake", 1, "CPUAffinity"));
+        ASSERT_OK(parse_cpu_set("1 3 8 100-200", &c));
         ASSERT_CPUSET_COUNT(c, 104);
 
         _cleanup_free_ char *expected_str = strdup("1 3 8");

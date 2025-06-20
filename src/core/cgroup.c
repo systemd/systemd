@@ -4161,7 +4161,7 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
         if (r < 0)
                 return r;
 
-        return parse_cpu_set_full(v, cpus, false, NULL, NULL, 0, NULL);
+        return parse_cpu_set(v, cpus);
 }
 
 CGroupRuntime* cgroup_runtime_new(void) {
