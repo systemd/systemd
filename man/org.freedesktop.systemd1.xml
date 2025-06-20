@@ -3340,6 +3340,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateBPF = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateCommands = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -3922,6 +3926,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
+
+    <!--property PrivateBPF is not documented!-->
+
+    <!--property BPFDelegateCommands is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -4630,6 +4638,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateCommands"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -5491,6 +5503,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateBPF = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateCommands = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -6089,6 +6105,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
+
+    <!--property PrivateBPF is not documented!-->
+
+    <!--property BPFDelegateCommands is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -6773,6 +6793,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateCommands"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -7462,6 +7486,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateBPF = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateCommands = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -7986,6 +8014,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
+
+    <!--property PrivateBPF is not documented!-->
+
+    <!--property BPFDelegateCommands is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -8582,6 +8614,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateCommands"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -9404,6 +9440,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateBPF = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateCommands = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -9910,6 +9950,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
+
+    <!--property PrivateBPF is not documented!-->
+
+    <!--property BPFDelegateCommands is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -10488,6 +10532,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateCommands"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -12064,7 +12112,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PrivateUsersEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
-      <varname>DelegateNamespaces</varname>, and
+      <varname>DelegateNamespaces</varname>,
+      <varname>PrivateBPF</varname>,
+      <varname>BPFDelegateCommands</varname>, and
       <function>RemoveSubGroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
