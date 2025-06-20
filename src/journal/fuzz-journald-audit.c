@@ -9,7 +9,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(manager_new(&m) >= 0);
+        assert_se(manager_new(&m, NULL) >= 0);
         dummy_manager_init(m, data, size);
         process_audit_string(m, 0, m->buffer, size);
 
