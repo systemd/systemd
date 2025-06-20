@@ -333,6 +333,7 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         { 'file' : 'systemd-factory-reset-complete.service.in' },
+        { 'file' : 'systemd-factory-reset-esp.service' },
         { 'file' : 'systemd-factory-reset-reboot.service' },
         {
           'file' : 'systemd-factory-reset-request.service.in',

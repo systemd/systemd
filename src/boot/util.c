@@ -476,7 +476,7 @@ static void remove_boot_count(char16_t *path) {
         strcpy16(prefix_end, tail);
 }
 
-char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path) {
+char16_t *get_extra_dir(const char *suffix, const EFI_DEVICE_PATH *file_path) {
         if (!file_path)
                 return NULL;
 
@@ -497,7 +497,7 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path) {
 
         convert_efi_path(file_path_str);
         remove_boot_count(file_path_str);
-        return xasprintf("%ls.extra.d", file_path_str);
+        return xasprintf("%ls%s", file_path_str, suffix);
 }
 
 void *xmalloc(size_t size) {
