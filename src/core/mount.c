@@ -648,7 +648,11 @@ static int mount_add_extras(Mount *m) {
         path_simplify(m->where);
 
         if (!u->description) {
-                r = unit_set_description(u, m->where);
+                _cleanup_free_ char *w = mount_get_where_escaped(m);
+                if (!w)
+                        return log_oom();
+
+                r = unit_set_description(u, w);
                 if (r < 0)
                         return r;
         }
@@ -2353,6 +2357,15 @@ static int mount_subsystem_ratelimited(Manager *m) {
                 return false;
 
         return sd_event_source_is_ratelimited(m->mount_event_source);
+}
+
+char* mount_get_where_escaped(const Mount *m) {
+        assert(m);
+
+        if (!m->where)
+                return strdup("");
+
+        return utf8_escape_invalid(m->where);
 }
 
 char* mount_get_what_escaped(const Mount *m) {
