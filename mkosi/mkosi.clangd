@@ -8,17 +8,10 @@ else
     SPAWN=()
 fi
 
-MKOSI_CONFIG="$("${SPAWN[@]}" mkosi --json summary | jq -r .Images[-1])"
-BUILDDIR="$(jq -r .BuildDirectory <<< "$MKOSI_CONFIG")"
-BUILDSUBDIR="$(jq -r .BuildSubdirectory <<< "$MKOSI_CONFIG")"
-
-exec "${SPAWN[@]}" mkosi \
-    --rerun-build-scripts \
-    build \
-    -- \
-    clangd \
-    --compile-commands-dir=/work/build \
-    --path-mappings="\
-$(pwd)=/work/src,\
-$BUILDDIR/$BUILDSUBDIR=/work/build"\
-    "$@"
+exec "${SPAWN[@]}" \
+    mkosi sandbox -- \
+        clangd \
+            --compile-commands-dir=build \
+            --path-mappings="\
+$(pwd)/mkosi.tools/usr/include=/usr/include" \
+            "$@"

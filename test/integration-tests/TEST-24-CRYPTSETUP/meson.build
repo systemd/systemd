@@ -4,7 +4,6 @@ integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
                 'credentials' : integration_test_template['credentials'] + [
-                        files('keyfile'),
                         'fstab.extra="/dev/mapper/test24_varcrypt /var ext4 defaults 0 1"',
                 ],
                 'cmdline' : [

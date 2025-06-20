@@ -14,7 +14,8 @@ from pathlib import Path
 
 URL = 'https://github.com/systemd/mkosi'
 BRANCH = 'main'  # We only want to ever use commits on upstream 'main' branch
-FILENAME = Path('.github/workflows/mkosi.yml')
+CONFIG = Path('mkosi/mkosi.conf')
+WORKFLOWS = [Path('.github/workflows') / f for f in ['mkosi.yml', 'coverage.yml', 'linter.yml']]
 
 def parse_args():
     p = argparse.ArgumentParser(
@@ -32,29 +33,21 @@ def parse_args():
     return p.parse_args()
 
 def read_config():
-    print(f'Reading {FILENAME}…')
+    print(f'Reading {CONFIG}…')
     matches = [m.group(1)
-               for line in open(FILENAME)
-               if (m := re.match('^- uses: systemd/mkosi@([a-z0-9]{40})$',
+               for line in open(CONFIG)
+               if (m := re.match('^MinimumVersion=commit:([a-z0-9]{40})$',
                                  line.strip()))]
     assert len(matches) == 1
     return matches[0]
 
-def commit_file(args, file: Path, commit: str, changes: str):
-    cmd = [
-        'git', '-C', args.dir.as_posix(),
-        'describe',
-        '--always',
-        commit]
-    print(f"+ {shlex.join(cmd)}")
-    desc = subprocess.check_output(cmd, text=True).strip()
-
+def commit_file(files: list[Path], commit: str, changes: str):
     message = '\n'.join((
-        f'mkosi: update mkosi commit reference to {desc}',
+        f'mkosi: update mkosi commit reference to {commit}',
         '',
         changes))
 
-    cmd = ['git', 'commit', '-m', message, file.as_posix()]
+    cmd = ['git', 'commit', '-m', message, *(str(file) for file in files)]
     print(f"+ {shlex.join(cmd)}")
     subprocess.check_call(cmd)
 
@@ -88,13 +81,15 @@ def update_mkosi(args):
     print(f"+ {shlex.join(cmd)}")
     changes = subprocess.check_output(cmd, text=True).strip()
 
-    s = FILENAME.read_text()
-    assert old_commit in s
-    print(f'mkosi: {FILENAME}: found old hash, updating…')
-    new = s.replace(old_commit, new_commit)
-    assert new != s
-    FILENAME.write_text(new)
-    commit_file(args, FILENAME, new_commit, changes)
+    for f in [CONFIG, *WORKFLOWS]:
+        s = f.read_text()
+        assert old_commit in s
+        print(f'mkosi: {f}: found old hash, updating…')
+        new = s.replace(old_commit, new_commit)
+        assert new != s
+        f.write_text(new)
+
+    commit_file([CONFIG, *WORKFLOWS], new_commit, changes)
 
 if __name__ == '__main__':
     args = parse_args()
