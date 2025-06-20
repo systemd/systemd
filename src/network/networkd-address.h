@@ -59,6 +59,10 @@ struct Address {
         bool ip_masquerade_done:1;
         bool requested_as_null:1;
         bool used_by_dhcp_server:1;
+        /* If this address is configured by non-DHCPv6 protocol (i.e. statically, NDISC, or any foreign
+         * methods), and the DHCPv6 client requests the same address, set this flag.
+         * See link_check_addresses_ready() and verify_dhcp6_address(). */
+        bool also_requested_by_dhcp6:1;
 
         /* duplicate_address_detection is only used by static or IPv4 dynamic addresses.
          * To control DAD for IPv6 dynamic addresses, set IFA_F_NODAD to flags. */
