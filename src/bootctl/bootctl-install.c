@@ -341,9 +341,9 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
+                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, /* mode= */ 0);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
+                        return log_error_errno(fd, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
                 r = get_file_version(fd, &v);
                 if (r == -ESRCH)
@@ -1102,9 +1102,9 @@ static int remove_boot_efi(const char *esp_path) {
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
+                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, /* mode= */ 0);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
+                        return log_error_errno(fd, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
                 r = get_file_version(fd, &v);
                 if (r == -ESRCH)
