@@ -329,39 +329,39 @@ int cpus_in_affinity_mask(void) {
         }
 }
 
-int cpu_set_to_dbus(const CPUSet *set, uint8_t **ret, size_t *allocated) {
-        uint8_t *out;
-
-        assert(set);
+int cpu_set_to_dbus(const CPUSet *c, uint8_t **ret, size_t *ret_size) {
+        assert(c);
         assert(ret);
+        assert(ret_size);
 
-        out = new0(uint8_t, set->allocated);
-        if (!out)
+        uint8_t *buf = new0(uint8_t, c->allocated);
+        if (!buf)
                 return -ENOMEM;
 
-        for (unsigned cpu = 0; cpu < set->allocated * 8; cpu++)
-                if (CPU_ISSET_S(cpu, set->allocated, set->set))
-                        out[cpu / 8] |= 1u << (cpu % 8);
+        for (size_t i = 0; i < c->allocated * 8; i++)
+                if (CPU_ISSET_S(i, c->allocated, c->set))
+                        SET_BIT(buf[i / 8], i % 8);
 
-        *ret = out;
-        *allocated = set->allocated;
+        *ret = buf;
+        *ret_size = c->allocated;
         return 0;
 }
 
-int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set) {
-        _cleanup_(cpu_set_reset) CPUSet s = {};
+int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret) {
+        _cleanup_(cpu_set_reset) CPUSet c = {};
         int r;
 
-        assert(bits);
-        assert(set);
+        assert(bits || size == 0);
+        assert(ret);
 
-        for (unsigned cpu = size * 8; cpu > 0; cpu--)
-                if (bits[(cpu - 1) / 8] & (1u << ((cpu - 1) % 8))) {
-                        r = cpu_set_add(&s, cpu - 1);
-                        if (r < 0)
-                                return r;
-                }
+        r = cpu_set_realloc(&c, size * 8);
+        if (r < 0)
+                return r;
 
-        *set = TAKE_STRUCT(s);
+        for (size_t i = 0; i < size * 8; i++)
+                if (BIT_SET(bits[i / 8], i % 8))
+                        CPU_SET_S(i, c.allocated, c.set);
+
+        *ret = TAKE_STRUCT(c);
         return 0;
 }
