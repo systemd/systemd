@@ -1338,6 +1338,20 @@
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ReloadSignalRequireHandler=</varname></term>
+        <listitem>
+          <para>
+            When set to <constant>yes</constant>, systemd will first check that the service's main process
+            has actually installed a userspace handler for the configured reload signal. If it has not,
+            systemd will log a warning and abort the reload instead of sending the signal. Defaults to
+            <constant>no</constant>. This option only takes effect when
+            <varname>Type=</varname><option>notify-reload</option> is used.
+          </para>
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para id='shared-unit-options'>Check
