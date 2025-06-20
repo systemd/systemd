@@ -50,7 +50,7 @@ static inline int parse_cpu_set(const char *rvalue, CPUSet *cpu_set){
         return parse_cpu_set_full(rvalue, cpu_set, false, NULL, NULL, 0, NULL);
 }
 
-int cpu_set_to_dbus(const CPUSet *set, uint8_t **ret, size_t *allocated);
-int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set);
+int cpu_set_to_dbus(const CPUSet *c, uint8_t **ret, size_t *ret_size);
+int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret);
 
 int cpus_in_affinity_mask(void);
