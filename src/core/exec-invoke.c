@@ -3990,7 +3990,7 @@ static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret
                 return 0;
         }
 
-        _cleanup_(cpu_set_reset) CPUSet s = {};
+        _cleanup_(cpu_set_done) CPUSet s = {};
         r = numa_to_cpu_set(&c->numa_policy, &s);
         if (r < 0)
                 return r;
@@ -5107,7 +5107,7 @@ int exec_invoke(
         }
 
         if (context->cpu_affinity_from_numa || context->cpu_set.set) {
-                _cleanup_(cpu_set_reset) CPUSet converted_cpu_set = {};
+                _cleanup_(cpu_set_done) CPUSet converted_cpu_set = {};
                 const CPUSet *cpu_set;
 
                 if (context->cpu_affinity_from_numa) {

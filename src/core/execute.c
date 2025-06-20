@@ -720,7 +720,7 @@ void exec_context_done(ExecContext *c) {
         c->n_temporary_filesystems = 0;
         c->mount_images = mount_image_free_many(c->mount_images, &c->n_mount_images);
 
-        cpu_set_reset(&c->cpu_set);
+        cpu_set_done(&c->cpu_set);
         numa_policy_reset(&c->numa_policy);
 
         c->utmp_id = mfree(c->utmp_id);

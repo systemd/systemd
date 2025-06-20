@@ -1241,7 +1241,7 @@ int bus_cgroup_set_property(
         } else if (STR_IN_SET(name, "AllowedCPUs", "StartupAllowedCPUs", "AllowedMemoryNodes", "StartupAllowedMemoryNodes")) {
                 const void *a;
                 size_t n;
-                _cleanup_(cpu_set_reset) CPUSet new_set = {};
+                _cleanup_(cpu_set_done) CPUSet new_set = {};
 
                 r = sd_bus_message_read_array(message, 'y', &a, &n);
                 if (r < 0)
@@ -1267,12 +1267,10 @@ int bus_cgroup_set_property(
                                 set = &c->cpuset_mems;
                         else if (streq(name, "StartupAllowedMemoryNodes"))
                                 set = &c->startup_cpuset_mems;
+                        else
+                                assert_not_reached();
 
-                        assert(set);
-
-                        cpu_set_reset(set);
-                        *set = new_set;
-                        new_set = (CPUSet) {};
+                        cpu_set_done_and_replace(*set, new_set);
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPUSET);
                         unit_write_settingf(u, flags, name, "%s=\n%s=%s", name, name, setstr);

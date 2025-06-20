@@ -23,7 +23,7 @@ static inline int numa_policy_get_type(const NUMAPolicy *p) {
 
 static inline void numa_policy_reset(NUMAPolicy *p) {
         assert(p);
-        cpu_set_reset(&p->nodes);
+        cpu_set_done(&p->nodes);
         p->type = -1;
 }
 

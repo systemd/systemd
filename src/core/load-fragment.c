@@ -1834,7 +1834,7 @@ int config_parse_exec_cpu_affinity(
 
         if (streq(rvalue, "numa")) {
                 c->cpu_affinity_from_numa = true;
-                cpu_set_reset(&c->cpu_set);
+                cpu_set_done(&c->cpu_set);
 
                 return 0;
         }

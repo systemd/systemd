@@ -331,7 +331,7 @@ static void test_exec_bindpaths(Manager *m) {
 }
 
 static void test_exec_cpuaffinity(Manager *m) {
-        _cleanup_(cpu_set_reset) CPUSet c = {};
+        _cleanup_(cpu_set_done) CPUSet c = {};
 
         ASSERT_OK(cpu_set_realloc(&c, 8192)); /* just allocate the maximum possible size */
         ASSERT_OK_ERRNO(sched_getaffinity(0, c.allocated, c.set));
