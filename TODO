@@ -513,7 +513,8 @@ Features:
 
 * port remaining getmntent() users over to libmount. There are subtle
   differences in the parsers (see #25371 for example), and it hence makes sense
-  if we stick to one set of parsers on this, not mix both.
+  if we stick to one set of parsers on this, not mix both. Specifically:
+  systemd-fstab-generator, cryptsetup, remount-fs.
 
 * get rid of compat with libidn.so.11 (retain only for libidn.so.12)
 
