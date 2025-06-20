@@ -1681,6 +1681,46 @@ StateDirectory=aaa/bbb ccc</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StateDirectoryQuota=</varname></term>
+        <term><varname>CacheDirectoryQuota=</varname></term>
+        <term><varname>LogsDirectoryQuota=</varname></term>
+
+        <listitem><para>Specifies the storage limits for the directories specified in <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname>, or <varname>LogsDirectory=</varname> respectively.</para>
+
+        <para>The storage quota is defined in terms of disk blocks and inodes, as per
+        <ulink url="https://man7.org/linux/man-pages/man2/quotactl.2.html">quotactl</ulink>. Takes an absolute size limit
+        in bytes. If the value is suffixed with K, M, G or T, the specified size is parsed as Kilobytes, Megabytes, Gigabytes,
+        or Terabytes (with the base 1024), respectively. If an absolute size limit is specified, only the block quota is set
+        (rounded up to the nearest block). Alternatively, a percentage value may be specified, which applies the same percent
+        quota to both blocks and inodes. Defaults to <constant>off</constant>, in which case no storage limits will be set.</para>
+
+        <para>Only hard limits are set, not soft limits. If the underlying filesystem for the specified directories does not
+        support project quotas, the specified storage limits will not be set. In addition to enabling per-unit quotas with
+        these settings, it is necessary to enable <constant>prjquota</constant> on the file system level as well
+        (i.e. <command>tune2fs -Q prjquota</command>). Quotas must also be turned on with
+        <ulink url="https://linux.die.net/man/8/quotaon">quotaon.</ulink></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StateDirectoryAccounting=</varname></term>
+        <term><varname>CacheDirectoryAccounting=</varname></term>
+        <term><varname>LogsDirectoryAccounting=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, a project ID is assigned to the directories specified in
+        <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>, or <varname>LogsDirectory=</varname>
+        respectively, which is used for tracking disk usage when disk quotas are turned on
+        (see <ulink url="https://man7.org/linux/man-pages/man8/repquota.8.html">repquota</ulink>). Defaults to false.</para>
+
+        <para>To set and enforce disk quotas, <varname>StateDirectoryQuota=</varname>, <varname>CacheDirectoryQuota=</varname>,
+        or <varname>LogsDirectoryQuota=</varname> must be specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RuntimeDirectoryPreserve=</varname></term>
 
         <listitem><para>Takes a boolean argument or <option>restart</option>. If set to <option>no</option> (the

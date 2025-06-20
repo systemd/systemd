@@ -929,6 +929,8 @@ int unit_add_default_target_dependency(Unit *u, Unit *target);
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom);
 void unit_trigger_notify(Unit *u);
 
+int unit_get_exec_quota_stats(Unit *u, ExecContext *c, ExecDirectoryType dt, uint64_t *ret_usage, uint64_t *ret_limit);
+
 UnitFileState unit_get_unit_file_state(Unit *u);
 PresetAction unit_get_unit_file_preset(Unit *u);
 

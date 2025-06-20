@@ -19,6 +19,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "chase.h"
+#include "chattr-util.h"
 #include "condition.h"
 #include "dbus-unit.h"
 #include "dropin.h"
@@ -45,6 +46,7 @@
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "quota-util.h"
 #include "rm-rf.h"
 #include "serialize.h"
 #include "set.h"
@@ -6700,6 +6702,52 @@ static uint64_t unit_get_cpu_weight(Unit *u) {
 
         cc = unit_get_cgroup_context(u);
         return cc ? cgroup_context_cpu_weight(cc, manager_state(u->manager)) : CGROUP_WEIGHT_DEFAULT;
+}
+
+int unit_get_exec_quota_stats(Unit *u, ExecContext *c, ExecDirectoryType dt, uint64_t *ret_usage, uint64_t *ret_limit) {
+        int r;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *p = NULL, *pp = NULL;
+
+        assert(u);
+        assert(c);
+
+        if (c->directories[dt].n_items == 0) {
+                *ret_usage = UINT64_MAX;
+                *ret_limit = UINT64_MAX;
+                return 0;
+        }
+
+        ExecDirectoryItem *i = &c->directories[dt].items[0];
+        p = path_join(u->manager->prefix[dt], i->path);
+        if (!p)
+                return log_oom_debug();
+
+        if (exec_directory_is_private(c, dt)) {
+                pp = path_join(u->manager->prefix[dt], "private", i->path);
+                if (!pp)
+                        return log_oom_debug();
+        }
+
+        const char *target_dir = pp ?: p;
+        fd = open(target_dir, O_PATH | O_CLOEXEC | O_DIRECTORY);
+        if (fd < 0)
+                return log_unit_debug_errno(u, errno, "Failed to get exec quota stats: %m");
+
+        uint32_t proj_id;
+        r = read_fs_xattr_fd(fd, /* ret_xflags = */ NULL, &proj_id);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to get project ID for exec quota stats: %m");
+
+        struct dqblk req;
+        r = quota_query_proj_id(fd, proj_id, &req);
+        if (r <= 0)
+                return log_unit_debug_errno(u, r, "Failed to query project ID for exec quota stats: %m");
+
+        *ret_usage = req.dqb_curspace;
+        *ret_limit = req.dqb_bhardlimit * QIF_DQBLKSIZE;
+
+        return r;
 }
 
 int unit_compare_priority(Unit *a, Unit *b) {
