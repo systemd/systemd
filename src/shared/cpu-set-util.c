@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "cpu-set-util.h"
 #include "extract-word.h"
 #include "hexdecoct.h"
@@ -75,12 +76,12 @@ char* cpu_set_to_range_string(const CPUSet *set) {
         return TAKE_PTR(str) ?: strdup("");
 }
 
-char* cpu_set_to_mask_string(const CPUSet *a) {
+char* cpu_set_to_mask_string(const CPUSet *c) {
         _cleanup_free_ char *str = NULL;
-        size_t len = 0;
         bool found_nonzero = false;
+        int r;
 
-        assert(a);
+        assert(c);
 
         /* Return CPU set in hexadecimal bitmap mask, e.g.
          *   CPU   0 ->  "1"
@@ -97,28 +98,24 @@ char* cpu_set_to_mask_string(const CPUSet *a) {
          *  CPU 0-63 -> "ffffffff,ffffffff"
          *  CPU 0-71 -> "ff,ffffffff,ffffffff" */
 
-        for (ssize_t i = a->allocated * 8; i >= 0; i -= 4) {
-                uint8_t m = 0;
+        for (size_t i = c->allocated * 8; i > 0; ) {
+                uint32_t m = 0;
 
-                for (size_t j = 0; j < 4; j++)
-                        if (CPU_ISSET_S(i + j, a->allocated, a->set))
-                                m |= 1U << j;
+                for (int j = (i % 32 ?: 32) - 1; j >= 0; j--)
+                        if (CPU_ISSET_S(--i, c->allocated, c->set))
+                                SET_BIT(m, j);
 
-                if (!found_nonzero)
-                        found_nonzero = m > 0;
+                if (!found_nonzero) {
+                        if (m == 0)
+                                continue;
 
-                if (!found_nonzero && m == 0)
-                        /* Skip leading zeros */
-                        continue;
-
-                if (!GREEDY_REALLOC(str, len + 3))
+                        r = strextendf_with_separator(&str, ",", "%" PRIx32, m);
+                } else
+                        r = strextendf_with_separator(&str, ",", "%08" PRIx32, m);
+                if (r < 0)
                         return NULL;
 
-                str[len++] = hexchar(m);
-                if (i >= 4 && i % 32 == 0)
-                        /* Separate by comma for each 32 CPUs. */
-                        str[len++] = ',';
-                str[len] = 0;
+                found_nonzero = true;
         }
 
         return TAKE_PTR(str) ?: strdup("0");
