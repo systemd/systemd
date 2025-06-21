@@ -112,7 +112,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_private_users);
 CONFIG_PARSER_PROTOTYPE(config_parse_private_pids);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_control_groups);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
-CONFIG_PARSER_PROTOTYPE(config_parse_allowed_cpuset);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_cpu_set);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_system);
