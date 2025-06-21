@@ -45,7 +45,6 @@
 #include "loop-util.h"
 #include "memory-util.h"
 #include "missing_magic.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mkfs-util.h"
 #include "openssl-util.h"
