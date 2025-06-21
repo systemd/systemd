@@ -310,6 +310,11 @@ typedef struct VeritySettings VeritySettings;
 #define AT_SYMLINK_FOLLOW       0x400
 #define AT_SYMLINK_NOFOLLOW     0x100
 
+#define R_OK 4
+#define W_OK 2
+#define X_OK 1
+#define F_OK 0
+
 #define MODE_INVALID            ((mode_t) -1)
 
 #define UID_INVALID             ((uid_t) -1)
