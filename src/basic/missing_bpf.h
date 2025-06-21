@@ -12,3 +12,7 @@
                 .src_reg = 0,                                   \
                 .off   = OFF,                                   \
                 .imm   = 0 })
+
+#if !HAVE_BPF
+int bpf(int cmd, union bpf_attr *attr, size_t size);
+#endif

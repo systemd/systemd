@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <linux/fs.h>
-#include <linux/kcmp.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -16,7 +15,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_syscall.h"
+#include "missing_kcmp.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
