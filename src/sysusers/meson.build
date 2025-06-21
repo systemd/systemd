@@ -17,6 +17,7 @@ executables += [
                 'sources' : files('sysusers.c'),
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
+                        libc_wrapper_static,
                         libbasic_static,
                         libshared_static,
                         libsystemd_static,
