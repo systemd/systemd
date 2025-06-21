@@ -367,7 +367,7 @@ int fd_warn_permissions(const char *path, int fd) {
         return stat_warn_permissions(path, &st);
 }
 
-int access_nofollow(const char *path, mode_t mode) {
+int access_nofollow(const char *path, int mode) {
         return RET_NERRNO(faccessat(AT_FDCWD, path, mode, AT_SYMLINK_NOFOLLOW));
 }
 
