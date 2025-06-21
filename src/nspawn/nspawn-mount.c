@@ -2,6 +2,7 @@
 
 #include <linux/magic.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"
