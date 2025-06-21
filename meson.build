@@ -1630,7 +1630,6 @@ foreach term : ['analyze',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
-                'idn',
                 'ima',
                 'ipe',
                 'initrd',
@@ -1668,6 +1667,21 @@ foreach term : ['analyze',
 endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
+
+have = get_option('idn')
+if have
+        # musl does not have NI_IDN. Let's check if it is defined, and gracefully disable the support if not.
+        if meson.version().version_compare('>=1.3.0')
+                have_ni_idn = cc.has_define('NI_IDN', prefix : '''#include <netdb.h>''', args : '-D_GNU_SOURCE')
+        else
+                have_ni_idn = cc.has_header_symbol('netdb.h', 'NI_IDN', args : '-D_GNU_SOURCE')
+        endif
+        if not have_ni_idn
+                warning('IDN support is requested but NI_IDN is not defined, disabling it.')
+                have = false
+        endif
+endif
+conf.set10('ENABLE_IDN', have)
 
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
