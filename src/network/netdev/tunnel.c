@@ -904,7 +904,7 @@ int config_parse_tunnel_key(
 }
 
 int config_parse_ipv6_flowlabel(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -941,7 +941,7 @@ int config_parse_ipv6_flowlabel(
 }
 
 int config_parse_encap_limit(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -976,7 +976,7 @@ int config_parse_encap_limit(
 }
 
 int config_parse_6rd_prefix(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1013,7 +1013,7 @@ int config_parse_6rd_prefix(
 }
 
 int config_parse_erspan_version(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1042,7 +1042,7 @@ int config_parse_erspan_version(
 }
 
 int config_parse_erspan_index(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1071,7 +1071,7 @@ int config_parse_erspan_index(
 }
 
 int config_parse_erspan_direction(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1100,7 +1100,7 @@ int config_parse_erspan_direction(
 }
 
 int config_parse_erspan_hwid(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
