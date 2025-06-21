@@ -126,14 +126,6 @@ void cpu_set_done(CPUSet *c) {
         *c = (CPUSet) {};
 }
 
-CPUSet* cpu_set_free(CPUSet *c) {
-        if (!c)
-                return c;
-
-        cpu_set_done(c);
-        return mfree(c);
-}
-
 int cpu_set_realloc(CPUSet *c, size_t n) {
         assert(c);
 
