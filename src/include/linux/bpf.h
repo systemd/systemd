@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/bpf.h> /* IWYU pragma: export */
+#include_next <linux/bpf.h>     /* IWYU pragma: export */
 
 /* defined in linux/filter.h */
 /* Unconditional jumps, goto pc + off16 */

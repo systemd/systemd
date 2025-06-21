@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/ioprio.h>
 #include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
 #include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
+#include <sys/ioprio.h>
+#include <sys/keyctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <unistd.h>
@@ -52,7 +53,6 @@
 #include "journal-send.h"
 #include "manager.h"
 #include "memfd-util.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "namespace-util.h"
