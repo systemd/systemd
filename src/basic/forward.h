@@ -305,10 +305,19 @@ typedef struct VeritySettings VeritySettings;
 /* We duplicate various commonly used constants here so we can keep most static inline functions without
  * having to include the full header that provides these constants. */
 
+#ifdef __GLIBC__
 #define AT_FDCWD                -100
+#else
+#define AT_FDCWD                (-100)
+#endif
 #define AT_EMPTY_PATH           0x1000
 #define AT_SYMLINK_FOLLOW       0x400
 #define AT_SYMLINK_NOFOLLOW     0x100
+
+#define R_OK 4
+#define W_OK 2
+#define X_OK 1
+#define F_OK 0
 
 #define MODE_INVALID            ((mode_t) -1)
 

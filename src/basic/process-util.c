@@ -34,8 +34,6 @@
 #include "locale-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_sched.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nulstr-util.h"
