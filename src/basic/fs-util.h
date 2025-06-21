@@ -39,7 +39,7 @@ int futimens_opath(int fd, const struct timespec ts[2]);
 int fd_warn_permissions(const char *path, int fd);
 int stat_warn_permissions(const char *path, const struct stat *st);
 
-int access_nofollow(const char *path, mode_t mode);
+int access_nofollow(const char *path, int mode);
 
 int touch_fd(int fd, usec_t stamp);
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
