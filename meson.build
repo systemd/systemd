@@ -586,7 +586,6 @@ foreach ident : [
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsopen',            '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['fspick',            '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
@@ -602,9 +601,11 @@ foreach ident : [
         ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
         ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
         ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
-        ['pivot_root',        '''#include <sys/syscall.h>'''],  # no known header declares pivot_root
+        ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
+        ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
         ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
+        ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
