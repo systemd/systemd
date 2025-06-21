@@ -132,7 +132,7 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
 }
 
 int config_parse_can_bitrate(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -171,7 +171,7 @@ int config_parse_can_bitrate(
 }
 
 int config_parse_can_time_quanta(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -208,7 +208,7 @@ int config_parse_can_time_quanta(
 }
 
 int config_parse_can_restart_usec(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -245,7 +245,7 @@ int config_parse_can_restart_usec(
 }
 
 int config_parse_can_control_mode(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -284,7 +284,7 @@ int config_parse_can_control_mode(
 }
 
 int config_parse_can_termination(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,

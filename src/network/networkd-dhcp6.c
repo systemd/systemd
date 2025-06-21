@@ -887,7 +887,7 @@ int link_serialize_dhcp6_client(Link *link, FILE *f) {
 }
 
 int config_parse_dhcp6_pd_prefix_hint(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,

@@ -737,7 +737,7 @@ int config_parse_exec_nice(
 }
 
 int config_parse_exec_oom_score_adjust(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -776,7 +776,7 @@ int config_parse_exec_oom_score_adjust(
 }
 
 int config_parse_exec_coredump_filter(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -814,7 +814,7 @@ int config_parse_exec_coredump_filter(
 }
 
 int config_parse_kill_mode(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1071,7 +1071,7 @@ int config_parse_exec(
 }
 
 int config_parse_socket_bindtodevice(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1428,16 +1428,17 @@ int config_parse_exec_output(
         return 0;
 }
 
-int config_parse_exec_io_class(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+int config_parse_exec_io_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
         int x;
@@ -1464,16 +1465,17 @@ int config_parse_exec_io_class(const char *unit,
         return 0;
 }
 
-int config_parse_exec_io_priority(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
+int config_parse_exec_io_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
         int i, r;
@@ -1500,16 +1502,17 @@ int config_parse_exec_io_priority(const char *unit,
         return 0;
 }
 
-int config_parse_exec_cpu_sched_policy(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_exec_cpu_sched_policy(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
         int x;
@@ -1577,16 +1580,17 @@ int config_parse_numa_mask(
                 config_parse_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
-int config_parse_exec_cpu_sched_prio(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata) {
+int config_parse_exec_cpu_sched_prio(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
         int i, r;
@@ -2162,16 +2166,17 @@ int config_parse_trigger_unit(
         return 0;
 }
 
-int config_parse_path_spec(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
+int config_parse_path_spec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Path *p = ASSERT_PTR(data);
         PathSpec *s;
@@ -2651,16 +2656,17 @@ int config_parse_working_directory(
         return 0;
 }
 
-int config_parse_unit_env_file(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+int config_parse_unit_env_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         char ***env = ASSERT_PTR(data);
         const Unit *u = userdata;
@@ -5449,7 +5455,7 @@ int config_parse_extension_images(
 }
 
 int config_parse_job_timeout_sec(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -5487,7 +5493,7 @@ int config_parse_job_timeout_sec(
 }
 
 int config_parse_job_running_timeout_sec(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -5519,7 +5525,7 @@ int config_parse_job_running_timeout_sec(
 }
 
 int config_parse_emergency_action(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -6264,7 +6270,7 @@ void unit_dump_config_items(FILE *f) {
 }
 
 int config_parse_show_status(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -6290,7 +6296,7 @@ int config_parse_show_status(
 }
 
 int config_parse_output_restricted(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -6337,7 +6343,7 @@ int config_parse_output_restricted(
 }
 
 int config_parse_crash_chvt(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,

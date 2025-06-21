@@ -978,7 +978,7 @@ static const char* const user_gc_mode_table[_USER_GC_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(user_gc_mode, UserGCMode);
 
 int config_parse_tmpfs_size(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,

@@ -346,7 +346,7 @@ int ipv4ll_update_mac(Link *link) {
 }
 
 int config_parse_ipv4ll(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -387,7 +387,7 @@ int config_parse_ipv4ll(
 }
 
 int config_parse_ipv4ll_address(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,

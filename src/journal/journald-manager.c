@@ -2814,7 +2814,7 @@ DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode);
 
 int config_parse_line_max(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -2865,7 +2865,7 @@ int config_parse_line_max(
 }
 
 int config_parse_compress(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -2910,7 +2910,7 @@ int config_parse_compress(
 }
 
 int config_parse_forward_to_socket(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
