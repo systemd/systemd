@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/keyctl.h> /* IWYU pragma: export */
+#include_next <linux/keyctl.h>  /* IWYU pragma: export */
 
-#include "forward.h"
+#include <stdint.h>
 
 /* From linux/key.h */
 #ifndef KEY_POS_VIEW
@@ -42,5 +42,5 @@ typedef int32_t key_serial_t;
 #  define KEY_OTH_SETATTR 0x00000020
 #  define KEY_OTH_ALL     0x0000003f
 #else
-assert_cc(KEY_OTH_ALL == 0x0000003f);
+static_assert(KEY_OTH_ALL == 0x0000003f, "");
 #endif
