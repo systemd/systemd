@@ -3,6 +3,7 @@
 
 #include "sd-device.h"
 
+#include "cpu-set-util.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "forward.h"
@@ -110,7 +111,7 @@ struct LinkConfig {
         uint32_t eee_advertise[N_ADVERTISE];
 
         /* Rx RPS CPU mask */
-        CPUSet *rps_cpu_mask;
+        CPUSet rps_cpu_mask;
 
         /* SR-IOV */
         uint32_t sr_iov_num_vfs;
