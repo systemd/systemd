@@ -580,7 +580,6 @@ foreach ident : [
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsopen',            '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['fspick',            '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
@@ -591,15 +590,17 @@ foreach ident : [
         ['ioprio_get',        '''#include <sched.h>'''],        # no known header declares ioprio_get
         ['ioprio_set',        '''#include <sched.h>'''],        # no known header declares ioprio_set
         ['rt_tgsigqueueinfo', '''#include <signal.h>'''],       # no known header declares rt_tgsigqueueinfo
+        ['open_tree_attr',    '''#include <sys/mount.h>'''],    # no known header declares open_tree_attr
         ['quotactl_fd',       '''#include <sys/quota.h>'''],    # no known header declares quotactl_fd
         ['fchmodat2',         '''#include <sys/stat.h>'''],     # no known header declares fchmodat2
         ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
         ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
         ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
-        ['pivot_root',        '''#include <sys/syscall.h>'''],  # no known header declares pivot_root
+        ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
+        ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
         ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
-        ['open_tree_attr',    '''#include <sys/mount.h>'''],    # no known header declares open_tree_attr
+        ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
@@ -2057,6 +2058,7 @@ includes = [libsystemd_includes, include_directories('src/shared')]
 subdir('po')
 subdir('catalog')
 subdir('src/include')
+subdir('src/libc')
 subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
@@ -2072,7 +2074,8 @@ libsystemd = shared_library(
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic_static],
+        link_with : [libc_wrapper_static,
+                     libbasic_static],
         link_whole : [libsystemd_static],
         dependencies : [librt,
                         threads,
@@ -2085,6 +2088,7 @@ libsystemd = shared_library(
 if static_libsystemd != 'false'
         install_libsystemd_static = static_library(
                 'systemd',
+                libc_wrapper_sources,
                 libsystemd_sources,
                 basic_sources,
                 fundamental_sources,
@@ -2130,6 +2134,7 @@ libudev = shared_library(
 if static_libudev != 'false'
         install_libudev_static = static_library(
                 'udev',
+                libc_wrapper_sources,
                 basic_sources,
                 fundamental_sources,
                 shared_sources,
@@ -2234,6 +2239,7 @@ nss_template = {
         # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned
         'link_args' : ['-z', 'nodelete'],
         'link_with' : [
+                libc_wrapper_static,
                 libsystemd_static,
                 libshared_static,
                 libbasic_static,

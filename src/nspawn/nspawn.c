@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/keyctl.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -66,8 +67,6 @@
 #include "loopback-setup.h"
 #include "machine-credential.h"
 #include "main-func.h"
-#include "missing_keyctl.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
