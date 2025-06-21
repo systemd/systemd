@@ -3,6 +3,7 @@
 
 /* Missing glibc definitions to access certain kernel APIs */
 
+#include <sched.h>
 #include <signal.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -13,7 +14,6 @@
 
 #include "forward.h"
 #include "missing_keyctl.h"
-#include "missing_sched.h"
 #include "missing_syscall_def.h"
 
 /* ======================================================================= */

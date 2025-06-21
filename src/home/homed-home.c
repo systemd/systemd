@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mman.h>
 #include <sys/vfs.h>
 
 #include "sd-bus.h"
@@ -28,7 +27,6 @@
 #include "json-util.h"
 #include "log.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
 #include "mkdir.h"
 #include "ordered-set.h"
 #include "parse-util.h"
