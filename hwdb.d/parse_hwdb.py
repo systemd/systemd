@@ -176,6 +176,7 @@ def property_grammar():
              ('ID_INPUT_TOUCHSCREEN', id_input_setting),
              ('ID_INPUT_TRACKBALL', id_input_setting),
              ('ID_SIGNAL_ANALYZER', Or((Literal('0'), Literal('1')))),
+             ('ID_MAKER_TOOL', Or((Literal('0'), Literal('1')))),
              ('ID_HARDWARE_WALLET', Or((Literal('0'), Literal('1')))),
              ('ID_SOFTWARE_RADIO', Or((Literal('0'), Literal('1')))),
              ('ID_MM_DEVICE_IGNORE', Or((Literal('0'), Literal('1')))),
