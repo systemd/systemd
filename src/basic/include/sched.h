@@ -25,3 +25,20 @@
 #ifndef TASK_COMM_LEN
 #  define TASK_COMM_LEN 16
 #endif
+
+/* glibc does not provide clone() on ia64, only clone2(). Not only that, but it also doesn't provide a
+ * prototype, only the symbol in the shared library (it provides a prototype for clone(), but not the
+ * symbol in the shared library). */
+#if defined(__ia64__)
+int __clone2(int (*fn)(void *), void *stack_base, size_t stack_size, int flags, void *arg);
+#define HAVE_CLONE 0
+#else
+/* We know that everywhere else clone() is available, so we don't bother with a meson check (that takes time
+ * at build time) and just define it. Once the kernel drops ia64 support, we can drop this too. */
+#define HAVE_CLONE 1
+#endif
+
+/* defined in sched.h since glibc-2.41. */
+#if !HAVE_SCHED_SETATTR
+int sched_setattr(pid_t pid, struct sched_attr *attr, unsigned int flags);
+#endif
