@@ -30,7 +30,7 @@
 {{type}}.CPUSchedulingResetOnFork,            config_parse_bool,                                  0,                                  offsetof({{type}}, exec_context.cpu_sched_reset_on_fork)
 {{type}}.CPUAffinity,                         config_parse_exec_cpu_affinity,                     0,                                  offsetof({{type}}, exec_context)
 {{type}}.NUMAPolicy,                          config_parse_numa_policy,                           0,                                  offsetof({{type}}, exec_context.numa_policy.type)
-{{type}}.NUMAMask,                            config_parse_numa_mask,                             0,                                  offsetof({{type}}, exec_context.numa_policy)
+{{type}}.NUMAMask,                            config_parse_numa_mask,                             0,                                  offsetof({{type}}, exec_context.numa_policy.nodes)
 {{type}}.UMask,                               config_parse_mode,                                  0,                                  offsetof({{type}}, exec_context.umask)
 {{type}}.Environment,                         config_parse_environ,                               0,                                  offsetof({{type}}, exec_context.environment)
 {{type}}.EnvironmentFile,                     config_parse_unit_env_file,                         0,                                  offsetof({{type}}, exec_context.environment_files)
@@ -197,10 +197,10 @@
 
 {%- macro CGROUP_CONTEXT_CONFIG_ITEMS(type) -%}
 {{type}}.Slice,                               config_parse_unit_slice,                            0,                                  0
-{{type}}.AllowedCPUs,                         config_parse_allowed_cpuset,                        0,                                  offsetof({{type}}, cgroup_context.cpuset_cpus)
-{{type}}.StartupAllowedCPUs,                  config_parse_allowed_cpuset,                        0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_cpus)
-{{type}}.AllowedMemoryNodes,                  config_parse_allowed_cpuset,                        0,                                  offsetof({{type}}, cgroup_context.cpuset_mems)
-{{type}}.StartupAllowedMemoryNodes,           config_parse_allowed_cpuset,                        0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_mems)
+{{type}}.AllowedCPUs,                         config_parse_unit_cpu_set,                          0,                                  offsetof({{type}}, cgroup_context.cpuset_cpus)
+{{type}}.StartupAllowedCPUs,                  config_parse_unit_cpu_set,                          0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_cpus)
+{{type}}.AllowedMemoryNodes,                  config_parse_unit_cpu_set,                          0,                                  offsetof({{type}}, cgroup_context.cpuset_mems)
+{{type}}.StartupAllowedMemoryNodes,           config_parse_unit_cpu_set,                          0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_mems)
 {{type}}.CPUAccounting,                       config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 {{type}}.CPUWeight,                           config_parse_cg_cpu_weight,                         0,                                  offsetof({{type}}, cgroup_context.cpu_weight)
 {{type}}.StartupCPUWeight,                    config_parse_cg_cpu_weight,                         0,                                  offsetof({{type}}, cgroup_context.startup_cpu_weight)
