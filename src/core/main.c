@@ -741,7 +741,7 @@ static int parse_config_file(void) {
                 { "Manager", "CrashAction",                  config_parse_crash_action,          0,                        &arg_crash_action                 },
                 { "Manager", "ShowStatus",                   config_parse_show_status,           0,                        &arg_show_status                  },
                 { "Manager", "StatusUnitFormat",             config_parse_status_unit_format,    0,                        &arg_status_unit_format           },
-                { "Manager", "CPUAffinity",                  config_parse_cpu_affinity2,         0,                        &arg_cpu_affinity                 },
+                { "Manager", "CPUAffinity",                  config_parse_cpu_set,               0,                        &arg_cpu_affinity                 },
                 { "Manager", "NUMAPolicy",                   config_parse_numa_policy,           0,                        &arg_numa_policy.type             },
                 { "Manager", "NUMAMask",                     config_parse_numa_mask,             0,                        &arg_numa_policy                  },
                 { "Manager", "JoinControllers",              config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
@@ -2787,7 +2787,7 @@ static void reset_arguments(void) {
         arg_machine_id = (sd_id128_t) {};
         arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
 
-        cpu_set_reset(&arg_cpu_affinity);
+        cpu_set_done(&arg_cpu_affinity);
         numa_policy_reset(&arg_numa_policy);
 
         arg_random_seed = mfree(arg_random_seed);

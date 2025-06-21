@@ -1539,35 +1539,39 @@ int config_parse_exec_cpu_sched_policy(const char *unit,
         return 0;
 }
 
-int config_parse_numa_mask(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
+int config_parse_numa_mask(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CPUSet *cpu_set = ASSERT_PTR(data);
         int r;
-        NUMAPolicy *p = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
         if (streq(rvalue, "all")) {
-                r = numa_mask_add_all(&p->nodes);
+                _cleanup_(cpu_set_done) CPUSet c = {};
+
+                r = numa_mask_add_all(&c);
                 if (r < 0)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to create NUMA mask representing \"all\" NUMA nodes, ignoring: %m");
-        } else {
-                r = parse_cpu_set_extend(rvalue, &p->nodes, true, unit, filename, line, lvalue);
-                if (r < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse NUMA node mask, ignoring: %s", rvalue);
+
+                cpu_set_done(cpu_set);
+                *cpu_set = TAKE_STRUCT(c);
+                return 0;
         }
 
-        return 0;
+        return config_parse_unit_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
 int config_parse_exec_cpu_sched_prio(const char *unit,
@@ -1824,8 +1828,6 @@ int config_parse_exec_cpu_affinity(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
-        _cleanup_free_ char *k = NULL;
         int r;
 
         assert(filename);
@@ -1834,21 +1836,12 @@ int config_parse_exec_cpu_affinity(
 
         if (streq(rvalue, "numa")) {
                 c->cpu_affinity_from_numa = true;
-                cpu_set_reset(&c->cpu_set);
-
+                cpu_set_done(&c->cpu_set);
                 return 0;
         }
 
-        r = unit_full_printf(u, rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to resolve unit specifiers in '%s', ignoring: %m",
-                           rvalue);
-                return 0;
-        }
-
-        r = parse_cpu_set_extend(k, &c->cpu_set, true, unit, filename, line, lvalue);
-        if (r >= 0)
+        r = config_parse_unit_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &c->cpu_set, userdata);
+        if (r > 0)
                 c->cpu_affinity_from_numa = false;
 
         return 0;
@@ -3769,7 +3762,7 @@ int config_parse_cpu_quota(
         return 0;
 }
 
-int config_parse_allowed_cpuset(
+int config_parse_unit_cpu_set(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -3781,8 +3774,7 @@ int config_parse_allowed_cpuset(
                 void *data,
                 void *userdata) {
 
-        CPUSet *c = data;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *k = NULL;
         int r;
 
@@ -3798,8 +3790,7 @@ int config_parse_allowed_cpuset(
                 return 0;
         }
 
-        (void) parse_cpu_set_extend(k, c, true, unit, filename, line, lvalue);
-        return 0;
+        return config_parse_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
 }
 
 int config_parse_memory_limit(
@@ -6267,25 +6258,6 @@ void unit_dump_config_items(FILE *f) {
                 fprintf(f, "%s=%s\n", lvalue, rvalue);
                 prev = i;
         }
-}
-
-int config_parse_cpu_affinity2(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        CPUSet *affinity = ASSERT_PTR(data);
-
-        (void) parse_cpu_set_extend(rvalue, affinity, true, unit, filename, line, lvalue);
-
-        return 0;
 }
 
 int config_parse_show_status(
