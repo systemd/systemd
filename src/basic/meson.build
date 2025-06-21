@@ -54,6 +54,7 @@ basic_sources = files(
         'io-util.c',
         'iovec-util.c',
         'iovec-wrapper.c',
+        'keyring-util.c',
         'label.c',
         'limits-util.c',
         'locale-util.c',
@@ -61,7 +62,6 @@ basic_sources = files(
         'log.c',
         'log-context.c',
         'login-util.c',
-        'keyring-util.c',
         'memfd-util.c',
         'memory-util.c',
         'mempool.c',
@@ -128,7 +128,7 @@ generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         'af-list.txt',
         output : 'af-list.txt',
-        command : [generate_af_list, cpp, files('missing_socket.h')],
+        command : [generate_af_list, cpp, files('include/sys/socket.h')],
         capture : true)
 
 generate_arphrd_list = find_program('generate-arphrd-list.sh')

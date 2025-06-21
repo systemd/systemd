@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <features.h>
+#include <linux/fs.h>
 #include <linux/mount.h> /* IWYU pragma: export */
 #include <stddef.h>
 #include <stdint.h>
@@ -9,8 +11,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "missing_fcntl.h"
-#include "missing_fs.h"
 #include "missing_syscall_def.h"
 
 /* Possible value for FLAGS parameter of `umount2'.  */
