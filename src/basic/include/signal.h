@@ -5,3 +5,7 @@
 
 /* signal.h includes unistd.h through bits/sigstksz.h since glibc-2.34. */
 #include <unistd.h>
+
+#if !HAVE_RT_TGSIGQUEUEINFO
+int rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info);
+#endif

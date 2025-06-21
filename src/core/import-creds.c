@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "confidential-virt.h"
 #include "copy.h"
