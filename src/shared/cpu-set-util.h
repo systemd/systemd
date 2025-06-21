@@ -20,9 +20,6 @@ void cpu_set_done(CPUSet *c);
                 0;                                          \
         })
 
-CPUSet* cpu_set_free(CPUSet *c);
-DEFINE_TRIVIAL_CLEANUP_FUNC(CPUSet*, cpu_set_free);
-
 int cpu_set_realloc(CPUSet *c, size_t n);
 int cpu_set_add(CPUSet *c, size_t i);
 int cpu_set_add_set(CPUSet *c, const CPUSet *src);
