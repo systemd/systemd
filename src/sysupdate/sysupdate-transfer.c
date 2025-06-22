@@ -510,6 +510,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Transfer",    "RequisiteFeatures",       config_parse_strv,                 0, &t->requisite_features      },
                 { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
                 { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
+                { "Source",      "ManifestFile",            config_parse_string,               0, &t->source.manifest         },
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
                 { "Source",      "MatchPattern",            config_parse_resource_pattern,     0, &t->source.patterns         },
                 { "Target",      "Type",                    config_parse_resource_type,        0, &t->target.type             },
