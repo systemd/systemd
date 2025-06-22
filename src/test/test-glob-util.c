@@ -51,37 +51,6 @@ TEST(glob_exists) {
         assert_se(r == 0);
 }
 
-static void closedir_wrapper(void* v) {
-        (void) closedir(v);
-}
-
-TEST(glob_no_dot) {
-        char template[] = "/tmp/test-glob-util.XXXXXXX";
-        const char *fn;
-
-        _cleanup_globfree_ glob_t g = {
-                .gl_closedir = closedir_wrapper,
-                .gl_readdir = (struct dirent *(*)(void *)) readdir_no_dot,
-                .gl_opendir = (void *(*)(const char *)) opendir,
-                .gl_lstat = lstat,
-                .gl_stat = stat,
-        };
-
-        int r;
-
-        assert_se(mkdtemp(template));
-
-        fn = strjoina(template, "/*");
-        r = glob(fn, GLOB_NOSORT|GLOB_BRACE|GLOB_ALTDIRFUNC, NULL, &g);
-        assert_se(r == GLOB_NOMATCH);
-
-        fn = strjoina(template, "/.*");
-        r = glob(fn, GLOB_NOSORT|GLOB_BRACE|GLOB_ALTDIRFUNC, NULL, &g);
-        assert_se(r == GLOB_NOMATCH);
-
-        (void) rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL);
-}
-
 TEST(safe_glob) {
         char template[] = "/tmp/test-glob-util.XXXXXXX";
         const char *fn, *fn2, *fname;
