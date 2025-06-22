@@ -140,7 +140,7 @@ int halt_parse_argv(int argc, char *argv[]) {
 
         if (arg_action == ACTION_REBOOT && (argc == optind || argc == optind + 1)) {
                 r = update_reboot_parameter_and_warn(argc == optind + 1 ? argv[optind] : NULL, false);
-                if (r < 0)
+                if (arg_force < 2 && r < 0)
                         return r;
         } else if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
