@@ -7,6 +7,7 @@
 
 #include "blockdev-util.h"
 #include "bus-unit-util.h"
+#include "chase.h"
 #include "chown-recursive.h"
 #include "copy.h"
 #include "cryptsetup-util.h"
@@ -1067,16 +1068,25 @@ static int home_deactivate(UserRecord *h, bool force) {
 }
 
 static int copy_skel(UserRecord *h, int root_fd, const char *skel) {
+        _cleanup_close_ int skel_fd = -EBADF;
         int r;
 
         assert(h);
         assert(root_fd >= 0);
 
-        r = copy_tree_at(AT_FDCWD, skel, root_fd, ".", h->uid, user_record_gid(h), COPY_MERGE|COPY_REPLACE, NULL, NULL);
+        r = chase(skel, /* root= */ NULL, CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &skel_fd);
         if (r == -ENOENT) {
                 log_info("Skeleton directory %s missing, ignoring.", skel);
                 return 0;
         }
+
+        r = copy_tree_at(
+                        skel_fd, /* from= */ NULL,
+                        root_fd, ".",
+                        h->uid, user_record_gid(h),
+                        COPY_MERGE|COPY_REPLACE,
+                        /* denylist= */ NULL,
+                        /* subvolumes= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy in %s: %m", skel);
 
