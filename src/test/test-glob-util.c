@@ -9,6 +9,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "rm-rf.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -54,31 +55,25 @@ TEST(glob_exists) {
 TEST(safe_glob) {
         char template[] = "/tmp/test-glob-util.XXXXXXX";
         const char *fn, *fn2, *fname;
+        _cleanup_strv_free_ char **v = NULL;
 
-        _cleanup_globfree_ glob_t g = {};
-        int r;
-
-        assert_se(mkdtemp(template));
+        ASSERT_NOT_NULL(mkdtemp(template));
 
         fn = strjoina(template, "/*");
-        r = safe_glob(fn, 0, &g);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(safe_glob(fn, /* flags = */ 0, &v), ENOENT);
 
         fn2 = strjoina(template, "/.*");
-        r = safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &g);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &v), ENOENT);
 
         fname = strjoina(template, "/.foobar");
-        assert_se(touch(fname) == 0);
+        ASSERT_OK(touch(fname));
 
-        r = safe_glob(fn, 0, &g);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(safe_glob(fn, /* flags = */ 0, &v), ENOENT);
 
-        r = safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &g);
-        assert_se(r == 0);
-        assert_se(g.gl_pathc == 1);
-        ASSERT_STREQ(g.gl_pathv[0], fname);
-        ASSERT_NULL(g.gl_pathv[1]);
+        ASSERT_OK(safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &v));
+        ASSERT_EQ(strv_length(v), 1u);
+        ASSERT_STREQ(v[0], fname);
+        ASSERT_NULL(v[1]);
 
         (void) rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
