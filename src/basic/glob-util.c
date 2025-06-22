@@ -6,81 +6,83 @@
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "glob-util.h"
-#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 
-static void closedir_wrapper(void* v) {
+static void closedir_wrapper(void *v) {
         (void) closedir(v);
 }
 
-int safe_glob(const char *path, int flags, glob_t *pglob) {
-        int k;
+int safe_glob_full(const char *path, int flags, opendir_t opendir_func, char ***ret) {
+        _cleanup_(globfree) glob_t g = {
+                .gl_closedir = closedir_wrapper,
+                .gl_readdir = (struct dirent* (*)(void *)) readdir_no_dot,
+                .gl_opendir = (void* (*)(const char *)) (opendir_func ?: opendir),
+                .gl_lstat = lstat,
+                .gl_stat = stat,
+        };
+        int r;
 
-        /* We want to set GLOB_ALTDIRFUNC ourselves, don't allow it to be set. */
-        assert(!(flags & GLOB_ALTDIRFUNC));
-
-        if (!pglob->gl_closedir)
-                pglob->gl_closedir = closedir_wrapper;
-        if (!pglob->gl_readdir)
-                pglob->gl_readdir = (struct dirent *(*)(void *)) readdir_no_dot;
-        if (!pglob->gl_opendir)
-                pglob->gl_opendir = (void *(*)(const char *)) opendir;
-        if (!pglob->gl_lstat)
-                pglob->gl_lstat = lstat;
-        if (!pglob->gl_stat)
-                pglob->gl_stat = stat;
+        assert(path);
 
         errno = 0;
-        k = glob(path, flags | GLOB_ALTDIRFUNC, NULL, pglob);
-        if (k == GLOB_NOMATCH)
+        r = glob(path, flags | GLOB_ALTDIRFUNC, NULL, &g);
+        if (r == GLOB_NOMATCH)
                 return -ENOENT;
-        if (k == GLOB_NOSPACE)
+        if (r == GLOB_NOSPACE)
                 return -ENOMEM;
-        if (k != 0)
+        if (r != 0)
                 return errno_or_else(EIO);
-        if (strv_isempty(pglob->gl_pathv))
+
+        if (strv_isempty(g.gl_pathv))
                 return -ENOENT;
+
+        if (ret) {
+                *ret = TAKE_PTR(g.gl_pathv);
+                TAKE_STRUCT(g);
+        }
 
         return 0;
 }
 
-int glob_first(const char *path, char **ret_first) {
-        _cleanup_globfree_ glob_t g = {};
-        int k;
+int glob_first(const char *path, char **ret) {
+        _cleanup_strv_free_ char **v = NULL;
+        int r;
 
         assert(path);
 
-        k = safe_glob(path, GLOB_NOSORT|GLOB_BRACE, &g);
-        if (k == -ENOENT) {
-                if (ret_first)
-                        *ret_first = NULL;
+        r = safe_glob(path, GLOB_NOSORT|GLOB_BRACE, &v);
+        if (r == -ENOENT) {
+                if (ret)
+                        *ret = NULL;
                 return false;
         }
-        if (k < 0)
-                return k;
+        if (r < 0)
+                return r;
 
-        if (ret_first) {
-                assert(g.gl_pathv && g.gl_pathv[0]);
+        assert(*v);
 
-                char *first = strdup(g.gl_pathv[0]);
-                if (!first)
-                        return log_oom_debug();
-                *ret_first = first;
+        if (ret) {
+                STRV_FOREACH(p, strv_skip(v, 1))
+                        *p = mfree(*p);
+
+                *ret = TAKE_PTR(*v);
         }
 
         return true;
 }
 
 int glob_extend(char ***strv, const char *path, int flags) {
-        _cleanup_globfree_ glob_t g = {};
-        int k;
+        _cleanup_strv_free_ char **v = NULL;
+        int r;
 
-        k = safe_glob(path, GLOB_NOSORT|GLOB_BRACE|flags, &g);
-        if (k < 0)
-                return k;
+        assert(path);
 
-        return strv_extend_strv(strv, g.gl_pathv, false);
+        r = safe_glob(path, GLOB_NOSORT|GLOB_BRACE|flags, &v);
+        if (r < 0)
+                return r;
+
+        return strv_extend_strv(strv, v, /* filter_duplicates = */ false);
 }
 
 int glob_non_glob_prefix(const char *path, char **ret) {

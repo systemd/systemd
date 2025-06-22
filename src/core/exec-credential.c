@@ -539,20 +539,20 @@ static int load_credential_glob(
         assert(search_path);
 
         STRV_FOREACH(d, search_path) {
-                _cleanup_globfree_ glob_t pglob = {};
+                _cleanup_strv_free_ char **paths = NULL;
                 _cleanup_free_ char *j = NULL;
 
                 j = path_join(*d, ic->glob);
                 if (!j)
                         return -ENOMEM;
 
-                r = safe_glob(j, 0, &pglob);
+                r = safe_glob(j, /* flags = */ 0, &paths);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
                         return r;
 
-                FOREACH_ARRAY(p, pglob.gl_pathv, pglob.gl_pathc) {
+                STRV_FOREACH(p, paths) {
                         _cleanup_free_ char *fn = NULL;
                         _cleanup_(erase_and_freep) char *data = NULL;
                         size_t size;
