@@ -503,7 +503,7 @@ int journal_file_open_reliably(
                     -EIDRM))            /* File has been deleted */
                 return r;
 
-        if ((open_flags & O_ACCMODE_STRICT) == O_RDONLY)
+        if ((open_flags & O_ACCMODE) == O_RDONLY)
                 return r;
 
         if (!(open_flags & O_CREAT))
@@ -518,7 +518,7 @@ int journal_file_open_reliably(
         /* The file is corrupted. Try opening it read-only as the template before rotating to inherit its
          * sequence number and ID. */
         r = journal_file_open(-EBADF, fname,
-                              (open_flags & ~(O_ACCMODE_STRICT|O_CREAT|O_EXCL)) | O_RDONLY,
+                              (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
                               file_flags, 0, compress_threshold_bytes, NULL,
                               mmap_cache, /* template = */ NULL, &old_file);
         if (r < 0)
