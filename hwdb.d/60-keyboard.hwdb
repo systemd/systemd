@@ -1115,6 +1115,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*U300s*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 # Lenovo IdeaPad Flex 5
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:*:pvrIdeaPadFlex5*
+# Lenovo IdeaPad Slim 5
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:*:pvrIdeaPadSlim5*
 # Lenovo Yoga S940 (9th gen)
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940:*
 # Lenovo ThinkBook 16G6IRL
