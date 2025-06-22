@@ -3,6 +3,10 @@
 
 #include_next <fcntl.h>
 
+/* glibc's fcntl.h includes bits/stat.h, hence struct stat can be used even if sys/stat.h is not included.
+ * However musl's fcntl.h does not. Let's explicitly include sys/stat.h here to make struct stat can be used. */
+#include <sys/stat.h>
+
 /* This is defined since glibc-2.41. */
 #ifndef F_DUPFD_QUERY
 #define F_DUPFD_QUERY 1027
