@@ -2696,6 +2696,7 @@ if mkosi.found()
                         '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
                         '--extra-search-path', meson.current_build_dir(),
                         '--force',
+                        '--debug',
                         'build',
                 ],
                 depends : mkosi_depends,
