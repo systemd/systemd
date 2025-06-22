@@ -73,6 +73,9 @@ fi
 # TODO: remove manual default-hierarchy patch when the upstream spec is updated
 sed "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" -e '/integration-tests\/README/d' -e '/default-hierarchy/ d' >/tmp/systemd.spec
 mount --bind /tmp/systemd.spec "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
+# TODO: drop once upstream spec is updated
+sed "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/files.container" -e '/import-pubring.gpg/d' >/tmp/files.container
+mount --bind /tmp/files.container "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/files.container"
 
 build() {
     IFS=
