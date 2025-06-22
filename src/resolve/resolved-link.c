@@ -48,7 +48,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
                 .ifindex = ifindex,
                 .default_route = -1,
                 .llmnr_support = RESOLVE_SUPPORT_YES,
-                .mdns_support = RESOLVE_SUPPORT_YES,
+                .mdns_support = RESOLVE_SUPPORT_NO,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
                 .operstate = IF_OPER_UNKNOWN,
