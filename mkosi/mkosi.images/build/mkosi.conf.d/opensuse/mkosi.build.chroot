@@ -19,9 +19,9 @@ TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 # disable manpage compression as the files cannot be found. Fix the issue by removing the compression
 # extension.
 #
-# TODO: remove manual cgroups-agent patch when the upstream spec is updated
+# TODO: remove manual cgroups-agent and pubring patches when the upstream spec is updated
 while read -r filelist; do
-    sed 's/\.gz$//; /systemd-cgroups-agent/d' "$filelist" >"/tmp/$(basename "$filelist")"
+    sed 's/\.gz$//; /systemd-cgroups-agent/d; s/import-pubring.gpg/import-pubring.pgp/' "$filelist" >"/tmp/$(basename "$filelist")"
     mount --bind "/tmp/$(basename "$filelist")" "$filelist"
 done < <(find "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" -name "files.*")
 
