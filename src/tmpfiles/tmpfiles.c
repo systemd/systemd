@@ -2570,23 +2570,20 @@ finish:
 }
 
 static int glob_item(Context *c, Item *i, action_t action) {
-        _cleanup_globfree_ glob_t g = {
-                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
-        };
+        _cleanup_strv_free_ char **paths = NULL;
         int r;
 
         assert(c);
         assert(i);
         assert(action);
 
-        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        r = safe_glob_full(i->path, GLOB_NOSORT|GLOB_BRACE, opendir_nomod, &paths);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to glob '%s': %m", i->path);
 
-        r = 0;
-        STRV_FOREACH(fn, g.gl_pathv)
+        STRV_FOREACH(fn, paths)
                 /* We pass CREATION_EXISTING here, since if we are globbing for it, it always has to exist */
                 RET_GATHER(r, action(c, i, *fn, CREATION_EXISTING));
 
@@ -2598,23 +2595,20 @@ static int glob_item_recursively(
                 Item *i,
                 fdaction_t action) {
 
-        _cleanup_globfree_ glob_t g = {
-                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
-        };
+        _cleanup_strv_free_ char **paths = NULL;
         int r;
 
         assert(c);
         assert(i);
         assert(action);
 
-        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        r = safe_glob_full(i->path, GLOB_NOSORT|GLOB_BRACE, opendir_nomod, &paths);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to glob '%s': %m", i->path);
 
-        r = 0;
-        STRV_FOREACH(fn, g.gl_pathv) {
+        STRV_FOREACH(fn, paths) {
                 _cleanup_close_ int fd = -EBADF;
 
                 /* Make sure we won't trigger/follow file object (such as device nodes, automounts, ...)
