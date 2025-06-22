@@ -2744,6 +2744,11 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         if (home_is_referenced(h))
                 return 0;
 
+        if (home_get_state(h) == HOME_INACTIVE) {
+                log_info("Got notification that all sessions of user %s ended, but it corresponds to the immediate state and there may be conflicting operations enqued already.", h->user_name);
+                return 0;
+        }
+
         log_info("Got notification that all sessions of user %s ended, deactivating automatically.", h->user_name);
 
         o = operation_new(OPERATION_PIPE_EOF, NULL);
