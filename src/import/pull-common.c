@@ -458,6 +458,8 @@ static int verify_gpg(
                  * otherwise. */
                 if (access(USER_KEYRING_PATH, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH;
+                else if (access(USER_KEYRING_PATH_LEGACY, F_OK) >= 0)
+                        cmd[k++] = "--keyring=" USER_KEYRING_PATH_LEGACY;
                 else
                         cmd[k++] = "--keyring=" VENDOR_KEYRING_PATH;
 

@@ -125,8 +125,8 @@
         <option>--verify=signature</option>, the sha checksum file is first verified with the detached GPG
         signature of <filename>.sha256</filename> or <filename>SHA256SUMS</filename>.  The public key for
         this verification step needs to be available in
-        <filename>/usr/lib/systemd/import-pubring.gpg</filename> or
-        <filename>/etc/systemd/import-pubring.gpg</filename>.</para>
+        <filename>/usr/lib/systemd/import-pubring.pgp</filename> or
+        <filename>/etc/systemd/import-pubring.pgp</filename>.</para>
 
         <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
         a read-only subvolume/directory in the image directory that is named after the specified URL and its
