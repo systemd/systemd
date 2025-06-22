@@ -154,6 +154,10 @@ configure_file(
 ############################################################
 
 efi_includes = [
+        include_directories(
+                'include',
+                is_system : true,
+        ),
         fundamental_include,
         include_directories('.'),
         version_include,
