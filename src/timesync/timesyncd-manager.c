@@ -410,7 +410,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         struct timespec *recv_time;
         triple_timestamp dts;
         ssize_t len;
-        double origin, receive, trans, dest, delay, offset, root_distance;
+        double origin, receive, trans, dest, delay, offset, offset_adjusted, root_distance, precision;
         bool spike;
         int leap_sec, r;
 
@@ -522,13 +522,48 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         receive = ntp_ts_to_d(&ntpmsg.recv_time);
         trans = ntp_ts_to_d(&ntpmsg.trans_time);
         dest = ts_to_d(recv_time) + OFFSET_1900_1970;
+        precision = exp2(ntpmsg.precision);
 
         offset = ((receive - origin) + (trans - dest)) / 2;
         delay = (dest - origin) - (trans - receive);
 
-        spike = manager_sample_spike_detection(m, offset, delay);
+        /* Some cheap routers have a precision of only 1 second and round recv_time to it.
+         * Any time difference less than the precision probably due to rounding so subtract it.
+         * This is not compliant with the RFC but no complinant server should have precision this bad.
+         * For simplicity examples bellow assume a 100 milisecond network delay and 0 processing delay so
+         * dest - origin = 0.02s,  trans - receive = 0.00s
+         */
+        if (precision > NTP_ACCURACY_SEC) {
+                if (offset < -precision) {
+                        /* If the clock is 0.1s fast a packet sent at origin = 1234.05 and recieved at 1233.96 returns a receive = 1233.0
+                         * that gives offset = -1.06 when it should have been -0.1
+                         */
+                        offset_adjusted = offset + precision;
+                        log_debug("NTP response has low precision, mitigating rounding by reducing clock offset %+.3f sec to %+.3f sec.",
+                                offset, offset_adjusted);
+                } else if (offset > 0) {
+                        /* If the clock is 0.1s slow a packet sent at origin = 1234.90 and recieved at 1235.01 returns a receive = 1235.0
+                         * that gives offset = 0.09 which is close as we will ever get
+                         */
+                        log_debug("NTP response has low precision, accepting clock offset %+.3f sec.",
+                                offset);
+                        offset_adjusted = offset;
+                } else {
+                        /* If the clock is 0.1s slow a packet sent at origin = 1234.70 and recieved at 1234.81 returns a receive = 1234.0
+                         * that gives offset = -0.71 ignore it and hope the next response has a smaller rounding error
+                         */
+                        offset_adjusted = 0;
+                        log_debug("NTP response has low precision, offset (%+.3f sec) less than precision (%+.1f sec), ignoring",
+                                offset, precision);
 
-        manager_adjust_poll(m, offset, spike);
+                }
+        } else {
+                offset_adjusted = offset;
+        }
+
+        spike = manager_sample_spike_detection(m, offset_adjusted, delay);
+
+        manager_adjust_poll(m, offset_adjusted, spike);
 
         log_debug("NTP response:\n"
                   "  leap         : %i\n"
@@ -568,9 +603,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         if (!spike) {
                 /* Fix up our idea of the time. */
-                dts.realtime = (usec_t) (dts.realtime + offset * USEC_PER_SEC);
+                dts.realtime = (usec_t) (dts.realtime + offset_adjusted * USEC_PER_SEC);
 
-                r = manager_adjust_clock(m, offset, leap_sec);
+                r = manager_adjust_clock(m, offset_adjusted, leap_sec);
                 if (r < 0)
                         log_error_errno(r, "Failed to call clock_adjtime(): %m");
 
@@ -589,7 +624,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         m->spike = spike;
 
         log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+"PRIi64"ppm%s",
-                  m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_freq / 65536,
+                  m->poll_interval_usec / USEC_PER_SEC, offset_adjusted, delay, m->samples_jitter, m->drift_freq / 65536,
                   spike ? " (ignored)" : "");
 
         if (sd_bus_is_ready(m->bus) > 0)
