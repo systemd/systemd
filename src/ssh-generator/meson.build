@@ -1,17 +1,20 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-executables += [
-        generator_template + {
-                'name' : 'systemd-ssh-generator',
-                'sources' : files('ssh-generator.c'),
-        },
+if conf.get('ENABLE_SSH_GENERATOR') == 1
+        executables += [
+                generator_template + {
+                        'name' : 'systemd-ssh-generator',
+                        'sources' : files('ssh-generator.c'),
+                },
+        ]
+endif
+
+if conf.get('ENABLE_SSH_PROXY_CONFIG') == 1
         libexec_template + {
                 'name' : 'systemd-ssh-proxy',
                 'sources' : files('ssh-proxy.c'),
-        },
-]
+        }
 
-if conf.get('ENABLE_SSH_PROXY_CONFIG') == 1
         custom_target(
                 '20-systemd-ssh-proxy.conf',
                 input : '20-systemd-ssh-proxy.conf.in',
