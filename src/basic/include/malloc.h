@@ -3,8 +3,6 @@
 
 #include_next <malloc.h>
 
-#include "macro.h"
-
 #if !HAVE_MALLINFO2
 struct mallinfo2 {
         size_t arena;    /* non-mmapped space allocated from system */
@@ -20,9 +18,10 @@ struct mallinfo2 {
 };
 
 static inline struct mallinfo2 mallinfo2(void) {
-DISABLE_WARNING_DEPRECATED_DECLARATIONS
+        _Pragma("GCC diagnostic push");
+        _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"");
         struct mallinfo m = mallinfo();
-REENABLE_WARNING
+        _Pragma("GCC diagnostic pop");
 
         return (struct mallinfo2) {
                 .arena = m.arena,
