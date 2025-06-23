@@ -109,6 +109,6 @@ install_data('org.freedesktop.import1.service',
 install_data('org.freedesktop.import1.policy',
              install_dir : polkitpolicydir)
 
-install_data('import-pubring.gpg',
+install_data('import-pubring.pgp',
              install_dir : libexecdir)
 # TODO: shouldn't this be in pkgdatadir?
