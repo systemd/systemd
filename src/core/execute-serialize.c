@@ -1877,6 +1877,29 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 r = serialize_item(f, key, value);
                 if (r < 0)
                         return r;
+
+                if (c->directories[dt].exec_quota.quota_enforce) {
+                        _cleanup_free_ char *key_quota = NULL;
+                        key_quota = strjoin("exec-context-quota-directories-", exec_directory_type_to_string(dt));
+                        if (!key_quota)
+                                return log_oom_debug();
+
+                        r = serialize_item_format(f, key_quota, "%" PRIu64 " %" PRIu32 " %s", c->directories[dt].exec_quota.quota_absolute,
+                                                                                              c->directories[dt].exec_quota.quota_scale,
+                                                                                              one_zero(c->directories[dt].exec_quota.quota_enforce));
+                        if (r < 0)
+                                return r;
+
+                } else if (c->directories[dt].exec_quota.quota_accounting) {
+                        _cleanup_free_ char *key_quota = NULL;
+                        key_quota = strjoin("exec-context-quota-accounting-directories-", exec_directory_type_to_string(dt));
+                        if (!key_quota)
+                                return log_oom_debug();
+
+                        r = serialize_bool(f, key_quota, c->directories[dt].exec_quota.quota_accounting);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = serialize_usec(f, "exec-context-timeout-clean-usec", c->timeout_clean_usec);
@@ -2764,7 +2787,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 
                         dt = exec_directory_type_from_string(type);
                         if (dt < 0)
-                                return -EINVAL;
+                                return dt;
 
                         r = parse_mode(mode, &c->directories[dt].mode);
                         if (r < 0)
@@ -2822,6 +2845,55 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                                 return r;
                                 }
                         }
+                } else if ((val = startswith(l, "exec-context-quota-accounting-directories-"))) {
+                        _cleanup_free_ char *type = NULL, *quota_accounting = NULL;
+                        ExecDirectoryType dt;
+
+                        r = split_pair(val, "=", &type, &quota_accounting);
+                        if (r < 0)
+                                return r;
+
+                        dt = exec_directory_type_from_string(type);
+                        if (dt < 0)
+                                return dt;
+
+                        r = parse_boolean(quota_accounting);
+                        if (r < 0)
+                                return r;
+                        c->directories[dt].exec_quota.quota_accounting = r;
+                } else if ((val = startswith(l, "exec-context-quota-directories-"))) {
+                        _cleanup_free_ char *type = NULL, *quota_absolute = NULL, *quota_scale = NULL, *quota_enforce = NULL;
+                        _cleanup_free_ const char *quota_info = NULL;
+                        ExecDirectoryType dt;
+
+                        r = extract_many_words(&val, "=", 0, &type, &quota_info);
+                        if (r < 0)
+                                return r;
+                        if (r != 2)
+                                return -EINVAL;
+
+                        r = extract_many_words(&quota_info, " ", 0, &quota_absolute, &quota_scale, &quota_enforce);
+                        if (r < 0)
+                                return r;
+                        if (r != 3)
+                                return -EINVAL;
+
+                        dt = exec_directory_type_from_string(type);
+                        if (dt < 0)
+                                return dt;
+
+                        r = safe_atou64(quota_absolute, &c->directories[dt].exec_quota.quota_absolute);
+                        if (r < 0)
+                               return r;
+
+                        r = safe_atou32(quota_scale, &c->directories[dt].exec_quota.quota_scale);
+                        if (r < 0)
+                               return r;
+
+                        r = parse_boolean(quota_enforce);
+                        if (r < 0)
+                                return r;
+                        c->directories[dt].exec_quota.quota_enforce = r;
                 } else if ((val = startswith(l, "exec-context-timeout-clean-usec="))) {
                         r = deserialize_usec(val, &c->timeout_clean_usec);
                         if (r < 0)
