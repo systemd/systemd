@@ -911,7 +911,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
         assert(ret);
 
         STRV_FOREACH(i, c->environment_files) {
-                _cleanup_globfree_ glob_t pglob = {};
+                _cleanup_strv_free_ char **paths = NULL;
                 bool ignore = false;
                 char *fn = *i;
 
@@ -927,7 +927,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 }
 
                 /* Filename supports globbing, take all matching files */
-                r = safe_glob(fn, 0, &pglob);
+                r = safe_glob(fn, /* flags = */0, &paths);
                 if (r < 0) {
                         if (ignore)
                                 continue;
@@ -935,9 +935,9 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 }
 
                 /* When we don't match anything, -ENOENT should be returned */
-                assert(pglob.gl_pathc > 0);
+                assert(!strv_isempty(paths));
 
-                FOREACH_ARRAY(path, pglob.gl_pathv, pglob.gl_pathc) {
+                STRV_FOREACH(path, paths) {
                         _cleanup_strv_free_ char **p = NULL;
 
                         r = load_env_file(NULL, *path, &p);
