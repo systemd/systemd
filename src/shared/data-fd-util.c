@@ -8,7 +8,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
 #include "tmpfile-util.h"
 
 /* When the data is smaller or equal to 64K, try to place the copy in a memfd */
@@ -149,13 +148,13 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
 
         assert(fd >= 0);
         assert(name);
-        assert(IN_SET(mode & O_ACCMODE_STRICT, O_RDONLY, O_RDWR));
+        assert(IN_SET(mode & O_ACCMODE, O_RDONLY, O_RDWR));
         assert((mode & ~(O_RDONLY|O_RDWR|O_CLOEXEC)) == 0);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        ro = (mode & O_ACCMODE_STRICT) == O_RDONLY;
+        ro = (mode & O_ACCMODE) == O_RDONLY;
         exec = st.st_mode & 0111;
 
         mfd = memfd_create_wrapper(name,
