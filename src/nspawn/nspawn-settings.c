@@ -136,7 +136,7 @@ Settings* settings_free(Settings *s) {
         strv_free(s->syscall_deny_list);
         rlimit_free_all(s->rlimit);
         free(s->hostname);
-        cpu_set_reset(&s->cpu_set);
+        cpu_set_done(&s->cpu_set);
         strv_free(s->bind_user);
 
         strv_free(s->network_interfaces);
@@ -815,25 +815,6 @@ int config_parse_oom_score_adjust(
         settings->oom_score_adjust_set = true;
 
         return 0;
-}
-
-int config_parse_cpu_affinity(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Settings *settings = ASSERT_PTR(data);
-
-        assert(rvalue);
-
-        return parse_cpu_set_extend(rvalue, &settings->cpu_set, true, unit, filename, line, lvalue);
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode);

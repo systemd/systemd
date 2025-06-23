@@ -55,7 +55,7 @@ Exec.LimitRTTIME,             config_parse_rlimit,         RLIMIT_RTTIME,       
 Exec.Hostname,                config_parse_hostname,       0,                        offsetof(Settings, hostname)
 Exec.NoNewPrivileges,         config_parse_tristate,       0,                        offsetof(Settings, no_new_privileges)
 Exec.OOMScoreAdjust,          config_parse_oom_score_adjust, 0,                      0
-Exec.CPUAffinity,             config_parse_cpu_affinity,   0,                        0
+Exec.CPUAffinity,             config_parse_cpu_set,        0,                        offsetof(Settings, cpu_set)
 Exec.ResolvConf,              config_parse_resolv_conf,    0,                        offsetof(Settings, resolv_conf)
 Exec.LinkJournal,             config_parse_link_journal,   0,                        0
 Exec.Timezone,                config_parse_timezone_mode,  0,                        offsetof(Settings, timezone)
