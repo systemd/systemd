@@ -117,15 +117,6 @@ build() {
 
     EXIT_STATUS=$?
 
-    # TODO: Remove when the opensuse spec cleans these up itself (https://build.opensuse.org/request/show/1251175).
-    rm -f \
-        systemd.lang \
-        debugfiles.list \
-        debuglinks.list \
-        debugsourcefiles.list \
-        debugsources.list \
-        elfbins.list
-
     # Make sure we don't reconfigure twice.
     MKOSI_MESON_OPTIONS="${MKOSI_MESON_OPTIONS//"--wipe"/}"
 
