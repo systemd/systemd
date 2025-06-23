@@ -95,6 +95,8 @@ static int add_secret(sd_json_variant **v, const char *password) {
         if (r < 0)
                 return log_error_errno(r, "Failed to update password field: %m");
 
+        sd_json_variant_sensitive(w);
+
         r = sd_json_variant_set_field(v, "secret", w);
         if (r < 0)
                 return log_error_errno(r, "Failed to update secret object: %m");
