@@ -50,6 +50,8 @@ int identity_add_token_pin(sd_json_variant **v, const char *pin) {
         if (r < 0)
                 return log_error_errno(r, "Failed to update PIN field: %m");
 
+        sd_json_variant_sensitive(w);
+
         r = sd_json_variant_set_field(v, "secret", w);
         if (r < 0)
                 return log_error_errno(r, "Failed to update secret object: %m");
