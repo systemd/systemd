@@ -73,6 +73,8 @@ fi
 # TODO: remove manual default-hierarchy patch when the upstream spec is updated
 sed "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" -e '/integration-tests\/README/d' -e '/default-hierarchy/ d' >/tmp/systemd.spec
 mount --bind /tmp/systemd.spec "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
+# TODO: drop once upstream spec is updated
+sed -e 's/import-pubring.gpg/import-pubring.pgp/g' -i "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/files.container"
 
 build() {
     IFS=
@@ -116,15 +118,6 @@ build() {
         "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
 
     EXIT_STATUS=$?
-
-    # TODO: Remove when the opensuse spec cleans these up itself (https://build.opensuse.org/request/show/1251175).
-    rm -f \
-        systemd.lang \
-        debugfiles.list \
-        debuglinks.list \
-        debugsourcefiles.list \
-        debugsources.list \
-        elfbins.list
 
     # Make sure we don't reconfigure twice.
     MKOSI_MESON_OPTIONS="${MKOSI_MESON_OPTIONS//"--wipe"/}"
