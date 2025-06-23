@@ -2941,7 +2941,7 @@ run_target(
 alias_target('update-dbus-docs', update_dbus_docs)
 alias_target('update-man-rules', update_man_rules)
 
-if not meson.is_cross_build()
+if not meson.is_cross_build() and conf.get('HAVE_GSHADOW_H') == 1
         custom_target(
                 'export-dbus-interfaces',
                 output : fs.name(dbus_interfaces_dir),
