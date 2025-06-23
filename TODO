@@ -120,6 +120,9 @@ Deprecations and removals:
 
 Features:
 
+* replace bootctl's PE version check to actually use APIs from pe-binary.[ch]
+  to find binary version.
+
 * replace symlink_label(), mknodat_label(), btrfs_subvol_make_label(),
   mkdir_label() and related calls by flags-based calls that use
   label_ops_pre()/label_ops_post().
