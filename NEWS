@@ -116,6 +116,12 @@ CHANGES WITH 258 in spe:
           kernels that lacked support for it, hence the prefix serves no
           purpose anymore.
 
+        * The default keyring for systemd-importd and related tools, shipped
+          in /usr/lib/systemd/, has been renamed from import-pubring.gpg to
+          import-pubring.pgp, as it is supported by other PGP tools as well as
+          GPG. The local keyring /etc/systemd/import-pubring.gpg is still parsed
+          if present, to preserve backward compatibility.
+
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
