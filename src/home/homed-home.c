@@ -1226,6 +1226,8 @@ static int home_start_work(
                 if (!sub)
                         return -ENOKEY;
 
+                sd_json_variant_sensitive(sub);
+
                 r = sd_json_variant_set_field(&v, "secret", sub);
                 if (r < 0)
                         return r;
