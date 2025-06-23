@@ -320,9 +320,10 @@ conf.set_quoted('USER_CONFIG_UNIT_DIR',                       pkgsysconfdir / 'u
 conf.set_quoted('USER_DATA_UNIT_DIR',                         userunitdir)
 conf.set_quoted('USER_ENV_GENERATOR_DIR',                     userenvgeneratordir)
 conf.set_quoted('USER_GENERATOR_DIR',                         usergeneratordir)
-conf.set_quoted('USER_KEYRING_PATH',                          pkgsysconfdir / 'import-pubring.gpg')
+conf.set_quoted('USER_KEYRING_PATH',                          pkgsysconfdir / 'import-pubring.pgp')
+conf.set_quoted('USER_KEYRING_PATH_LEGACY',                   pkgsysconfdir / 'import-pubring.gpg')
 conf.set_quoted('USER_PRESET_DIR',                            userpresetdir)
-conf.set_quoted('VENDOR_KEYRING_PATH',                        libexecdir / 'import-pubring.gpg')
+conf.set_quoted('VENDOR_KEYRING_PATH',                        libexecdir / 'import-pubring.pgp')
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
 conf.set10('ENABLE_URLIFY',                                   get_option('urlify'))
