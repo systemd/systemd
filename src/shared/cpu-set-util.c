@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "cpu-set-util.h"
 #include "extract-word.h"
 #include "hexdecoct.h"
@@ -12,75 +13,71 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-char* cpu_set_to_string(const CPUSet *a) {
-        _cleanup_free_ char *str = NULL;
-        size_t len = 0;
-        int i, r;
+/* As of kernel 5.1, CONFIG_NR_CPUS can be set to 8192 on PowerPC */
+#define CPU_SET_MAX_NCPU 8192
 
-        for (i = 0; (size_t) i < a->allocated * 8; i++) {
-                if (!CPU_ISSET_S(i, a->allocated, a->set))
+char* cpu_set_to_string(const CPUSet *c) {
+        _cleanup_free_ char *str = NULL;
+
+        assert(c);
+
+        for (size_t i = 0; i < c->allocated * 8; i++) {
+                if (!CPU_ISSET_S(i, c->allocated, c->set))
                         continue;
 
-                if (!GREEDY_REALLOC(str, len + 1 + DECIMAL_STR_MAX(int)))
+                if (strextendf_with_separator(&str, " ", "%zu", i) < 0)
                         return NULL;
-
-                r = sprintf(str + len, len > 0 ? " %d" : "%d", i);
-                assert_se(r > 0);
-                len += r;
         }
 
         return TAKE_PTR(str) ?: strdup("");
 }
 
-char* cpu_set_to_range_string(const CPUSet *set) {
-        unsigned range_start = 0, range_end;
-        _cleanup_free_ char *str = NULL;
-        bool in_range = false;
-        size_t len = 0;
-        int r;
+static int add_range(char **str, size_t start, size_t end) {
+        assert(str);
+        assert(start <= end);
 
-        for (unsigned i = 0; i < set->allocated * 8; i++)
-                if (CPU_ISSET_S(i, set->allocated, set->set)) {
+        if (start == end)
+                return strextendf_with_separator(str, " ", "%zu", start);
+
+        return strextendf_with_separator(str, " ", "%zu-%zu", start, end);
+}
+
+char* cpu_set_to_range_string(const CPUSet *c) {
+        _cleanup_free_ char *str = NULL;
+        size_t start = 0, end;
+        bool in_range = false;
+
+        assert(c);
+
+        for (size_t i = 0; i < c->allocated * 8; i++) {
+                if (CPU_ISSET_S(i, c->allocated, c->set)) {
                         if (in_range)
-                                range_end++;
+                                end++;
                         else {
-                                range_start = range_end = i;
+                                start = end = i;
                                 in_range = true;
                         }
-                } else if (in_range) {
-                        in_range = false;
-
-                        if (!GREEDY_REALLOC(str, len + 2 + 2 * DECIMAL_STR_MAX(unsigned)))
-                                return NULL;
-
-                        if (range_end > range_start)
-                                r = sprintf(str + len, len > 0 ? " %u-%u" : "%u-%u", range_start, range_end);
-                        else
-                                r = sprintf(str + len, len > 0 ? " %u" : "%u", range_start);
-                        assert_se(r > 0);
-                        len += r;
+                        continue;
                 }
 
-        if (in_range) {
-                if (!GREEDY_REALLOC(str, len + 2 + 2 * DECIMAL_STR_MAX(int)))
+                if (in_range && add_range(&str, start, end) < 0)
                         return NULL;
 
-                if (range_end > range_start)
-                        r = sprintf(str + len, len > 0 ? " %u-%u" : "%u-%u", range_start, range_end);
-                else
-                        r = sprintf(str + len, len > 0 ? " %u" : "%u", range_start);
-                assert_se(r > 0);
+                in_range = false;
         }
+
+        if (in_range && add_range(&str, start, end) < 0)
+                return NULL;
 
         return TAKE_PTR(str) ?: strdup("");
 }
 
-char* cpu_set_to_mask_string(const CPUSet *a) {
+char* cpu_set_to_mask_string(const CPUSet *c) {
         _cleanup_free_ char *str = NULL;
-        size_t len = 0;
         bool found_nonzero = false;
+        int r;
 
-        assert(a);
+        assert(c);
 
         /* Return CPU set in hexadecimal bitmap mask, e.g.
          *   CPU   0 ->  "1"
@@ -97,177 +94,233 @@ char* cpu_set_to_mask_string(const CPUSet *a) {
          *  CPU 0-63 -> "ffffffff,ffffffff"
          *  CPU 0-71 -> "ff,ffffffff,ffffffff" */
 
-        for (ssize_t i = a->allocated * 8; i >= 0; i -= 4) {
-                uint8_t m = 0;
+        for (size_t i = c->allocated * 8; i > 0; ) {
+                uint32_t m = 0;
 
-                for (size_t j = 0; j < 4; j++)
-                        if (CPU_ISSET_S(i + j, a->allocated, a->set))
-                                m |= 1U << j;
+                for (int j = (i % 32 ?: 32) - 1; j >= 0; j--)
+                        if (CPU_ISSET_S(--i, c->allocated, c->set))
+                                SET_BIT(m, j);
 
-                if (!found_nonzero)
-                        found_nonzero = m > 0;
+                if (!found_nonzero) {
+                        if (m == 0)
+                                continue;
 
-                if (!found_nonzero && m == 0)
-                        /* Skip leading zeros */
-                        continue;
-
-                if (!GREEDY_REALLOC(str, len + 3))
+                        r = strextendf_with_separator(&str, ",", "%" PRIx32, m);
+                } else
+                        r = strextendf_with_separator(&str, ",", "%08" PRIx32, m);
+                if (r < 0)
                         return NULL;
 
-                str[len++] = hexchar(m);
-                if (i >= 4 && i % 32 == 0)
-                        /* Separate by comma for each 32 CPUs. */
-                        str[len++] = ',';
-                str[len] = 0;
+                found_nonzero = true;
         }
 
         return TAKE_PTR(str) ?: strdup("0");
 }
 
-CPUSet* cpu_set_free(CPUSet *c) {
-        if (!c)
-                return c;
+void cpu_set_done(CPUSet *c) {
+        assert(c);
 
-        cpu_set_reset(c);
-        return mfree(c);
+        if (c->set)
+                CPU_FREE(c->set);
+
+        *c = (CPUSet) {};
 }
 
-int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus) {
-        size_t need;
+int cpu_set_realloc(CPUSet *c, size_t n) {
+        assert(c);
 
-        assert(cpu_set);
+        if (n > CPU_SET_MAX_NCPU)
+                return -ERANGE;
 
-        need = CPU_ALLOC_SIZE(ncpus);
-        if (need > cpu_set->allocated) {
-                cpu_set_t *t;
+        n = CPU_ALLOC_SIZE(n);
+        if (n <= c->allocated)
+                return 0;
 
-                t = realloc(cpu_set->set, need);
-                if (!t)
-                        return -ENOMEM;
+        if (!GREEDY_REALLOC0(c->set, DIV_ROUND_UP(n, sizeof(cpu_set_t))))
+                return -ENOMEM;
 
-                memzero((uint8_t*) t + cpu_set->allocated, need - cpu_set->allocated);
-
-                cpu_set->set = t;
-                cpu_set->allocated = need;
-        }
-
+        c->allocated = n;
         return 0;
 }
 
-int cpu_set_add(CPUSet *cpu_set, unsigned cpu) {
+int cpu_set_add(CPUSet *c, size_t i) {
         int r;
 
-        if (cpu >= 8192)
-                /* As of kernel 5.1, CONFIG_NR_CPUS can be set to 8192 on PowerPC */
+        assert(c);
+
+        /* cpu_set_realloc() has similar check, but for avoiding overflow. */
+        if (i >= CPU_SET_MAX_NCPU)
                 return -ERANGE;
 
-        r = cpu_set_realloc(cpu_set, cpu + 1);
+        r = cpu_set_realloc(c, i + 1);
         if (r < 0)
                 return r;
 
-        CPU_SET_S(cpu, cpu_set->allocated, cpu_set->set);
+        CPU_SET_S(i, c->allocated, c->set);
         return 0;
 }
 
-int cpu_set_add_all(CPUSet *a, const CPUSet *b) {
+int cpu_set_add_set(CPUSet *c, const CPUSet *src) {
         int r;
 
-        /* Do this backwards, so if we fail, we fail before changing anything. */
-        for (unsigned cpu_p1 = b->allocated * 8; cpu_p1 > 0; cpu_p1--)
-                if (CPU_ISSET_S(cpu_p1 - 1, b->allocated, b->set)) {
-                        r = cpu_set_add(a, cpu_p1 - 1);
-                        if (r < 0)
-                                return r;
-                }
+        assert(c);
+        assert(src);
+
+        r = cpu_set_realloc(c, src->allocated * 8);
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < src->allocated * 8; i++)
+                if (CPU_ISSET_S(i, src->allocated, src->set))
+                        CPU_SET_S(i, c->allocated, c->set);
 
         return 1;
 }
 
-int parse_cpu_set_full(
-                const char *rvalue,
-                CPUSet *cpu_set,
-                bool warn,
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *lvalue) {
+static int cpu_set_add_range(CPUSet *c, size_t start, size_t end) {
+        int r;
 
-        _cleanup_(cpu_set_reset) CPUSet c = {};
-        const char *p = ASSERT_PTR(rvalue);
+        assert(c);
+        assert(start <= end);
 
-        assert(cpu_set);
+        /* cpu_set_realloc() has similar check, but for avoiding overflow. */
+        if (end >= CPU_SET_MAX_NCPU)
+                return -ERANGE;
 
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                unsigned cpu_lower, cpu_upper;
-                int r;
+        r = cpu_set_realloc(c, end + 1);
+        if (r < 0)
+                return r;
 
-                r = extract_first_word(&p, &word, WHITESPACE ",", EXTRACT_UNQUOTE);
-                if (r == -ENOMEM)
-                        return warn ? log_oom() : -ENOMEM;
-                if (r < 0)
-                        return warn ? log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, rvalue) : r;
-                if (r == 0)
-                        break;
-
-                r = parse_range(word, &cpu_lower, &cpu_upper);
-                if (r < 0)
-                        return warn ? log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word) : r;
-
-                if (cpu_lower > cpu_upper) {
-                        if (warn)
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Range '%s' is invalid, %u > %u, ignoring.",
-                                           word, cpu_lower, cpu_upper);
-
-                        /* Make sure something is allocated, to distinguish this from the empty case */
-                        r = cpu_set_realloc(&c, 1);
-                        if (r < 0)
-                                return r;
-                }
-
-                for (unsigned cpu_p1 = MIN(cpu_upper, UINT_MAX-1) + 1; cpu_p1 > cpu_lower; cpu_p1--) {
-                        r = cpu_set_add(&c, cpu_p1 - 1);
-                        if (r < 0)
-                                return warn ? log_syntax(unit, LOG_ERR, filename, line, r,
-                                                         "Cannot add CPU %u to set: %m", cpu_p1 - 1) : r;
-                }
-        }
-
-        *cpu_set = TAKE_STRUCT(c);
+        for (size_t i = start; i <= end; i++)
+                CPU_SET_S(i, c->allocated, c->set);
 
         return 0;
 }
 
-int parse_cpu_set_extend(
-                const char *rvalue,
-                CPUSet *old,
-                bool warn,
+int cpu_set_add_all(CPUSet *c) {
+        assert(c);
+
+        long m = sysconf(_SC_NPROCESSORS_ONLN);
+        if (m < 0)
+                return -errno;
+        if (m == 0)
+                return -ENXIO;
+
+        return cpu_set_add_range(c, 0, m - 1);
+}
+
+int config_parse_cpu_set(
                 const char *unit,
                 const char *filename,
                 unsigned line,
-                const char *lvalue) {
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype, /* 0 when used as conf parser, 1 when used as usual parser */
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        _cleanup_(cpu_set_reset) CPUSet cpuset = {};
-        int r;
+        CPUSet *c = ASSERT_PTR(data);
+        int r, level = ltype ? LOG_DEBUG : LOG_DEBUG;
+        bool critical = ltype;
 
-        assert(old);
+        assert(critical || lvalue);
 
-        r = parse_cpu_set_full(rvalue, &cpuset, true, unit, filename, line, lvalue);
-        if (r < 0)
-                return r;
-
-        if (!cpuset.set) {
-                /* An empty assignment resets the CPU list */
-                cpu_set_reset(old);
-                return 0;
-        }
-
-        if (!old->set) {
-                *old = TAKE_STRUCT(cpuset);
+        if (isempty(rvalue)) {
+                cpu_set_done(c);
                 return 1;
         }
 
-        return cpu_set_add_all(old, &cpuset);
+        _cleanup_(cpu_set_done) CPUSet cpuset = {};
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, WHITESPACE ",", EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom_full(level);
+                if (r < 0) {
+                        if (critical)
+                                return log_debug_errno(r, "Failed to parse CPU set: %s", rvalue);
+
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s= setting, ignoring assignment: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                unsigned lower, upper;
+                r = parse_range(word, &lower, &upper);
+                if (r < 0) {
+                        if (critical)
+                                return log_debug_errno(r, "Failed to parse CPU range: %s", word);
+
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse CPU range, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                if (lower > upper) {
+                        if (critical)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid CPU range (%u > %u): %s",
+                                                       lower, upper, word);
+
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid CPU range (%u > %u), ignoring assignment: %s",
+                                   lower, upper, word);
+                        continue;
+                }
+
+                r = cpu_set_add_range(&cpuset, lower, upper);
+                if (r == -ENOMEM)
+                        return log_oom_full(level);
+                if (r < 0) {
+                        if (critical)
+                                return log_debug_errno(r, "Failed to set CPU(s) '%s': %m", word);
+
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to set CPU(s), ignoring assignment: %s", word);
+                }
+        }
+
+        if (!c->set) {
+                *c = TAKE_STRUCT(cpuset);
+                return 1;
+        }
+
+        r = cpu_set_add_set(c, &cpuset);
+        if (r == -ENOMEM)
+                return log_oom_full(level);
+        assert(r >= 0);
+
+        return 1;
+}
+
+int parse_cpu_set(const char *s, CPUSet *ret) {
+        _cleanup_(cpu_set_done) CPUSet c = {};
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        r = config_parse_cpu_set(
+                        /* unit = */ NULL,
+                        /* filename = */ NULL,
+                        /* line = */ 0,
+                        /* section = */ NULL,
+                        /* section_line = */ 0,
+                        /* lvalue = */ NULL,
+                        /* ltype = */ 1,
+                        /* rvalue = */ s,
+                        /* data = */ &c,
+                        /* userdata = */ NULL);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(c);
+        return 0;
 }
 
 int cpus_in_affinity_mask(void) {
@@ -304,58 +357,39 @@ int cpus_in_affinity_mask(void) {
         }
 }
 
-int cpu_set_to_dbus(const CPUSet *set, uint8_t **ret, size_t *allocated) {
-        uint8_t *out;
-
-        assert(set);
+int cpu_set_to_dbus(const CPUSet *c, uint8_t **ret, size_t *ret_size) {
+        assert(c);
         assert(ret);
+        assert(ret_size);
 
-        out = new0(uint8_t, set->allocated);
-        if (!out)
+        uint8_t *buf = new0(uint8_t, c->allocated);
+        if (!buf)
                 return -ENOMEM;
 
-        for (unsigned cpu = 0; cpu < set->allocated * 8; cpu++)
-                if (CPU_ISSET_S(cpu, set->allocated, set->set))
-                        out[cpu / 8] |= 1u << (cpu % 8);
+        for (size_t i = 0; i < c->allocated * 8; i++)
+                if (CPU_ISSET_S(i, c->allocated, c->set))
+                        SET_BIT(buf[i / 8], i % 8);
 
-        *ret = out;
-        *allocated = set->allocated;
+        *ret = buf;
+        *ret_size = c->allocated;
         return 0;
 }
 
-int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set) {
-        _cleanup_(cpu_set_reset) CPUSet s = {};
+int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret) {
+        _cleanup_(cpu_set_done) CPUSet c = {};
         int r;
 
-        assert(bits);
-        assert(set);
+        assert(bits || size == 0);
+        assert(ret);
 
-        for (unsigned cpu = size * 8; cpu > 0; cpu--)
-                if (bits[(cpu - 1) / 8] & (1u << ((cpu - 1) % 8))) {
-                        r = cpu_set_add(&s, cpu - 1);
-                        if (r < 0)
-                                return r;
-                }
+        r = cpu_set_realloc(&c, size * 8);
+        if (r < 0)
+                return r;
 
-        *set = TAKE_STRUCT(s);
-        return 0;
-}
+        for (size_t i = 0; i < size * 8; i++)
+                if (BIT_SET(bits[i / 8], i % 8))
+                        CPU_SET_S(i, c.allocated, c.set);
 
-int cpu_mask_add_all(CPUSet *mask) {
-        long m;
-        int r;
-
-        assert(mask);
-
-        m = sysconf(_SC_NPROCESSORS_ONLN);
-        if (m < 0)
-                return -errno;
-
-        for (unsigned i = 0; i < (unsigned) m; i++) {
-                r = cpu_set_add(mask, i);
-                if (r < 0)
-                        return r;
-        }
-
+        *ret = TAKE_STRUCT(c);
         return 0;
 }

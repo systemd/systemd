@@ -1240,10 +1240,7 @@ static int oci_cgroup_cpu_cpus(const char *name, sd_json_variant *v, sd_json_dis
         if (r < 0)
                 return json_log(v, flags, r, "Failed to parse CPU set specification: %s", n);
 
-        cpu_set_reset(&data->cpu_set);
-        data->cpu_set = set;
-
-        return 0;
+        return cpu_set_done_and_replace(data->cpu_set, set);
 }
 
 static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1270,12 +1267,11 @@ static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch
 
         r = oci_dispatch(v, table, flags, &data);
         if (r < 0) {
-                cpu_set_reset(&data.cpu_set);
+                cpu_set_done(&data.cpu_set);
                 return r;
         }
 
-        cpu_set_reset(&s->cpu_set);
-        s->cpu_set = data.cpu_set;
+        cpu_set_done_and_replace(s->cpu_set, data.cpu_set);
 
         if (data.weight != UINT64_MAX) {
                 r = settings_allocate_properties(s);

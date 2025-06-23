@@ -115,7 +115,7 @@ static int property_get_cpu_affinity(
                 sd_bus_error *error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_reset) CPUSet s = {};
+        _cleanup_(cpu_set_done) CPUSet s = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -2876,10 +2876,9 @@ int bus_exec_context_set_transient_property(
         }
 #endif
         if (STR_IN_SET(name, "CPUAffinity", "NUMAMask")) {
+                _cleanup_(cpu_set_done) CPUSet set = {};
                 const void *a;
                 size_t n;
-                bool affinity = streq(name, "CPUAffinity");
-                _cleanup_(cpu_set_reset) CPUSet set = {};
 
                 r = sd_bus_message_read_array(message, 'y', &a, &n);
                 if (r < 0)
@@ -2890,8 +2889,10 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        CPUSet *cpuset = streq(name, "CPUAffinity") ? &c->cpu_set : &c->numa_policy.nodes;
+
                         if (n == 0) {
-                                cpu_set_reset(affinity ? &c->cpu_set : &c->numa_policy.nodes);
+                                cpu_set_done(cpuset);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 _cleanup_free_ char *str = NULL;
@@ -2901,9 +2902,9 @@ int bus_exec_context_set_transient_property(
                                         return -ENOMEM;
 
                                 /* We forego any optimizations here, and always create the structure using
-                                 * cpu_set_add_all(), because we don't want to care if the existing size we
+                                 * cpu_set_add_set(), because we don't want to care if the existing size we
                                  * got over dbus is appropriate. */
-                                r = cpu_set_add_all(affinity ? &c->cpu_set : &c->numa_policy.nodes, &set);
+                                r = cpu_set_add_set(cpuset, &set);
                                 if (r < 0)
                                         return r;
 
