@@ -836,9 +836,9 @@ static int pe_load_headers_and_sections(
                 IMAGE_SECTION_HEADER **ret_sections,
                 PeHeader **ret_pe_header) {
 
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
-        IMAGE_SECTION_HEADER *sections;
-        PeHeader *pe_header;
+        _cleanup_free_ PeHeader *pe_header = NULL;
         int r;
 
         assert(fd >= 0);
