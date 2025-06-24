@@ -57,7 +57,7 @@ assert_le() {(
     fi
 )}
 
-assert_in() {(
+assert_regex_in() {(
     set +ex
 
     if ! [[ "${2?}" =~ ${1?} ]]; then
@@ -67,10 +67,32 @@ assert_in() {(
     fi
 )}
 
-assert_not_in() {(
+assert_regex_not_in() {(
     set +ex
 
     if [[ "${2?}" =~ ${1?} ]]; then
+        echo "FAIL: '$1' found in:" >&2
+        echo "$2" >&2
+        exit 1
+    fi
+)}
+
+assert_in() {(
+    set +ex
+
+    # Note: do not use [[ =~ ]] here as any text containing control characters will be mangled
+    if ! echo "${2?}" | grep -F -q "${1?}"; then
+        echo "FAIL: '$1' not found in:" >&2
+        echo "$2" >&2
+        exit 1
+    fi
+)}
+
+assert_not_in() {(
+    set +ex
+
+    # Note: do not use [[ =~ ]] here as any text containing control characters will be mangled
+    if echo "${2?}" | grep -F -q "${1?}"; then
         echo "FAIL: '$1' found in:" >&2
         echo "$2" >&2
         exit 1
