@@ -5272,7 +5272,7 @@ int exec_invoke(
                         return log_error_errno(r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
         }
 
-        r = exec_setup_credentials(context, params, params->unit_id, uid, gid);
+        r = exec_setup_credentials(context, cgroup_context, params, params->unit_id, uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_CREDENTIALS;
                 return log_error_errno(r, "Failed to set up credentials: %m");
