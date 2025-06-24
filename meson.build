@@ -1527,15 +1527,15 @@ conf.set_quoted('DEFAULT_DNS_OVER_TLS_MODE_STR', default_dns_over_tls)
 
 dns_over_https = get_option('dns-over-https')
 if dns_over_https != 'false'
-         have = true
-         if conf.get('HAVE_LIBCURL') == 0
-            message('DNS-over-HTTPS support depends on libcurl, but dependencies are not available')
-            have = false
-         endif
-         if conf.get('HAVE_OPENSSL') == 0
-            message('openssl required, but not available')
-            have = false
-         endif
+        have = true
+        if conf.get('HAVE_LIBCURL') == 0
+                message('DNS-over-HTTPS support depends on libcurl, but dependencies are not available')
+                have = false
+        endif
+        if conf.get('HAVE_OPENSSL') == 0
+                message('openssl required, but not available')
+                have = false
+        endif
 endif
 conf.set10('ENABLE_DNS_OVER_HTTPS', have)
 
