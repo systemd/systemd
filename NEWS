@@ -101,6 +101,13 @@ CHANGES WITH 258 in spe:
           IPv4DuplicateAddressDetectionTimeoutSec=. The default timeout value
           has been changed from 7 seconds to 200 milliseconds.
 
+        * systemd-networkd previously emitted the machine ID as chassis ID
+          through LLDP protocol, but now emits a deterministic ID,
+          cryptographically derived from the machine ID as chassis ID. If you
+          want to use the previous behavior, please set
+          SYSTEMD_LLDP_SEND_MACHINE_ID=1 environment variable to
+          systemd-networkd.
+
         * Support for the !! command line prefix on ExecStart= lines (and
           related) has been removed, and if specified will be ignored. The
           concept was supposed to provide compatibility with kernels that
@@ -108,6 +115,12 @@ CHANGES WITH 258 in spe:
           the kernel baseline of the systemd project is now far beyond any
           kernels that lacked support for it, hence the prefix serves no
           purpose anymore.
+
+        * The default keyring for systemd-importd and related tools, shipped
+          in /usr/lib/systemd/, has been renamed from import-pubring.gpg to
+          import-pubring.pgp, as it is supported by other PGP tools as well as
+          GPG. The local keyring /etc/systemd/import-pubring.gpg is still parsed
+          if present, to preserve backward compatibility.
 
         Announcements of Future Feature Removals:
 
@@ -397,6 +410,10 @@ CHANGES WITH 258 in spe:
         * A system-wide default for ClientIdentifier= may now be set in
           networkd.conf. (Previously this had to be configured individually in
           each .network file.)
+
+        * PersistLeases= setting in [DHCPServer] section now also accepts
+          "runtime", to make the DHCP server saves and loads bound leases on
+          the runtime storage.
 
         * A new Preference= setting has been added to the [IPv6RoutePrefix]
           section to configure the route preference field.

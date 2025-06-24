@@ -11,6 +11,7 @@
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
 #include "networkd-dns.h"
@@ -114,6 +115,7 @@ typedef struct Network {
         /* DHCP Client Support */
         AddressFamily dhcp;
         struct in_addr dhcp_request_address;
+        bool dhcp_use_bootp;
         DHCPClientIdentifier dhcp_client_identifier;
         DUID dhcp_duid;
         uint32_t dhcp_iaid;
@@ -227,7 +229,7 @@ typedef struct Network {
         char *dhcp_server_boot_filename;
         usec_t dhcp_server_ipv6_only_preferred_usec;
         bool dhcp_server_rapid_commit;
-        int dhcp_server_persist_leases;
+        DHCPServerPersistLeases dhcp_server_persist_leases;
 
         /* link-local addressing support */
         AddressFamily link_local;

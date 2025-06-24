@@ -8,7 +8,6 @@
 #include "alloc-util.h"
 #include "copy.h"
 #include "env-file.h"
-#include "env-file-label.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -153,7 +152,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
                 c->vc_cache = sd_bus_message_ref(m);
         }
 
-        fd = RET_NERRNO(open("/etc/vconsole.conf", O_CLOEXEC | O_PATH));
+        fd = RET_NERRNO(open(etc_vconsole_conf(), O_CLOEXEC | O_PATH));
         if (fd == -ENOENT) {
                 c->vc_stat = (struct stat) {};
                 vc_context_clear(&c->vc);
@@ -175,7 +174,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         x11_context_clear(&c->x11_from_vc);
 
         r = parse_env_file_fd(
-                        fd, "/etc/vconsole.conf",
+                        fd, etc_vconsole_conf(),
                         "KEYMAP",        &c->vc.keymap,
                         "KEYMAP_TOGGLE", &c->vc.toggle,
                         "XKBLAYOUT",     &c->x11_from_vc.layout,
@@ -299,7 +298,7 @@ int vconsole_write_data(Context *c) {
 
         xc = context_get_x11_context(c);
 
-        r = load_env_file(NULL, "/etc/vconsole.conf", &l);
+        r = load_env_file(NULL, etc_vconsole_conf(), &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -308,18 +307,18 @@ int vconsole_write_data(Context *c) {
                 return r;
 
         if (strv_isempty(l)) {
-                if (unlink("/etc/vconsole.conf") < 0)
+                if (unlink(etc_vconsole_conf()) < 0)
                         return errno == ENOENT ? 0 : -errno;
 
                 c->vc_stat = (struct stat) {};
                 return 0;
         }
 
-        r = write_vconsole_conf_label(l);
+        r = write_vconsole_conf(AT_FDCWD, "/etc/vconsole.conf", l);
         if (r < 0)
                 return r;
 
-        if (stat("/etc/vconsole.conf", &c->vc_stat) < 0)
+        if (stat(etc_vconsole_conf(), &c->vc_stat) < 0)
                 return -errno;
 
         return 0;

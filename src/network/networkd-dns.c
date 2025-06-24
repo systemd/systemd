@@ -200,7 +200,7 @@ int config_parse_domains(
                 }
 
                 OrderedSet **set = is_route ? &n->route_domains : &n->search_domains;
-                r = ordered_set_put_strdup(set, domain);
+                r = ordered_set_put_strdup_full(set, &dns_name_hash_ops_free, domain);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)

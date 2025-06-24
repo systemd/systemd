@@ -1256,6 +1256,8 @@ static int home_start_work(
                 if (!sub)
                         return -ENOKEY;
 
+                sd_json_variant_sensitive(sub);
+
                 r = sd_json_variant_set_field(&v, "secret", sub);
                 if (r < 0)
                         return r;
@@ -1300,7 +1302,16 @@ static int home_start_work(
         if (stdin_fd < 0)
                 return stdin_fd;
 
-        log_debug("Sending to worker: %s", formatted);
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = sd_json_variant_format(v, /* flags= */ SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                log_debug("Sending to worker: %s", censored_text);
+        }
 
         stdout_fd = memfd_new("homework-stdout");
         if (stdout_fd < 0)

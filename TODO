@@ -120,8 +120,20 @@ Deprecations and removals:
 
 Features:
 
-* Add PassPidFileDescriptor= similar in style to PassCredentials= to .socket
-  units
+* replace bootctl's PE version check to actually use APIs from pe-binary.[ch]
+  to find binary version.
+
+* replace symlink_label(), mknodat_label(), btrfs_subvol_make_label(),
+  mkdir_label() and related calls by flags-based calls that use
+  label_ops_pre()/label_ops_post().
+
+* maybe reconsider whether virtualization consoles (hvc1) are considered local
+  or remote. i.e. are they more like an ssh login, or more like a /dev/tty1
+  login? Lennart used to believe the former, but maybe the latter is more
+  appropriate? This has effect on polkit interactivity, since it would mean
+  questions via hvc0 would suddenly use the local polkit property. But this
+  also raises the question whether such sessions shall be considered active or
+  not
 
 * automatically reset specific EFI vars on factory reset (make this generic
   enough so that infrac can be used to erase shim's mok vars?)
@@ -504,7 +516,8 @@ Features:
 
 * port remaining getmntent() users over to libmount. There are subtle
   differences in the parsers (see #25371 for example), and it hence makes sense
-  if we stick to one set of parsers on this, not mix both.
+  if we stick to one set of parsers on this, not mix both. Specifically:
+  systemd-fstab-generator, cryptsetup, remount-fs.
 
 * get rid of compat with libidn.so.11 (retain only for libidn.so.12)
 

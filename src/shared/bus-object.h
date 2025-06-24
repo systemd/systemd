@@ -26,4 +26,4 @@ int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, voi
 int bus_introspect_implementations(
                 FILE *out,
                 const char *pattern,
-                const BusObjectImplementation* const* bus_objects);
+                const BusObjectImplementation* const *bus_objects);

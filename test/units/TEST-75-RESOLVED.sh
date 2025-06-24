@@ -1003,16 +1003,39 @@ testcase_12_resolvectl2() {
     {
         echo "[Resolve]"
         echo "DNS=8.8.8.8"
+        echo "DNSStubListenerExtra=127.0.0.153"
     } >/run/systemd/resolved.conf.d/reload.conf
     resolvectl dns dns0 1.1.1.1
     systemctl reload systemd-resolved.service
     resolvectl status
-    resolvectl dns dns0 | grep -qF "1.1.1.1"
-    # For some reason piping this last command to grep fails with:
-    # 'resolvectl[1378]: Failed to print table: Broken pipe'
-    # so use an intermediate file in /tmp/
-    resolvectl >/tmp/output
-    grep -qF "DNS Servers: 8.8.8.8" /tmp/output
+
+    run resolvectl dns dns0
+    grep -qF "1.1.1.1" "$RUN_OUT"
+
+    run resolvectl dns
+    grep -qF "8.8.8.8" "$RUN_OUT"
+
+    run ss -4nl
+    grep -qF '127.0.0.153' "$RUN_OUT"
+
+    {
+        echo "[Resolve]"
+        echo "DNS=8.8.4.4"
+        echo "DNSStubListenerExtra=127.0.0.154"
+    } >/run/systemd/resolved.conf.d/reload.conf
+    systemctl reload systemd-resolved.service
+    resolvectl status
+
+    run resolvectl dns dns0
+    grep -qF "1.1.1.1" "$RUN_OUT"
+
+    run resolvectl dns
+    (! grep -qF "8.8.8.8" "$RUN_OUT")
+    grep -qF "8.8.4.4" "$RUN_OUT"
+
+    run ss -4nl
+    (! grep -qF '127.0.0.153' "$RUN_OUT")
+    grep -qF '127.0.0.154' "$RUN_OUT"
 
     # Check if resolved exits cleanly.
     restart_resolved
@@ -1120,13 +1143,25 @@ testcase_14_refuse_record_types() {
     run dig localhost -t AAAA
     grep -qF "status: REFUSED" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
     run dig localhost -t SRV
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost @127.0.0.54 -t SRV
     grep -qF "status: REFUSED" "$RUN_OUT"
 
     run dig localhost -t TXT
     grep -qF "status: REFUSED" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t TXT
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
     run dig localhost -t A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    run dig localhost @127.0.0.54 -t A
     grep -qF "status: NOERROR" "$RUN_OUT"
 
     run resolvectl query localhost5
@@ -1157,10 +1192,19 @@ testcase_14_refuse_record_types() {
     run dig localhost -t SRV
     grep -qF "status: NOERROR" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t SRV
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
     run dig localhost -t TXT
     grep -qF "status: NOERROR" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t TXT
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
     run dig localhost -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost @127.0.0.54 -t AAAA
     grep -qF "status: REFUSED" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=SRV)

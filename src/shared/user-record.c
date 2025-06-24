@@ -1403,6 +1403,7 @@ static int dispatch_status(const char *name, sd_json_variant *variant, sd_json_d
                 { "fallbackHomeDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0              },
                 { "useFallback",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(UserRecord, use_fallback),                  0              },
                 { "defaultArea",                SD_JSON_VARIANT_STRING,        json_dispatch_filename,         offsetof(UserRecord, default_area),                  0              },
+                { "aliases",                    SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(UserRecord, aliases),                       SD_JSON_RELAX  },
                 {},
         };
 
@@ -1530,6 +1531,11 @@ int user_group_record_mangle(
 
         if (USER_RECORD_STRIP_MASK(load_flags) == _USER_RECORD_MASK_MAX) /* strip everything? */
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EINVAL), "Stripping everything from record, refusing.");
+
+        /* Extra safety: mark the "secret" part (that contains literal passwords and such) as sensitive, so
+         * that it is not included in debug output and erased from memory when we are done. We do this for
+         * any record that passes through here. */
+        sd_json_variant_sensitive(sd_json_variant_by_key(v, "secret"));
 
         /* Check if we have the special sections and if they match our flags set */
         FOREACH_ELEMENT(i, mask_field) {

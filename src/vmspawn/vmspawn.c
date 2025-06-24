@@ -915,7 +915,7 @@ static int shutdown_vm_graceful(sd_event_source *s, const struct signalfd_siginf
                 goto fallback;
         }
 
-        r = bus_call_method(bus, bus_login_mgr, "PowerOff", &error, /* reply= */ NULL, "b", false);
+        r = bus_call_method(bus, bus_login_mgr, "PowerOff", &error, /* ret_reply= */ NULL, "b", false);
         if (r >= 0) {
                 log_info("Requested powering off VM through D-Bus.");
                 return 0;
@@ -924,7 +924,7 @@ static int shutdown_vm_graceful(sd_event_source *s, const struct signalfd_siginf
         log_warning_errno(r, "Failed to shutdown VM via logind, ignoring: %s", bus_error_message(&error, r));
         sd_bus_error_free(&error);
 
-        r = bus_call_method(bus, bus_systemd_mgr, "PowerOff", &error, /* reply= */ NULL, /* types= */ NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "PowerOff", &error, /* ret_reply= */ NULL, /* types= */ NULL);
         if (r >= 0) {
                 log_info("Requested powering off VM through D-Bus.");
                 return 0;
@@ -1944,31 +1944,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        unsigned i = 0;
-        STRV_FOREACH(drive, arg_extra_drives) {
-                _cleanup_free_ char *escaped_drive = NULL;
-
-                r = strv_extend(&cmdline, "-blockdev");
-                if (r < 0)
-                        return log_oom();
-
-                escaped_drive = escape_qemu_value(*drive);
-                if (!escaped_drive)
-                        return log_oom();
-
-                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s,node-name=vmspawn_extra_%u", escaped_drive, i);
-                if (r < 0)
-                        return log_oom();
-
-                r = strv_extend(&cmdline, "-device");
-                if (r < 0)
-                        return log_oom();
-
-                r = strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra_%u", i++);
-                if (r < 0)
-                        return log_oom();
-        }
-
         if (kernel) {
                 r = strv_extend_many(&cmdline, "-kernel", kernel);
                 if (r < 0)
@@ -2032,6 +2007,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
+                        return log_oom();
+        }
+
+        size_t i = 0;
+        STRV_FOREACH(drive, arg_extra_drives) {
+                _cleanup_free_ char *escaped_drive = NULL;
+
+                r = strv_extend(&cmdline, "-blockdev");
+                if (r < 0)
+                        return log_oom();
+
+                escaped_drive = escape_qemu_value(*drive);
+                if (!escaped_drive)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s,node-name=vmspawn_extra_%zu", escaped_drive, i);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend(&cmdline, "-device");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra_%zu", i++);
+                if (r < 0)
                         return log_oom();
         }
 

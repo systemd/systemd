@@ -504,17 +504,22 @@ int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {
 
         r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(r, "SO_PASSCRED failed: %m");
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+
+        r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        if (r < 0)
+                log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
 
         if (mac_selinux_use()) {
                 r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_full_errno(ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r, "SO_PASSSEC failed, ignoring: %m");
+                        log_full_errno(ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to enable SO_PASSSEC, ignoring: %m");
         }
 
         r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
-                return log_error_errno(r, "SO_TIMESTAMP failed: %m");
+                return log_error_errno(r, "Failed to enable SO_TIMESTAMP: %m");
 
         r = sd_event_add_io(m->event, &m->syslog_event_source, m->syslog_fd, EPOLLIN, manager_process_datagram, m);
         if (r < 0)

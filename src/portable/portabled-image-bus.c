@@ -1156,11 +1156,7 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
         assert(path);
         assert(nodes);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = manager_image_cache_discover(m, images, error);
+        r = manager_image_cache_discover(m, &images, error);
         if (r < 0)
                 return r;
 

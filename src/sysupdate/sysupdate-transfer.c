@@ -1066,8 +1066,7 @@ static int run_callout(
                         SD_EVENT_PRIORITY_NORMAL - 5,
                         helper_on_notify,
                         ctx,
-                        &bind_name,
-                        /* ret_event_source= */ NULL);
+                        &bind_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
@@ -1131,7 +1130,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
 
-                if (!path_is_valid_full(formatted_pattern, /* accept_dot_dot = */ false))
+                if (!path_is_safe(formatted_pattern))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as file name, refusing: %s", formatted_pattern);
 
                 t->final_path = path_join(t->target.path, formatted_pattern);

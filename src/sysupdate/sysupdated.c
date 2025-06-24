@@ -1748,8 +1748,7 @@ static int manager_new(Manager **ret) {
                         SD_EVENT_PRIORITY_NORMAL,
                         manager_on_notify,
                         m,
-                        &m->notify_socket_path,
-                        /* ret_event_source= */ NULL);
+                        &m->notify_socket_path);
         if (r < 0)
                 return r;
 
@@ -1762,11 +1761,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
         Image *image;
         int r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(m->runtime_scope, (ImageClass) class, NULL, images);
+        r = image_discover(m->runtime_scope, (ImageClass) class, NULL, &images);
         if (r < 0)
                 return r;
 

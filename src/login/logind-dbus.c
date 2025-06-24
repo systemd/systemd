@@ -2054,17 +2054,17 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
         if (!manager->delayed_action || manager->action_job)
                 return 0;
 
-        if (manager_is_inhibited(manager,
-                                 manager->delayed_action->inhibit_what,
-                                 NULL,
-                                 MANAGER_IS_INHIBITED_CHECK_DELAY,
-                                 UID_INVALID,
-                                 &offending)) {
-                _cleanup_free_ char *comm = NULL, *u = NULL;
-
+        if (manager_is_inhibited(
+                            manager,
+                            manager->delayed_action->inhibit_what,
+                            /* since= */ NULL,
+                            MANAGER_IS_INHIBITED_CHECK_DELAY,
+                            UID_INVALID,
+                            &offending)) {
                 if (!timeout)
                         return 0;
 
+                _cleanup_free_ char *comm = NULL, *u = NULL;
                 (void) pidref_get_comm(&offending->pid, &comm);
                 u = uid_to_name(offending->uid);
 

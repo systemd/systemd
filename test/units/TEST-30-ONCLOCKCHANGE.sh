@@ -33,6 +33,34 @@ timedatectl set-time "$future_time"
 
 while test ! -f /tmp/clock-changed ; do sleep .5 ; done
 
+mkdir -p /etc/alternate-path
+rm -f /etc/alternate-path/localtime
+
+cat <<EOF >/run/systemd/system.conf
+[Manager]
+ManagerEnvironment=SYSTEMD_ETC_LOCALTIME=/etc/alternate-path/localtime
+EOF
+mkdir -p /run/systemd/system/systemd-timedated.service.d
+cat >/run/systemd/system/systemd-timedated.service.d/override.conf <<EOF
+[Service]
+Environment=SYSTEMD_ETC_LOCALTIME=/run/alternate-path/mylocaltime
+Environment=SYSTEMD_ETC_ADJTIME=/run/alternate-path/myadjtime
+EOF
+systemctl daemon-reload
+
+systemd-run --on-timezone-change touch /tmp/timezone-changed-alternate-path-1
+timedatectl set-timezone Europe/Berlin
+
+while test ! -f /tmp/timezone-changed-alternate-path-1 ; do sleep .5 ; done
+
+systemd-run --on-timezone-change touch /tmp/timezone-changed-alternate-path-2
+timedatectl set-timezone Europe/Kyiv
+
+while test ! -f /tmp/timezone-changed-alternate-path-2 ; do sleep .5 ; done
+
+rm /run/systemd/system.conf /run/systemd/system/systemd-timedated.service.d/override.conf
+systemctl daemon-reload
+
 systemd-analyze log-level info
 
 touch /testok
