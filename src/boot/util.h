@@ -225,7 +225,7 @@ static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
 
 void *find_configuration_table(const EFI_GUID *guid);
 
-char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
+char16_t *get_extra_dir(const char *suffix, const EFI_DEVICE_PATH *file_path);
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #  define be16toh(x) __builtin_bswap16(x)
