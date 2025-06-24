@@ -1,23 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if ENABLE_DNS_OVER_HTTPS
+#include <curl/curl.h>
+#endif
+
+#include "sd-event.h"
+#include "in-addr-util.h"
 
 #include "list.h"
 #include "resolved-def.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-server.h"
 #include "resolved-forward.h"
-
-#if ENABLE_DNS_OVER_HTTPS
-#include <curl/curl.h>
-#endif
-
-#if ENABLE_DNS_OVER_HTTPS
 #include "curl-util.h"
-#endif
 
-#include "sd-event.h"
-#include "in-addr-util.h"
 
 typedef enum DnsTransactionState {
         DNS_TRANSACTION_NULL,
