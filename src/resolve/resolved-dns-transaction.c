@@ -2084,8 +2084,7 @@ static int dns_transaction_curl_make_url(DnsTransaction *t, char **url) {
 
         r = base64mem_full(packet_to_send, t->sent->size, MAX_URL_LENGTH, &base64_string);
         if (r < 0) {
-                log_debug_errno(r, "Failed to encode DNS packet to base64");
-                return r;
+                return log_debug_errno(r, "Failed to encode DNS packet to base64");
         }
 
         /* Remove base64 trailing characters */
