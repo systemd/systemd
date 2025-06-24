@@ -7,6 +7,7 @@
 #include "cgroup-util.h"
 #include "core-forward.h"
 #include "cpu-set-util.h"
+#include "exec-directory-util.h"
 #include "exec-util.h"
 #include "list.h"
 #include "log-context.h"
@@ -126,21 +127,18 @@ typedef struct ExecRuntime {
         int ephemeral_storage_socket[2];
 } ExecRuntime;
 
-typedef enum ExecDirectoryType {
-        EXEC_DIRECTORY_RUNTIME,
-        EXEC_DIRECTORY_STATE,
-        EXEC_DIRECTORY_CACHE,
-        EXEC_DIRECTORY_LOGS,
-        EXEC_DIRECTORY_CONFIGURATION,
-        _EXEC_DIRECTORY_TYPE_MAX,
-        _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
-} ExecDirectoryType;
-
 static inline bool EXEC_DIRECTORY_TYPE_SHALL_CHOWN(ExecDirectoryType t) {
         /* Returns true for the ExecDirectoryTypes that we shall chown()ing for the user to. We do this for
          * all of them, except for configuration */
         return t >= 0 && t < _EXEC_DIRECTORY_TYPE_MAX && t != EXEC_DIRECTORY_CONFIGURATION;
 }
+
+typedef struct QuotaLimit {
+        uint64_t quota_absolute; /* absolute quota in bytes; if UINT64_MAX relative quota configured, see below */
+        uint32_t quota_scale;    /* relative quota to backend size, scaled to 0…UINT32_MAX */
+        bool quota_enforce;
+        bool quota_accounting;
+} QuotaLimit;
 
 typedef struct ExecDirectoryItem {
         char *path;
@@ -153,6 +151,7 @@ typedef struct ExecDirectory {
         mode_t mode;
         size_t n_items;
         ExecDirectoryItem *items;
+        QuotaLimit exec_quota;
 } ExecDirectory;
 
 typedef enum ExecCleanMask {
@@ -580,9 +579,6 @@ ExecPreserveMode exec_preserve_mode_from_string(const char *s) _pure_;
 
 const char* exec_keyring_mode_to_string(ExecKeyringMode i) _const_;
 ExecKeyringMode exec_keyring_mode_from_string(const char *s) _pure_;
-
-const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
-ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
 
 const char* exec_directory_type_symlink_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_directory_type_symlink_from_string(const char *s) _pure_;
