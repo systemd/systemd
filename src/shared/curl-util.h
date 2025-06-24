@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if ENABLE_DNF_OVER_HTTPS
+#if ENABLE_DNS_OVER_HTTPS
 
 #include <curl/curl.h>
 
