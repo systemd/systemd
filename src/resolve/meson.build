@@ -84,9 +84,9 @@ resolve_common_template = {
 }
 
 if conf.get('ENABLE_DNS_OVER_HTTPS') == 1
-   updated_dependencies_list = resolve_common_template['dependencies'] + [libcurl]
-   update_to_apply = {'dependencies': updated_dependencies_list}
-   resolve_common_template = resolve_common_template + update_to_apply
+        updated_dependencies_list = resolve_common_template['dependencies'] + [libcurl]
+        update_to_apply = {'dependencies': updated_dependencies_list}
+        resolve_common_template = resolve_common_template + update_to_apply
 endif
 
 resolve_test_template = test_template + resolve_common_template + {'objects' : ['systemd-resolved']}
