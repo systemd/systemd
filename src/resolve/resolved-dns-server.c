@@ -469,17 +469,23 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                 best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
                         DNS_SERVER_FEATURE_LEVEL_DO :
                         DNS_SERVER_FEATURE_LEVEL_TLS_DO;
-                /* TODO: Add HTTPS_PLAIN_DO too? */
+
 #if ENABLE_DNS_OVER_HTTPS
                 best = dns_server_get_dns_over_https_mode(s) == DNS_OVER_HTTPS_NO ?
                         DNS_SERVER_FEATURE_LEVEL_DO :
-                        DNS_SERVER_FEATURE_LEVEL_HTTPS_PLAIN;
+                        DNS_SERVER_FEATURE_LEVEL_HTTPS_DO;
 #endif
         }
         else
                 best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
                         DNS_SERVER_FEATURE_LEVEL_EDNS0 :
                         DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
+
+#if ENABLE_DNS_OVER_HTTPS                
+                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_HTTPS_NO ?
+                        DNS_SERVER_FEATURE_LEVEL_EDNS0 :
+                        DNS_SERVER_FEATURE_LEVEL_HTTPS_PLAIN;
+#endif
 
         /* Clamp the feature level the highest level we care about. The DNSSEC mode might have changed since the last
          * time, hence let's downgrade if we are still at a higher level. */
@@ -1296,6 +1302,7 @@ static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVE
         [DNS_SERVER_FEATURE_LEVEL_HTTPS_PLAIN] = "HTTPS+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_DO]          = "UDP+EDNS0+DO",
         [DNS_SERVER_FEATURE_LEVEL_TLS_DO]      = "TLS+EDNS0+DO",
+        [DNS_SERVER_FEATURE_LEVEL_HTTPS_DO]    = "HTTPS+EDNS0+DO",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
 
