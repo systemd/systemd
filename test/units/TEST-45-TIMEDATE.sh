@@ -62,7 +62,7 @@ testcase_timezone() {
     if [[ -f /etc/timezone ]]; then
         assert_eq "$(cat /etc/timezone)" "Europe/Kyiv"
     fi
-    assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
+    assert_regex_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
     if [[ -n "$ORIG_TZ" ]]; then
         echo 'reset timezone to original'
@@ -428,11 +428,11 @@ EOF
 
     assert_eq "$(timedatectl --no-pager set-timezone Europe/Kyiv 2>&1)" ""
     assert_eq "$(readlink /run/alternate-path/mylocaltime | sed 's#^.*zoneinfo/##')" "Europe/Kyiv"
-    assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
+    assert_regex_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
     # Restart to force using get_timezine
     systemctl restart systemd-timedated
-    assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
+    assert_regex_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
     assert_in "RTC in local TZ: no" "$(timedatectl --no-pager)"
     assert_rc 0 timedatectl set-local-rtc 1
