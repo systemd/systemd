@@ -5,6 +5,7 @@
 #endif
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "audit-util.h"
