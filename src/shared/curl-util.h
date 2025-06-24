@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if ENABLE_DNF_OVER_HTTPS
+
 #include <curl/curl.h>
 
 #include "shared-forward.h"
@@ -35,3 +37,5 @@ int curl_parse_http_time(const char *t, usec_t *ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURLM*, curl_multi_cleanup, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
+
+#endif
