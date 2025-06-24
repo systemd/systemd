@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <unistd.h>
 
 #if HAVE_PAM
 #include <security/pam_appl.h>

@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-daemon.h"

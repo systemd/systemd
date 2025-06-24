@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <unistd.h>
+
 #include "sd-event.h"
 
 #include "build-path.h"

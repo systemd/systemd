@@ -3,6 +3,7 @@
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "errno-util.h"
 #include "fd-util.h"

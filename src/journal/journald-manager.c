@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 #include <sys/signalfd.h>
 #include <sys/statvfs.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-journal.h"

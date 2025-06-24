@@ -2,6 +2,7 @@
 
 #include <poll.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "sd-varlink.h"
 

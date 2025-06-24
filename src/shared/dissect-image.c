@@ -4,6 +4,7 @@
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #if HAVE_OPENSSL
 #include <openssl/err.h>

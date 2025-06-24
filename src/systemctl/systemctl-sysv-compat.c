@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "env-util.h"
 #include "fd-util.h"

@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "capability-util.h"

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <unistd.h>
+
 #include "env-util.h"
 #include "parse-util.h"
 #include "process-util.h"

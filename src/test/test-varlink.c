@@ -4,6 +4,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "sd-event.h"
 #include "sd-json.h"

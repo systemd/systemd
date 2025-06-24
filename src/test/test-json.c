@@ -3,6 +3,7 @@
 #include <float.h>
 #include <sys/socket.h>
 #include <sys/sysmacros.h>
+#include <unistd.h>
 
 #include "sd-json.h"
 

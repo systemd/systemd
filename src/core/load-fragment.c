@@ -5,6 +5,7 @@
 
 #include <fcntl.h>
 #include <sched.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-messages.h"

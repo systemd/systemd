@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <unistd.h>
 
 #include "sd-event.h"
 
