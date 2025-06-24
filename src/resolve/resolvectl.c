@@ -482,10 +482,12 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
                         return r;
 
         } else if (arg_raw == RAW_PAYLOAD) {
-                void *data;
+                const void *data;
                 ssize_t k;
 
                 k = dns_resource_record_payload(rr, &data);
+                if (k == -EINVAL)
+                        return log_error_errno(k, "Dumping of binary payload not available for RRs of this type: %s", dns_type_to_string(rr->key->type));
                 if (k < 0)
                         return log_error_errno(k, "Cannot dump RR: %m");
                 fwrite(data, 1, k, stdout);

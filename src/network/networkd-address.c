@@ -316,6 +316,27 @@ bool link_check_addresses_ready(Link *link, NetworkConfigSource source) {
                 has = true;
         }
 
+        if (has || source != NETWORK_CONFIG_SOURCE_DHCP6)
+                return has;
+
+        /* If there is no DHCPv6 addresses, but all conflicting addresses are successfully configured, then
+         * let's handle the DHCPv6 client successfully configured addresses. Otherwise, if the conflicted
+         * addresses are static or foreign, and there is no other dynamic addressing protocol enabled, then
+         * the link will never enter the configured state. See also link_check_ready(). */
+        SET_FOREACH(a, link->addresses) {
+                if (source >= 0 && a->source == NETWORK_CONFIG_SOURCE_DHCP6)
+                        continue;
+                if (!a->also_requested_by_dhcp6)
+                        continue;
+                if (address_is_marked(a))
+                        continue;
+                if (!address_exists(a))
+                        continue;
+                if (!address_is_ready(a))
+                        return false;
+                has = true;
+        }
+
         return has;
 }
 
@@ -1940,6 +1961,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 nft_set_context_clear(&address->nft_set_context);
                 (void) nft_set_context_dup(&a->nft_set_context, &address->nft_set_context);
                 address->requested_as_null = a->requested_as_null;
+                address->also_requested_by_dhcp6 = a->also_requested_by_dhcp6;
                 address->callback = a->callback;
 
                 ipv6_token_ref(a->token);

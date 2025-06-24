@@ -252,38 +252,72 @@ static int64_t get_auto_mode(void) {
         return CONSOLE_MODE_80_25;
 }
 
+static int next_mode(int64_t mode, int64_t direction) {
+        assert(IN_SET(direction, 1, -1));
+        assert(ST->ConOut->Mode->MaxMode > 0);
+
+        /* Always start at the beginning if we are out of range or reached the last mode already */
+        if (direction > 0) {
+                if (mode < CONSOLE_MODE_RANGE_MIN || mode >= ST->ConOut->Mode->MaxMode-1)
+                        return CONSOLE_MODE_RANGE_MIN;
+        } else if (direction < 0) {
+                if (mode <= CONSOLE_MODE_RANGE_MIN || mode > ST->ConOut->Mode->MaxMode-1)
+                        return ST->ConOut->Mode->MaxMode-1;
+        } else
+                assert_not_reached();
+
+        return mode + direction;
+}
+
 EFI_STATUS console_set_mode(int64_t mode) {
+        EFI_STATUS r;
+
+        /* If there are no modes defined, fail immediately */
+        if (ST->ConOut->Mode->MaxMode <= 0)
+                return mode == CONSOLE_MODE_KEEP ? EFI_SUCCESS : EFI_UNSUPPORTED;
+
+        int64_t target, direction = 1;
         switch (mode) {
         case CONSOLE_MODE_KEEP:
                 /* If the firmware indicates the current mode is invalid, change it anyway. */
-                if (ST->ConOut->Mode->Mode < CONSOLE_MODE_RANGE_MIN)
-                        return change_mode(CONSOLE_MODE_RANGE_MIN);
-                return EFI_SUCCESS;
+                if (ST->ConOut->Mode->Mode >= CONSOLE_MODE_RANGE_MIN &&
+                    ST->ConOut->Mode->Mode < ST->ConOut->Mode->MaxMode)
+                        return EFI_SUCCESS;
+
+                target = CONSOLE_MODE_RANGE_MIN;
+                break;
 
         case CONSOLE_MODE_NEXT:
-                if (ST->ConOut->Mode->MaxMode <= CONSOLE_MODE_RANGE_MIN)
-                        return EFI_UNSUPPORTED;
-
-                mode = MAX(CONSOLE_MODE_RANGE_MIN, ST->ConOut->Mode->Mode);
-                do {
-                        mode = (mode + 1) % ST->ConOut->Mode->MaxMode;
-                        if (change_mode(mode) == EFI_SUCCESS)
-                                break;
-                        /* If this mode is broken/unsupported, try the next.
-                         * If mode is 0, we wrapped around and should stop. */
-                } while (mode > CONSOLE_MODE_RANGE_MIN);
-
-                return EFI_SUCCESS;
+                target = next_mode(ST->ConOut->Mode->Mode, direction);
+                break;
 
         case CONSOLE_MODE_AUTO:
-                return change_mode(get_auto_mode());
+                target = get_auto_mode();
+                break;
 
         case CONSOLE_MODE_FIRMWARE_MAX:
                 /* Note: MaxMode is the number of modes, not the last mode. */
-                return change_mode(ST->ConOut->Mode->MaxMode - 1LL);
+                target = ST->ConOut->Mode->MaxMode - 1;
+                direction = -1; /* search backwards for a working mode */
+                break;
+
+        case CONSOLE_MODE_RANGE_MIN...CONSOLE_MODE_RANGE_MAX:
+                target = mode;
+                break;
 
         default:
-                return change_mode(mode);
+                assert_not_reached();
+        }
+
+        for (int64_t attempt = 0;; attempt++) {
+                r = change_mode(target);
+                if (r == EFI_SUCCESS)
+                        return EFI_SUCCESS;
+                if (attempt >= ST->ConOut->Mode->MaxMode-1) /* give up, once we tried them all */
+                        return r;
+
+                /* If this mode is broken/unsupported, try the next. */
+                target = next_mode(target, direction);
         }
 }
 

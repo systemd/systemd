@@ -1027,7 +1027,7 @@
       <varlistentry>
         <term><varname>MinSourcePort=</varname></term>
         <listitem>
-          <para>Specifies the lowest value of the UDP tunnel source UDP port (in range 1…65535).
+          <para>Specifies the lowest value of the UDP tunnel source port (in range 1…65535).
           Defaults to unset.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/>

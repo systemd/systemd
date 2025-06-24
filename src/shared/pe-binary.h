@@ -152,6 +152,7 @@ bool pe_is_uki(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections);
 bool pe_is_addon(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections);
 
 bool pe_is_native(const PeHeader *pe_header);
+int pe_is_native_fd(int fd);
 
 int pe_hash(int fd, const EVP_MD *md, void **ret_hash, size_t *ret_hash_size);
 
