@@ -8,6 +8,7 @@
 #include <sys/ioctl.h>
 #include <sys/random.h>
 #include <threads.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
