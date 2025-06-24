@@ -3,6 +3,7 @@
 #include <grp.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "clean-ipc.h"
 #include "dynamic-user.h"
