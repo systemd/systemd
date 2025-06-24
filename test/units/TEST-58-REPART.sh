@@ -678,7 +678,7 @@ EOF
 
     assert_in "$imgs/21817.img1 : start=        2048, size=      102400, type=${root_guid}," "$output"
     # Accept both unpadded (pre-v2.38 util-linux) and padded (v2.38+ util-linux) sizes
-    assert_in "$imgs/21817.img2 : start=      104448, size=      (100319| 98304)," "$output"
+    assert_regex_in "$imgs/21817.img2 : start=      104448, size=      (100319| 98304)," "$output"
 }
 
 testcase_issue_24553() {
