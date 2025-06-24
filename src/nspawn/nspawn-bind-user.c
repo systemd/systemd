@@ -86,6 +86,23 @@ static int check_etc_group_collisions(
         }
 }
 
+static int check_shell_presence(const char *directory, const char *shell) {
+        int r;
+
+        assert(directory);
+
+        if (!shell)
+                return 0; /* no user shell specified */
+
+        r = chase(shell, directory, CHASE_PREFIX_ROOT, NULL, NULL);
+        if (r == -ENOENT)
+                return 0; /* shell binary isn't present in container, don't include shell in user record */
+        else if (r < 0)
+                return log_error_errno(r, "Failed to open user shell (%s) of container: %m", shell);
+        else
+                return 1; /* shell binary is present in container, include shell in user record */
+}
+
 static int convert_user(
                 const char *directory,
                 UserRecord *u,
@@ -98,6 +115,7 @@ static int convert_user(
         _cleanup_(user_record_unrefp) UserRecord *converted_user = NULL;
         _cleanup_free_ char *h = NULL;
         sd_json_variant *p, *hp = NULL, *ssh = NULL;
+        bool sh = false;
         int r;
 
         assert(u);
@@ -117,6 +135,12 @@ static int convert_user(
         if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
                                        "Sorry, the group '%s' already exists in the container.", g->group_name);
+
+        r = check_shell_presence(directory, u->shell);
+        if (r < 0)
+                return r;
+        else
+                sh = r;
 
         h = path_join("/run/host/home/", u->user_name);
         if (!h)
@@ -138,6 +162,7 @@ static int convert_user(
                                         SD_JSON_BUILD_PAIR_CONDITION(u->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(u->disposition))),
                                         SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(h)),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
+                                        SD_JSON_BUILD_PAIR_CONDITION(sh, "shell", SD_JSON_BUILD_STRING(u->shell)),
                                         SD_JSON_BUILD_PAIR("privileged", SD_JSON_BUILD_OBJECT(
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "hashedPassword", SD_JSON_BUILD_VARIANT(hp)),
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!!ssh, "sshAuthorizedKeys", SD_JSON_BUILD_VARIANT(ssh))))));
