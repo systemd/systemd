@@ -38,4 +38,4 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURLM*, curl_multi_cleanup, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
 
-#endif
+#endif /* ENABLE_DNS_OVER_HTTPS */
