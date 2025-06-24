@@ -1335,7 +1335,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 case DNS_SERVER_FEATURE_LEVEL_TLS_DO:
                                         t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
                                         break;
-                                case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 1:
+                                case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 2:
                                         /* Skip plain TLS when TLS is not supported */
                                         t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
                                         break;
