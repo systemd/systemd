@@ -2615,6 +2615,10 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if ((partition_designator_is_verity(p->type.designator) || p->verity == VERITY_DATA) && p->read_only < 0)
                 p->read_only = true;
 
+        /* Default to disable auto mounting of partitions labeled "_empty" */
+        if (gpt_partition_type_knows_no_auto(p->type) && streq_ptr(p->new_label, "_empty") && p->no_auto < 0)
+                p->no_auto = true;
+
         /* Default to "growfs" on, unless read-only */
         if (gpt_partition_type_knows_growfs(p->type) &&
             p->read_only <= 0)

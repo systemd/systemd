@@ -782,7 +782,8 @@
         precedence in most tools reading these flags, and since growing the file system involves writing to
         the partition it is consequently ignored.</para>
 
-        <para><varname>NoAuto=</varname> defaults to off. <varname>ReadOnly=</varname> defaults to on for
+        <para><varname>NoAuto=</varname> defaults to off, unless <literal>Label=_empty</literal> is specified,
+        in which case it will default to on. <varname>ReadOnly=</varname> defaults to on for
         Verity partition types, and off for all others. <varname>GrowFileSystem=</varname> defaults to on for
         all partition types that support it, except if the partition is marked read-only (and thus
         effectively, defaults to off for Verity partitions).</para>
