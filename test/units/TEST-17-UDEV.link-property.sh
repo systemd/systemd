@@ -49,7 +49,7 @@ udevadm control --reload
 udevadm trigger --settle --action add /sys/class/net/test1
 output=$(udevadm info --query property /sys/class/net/test1)
 assert_in "HOGE=foo" "$output"
-assert_in "HOGE2=foo2" "$output"
+assert_regex_in "HOGE2=foo2" "$output"
 assert_not_in "BAR=" "$output"
 assert_in "BAR2=baz2" "$output"
 assert_not_in "SHOULD_BE_UNSET=" "$output"
@@ -72,7 +72,7 @@ assert_in "ID_NET_NAME=test1" "$output"
 ### testing with udevadm test-builtin
 output=$(udevadm test-builtin --action add net_setup_link /sys/class/net/test1)
 assert_not_in "HOGE=" "$output"
-assert_in "HOGE2=foo2" "$output"
+assert_regex_in "HOGE2=foo2" "$output"
 assert_not_in "BAR=" "$output"
 assert_in "BAR2=baz2" "$output"
 assert_in "SHOULD_BE_UNSET=" "$output"  # this is expected, as an empty assignment is also logged.
@@ -114,7 +114,7 @@ assert_in "ID_NET_NAME=test1" "$output"
 ### testing with udevadm test
 output=$(udevadm test --action add /sys/class/net/test1)
 assert_not_in "HOGE=" "$output"
-assert_in "HOGE2=foo2" "$output"
+assert_regex_in "HOGE2=foo2" "$output"
 assert_not_in "BAR=" "$output"
 assert_in "BAR2=baz2" "$output"
 assert_not_in "SHOULD_BE_UNSET=" "$output"

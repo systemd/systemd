@@ -75,7 +75,7 @@ if systemctl is-active systemd-oomd.service; then
 fi
 
 # Check if the oomd.conf drop-in config is loaded.
-assert_in 'Default Memory Pressure Duration: 2s' "$(oomctl)"
+assert_regex_in 'Default Memory Pressure Duration: 2s' "$(oomctl)"
 
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     # If we're running with sanitizers, sd-executor might pull in quite a significant chunk of shared
