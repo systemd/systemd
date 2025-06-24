@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "errno-util.h"
 #include "fd-util.h"
