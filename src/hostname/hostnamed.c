@@ -1590,7 +1590,7 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_error *error) {
