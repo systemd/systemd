@@ -2,6 +2,7 @@
 
 #include <grp.h>
 #include <pwd.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
