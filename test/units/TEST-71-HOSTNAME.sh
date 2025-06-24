@@ -31,7 +31,7 @@ testcase_hostname() {
     if [[ -n "$orig" ]]; then
         assert_in "Static hostname: $orig" "$(hostnamectl)"
     fi
-    assert_in "Kernel: $(uname -s) $(uname -r)" "$(hostnamectl)"
+    assert_in "Kernel: $(uname -s) $(uname -r | sed 's/\+/\\+/g')" "$(hostnamectl)"
 
     # change hostname
     assert_rc 0 hostnamectl set-hostname testhost
