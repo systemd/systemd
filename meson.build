@@ -576,14 +576,6 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
-        ['struct sched_attr', '''#include <sched.h>'''],        # since glibc-2.41
-]
-        # We get -1 if the size cannot be determined
-        have = cc.sizeof(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE') > 0
-        conf.set10('HAVE_' + ident[0].underscorify().to_upper(), have)
-endforeach
-
-foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
