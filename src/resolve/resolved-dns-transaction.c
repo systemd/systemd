@@ -2091,11 +2091,8 @@ static int dns_transaction_curl_make_url(DnsTransaction *t, char **url) {
         delete_trailing_chars(base64_string, "=");
 
         /* Build the DoH's wire format request URL */
-        r = asprintf(url, "https://%s/dns-query?dns=%s", t->server->server_string, base64_string);
-        if (r < 0) {
-                log_debug("Failed to allocate and set the url for transaction %" PRIu16 ".", t->id);
-                return r;
-        }
+        if (asprintf(url, "https://%s/dns-query?dns=%s", t->server->server_string, base64_string) < 0)
+                return log_oom_debug();
 
         return 0;
 }
