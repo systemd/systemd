@@ -116,7 +116,7 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 const sd_bus_vtable bus_job_vtable[] = {

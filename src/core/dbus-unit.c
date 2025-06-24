@@ -1389,7 +1389,7 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int property_get_ip_counter(
@@ -1793,7 +1793,7 @@ int bus_unit_send_pending_freezer_message(Unit *u, bool canceled) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_message_send(reply);
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued message, ignoring: %m");
 
@@ -1998,7 +1998,7 @@ int bus_unit_queue_job(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int bus_unit_set_live_property(
