@@ -53,10 +53,18 @@ check_sd() {
     fi
 
     [[ $fail -eq 0 ]]
+
+    systemctl status upgrade_timer_test.{service,timer}
+    systemctl show -P TimersCalendar upgrade_timer_test.timer |grep -q next_elapse
+    [[ -n $(systemctl show -P NextElapseUSecRealtime upgrade_timer_test.timer) ]]
 }
 
 # Copy the unit in /run so systemd finds it after the downgrade
 cp /usr/lib/systemd/tests/testdata/units/TEST-88-UPGRADE.service /run/systemd/system
+
+now=$(date +%s)
+after_2h=$((now + 3600 * 2))
+systemd-run --on-calendar=@$after_2h -u upgrade_timer_test date
 
 dnf downgrade -y --allowerasing --disablerepo '*' "$pkgdir"/distro/*.rpm
 
