@@ -82,6 +82,12 @@ timeout 5 curl -LSfs \
      --header "Range: entries=:-20:10" \
      http://localhost:19531/entries?follow >"$LOG_FILE"
 jq -se "length == 10" "$LOG_FILE"
+# Test positive skip beyond the last entry
+curl -LSfs \
+     --header "Accept: application/json" \
+     --header "Range: entries=$TEST_CURSOR:1:1" \
+     http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" >"$LOG_FILE"
+jq -se "length == 0" "$LOG_FILE"
 # Check if the specified cursor refers to an existing entry and return just that entry
 curl -LSfs \
      --header "Accept: application/json" \
