@@ -186,6 +186,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return EXIT_SUCCESS;
         }
 
+        /* We always process the consoles passed by credentials, even if systemd.getty_auto=0. */
+        r = add_credential_gettys();
+        if (r < 0)
+                return r;
+
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
@@ -205,10 +210,6 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 log_debug("Disabled, exiting.");
                 return 0;
         }
-
-        r = add_credential_gettys();
-        if (r < 0)
-                return r;
 
         if (detect_container() > 0)
                 /* Add console shell and look at $container_ttys, but don't do add any
