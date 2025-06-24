@@ -1105,6 +1105,41 @@ else
     echo "have no tpm2"
 fi
 
+# check systemd-analyze unit-shell with a namespaced unit
+echo "Checking systemd-analyze unit-shell with PrivateTmp"
+UNIT_NAME="test-unit-shell.service"
+UNIT_FILE="/run/systemd/system/$UNIT_NAME"
+cat >"$UNIT_FILE" <<EOF
+[UNIT]
+Description=Test unit for systemd-analyze unit-shell
+[SERVICE]
+Type=notify
+NotifyAccess=all
+ExecStart=/bin/sh -c "echo 'Hello from test unit' > /tmp/testfile; sleep infinity"
+PrivateTmp=disconnected
+EOF
+# Start the service
+systemctl start "$UNIT_NAME"
+# Wait for the service to be active
+if ! systemctl is-active --quiet "$UNIT_NAME"; then
+    echo "Unit $UNIT_NAME failed to become active"
+    exit 1
+fi
+# Verify the service is active and has a MainPID
+MAIN_PID=$(systemctl show -p MainPID --value "$UNIT_NAME")
+[ "$MAIN_PID" -gt 0 ] || { echo "Failed to get MainPID for $UNIT_NAME"; exit 1; }
+# Test systemd-analyze unit-shell with a command (cat /tmp/testfile)
+OUTPUT=$(systemd-analyze unit-shell "$UNIT_NAME" "cat" "/tmp/testfile")
+assert_in "Hello from test unit" "$OUTPUT"
+# check for file presence
+OUTPUT=$(systemd-analyze unit-shell "$UNIT_NAME" "ls" "/tmp")
+assert_in "testfile" "$OUTPUT"
+# check if shell falls back
+TMPFILE=$(mktemp)
+systemd-analyze unit-shell "$UNIT_NAME" "sh" "-c" "cat /tmp/testfile > \"$TMPFILE""
+assert_in "Hello from test unit" "$(cat \"$TMPFILE\")"
+rm -f "$TMPFILE"
+
 systemd-analyze log-level info
 
 touch /testok
