@@ -15,10 +15,13 @@ systemd-run \
         -p DelegateNamespaces=mnt \
         -p PrivateBPF=yes \
         -p BPFDelegateCommands=BPFProgLoad \
+        -u test-bpf-token \
         --wait \
         /usr/lib/systemd/tests/unit-tests/manual/test-bpf-token
 ret=$?
 
 if [ $ret -ne 77 ] && [ $ret -ne 0 ]; then
+        systemctl status test-bpf-token.service
+        journalctl -u test-bpf-token.service
         exit 1
 fi
