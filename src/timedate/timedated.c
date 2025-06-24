@@ -1064,7 +1064,7 @@ static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static const sd_bus_vtable timedate_vtable[] = {

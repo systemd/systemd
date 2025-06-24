@@ -887,7 +887,7 @@ static int target_method_list_finish(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1281,7 +1281,7 @@ static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1320,7 +1320,7 @@ static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int target_method_describe_feature(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1910,7 +1910,7 @@ static int method_list_targets(sd_bus_message *msg, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_list_jobs(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1943,7 +1943,7 @@ static int method_list_jobs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1979,7 +1979,7 @@ static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static const sd_bus_vtable manager_vtable[] = {

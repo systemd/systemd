@@ -1231,7 +1231,7 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1368,7 +1368,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int property_get_progress(

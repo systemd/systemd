@@ -242,7 +242,7 @@ static int method_list_homes(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_user_record_by_name(
@@ -864,7 +864,7 @@ static int method_list_signing_keys(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        return sd_bus_send(/* bus= */ NULL, reply, /* ret_cookie= */ NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_signing_key(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -910,7 +910,7 @@ static int method_get_signing_key(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_send(/* bus= */ NULL, reply, /* ret_cookie= */ NULL);
+        return sd_bus_message_send(reply);
 }
 
 static bool valid_public_key_name(const char *fn) {

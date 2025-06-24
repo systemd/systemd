@@ -55,7 +55,7 @@ static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -85,7 +85,7 @@ static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_link_by_index(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -115,7 +115,7 @@ static int method_get_link_by_index(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int call_link_method(Manager *m, sd_bus_message *message, sd_bus_message_handler_t handler, sd_bus_error *error) {
@@ -254,7 +254,7 @@ static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int property_get_namespace_id(

@@ -295,7 +295,7 @@ int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void 
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 #if __SIZEOF_SIZE_T__ == 8

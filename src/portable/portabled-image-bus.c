@@ -250,7 +250,7 @@ int bus_image_common_get_metadata(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int bus_image_method_get_metadata(sd_bus_message *message, void *userdata, sd_bus_error *error) {

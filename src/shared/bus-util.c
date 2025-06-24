@@ -815,7 +815,7 @@ int bus_reply_pair_array(sd_bus_message *m, char * const *l) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
