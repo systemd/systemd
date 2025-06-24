@@ -203,4 +203,4 @@ const char* dns_transaction_source_to_string(DnsTransactionSource p) _const_;
 DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
 
 /* Maximum URL length for HTTP GET request, see RFC ... */
-#define MAX_URL_LENGTH 2048
+#define MAX_URL_LENGTH U2048
