@@ -34,6 +34,7 @@ hwdb_files_test = files(
         '70-mouse.hwdb',
         '70-pda.hwdb',
         '70-pointingstick.hwdb',
+        '70-software-radio.hwdb',
         '70-sound-card.hwdb',
         '70-touchpad.hwdb',
         '80-ieee1394-unit-function.hwdb')
@@ -45,17 +46,20 @@ if conf.get('ENABLE_HWDB') == 1
                 command : make_autosuspend_rules_py,
                 capture : true,
                 install : true,
-                install_dir: udevhwdbdir)
+                install_dir: udevhwdbdir,
+                install_tag: 'hwdb')
 
         install_data(hwdb_files_notest,
                      hwdb_files_test,
-                     install_dir : udevhwdbdir)
+                     install_dir : udevhwdbdir,
+                     install_tag: 'hwdb')
 
         if install_sysconfdir
-                install_emptydir(sysconfdir / 'udev/hwdb.d')
+                install_emptydir(sysconfdir / 'udev/hwdb.d', install_tag : 'hwdb')
 
                 meson.add_install_script(sh, '-c',
-                                         'test -n "$DESTDIR" || @0@/systemd-hwdb update'.format(bindir))
+                                         'test -n "$DESTDIR" || @0@/systemd-hwdb update'.format(bindir),
+                                         install_tag: 'hwdb')
         endif
 
         if want_tests != 'false'

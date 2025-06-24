@@ -219,6 +219,13 @@ evdev:name:ELAN1401:00 04F3:30DC Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnZenBook
  EVDEV_ABS_35=:::8
  EVDEV_ABS_36=:::8
 
+# ASUS X1504ZA
+evdev:name:ASUP1301:00 093A:2009 Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.*:pvr1.0*:
+ EVDEV_ABS_00=:::8
+ EVDEV_ABS_01=:::8
+ EVDEV_ABS_35=:::8
+ EVDEV_ABS_36=:::8
+
 #########################################
 # Avita
 #########################################
