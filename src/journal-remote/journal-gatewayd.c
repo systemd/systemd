@@ -182,9 +182,22 @@ static ssize_t request_reader_entries(
 
                 if (m->n_skip < 0)
                         r = sd_journal_previous_skip(m->journal, (uint64_t) -m->n_skip + 1);
-                else if (m->n_skip > 0)
+                else if (m->n_skip > 0) {
                         r = sd_journal_next_skip(m->journal, (uint64_t) m->n_skip + 1);
-                else
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to skip journal entries: %m");
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
+                        }
+                        /* We skipped beyond the end, make sure entries
+                         * between the cursor and n_skip offset from it
+                         * are not returned. */
+                        if (r < m->n_skip + 1) {
+                                m->n_skip -= r;
+                                if (m->follow)
+                                        return 0;
+                                return MHD_CONTENT_READER_END_OF_STREAM;
+                        }
+                } else
                         r = sd_journal_next(m->journal);
 
                 if (r < 0) {
