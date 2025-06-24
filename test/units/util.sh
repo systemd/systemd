@@ -60,7 +60,7 @@ assert_le() {(
 assert_in() {(
     set +ex
 
-    if ! [[ "${2?}" =~ ${1?} ]]; then
+    if ! echo "${2?}" | grep -q "${1?}"; then
         echo "FAIL: '$1' not found in:" >&2
         echo "$2" >&2
         exit 1
@@ -70,7 +70,7 @@ assert_in() {(
 assert_not_in() {(
     set +ex
 
-    if [[ "${2?}" =~ ${1?} ]]; then
+    if echo "${2?}" | grep -q "${1?}"; then
         echo "FAIL: '$1' found in:" >&2
         echo "$2" >&2
         exit 1
