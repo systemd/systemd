@@ -6,6 +6,7 @@
 
 #include <sys/signalfd.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"

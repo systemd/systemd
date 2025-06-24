@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sysexits.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
 
