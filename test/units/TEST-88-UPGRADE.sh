@@ -28,7 +28,7 @@ if [[ $($unitscmd --output json | jq length) -gt 0 ]]; then
 fi
 
 check_sd() {
-    local unit fail=0
+    local unit fail=0 timer1_new timer2_new
     for unit in $($unitscmd --output json | jq -r '.[].unit'); do
         if ! grep -sxqF "$unit" /tmp/failed-units; then
             fail=1
@@ -52,11 +52,30 @@ check_sd() {
         fail=1
     fi
 
+    systemctl status upgrade_timer_test.{service,timer}
+    timer1_new=$(systemctl show -P TimersCalendar upgrade_timer_test.timer)
+    timer2_new=$(systemctl show -P NextElapseUSecRealtime upgrade_timer_test.timer)
+
+    if [[ $timer1 != "$timer1_new" ]]; then
+        echo "Timer changed unexpectedly: '$timer1' != '$timer1_new'"
+        fail=1
+    fi
+    if [[ $timer2 != "$timer2_new" ]]; then
+        echo "Timer changed unexpectedly: '$timer2' != '$timer2_new'"
+        fail=1
+    fi
+
     [[ $fail -eq 0 ]]
 }
 
 # Copy the unit in /run so systemd finds it after the downgrade
 cp /usr/lib/systemd/tests/testdata/units/TEST-88-UPGRADE.service /run/systemd/system
+
+now=$(date +%s)
+after_2h=$((now + 3600 * 2))
+systemd-run --on-calendar=@$after_2h -u upgrade_timer_test date
+timer1=$(systemctl show -P TimersCalendar upgrade_timer_test.timer)
+timer2=$(systemctl show -P NextElapseUSecRealtime upgrade_timer_test.timer)
 
 dnf downgrade -y --allowerasing --disablerepo '*' "$pkgdir"/distro/*.rpm
 
