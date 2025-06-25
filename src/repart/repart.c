@@ -105,6 +105,15 @@
  * filesystems will then also be compatible with sector sizes 512, 1024 and 2048. */
 #define DEFAULT_FILESYSTEM_SECTOR_SIZE 4096ULL
 
+/* Minimum sizes for the ESP depending on sector size. What the minimum is, is severely underdocumented, but
+ * it appears for 4K sector size it must be 260M, and otherwise 100M. This is what Microsoft says here:
+ *
+ * https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/configure-uefigpt-based-hard-drive-partitions?view=windows-11
+ * https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/oem-deployment-of-windows-desktop-editions-sample-scripts?view=windows-11&preserve-view=true#-createpartitions-uefitxt
+ */
+#define ESP_MIN_SIZE (100 * U64_MB)
+#define ESP_MIN_SIZE_4K (260 * U64_MB)
+
 #define APIVFS_TMP_DIRS_NULSTR "proc\0sys\0dev\0tmp\0run\0var/tmp\0"
 
 #define AUTOMATIC_FSTAB_HEADER_START "# Start section ↓ of automatically generated fstab by systemd-repart"
@@ -409,6 +418,7 @@ typedef struct Partition {
         uint64_t verity_hash_block_size;
         char *compression;
         char *compression_level;
+        uint64_t fs_sector_size;
 
         int add_validatefs;
         CopyFiles *copy_files;
@@ -461,7 +471,7 @@ typedef struct Context {
         uint64_t start, end, total;
 
         struct fdisk_context *fdisk_context;
-        uint64_t sector_size, grain_size, fs_sector_size;
+        uint64_t sector_size, grain_size, default_fs_sector_size;
 
         sd_id128_t seed;
 
@@ -609,6 +619,7 @@ static Partition *partition_new(void) {
                 .add_validatefs = -1,
                 .last_percent = UINT_MAX,
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
+                .fs_sector_size = UINT64_MAX,
         };
 
         return p;
@@ -724,6 +735,7 @@ static void partition_foreignize(Partition *p) {
         p->growfs = -1;
         p->verity = VERITY_OFF;
         p->add_validatefs = false;
+        p->fs_sector_size = UINT64_MAX;
 
         partition_mountpoint_free_many(p->mountpoints, p->n_mountpoints);
         p->mountpoints = NULL;
@@ -909,6 +921,38 @@ static bool context_drop_or_foreignize_one_priority(Context *context) {
         return true;
 }
 
+static uint64_t partition_fs_sector_size(const Context *c, const Partition *p) {
+        assert(c);
+        assert(p);
+
+        uint64_t ss;
+
+        if (p->fs_sector_size != UINT64_MAX)
+                /* Prefer explicitly configured value */
+                ss = p->fs_sector_size;
+        else
+                /* Otherwise follow the default sector size */
+                ss = c->default_fs_sector_size;
+
+        /* never allow the fs sector size to be picked smaller than the physical sector size */
+        return MAX(ss, c->sector_size);
+}
+
+static uint64_t partition_fstype_min_size(const Context *c, const Partition *p) {
+        assert(c);
+        assert(p);
+
+        /* If a file system type is configured, then take it into consideration for the minimum partition
+         * size */
+
+        if (IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) && streq_ptr(p->format, "vfat")) {
+                uint64_t ss = partition_fs_sector_size(c, p);
+                return ss >= 4096 ? ESP_MIN_SIZE_4K : ESP_MIN_SIZE;
+        }
+
+        return minimal_size_by_fs_name(p->format);
+}
+
 static uint64_t partition_min_size(const Context *context, const Partition *p) {
         uint64_t sz, override_min;
 
@@ -944,8 +988,8 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
                         uint64_t f;
 
                         /* If we shall synthesize a file system, take minimal fs size into account (assumed to be 4K if not known) */
-                        f = p->format ? round_up_size(minimal_size_by_fs_name(p->format), context->grain_size) : UINT64_MAX;
-                        d += f == UINT64_MAX ? context->grain_size : f;
+                        f = partition_fstype_min_size(context, p);
+                        d += f == UINT64_MAX ? context->grain_size : round_up_size(f, context->grain_size);
                 }
 
                 if (d > sz)
@@ -1731,6 +1775,41 @@ static int config_parse_block_size(
         return 0;
 }
 
+static int config_parse_fs_sector_size(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint64_t *fssecsz = ASSERT_PTR(data), parsed;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *fssecsz = UINT64_MAX;
+                return 0;
+        }
+
+        r = parse_size(rvalue, 1024, &parsed);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "Failed to parse size value: %s", rvalue);
+
+        if (!ISPOWEROF2(parsed))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Value not a power of 2: %s", rvalue);
+
+        *fssecsz = parsed;
+        return 0;
+}
+
 static int config_parse_fstype(
                 const char *unit,
                 const char *filename,
@@ -2483,6 +2562,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
                 { "Partition", "AddValidateFS",            config_parse_tristate,          0,                                  &p->add_validatefs          },
+                { "Partition", "FileSystemSectorSize",     config_parse_fs_sector_size,    0,                                  &p->fs_sector_size          },
                 {}
         };
         _cleanup_free_ char *filename = NULL;
@@ -3179,7 +3259,6 @@ static int context_load_partition_table(Context *context) {
         bool from_scratch = false;
         sd_id128_t disk_uuid;
         size_t n_partitions;
-        unsigned long secsz;
         uint64_t grainsz, fs_secsz = DEFAULT_FILESYSTEM_SECTOR_SIZE;
         int r;
 
@@ -3256,7 +3335,7 @@ static int context_load_partition_table(Context *context) {
                 if (S_ISREG(st.st_mode) && st.st_size == 0) {
                         /* Use the fallback values if we have no better idea */
                         context->sector_size = fdisk_get_sector_size(c);
-                        context->fs_sector_size = fs_secsz;
+                        context->default_fs_sector_size = fs_secsz;
                         context->grain_size = 4096;
                         return /* from_scratch = */ true;
                 }
@@ -3280,7 +3359,7 @@ static int context_load_partition_table(Context *context) {
          * it for all our needs. Note that the values we use ourselves always are in bytes though, thus mean
          * the same thing universally. Also note that regardless what kind of sector size is in use we'll
          * place partitions at multiples of 4K. */
-        secsz = fdisk_get_sector_size(c);
+        unsigned long secsz = fdisk_get_sector_size(c);
 
         /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
         if (secsz < 512 || !ISPOWEROF2(secsz))
@@ -3288,9 +3367,9 @@ static int context_load_partition_table(Context *context) {
 
         /* Use at least 4K, and ensure it's a multiple of the sector size, regardless if that is smaller or
          * larger */
-        grainsz = secsz < 4096 ? 4096 : secsz;
+        grainsz = MAX(secsz, 4096U);
 
-        log_debug("Sector size of device is %lu bytes. Using filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
+        log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
         switch (arg_empty) {
 
@@ -3539,7 +3618,7 @@ add_initial_free_area:
         context->end = last_lba;
         context->total = nsectors;
         context->sector_size = secsz;
-        context->fs_sector_size = fs_secsz;
+        context->default_fs_sector_size = fs_secsz;
         context->grain_size = grainsz;
         context->fdisk_context = TAKE_PTR(c);
 
@@ -4597,7 +4676,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         const char *node = partition_target_path(target);
         struct crypt_params_luks2 luks_params = {
                 .label = strempty(ASSERT_PTR(p)->new_label),
-                .sector_size = ASSERT_PTR(context)->fs_sector_size,
+                .sector_size = partition_fs_sector_size(context, p),
                 .data_device = offline ? node : NULL,
         };
         struct crypt_params_reencrypt reencrypt_params = {
@@ -6347,10 +6426,17 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, partition_mkfs_flags(p),
-                                    context->fs_sector_size, p->compression, p->compression_level,
-                                    extra_mkfs_options);
+                r = make_filesystem(
+                                partition_target_path(t),
+                                p->format,
+                                strempty(p->new_label),
+                                root,
+                                p->fs_uuid,
+                                partition_mkfs_flags(p),
+                                partition_fs_sector_size(context, p),
+                                p->compression,
+                                p->compression_level,
+                                extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -7925,10 +8011,10 @@ static int context_update_verity_size(Context *context) {
                 assert_se(dp = p->siblings[VERITY_DATA]);
 
                 if (p->verity_data_block_size == UINT64_MAX)
-                        p->verity_data_block_size = context->fs_sector_size;
+                        p->verity_data_block_size = partition_fs_sector_size(context, p);
 
                 if (p->verity_hash_block_size == UINT64_MAX)
-                        p->verity_hash_block_size = context->fs_sector_size;
+                        p->verity_hash_block_size = partition_fs_sector_size(context, p);
 
                 uint64_t sz;
                 if (dp->size_max != UINT64_MAX) {
@@ -8061,16 +8147,17 @@ static int context_minimize(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(d ? d->node : temp,
-                                    p->format,
-                                    strempty(p->new_label),
-                                    root,
-                                    fs_uuid,
-                                    partition_mkfs_flags(p),
-                                    context->fs_sector_size,
-                                    p->compression,
-                                    p->compression_level,
-                                    extra_mkfs_options);
+                r = make_filesystem(
+                                d ? d->node : temp,
+                                p->format,
+                                strempty(p->new_label),
+                                root,
+                                fs_uuid,
+                                partition_mkfs_flags(p),
+                                partition_fs_sector_size(context, p),
+                                p->compression,
+                                p->compression_level,
+                                extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -8152,16 +8239,17 @@ static int context_minimize(Context *context) {
                                 return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
                 }
 
-                r = make_filesystem(d ? d->node : temp,
-                                    p->format,
-                                    strempty(p->new_label),
-                                    root,
-                                    p->fs_uuid,
-                                    partition_mkfs_flags(p),
-                                    context->fs_sector_size,
-                                    p->compression,
-                                    p->compression_level,
-                                    extra_mkfs_options);
+                r = make_filesystem(
+                                d ? d->node : temp,
+                                p->format,
+                                strempty(p->new_label),
+                                root,
+                                p->fs_uuid,
+                                partition_mkfs_flags(p),
+                                partition_fs_sector_size(context, p),
+                                p->compression,
+                                p->compression_level,
+                                extra_mkfs_options);
                 if (r < 0)
                         return r;
 
