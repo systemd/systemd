@@ -25,8 +25,9 @@
     <cmdsynopsis>
       <command>systemd-socket-activate</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain"><replaceable>daemon</replaceable></arg>
-      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain"><replaceable>COMMAND</replaceable>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+      </arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
