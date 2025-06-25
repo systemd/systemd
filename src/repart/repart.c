@@ -1743,7 +1743,7 @@ static int config_parse_fstype(
                 void *data,
                 void *userdata) {
 
-        char **fstype = ASSERT_PTR(data);
+        Partition *p = ASSERT_PTR(data);
         const char *e;
 
         assert(rvalue);
@@ -1756,11 +1756,16 @@ static int config_parse_fstype(
                 rvalue = e;
         }
 
+        if (streq(rvalue, "empty")) {
+                p->no_auto = true;
+                return free_and_strdup_warn(&p->new_label, "_empty");
+        }
+
         if (!filename_is_valid(rvalue))
                 return log_syntax(unit, LOG_ERR, filename, line, 0,
                                   "File system type is not valid, refusing: %s", rvalue);
 
-        return free_and_strdup_warn(fstype, rvalue);
+        return free_and_strdup_warn(&p->format, rvalue);
 }
 
 static int config_parse_copy_files(
@@ -2458,7 +2463,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "PaddingMaxBytes",          config_parse_size4096,          1,                                  &p->padding_max             },
                 { "Partition", "FactoryReset",             config_parse_bool,              0,                                  &p->factory_reset           },
                 { "Partition", "CopyBlocks",               config_parse_copy_blocks,       0,                                  p                           },
-                { "Partition", "Format",                   config_parse_fstype,            0,                                  &p->format                  },
+                { "Partition", "Format",                   config_parse_fstype,            0,                                  p                           },
                 { "Partition", "CopyFiles",                config_parse_copy_files,        0,                                  p                           },
                 { "Partition", "ExcludeFiles",             config_parse_exclude_files,     0,                                  &p->exclude_files_source    },
                 { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files,     0,                                  &p->exclude_files_target    },
