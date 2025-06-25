@@ -21,21 +21,20 @@
  * are hexa and others are octal; duplicated as-is from the kernel definitions):
  * - alpha, arm, arm64, m68k, mips, parisc, powerpc, sparc: each has a specific value;
  * - others: they use the "generic" value (defined in include/uapi/asm-generic/fcntl.h) */
-#if O_LARGEFILE != 0
-#define RAW_O_LARGEFILE O_LARGEFILE
-#else
+#if O_LARGEFILE == 0
+#undef O_LARGEFILE
 #if defined(__alpha__) || defined(__arm__) || defined(__aarch64__) || defined(__m68k__)
-#define RAW_O_LARGEFILE 0400000
+#define O_LARGEFILE 0400000
 #elif defined(__mips__)
-#define RAW_O_LARGEFILE 0x2000
+#define O_LARGEFILE 0x2000
 #elif defined(__parisc__) || defined(__hppa__)
-#define RAW_O_LARGEFILE 000004000
+#define O_LARGEFILE 000004000
 #elif defined(__powerpc__)
-#define RAW_O_LARGEFILE 0200000
+#define O_LARGEFILE 0200000
 #elif defined(__sparc__)
-#define RAW_O_LARGEFILE 0x40000
+#define O_LARGEFILE 0x40000
 #else
-#define RAW_O_LARGEFILE 00100000
+#define O_LARGEFILE 00100000
 #endif
 #endif
 

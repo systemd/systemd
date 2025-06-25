@@ -968,8 +968,8 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
          *             immediately after open(). It should have no effect whatsoever to an already-opened FD,
          *             and since we refuse O_PATH it should be safe.
          *
-         * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
-         *                  See comment in src/basic/include/fcntl.h for more details about this.
+         * O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
+         *              See comment in src/basic/include/fcntl.h for more details about this.
          *
          * If 'extra_flags' is specified as non-zero the included flags are also allowed.
          */
@@ -980,7 +980,7 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
         if (flags < 0)
                 return -errno;
 
-        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
+        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|O_LARGEFILE|extra_flags);
         if (unexpected_flags != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
                                        "Unexpected flags set for extrinsic fd: 0%o",
