@@ -2516,6 +2516,31 @@ RestrictNamespaces=~cgroup net</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PrivateBPF=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If set, mount a private instance of the BPF filesystem.
+        Otherwise, if <varname>ProtectKernelTunables=</varname> is also set, the instance from the host
+        is mounted read-only. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFDelegateCommands=</varname></term>
+
+        <listitem><para>Accepts a list of BPF commands to delegate or <literal>any</literal> to allow everything,
+        which is the default if not specified.
+        The accepted values are:
+        <xi:include href="bpf-delegate-commands.xml" xpointer="v258"/>
+        Requires <varname>PrivateBPF=</varname> enabled to be effective.
+        This will set the <constant>delegate_cmds</constant> bpffs mount option.
+        A more detailed explanation of the feature can be found in this
+        <ulink url="https://lwn.net/Articles/947173/">LWN post</ulink></para>.
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LockPersonality=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, locks down the <citerefentry
