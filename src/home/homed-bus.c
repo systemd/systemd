@@ -1,10 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+#include "sd-json.h"
+
+#include "alloc-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "home-util.h"
 #include "homed-bus.h"
 #include "stat-util.h"
-#include "strv.h"
+#include "user-record.h"
 
 int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *error) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *full = NULL;

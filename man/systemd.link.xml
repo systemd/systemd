@@ -33,6 +33,11 @@
     <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
     general description of the syntax.</para>
 
+    <para>Note that some distributions may incorporate <filename>.link</filename> files in their early boot
+    facilities (e.g. by including copies of the <filename>.link</filename> files in initramfs). As such it
+    may be necessary to take manual steps to ensure that any local changes are consistent with early-boot
+    storage facilities. The relevant distribution-specific documentation should be consulted.</para>
+
     <para>The <filename>.link</filename> files are read from the files located in the system network
     directory <filename>/usr/lib/systemd/network</filename> and
     <filename>/usr/local/lib/systemd/network</filename>
@@ -391,7 +396,8 @@
 
           <para>This setting is useful to configure the <literal>ID_NET_MANAGED_BY=</literal> property which
           declares which network management service shall manage the interface, which is respected by
-          <command>systemd-networkd</command> and others. Use
+          <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and others. Use
           <programlisting>Property=ID_NET_MANAGED_BY=io.systemd.Network</programlisting>
           to declare explicitly that <command>systemd-networkd</command> shall manage the interface, or set
           the property to something else to declare explicitly it shall not do so. See
@@ -1269,11 +1275,18 @@
 
   <refsect1 id='sr-iov'>
     <title>[SR-IOV] Section Options</title>
-    <para>The [SR-IOV] section accepts the following keys. Specify several [SR-IOV] sections to
-    configure several SR-IOVs. SR-IOV provides the ability to partition a single physical PCI resource
-    into virtual PCI functions which can then be injected into a VM. In the case of network VFs, SR-IOV
-    improves north-south network performance (that is, traffic with endpoints outside the host machine)
-    by allowing traffic to bypass the host machine’s network stack.</para>
+    <para>SR-IOV provides the ability to partition a single physical PCI resource into virtual PCI
+    functions which can then be e.g. injected into a VM. In the case of network VFs, SR-IOV reduces
+    latency and CPU utilisation for north-south network traffic (that is, traffic with endpoints
+    outside the host machine), by allowing traffic to bypass the host machine’s network stack.
+    </para>
+
+    <para>The presence of an [SR-IOV] section in a .link file will cause the creation and
+    configuration of the specified virtual function. Within a .network file, the specified virtual
+    function will be configured, but must already exist. Specify several [SR-IOV] sections to
+    configure several SR-IOVs.</para>
+
+    <para>The [SR-IOV] section accepts the following keys.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>

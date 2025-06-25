@@ -778,8 +778,7 @@
     non-empty label strings, separated by dots. No leading or trailing
     dots are allowed. No sequences of multiple dots are allowed. The
     label strings may only consist of alphanumeric characters as well
-    as the dash and underscore. The maximum length of a machine name
-    is 64 characters.</para>
+    as the dash. The maximum length of a machine name is 64 characters.</para>
 
     <para>A special machine with the name <literal>.host</literal>
     refers to the running host system itself. This is useful for execution
@@ -872,6 +871,7 @@
       <member><citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>zstd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

@@ -17,18 +17,15 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <sys/types.h>
-
-#include "sd-event.h"
-#include "sd-lldp.h"
-
 #include "_sd-common.h"
+#include "sd-json.h"
+#include "sd-lldp.h"    /* IWYU pragma: export*/
 
 _SD_BEGIN_DECLARATIONS;
 
+struct ether_addr;
+
+typedef struct sd_event sd_event;
 typedef struct sd_lldp_tx sd_lldp_tx;
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_lldp_multicast_mode_t) {
@@ -60,8 +57,11 @@ int sd_lldp_tx_set_hwaddr(sd_lldp_tx *lldp_tx, const struct ether_addr *hwaddr);
 int sd_lldp_tx_set_port_description(sd_lldp_tx *lldp_tx, const char *port_description);
 int sd_lldp_tx_set_hostname(sd_lldp_tx *lldp_tx, const char *hostname);
 int sd_lldp_tx_set_pretty_hostname(sd_lldp_tx *lldp_tx, const char *pretty_hostname);
-int sd_lldp_tx_set_mud_url(sd_lldp_tx *lldp_tx, const char *mud_url);
 int sd_lldp_tx_set_capabilities(sd_lldp_tx *lldp_tx, uint16_t supported, uint16_t enabled);
+int sd_lldp_tx_set_mud_url(sd_lldp_tx *lldp_tx, const char *mud_url);
+int sd_lldp_tx_set_vlan_id(sd_lldp_tx *lldp_tx, uint16_t vlan_id);
+
+int sd_lldp_tx_describe(sd_lldp_tx *lldp_tx, sd_json_variant **ret);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp_tx, sd_lldp_tx_unref);
 

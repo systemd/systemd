@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
-#include <stddef.h>
-
 /* We use system assert.h here, because we don't want to keep macro.h and log.h C++ compatible */
 #undef NDEBUG
 #include <assert.h>
-#include <errno.h>
 #include <stdio.h>
 
+#include "sd-bus.h"
 #include "sd-bus-vtable.h"
 
 #ifndef __cplusplus
+#  include "alloc-util.h"
 #  include "bus-objects.h"
+#  include "log.h"
 #endif
 
 #include "test-vtable-data.h"
@@ -22,7 +21,7 @@
 static struct context c = {};
 static int happy_finder_object = 0;
 
-static int happy_finder(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int happy_finder(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         assert(userdata);
         assert(userdata == &c);
 

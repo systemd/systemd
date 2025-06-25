@@ -3,31 +3,25 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <string.h>
 
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
+#include "log.h"
 #include "memory-util.h"
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
-int dhcp_message_init(
+int bootp_message_init(
                 DHCPMessage *message,
                 uint8_t op,
                 uint32_t xid,
-                uint8_t type,
                 uint16_t arp_type,
                 uint8_t hlen,
-                const uint8_t *chaddr,
-                size_t optlen,
-                size_t *optoffset) {
+                const uint8_t *chaddr) {
 
-        size_t offset = 0;
-        int r;
-
+        assert(message);
         assert(IN_SET(op, BOOTREQUEST, BOOTREPLY));
         assert(chaddr || hlen == 0);
 
@@ -51,13 +45,37 @@ int dhcp_message_init(
         message->xid = htobe32(xid);
         message->magic = htobe32(DHCP_MAGIC_COOKIE);
 
+        return 0;
+}
+
+int dhcp_message_init(
+                DHCPMessage *message,
+                uint8_t op,
+                uint32_t xid,
+                uint16_t arp_type,
+                uint8_t hlen,
+                const uint8_t *chaddr,
+                uint8_t type,
+                size_t optlen,
+                size_t *ret_optoffset) {
+
+        size_t offset = 0;
+        int r;
+
+        assert(message);
+        assert(chaddr || hlen == 0);
+        assert(ret_optoffset);
+
+        r = bootp_message_init(message, op, xid, arp_type, hlen, chaddr);
+        if (r < 0)
+                return r;
+
         r = dhcp_option_append(message, optlen, &offset, 0,
                                SD_DHCP_OPTION_MESSAGE_TYPE, 1, &type);
         if (r < 0)
                 return r;
 
-        *optoffset = offset;
-
+        *ret_optoffset = offset;
         return 0;
 }
 

@@ -23,6 +23,7 @@
 #define BUS_ERROR_UNIT_LINKED                  "org.freedesktop.systemd1.UnitLinked"
 #define BUS_ERROR_UNIT_BAD_PATH                "org.freedesktop.systemd1.UnitBadPath"
 #define BUS_ERROR_JOB_TYPE_NOT_APPLICABLE      "org.freedesktop.systemd1.JobTypeNotApplicable"
+#define BUS_ERROR_CONCURRENCY_LIMIT_REACHED    "org.freedesktop.systemd1.ConcurrencyLimitReached"
 #define BUS_ERROR_NO_ISOLATION                 "org.freedesktop.systemd1.NoIsolation"
 #define BUS_ERROR_SHUTTING_DOWN                "org.freedesktop.systemd1.ShuttingDown"
 #define BUS_ERROR_SCOPE_NOT_RUNNING            "org.freedesktop.systemd1.ScopeNotRunning"
@@ -83,6 +84,7 @@
 #define BUS_ERROR_STUB_LOOP                    "org.freedesktop.resolve1.StubLoop"
 #define BUS_ERROR_NO_SUCH_DNSSD_SERVICE        "org.freedesktop.resolve1.NoSuchDnssdService"
 #define BUS_ERROR_DNSSD_SERVICE_EXISTS         "org.freedesktop.resolve1.DnssdServiceExists"
+#define BUS_ERROR_NO_SUCH_DELEGATE             "org.freedesktop.resolve1.NoSuchDelegate"
 
 #define _BUS_ERROR_DNS                         "org.freedesktop.resolve1.DnsError."
 #define BUS_ERROR_DNS_FORMERR                  _BUS_ERROR_DNS "FORMERR"

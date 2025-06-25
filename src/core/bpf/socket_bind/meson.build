@@ -22,3 +22,5 @@ socket_bind_skel_h = custom_target(
         output : 'socket-bind.skel.h',
         command : skel_h_cmd,
         capture : true)
+
+generated_sources += socket_bind_skel_h

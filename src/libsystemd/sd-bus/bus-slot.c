@@ -4,8 +4,11 @@
 
 #include "alloc-util.h"
 #include "bus-control.h"
+#include "bus-internal.h"
 #include "bus-objects.h"
 #include "bus-slot.h"
+#include "prioq.h"
+#include "set.h"
 #include "string-util.h"
 
 sd_bus_slot *bus_slot_allocate(
@@ -118,12 +121,12 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
                         const sd_bus_vtable *v;
 
                         for (v = slot->node_vtable.vtable; v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(slot->node_vtable.vtable, v)) {
-                                struct vtable_member *x = NULL;
+                                BusVTableMember *x = NULL;
 
                                 switch (v->type) {
 
                                 case _SD_BUS_VTABLE_METHOD: {
-                                        struct vtable_member key;
+                                        BusVTableMember key;
 
                                         key.path = slot->node_vtable.node->path;
                                         key.interface = slot->node_vtable.interface;
@@ -135,7 +138,7 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
 
                                 case _SD_BUS_VTABLE_PROPERTY:
                                 case _SD_BUS_VTABLE_WRITABLE_PROPERTY: {
-                                        struct vtable_member key;
+                                        BusVTableMember key;
 
                                         key.path = slot->node_vtable.node->path;
                                         key.interface = slot->node_vtable.interface;
@@ -196,13 +199,13 @@ _public_ sd_bus* sd_bus_slot_get_bus(sd_bus_slot *slot) {
         return slot->bus;
 }
 
-_public_ void *sd_bus_slot_get_userdata(sd_bus_slot *slot) {
+_public_ void* sd_bus_slot_get_userdata(sd_bus_slot *slot) {
         assert_return(slot, NULL);
 
         return slot->userdata;
 }
 
-_public_ void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata) {
+_public_ void* sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata) {
         void *ret;
 
         assert_return(slot, NULL);
@@ -220,16 +223,16 @@ _public_ int sd_bus_slot_set_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_
         return 0;
 }
 
-_public_ int sd_bus_slot_get_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_t *callback) {
+_public_ int sd_bus_slot_get_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_t *ret) {
         assert_return(slot, -EINVAL);
 
-        if (callback)
-                *callback = slot->destroy_callback;
+        if (ret)
+                *ret = slot->destroy_callback;
 
         return !!slot->destroy_callback;
 }
 
-_public_ sd_bus_message *sd_bus_slot_get_current_message(sd_bus_slot *slot) {
+_public_ sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot) {
         assert_return(slot, NULL);
         assert_return(slot->type >= 0, NULL);
 
@@ -296,14 +299,14 @@ _public_ int sd_bus_slot_set_description(sd_bus_slot *slot, const char *descript
         return free_and_strdup(&slot->description, description);
 }
 
-_public_ int sd_bus_slot_get_description(sd_bus_slot *slot, const char **description) {
+_public_ int sd_bus_slot_get_description(sd_bus_slot *slot, const char **ret) {
         assert_return(slot, -EINVAL);
-        assert_return(description, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (slot->description)
-                *description = slot->description;
+                *ret = slot->description;
         else if (slot->type == BUS_MATCH_CALLBACK)
-                *description = slot->match_callback.match_string;
+                *ret = slot->match_callback.match_string;
         else
                 return -ENXIO;
 

@@ -1,0 +1,99 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.dns-delegate"
+          xmlns:xi="http://www.w3.org/2001/XInclude"
+          conditional='ENABLE_RESOLVE'>
+
+  <refentryinfo>
+    <title>systemd.dns-delegate</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.dns-delegate</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.dns-delegate</refname>
+    <refpurpose>DNS Server Delegation Configuration</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/dns-delegate.d/*.dns-delegate</filename></member>
+      <member><filename>/run/systemd/dns-delegate.d/*.dns-delegate</filename></member>
+      <member><filename>/usr/local/lib/systemd/dns-delegate.d/*.dns-delegate</filename></member>
+      <member><filename>/usr/lib/systemd/dns-delegate.d/*.dns-delegate</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>*.dns-delegate</filename> files may be used to delegate DNS lookups in specific domains to
+    specific DNS servers. These files are read by
+    <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    Each such file defines a combination of one or more DNS servers and one or more DNS domains. Each such
+    definition synthesizes a DNS lookup scope that ensure lookups below the specified domains are sent to the
+    specified DNS servers, possibly in addition to any per-interface scopes and the global scope that
+    <command>systemd-resolved</command> maintains anyway.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>[Delegate] Section Options</title>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>DNS=</varname></term>
+          <listitem>
+            <para>Takes one or more DNS server specifications, in the same syntax as the option of the same name in <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Domains=</varname></term>
+          <listitem>
+            <para>Takes one or more domain name specifications, in the same syntax as the option of the same name in <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DefaultRoute=</varname></term>
+          <listitem>
+            <para>Takes a boolean value, defaults to off. Controls whether this DNS server is a candidate for
+            looking up records for which no better route exists.</para>
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <programlisting># /etc/systemd/dns-delegate.d/foobar.dns-delegate
+[Delegate]
+DNS=203.0.113.47
+Domains=foobar.com</programlisting>
+
+      <para>This ensures lookups of <literal>foobar.com</literal> and any domains below it are directed to
+      DNS server 203.0.113.47.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

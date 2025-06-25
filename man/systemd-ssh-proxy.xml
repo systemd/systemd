@@ -24,7 +24,7 @@
 
   <refsynopsisdiv>
     <programlisting>
-Host unix/* vsock/* vsock-mux/*
+Host unix/* unix%* vsock/* vsock%* vsock-mux/* vsock-mux%*
     ProxyCommand /usr/lib/systemd/systemd-ssh-proxy %h %p
     ProxyUseFdpass yes
 </programlisting>
@@ -46,7 +46,7 @@ Host unix/* vsock/* vsock-mux/*
     configuration fragment like the following:</para>
 
     <programlisting>
-Host unix/* vsock/* vsock-mux/*
+Host unix/* unix%* vsock/* vsock%* vsock-mux/* vsock-mux%*
     ProxyCommand /usr/lib/systemd/systemd-ssh-proxy %h %p
     ProxyUseFdpass yes
     CheckHostIP no
@@ -69,7 +69,9 @@ Host .host
     direct <constant>AF_VSOCK</constant> communication between the host and guests, and provide their own
     multiplexer over <constant>AF_UNIX</constant> sockets. See
     <ulink url="https://github.com/cloud-hypervisor/cloud-hypervisor/blob/main/docs/vsock.md">cloud-hypervisor VSOCK support</ulink>
-    and <ulink url="https://github.com/firecracker-microvm/firecracker/blob/main/docs/vsock.md">Using the Firecracker Virtio-vsock Device</ulink>.</para>
+    and <ulink url="https://github.com/firecracker-microvm/firecracker/blob/main/docs/vsock.md">Using the Firecracker Virtio-vsock Device</ulink>.
+    Note that <literal>%</literal> can be used as a separator instead of <literal>/</literal> to be
+    compatible with tools like <literal>scp</literal> and <literal>rsync</literal>.</para>
 
     <para>Moreover, connecting to <literal>.host</literal> will connect to the local host via SSH, without
     involving networking.</para>
@@ -112,6 +114,12 @@ Host .host
       <para>or equivalent:</para>
 
       <programlisting>ssh unix/run/ssh-unix-local/socket</programlisting>
+    </example>
+
+    <example>
+      <title>Copy local 'foo' file to a local VM with CID 1348</title>
+
+      <programlisting>scp foo vsock%1348:</programlisting>
     </example>
   </refsect1>
 

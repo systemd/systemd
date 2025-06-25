@@ -1,24 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
+#include "sd-bus.h"
+
 #include "cgroup-setup.h"
 #include "dbus-scope.h"
 #include "dbus-unit.h"
 #include "exit-status.h"
-#include "load-dropin.h"
 #include "log.h"
-#include "process-util.h"
+#include "manager.h"
+#include "parse-util.h"
+#include "pidref.h"
 #include "random-util.h"
 #include "scope.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
 #include "unit.h"
 #include "user-util.h"
 
@@ -371,7 +372,7 @@ static int scope_enter_start_chown(Scope *s) {
                         }
                 }
 
-                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_runtime->cgroup_path, uid, gid);
+                r = cg_set_access(s->cgroup_runtime->cgroup_path, uid, gid);
                 if (r < 0) {
                         log_unit_error_errno(UNIT(s), r, "Failed to adjust control group access: %m");
                         _exit(EXIT_CGROUP);
@@ -704,10 +705,9 @@ static void scope_enumerate_perpetual(Manager *m) {
         u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Scope), SPECIAL_INIT_SCOPE, &u);
-                if (r < 0)  {
-                        log_error_errno(r, "Failed to allocate the special " SPECIAL_INIT_SCOPE " unit: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to allocate the special %s unit: %m",
+                                                      SPECIAL_INIT_SCOPE);
         }
 
         u->transient = true;

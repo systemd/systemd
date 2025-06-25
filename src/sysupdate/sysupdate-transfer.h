@@ -1,20 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
 
-/* Forward declare this type so that the headers below can use it */
-typedef struct Transfer Transfer;
-
+#include "sysupdate-forward.h"
 #include "sysupdate-partition.h"
 #include "sysupdate-resource.h"
-#include "sysupdate.h"
 
-struct Transfer {
+typedef struct Transfer {
         char *id;
 
         char *min_version;
@@ -55,7 +48,7 @@ struct Transfer {
         PartitionChange partition_change;
 
         Context *context;
-};
+} Transfer;
 
 typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, unsigned percentage);
 

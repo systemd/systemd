@@ -4,18 +4,21 @@ if conf.get('ENABLE_NSPAWN') != 1
         subdir_done()
 endif
 
-libnspawn_core_sources = files(
+nspawn_sources = files(
+        'nspawn.c',
         'nspawn-bind-user.c',
         'nspawn-cgroup.c',
+        'nspawn-register.c',
+        'nspawn-seccomp.c',
+        'nspawn-setuid.c',
+        'nspawn-stub-pid1.c',
+)
+nspawn_extract_sources = files(
         'nspawn-expose-ports.c',
         'nspawn-mount.c',
         'nspawn-network.c',
         'nspawn-oci.c',
-        'nspawn-register.c',
-        'nspawn-seccomp.c',
         'nspawn-settings.c',
-        'nspawn-setuid.c',
-        'nspawn-stub-pid1.c',
 )
 
 nspawn_gperf_c = custom_target(
@@ -24,26 +27,12 @@ nspawn_gperf_c = custom_target(
         output : 'nspawn-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-libnspawn_core_sources += [nspawn_gperf_c]
-
-libnspawn_core = static_library(
-        'nspawn-core',
-        libnspawn_core_sources,
-        include_directories : includes,
-        dependencies : [libacl,
-                        libseccomp,
-                        libselinux,
-                        userspace],
-        build_by_default : false)
-
-nspawn_libs = [
-        libnspawn_core,
-        libshared,
-]
+generated_sources += nspawn_gperf_c
+nspawn_extract_sources += nspawn_gperf_c
 
 nspawn_common_template = {
-        'link_with' : nspawn_libs,
         'dependencies' : libseccomp,
+        'objects' : ['systemd-nspawn'],
 }
 nspawn_test_template = test_template + nspawn_common_template
 nspawn_fuzz_template = fuzz_template + nspawn_common_template
@@ -52,11 +41,16 @@ executables += [
         executable_template + {
                 'name' : 'systemd-nspawn',
                 'public' : true,
-                'sources' : files('nspawn.c'),
-                'link_with' : nspawn_libs,
+                'sources' : nspawn_sources + nspawn_extract_sources,
+                'include_directories' : [
+                        executable_template['include_directories'],
+                        include_directories('.')
+                ],
+                'extract' : nspawn_extract_sources,
                 'dependencies' : [
                         libblkid,
                         libseccomp,
+                        libselinux,
                 ],
         },
         nspawn_test_template + {

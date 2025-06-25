@@ -5,19 +5,9 @@
   Copyright © 2016 Djalal Harouni
 ***/
 
-typedef struct NamespaceParameters NamespaceParameters;
-typedef struct BindMount BindMount;
-typedef struct TemporaryFileSystem TemporaryFileSystem;
-typedef struct MountImage MountImage;
-
-#include <stdbool.h>
-
-#include "dissect-image.h"
-#include "fs-util.h"
-#include "macro.h"
-#include "namespace-util.h"
+#include "forward.h"
+#include "list.h"
 #include "runtime-scope.h"
-#include "string-util.h"
 
 typedef enum ProtectHome {
         PROTECT_HOME_NO,
@@ -94,7 +84,7 @@ typedef enum PrivatePIDs {
         _PRIVATE_PIDS_INVALID = -EINVAL,
 } PrivatePIDs;
 
-struct BindMount {
+typedef struct BindMount {
         char *source;
         char *destination;
         bool read_only;
@@ -106,12 +96,12 @@ struct BindMount {
         bool idmapped;
         uid_t uid;
         gid_t gid;
-};
+} BindMount;
 
-struct TemporaryFileSystem {
+typedef struct TemporaryFileSystem {
         char *path;
         char *options;
-};
+} TemporaryFileSystem;
 
 typedef enum MountImageType {
         MOUNT_IMAGE_DISCRETE,
@@ -120,15 +110,15 @@ typedef enum MountImageType {
         _MOUNT_IMAGE_TYPE_INVALID = -EINVAL,
 } MountImageType;
 
-struct MountImage {
+typedef struct MountImage {
         char *source;
         char *destination; /* Unused if MountImageType == MOUNT_IMAGE_EXTENSION */
         LIST_HEAD(MountOptions, mount_options);
         bool ignore_enoent;
         MountImageType type;
-};
+} MountImage;
 
-struct NamespaceParameters {
+typedef struct NamespaceParameters {
         RuntimeScope runtime_scope;
 
         const char *root_directory;
@@ -199,19 +189,15 @@ struct NamespaceParameters {
         ProtectProc protect_proc;
         ProcSubset proc_subset;
         PrivateTmp private_tmp;
+        PrivateTmp private_var_tmp;
         PrivatePIDs private_pids;
-};
+} NamespaceParameters;
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path);
 
 #define RUN_SYSTEMD_EMPTY "/run/systemd/empty"
 
-static inline char* namespace_cleanup_tmpdir(char *p) {
-        PROTECT_ERRNO;
-        if (!streq_ptr(p, RUN_SYSTEMD_EMPTY))
-                (void) rmdir(p);
-        return mfree(p);
-}
+char* namespace_cleanup_tmpdir(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, namespace_cleanup_tmpdir);
 
 int setup_tmp_dirs(
@@ -259,7 +245,7 @@ int temporary_filesystem_add(TemporaryFileSystem **t, size_t *n,
 MountImage* mount_image_free_many(MountImage *m, size_t *n);
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item);
 
-const char* namespace_type_to_string(NamespaceType t) _const_;
-NamespaceType namespace_type_from_string(const char *s) _pure_;
-
-bool ns_type_supported(NamespaceType type);
+int refresh_extensions_in_namespace(
+                const PidRef *target,
+                const char *hierarchy_env,
+                const NamespaceParameters *p);

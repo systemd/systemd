@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-random-seed.h"
-#include "bootctl-util.h"
-#include "efi-api.h"
+#include "efivars.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "find-esp.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "io-util.h"
-#include "mkdir.h"
-#include "path-util.h"
+#include "log.h"
 #include "random-util.h"
 #include "sha256.h"
 #include "tmpfile-util.h"
@@ -58,19 +58,8 @@ static int set_system_token(void) {
         size_t token_size;
         int r;
 
-        if (!arg_touch_variables)
+        if (!touch_variables())
                 return 0;
-
-        if (arg_root) {
-                log_warning("Acting on %s, skipping EFI variable setup.",
-                             arg_image ? "image" : "root directory");
-                return 0;
-        }
-
-        if (!is_efi_boot()) {
-                log_notice("Not booted with EFI, skipping EFI variable setup.");
-                return 0;
-        }
 
         r = getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
         if (r < 0) {

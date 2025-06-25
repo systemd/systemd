@@ -4,15 +4,17 @@
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "bus-object.h"
 #include "bus-util.h"
+#include "dbus.h"
 #include "dbus-job.h"
 #include "dbus-unit.h"
 #include "dbus-util.h"
-#include "dbus.h"
+#include "hashmap.h"
 #include "job.h"
 #include "log.h"
+#include "manager.h"
 #include "selinux-access.h"
-#include "string-util.h"
 #include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
@@ -114,7 +116,7 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 const sd_bus_vtable bus_job_vtable[] = {

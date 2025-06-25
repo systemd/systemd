@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-json.h"
-
-#include "alloc-util.h"
 #include "dlfcn-util.h"
-#include "macro.h"
-#include "string-util.h"
-#include "strv.h"
+#include "forward.h"
 
 #if HAVE_LIBCRYPTSETUP
-#include <libcryptsetup.h>
+#include <libcryptsetup.h> /* IWYU pragma: export */
 
 /* These next two are defined in libcryptsetup.h from cryptsetup version 2.3.4 forwards. */
 #ifndef CRYPT_ACTIVATE_NO_READ_WORKQUEUE
@@ -61,11 +56,7 @@ extern DLSYM_PROTOTYPE(crypt_token_json_set);
 extern DLSYM_PROTOTYPE(crypt_token_max);
 #else
 /* As a fallback, use the same hard-coded value libcryptsetup uses internally. */
-static inline int crypt_token_max(_unused_ const char *type) {
-    assert(streq(type, CRYPT_LUKS2));
-
-    return 32;
-}
+int crypt_token_max(_unused_ const char *type);
 #define sym_crypt_token_max(type) crypt_token_max(type)
 #endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
@@ -116,7 +107,4 @@ int dlopen_cryptsetup(void);
 
 int cryptsetup_get_keyslot_from_token(sd_json_variant *v);
 
-static inline const char* mangle_none(const char *s) {
-        /* A helper that turns cryptsetup/integritysetup/veritysetup "options" strings into NULL if they are effectively empty */
-        return isempty(s) || STR_IN_SET(s, "-", "none") ? NULL : s;
-}
+const char* mangle_none(const char *s);

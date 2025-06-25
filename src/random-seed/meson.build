@@ -4,6 +4,6 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-random-seed',
                 'conditions' : ['ENABLE_RANDOMSEED'],
-                'sources' : files('random-seed.c'),
+                'sources' : files('random-seed-tool.c'),
         },
 ]

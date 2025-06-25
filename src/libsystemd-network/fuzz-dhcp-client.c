@@ -1,17 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/socket.h>
-#include <unistd.h>
 
-#include "sd-dhcp-client.c"
-
-#include "alloc-util.h"
-#include "dhcp-lease-internal.h"
 #include "dhcp-network.h"
-#include "fs-util.h"
 #include "fuzz.h"
 #include "network-internal.h"
+#include "sd-dhcp-client.c"
 #include "tmpfile-util.h"
 
 int dhcp_network_bind_raw_socket(

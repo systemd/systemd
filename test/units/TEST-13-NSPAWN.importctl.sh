@@ -84,6 +84,10 @@ systemctl daemon-reload
 systemctl start systemd-import@var-lib-confexts-importtest9.service
 cmp /var/tmp/importtest /var/lib/confexts/importtest9/importtest
 
+importctl export-raw --class=confext --format zstd importtest /var/tmp/importtest10.raw.zst
+importctl import-raw --class=confext /var/tmp/importtest10.raw.zst
+cmp /var/tmp/importtest /var/lib/confexts/importtest10.raw
+
 # Verify generic service calls, too
 varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.Ping '{}'
 varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.SetLogLevel '{"level":"7"}'

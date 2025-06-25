@@ -1,21 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <curl/curl.h>
-#include <sys/prctl.h>
+#include <dirent.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "copy.h"
 #include "curl-util.h"
-#include "fd-util.h"
+#include "errno-util.h"
 #include "fs-util.h"
-#include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "install-file.h"
-#include "macro.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -24,10 +23,7 @@
 #include "pull-tar.h"
 #include "rm-rf.h"
 #include "string-util.h"
-#include "strv.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
-#include "utf8.h"
 #include "web-util.h"
 
 typedef enum TarProgress {
@@ -37,7 +33,7 @@ typedef enum TarProgress {
         TAR_COPYING,
 } TarProgress;
 
-struct TarPull {
+typedef struct TarPull {
         sd_event *event;
         CurlGlue *glue;
 
@@ -64,7 +60,7 @@ struct TarPull {
         char *settings_temp_path;
 
         char *checksum;
-};
+} TarPull;
 
 TarPull* tar_pull_unref(TarPull *i) {
         if (!i)

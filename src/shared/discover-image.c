@@ -1,16 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/loop.h>
 #include <linux/magic.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
+#include "sd-json.h"
 #include "sd-path.h"
 
 #include "alloc-util.h"
@@ -34,19 +34,17 @@
 #include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
-#include "macro.h"
-#include "missing_fs.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "utf8.h"
 #include "vpick.h"
 #include "xattr-util.h"
 
@@ -119,7 +117,7 @@ static const char *const image_root_runtime_table[_IMAGE_CLASS_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(image_root_runtime, ImageClass);
 
-static Image *image_free(Image *i) {
+static Image* image_free(Image *i) {
         assert(i);
 
         free(i->name);
@@ -138,7 +136,7 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(Image, image, image_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, string_compare_func,
                                       Image, image_unref);
 
-static char **image_settings_path(Image *image) {
+static char** image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *fn = NULL;
         size_t i = 0;
@@ -299,7 +297,7 @@ static int image_update_quota(Image *i, int fd) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         if (i->type != IMAGE_SUBVOLUME)
@@ -400,7 +398,7 @@ static int image_make(
                         r = extract_image_basename(
                                         filename,
                                         image_class_suffix_to_string(c),
-                                        /* format_suffix= */ NULL,
+                                        /* format_suffixes= */ NULL,
                                         &pretty_buffer,
                                         /* ret_suffix= */ NULL);
                         if (r < 0)
@@ -655,7 +653,7 @@ static int pick_image_search_path(
         return 0;
 }
 
-static char **make_possible_filenames(ImageClass class, const char *image_name) {
+static char** make_possible_filenames(ImageClass class, const char *image_name) {
         _cleanup_strv_free_ char **l = NULL;
 
         assert(image_name);
@@ -889,7 +887,7 @@ int image_discover(
                 RuntimeScope scope,
                 ImageClass class,
                 const char *root,
-                Hashmap *h) {
+                Hashmap **images) {
 
         /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people to
          * symlink block devices into the search path. (For now, we disable that when operating relative to
@@ -899,7 +897,7 @@ int image_discover(
         assert(scope < _RUNTIME_SCOPE_MAX && scope != RUNTIME_SCOPE_GLOBAL);
         assert(class >= 0);
         assert(class < _IMAGE_CLASS_MAX);
-        assert(h);
+        assert(images);
 
         _cleanup_strv_free_ char **search = NULL;
         r = pick_image_search_path(scope, class, &search);
@@ -942,7 +940,7 @@ int image_discover(
                                                 image_class_suffix_to_string(class),
                                                 STRV_MAKE(".raw"),
                                                 &pretty,
-                                                /* suffix= */ NULL);
+                                                /* ret_suffix= */ NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", fname);
                                         continue;
@@ -1016,7 +1014,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         fname,
                                                         image_class_suffix_to_string(class),
-                                                        /* format_suffix= */ NULL,
+                                                        /* format_suffixes= */ NULL,
                                                         &pretty,
                                                         /* ret_suffix= */ NULL);
                                         if (r < 0) {
@@ -1031,7 +1029,7 @@ int image_discover(
                                                 /* class_suffix= */ NULL,
                                                 /* format_suffix= */ NULL,
                                                 &pretty,
-                                                /* ret_v_suffix= */ NULL);
+                                                /* ret_suffix= */ NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", fname);
                                         continue;
@@ -1041,7 +1039,7 @@ int image_discover(
                                 continue;
                         }
 
-                        if (hashmap_contains(h, pretty))
+                        if (hashmap_contains(*images, pretty))
                                 continue;
 
                         r = image_make(class, pretty, dirfd(d), resolved, fname, fd, &st, &image);
@@ -1052,7 +1050,7 @@ int image_discover(
 
                         image->discoverable = true;
 
-                        r = hashmap_put(h, image->name, image);
+                        r = hashmap_ensure_put(images, &image_hash_ops, image->name, image);
                         if (r < 0)
                                 return r;
 
@@ -1060,7 +1058,7 @@ int image_discover(
                 }
         }
 
-        if (scope == RUNTIME_SCOPE_SYSTEM && class == IMAGE_MACHINE && !hashmap_contains(h, ".host")) {
+        if (scope == RUNTIME_SCOPE_SYSTEM && class == IMAGE_MACHINE && !hashmap_contains(*images, ".host")) {
                 _cleanup_(image_unrefp) Image *image = NULL;
 
                 r = image_make(IMAGE_MACHINE,
@@ -1076,7 +1074,7 @@ int image_discover(
 
                 image->discoverable = true;
 
-                r = hashmap_put(h, image->name, image);
+                r = hashmap_ensure_put(images, &image_hash_ops, image->name, image);
                 if (r < 0)
                         return r;
 
@@ -1094,7 +1092,7 @@ int image_remove(Image *i) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         settings = image_settings_path(i);
@@ -1189,7 +1187,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         if (!image_name_is_valid(new_name))
                 return -EINVAL;
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         settings = image_settings_path(i);
@@ -1388,7 +1386,7 @@ int image_read_only(Image *i, bool b) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         /* Make sure we don't interfere with a running nspawn */
@@ -1578,7 +1576,7 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
 
         assert(i);
 
-        if (IMAGE_IS_VENDOR(i) || IMAGE_IS_HOST(i))
+        if (image_is_vendor(i) || image_is_host(i))
                 return -EROFS;
 
         if (i->type != IMAGE_SUBVOLUME)
@@ -1827,6 +1825,24 @@ bool image_in_search_path(
                 if (p[strspn(p, "/")] == 0)
                         return true;
         }
+
+        return false;
+}
+
+bool image_is_vendor(const struct Image *i) {
+        assert(i);
+
+        return i->path && path_startswith(i->path, "/usr");
+}
+
+bool image_is_host(const struct Image *i) {
+        assert(i);
+
+        if (i->name && streq(i->name, ".host"))
+                return true;
+
+        if (i->path && path_equal(i->path, "/"))
+                return true;
 
         return false;
 }

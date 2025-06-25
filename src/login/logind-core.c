@@ -1,28 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
 #include <linux/vt.h>
+#include <sys/ioctl.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
 #include "battery-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "bus-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "device-util.h"
 #include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "limits-util.h"
 #include "logind.h"
-#include "logind-utmp.h"
+#include "logind-button.h"
+#include "logind-device.h"
+#include "logind-seat.h"
+#include "logind-session.h"
+#include "logind-user.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -39,7 +42,7 @@ void manager_reset_config(Manager *m) {
         m->remove_ipc = true;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
         m->user_stop_delay = 10 * USEC_PER_SEC;
-        m->enable_wall_messages = true;
+        m->wall_messages = true;
 
         m->handle_action_sleep_mask = HANDLE_ACTION_SLEEP_MASK_DEFAULT;
 
@@ -284,8 +287,9 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
                 bool master;
                 Seat *seat;
 
-                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
-                        sn = "seat0";
+                r = device_get_seat(d, &sn);
+                if (r < 0)
+                        return r;
 
                 if (!seat_name_is_valid(sn)) {
                         log_device_warning(d, "Device with invalid seat name %s found, ignoring.", sn);
@@ -347,8 +351,9 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 if (r < 0)
                         return r;
 
-                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
-                        sn = "seat0";
+                r = device_get_seat(d, &sn);
+                if (r < 0)
+                        return r;
 
                 button_set_seat(b, sn);
 
@@ -603,7 +608,6 @@ static int manager_count_external_displays(Manager *m) {
                 return r;
 
         FOREACH_DEVICE(e, d) {
-                const char *status, *enabled, *dash, *nn;
                 sd_device *p;
 
                 if (sd_device_get_parent(d, &p) < 0)
@@ -612,17 +616,22 @@ static int manager_count_external_displays(Manager *m) {
                 /* If the parent shares the same subsystem as the
                  * device we are looking at then it is a connector,
                  * which is what we are interested in. */
-                if (!device_in_subsystem(p, "drm"))
+                r = device_in_subsystem(p, "drm");
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
-                if (sd_device_get_sysname(d, &nn) < 0)
-                        continue;
+                const char *nn;
+                r = sd_device_get_sysname(d, &nn);
+                if (r < 0)
+                        return r;
 
                 /* Ignore internal displays: the type is encoded in the sysfs name, as the second dash
                  * separated item (the first is the card name, the last the connector number). We implement a
                  * deny list of external displays here, rather than an allow list of internal ones, to ensure
                  * we don't block suspends too eagerly. */
-                dash = strchr(nn, '-');
+                const char *dash = strchr(nn, '-');
                 if (!dash)
                         continue;
 
@@ -634,12 +643,21 @@ static int manager_count_external_displays(Manager *m) {
                         continue;
 
                 /* Ignore ports that are not enabled */
-                if (sd_device_get_sysattr_value(d, "enabled", &enabled) < 0 || !streq(enabled, "enabled"))
+                const char *enabled;
+                r = sd_device_get_sysattr_value(d, "enabled", &enabled);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+                if (!streq(enabled, "enabled"))
                         continue;
 
-                /* We count any connector which is not explicitly
-                 * "disconnected" as connected. */
-                if (sd_device_get_sysattr_value(d, "status", &status) < 0 || !streq(status, "disconnected"))
+                /* We count any connector which is not explicitly "disconnected" as connected. */
+                const char *status = NULL;
+                r = sd_device_get_sysattr_value(d, "status", &status);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (!streq_ptr(status, "disconnected"))
                         n++;
         }
 

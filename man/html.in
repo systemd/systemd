@@ -8,21 +8,21 @@ if [ -z "$1" ]; then
 fi
 
 # make sure the rules have been regenerated (in case update-man-rules was just run)
-ninja -C "@BUILD_ROOT@" version.h
+ninja -C @BUILD_ROOT@ src/version/version.h
 
 target="man/$1.html"
-ninja -C "@BUILD_ROOT@" "$target"
+ninja -C @BUILD_ROOT@ "$target"
 
-fullname="@BUILD_ROOT@/$target"
+fullname=@BUILD_ROOT@/"$target"
 if [ -f "$fullname" ]; then
     redirect="$(readlink "$fullname" || :)"
 else
     redirect=""
 fi
 if [ -n "$redirect" ]; then
-    ninja -C "@BUILD_ROOT@" "man/$redirect"
+    ninja -C @BUILD_ROOT@ "man/$redirect"
 
-    fullname="@BUILD_ROOT@/man/$redirect"
+    fullname=@BUILD_ROOT@/man/"$redirect"
 fi
 
 set -x

@@ -1,32 +1,41 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
-#include <net/if_arp.h>
+#include <stdio.h>
+
+#include "sd-event.h"
+#include "sd-netlink.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bitfield.h"
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "logarithm.h"
-#include "memory-util.h"
 #include "netlink-util.h"
-#include "networkd-address-pool.h"
+#include "networkd-address-generation.h"
 #include "networkd-address.h"
+#include "networkd-address-pool.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-ipv4acd.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-netlabel.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
-#include "networkd-route-util.h"
 #include "networkd-route.h"
+#include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
+#include "set.h"
+#include "siphash24.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
 
 #define ADDRESSES_PER_LINK_MAX 16384U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U
@@ -307,6 +316,27 @@ bool link_check_addresses_ready(Link *link, NetworkConfigSource source) {
 
         SET_FOREACH(a, link->addresses) {
                 if (source >= 0 && a->source != source)
+                        continue;
+                if (address_is_marked(a))
+                        continue;
+                if (!address_exists(a))
+                        continue;
+                if (!address_is_ready(a))
+                        return false;
+                has = true;
+        }
+
+        if (has || source != NETWORK_CONFIG_SOURCE_DHCP6)
+                return has;
+
+        /* If there is no DHCPv6 addresses, but all conflicting addresses are successfully configured, then
+         * let's handle the DHCPv6 client successfully configured addresses. Otherwise, if the conflicted
+         * addresses are static or foreign, and there is no other dynamic addressing protocol enabled, then
+         * the link will never enter the configured state. See also link_check_ready(). */
+        SET_FOREACH(a, link->addresses) {
+                if (source >= 0 && a->source == NETWORK_CONFIG_SOURCE_DHCP6)
+                        continue;
+                if (!a->also_requested_by_dhcp6)
                         continue;
                 if (address_is_marked(a))
                         continue;
@@ -793,7 +823,7 @@ static int address_update(Address *address) {
                         return r;
         }
 
-        link_update_operstate(link, /* also_update_master = */ true);
+        link_update_operstate(link, /* also_update_bond_master = */ true);
         link_check_ready(link);
         return 0;
 }
@@ -868,7 +898,7 @@ static int address_drop(Address *in, bool removed_by_us) {
                 }
         }
 
-        link_update_operstate(link, /* also_update_master = */ true);
+        link_update_operstate(link, /* also_update_bond_master = */ true);
         link_check_ready(link);
         return 0;
 }
@@ -1472,17 +1502,18 @@ int link_drop_static_addresses(Link *link) {
         return r;
 }
 
-int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+int address_configure_handler_internal(sd_netlink_message *m, Link *link, Address *address) {
         int r;
 
-        assert(rtnl);
         assert(m);
         assert(link);
-        assert(error_msg);
+        assert(address);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, error_msg);
+                log_link_message_warning_errno(link, m, r, "Failed to set %s address %s",
+                                               network_config_source_to_string(address->source),
+                                               IN_ADDR_TO_STRING(address->family, &address->in_addr));
                 link_enter_failed(link);
                 return 0;
         }
@@ -1725,8 +1756,9 @@ static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Failed to set static address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 
@@ -1937,6 +1969,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 nft_set_context_clear(&address->nft_set_context);
                 (void) nft_set_context_dup(&a->nft_set_context, &address->nft_set_context);
                 address->requested_as_null = a->requested_as_null;
+                address->also_requested_by_dhcp6 = a->also_requested_by_dhcp6;
                 address->callback = a->callback;
 
                 ipv6_token_ref(a->token);
@@ -2391,16 +2424,22 @@ int address_section_verify(Address *address) {
         return 0;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        trivial_hash_ops_address_detach,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        Address,
+        address_detach);
+
 int network_drop_invalid_addresses(Network *network) {
-        _cleanup_set_free_ Set *addresses = NULL;
+        _cleanup_set_free_ Set *addresses = NULL, *duplicated_addresses = NULL;
         Address *address;
         int r;
 
         assert(network);
 
         ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section) {
-                Address *dup;
-
                 if (address_section_verify(address) < 0) {
                         /* Drop invalid [Address] sections or Address= settings in [Network].
                          * Note that address_detach() will drop the address from addresses_by_section. */
@@ -2409,7 +2448,7 @@ int network_drop_invalid_addresses(Network *network) {
                 }
 
                 /* Always use the setting specified later. So, remove the previously assigned setting. */
-                dup = set_remove(addresses, address);
+                Address *dup = set_remove(addresses, address);
                 if (dup) {
                         log_warning("%s: Duplicated address %s is specified at line %u and %u, "
                                     "dropping the address setting specified at line %u.",
@@ -2418,8 +2457,12 @@ int network_drop_invalid_addresses(Network *network) {
                                     address->section->line,
                                     dup->section->line, dup->section->line);
 
-                        /* address_detach() will drop the address from addresses_by_section. */
-                        address_detach(dup);
+                        /* Do not call address_detach() for 'dup' now, as we can remove only the current
+                         * entry in the loop. We will drop the address from addresses_by_section later. */
+                        r = set_ensure_put(&duplicated_addresses, &trivial_hash_ops_address_detach, dup);
+                        if (r < 0)
+                                return log_oom();
+                        assert(r > 0);
                 }
 
                 /* Use address_hash_ops, instead of address_hash_ops_detach. Otherwise, the Address objects

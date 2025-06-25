@@ -66,11 +66,6 @@ Janitorial Clean-ups:
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
-* get rid of prefix_roota() and similar, only use chase() and related
-  calls instead.
-
-* get rid of basename() and replace by path_extract_filename()
-
 * Replace our fstype_is_network() with a call to libmount's mnt_fstype_is_netfs()?
   Having two lists is not nice, but maybe it's now worth making a dependency on
   libmount for something so trivial.
@@ -118,9 +113,6 @@ Deprecations and removals:
   That requires distros to enable CONFIG_ACPI_FPDT, and have kernels v5.12 for
   x86 and v6.2 for arm.
 
-* Once baseline is 4.13, remove support for INTERFACE_OLD= checks in "udevadm
-  trigger"'s waiting logic, since we can then rely on uuid-tagged uevents
-
 * In v260: remove support for deprecated FactoryReset EFI variable in
   systemd-repart, replaced by FactoryResetRequest.
 
@@ -128,16 +120,68 @@ Deprecations and removals:
 
 Features:
 
+* replace bootctl's PE version check to actually use APIs from pe-binary.[ch]
+  to find binary version.
+
+* replace symlink_label(), mknodat_label(), btrfs_subvol_make_label(),
+  mkdir_label() and related calls by flags-based calls that use
+  label_ops_pre()/label_ops_post().
+
+* maybe reconsider whether virtualization consoles (hvc1) are considered local
+  or remote. i.e. are they more like an ssh login, or more like a /dev/tty1
+  login? Lennart used to believe the former, but maybe the latter is more
+  appropriate? This has effect on polkit interactivity, since it would mean
+  questions via hvc0 would suddenly use the local polkit property. But this
+  also raises the question whether such sessions shall be considered active or
+  not
+
+* automatically reset specific EFI vars on factory reset (make this generic
+  enough so that infrac can be used to erase shim's mok vars?)
+
+* similar: add a plugin for factory reset logic that erases certain parts of
+  the ESP, but leaves others in place.
+
+* systemd-repart: add --defer-partitions-factory-reset or so, as a flavour of
+  --defer-partitions= that picks all partitions that are marked for factory
+  reset. for an installer this is usually the partitions not to copy, too.
+
+* flush_fd() should probably try to be smart and stop reading once we know that
+  all further queued data was enqueued after flush_fd() was originally
+  called. For that, try SIOCINQ if fd refers to stream socket, and look at
+  timestamps for datagram sockets.
+
+* Similar flush_accept() should look at sockdiag queued sockets count and exit
+  once we flushed out the specified number of connections.
+
+* maybe introduce a new per-unit drop-in directory .confext.d/ that may contain
+  symlinks to confext images to enable for the unit.
+
+* nspawn: map foreign UID range through 1:1
+
+* replace most calls to sd_bus_send() by sd_bus_message_send()
+
+* replace all uses of fopen_temporary() by fopen_tmpfile_linkable() +
+  flink_tmpfile() and then get rid of fopen_temporary(). Benefit: use O_TMPFILE
+  pervasively, and avoid rename() wherever we can.
+
+* loginctl: show argv[] of "leader" process in tabular list-sessions output
+
+* loginctl: show "service identifier" in tabular list-sessions output, to make
+  run0 sessions easily visible.
+
+* run0: maybe enable utmp for run0 sessions, so that they are easily visible.
+
+* maybe beef up sd-event: optionally, allow sd-event to query the timestamp of
+  next pending datagram inside a SOCK_DGRAM IO fd, and order event source
+  dispatching by that. Enable this on the native + syslog sockets in journald,
+  so that we add correct ordering between the two. Use MSG_PEEK + SCM_TIMESTAMP
+  for this.
+
 * maybe replace nss-machines with logic in networkd that registers records with
   systemd-resolved, based on DHCP leases, so that we gain compat with VMs.
   Implementation idea: encode in an ifaltname the intended local name to expose this
   under and then parse that out and map it to the combined A/AAAA of all handed
   out leases.
-
-* make journalctl something we can invoke like the askpw/polkit agents, and
-  then spawn it from "systemctl start" and similar with a precise filter on the
-  unit. Make sure that it syncs on the journal when done so that we show
-  "complete" logs. Make this easily reachable via a new "-v" switch or so.
 
 * bsod: add target "bsod.target" or so, which invokes systemd-bsod.target and
   waits and then reboots. Then use OnFailure=bsod.target from various jobs that
@@ -376,8 +420,6 @@ Features:
   credential (would probably require some binary that converts credential to
   User= parameter?
 
-* sd-varlink should probably enforce a limit on queued outgoing replies
-
 * systemd-firstboot: optionally install an ssh key for root for offline use.
 
 * Allocate UIDs/GIDs automatically in userdbctl load-credentials if none are
@@ -393,18 +435,8 @@ Features:
 * in pid1: include ExecStart= cmdlines (and other Exec*= cmdlines) in polkit
   request, so that policies can match against command lines.
 
-* account number of units currently in activating/active/deactivating state in
-  each slice, and expose this as a property of the slice, given this is a key
-  metric of the resource management entity that a slice is. (maybe add a 2nd
-  metric for units assigned to the slice, that also includes those with pending
-  jobs)
-
-* maybe allow putting a "soft" limit on the number concurrently active units in
-  a slice, as per the previous item. When the limit is reached delay further
-  activations until number is below the threshold again, leaving the unit in
-  the job queue. Thus, multiple resource intensive tasks can be scheduled as
-  units in the same slice and they will be executed with an upper limit on
-  concurrently running tasks.
+* allow dynamic modifications of ConcurrencyHardMax= and ConcurrencySoftMax=
+  via DBus (and with that also by daemon-reload)
 
 * importd: introduce a per-user instance, that downloads into per-user DDI dirs
 
@@ -484,7 +516,8 @@ Features:
 
 * port remaining getmntent() users over to libmount. There are subtle
   differences in the parsers (see #25371 for example), and it hence makes sense
-  if we stick to one set of parsers on this, not mix both.
+  if we stick to one set of parsers on this, not mix both. Specifically:
+  systemd-fstab-generator, cryptsetup, remount-fs.
 
 * get rid of compat with libidn.so.11 (retain only for libidn.so.12)
 
@@ -727,10 +760,6 @@ Features:
 
 * machined: optionally track nspawn unix-export/ runtime for each machined, and
   then update systemd-ssh-proxy so that it can connect to that.
-
-* add a new ExecStart= flag that inserts the configured user's shell as first
-  word in the command line. (maybe use character '.'). Usecase: tool such as
-  run0 can use that to spawn the target user's default shell.
 
 * introduce mntid_t, and make it 64bit, as apparently the kernel switched to
   64bit mount ids
@@ -1784,7 +1813,6 @@ Features:
   with matches, then activate app through that passing socket over
 
 * unify on openssl:
-  - kill gnutls support in resolved
   - figure out what to do about libmicrohttpd, which has a hard dependency on
     gnutls
   - port fsprg over to a dlopen lib, then switch it to openssl
@@ -2433,7 +2461,6 @@ Features:
                 journalctl /usr/bin/X11 --invocation=-1
   - systemctl: change 'status' to show logs for the last invocation, not a fixed
     number of lines
-  - systemctl: expand --wait to show logs for the invocation with a new switch
   - improve journalctl performance by loading journal files
     lazily. Encode just enough information in the file name, so that we
     do not have to open it to know that it is not interesting for us, for
@@ -2702,11 +2729,6 @@ Features:
   operates on lexicographically before starting to work, in order to
   ensure deterministic behaviour if two unit files conflict (like DMs
   do, for example)
-
-* add "systemctl start -v foobar.service" that shows logs of a service
-  while the start command runs. This is non-trivial to do without
-  races though, since we should flush out all journal messages before
-  returning from the "systemctl stop".
 
 * systemctl: if some operation fails, show log output?
 

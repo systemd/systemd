@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
-#include <sys/stat.h>
 
 #include "log.h"
 #include "path-lookup.h"

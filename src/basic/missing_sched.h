@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/types.h>
-#include <sched.h>
+/* sched.h includes linux/sched/types.h since glibc-2.41 (21571ca0d70302909cf72707b2a7736cf12190a0),
+ * to make struct sched_attr being defined.
+ * Note, this must be included before sched.h, otherwise the headers conflict with each other. */
+#include <linux/sched/types.h>
+#include <sched.h>       /* IWYU pragma: export */
 
-#include "macro.h"
+#include "forward.h"
 
 /* 769071ac9f20b6a447410c7eaa55d1a5233ef40c (5.8),
  * defined in sched.h since glibc-2.36. */
@@ -30,21 +33,4 @@ assert_cc(PF_KTHREAD == 0x00200000);
 #  define TASK_COMM_LEN 16
 #else
 assert_cc(TASK_COMM_LEN == 16);
-#endif
-
-#if !HAVE_STRUCT_SCHED_ATTR
-struct sched_attr {
-        __u32 size;             /* Size of this structure */
-        __u32 sched_policy;     /* Policy (SCHED_*) */
-        __u64 sched_flags;      /* Flags */
-        __s32  sched_nice;      /* Nice value (SCHED_OTHER,
-                                         SCHED_BATCH) */
-        __u32 sched_priority;   /* Static priority (SCHED_FIFO,
-                                       SCHED_RR) */
-        /* Remaining fields are for SCHED_DEADLINE
-           and potentially soon for SCHED_OTHER/SCHED_BATCH */
-        __u64 sched_runtime;
-        __u64 sched_deadline;
-        __u64 sched_period;
-};
 #endif

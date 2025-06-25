@@ -6,25 +6,21 @@
  * Inspired by Andrew Lutomirski's 'u2f-hidraw-policy.c'
  */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/hid.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "fido_id_desc.h"
 #include "log.h"
-#include "macro.h"
 #include "main-func.h"
 #include "path-util.h"
-#include "string-util.h"
 #include "udev-util.h"
 
 static const char *arg_device = NULL;

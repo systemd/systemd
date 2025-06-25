@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fnmatch.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "sd-hwdb.h"
 
@@ -88,12 +86,20 @@ static int udev_builtin_hwdb_search(
                 const char *modalias = NULL;
 
                 /* look only at devices of a specific subsystem */
-                if (subsystem && !device_in_subsystem(d, subsystem))
-                        goto next;
+                if (subsystem) {
+                        r = device_in_subsystem(d, subsystem);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                goto next;
+                }
 
                 (void) sd_device_get_property_value(d, "MODALIAS", &modalias);
 
-                if (device_in_subsystem(d, "usb") && device_is_devtype(d, "usb_device")) {
+                r = device_is_subsystem_devtype(d, "usb", "usb_device");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
                         /* if the usb_device does not have a modalias, compose one */
                         if (!modalias)
                                 modalias = modalias_usb(d, s, sizeof(s));

@@ -249,12 +249,12 @@ systemctl revert "$UNIT_NAME"
 (! grep -r "IPAccounting=" "/etc/systemd/system.control/${UNIT_NAME}.d/")
 (! grep -r "MemoryMax=" "/etc/systemd/system.control/${UNIT_NAME}.d/")
 # Same stuff, but with --runtime, which should use /run
-systemctl set-property --runtime "$UNIT_NAME" CPUAccounting=no CPUQuota=10%
+systemctl set-property --runtime "$UNIT_NAME" IOAccounting=no CPUQuota=10%
 systemctl cat "$UNIT_NAME"
-grep -r "CPUAccounting=no" "/run/systemd/system.control/${UNIT_NAME}.d/"
+grep -r "IOAccounting=no" "/run/systemd/system.control/${UNIT_NAME}.d/"
 grep -r "CPUQuota=10.00%" "/run/systemd/system.control/${UNIT_NAME}.d/"
 systemctl revert "$UNIT_NAME"
-(! grep -r "CPUAccounting=" "/run/systemd/system.control/${UNIT_NAME}.d/")
+(! grep -r "IOAccounting=" "/run/systemd/system.control/${UNIT_NAME}.d/")
 (! grep -r "CPUQuota=" "/run/systemd/system.control/${UNIT_NAME}.d/")
 
 # Failed-unit related tests

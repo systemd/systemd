@@ -1,13 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
+#include "alloc-util.h"
 #include "ansi-color.h"
-#include "locale-util.h"
+#include "bus-unit-util.h"
+#include "glyph-util.h"
+#include "log.h"
+#include "pager.h"
 #include "sort-util.h"
 #include "special.h"
+#include "string-util.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-list-dependencies.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
+#include "unit-def.h"
+#include "unit-name.h"
 
 static int list_dependencies_print(const char *name, UnitActiveState state, int level, unsigned branches, bool last) {
         _cleanup_free_ char *n = NULL;

@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/resource.h>
-#include <sys/time.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bpf-devices.h"
 #include "bpf-program.h"
 #include "cgroup-setup.h"
+#include "cgroup.h"
 #include "errno-list.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "path-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_prog) {
@@ -257,6 +257,11 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
+        r = bpf_program_supported();
+        if (r < 0)
+                return log_tests_skipped_errno(r, "BPF device filter not supported");
+        ASSERT_TRUE(r);
+
         ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit(RLIMIT_MEMLOCK, &rl);
@@ -273,11 +278,6 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("cgroupfs not available");
         if (r < 0)
                 return log_tests_skipped_errno(r, "Failed to prepare cgroup subtree");
-
-        r = bpf_devices_supported();
-        if (r == 0)
-                return log_tests_skipped("BPF device filter not supported");
-        ASSERT_EQ(r, 1);
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup, NULL, &controller_path);
         ASSERT_OK(r);
@@ -299,8 +299,7 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(path_extract_directory(cgroup, &parent));
 
         ASSERT_OK(cg_mask_supported(&supported));
-        r = cg_attach_everywhere(supported, parent, 0);
-        ASSERT_OK(r);
+        ASSERT_OK(cg_attach(parent, 0));
 
         return 0;
 }

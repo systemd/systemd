@@ -1,22 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
+#include <linux/rtnetlink.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
-#include <linux/if.h>
-#include <linux/if_arp.h>
+#include <stdio.h>
+
+#include "sd-dhcp-protocol.h"
+#include "sd-ipv4ll.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "device-private.h"
 #include "dhcp-client-internal.h"
+#include "errno-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
-#include "parse-util.h"
-#include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
-#include "networkd-dhcp4-bus.h"
 #include "networkd-dhcp4.h"
-#include "networkd-ipv4acd.h"
+#include "networkd-dhcp4-bus.h"
+#include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -26,9 +29,12 @@
 #include "networkd-route.h"
 #include "networkd-setlink.h"
 #include "networkd-state-file.h"
+#include "parse-util.h"
+#include "set.h"
+#include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "sysctl-util.h"
 
 void network_adjust_dhcp4(Network *network) {
         assert(network);
@@ -341,11 +347,11 @@ int dhcp4_check_ready(Link *link) {
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
-        assert(m);
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Could not set DHCPv4 route");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
@@ -897,8 +903,9 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv4 address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 
@@ -1192,13 +1199,11 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 return 0;
                         }
 
-                        if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
-                                log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
-
-                                r = sd_ipv4ll_start(link->ipv4ll);
-                                if (r < 0 && r != -ESTALE) /* On exit, we cannot and should not start sd-ipv4ll. */
-                                        return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-                        }
+                        r = ipv4ll_start(link);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                        if (r > 0)
+                                log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address.");
 
                         if (link->dhcp_lease) {
                                 if (link->network->dhcp_send_release) {
@@ -1270,13 +1275,11 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         break;
 
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
-                        if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
+                        r = ipv4ll_start(link);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                        if (r > 0)
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
-
-                                r = sd_ipv4ll_start(link->ipv4ll);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-                        }
                         break;
 
                 default:
@@ -1494,6 +1497,11 @@ static int dhcp4_configure(Link *link) {
         r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to allocate DHCPv4 client: %m");
+
+        r = sd_dhcp_client_set_bootp(link->dhcp_client, link->network->dhcp_use_bootp);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to %s BOOTP: %m",
+                                            enable_disable(link->network->dhcp_use_bootp));
 
         r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
         if (r < 0)
@@ -1852,7 +1860,7 @@ int link_request_dhcp4_client(Link *link) {
 }
 
 int link_drop_dhcp4_config(Link *link, Network *network) {
-        int ret = 0;
+        int r, ret = 0;
 
         assert(link);
         assert(link->network);
@@ -1869,6 +1877,17 @@ int link_drop_dhcp4_config(Link *link, Network *network) {
                  * .network file may match to the interface, and DHCPv4 client may be disabled. In that case,
                  * the DHCPv4 client is not running, hence sd_dhcp_client_stop() in the above does nothing. */
                 RET_GATHER(ret, dhcp4_remove_address_and_routes(link, /* only_marked = */ false));
+        }
+
+        if (link->dhcp_client && link->network->dhcp_use_bootp &&
+            network && !network->dhcp_use_bootp && network->dhcp_send_release) {
+                /* If the client was enabled as a DHCP client, and is now enabled as a BOOTP client, release
+                 * the previous lease. Note, this can be easily fail, e.g. when the interface is down. Hence,
+                 * ignore any failures here. */
+                r = sd_dhcp_client_send_release(link->dhcp_client);
+                if (r < 0)
+                        log_link_full_errno(link, ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            "Failed to send DHCP RELEASE, ignoring: %m");
         }
 
         /* Even if the client is currently enabled and also enabled in the new .network file, detailed

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "emergency-action.h"
+#include "runtime-scope.h"
 #include "tests.h"
 
 TEST(parse_emergency_action) {

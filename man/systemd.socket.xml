@@ -405,17 +405,26 @@
         connection and only the connection socket is passed to it. If no, all listening sockets themselves
         are passed to the started service unit, and only one service unit is spawned for all connections
         (also see above). This value is ignored for datagram sockets and FIFOs where a single service unit
-        unconditionally handles all incoming traffic. Defaults to <option>no</option>. For performance
-        reasons, it is recommended to write new daemons only in a way that is suitable for
-        <option>Accept=no</option>. A daemon listening on an <constant>AF_UNIX</constant> socket may, but
-        does not need to, call
+        unconditionally handles all incoming traffic. Defaults to <option>no</option>.</para>
+
+        <para>Typically, for performance sensitive services, a choice of <option>Accept=no</option> is
+        preferable, since that way only the first connection will have to pay the activation resource
+        cost. On the other hand, for sporadically used services <option>Accept=yes</option> can be preferable
+        as it simplifies the implementation (as the service program code only has to process a single
+        connection instead of handling multiple) and enables stronger security (since the various sandboxing
+        options can be used to isolate parallel connections from each other, as each is serviced by a
+        separate service instance and process).</para>
+
+        <para>A service listening on an <constant>AF_UNIX</constant> socket may, but does not need to, call
         <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry> on the
         received socket before exiting. However, it must not unlink the socket from a file system. It should
         not invoke
         <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry> on
         sockets it got with <varname>Accept=no</varname>, but it may do so for sockets it got with
-        <varname>Accept=yes</varname> set. Setting <varname>Accept=yes</varname> is mostly useful to allow
-        daemons designed for usage with <citerefentry
+        <varname>Accept=yes</varname> set.</para>
+
+        <para>Setting <varname>Accept=yes</varname> is in particular useful for allowing daemons designed for
+        usage with <citerefentry
         project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry> to work
         unmodified with systemd socket activation.</para>
 
@@ -425,14 +434,20 @@
         above for a more detailed discussion of the naming rules of triggered services.</para>
 
         <para>For IPv4 and IPv6 connections, the <varname>$REMOTE_ADDR</varname> environment variable will
-        contain the remote IP address, and <varname>$REMOTE_PORT</varname> will contain the remote port. This
-        is the same as the format used by CGI. For <constant>SOCK_RAW</constant>, the port is the IP
-        protocol.</para>
+        contain the remote IP address, and <varname>$REMOTE_PORT</varname> will contain the remote port
+        number. These two variables correspond to those defined by the CGI interface for web services (see
+        <ulink url="https://datatracker.ietf.org/doc/html/rfc3875">RFC 3875</ulink>).</para>
 
         <para>For <constant>AF_UNIX</constant> socket connections, the <varname>$REMOTE_ADDR</varname>
         environment variable will contain either the remote socket's file system path starting with a slash
         (<literal>/</literal>) or its address in the abstract namespace starting with an at symbol
-        (<literal>@</literal>). If the socket is unnamed, <varname>$REMOTE_ADDR</varname> will not be set.</para>
+        (<literal>@</literal>). If the socket is unnamed, <varname>$REMOTE_ADDR</varname> will not be
+        set.</para>
+
+        <para>If <varname>Accept=yes</varname> is used, the activated service process will have set the
+        <varname>$SO_COOKIE</varname> environment variable to the Linux socket cookie, formatted as decimal
+        integer. The socket cookie can otherwise be acquired via <citerefentry
+        project='man-pages'><refentrytitle>getsockopt</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <para>It is recommended to set <varname>CollectMode=inactive-or-failed</varname> for service
         instances activated via <varname>Accept=yes</varname>, to ensure that failed connection services are
@@ -728,6 +743,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PassPIDFD=</varname></term>
+
+        <listitem><para>Takes a boolean value. This controls the <constant>SO_PASSPIDFD</constant> socket
+        option, which allows <constant>AF_UNIX</constant> sockets to receive the pidfd of the sending
+        process in an ancillary message. Defaults to <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PassSecurity=</varname></term>
         <listitem><para>Takes a boolean value. This controls the <constant>SO_PASSSEC</constant> socket
         option, which allows <constant>AF_UNIX</constant> sockets to receive the security context of the
@@ -744,6 +769,17 @@
         <option>false</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AcceptFileDescriptors=</varname></term>
+
+        <listitem><para>Takes a boolean value. This controls the <constant>SO_PASSRIGHTS</constant> socket
+        option, which when disabled prohibits the peer from sending <constant>SCM_RIGHTS</constant>
+        ancillary messages (aka file descriptors) via <constant>AF_UNIX</constant> sockets. Defaults to
+        <option>true</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>

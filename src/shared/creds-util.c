@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <pwd.h>
 #include <sys/file.h>
+#include <unistd.h>
+#include "efivars.h"
+#include "time-util.h"
 
 #if HAVE_OPENSSL
 #include <openssl/err.h>
@@ -10,14 +14,14 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "blockdev-util.h"
-#include "capability-util.h"
 #include "chattr-util.h"
-#include "constants.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "efi-api.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
@@ -25,6 +29,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "mkdir-label.h"
 #include "openssl-util.h"
@@ -34,6 +39,7 @@
 #include "recurse-dir.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
 #include "user-util.h"
@@ -966,7 +972,7 @@ int encrypt_credential_and_warn(
                 r = tpm2_seal(tpm2_context,
                               /* seal_key_handle= */ 0,
                               &tpm2_policy,
-                              /* n_policy_hash= */ 1,
+                              /* n_policy= */ 1,
                               /* pin= */ NULL,
                               &tpm2_key,
                               &blobs,
@@ -1355,11 +1361,13 @@ int decrypt_credential_and_warn(
                                 &IOVEC_MAKE(t->policy_hash_and_blob, le32toh(t->blob_size)),
                                 /* n_blobs= */ 1,
                                 &IOVEC_MAKE(t->policy_hash_and_blob + le32toh(t->blob_size), le32toh(t->policy_hash_size)),
-                                /* n_policy_hash= */ 1,
+                                /* n_known_policy_hash= */ 1,
                                 /* srk= */ NULL,
                                 &tpm2_key);
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
+                if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 #else
@@ -1755,7 +1763,7 @@ static int pick_up_credential_one(
                         AT_FDCWD, target_path,
                         /* open_flags= */ 0,
                         0644,
-                        /* flags= */ 0);
+                        /* copy_flags= */ 0);
         if (r < 0)
                 return log_warning_errno(r, "Failed to copy credential %s → file %s: %m",
                                          credential_name, target_path);

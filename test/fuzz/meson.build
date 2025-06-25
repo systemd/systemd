@@ -36,39 +36,6 @@ fuzz_regression_tests += { 'fuzz-unit-file' : dict }
 
 ############################################################
 
-if meson.version().version_compare('>=1.3.0')
-        sanitize_auto_features = '@0@'.format(get_option('auto_features'))
-else
-        if get_option('auto_features').enabled()
-                sanitize_auto_features = 'enabled'
-        elif get_option('auto_features').disabled()
-                sanitize_auto_features = 'disabled'
-        else
-                sanitize_auto_features = 'auto'
-        endif
-endif
-
-fuzz_c_args = get_option('c_args')
-fuzz_cpp_args = cxx_cmd != '' ? get_option('cpp_args') : []
-
-sanitize_address_undefined = custom_target(
-        'sanitize-address-undefined-fuzzers',
-        output : 'sanitize-address-undefined-fuzzers',
-        command : [meson_build_sh,
-                   meson.project_source_root(),
-                   '@OUTPUT@',
-                   'fuzzers',
-                   ' '.join(fuzz_c_args + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
-                   ' '.join(fuzz_cpp_args + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
-                   '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined -Dnspawn=enabled --optimization=@0@ @1@ --auto-features=@2@'.format(
-                           get_option('optimization'),
-                           get_option('werror') ? '--werror' : '',
-                           sanitize_auto_features
-                   ),
-                   ' '.join(cc.cmd_array()),
-                   cxx_cmd])
-
-fuzz_sanitizers = [['address,undefined', sanitize_address_undefined]]
 fuzz_testsdir = 'test/fuzz'
 
 if git.found() and fs.is_dir(meson.project_source_root() / '.git')

@@ -3,19 +3,21 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
-#include <netinet/icmp6.h>
-#include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/rtnetlink.h>
+#include <netinet/icmp6.h>
 
 #include "sd-ndisc.h"
 
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "missing_network.h"
 #include "ndisc-router-internal.h"
-#include "networkd-address-generation.h"
 #include "networkd-address.h"
+#include "networkd-address-generation.h"
 #include "networkd-dhcp6.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-nexthop.h"
@@ -23,7 +25,10 @@
 #include "networkd-route.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
-#include "sort-util.h"
+#include "ordered-set.h"
+#include "set.h"
+#include "siphash24.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -40,6 +45,10 @@
 #define NDISC_PREF64_MAX 64U
 
 static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t timestamp_usec);
+
+char* ndisc_dnssl_domain(const NDiscDNSSL *n) {
+        return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));
+}
 
 bool link_ndisc_enabled(Link *link) {
         assert(link);
@@ -89,11 +98,11 @@ void network_adjust_ndisc(Network *network) {
         /* When RouterAllowList=, PrefixAllowList= or RouteAllowList= are specified, then
          * RouterDenyList=, PrefixDenyList= or RouteDenyList= are ignored, respectively. */
         if (!set_isempty(network->ndisc_allow_listed_router))
-                network->ndisc_deny_listed_router = set_free_free(network->ndisc_deny_listed_router);
+                network->ndisc_deny_listed_router = set_free(network->ndisc_deny_listed_router);
         if (!set_isempty(network->ndisc_allow_listed_prefix))
-                network->ndisc_deny_listed_prefix = set_free_free(network->ndisc_deny_listed_prefix);
+                network->ndisc_deny_listed_prefix = set_free(network->ndisc_deny_listed_prefix);
         if (!set_isempty(network->ndisc_allow_listed_route_prefix))
-                network->ndisc_deny_listed_route_prefix = set_free_free(network->ndisc_deny_listed_route_prefix);
+                network->ndisc_deny_listed_route_prefix = set_free(network->ndisc_deny_listed_route_prefix);
 }
 
 static int ndisc_check_ready(Link *link);
@@ -370,8 +379,9 @@ static int ndisc_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         int r;
 
         assert(link);
+        assert(nexthop);
 
-        r = nexthop_configure_handler_internal(m, link, "Could not set NDisc route");
+        r = nexthop_configure_handler_internal(m, link, nexthop);
         if (r <= 0)
                 return r;
 
@@ -441,8 +451,9 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
 
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Could not set NDisc route");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
@@ -670,8 +681,9 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set NDisc address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 
@@ -1847,11 +1859,11 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt, bool zero
 }
 
 static void ndisc_dnssl_hash_func(const NDiscDNSSL *x, struct siphash *state) {
-        siphash24_compress_string(NDISC_DNSSL_DOMAIN(x), state);
+        siphash24_compress_string(ndisc_dnssl_domain(x), state);
 }
 
 static int ndisc_dnssl_compare_func(const NDiscDNSSL *a, const NDiscDNSSL *b) {
-        return strcmp(NDISC_DNSSL_DOMAIN(a), NDISC_DNSSL_DOMAIN(b));
+        return strcmp(ndisc_dnssl_domain(a), ndisc_dnssl_domain(b));
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -1898,7 +1910,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt, bool zero
                 if (!s)
                         return log_oom();
 
-                strcpy(NDISC_DNSSL_DOMAIN(s), *j);
+                strcpy(ndisc_dnssl_domain(s), *j);
 
                 if (lifetime_usec == 0) {
                         /* The entry is outdated. */
@@ -2737,10 +2749,15 @@ static int ndisc_neighbor_handle_non_router_message(Link *link, sd_ndisc_neighbo
         if (r < 0)
                 return r;
 
-        (void) ndisc_drop_outdated(link, /* router = */ &address, /* timestamp_usec = */ USEC_INFINITY);
-        (void) ndisc_drop_redirect(link, &address);
+        /* Remove the routes configured by Redirect messages. */
+        r = ndisc_drop_redirect(link, &address);
 
-        return 0;
+        /* Also remove the default gateway via the host, but keep the configurations based on the RA options. */
+        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = hashmap_remove(link->ndisc_routers_by_sender, &address);
+        if (rt)
+                RET_GATHER(r, ndisc_router_drop_default(link, rt));
+
+        return r;
 }
 
 static int ndisc_neighbor_handle_router_message(Link *link, sd_ndisc_neighbor *na) {

@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
-#include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -18,15 +17,13 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "fd-util.h"
-#include "format-util.h"
 #include "initreq.h"
 #include "list.h"
 #include "log.h"
 #include "main-func.h"
-#include "memory-util.h"
-#include "process-util.h"
 #include "reboot-util.h"
 #include "special.h"
+#include "time-util.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))
@@ -328,7 +325,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        notify_stop = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_stop = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         while (!server.quit) {
                 struct epoll_event event;

@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "locale-util.h"
-#include "macro.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "utf8.h"
 
 TEST(string_erase) {
         char *x;
@@ -1358,7 +1355,16 @@ TEST(strprepend) {
 
         ASSERT_STREQ(strprepend(&x, "xxx"), "xxx");
         ASSERT_STREQ(strprepend(&x, "bar"), "barxxx");
-        ASSERT_STREQ(strprepend(&x, "foo"), "foobarxxx");
+        ASSERT_STREQ(strprepend(&x, "foo", "4711"), "foo4711barxxx");
+        x = mfree(x);
+
+        ASSERT_STREQ(strprepend_with_separator(&x, "...", NULL), "");
+
+        ASSERT_STREQ(strprepend_with_separator(&x, "xyz", "a", "bb", "ccc"), "axyzbbxyzccc");
+        x = mfree(x);
+
+        ASSERT_STREQ(strprepend_with_separator(&x, ",", "start", "", "1", "234"), "start,,1,234");
+        ASSERT_STREQ(strprepend_with_separator(&x, ";", "more", "5", "678"), "more;5;678;start,,1,234");
 }
 
 TEST(strlevenshtein) {

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <sys/epoll.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -11,8 +9,9 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-internal.h"
-#include "bus-polkit.h"
+#include "bus-object.h"
 #include "bus-util.h"
+#include "dbus.h"
 #include "dbus-automount.h"
 #include "dbus-cgroup.h"
 #include "dbus-device.h"
@@ -30,20 +29,23 @@
 #include "dbus-target.h"
 #include "dbus-timer.h"
 #include "dbus-unit.h"
-#include "dbus.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fdset.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "manager.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "selinux-access.h"
 #include "serialize.h"
-#include "service.h"
+#include "set.h"
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
 #include "umask-util.h"
-#include "user-util.h"
 
 #define CONNECTIONS_MAX 4096
 
@@ -60,7 +62,7 @@ void bus_send_pending_reload_message(Manager *m) {
         /* If we cannot get rid of this message we won't dispatch any D-Bus messages, so that we won't end up wanting
          * to queue another message. */
 
-        r = sd_bus_send(NULL, m->pending_reload_message, NULL);
+        r = sd_bus_message_send(m->pending_reload_message);
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
 

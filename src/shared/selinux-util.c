@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stddef.h>
+#include <malloc.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <sys/un.h>
 #include <syslog.h>
 
@@ -21,12 +19,11 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "label.h"
+#include "label-util.h"
 #include "log.h"
-#include "macro.h"
-#include "mallinfo-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
-#include "stdio-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #if HAVE_SELINUX
@@ -109,14 +106,10 @@ static int open_label_db(void) {
         struct selabel_handle *hnd;
         /* Avoid maybe-uninitialized false positives */
         usec_t before_timestamp = USEC_INFINITY, after_timestamp = USEC_INFINITY;
-#  if HAVE_GENERIC_MALLINFO
-        generic_mallinfo before_mallinfo = {};
-#  endif
+        struct mallinfo2 before_mallinfo = {};
 
         if (DEBUG_LOGGING) {
-#  if HAVE_GENERIC_MALLINFO
-                before_mallinfo = generic_mallinfo_get();
-#  endif
+                before_mallinfo = mallinfo2();
                 before_timestamp = now(CLOCK_MONOTONIC);
         }
 
@@ -126,16 +119,11 @@ static int open_label_db(void) {
 
         if (DEBUG_LOGGING) {
                 after_timestamp = now(CLOCK_MONOTONIC);
-#  if HAVE_GENERIC_MALLINFO
-                generic_mallinfo after_mallinfo = generic_mallinfo_get();
-                size_t l = LESS_BY((size_t) after_mallinfo.uordblks, (size_t) before_mallinfo.uordblks);
+                struct mallinfo2 after_mallinfo = mallinfo2();
+                size_t l = LESS_BY(after_mallinfo.uordblks, before_mallinfo.uordblks);
                 log_debug("Successfully loaded SELinux database in %s, size on heap is %zuK.",
                           FORMAT_TIMESPAN(after_timestamp - before_timestamp, 0),
                           DIV_ROUND_UP(l, 1024));
-#  else
-                log_debug("Successfully loaded SELinux database in %s.",
-                          FORMAT_TIMESPAN(after_timestamp - before_timestamp, 0));
-#  endif
         }
 
         /* release memory after measurement */
@@ -166,6 +154,8 @@ static int selinux_init(bool force) {
          * early boot when the policy is being initialised. */
         if (!force && initialized != LAZY_INITIALIZED)
                 return 1;
+
+        mac_selinux_disable_logging();
 
         r = selinux_status_open(/* netlink fallback= */ 1);
         if (r < 0) {
@@ -260,6 +250,20 @@ void mac_selinux_finish(void) {
         have_status_page = false;
 
         initialized = false;
+#endif
+}
+
+#if HAVE_SELINUX
+_printf_(2,3)
+static int selinux_log_glue(int type, const char *fmt, ...) {
+        return 0;
+}
+#endif
+
+void mac_selinux_disable_logging(void) {
+#if HAVE_SELINUX
+        /* Turn off all of SELinux' own logging, we want to do that ourselves */
+        selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = selinux_log_glue });
 #endif
 }
 

@@ -6,46 +6,45 @@ endif
 
 subdir('bpf/userns_restrict')
 
-systemd_nsresourcework_sources = files(
-        'nsresourcework.c',
-        'userns-restrict.c',
-        'userns-registry.c',
-)
-
 systemd_nsresourced_sources = files(
         'nsresourced-manager.c',
         'nsresourced.c',
+)
+systemd_nsresourced_extract_sources = files(
         'userns-restrict.c',
         'userns-registry.c',
 )
-
-userns_restrict_include = include_directories('.')
+systemd_nsresourcework_sources = files(
+        'nsresourcework.c'
+)
+test_userns_restrict_sources = files(
+        'test-userns-restrict.c'
+)
 
 if conf.get('HAVE_VMLINUX_H') == 1
-        systemd_nsresourcework_sources += userns_restrict_skel_h
         systemd_nsresourced_sources += userns_restrict_skel_h
-
-        executables += [
-                test_template + {
-                        'sources' : files('test-userns-restrict.c', 'userns-restrict.c') + userns_restrict_skel_h,
-                        'conditions' : ['HAVE_VMLINUX_H'],
-                        'include_directories' : [ includes, userns_restrict_include ],
-                },
-        ]
+        systemd_nsresourcework_sources += userns_restrict_skel_h
+        test_userns_restrict_sources += userns_restrict_skel_h
 endif
 
 executables += [
         libexec_template + {
+                'name' : 'systemd-nsresourced',
+                'sources' : systemd_nsresourced_sources + systemd_nsresourced_extract_sources,
+                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
+                'extract' : systemd_nsresourced_extract_sources,
+                'dependencies' : threads,
+        },
+        libexec_template + {
                 'name' : 'systemd-nsresourcework',
                 'sources' : systemd_nsresourcework_sources,
                 'dependencies' : threads,
-                'include_directories' : [ includes, userns_restrict_include ],
+                'objects' : ['systemd-nsresourced'],
         },
-        libexec_template + {
-                'name' : 'systemd-nsresourced',
-                'sources' : systemd_nsresourced_sources,
-                'dependencies' : threads,
-                'include_directories' : [ includes, userns_restrict_include ],
+        test_template + {
+                'sources' : test_userns_restrict_sources,
+                'conditions' : ['HAVE_VMLINUX_H'],
+                'objects' : ['systemd-nsresourced'],
         },
 ]
 

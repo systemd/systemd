@@ -4,48 +4,58 @@
 #include <linux/ipv6.h>
 #include <netinet/in.h>
 #include <poll.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-netlink.h"
+#include "sd-network.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
-#include "bus-polkit.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
-#include "idn-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "memstream-util.h"
 #include "missing_network.h"
 #include "missing_socket.h"
-#include "netlink-util.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-delegate.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
+#include "resolved-dns-transaction.h"
 #include "resolved-dnssd.h"
 #include "resolved-etc-hosts.h"
+#include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
+#include "resolved-socket-graveyard.h"
 #include "resolved-util.h"
 #include "resolved-varlink.h"
+#include "set.h"
 #include "socket-util.h"
-#include "string-table.h"
 #include "string-util.h"
-#include "utf8.h"
+#include "time-util.h"
 #include "varlink-util.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
@@ -315,7 +325,7 @@ static int manager_rtnl_listen(Manager *m) {
         return r;
 }
 
-static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_network_event(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
@@ -518,13 +528,8 @@ static int manager_watch_hostname(Manager *m) {
         }
 
         r = sd_event_add_io(m->event, &m->hostname_event_source, m->hostname_fd, 0, on_hostname_change, m);
-        if (r < 0) {
-                if (r == -EPERM)
-                        /* kernels prior to 3.2 don't support polling this file. Ignore the failure. */
-                        m->hostname_fd = safe_close(m->hostname_fd);
-                else
-                        return log_error_errno(r, "Failed to add hostname event source: %m");
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add hostname event source: %m");
 
         (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
 
@@ -569,6 +574,10 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
                 dns_server_dump(server, f);
         HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, server, l->dns_servers)
+                        dns_server_dump(server, f);
+        DnsDelegate *delegate;
+        HASHMAP_FOREACH(delegate, m->delegates)
+                LIST_FOREACH(servers, server, delegate->dns_servers)
                         dns_server_dump(server, f);
 
         return memstream_dump(LOG_INFO, &ms);
@@ -641,41 +650,41 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         (void) notify_reloading();
 
-        manager_set_defaults(m);
-
         dns_server_unlink_on_reload(m->dns_servers);
         dns_server_unlink_on_reload(m->fallback_dns_servers);
         m->dns_extra_stub_listeners = ordered_set_free(m->dns_extra_stub_listeners);
+        manager_dns_stub_stop(m);
         dnssd_service_clear_on_reload(m->dnssd_services);
         m->unicast_scope = dns_scope_free(m->unicast_scope);
-
+        m->delegates = hashmap_free(m->delegates);
         dns_trust_anchor_flush(&m->trust_anchor);
+
+        manager_set_defaults(m);
 
         r = dns_trust_anchor_load(&m->trust_anchor);
         if (r < 0)
-                return r;
+                return sd_event_exit(sd_event_source_get_event(s), r);
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse config file on reload: %m");
+                log_warning_errno(r, "Failed to parse configuration file on reload, ignoring: %m");
         else
                 log_info("Config file reloaded.");
 
-        r = dnssd_load(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
+        (void) dnssd_load(m);
+        (void) manager_load_delegates(m);
 
         /* The default scope configuration is influenced by the manager's configuration (modes, etc.), so
          * recreate it on reload. */
-        r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
-                return r;
+                return sd_event_exit(sd_event_source_get_event(s), r);
 
         /* The configuration has changed, so reload the per-interface configuration too in order to take
          * into account any changes (e.g.: enable/disable DNSSEC). */
-        r = on_network_event(/* sd_event_source= */ NULL, -EBADF, /* revents= */ 0, m);
+        r = on_network_event(/* source= */ NULL, -EBADF, /* revents= */ 0, m);
         if (r < 0)
-                log_warning_errno(r, "Failed to update network information: %m");
+                log_warning_errno(r, "Failed to update network information on reload, ignoring: %m");
 
         /* We have new configuration, which means potentially new servers, so close all connections and drop
          * all caches, so that we can start fresh. */
@@ -683,7 +692,11 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         manager_flush_caches(m, LOG_INFO);
         manager_verify_all(m);
 
-        (void) sd_notify(/* unset= */ false, NOTIFY_READY);
+        r = manager_dns_stub_start(m);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), r);
+
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
         return 0;
 }
 
@@ -722,7 +735,7 @@ int manager_new(Manager **ret) {
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse configuration file: %m");
+                log_warning_errno(r, "Failed to parse configuration file, ignoring: %m");
 
 #if ENABLE_DNS_OVER_TLS
         r = dnstls_manager_init(m);
@@ -744,11 +757,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = dnssd_load(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
+        (void) dnssd_load(m);
+        (void) manager_load_delegates(m);
 
-        r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return r;
 
@@ -772,23 +784,23 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGHUP handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr1, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr1, m);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGUSR1 handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr2, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr2, m);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGUSR2 handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+1) | SD_EVENT_SIGNAL_PROCMASK, manager_sigrtmin1, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+1) | SD_EVENT_SIGNAL_PROCMASK, manager_sigrtmin1, m);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGRTMIN+1 handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &m->sigrtmin18_info);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &m->sigrtmin18_info);
         if (r < 0)
                 return log_debug_errno(r, "Failed install SIGRTMIN+18 handler: %m");
 
@@ -815,9 +827,8 @@ int manager_start(Manager *m) {
         return 0;
 }
 
-Manager *manager_free(Manager *m) {
+Manager* manager_free(Manager *m) {
         Link *l;
-        DnssdService *s;
 
         if (!m)
                 return NULL;
@@ -829,12 +840,13 @@ Manager *manager_free(Manager *m) {
         while ((l = hashmap_first(m->links)))
                link_free(l);
 
+        m->delegates = hashmap_free(m->delegates);
+
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
 
         m->stub_queries_by_packet = hashmap_free(m->stub_queries_by_packet);
-
-        dns_scope_free(m->unicast_scope);
+        m->unicast_scope = dns_scope_free(m->unicast_scope);
 
         /* At this point only orphaned streams should remain. All others should have been freed already by their
          * owners */
@@ -887,6 +899,7 @@ Manager *manager_free(Manager *m) {
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
+        DnssdService *s;
         while ((s = hashmap_first(m->dnssd_services)))
                dnssd_service_free(s);
         hashmap_free(m->dnssd_services);
@@ -1614,7 +1627,7 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         }
 
         /* Then, add the per-link servers */
-        HASHMAP_FOREACH(l, m->links) {
+        HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, s, l->dns_servers) {
                         r = ordered_set_put(*dns, s);
                         if (r == -EEXIST)
@@ -1622,7 +1635,17 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
                         if (r < 0)
                                 return r;
                 }
-        }
+
+        /* Third, add the delegate servers and domains */
+        DnsDelegate *d;
+        HASHMAP_FOREACH(d, m->delegates)
+                LIST_FOREACH(servers, s, d->dns_servers) {
+                        r = ordered_set_put(*dns, s);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
 
         /* If we found nothing, add the fallback servers */
         if (ordered_set_isempty(*dns)) {
@@ -1644,7 +1667,6 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
  *   > 0 or true: return only domains which are for routing only
  */
 int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_route) {
-        Link *l;
         int r;
 
         assert(m);
@@ -1667,8 +1689,23 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links) {
+        DnsDelegate *delegate;
+        HASHMAP_FOREACH(delegate, m->delegates)
+                LIST_FOREACH(domains, d, delegate->search_domains) {
 
+                        if (filter_route >= 0 &&
+                            d->route_only != !!filter_route)
+                                continue;
+
+                        r = ordered_set_put(*domains, d->name);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+
+        Link *l;
+        HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(domains, d, l->search_domains) {
 
                         if (filter_route >= 0 &&
@@ -1681,7 +1718,6 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
                         if (r < 0)
                                 return r;
                 }
-        }
 
         return 0;
 }
@@ -1764,13 +1800,17 @@ void manager_flush_caches(Manager *m, int log_level) {
 }
 
 void manager_reset_server_features(Manager *m) {
-        Link *l;
 
         dns_server_reset_features_all(m->dns_servers);
         dns_server_reset_features_all(m->fallback_dns_servers);
 
+        Link *l;
         HASHMAP_FOREACH(l, m->links)
                 dns_server_reset_features_all(l->dns_servers);
+
+        DnsDelegate *d;
+        HASHMAP_FOREACH(d, m->delegates)
+                dns_server_reset_features_all(d->dns_servers);
 
         log_info("Resetting learnt feature levels on all servers.");
 }

@@ -10,17 +10,20 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
-#include "copy.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
@@ -33,7 +36,6 @@
 #include "libfido2-util.h"
 #include "locale-util.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -48,9 +50,12 @@
 #include "process-util.h"
 #include "recurse-dir.h"
 #include "rlimit-util.h"
-#include "rm-rf.h"
+#include "runtime-scope.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
-#include "tmpfile-util.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "user-record.h"
 #include "user-record-password-quality.h"
@@ -236,7 +241,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
 static int acquire_existing_password(
                 const char *user_name,
                 UserRecord *hr,
-                bool emphasize_current,
+                bool emphasize_current_password,
                 AskPasswordFlags flags) {
 
         _cleanup_strv_free_erase_ char **password = NULL;
@@ -266,7 +271,7 @@ static int acquire_existing_password(
         if (is_this_me(user_name) <= 0)
                 SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, false);
 
-        if (asprintf(&question, emphasize_current ?
+        if (asprintf(&question, emphasize_current_password ?
                      "Please enter current password for user %s:" :
                      "Please enter password for user %s:",
                      user_name) < 0)
@@ -1448,7 +1453,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                         r = acquire_existing_password(
                                         hr->user_name,
                                         hr,
-                                        /* emphasize_current= */ false,
+                                        /* emphasize_current_password= */ false,
                                         ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE);
                         if (r < 0)
                                 return r;
@@ -3413,8 +3418,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'I':
@@ -3714,6 +3720,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (uid_is_system(uid))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in system range, refusing.", uid);
+                        if (uid_is_greeter(uid))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in greeter range, refusing.", uid);
                         if (uid_is_dynamic(uid))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in dynamic range, refusing.", uid);
                         if (uid == UID_NOBODY)
@@ -5309,7 +5317,7 @@ static int add_signing_key_one(sd_bus *bus, const char *fn, FILE *key) {
                 return log_error_errno(r, "Failed to read key '%s': %m", fn);
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        r = bus_call_method(bus, bus_mgr, "AddSigningKey", &error, /* reply= */ NULL, "sst", fn, pem, UINT64_C(0));
+        r = bus_call_method(bus, bus_mgr, "AddSigningKey", &error, /* ret_reply= */ NULL, "sst", fn, pem, UINT64_C(0));
         if (r < 0)
                 return log_error_errno(r, "Failed to add signing key '%s': %s", fn, bus_error_message(&error, r));
 
@@ -5416,7 +5424,7 @@ static int remove_signing_key_one(sd_bus *bus, const char *fn) {
         assert_se(fn);
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        r = bus_call_method(bus, bus_mgr, "RemoveSigningKey", &error, /* reply= */ NULL, "st", fn, UINT64_C(0));
+        r = bus_call_method(bus, bus_mgr, "RemoveSigningKey", &error, /* ret_reply= */ NULL, "st", fn, UINT64_C(0));
         if (r < 0)
                 return log_error_errno(r, "Failed to remove signing key '%s': %s", fn, bus_error_message(&error, r));
 

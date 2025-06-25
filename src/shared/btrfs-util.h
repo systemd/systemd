@@ -1,15 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
 
-#include "btrfs.h"
-#include "copy.h"
-#include "time-util.h"
+#include "btrfs.h"      /* IWYU pragma: export */
+#include "forward.h"
 
 typedef struct BtrfsSubvolInfo {
         uint64_t subvol_id;
@@ -130,21 +125,9 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret);
 int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *quota);
 int btrfs_qgroup_get_quota(const char *path, uint64_t qgroupid, BtrfsQuotaInfo *quota);
 
-static inline int btrfs_log_dev_root(int level, int ret, const char *p) {
-        return log_full_errno(level, ret,
-                              "File system behind %s is reported by btrfs to be backed by pseudo-device /dev/root, which is not a valid userspace accessible device node. "
-                              "Cannot determine correct backing block device.", p);
-}
+int btrfs_log_dev_root(int level, int ret, const char *p);
 
-static inline bool btrfs_might_be_subvol(const struct stat *st) {
-        if (!st)
-                return false;
-
-        /* Returns true if this 'struct stat' looks like it could refer to a btrfs subvolume. To make a final
-         * decision, needs to be combined with an fstatfs() check to see if this is actually btrfs. */
-
-        return S_ISDIR(st->st_mode) && st->st_ino == 256;
-}
+bool btrfs_might_be_subvol(const struct stat *st) _pure_;
 
 int btrfs_forget_device(const char *path);
 

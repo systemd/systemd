@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-device.h"
 #include "sd-dhcp-duid.h"
 #include "sd-id128.h"
 
 #include "ether-addr-util.h"
-#include "macro.h"
+#include "forward.h"
 #include "sparse-endian.h"
 
 #define SYSTEMD_PEN    43793
@@ -37,17 +36,19 @@ struct duid {
                         /* DUID_TYPE_LLT */
                         be16_t htype;
                         be32_t time;
-                        uint8_t haddr[];
+                        uint8_t haddr[HW_ADDR_MAX_SIZE];
                 } _packed_ llt;
                 struct {
                         /* DUID_TYPE_EN */
                         be32_t pen;
-                        uint8_t id[];
+                        /* The maximum length of vendor ID is not provided in RFC 8415, but we use 8 bytes.
+                         * See https://datatracker.ietf.org/doc/html/rfc8415#section-11.3 */
+                        uint8_t id[8];
                 } _packed_ en;
                 struct {
                         /* DUID_TYPE_LL */
                         be16_t htype;
-                        uint8_t haddr[];
+                        uint8_t haddr[HW_ADDR_MAX_SIZE];
                 } _packed_ ll;
                 struct {
                         /* DUID_TYPE_UUID */
@@ -56,6 +57,8 @@ struct duid {
                 uint8_t data[MAX_DUID_DATA_LEN];
         };
 } _packed_;
+
+assert_cc(sizeof(struct duid) == MAX_DUID_LEN);
 
 typedef struct sd_dhcp_duid {
         size_t size;

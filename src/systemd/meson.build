@@ -52,6 +52,9 @@ _not_installed_headers = [
         'sd-resolve.h',
 ]
 
+sources += systemd_headers
+sources += files(_not_installed_headers)
+
 install_headers(
         systemd_headers,
         '_sd-common.h',

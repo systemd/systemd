@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/types.h>
-
+#include "forward.h"
 #include "nspawn-settings.h"
 
 int create_subcgroup(
-                pid_t pid,
+                const PidRef *pid,
                 bool keep_unit,
                 uid_t uid_shift,
                 int userns_fd,

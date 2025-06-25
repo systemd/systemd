@@ -611,7 +611,7 @@ def elf2efi(args: argparse.Namespace):
 
     coff.Machine = pe_arch
     coff.NumberOfSections = len(sections)
-    coff.TimeDateStamp = int(sde if (sde := os.environ.get("SOURCE_DATE_EPOCH")) else time.time())
+    coff.TimeDateStamp = int(os.environ.get("SOURCE_DATE_EPOCH") or time.time())
     coff.SizeOfOptionalHeader = sizeof(opt)
     # EXECUTABLE_IMAGE|LINE_NUMS_STRIPPED|LOCAL_SYMS_STRIPPED|DEBUG_STRIPPED
     # and (32BIT_MACHINE or LARGE_ADDRESS_AWARE)

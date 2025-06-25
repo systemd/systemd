@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <grp.h>
 #include <nss.h>
 #include <pwd.h>
-#include <grp.h>
-#include <sys/types.h>
 
+#include "forward.h"
 #include "userdb.h"
 
 UserDBFlags nss_glue_userdb_flags(void);

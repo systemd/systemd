@@ -3,21 +3,10 @@
 
 #include <netinet/in.h>
 
-#include "sd-json.h"
-
-#include "bitmap.h"
 #include "dns-def.h"
 #include "dns-type.h"
-#include "hashmap.h"
-#include "in-addr-util.h"
 #include "list.h"
-#include "string-util.h"
-#include "time-util.h"
-
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
-typedef struct DnsTxtItem DnsTxtItem;
-typedef struct DnsSvcParam DnsSvcParam;
+#include "resolved-forward.h"
 
 /* DNSKEY RR flags */
 #define DNSKEY_FLAG_SEP            (UINT16_C(1) << 0)
@@ -68,11 +57,11 @@ enum {
         _NSEC3_ALGORITHM_MAX_DEFINED
 };
 
-struct DnsResourceKey {
+typedef struct DnsResourceKey {
         unsigned n_ref; /* (unsigned -1) for const keys, see below */
         uint16_t class, type;
         char *_name; /* don't access directly, use dns_resource_key_name()! */
-};
+} DnsResourceKey;
 
 /* Creates a temporary resource key. This is only useful to quickly
  * look up something, without allocating a full DnsResourceKey object
@@ -86,13 +75,13 @@ struct DnsResourceKey {
                 ._name = (char*) n,                     \
         })
 
-struct DnsTxtItem {
+typedef struct DnsTxtItem {
         size_t length;
         LIST_FIELDS(DnsTxtItem, items);
         uint8_t data[];
-};
+} DnsTxtItem;
 
-struct DnsSvcParam {
+typedef struct DnsSvcParam {
         uint16_t key;
         size_t length;
         LIST_FIELDS(DnsSvcParam, params);
@@ -101,9 +90,9 @@ struct DnsSvcParam {
                 DECLARE_FLEX_ARRAY(struct in_addr, value_in_addr);
                 DECLARE_FLEX_ARRAY(struct in6_addr, value_in6_addr);
         };
-};
+} DnsSvcParam;
 
-struct DnsResourceRecord {
+typedef struct DnsResourceRecord {
         unsigned n_ref;
         uint32_t ttl;
         usec_t expiry; /* RRSIG signature expiry */
@@ -284,7 +273,7 @@ struct DnsResourceRecord {
         };
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-};
+} DnsResourceRecord;
 
 /* We use uint8_t for label counts above, and UINT8_MAX/-1 has special meaning. */
 assert_cc(DNS_N_LABELS_MAX < UINT8_MAX);
@@ -346,7 +335,7 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
 #define DNS_RESOURCE_KEY_STRING_MAX (_DNS_CLASS_STRING_MAX + _DNS_TYPE_STRING_MAX + DNS_HOSTNAME_MAX + 1)
 
 char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size);
-ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out);
+ssize_t dns_resource_record_payload(DnsResourceRecord *rr, const void **ret);
 
 #define DNS_RESOURCE_KEY_TO_STRING(key) \
         dns_resource_key_to_string(key, (char[DNS_RESOURCE_KEY_STRING_MAX]) {}, DNS_RESOURCE_KEY_STRING_MAX)
@@ -409,11 +398,14 @@ int dns_resource_key_to_json(DnsResourceKey *key, sd_json_variant **ret);
 int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret);
 int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret);
 
+void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state);
+int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y);
 void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
 int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops;
+extern const struct hash_ops dns_resource_record_hash_ops_by_key;
 
 int dnssec_algorithm_to_string_alloc(int i, char **ret);
 int dnssec_algorithm_from_string(const char *s) _pure_;

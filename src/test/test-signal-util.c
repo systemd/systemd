@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <unistd.h>
-
 #include "log.h"
-#include "macro.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "process-util.h"
 
 #define info(sig) log_info(#sig " = " STRINGIFY(sig) " = %d", sig)
 
@@ -16,8 +13,8 @@ TEST(rt_signals) {
         info(SIGRTMIN);
         info(SIGRTMAX);
 
-        /* We use signals SIGRTMIN+0 to SIGRTMIN+24 unconditionally */
-        assert_se(SIGRTMAX - SIGRTMIN >= 24);
+        /* We use signals SIGRTMIN+0 to SIGRTMIN+30 unconditionally */
+        assert_se(SIGRTMAX - SIGRTMIN >= 30);
 }
 
 static void test_signal_to_string_one(int val) {

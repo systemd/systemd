@@ -7,6 +7,8 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include <stddef.h>
 #include "conf-parser.h"
 #include "timesyncd-conf.h"
+#include "timesyncd-manager.h"
+#include "timesyncd-server.h"
 %}
 struct ConfigPerfItem;
 %null_strings

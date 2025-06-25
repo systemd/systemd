@@ -1,17 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "chase.h"
 #include "creds-util.h"
 #include "efi-loader.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -20,15 +26,12 @@
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
-#include "process-util.h"
 #include "special.h"
 #include "specifier.h"
 #include "stat-util.h"
@@ -1194,6 +1197,8 @@ static int add_sysroot_mount(void) {
                         return log_oom();
 
                 fstype = arg_root_fstype ?: "tmpfs"; /* tmpfs, unless overridden */
+                if (streq(fstype, "tmpfs") && !fstab_test_option(arg_root_options, "mode\0"))
+                        extra_opts = "mode=0755"; /* root directory should not be world/group writable, unless overridden */
         } else {
 
                 what = fstab_node_to_udev_node(arg_root_what);
@@ -1216,7 +1221,7 @@ static int add_sysroot_mount(void) {
                 if (!strextend_with_separator(&combined_options, ",", extra_opts))
                         return log_oom();
 
-        log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(arg_root_fstype), strempty(combined_options));
+        log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(fstype), strempty(combined_options));
 
         /* Only honor x-systemd.makefs and .validatefs here, others are not relevant in initrd/not used
          * at all (also see mandatory_mount_drop_unapplicable_options()) */

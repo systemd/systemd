@@ -1,17 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdio.h>
-#include <unistd.h>
-
-#include "format-util.h"
-#include "install-printf.h"
+#include "alloc-util.h"
 #include "install.h"
-#include "macro.h"
+#include "install-printf.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "unit-name.h"
-#include "user-util.h"
 
 static int specifier_prefix_and_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const InstallInfo *i = ASSERT_PTR(userdata);

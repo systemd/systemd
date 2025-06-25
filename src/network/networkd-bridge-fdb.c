@@ -3,11 +3,11 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <net/ethernet.h>
-#include <net/if.h>
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "bridge.h"
+#include "conf-parser.h"
+#include "hashmap.h"
 #include "netlink-util.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-link.h"
@@ -16,14 +16,15 @@
 #include "networkd-queue.h"
 #include "networkd-util.h"
 #include "parse-util.h"
+#include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "vlan-util.h"
 #include "vxlan.h"
 
 #define STATIC_BRIDGE_FDB_ENTRIES_PER_NETWORK_MAX 1024U
 
-/* remove and FDB entry. */
-BridgeFDB *bridge_fdb_free(BridgeFDB *fdb) {
+static BridgeFDB* bridge_fdb_free(BridgeFDB *fdb) {
         if (!fdb)
                 return NULL;
 
@@ -40,7 +41,11 @@ BridgeFDB *bridge_fdb_free(BridgeFDB *fdb) {
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(BridgeFDB, bridge_fdb_free);
 
-/* create a new FDB entry or get an existing one. */
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                bridge_fdb_hash_ops_by_section,
+                ConfigSection, config_section_hash_func, config_section_compare_func,
+                BridgeFDB, bridge_fdb_free);
+
 static int bridge_fdb_new_static(
                 Network *network,
                 const char *filename,
@@ -83,13 +88,12 @@ static int bridge_fdb_new_static(
                 .ntf_flags = NEIGHBOR_CACHE_ENTRY_FLAGS_SELF,
         };
 
-        r = hashmap_ensure_put(&network->bridge_fdb_entries_by_section, &config_section_hash_ops, fdb->section, fdb);
+        r = hashmap_ensure_put(&network->bridge_fdb_entries_by_section, &bridge_fdb_hash_ops_by_section, fdb->section, fdb);
         if (r < 0)
                 return r;
 
         /* return allocated FDB structure. */
         *ret = TAKE_PTR(fdb);
-
         return 0;
 }
 

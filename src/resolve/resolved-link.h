@@ -3,25 +3,16 @@
 
 #include <sys/stat.h>
 
-#include "sd-netlink.h"
-
 #include "in-addr-util.h"
+#include "list.h"
 #include "network-util.h"
-#include "ratelimit.h"
 #include "resolve-util.h"
-
-typedef struct Link Link;
-typedef struct LinkAddress LinkAddress;
-
-#include "resolved-dns-rr.h"
-#include "resolved-dns-scope.h"
-#include "resolved-dns-search-domain.h"
-#include "resolved-dns-server.h"
+#include "resolved-forward.h"
 
 #define LINK_SEARCH_DOMAINS_MAX 256
 #define LINK_DNS_SERVERS_MAX 256
 
-struct LinkAddress {
+typedef struct LinkAddress {
         Link *link;
 
         int family;
@@ -29,7 +20,8 @@ struct LinkAddress {
         union in_addr_union in_addr_broadcast;
         unsigned char prefixlen;
 
-        unsigned char flags, scope;
+        unsigned char scope;
+        uint32_t flags;
 
         DnsResourceRecord *llmnr_address_rr;
         DnsResourceRecord *llmnr_ptr_rr;
@@ -37,9 +29,9 @@ struct LinkAddress {
         DnsResourceRecord *mdns_ptr_rr;
 
         LIST_FIELDS(LinkAddress, addresses);
-};
+} LinkAddress;
 
-struct Link {
+typedef struct Link {
         Manager *manager;
 
         int ifindex;
@@ -81,7 +73,7 @@ struct Link {
         char *state_file;
 
         bool unicast_relevant;
-};
+} Link;
 
 int link_new(Manager *m, Link **ret, int ifindex);
 Link *link_free(Link *l);
@@ -122,7 +114,7 @@ int link_address_new(Link *l,
                 const union in_addr_union *in_addr_broadcast);
 LinkAddress *link_address_free(LinkAddress *a);
 int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m);
-bool link_address_relevant(LinkAddress *l, bool local_multicast);
+bool link_address_relevant(LinkAddress *l, bool allow_link_local);
 void link_address_add_rrs(LinkAddress *a, bool force_remove);
 
 bool link_negative_trust_anchor_lookup(Link *l, const char *name);

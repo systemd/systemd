@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "log.h"
+#include "forward.h"
 
 typedef enum ProcCmdlineFlags {
         PROC_CMDLINE_STRIP_RD_PREFIX    = 1 << 0, /* automatically strip "rd." prefix if it is set (and we are in the initrd, since otherwise we'd not consider it anyway) */
@@ -21,7 +19,7 @@ int proc_cmdline_strv(char ***ret);
 
 int proc_cmdline_parse(const proc_cmdline_parse_t parse, void *userdata, ProcCmdlineFlags flags);
 
-int proc_cmdline_get_key(const char *parameter, ProcCmdlineFlags flags, char **value);
+int proc_cmdline_get_key(const char *parameter, ProcCmdlineFlags flags, char **ret_value);
 int proc_cmdline_get_bool(const char *key, ProcCmdlineFlags flags, bool *ret);
 
 int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...);
@@ -31,11 +29,4 @@ char* proc_cmdline_key_startswith(const char *s, const char *prefix);
 bool proc_cmdline_key_streq(const char *x, const char *y);
 
 /* A little helper call, to be used in proc_cmdline_parse_t callbacks */
-static inline bool proc_cmdline_value_missing(const char *key, const char *value) {
-        if (!value) {
-                log_warning("Missing argument for %s= kernel command line switch, ignoring.", key);
-                return true;
-        }
-
-        return false;
-}
+bool proc_cmdline_value_missing(const char *key, const char *value);

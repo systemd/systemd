@@ -12,11 +12,14 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
 import textwrap
 from pathlib import Path
+from types import FrameType
+from typing import Optional
 
 EMERGENCY_EXIT_DROPIN = """\
 [Unit]
@@ -359,9 +362,25 @@ def statfs(path: Path) -> str:
     ).stdout.strip()
 
 
+INTERRUPTED = False
+
+
+def onsignal(signal: int, frame: Optional[FrameType]) -> None:
+    global INTERRUPTED
+    if INTERRUPTED:
+        return
+
+    INTERRUPTED = True
+    raise KeyboardInterrupt()
+
+
 def main() -> None:
+    signal.signal(signal.SIGINT, onsignal)
+    signal.signal(signal.SIGTERM, onsignal)
+    signal.signal(signal.SIGHUP, onsignal)
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mkosi', required=True)
+    parser.add_argument('--mkosi', default=None)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
     parser.add_argument('--name', required=True)
@@ -379,6 +398,12 @@ def main() -> None:
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
+    if not args.mkosi:
+        args.mkosi = shutil.which('mkosi')
+        if not args.mkosi:
+            print('Could not find mkosi which is required to run the integration tests', file=sys.stderr)
+            sys.exit(1)
+
     # The meson source directory can either be the top-level repository directory or the
     # test/integration-tests/standalone subdirectory in the repository directory. The mkosi configuration
     # will always be a parent directory of one of these directories and at most 4 levels upwards, so don't
@@ -394,13 +419,6 @@ def main() -> None:
             file=sys.stderr,
         )
         exit(1)
-
-    if not bool(int(os.getenv('SYSTEMD_INTEGRATION_TESTS', '0'))):
-        print(
-            f'SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping {args.name}',
-            file=sys.stderr,
-        )
-        exit(77)
 
     if args.slow and not bool(int(os.getenv('SYSTEMD_SLOW_TESTS', '0'))):
         print(
@@ -469,6 +487,14 @@ def main() -> None:
             f"""
             [Service]
             Environment=TEST_MATCH_TESTCASE={os.environ['TEST_MATCH_TESTCASE']}
+            """
+        )
+
+    if os.getenv('TEST_RUN_DFUZZER'):
+        dropin += textwrap.dedent(
+            f"""
+            [Service]
+            Environment=TEST_RUN_DFUZZER={os.environ['TEST_RUN_DFUZZER']}
             """
         )
 
@@ -593,19 +619,22 @@ def main() -> None:
         'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
     ]  # fmt: skip
 
-    result = subprocess.run(cmd)
-
-    # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
-    if args.vm and result.returncode == 247 and args.exit_code != 247:
-        if journal_file:
-            journal_file.unlink(missing_ok=True)
+    try:
         result = subprocess.run(cmd)
+
+        # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
         if args.vm and result.returncode == 247 and args.exit_code != 247:
-            print(
-                f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
-                file=sys.stderr,
-            )
-            exit(77)
+            if journal_file:
+                journal_file.unlink(missing_ok=True)
+            result = subprocess.run(cmd)
+            if args.vm and result.returncode == 247 and args.exit_code != 247:
+                print(
+                    f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
+                    file=sys.stderr,
+                )
+                exit(77)
+    except KeyboardInterrupt:
+        result = subprocess.CompletedProcess(args=cmd, returncode=-signal.SIGINT)
 
     coredumps = process_coredumps(args, journal_file)
 

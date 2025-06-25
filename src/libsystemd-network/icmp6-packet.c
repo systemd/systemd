@@ -2,11 +2,11 @@
 
 #include <netinet/icmp6.h>
 
+#include "alloc-util.h"
 #include "icmp6-packet.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
-#include "iovec-util.h"
-#include "network-common.h"
+#include "log.h"
 #include "socket-util.h"
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(ICMP6Packet, icmp6_packet, mfree);

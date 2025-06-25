@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "keyring-util.h"
-#include "memory-util.h"
+#include "log.h"
 #include "missing_syscall.h"
 
 int keyring_read(key_serial_t serial, void **ret, size_t *ret_size) {

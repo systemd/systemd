@@ -1,8 +1,14 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_LOCALED') != 1
+        subdir_done()
+endif
+
 systemd_localed_sources = files(
+        'localed.c'
+)
+systemd_localed_extract_sources = files(
         'localed-util.c',
-        'localed.c',
         'xkbcommon-util.c',
 )
 
@@ -23,22 +29,18 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-localed',
                 'dbus' : true,
-                'conditions' : ['ENABLE_LOCALED'],
-                'sources' : systemd_localed_sources,
+                'sources' : systemd_localed_sources + systemd_localed_extract_sources,
+                'extract' : systemd_localed_extract_sources,
                 'dependencies' : libxkbcommon_deps,
         },
         executable_template + {
                 'name' : 'localectl',
                 'public' : true,
-                'conditions' : ['ENABLE_LOCALED'],
                 'sources' : files('localectl.c'),
         },
         test_template + {
-                'sources' : files(
-                        'test-localed-util.c',
-                        'localed-util.c',
-                        'xkbcommon-util.c',
-                ),
+                'sources' : files('test-localed-util.c'),
+                'objects' : ['systemd-localed'],
                 'dependencies' : libxkbcommon_deps,
         },
 ]
@@ -49,14 +51,12 @@ executables += [
 kbd_model_map = meson.current_source_dir() / 'kbd-model-map'
 language_fallback_map = meson.current_source_dir() / 'language-fallback-map'
 
-if conf.get('ENABLE_LOCALED') == 1
-        install_data('org.freedesktop.locale1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.locale1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.locale1.policy',
-                     install_dir : polkitpolicydir)
-        install_data('kbd-model-map',
-                     'language-fallback-map',
-                     install_dir : pkgdatadir)
-endif
+install_data('org.freedesktop.locale1.conf',
+                install_dir : dbuspolicydir)
+install_data('org.freedesktop.locale1.service',
+                install_dir : dbussystemservicedir)
+install_data('org.freedesktop.locale1.policy',
+                install_dir : polkitpolicydir)
+install_data('kbd-model-map',
+                'language-fallback-map',
+                install_dir : pkgdatadir)

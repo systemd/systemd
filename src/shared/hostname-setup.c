@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -18,7 +16,6 @@
 #include "hostname-util.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "proc-cmdline.h"
 #include "siphash24.h"
 #include "string-table.h"
@@ -142,7 +139,7 @@ int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret) {
         assert(ret);
 
         if (!path)
-                path = "/etc/hostname";
+                path = etc_hostname();
 
         f = fopen(path, "re");
         if (!f)

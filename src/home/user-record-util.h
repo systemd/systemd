@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "user-record.h"
-#include "group-record.h"
+#include "forward.h"
 
 /* We intentionally use snake_case instead of the usual camelCase here to further
  * reduce the chance of collision with a field any legitimate user record may ever
@@ -53,7 +50,6 @@ int user_record_update_last_changed(UserRecord *h, bool with_password);
 int user_record_set_disk_size(UserRecord *h, uint64_t disk_size);
 int user_record_set_password(UserRecord *h, char **password, bool prepend);
 int user_record_make_hashed_password(UserRecord *h, char **password, bool extend);
-int user_record_set_hashed_password(UserRecord *h, char **hashed_password);
 int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend);
 int user_record_set_pkcs11_protected_authentication_path_permitted(UserRecord *h, int b);
 int user_record_set_fido2_user_presence_permitted(UserRecord *h, int b);

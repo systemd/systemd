@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "group-record.h"
 #include "json-util.h"
+#include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "uid-classification.h"
 #include "user-util.h"

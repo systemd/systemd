@@ -2,7 +2,6 @@
 
 #include "errno-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(strerror_not_threadsafe) {

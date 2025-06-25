@@ -14,10 +14,10 @@ Documentation=man:org.freedesktop.network1(5)
 ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
 # systemd-udevd.service can be dropped once tuntap is moved to netlink
-After=systemd-networkd.socket systemd-udevd.service network-pre.target systemd-sysusers.service systemd-sysctl.service
+After=systemd-udevd.service network-pre.target systemd-sysusers.service systemd-sysctl.service
 Before=network.target multi-user.target shutdown.target initrd-switch-root.target
 Conflicts=shutdown.target initrd-switch-root.target
-Wants=systemd-networkd.socket network.target systemd-networkd-persistent-storage.service
+Wants=network.target systemd-networkd-persistent-storage.service
 
 [Service]
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_BPF CAP_SYS_ADMIN
@@ -46,6 +46,7 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/netif
 RuntimeDirectoryPreserve=yes
+Sockets=systemd-networkd.socket
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service bpf

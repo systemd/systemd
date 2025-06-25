@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "fd-util.h"
-#include "fileio.h"
+
+#include "alloc-util.h"
+#include "extract-word.h"
 #include "hostname-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memstream-util.h"
 #include "netif-naming-scheme.h"
 #include "network-generator.h"
@@ -209,6 +209,11 @@ static Network* network_free(Network *network) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                network_hash_ops,
+                char, string_hash_func, string_compare_func,
+                Network, network_free);
+
 static int network_new(Context *context, const char *name, Network **ret) {
         _cleanup_(network_freep) Network *network = NULL;
         _cleanup_free_ char *ifname = NULL;
@@ -234,7 +239,7 @@ static int network_new(Context *context, const char *name, Network **ret) {
                 .dhcp_use_dns = -1,
         };
 
-        r = hashmap_ensure_put(&context->networks_by_name, &string_hash_ops, network->ifname, network);
+        r = hashmap_ensure_put(&context->networks_by_name, &network_hash_ops, network->ifname, network);
         if (r < 0)
                 return r;
 
@@ -277,6 +282,11 @@ static NetDev* netdev_free(NetDev *netdev) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                netdev_hash_ops,
+                char, string_hash_func, string_compare_func,
+                NetDev, netdev_free);
+
 static int netdev_new(Context *context, const char *_kind, const char *_ifname, NetDev **ret) {
         _cleanup_(netdev_freep) NetDev *netdev = NULL;
         _cleanup_free_ char *kind = NULL, *ifname = NULL;
@@ -306,7 +316,7 @@ static int netdev_new(Context *context, const char *_kind, const char *_ifname, 
                 .ifname = TAKE_PTR(ifname),
         };
 
-        r = hashmap_ensure_put(&context->netdevs_by_name, &string_hash_ops, netdev->ifname, netdev);
+        r = hashmap_ensure_put(&context->netdevs_by_name, &netdev_hash_ops, netdev->ifname, netdev);
         if (r < 0)
                 return r;
 
@@ -355,6 +365,11 @@ static Link* link_free(Link *link) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                link_hash_ops,
+                char, string_hash_func, string_compare_func,
+                Link, link_free);
+
 static int link_new(
                 Context *context,
                 const char *name,
@@ -398,7 +413,7 @@ static int link_new(
                 .mac = *mac,
         };
 
-        r = hashmap_ensure_put(&context->links_by_filename, &string_hash_ops, link->filename, link);
+        r = hashmap_ensure_put(&context->links_by_filename, &link_hash_ops, link->filename, link);
         if (r < 0)
                 return r;
 
@@ -1272,9 +1287,9 @@ void context_clear(Context *context) {
         if (!context)
                 return;
 
-        hashmap_free_with_destructor(context->networks_by_name, network_free);
-        hashmap_free_with_destructor(context->netdevs_by_name, netdev_free);
-        hashmap_free_with_destructor(context->links_by_filename, link_free);
+        hashmap_free(context->networks_by_name);
+        hashmap_free(context->netdevs_by_name);
+        hashmap_free(context->links_by_filename);
 }
 
 static int address_dump(Address *address, FILE *f) {

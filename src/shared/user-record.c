@@ -2,18 +2,17 @@
 
 #include <sys/mount.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "dns-domain.h"
-#include "env-util.h"
-#include "fs-util.h"
 #include "glyph-util.h"
-#include "hexdecoct.h"
+#include "hashmap.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "json-util.h"
 #include "locale-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "percent-util.h"
@@ -21,11 +20,12 @@
 #include "rlimit-util.h"
 #include "sha256.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "user-record.h"
 #include "user-util.h"
-#include "utf8.h"
 
 #define DEFAULT_RATELIMIT_BURST 30
 #define DEFAULT_RATELIMIT_INTERVAL_USEC (1*USEC_PER_MINUTE)
@@ -102,6 +102,11 @@ UserRecord* user_record_new(void) {
         };
 
         return h;
+}
+
+sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags) {
+        return (FLAGS_SET(flags, USER_RECORD_LOG) ? SD_JSON_LOG : 0) |
+                (FLAGS_SET(flags, USER_RECORD_PERMISSIVE) ? SD_JSON_PERMISSIVE : 0);
 }
 
 static void pkcs11_encrypted_key_done(Pkcs11EncryptedKey *k) {
@@ -1398,6 +1403,7 @@ static int dispatch_status(const char *name, sd_json_variant *variant, sd_json_d
                 { "fallbackHomeDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0              },
                 { "useFallback",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(UserRecord, use_fallback),                  0              },
                 { "defaultArea",                SD_JSON_VARIANT_STRING,        json_dispatch_filename,         offsetof(UserRecord, default_area),                  0              },
+                { "aliases",                    SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(UserRecord, aliases),                       SD_JSON_RELAX  },
                 {},
         };
 
@@ -1525,6 +1531,11 @@ int user_group_record_mangle(
 
         if (USER_RECORD_STRIP_MASK(load_flags) == _USER_RECORD_MASK_MAX) /* strip everything? */
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EINVAL), "Stripping everything from record, refusing.");
+
+        /* Extra safety: mark the "secret" part (that contains literal passwords and such) as sensitive, so
+         * that it is not included in debug output and erased from memory when we are done. We do this for
+         * any record that passes through here. */
+        sd_json_variant_sensitive(sd_json_variant_by_key(v, "secret"));
 
         /* Check if we have the special sections and if they match our flags set */
         FOREACH_ELEMENT(i, mask_field) {
@@ -2065,7 +2076,7 @@ UserDisposition user_record_disposition(UserRecord *h) {
         if (uid_is_system(h->uid))
                 return USER_SYSTEM;
 
-        if (uid_is_dynamic(h->uid))
+        if (uid_is_dynamic(h->uid) || uid_is_greeter(h->uid))
                 return USER_DYNAMIC;
 
         if (uid_is_container(h->uid))
@@ -2757,6 +2768,21 @@ int suitable_blob_filename(const char *name) {
         return filename_is_valid(name) &&
                in_charset(name, URI_UNRESERVED) &&
                name[0] != '.';
+}
+
+bool userdb_match_is_set(const UserDBMatch *match) {
+        if (!match)
+                return false;
+
+        return !strv_isempty(match->fuzzy_names) ||
+                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
+                match->uid_min > 0 ||
+                match->uid_max < UID_INVALID-1;
+}
+
+void userdb_match_done(UserDBMatch *match) {
+        assert(match);
+        strv_free(match->fuzzy_names);
 }
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches) {

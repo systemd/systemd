@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -12,9 +14,11 @@
 #include "path-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 static const char *arg_test_dir = NULL;
 

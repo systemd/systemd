@@ -1,16 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/magic.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "log.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 
 bool unsafe_transition(const struct stat *a, const struct stat *b) {

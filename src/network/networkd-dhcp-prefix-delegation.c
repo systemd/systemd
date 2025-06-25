@@ -1,22 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/ipv6_route.h>
+#include <linux/rtnetlink.h>
+
+#include "sd-dhcp-client.h"
+#include "sd-dhcp6-client.h"
+#include "sd-netlink.h"
+#include "sd-radv.h"
 
 #include "dhcp6-lease-internal.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "in-addr-prefix-util.h"
-#include "networkd-address-generation.h"
 #include "networkd-address.h"
+#include "networkd-address-generation.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
-#include "networkd-route-util.h"
 #include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "networkd-setlink.h"
 #include "parse-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tunnel.h"
@@ -271,8 +279,9 @@ static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Failed to add prefix route for DHCP delegated subnet prefix");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
@@ -328,8 +337,9 @@ static int dhcp_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         int r;
 
         assert(link);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCP-PD address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 
@@ -698,8 +708,9 @@ static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Failed to set unreachable route for DHCPv4 delegated prefix");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 
@@ -715,8 +726,9 @@ static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 
         assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Failed to set unreachable route for DHCPv6 delegated prefix");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 

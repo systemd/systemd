@@ -11,6 +11,8 @@ libudev_sources = files(
         'libudev.c',
 )
 
+sources += libudev_sources
+
 ############################################################
 
 libudev_includes = [includes, include_directories('.')]
@@ -27,6 +29,7 @@ libudev_basic = static_library(
         'udev-basic',
         libudev_sources,
         include_directories : includes,
+        implicit_include_directories : false,
         dependencies : userspace,
         c_args : ['-fvisibility=default'],
         build_by_default : false)

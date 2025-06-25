@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <macro.h>
-#include <net/ethernet.h>
 #include <linux/ethtool.h>
 
-#include "conf-parser.h"
-#include "ether-addr-util.h"
-#include "time-util.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 
 #define N_ADVERTISE 4
 

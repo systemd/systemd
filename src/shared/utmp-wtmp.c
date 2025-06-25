@@ -1,23 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
 #include <sys/utsname.h>
-#include <unistd.h>
 #include <utmpx.h>
 
-#include "alloc-util.h"
-#include "errno-util.h"
-#include "hostname-util.h"
-#include "macro.h"
+#include "log.h"
 #include "memory-util.h"
-#include "path-util.h"
 #include "string-util.h"
 #include "time-util.h"
-#include "user-util.h"
 #include "utmp-wtmp.h"
 
 int utmp_get_runlevel(int *runlevel, int *previous) {
@@ -113,7 +104,7 @@ static int write_entry_wtmp(const struct utmpx *store) {
          * simply appended to the end; i.e. basically a log. */
 
         errno = 0;
-        updwtmpx(_PATH_WTMPX, store);
+        updwtmpx(WTMPX_FILE, store);
         if (errno == ENOENT) {
                 /* If utmp/wtmp have been disabled, that's a good thing, hence ignore the error. */
                 log_debug_errno(errno, "Not writing wtmp: %m");

@@ -3,16 +3,13 @@
   Copyright © 2015 Werner Fink
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <stdbool.h>
-#include <stddef.h>
+#include <poll.h>
+#include <stdlib.h>
 #include <sys/prctl.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -20,19 +17,17 @@
 #include "ask-password-api.h"
 #include "build.h"
 #include "conf-parser.h"
-#include "constants.h"
 #include "daemon-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fileio.h"
-#include "hashmap.h"
 #include "inotify-util.h"
 #include "io-util.h"
-#include "macro.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "mkdir-label.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -44,6 +39,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "wall.h"
 
 static enum {
@@ -406,7 +402,7 @@ static int process_and_watch_password_files(bool watch) {
         }
 
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop =
-                notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+                notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         for (;;) {
                 usec_t timeout = USEC_INFINITY;

@@ -5,12 +5,11 @@
   Copyright © 2010 Maarten Lankhorst
 ***/
 
-#include "sd-device.h"
-
+#include "cgroup.h"
+#include "core-forward.h"
+#include "execute.h"
 #include "pidref.h"
 #include "unit.h"
-
-typedef struct Swap Swap;
 
 typedef enum SwapExecCommand {
         SWAP_EXEC_ACTIVATE,
@@ -38,7 +37,7 @@ typedef struct SwapParameters {
         bool priority_set;
 } SwapParameters;
 
-struct Swap {
+typedef struct Swap {
         Unit meta;
 
         char *what;
@@ -85,7 +84,7 @@ struct Swap {
         devices for the same swap. We chain them up here. */
 
         LIST_FIELDS(struct Swap, same_devnode);
-};
+} Swap;
 
 extern const UnitVTable swap_vtable;
 

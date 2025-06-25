@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <sys/stat.h>
+
 #include "sd-bus.h"
 #include "sd-json.h"
 
@@ -9,9 +12,11 @@
 #include "bus-get-properties.h"
 #include "bus-label.h"
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "common-signal.h"
+#include "constants.h"
 #include "discover-image.h"
 #include "dropin.h"
 #include "env-util.h"
@@ -19,19 +24,24 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
-#include "mkdir-label.h"
 #include "notify-recv.h"
 #include "os-util.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "service-util.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "sysupdate-util.h"
+#include "utf8.h"
 
 #define FEATURES_DROPIN_NAME "systemd-sysupdate-enabled"
 
@@ -877,7 +887,7 @@ static int target_method_list_finish(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1271,7 +1281,7 @@ static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1310,7 +1320,7 @@ static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int target_method_describe_feature(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1751,11 +1761,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
         Image *image;
         int r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(m->runtime_scope, (ImageClass) class, NULL, images);
+        r = image_discover(m->runtime_scope, (ImageClass) class, NULL, &images);
         if (r < 0)
                 return r;
 
@@ -1763,7 +1769,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                 _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
 
-                if (IMAGE_IS_HOST(image))
+                if (image_is_host(image))
                         continue; /* We already enroll the host ourselves */
 
                 r = target_new(m, class, image->name, image->path, &t);
@@ -1904,7 +1910,7 @@ static int method_list_targets(sd_bus_message *msg, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_list_jobs(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1937,7 +1943,7 @@ static int method_list_jobs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1973,7 +1979,7 @@ static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static const sd_bus_vtable manager_vtable[] = {

@@ -3,11 +3,6 @@
   Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "sd-id128.h"
 #include "sd-ipv4acd.h"
 #include "sd-ipv4ll.h"
@@ -16,10 +11,8 @@
 #include "ether-addr-util.h"
 #include "in-addr-util.h"
 #include "network-common.h"
-#include "random-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
-#include "string-util.h"
 
 #define IPV4LL_NETWORK UINT32_C(0xA9FE0000)
 #define IPV4LL_NETMASK UINT32_C(0xFFFF0000)
@@ -151,6 +144,12 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
 
         ll->mac = *addr;
         return 0;
+}
+
+int sd_ipv4ll_set_timeout(sd_ipv4ll *ll, uint64_t usec) {
+        assert_return(ll, -EINVAL);
+
+        return sd_ipv4acd_set_timeout(ll->acd, usec);
 }
 
 int sd_ipv4ll_detach_event(sd_ipv4ll *ll) {

@@ -38,14 +38,14 @@ directory (`OutputDirectory=`) to point to the other directory using `mkosi/mkos
 After the image has been built, the integration tests can be run with:
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build --suite integration-tests --num-processes "$(($(nproc) / 4))"
+$ mkosi -f sandbox -- meson test -C build --setup=integration --suite integration-tests --num-processes "$(($(nproc) / 4))"
 ```
 
 As usual, specific tests can be run in meson by appending the name of the test
 which is usually the name of the directory e.g.
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build -v TEST-01-BASIC
+$ mkosi -f sandbox -- meson test -C build --setup=integration -v TEST-01-BASIC
 ```
 
 See `mkosi -f sandbox -- meson introspect build --tests` for a list of tests.
@@ -55,7 +55,7 @@ To interactively debug a failing integration test, the `--interactive` option
 newer:
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build -i TEST-01-BASIC
+$ mkosi -f sandbox -- meson test -C build --setup=integration -i TEST-01-BASIC
 ```
 
 Due to limitations in meson, the integration tests do not yet depend on the
@@ -64,7 +64,7 @@ running the integration tests. To rebuild the image and rerun a test, the
 following command can be used:
 
 ```shell
-$ mkosi -f sandbox -- meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build -v TEST-01-BASIC
+$ mkosi -f sandbox -- meson compile -C build mkosi && mkosi -f sandbox -- meson test -C build --setup=integration -v TEST-01-BASIC
 ```
 
 The integration tests use the same mkosi configuration that's used when you run
@@ -78,7 +78,7 @@ To iterate on an integration test, let's first get a shell in the integration te
 the following:
 
 ```shell
-$ mkosi -f sandbox -- meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 TEST_SHELL=1 mkosi -f sandbox -- meson test -C build -i TEST-01-BASIC
+$ mkosi -f sandbox -- meson compile -C build mkosi && mkosi -f sandbox -- meson test -C build --setup=shell -i TEST-01-BASIC
 ```
 
 This will get us a shell in the integration test environment after booting the machine without running the
@@ -107,7 +107,7 @@ re-running the test will first install the new packages we just built, make a ne
 the test again. You can keep running the loop of `mkosi -R`, `systemctl soft-reboot` and
 `systemctl start ...` until the changes to the integration test are working.
 
-If you're debugging a failing integration test (running `meson test --interactive` without `TEST_SHELL`),
+If you're debugging a failing integration test (running `meson test --interactive`),
 there's no need to run `systemctl start ...`, running `systemctl soft-reboot` on its own is sufficient to
 rerun the test.
 
@@ -119,10 +119,6 @@ rerun the test.
 
 `TEST_NO_KVM=1`: Disable qemu KVM auto-detection (may be necessary when you're
 trying to run the *vanilla* qemu and have both qemu and qemu-kvm installed)
-
-`TEST_SHELL=1`: Configure the machine to be more *user-friendly* for
-interactive debugging (e.g. by setting a usable default terminal, suppressing
-the shutdown after the test, etc.).
 
 `TEST_MATCH_SUBTEST=subtest`:  If the test makes use of `run_subtests` use this
 variable to provide a POSIX extended regex to run only subtests matching the
@@ -501,8 +497,7 @@ fuzz targets. The dictionary should be named `src/fuzz/fuzz-foo.dict` and the
 seed corpus should be built and exported as `$OUT/fuzz-foo_seed_corpus.zip` in
 `tools/oss-fuzz.sh`.
 
-The fuzzers can be built locally if you have libFuzzer installed by running
-`tools/oss-fuzz.sh`, or by running:
+The fuzzers can be built locally by running `tools/oss-fuzz.sh`, or by running:
 
 ```sh
 CC=clang CXX=clang++ \

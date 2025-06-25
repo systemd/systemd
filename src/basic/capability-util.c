@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/prctl.h>
 #include <stdatomic.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/prctl.h>
-#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -17,9 +14,9 @@
 #include "fileio.h"
 #include "log.h"
 #include "logarithm.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "pidref.h"
+#include "process-util.h"
 #include "stat-util.h"
 #include "user-util.h"
 
@@ -395,8 +392,9 @@ bool capability_quintet_mangle(CapabilityQuintet *q) {
 
         combined = q->effective | q->bounding | q->inheritable | q->permitted | q->ambient;
 
-        BIT_FOREACH(i, combined) {
-                assert((unsigned) i <= cap_last_cap());
+        for (unsigned i = 0; i <= cap_last_cap(); i++) {
+                if (!BIT_SET(combined, i))
+                        continue;
 
                 if (prctl(PR_CAPBSET_READ, (unsigned long) i) > 0)
                         continue;

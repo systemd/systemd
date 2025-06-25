@@ -3,14 +3,15 @@
 #include <sys/utsname.h>
 
 #include "alloc-util.h"
-#include "cgroup-util.h"
 #include "clock-util.h"
+#include "constants.h"
 #include "errno-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "taint.h"
 #include "uid-range.h"
@@ -32,7 +33,7 @@ static int short_uid_gid_range(UIDRangeUsernsMode mode) {
 }
 
 char** taint_strv(void) {
-        const char *stage[12] = {};
+        const char *stage[11] = {};
         size_t n = 0;
 
         /* Returns a "taint string", e.g. "local-hwclock:var-run-bad". Only things that are detected at

@@ -2,8 +2,6 @@
 
 #include "alloc-util.h"
 #include "import-util.h"
-#include "log.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void test_import_url_last_component_one(const char *input, const char *output, int ret) {

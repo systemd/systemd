@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "json-util.h"
-#include "macro.h"
+#include "sd-json.h"
+
 #include "tests.h"
 #include "user-record.h"
 

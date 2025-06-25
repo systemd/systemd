@@ -12,19 +12,13 @@
  * When the code here is changed, man/systemd.net-naming-scheme.xml must be updated too.
  */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdarg.h>
-#include <unistd.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/netdevice.h>
 #include <linux/pci_regs.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
-#include "chase.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -34,30 +28,36 @@
 #include "glyph-util.h"
 #include "netif-naming-scheme.h"
 #include "parse-util.h"
-#include "proc-cmdline.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "strv.h"
-#include "strxcpyx.h"
 #include "udev-builtin.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
 
-/* skip intermediate virtio devices */
-static sd_device *device_skip_virtio(sd_device *dev) {
-        /* there can only ever be one virtio bus per parent device, so we can
-         * safely ignore any virtio buses. see
-         * http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html */
-        while (dev) {
-                if (!device_in_subsystem(dev, "virtio"))
-                        break;
+static int device_get_parent_skip_virtio(sd_device *dev, sd_device **ret) {
+        int r;
 
-                if (sd_device_get_parent(dev, &dev) < 0)
-                        return NULL;
+        assert(dev);
+        assert(ret);
+
+        /* This provides the parent device, but skips intermediate virtio devices. There can only ever be one
+         * virtio bus per parent device, so we can safely ignore any virtio buses. See
+         * https://lore.kernel.org/virtualization/CAPXgP137A=CdmggtVPUZXbnpTbU9Tewq-sOjg9T8ohYktct1kQ@mail.gmail.com/ */
+
+        for (;;) {
+                r = sd_device_get_parent(dev, &dev);
+                if (r < 0)
+                        return r;
+
+                r = device_in_subsystem(dev, "virtio");
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *ret = dev;
+                        return 0;
+                }
         }
-
-        return dev;
 }
 
 static int get_matching_parent(
@@ -71,26 +71,23 @@ static int get_matching_parent(
 
         assert(dev);
 
-        r = sd_device_get_parent(dev, &parent);
+        if (skip_virtio)
+                r = device_get_parent_skip_virtio(dev, &parent);
+        else
+                r = sd_device_get_parent(dev, &parent);
         if (r < 0)
                 return r;
 
-        if (skip_virtio) {
-                /* skip virtio subsystem if present */
-                parent = device_skip_virtio(parent);
-                if (!parent)
-                        return -ENODEV;
-        }
-
         /* check if our direct parent is in an expected subsystem. */
-        STRV_FOREACH(s, parent_subsystems)
-                if (device_in_subsystem(parent, *s)) {
-                        if (ret)
-                                *ret = parent;
-                        return 0;
-                }
+        r = device_in_subsystem_strv(parent, parent_subsystems);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENODEV;
 
-        return -ENODEV;
+        if (ret)
+                *ret = parent;
+        return 0;
 }
 
 static int get_first_syspath_component(sd_device *dev, const char *prefix, char **ret) {
@@ -168,47 +165,7 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
         return -ENOENT;
 }
 
-static int get_dev_port(sd_device *dev, bool fallback_to_dev_id, unsigned *ret) {
-        unsigned v;
-        int r;
-
-        assert(dev);
-        assert(ret);
-
-        /* Get kernel provided port index for the case when multiple ports on a single PCI function. */
-
-        r = device_get_sysattr_unsigned_filtered(dev, "dev_port", &v);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                /* Found a positive index. Let's use it. */
-                *ret = v;
-                return 1; /* positive */
-        }
-        assert(v == 0);
-
-        /* With older kernels IP-over-InfiniBand network interfaces sometimes erroneously provide the port
-         * number in the 'dev_id' sysfs attribute instead of 'dev_port', which thus stays initialized as 0. */
-
-        if (fallback_to_dev_id) {
-                unsigned iftype;
-
-                r = device_get_sysattr_unsigned_filtered(dev, "type", &iftype);
-                if (r < 0)
-                        return r;
-
-                fallback_to_dev_id = (iftype == ARPHRD_INFINIBAND);
-        }
-
-        if (fallback_to_dev_id)
-                return device_get_sysattr_unsigned_filtered(dev, "dev_id", ret);
-
-        /* Otherwise, return the original index 0. */
-        *ret = 0;
-        return 0; /* zero */
-}
-
-static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **ret) {
+static int get_port_specifier(sd_device *dev, char **ret) {
         const char *phys_port_name;
         unsigned dev_port;
         char *buf;
@@ -247,7 +204,7 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
 
         /* Then, try to use the kernel provided port index for the case when multiple ports on a single PCI
          * function. */
-        r = get_dev_port(dev, fallback_to_dev_id, &dev_port);
+        r = device_get_sysattr_unsigned_filtered(dev, "dev_port", &dev_port);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device port index: %m");
         if (r > 0) {
@@ -313,7 +270,7 @@ static int names_pci_onboard(UdevEvent *event, sd_device *pci_dev, const char *p
         if (r < 0)
                 return r;
 
-        r = get_port_specifier(dev, /* fallback_to_dev_id = */ false, &port);
+        r = get_port_specifier(dev, &port);
         if (r < 0)
                 return r;
 
@@ -420,7 +377,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
          * here and just check for the existence of the slot directory. As this directory has to exist, we're
          * emitting a debug message for the unlikely case it's not found. Note that the domain part doesn't
          * belong to the slot name here because there's a 1-to-1 relationship between PCI function and its
-         * hotplug slot. See https://docs.kernel.org/s390/pci.html for more details. */
+         * hotplug slot. See https://docs.kernel.org/arch/s390/pci.html for more details. */
 
         assert(dev);
         assert(slots_dirfd >= 0);
@@ -689,7 +646,7 @@ static int names_pci_slot(UdevEvent *event, sd_device *pci_dev, const char *pref
         if (r < 0)
                 return r;
 
-        r = get_port_specifier(dev, /* fallback_to_dev_id = */ true, &port);
+        r = get_port_specifier(dev, &port);
         if (r < 0)
                 return r;
 
@@ -1325,9 +1282,9 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
         /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
         switch (iftype) {
         case ARPHRD_ETHER: {
-                if (device_is_devtype(dev, "wlan"))
+                if (device_is_devtype(dev, "wlan") > 0)
                         *ret = "wl";
-                else if (device_is_devtype(dev, "wwan"))
+                else if (device_is_devtype(dev, "wwan") > 0)
                         *ret = "ww";
                 else
                         *ret = "en";

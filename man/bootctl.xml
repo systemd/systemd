@@ -134,10 +134,14 @@
       <varlistentry>
         <term><option>set-default</option> <replaceable>ID</replaceable></term>
         <term><option>set-oneshot</option> <replaceable>ID</replaceable></term>
+        <term><option>set-sysfail</option> <replaceable>ID</replaceable></term>
 
         <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string or a glob
         pattern as argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
-        the <option>set-default</option> will set it persistently for all future boots.</para>
+        the <option>set-default</option> will set it persistently for all future boots. The <option>set-sysfail</option> command
+        will set the boot loader entry to be used in case of a system failure. System failure (SysFail) boot entries can
+        optionally modify the automatic selection order in the event of a failure, such as a boot firmware update failure with
+        the failure status recorded in the EFI system table.</para>
 
         <para><command>bootctl list</command> can be used to list available boot loader entries and their
         IDs.</para>
@@ -146,8 +150,9 @@
         <option>@oneshot</option> or <option>@current</option>, which correspond to the current default boot loader
         entry for all future boots, the current default boot loader entry for the next boot, and the currently booted
         boot loader entry. These special IDs are resolved to the current values of the EFI variables
-        <varname>LoaderEntryDefault</varname>, <varname>LoaderEntryOneShot</varname> and <varname>LoaderEntrySelected</varname>,
-        see <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> for details.
+        <varname>LoaderEntryDefault</varname>, <varname>LoaderEntrySysFail</varname>, <varname>LoaderEntryOneShot</varname>
+        and <varname>LoaderEntrySelected</varname>, see <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">
+        Boot Loader Specification</ulink> for details.
         These special IDs are primarily useful as a quick way to persistently make the currently booted boot loader
         entry the default choice, or to upgrade the default boot loader entry for the next boot to the default boot
         loader entry for all future boots, but may be used for other operations too.</para>
@@ -398,10 +403,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--no-variables</option></term>
-        <listitem><para>Do not touch the firmware's boot loader list stored in EFI variables.</para>
+        <term><option>--variables=yes|no</option></term>
+        <listitem><para>Controls whether to touch the firmware's boot loader list stored in EFI variables,
+        and other EFI variables. If not specified defaults to no when execution in a container runtime is
+        detected, yes otherwise.</para>
 
-        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>

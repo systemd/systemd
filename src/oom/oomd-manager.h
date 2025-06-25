@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
-#include "conf-parser.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 #include "oomd-util.h"
 
 /* Polling interval for monitoring stats */
@@ -27,9 +24,7 @@
 #define RECLAIM_DURATION_USEC (30 * USEC_PER_SEC)
 #define POST_ACTION_DELAY_USEC (15 * USEC_PER_SEC)
 
-typedef struct Manager Manager;
-
-struct Manager {
+typedef struct Manager {
         sd_bus *bus;
         sd_event *event;
 
@@ -59,7 +54,7 @@ struct Manager {
         /* This varlink server object is used to manage systemd-oomd's varlink server which is used by user
          * managers to report changes in ManagedOOM settings (oomd server - systemd client). */
         sd_varlink_server *varlink_server;
-};
+} Manager;
 
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

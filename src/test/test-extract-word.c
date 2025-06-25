@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdlib.h>
-
 #include "extract-word.h"
-#include "log.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(extract_first_word) {

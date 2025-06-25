@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-polkit.h"
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Login.h"
 
@@ -70,8 +69,6 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT(Id, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime path ($XDG_RUNTIME_DIR) of the user."),
                 SD_VARLINK_DEFINE_OUTPUT(RuntimePath, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Index into the file descriptor table of this reply with the session tracking fd for this session."),
-                SD_VARLINK_DEFINE_OUTPUT(SessionFileDescriptor, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("The original UID of this session."),
                 SD_VARLINK_DEFINE_OUTPUT(UID, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("The seat this session has been assigned to"),

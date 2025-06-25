@@ -3,15 +3,16 @@
 #pragma once
 
 #if SD_BOOT
-#  include "efi-string.h"
+#  include "efi.h"
 #else
 #  include <uchar.h>
 #endif
 
 #include "efi-fundamental.h"
-#include "string-util-fundamental.h"
 
-#define CHID_TYPES_MAX 15
+#define CHID_TYPES_MAX 18
+/* Any chids starting from EXTRA_CHID_BASE are non-standard and are subject to change and renumeration at any time */
+#define EXTRA_CHID_BASE 15
 
 typedef enum ChidSmbiosFields {
         CHID_SMBIOS_MANUFACTURER,
@@ -25,6 +26,7 @@ typedef enum ChidSmbiosFields {
         CHID_SMBIOS_BIOS_MAJOR,
         CHID_SMBIOS_BIOS_MINOR,
         CHID_SMBIOS_ENCLOSURE_TYPE,
+        CHID_EDID_PANEL,
         _CHID_SMBIOS_FIELDS_MAX,
 } ChidSmbiosFields;
 

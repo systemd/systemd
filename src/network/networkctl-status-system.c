@@ -2,14 +2,18 @@
 
 #include "sd-network.h"
 
+#include "alloc-util.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "networkctl.h"
 #include "networkctl-dump-util.h"
 #include "networkctl-journal.h"
 #include "networkctl-status-system.h"
 #include "networkctl-util.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 static int ifindex_str_compare_func(char * const *a, char * const *b) {

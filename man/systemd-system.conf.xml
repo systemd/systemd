@@ -201,7 +201,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>DefaultCPUAccounting=</varname></term>
         <term><varname>DefaultMemoryAccounting=</varname></term>
         <term><varname>DefaultTasksAccounting=</varname></term>
         <term><varname>DefaultIOAccounting=</varname></term>
@@ -209,14 +208,12 @@
 
         <listitem>
         <para>Configure the default resource accounting settings, as configured per-unit by
-        <varname>CPUAccounting=</varname>, <varname>MemoryAccounting=</varname>,
-        <varname>TasksAccounting=</varname>, <varname>IOAccounting=</varname> and
-        <varname>IPAccounting=</varname>. See
+        <varname>MemoryAccounting=</varname>, <varname>TasksAccounting=</varname>, <varname>IOAccounting=</varname>,
+        and <varname>IPAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings.</para>
 
-        <para><varname>DefaultCPUAccounting=</varname> defaults to yes when running on kernel ≥4.15, and no on older versions.
-        <varname>DefaultMemoryAccounting=</varname> defaults to &MEMORY_ACCOUNTING_DEFAULT;.
+        <para><varname>DefaultMemoryAccounting=</varname> defaults to &MEMORY_ACCOUNTING_DEFAULT;.
         <varname>DefaultTasksAccounting=</varname> defaults to yes.
         The other settings default to no.</para>
 
@@ -754,10 +751,18 @@
       <variablelist>
         <varlistentry>
           <term>systemd 252</term>
-          <listitem><para>Option <varname>DefaultBlockIOAccounting=</varname> was deprecated. Please switch
-          to the unified cgroup hierarchy.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <listitem><para>Option <varname>DefaultBlockIOAccounting=</varname> was deprecated. Please switch
+          to the unified cgroup hierarchy.</para></listitem>
+        </varlistentry>
+      </variablelist>
+
+      <variablelist>
+        <varlistentry>
+          <term>systemd 258</term>
+
+          <listitem><para><varname>DefaultCPUAccounting=</varname> setting is deprecated, because CPU accounting
+          is always available on the unified cgroup hierarchy and such setting has no effect.</para></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>

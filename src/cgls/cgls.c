@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #include "sd-bus.h"
 
@@ -12,7 +10,6 @@
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
-#include "fileio.h"
 #include "log.h"
 #include "main-func.h"
 #include "output-mode.h"
@@ -20,6 +17,8 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 

@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
 #include "ether-addr-util.h"
-#include "hash-funcs.h"
 #include "list.h"
 #include "log-link.h"
 #include "netdev-util.h"
-#include "networkd-link.h"
-#include "time-util.h"
+#include "networkd-forward.h"
 
 /* Special hardware address value to suppress generating persistent hardware address for the netdev. */
 #define HW_ADDR_NONE ((struct hw_addr_data) { .length = 1, })
@@ -109,9 +104,6 @@ typedef enum NetDevCreateType {
         _NETDEV_CREATE_MAX,
         _NETDEV_CREATE_INVALID = -EINVAL,
 } NetDevCreateType;
-
-typedef struct Manager Manager;
-typedef struct Condition Condition;
 
 typedef struct NetDev {
         Manager *manager;

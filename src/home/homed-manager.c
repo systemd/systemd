@@ -1,59 +1,66 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
+#include <linux/fscrypt.h>
 #include <linux/magic.h>
 #include <math.h>
 #include <openssl/pem.h>
 #include <pwd.h>
+#include <sys/inotify.h>
 #include <sys/ioctl.h>
-#include <sys/quota.h>
 #include <sys/stat.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-gpt.h"
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-log-control-api.h"
-#include "bus-polkit.h"
+#include "bus-object.h"
 #include "clean-ipc.h"
 #include "common-signal.h"
 #include "conf-files.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
-#include "gpt.h"
 #include "home-util.h"
 #include "homed-conf.h"
-#include "homed-home-bus.h"
 #include "homed-home.h"
-#include "homed-manager-bus.h"
 #include "homed-manager.h"
+#include "homed-manager-bus.h"
+#include "homed-operation.h"
 #include "homed-varlink.h"
-#include "io-util.h"
-#include "missing_fs.h"
 #include "mkdir.h"
 #include "notify-recv.h"
 #include "openssl-util.h"
-#include "process-util.h"
+#include "ordered-set.h"
 #include "quota-util.h"
 #include "random-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
-#include "socket-util.h"
+#include "set.h"
+#include "siphash24.h"
 #include "sort-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
+#include "user-record.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
-#include "user-record.h"
 #include "user-util.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
@@ -242,16 +249,16 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_memory_pressure(m->event, /* ret_event_source= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata = */ NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata = */ NULL);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR1|SD_EVENT_SIGNAL_PROCMASK, sigusr1_handler, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR1|SD_EVENT_SIGNAL_PROCMASK, sigusr1_handler, m);
         if (r < 0)
                 return r;
 
@@ -1147,14 +1154,16 @@ static int manager_listen_notify(Manager *m) {
         assert(m);
         assert(!m->notify_socket_path);
 
-        r = notify_socket_prepare(
+        r = notify_socket_prepare_full(
                         m->event,
                         SD_EVENT_PRIORITY_NORMAL - 5, /* Make sure we process sd_notify() before SIGCHLD for
                                                        * any worker, so that we always know the error number
                                                        * of a client before it exits. */
                         on_notify_socket,
                         m,
-                        &m->notify_socket_path);
+                        /* accept_fds = */ true,
+                        &m->notify_socket_path,
+                        /* ret_event_source = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 

@@ -4,27 +4,26 @@
 #include <locale.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-label.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-util.h"
-#include "conf-files.h"
-#include "conf-parser.h"
-#include "errno-list.h"
-#include "fd-util.h"
-#include "fileio.h"
+#include "errno-util.h"
 #include "format-table.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "os-util.h"
 #include "pager.h"
-#include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysupdate-update-set-flags.h"
 #include "sysupdate-util.h"
@@ -37,7 +36,7 @@ static bool arg_reboot = false;
 static bool arg_offline = false;
 static bool arg_now = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 
 #define SYSUPDATE_HOST_PATH "/org/freedesktop/sysupdate1/target/host"
 #define SYSUPDATE_TARGET_INTERFACE "org.freedesktop.sysupdate1.Target"
@@ -965,7 +964,8 @@ static int update_interrupted(sd_event_source *source, void *userdata) {
                                op->job_path,
                                "org.freedesktop.sysupdate1.Job",
                                "Cancel",
-                               &error, /* reply= */ NULL,
+                               &error,
+                               /* ret_reply= */ NULL,
                                NULL);
         if (r < 0)
                 return log_bus_error(r, &error, NULL, "call Cancel");
@@ -1413,7 +1413,7 @@ static int verb_enable(int argc, char **argv, void *userdata) {
                                        SYSUPDATE_TARGET_INTERFACE,
                                        "SetFeatureEnabled",
                                        &error,
-                                       /* reply= */ NULL,
+                                       /* ret_reply= */ NULL,
                                        "sit",
                                        *feature,
                                        (int) enable,

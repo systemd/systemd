@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/can/netlink.h>
+
+#include "sd-netlink.h"
 
 #include "networkd-can.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
-#include "networkd-setlink.h"
 #include "parse-util.h"
 #include "string-util.h"
 
@@ -90,19 +89,17 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                         return r;
         }
 
-        if (link->network->can_restart_us > 0) {
-                uint64_t restart_ms;
+        uint64_t restart_ms;
 
-                if (link->network->can_restart_us == USEC_INFINITY)
-                        restart_ms = 0;
-                else
-                        restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
+        if (link->network->can_restart_us == USEC_INFINITY)
+                restart_ms = 0;
+        else
+                restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
 
-                log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
-                r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
-                if (r < 0)
-                        return r;
-        }
+        log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
+        r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
+        if (r < 0)
+                return r;
 
         if (link->network->can_control_mode_mask != 0) {
                 struct can_ctrlmode cm = {

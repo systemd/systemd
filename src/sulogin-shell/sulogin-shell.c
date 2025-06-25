@@ -3,24 +3,21 @@
   Copyright © 2017 Felipe Sateler
 ***/
 
-#include <errno.h>
-#include <sys/prctl.h>
-
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
-#include "constants.h"
 #include "env-util.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "special.h"
+#include "string-util.h"
 #include "unit-def.h"
 
 static int target_is_inactive(sd_bus *bus, const char *target) {

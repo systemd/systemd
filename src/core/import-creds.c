@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/mount.h>
 
 #include "confidential-virt.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -13,6 +15,7 @@
 #include "import-creds.h"
 #include "initrd-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -21,6 +24,8 @@
 #include "proc-cmdline.h"
 #include "recurse-dir.h"
 #include "smbios11.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "virt.h"
 
@@ -621,7 +626,7 @@ static int import_credentials_initrd(ImportCredentialContext *c) {
                 if (errno == ENOENT)
                         log_debug_errno(errno, "No credentials passed from initrd.");
                 else
-                        log_warning_errno(errno, "Failed to open '/run/credentials/@initrd', ignoring: %m");
+                        log_warning_errno(errno, "Failed to open '%s', ignoring: %m", "/run/credentials/@initrd");
                 return 0;
         }
 

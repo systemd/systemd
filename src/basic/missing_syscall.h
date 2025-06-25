@@ -3,19 +3,17 @@
 
 /* Missing glibc definitions to access certain kernel APIs */
 
-#include <errno.h>
-#include <linux/time_types.h>
+#include <linux/mempolicy.h>
 #include <signal.h>
 #include <sys/syscall.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #ifdef ARCH_MIPS
 #include <asm/sgidefs.h>
 #endif
 
-#include "macro.h"
+#include "forward.h"
 #include "missing_keyctl.h"
 #include "missing_sched.h"
 #include "missing_syscall_def.h"
@@ -112,14 +110,6 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 /* ======================================================================= */
 
 #if !HAVE_SET_MEMPOLICY
-enum {
-        MPOL_DEFAULT,
-        MPOL_PREFERRED,
-        MPOL_BIND,
-        MPOL_INTERLEAVE,
-        MPOL_LOCAL,
-};
-
 static inline long missing_set_mempolicy(int mode, const unsigned long *nodemask,
                            unsigned long maxnode) {
         return syscall(__NR_set_mempolicy, mode, nodemask, maxnode);
@@ -240,12 +230,6 @@ static inline int missing_quotactl_fd(int fd, int cmd, int id, void *addr) {
 
 #if !HAVE_SETXATTRAT
 /* since kernel v6.13 (6140be90ec70c39fa844741ca3cc807dd0866394) */
-struct xattr_args {
-        _align_(8) uint64_t value;
-        uint32_t size;
-        uint32_t flags;
-};
-
 static inline int missing_setxattrat(int fd, const char *path, int at_flags, const char *name, const struct xattr_args *args, size_t size) {
         return syscall(__NR_setxattrat, fd, path, at_flags, name, args, size);
 }

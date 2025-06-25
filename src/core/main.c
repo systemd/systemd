@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/oom.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
 #endif
@@ -22,10 +23,8 @@
 #include "argv-util.h"
 #include "build.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
-#include "cgroup-util.h"
 #include "chase.h"
 #include "clock-util.h"
 #include "clock-warp.h"
@@ -33,25 +32,24 @@
 #include "confidential-virt.h"
 #include "constants.h"
 #include "copy.h"
+#include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "crash-handler.h"
-#include "dbus-manager.h"
 #include "dbus.h"
+#include "dbus-manager.h"
 #include "dev-setup.h"
 #include "efi-random.h"
-#include "efivars.h"
 #include "emergency-action.h"
 #include "env-util.h"
 #include "escape.h"
-#include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "getopt-defs.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
+#include "id128-util.h"
 #include "ima-setup.h"
 #include "import-creds.h"
 #include "initrd-util.h"
@@ -59,6 +57,7 @@
 #include "ipe-setup.h"
 #include "killall.h"
 #include "kmod-setup.h"
+#include "label-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -80,7 +79,6 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "psi-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
@@ -88,6 +86,7 @@
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "signal-util.h"
 #include "smack-setup.h"
 #include "special.h"
@@ -99,6 +98,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "umask-util.h"
+#include "unit-name.h"
 #include "user-util.h"
 #include "version.h"
 #include "virt.h"
@@ -245,7 +245,7 @@ static int console_setup(void) {
 
         tty_fd = open_terminal("/dev/console", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (tty_fd < 0)
-                return log_error_errno(tty_fd, "Failed to open /dev/console: %m");
+                return log_error_errno(tty_fd, "Failed to open %s: %m", "/dev/console");
 
         /* We don't want to force text mode. Plymouth may be showing pictures already from initrd. */
         reset_dev_console_fd(tty_fd, /* switch_to_text= */ false);
@@ -791,10 +791,10 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultLimitNICE",             config_parse_rlimit,                RLIMIT_NICE,              arg_defaults.rlimit               },
                 { "Manager", "DefaultLimitRTPRIO",           config_parse_rlimit,                RLIMIT_RTPRIO,            arg_defaults.rlimit               },
                 { "Manager", "DefaultLimitRTTIME",           config_parse_rlimit,                RLIMIT_RTTIME,            arg_defaults.rlimit               },
-                { "Manager", "DefaultCPUAccounting",         config_parse_bool,                  0,                        &arg_defaults.cpu_accounting      },
+                { "Manager", "DefaultCPUAccounting",         config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
                 { "Manager", "DefaultIOAccounting",          config_parse_bool,                  0,                        &arg_defaults.io_accounting       },
                 { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0,                        &arg_defaults.ip_accounting       },
-                { "Manager", "DefaultBlockIOAccounting",     config_parse_bool,                  0,                        &arg_defaults.blockio_accounting  },
+                { "Manager", "DefaultBlockIOAccounting",     config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_defaults.memory_accounting   },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_defaults.tasks_accounting    },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_defaults.tasks_max           },
@@ -880,7 +880,7 @@ static void set_manager_settings(Manager *m) {
         assert(m);
 
         /* Propagates the various manager settings into the manager object, i.e. properties that
-         * effect the manager itself (as opposed to just being inherited into newly allocated
+         * affect the manager itself (as opposed to just being inherited into newly allocated
          * units, see set_manager_defaults() above). */
 
         m->confirm_spawn = arg_confirm_spawn;
@@ -1594,8 +1594,10 @@ static int fixup_environment(void) {
                         return r;
         }
 
-        const char *t = term ?: default_term_for_tty("/dev/console");
-        if (setenv("TERM", t, /* overwrite= */ true) < 0)
+        if (!term)
+                (void) query_term_for_tty("/dev/console", &term);
+
+        if (setenv("TERM", term ?: FALLBACK_TERM, /* overwrite= */ true) < 0)
                 return -errno;
 
         /* The kernels sets HOME=/ for init. Let's undo this. */
@@ -1617,7 +1619,7 @@ static void redirect_telinit(int argc, char *argv[]) {
                 return;
 
         execv(SYSTEMCTL_BINARY_PATH, argv);
-        log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
+        log_error_errno(errno, "Failed to execute %s: %m", SYSTEMCTL_BINARY_PATH);
         exit(EXIT_FAILURE);
 #endif
 }
@@ -2459,7 +2461,7 @@ static int initialize_runtime(
                         (void) machine_id_setup(/* root = */ NULL, arg_machine_id,
                                                 (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
                                                 (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0),
-                                                /* ret_machine_id = */ NULL);
+                                                /* ret = */ NULL);
                         (void) hostname_setup(/* really = */ true);
                         (void) loopback_setup();
 
@@ -2602,12 +2604,12 @@ static int do_queue_default_job(
                 /* Fall back to default.target, which we used to always use by default. Only do this if no
                  * explicit configuration was given. */
 
-                log_info("Falling back to " SPECIAL_DEFAULT_TARGET ".");
+                log_info("Falling back to %s.", SPECIAL_DEFAULT_TARGET);
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, &target);
         }
         if (r < 0) {
-                log_info("Falling back to " SPECIAL_RESCUE_TARGET ".");
+                log_info("Falling back to %s.", SPECIAL_RESCUE_TARGET);
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
                 if (r < 0) {

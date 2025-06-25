@@ -1,11 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
+#include "sd-bus.h"
+
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-util.h"
+#include "install.h"
+#include "log.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-is-enabled.h"
 #include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 static int show_installation_targets_client_side(const char *name) {
         InstallChange *changes = NULL;

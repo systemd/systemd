@@ -7,6 +7,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(fetch_batteries_capacity_by_name) {
         _cleanup_hashmap_free_ Hashmap *capacity = NULL;

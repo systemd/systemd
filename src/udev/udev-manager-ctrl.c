@@ -3,6 +3,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "log.h"
 #include "syslog-util.h"
 #include "udev-ctrl.h"
 #include "udev-manager.h"
@@ -28,6 +29,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         case UDEV_CTRL_STOP_EXEC_QUEUE:
                 log_debug("Received udev control message (STOP_EXEC_QUEUE)");
                 manager->stop_exec_queue = true;
+                (void) manager_reset_kill_workers_timer(manager);
                 break;
         case UDEV_CTRL_START_EXEC_QUEUE:
                 log_debug("Received udev control message (START_EXEC_QUEUE)");
@@ -124,7 +126,7 @@ int manager_start_ctrl(Manager *manager) {
         /* This needs to be after the inotify and uevent handling, to make sure that the ping is send back
          * after fully processing the pending uevents (including the synthetic ones we may create due to
          * inotify events). */
-        r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), SD_EVENT_PRIORITY_IDLE);
+        r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), EVENT_PRIORITY_CONTROL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
 

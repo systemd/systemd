@@ -2,10 +2,13 @@
 
 #include <sys/eventfd.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "main-func.h"
-#include "missing_syscall.h"
+#include "missing_sched.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "rm-rf.h"

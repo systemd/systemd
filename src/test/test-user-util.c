@@ -4,7 +4,6 @@
 #include "format-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "string-util.h"

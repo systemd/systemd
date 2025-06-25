@@ -2,20 +2,29 @@
 
 #include <fcntl.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
+#include "log.h"
 #include "memfd-util.h"
 #include "missing_mman.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
-#include "process-util.h"
+#include "pidref.h"
+#include "ratelimit.h"
 #include "serialize.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
-#include "tmpfile-util.h"
+#include "time-util.h"
 
 int serialize_item(FILE *f, const char *key, const char *value) {
         assert(f);
@@ -320,6 +329,14 @@ int serialize_image_policy(FILE *f, const char *key, const ImagePolicy *p) {
                 return r;
 
         return 1;
+}
+
+int serialize_bool(FILE *f, const char *key, bool b) {
+        return serialize_item(f, key, yes_no(b));
+}
+
+int serialize_bool_elide(FILE *f, const char *key, bool b) {
+        return b ? serialize_item(f, key, yes_no(b)) : 0;
 }
 
 int deserialize_read_line(FILE *f, char **ret) {

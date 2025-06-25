@@ -9,18 +9,23 @@ Generate %-from-name.gperf from %-list.txt
 import sys
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
-        sys.exit(f'Usage: {sys.argv[0]} name prefix file')
+    if len(sys.argv) < 4:
+        sys.exit(f'Usage: {sys.argv[0]} name prefix file [includes...]')
 
-    name, prefix, file = sys.argv[1:]
+    name, prefix, file, *includes = sys.argv[1:]
+    includes = [f"#include {i}" for i in includes]
 
-    print("""\
-%{
-_Pragma("GCC diagnostic ignored \\"-Wimplicit-fallthrough\\"")
+    # Older versions of python don't allow backslashes
+    # in f-strings so use chr(10) for newlines and chr(92)
+    # for backslashes instead as a workaround.
+    print(f"""\
+%{{
+_Pragma("GCC diagnostic ignored {chr(92)}"-Wimplicit-fallthrough{chr(92)}"")
 #if __GNUC__ >= 15
-_Pragma("GCC diagnostic ignored \\"-Wzero-as-null-pointer-constant\\"")
+_Pragma("GCC diagnostic ignored {chr(92)}"-Wzero-as-null-pointer-constant{chr(92)}"")
 #endif
-%}""")
+{chr(10).join(includes)}
+%}}""")
     print(f"""\
 struct {name}_name {{ const char* name; int id; }};
 %null-strings

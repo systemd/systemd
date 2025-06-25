@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <getopt.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdlib.h>
 #include <sys/file.h>
 #include <sysexits.h>
 #include <time.h>
@@ -33,19 +28,19 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "io-util.h"
 #include "label-util.h"
 #include "log.h"
-#include "macro.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "missing_fs.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -63,12 +58,11 @@
 #include "sort-util.h"
 #include "specifier.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 #include "verbs.h"
@@ -471,7 +465,7 @@ static int load_unix_sockets(Context *c) {
         f = fopen("/proc/net/unix", "re");
         if (!f)
                 return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                      "Failed to open /proc/net/unix, ignoring: %m");
+                                      "Failed to open %s, ignoring: %m", "/proc/net/unix");
 
         /* Skip header */
         r = read_line(f, LONG_LINE_MAX, NULL);
@@ -1658,7 +1652,7 @@ static int fd_set_attribute(
                                     "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
                                     path, previous, current, (previous & ~item->attribute_mask) | (f & item->attribute_mask));
                 else if (r < 0)
-                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(ERRNO_IS_IOCTL_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Cannot set file attributes for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
                                        path, item->attribute_value, item->attribute_mask);
         }
@@ -2415,11 +2409,13 @@ static int create_symlink(Context *c, Item *i) {
                 r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path = */ NULL, /* ret_fd = */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_info("Symlink source path '%s' does not exist, skipping line.", prefix_roota(arg_root, i->argument));
+                        log_info("Symlink source path '%s/%s' does not exist, skipping line.",
+                                 empty_to_root(arg_root), skip_leading_slash(i->argument));
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check if symlink source path '%s' exists: %m", prefix_roota(arg_root, i->argument));
+                        return log_error_errno(r, "Failed to check if symlink source path '%s/%s' exists: %m",
+                                               empty_to_root(arg_root), skip_leading_slash(i->argument));
         }
 
         r = path_extract_filename(i->path, &bn);
@@ -2474,17 +2470,13 @@ static int create_symlink(Context *c, Item *i) {
 
                 fd = safe_close(fd);
 
-                mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                r = symlinkat_atomic_full(i->argument, pfd, bn, /* make_relative= */ false);
-                mac_selinux_create_file_clear();
+                r = symlinkat_atomic_full(i->argument, pfd, bn, SYMLINK_LABEL);
                 if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
                         r = rm_rf_child(pfd, bn, REMOVE_PHYSICAL);
                         if (r < 0)
                                 return log_error_errno(r, "rm -rf %s failed: %m", i->path);
 
-                        mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                        r = RET_NERRNO(symlinkat(i->argument, pfd, i->path));
-                        mac_selinux_create_file_clear();
+                        r = symlinkat_atomic_full(i->argument, pfd, bn, SYMLINK_LABEL);
                 }
                 if (r < 0)
                         return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
@@ -2577,23 +2569,21 @@ finish:
 }
 
 static int glob_item(Context *c, Item *i, action_t action) {
-        _cleanup_globfree_ glob_t g = {
-                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
-        };
+        _cleanup_strv_free_ char **paths = NULL;
         int r;
 
         assert(c);
         assert(i);
         assert(action);
 
-        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        r = safe_glob_full(i->path, GLOB_NOSORT|GLOB_BRACE, opendir_nomod, &paths);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to glob '%s': %m", i->path);
 
         r = 0;
-        STRV_FOREACH(fn, g.gl_pathv)
+        STRV_FOREACH(fn, paths)
                 /* We pass CREATION_EXISTING here, since if we are globbing for it, it always has to exist */
                 RET_GATHER(r, action(c, i, *fn, CREATION_EXISTING));
 
@@ -2605,23 +2595,21 @@ static int glob_item_recursively(
                 Item *i,
                 fdaction_t action) {
 
-        _cleanup_globfree_ glob_t g = {
-                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
-        };
+        _cleanup_strv_free_ char **paths = NULL;
         int r;
 
         assert(c);
         assert(i);
         assert(action);
 
-        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        r = safe_glob_full(i->path, GLOB_NOSORT|GLOB_BRACE, opendir_nomod, &paths);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to glob '%s': %m", i->path);
 
         r = 0;
-        STRV_FOREACH(fn, g.gl_pathv) {
+        STRV_FOREACH(fn, paths) {
                 _cleanup_close_ int fd = -EBADF;
 
                 /* Make sure we won't trigger/follow file object (such as device nodes, automounts, ...)

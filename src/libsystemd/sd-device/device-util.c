@@ -28,6 +28,11 @@ int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
         return strdup_to(ret, devname);
 }
 
+int devname_from_stat_rdev(const struct stat *st, char **ret) {
+        assert(st);
+        return devname_from_devnum(st->st_mode, st->st_rdev, ret);
+}
+
 int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_devname) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -100,51 +105,127 @@ char** device_make_log_fields(sd_device *device) {
 
         r = sd_device_get_devnum(device, &devnum);
         if (r < 0 && r != -ENOENT)
-                log_device_debug_errno(device, r, "Failed to get device \"DEVNUM\" property, ignoring: %m");
+                log_device_debug_errno(device, r, "Failed to get device \"%s\" property, ignoring: %m", "DEVNUM");
         if (r >= 0)
                 (void) strv_extendf(&strv, "DEVNUM="DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(devnum));
 
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0 && r != -ENOENT)
-                log_device_debug_errno(device, r, "Failed to get device \"IFINDEX\" property, ignoring: %m");
+                log_device_debug_errno(device, r, "Failed to get device \"%s\" property, ignoring: %m", "IFINDEX");
         if (r >= 0)
                 (void) strv_extendf(&strv, "IFINDEX=%i", ifindex);
 
         r = sd_device_get_action(device, &action);
         if (r < 0 && r != -ENOENT)
-                log_device_debug_errno(device, r, "Failed to get device \"ACTION\" property, ignoring: %m");
+                log_device_debug_errno(device, r, "Failed to get device \"%s\" property, ignoring: %m", "ACTION");
         if (r >= 0)
                 (void) strv_extendf(&strv, "ACTION=%s", device_action_to_string(action));
 
         r = sd_device_get_seqnum(device, &seqnum);
         if (r < 0 && r != -ENOENT)
-                log_device_debug_errno(device, r, "Failed to get device \"SEQNUM\" property, ignoring: %m");
+                log_device_debug_errno(device, r, "Failed to get device \"%s\" property, ignoring: %m", "SEQNUM");
         if (r >= 0)
                 (void) strv_extendf(&strv, "SEQNUM=%"PRIu64, seqnum);
 
         r = sd_device_get_diskseq(device, &diskseq);
         if (r < 0 && r != -ENOENT)
-                log_device_debug_errno(device, r, "Failed to get device \"DISKSEQ\" property, ignoring: %m");
+                log_device_debug_errno(device, r, "Failed to get device \"%s\" property, ignoring: %m", "DISKSEQ");
         if (r >= 0)
                 (void) strv_extendf(&strv, "DISKSEQ=%"PRIu64, diskseq);
 
         return TAKE_PTR(strv);
 }
 
-bool device_in_subsystem(sd_device *device, const char *subsystem) {
-        const char *s = NULL;
+int device_in_subsystem_strv(sd_device *device, char * const *subsystems) {
+        const char *s;
+        int r;
 
         assert(device);
 
-        (void) sd_device_get_subsystem(device, &s);
-        return streq_ptr(s, subsystem);
+        r = sd_device_get_subsystem(device, &s);
+        if (r == -ENOENT)
+                return strv_isempty(subsystems);
+        if (r < 0)
+                return r;
+        return strv_contains(subsystems, s);
 }
 
-bool device_is_devtype(sd_device *device, const char *devtype) {
-        const char *s = NULL;
+int device_is_devtype(sd_device *device, const char *devtype) {
+        const char *s;
+        int r;
 
         assert(device);
 
-        (void) sd_device_get_devtype(device, &s);
+        r = sd_device_get_devtype(device, &s);
+        if (r == -ENOENT)
+                return !devtype;
+        if (r < 0)
+                return r;
         return streq_ptr(s, devtype);
+}
+
+int device_is_subsystem_devtype(sd_device *device, const char *subsystem, const char *devtype) {
+        int r;
+
+        assert(device);
+
+        r = device_in_subsystem(device, subsystem);
+        if (r <= 0)
+                return r;
+
+        if (!devtype)
+                return true;
+
+        return device_is_devtype(device, devtype);
+}
+
+int device_sysname_startswith_strv(sd_device *device, char * const *prefixes, const char **ret_suffix) {
+        const char *sysname;
+        int r;
+
+        assert(device);
+
+        r = sd_device_get_sysname(device, &sysname);
+        if (r < 0)
+                return r;
+
+        const char *suffix = startswith_strv(sysname, prefixes);
+        if (ret_suffix)
+                *ret_suffix = suffix;
+        return !!suffix;
+}
+
+int device_get_seat(sd_device *device, const char **ret) {
+        const char *seat = NULL;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = sd_device_get_property_value(device, "ID_SEAT", &seat);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        *ret = isempty(seat) ? "seat0" : seat;
+        return 0;
+}
+
+bool device_property_can_set(const char *property) {
+        return property &&
+                !STR_IN_SET(property,
+                            /* basic properties set by kernel, only in netlink event */
+                            "ACTION", "SEQNUM", "SYNTH_UUID",
+                            /* basic properties set by kernel, both in netlink event and uevent file */
+                            "DEVPATH", "DEVPATH_OLD", "SUBSYSTEM", "DEVTYPE", "DRIVER", "MODALIAS",
+                            /* device node */
+                            "DEVNAME", "DEVMODE", "DEVUID", "DEVGID", "MAJOR", "MINOR",
+                            /* block device */
+                            "DISKSEQ", "PARTN",
+                            /* network interface (INTERFACE_OLD is set by udevd) */
+                            "IFINDEX", "INTERFACE", "INTERFACE_OLD",
+                            /* basic properties set by udevd */
+                            "DEVLINKS", "TAGS", "CURRENT_TAGS", "USEC_INITIALIZED", "UDEV_DATABASE_VERSION") &&
+                /* Similar to SYNTH_UUID, but set based on KEY=VALUE arguments passed by userspace.
+                 * See kernel's f36776fafbaa0094390dd4e7e3e29805e0b82730 (v4.13) */
+                !startswith(property, "SYNTH_ARG_");
 }

@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "format-util.h"
 #include "log.h"
+#include "process-util.h"
+#include "runtime-scope.h"
 #include "specifier.h"
-#include "stat-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "unit-file.h"
 
 static void test_specifier_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL;
@@ -89,25 +90,27 @@ TEST(specifier_printf) {
 
 TEST(specifier_real_path) {
         static const Specifier table[] = {
-                { 'p', specifier_string,         "/dev/initctl" },
-                { 'y', specifier_real_path,      "/dev/initctl" },
-                { 'Y', specifier_real_directory, "/dev/initctl" },
+                { 'p', specifier_string,         "/dev/fd" },
+                { 'y', specifier_real_path,      "/dev/fd" },
+                { 'Y', specifier_real_directory, "/dev/fd" },
                 { 'w', specifier_real_path,      "/dev/tty" },
                 { 'W', specifier_real_directory, "/dev/tty" },
                 {}
         };
 
-        _cleanup_free_ char *w = NULL;
+        _cleanup_free_ char *w = NULL, *expected = NULL;
         int r;
 
         r = specifier_printf("p=%p y=%y Y=%Y w=%w W=%W", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r >= 0 || r == -ENOENT);
-        assert_se(w || r == -ENOENT);
-        puts(strnull(w));
+        if (r < 0) {
+                ASSERT_ERROR(r, ENOENT);
+                return (void) log_tests_skipped_errno(r, "/dev/fd and/or /dev/tty do not exist");
+        }
 
-        /* /dev/initctl should normally be a symlink to /run/initctl */
-        if (inode_same("/dev/initctl", "/run/initctl", 0) > 0)
-                ASSERT_STREQ(w, "p=/dev/initctl y=/run/initctl Y=/run w=/dev/tty W=/dev");
+        ASSERT_OK(asprintf(&expected,
+                           "p=/dev/fd y=/proc/"PID_FMT"/fd Y=/proc/"PID_FMT" w=/dev/tty W=/dev",
+                           getpid_cached(), getpid_cached()));
+        ASSERT_STREQ(w, expected);
 }
 
 TEST(specifier_real_path_missing_file) {

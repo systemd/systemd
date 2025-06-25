@@ -2,7 +2,6 @@
 
 #include "dlfcn-util.h"
 #include "log.h"
-#include "macro.h"
 #include "string-util.h"
 #include "xkbcommon-util.h"
 

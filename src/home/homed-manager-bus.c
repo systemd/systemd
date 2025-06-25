@@ -1,20 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/capability.h>
+#include <grp.h>
+#include <pwd.h>
+
+#include "sd-bus.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-message-util.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "home-util.h"
 #include "homed-bus.h"
 #include "homed-home-bus.h"
-#include "homed-manager-bus.h"
+#include "homed-home.h"
 #include "homed-manager.h"
+#include "homed-manager-bus.h"
+#include "homed-operation.h"
+#include "log.h"
 #include "openssl-util.h"
 #include "path-util.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
@@ -232,7 +242,7 @@ static int method_list_homes(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_user_record_by_name(
@@ -854,7 +864,7 @@ static int method_list_signing_keys(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        return sd_bus_send(/* bus= */ NULL, reply, /* ret_cookie= */ NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_signing_key(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -900,7 +910,7 @@ static int method_get_signing_key(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_send(/* bus= */ NULL, reply, /* ret_cookie= */ NULL);
+        return sd_bus_message_send(reply);
 }
 
 static bool valid_public_key_name(const char *fn) {

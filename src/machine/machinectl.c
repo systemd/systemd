@@ -1,17 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <getopt.h>
-#include <math.h>
+#include <locale.h>
 #include <net/if.h>
-#include <netinet/in.h>
-#include <sys/mount.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "ask-password-agent.h"
@@ -25,28 +22,26 @@
 #include "bus-print-properties.h"
 #include "bus-unit-procs.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
-#include "constants.h"
-#include "copy.h"
 #include "edit-util.h"
 #include "env-util.h"
-#include "fd-util.h"
+#include "format-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "in-addr-util.h"
-#include "locale-util.h"
+#include "label-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "machine-dbus.h"
-#include "macro.h"
 #include "main-func.h"
-#include "mkdir.h"
 #include "nulstr-util.h"
 #include "osc-context.h"
+#include "output-mode.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -55,16 +50,15 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
-#include "rlimit-util.h"
-#include "signal-util.h"
-#include "sort-util.h"
+#include "runtime-scope.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "verbs.h"
-#include "web-util.h"
 
 typedef enum MachineRunner {
         RUNNER_NSPAWN,
@@ -74,14 +68,14 @@ typedef enum MachineRunner {
 } MachineRunner;
 
 static const char* const machine_runner_table[_RUNNER_MAX] = {
-        [RUNNER_NSPAWN] = "nspawn",
+        [RUNNER_NSPAWN]  = "nspawn",
         [RUNNER_VMSPAWN] = "vmspawn",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(machine_runner, MachineRunner);
 
 static const char* const machine_runner_unit_prefix_table[_RUNNER_MAX] = {
-        [RUNNER_NSPAWN] = "systemd-nspawn",
+        [RUNNER_NSPAWN]  = "systemd-nspawn",
         [RUNNER_VMSPAWN] = "systemd-vmspawn",
 };
 
@@ -422,7 +416,6 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         _cleanup_free_ char *cgroup = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-        unsigned c;
 
         assert(bus);
         assert(unit);
@@ -434,12 +427,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         if (isempty(cgroup))
                 return 0;
 
-        c = columns();
-        if (c > 18)
-                c -= 18;
-        else
-                c = 0;
-
+        unsigned c = MAX(LESS_BY(columns(), 18U), 10U);
         r = unit_show_processes(bus, unit, cgroup, "\t\t  ", c, get_output_flags(), &error);
         if (r == -EBADR) {
 
@@ -448,7 +436,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
 
                 /* Fallback for older systemd versions where the GetUnitProcesses() call is not yet available */
 
-                if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
+                if (cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
                         return 0;
 
                 show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, &leader, leader > 0, get_output_flags());
@@ -496,7 +484,7 @@ static int print_uid_shift(sd_bus *bus, const char *name) {
         if (shift == 0) /* Don't show trivial mappings */
                 return 0;
 
-        printf("  UID Shift: %" PRIu32 "\n", shift);
+        printf("       UID Shift: %" PRIu32 "\n", shift);
         return 0;
 }
 
@@ -1706,7 +1694,7 @@ static int make_service_name(const char *name, char **ret) {
 
         assert(name);
         assert(ret);
-        assert(arg_runner >= 0 && arg_runner < (MachineRunner) ELEMENTSOF(machine_runner_unit_prefix_table));
+        assert(arg_runner >= 0 && arg_runner < _RUNNER_MAX);
 
         if (!hostname_is_valid(name, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2334,7 +2322,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FORMAT:
-                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2"))
+                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2", "zstd"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);
 

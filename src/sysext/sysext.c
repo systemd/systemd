@@ -1,29 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
+#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
-#include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
 #include "chase.h"
-#include "constants.h"
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
 #include "fd-util.h"
@@ -31,10 +29,12 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "image-policy.h"
 #include "initrd-util.h"
+#include "label-util.h"
 #include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "missing_magic.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -46,12 +46,14 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "selinux-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "terminal-util.h"
-#include "user-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"
 #include "verbs.h"
@@ -736,8 +738,8 @@ static int mount_overlayfs(
                 if (r < 0)
                         return r;
                 /* redirect_dir=on and noatime prevent unnecessary upcopies, metacopy=off prevents broken
-                 * files from partial upcopies after umount. */
-                if (!strextend(&options, ",redirect_dir=on,noatime,metacopy=off"))
+                 * files from partial upcopies after umount, index=off allows reuse of the upper/work dirs */
+                if (!strextend(&options, ",redirect_dir=on,noatime,metacopy=off,index=off"))
                         return log_oom();
         }
 
@@ -1684,7 +1686,9 @@ static int merge_subprocess(
                 Hashmap *images,
                 const char *workspace) {
 
-        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *filename = NULL;
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
+                        *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
+                        *filename = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
@@ -1716,6 +1720,7 @@ static int merge_subprocess(
         r = parse_os_release(
                         arg_root,
                         "ID", &host_os_release_id,
+                        "ID_LIKE", &host_os_release_id_like,
                         "VERSION_ID", &host_os_release_version_id,
                         image_class_info[image_class].level_env, &host_os_release_api_level);
         if (r < 0)
@@ -1857,6 +1862,7 @@ static int merge_subprocess(
                         r = extension_release_validate(
                                         img->name,
                                         host_os_release_id,
+                                        host_os_release_id_like,
                                         host_os_release_version_id,
                                         host_os_release_api_level,
                                         in_initrd() ? "initrd" : "system",
@@ -2076,20 +2082,14 @@ static int merge(ImageClass image_class,
         return 1;
 }
 
-static int image_discover_and_read_metadata(
-                ImageClass image_class,
-                Hashmap **ret_images) {
+static int image_discover_and_read_metadata(ImageClass image_class, Hashmap **ret_images) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         Image *img;
         int r;
 
         assert(ret_images);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return log_oom();
-
-        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, images);
+        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, &images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
@@ -2099,7 +2099,8 @@ static int image_discover_and_read_metadata(
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
 
-        *ret_images = TAKE_PTR(images);
+        if (ret_images)
+                *ret_images = TAKE_PTR(images);
 
         return 0;
 }
@@ -2332,11 +2333,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         Image *img;
         int r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return log_oom();
-
-        r = image_discover(RUNTIME_SCOPE_SYSTEM, arg_image_class, arg_root, images);
+        r = image_discover(RUNTIME_SCOPE_SYSTEM, arg_image_class, arg_root, &images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
@@ -2365,42 +2362,33 @@ static int verb_list(int argc, char **argv, void *userdata) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
-typedef struct MethodListParameters {
-        const char *class;
-} MethodListParameters;
-
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(MethodListParameters, class), 0 },
+                { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
                 {}
         };
-        MethodListParameters p = {
-        };
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
-        ImageClass image_class = arg_image_class;
-        Image *img;
         int r;
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        const char *class = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &class);
         if (r != 0)
                 return r;
 
-        r = parse_image_class_parameter(link, p.class, &image_class, NULL);
+        ImageClass image_class = arg_image_class;
+        r = parse_image_class_parameter(link, class, &image_class, NULL);
         if (r < 0)
                 return r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, images);
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, &images);
         if (r < 0)
                 return r;
 
+        Image *img;
         HASHMAP_FOREACH(img, images) {
                 if (v) {
                         /* Send previous item with more=true */

@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "ansi-color.h"
 #include "bus-locator.h"
 #include "bus-unit-procs.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "list.h"
-#include "macro.h"
+#include "log.h"
+#include "output-mode.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "sort-util.h"
@@ -328,7 +332,7 @@ int unit_show_processes(
                 const char *prefix,
                 unsigned n_columns,
                 OutputFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Hashmap *cgroups = NULL;
@@ -349,7 +353,7 @@ int unit_show_processes(
                         bus,
                         bus_systemd_mgr,
                         "GetUnitProcesses",
-                        error,
+                        reterr_error,
                         &reply,
                         "s",
                         unit);

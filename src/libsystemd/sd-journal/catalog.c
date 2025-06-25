@@ -1,19 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <locale.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "catalog.h"
 #include "conf-files.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -21,7 +20,6 @@
 #include "log.h"
 #include "memory-util.h"
 #include "mkdir.h"
-#include "path-util.h"
 #include "siphash24.h"
 #include "sort-util.h"
 #include "sparse-endian.h"

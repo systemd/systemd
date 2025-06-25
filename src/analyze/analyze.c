@@ -4,14 +4,15 @@
 ***/
 
 #include <getopt.h>
-#include <inttypes.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
+#include "analyze-verify-util.h"
 #include "analyze.h"
 #include "analyze-architectures.h"
 #include "analyze-blame.h"
@@ -40,7 +41,6 @@
 #include "analyze-srk.h"
 #include "analyze-syscall-filter.h"
 #include "analyze-time.h"
-#include "analyze-time-data.h"
 #include "analyze-timespan.h"
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
@@ -48,48 +48,25 @@
 #include "analyze-verify.h"
 #include "build.h"
 #include "bus-error.h"
-#include "bus-locator.h"
-#include "bus-map-properties.h"
-#include "bus-unit-util.h"
+#include "bus-util.h"
 #include "calendarspec.h"
-#include "cap-list.h"
-#include "capability-util.h"
-#include "conf-files.h"
-#include "copy.h"
-#include "constants.h"
-#include "exit-status.h"
-#include "extract-word.h"
-#include "fd-util.h"
-#include "fileio.h"
-#include "filesystems.h"
-#include "format-table.h"
-#include "glob-util.h"
-#include "hashmap.h"
-#include "locale-util.h"
+#include "dissect-image.h"
+#include "image-policy.h"
 #include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "nulstr-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "rm-rf.h"
-#if HAVE_SECCOMP
-#  include "seccomp-util.h"
-#endif
-#include "sort-util.h"
-#include "special.h"
-#include "stat-util.h"
+#include "runtime-scope.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
-#include "terminal-util.h"
 #include "time-util.h"
-#include "tmpfile-util.h"
 #include "unit-name.h"
-#include "verb-log-control.h"
 #include "verbs.h"
 
 DotMode arg_dot = DEP_ALL;
@@ -121,12 +98,14 @@ char *arg_profile = NULL;
 bool arg_legend = true;
 bool arg_table = false;
 ImagePolicy *arg_image_policy = NULL;
+char *arg_drm_device_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_security_policy, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_drm_device_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
@@ -287,6 +266,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
                "  -m --mask                  Parse parameter as numeric capability mask\n"
+               "     --drm-device=PATH       Use this DRM device sysfs path to get EDID\n"
+
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -333,6 +314,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TLDR,
                 ARG_SCALE_FACTOR_SVG,
                 ARG_DETAILED_SVG,
+                ARG_DRM_DEVICE_PATH,
         };
 
         static const struct option options[] = {
@@ -371,6 +353,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "mask",             no_argument,       NULL, 'm'                  },
                 { "scale-svg",        required_argument, NULL, ARG_SCALE_FACTOR_SVG },
                 { "detailed",         no_argument,       NULL, ARG_DETAILED_SVG     },
+                { "drm-device",       required_argument, NULL, ARG_DRM_DEVICE_PATH  },
                 {}
         };
 
@@ -470,8 +453,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_MAN:
@@ -580,6 +564,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_detailed_svg = true;
                         break;
 
+                case ARG_DRM_DEVICE_PATH:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_drm_device_path);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -637,6 +627,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_capability != CAPABILITY_LITERAL && !streq_ptr(argv[optind], "capability"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --mask is only supported for capability.");
+
+        if (arg_drm_device_path && !streq_ptr(argv[optind], "chid"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --drm-device is only supported for chid right now.");
 
         return 1; /* work to do */
 }

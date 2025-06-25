@@ -12,6 +12,7 @@ Description=Virtual Machine %i
 Documentation=man:systemd-vmspawn(1)
 PartOf=machines.target
 Before=machines.target
+Wants=modprobe@tun.service
 After=network.target modprobe@tun.service
 RequiresMountsFor=/var/lib/machines/%i
 
@@ -20,6 +21,7 @@ ExecStart=systemd-vmspawn --quiet --register=yes --keep-unit --network-tap --mac
 KillMode=mixed
 Type=notify
 Slice=machine.slice
+{{SERVICE_WATCHDOG}}
 
 {# Enforce a strict device policy. Make sure to keep these policies in sync if you change them! #}
 DevicePolicy=closed

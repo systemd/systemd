@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-json.h"
+#include "sd-bus.h"
 
 #include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "image.h"
 #include "io-util.h"
+#include "log.h"
+#include "machined.h"
 #include "operation.h"
 #include "process-util.h"
 #include "string-table.h"
@@ -111,35 +115,30 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork(): %m");
         if (r == 0) {
-                _cleanup_hashmap_free_ Hashmap *images = NULL;
-                bool success = true;
-                Image *image;
-
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                images = hashmap_new(&image_hash_ops);
-                if (!images)
-                        report_errno_and_exit(errno_pipe_fd[1], ENOMEM);
-
-                r = image_discover(manager->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, images);
+                _cleanup_hashmap_free_ Hashmap *images = NULL;
+                r = image_discover(manager->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, &images);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to discover images: %m");
                         report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
+                bool success = true;
                 ssize_t n = loop_write(result_fd, &success, sizeof(success));
                 if (n < 0) {
                         log_debug_errno(n, "Failed to write to tmp file: %m");
                         report_errno_and_exit(errno_pipe_fd[1], n);
                 }
 
+                Image *image;
                 HASHMAP_FOREACH(image, images) {
                         /* We can't remove vendor images (i.e. those in /usr) */
-                        if (IMAGE_IS_VENDOR(image))
+                        if (image_is_vendor(image))
                                 continue;
-                        if (IMAGE_IS_HOST(image))
+                        if (image_is_host(image))
                                 continue;
-                        if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN && !IMAGE_IS_HIDDEN(image))
+                        if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN && !image_is_hidden(image))
                                 continue;
 
                         r = image_remove(image);

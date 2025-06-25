@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,12 +21,12 @@
 #include "main-func.h"
 #include "notify-recv.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "socket-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
 

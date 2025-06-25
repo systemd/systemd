@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "homed-operation.h"
+#include "log.h"
+#include "user-record.h"
 
 Operation *operation_new(OperationType type, sd_bus_message *m) {
         Operation *o;

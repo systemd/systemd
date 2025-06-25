@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-varlink.h"
+#include "machine-forward.h"
 
 #define VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE               "io.systemd.MachineImage.NoSuchImage"
 #define VARLINK_ERROR_MACHINE_IMAGE_TOO_MANY_OPERATIONS         "io.systemd.MachineImage.TooManyOperations"

@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/can/netlink.h>
-
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
-
-typedef struct Link Link;
+#include "networkd-forward.h"
 
 int can_set_netlink_message(Link *link, sd_netlink_message *m);
 

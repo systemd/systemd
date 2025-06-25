@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <netdb.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -16,18 +13,18 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "daemon-util.h"
-#include "event-util.h"
 #include "errno-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "pretty-print.h"
 #include "resolve-private.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 #define BUFFER_SIZE (256 * 1024)
 
@@ -124,7 +121,7 @@ static void context_reset_timer(Context *context) {
                 r = event_reset_time_relative(
                                 context->event, &context->idle_time, CLOCK_MONOTONIC,
                                 arg_exit_idle_time, 0, idle_time_cb, context,
-                                SD_EVENT_PRIORITY_NORMAL, "idle-timer", /* force = */ true);
+                                SD_EVENT_PRIORITY_NORMAL, "idle-timer", /* force_reset = */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to reset idle timer, ignoring: %m");
         }
@@ -688,7 +685,7 @@ static int run(int argc, char *argv[]) {
                         return r;
         }
 
-        notify_stop = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_stop = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
         r = sd_event_loop(context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");

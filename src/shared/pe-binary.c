@@ -290,6 +290,17 @@ bool pe_is_native(const PeHeader *pe_header) {
 #endif
 }
 
+int pe_is_native_fd(int fd) {
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        r = pe_load_headers(fd, /* ret_dos_header= */ NULL, &pe_header);
+        if (r < 0)
+                return r;
+
+        return pe_is_native(pe_header);
+}
+
 /* Implements:
  *
  * https://download.microsoft.com/download/9/c/5/9c5b2167-8017-4bae-9fde-d599bac8184a/authenticode_pe.docx
@@ -539,7 +550,7 @@ int uki_hash(int fd,
                 if (!n)
                         return log_oom_debug();
 
-                i = string_table_lookup(unified_sections, _UNIFIED_SECTION_MAX, n);
+                i = string_table_lookup_from_string(unified_sections, _UNIFIED_SECTION_MAX, n);
                 if (i < 0)
                         continue;
 

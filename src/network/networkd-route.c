@@ -1,23 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
 #include <linux/ipv6_route.h>
-#include <linux/nexthop.h>
+#include <net/if.h>
+#include <stdio.h>
+
+#include "sd-ndisc-protocol.h"
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv4ll.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
-#include "networkd-route-util.h"
 #include "networkd-route.h"
+#include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
+#include "set.h"
+#include "siphash24.h"
 #include "string-util.h"
-#include "strv.h"
 #include "vrf.h"
 #include "wireguard.h"
 
@@ -417,22 +425,14 @@ int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
         return 0;
 }
 
-void log_route_debug(const Route *route, const char *str, Manager *manager) {
-        _cleanup_free_ char *state = NULL, *nexthop = NULL, *prefsrc = NULL,
+static int route_to_string(const Route *route, Manager *manager, char **ret) {
+        _cleanup_free_ char *nexthop = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
         const char *dst, *src;
-        Link *link = NULL;
 
         assert(route);
-        assert(str);
         assert(manager);
-
-        if (!DEBUG_LOGGING)
-                return;
-
-        (void) route_get_link(manager, route, &link);
-
-        (void) network_config_state_to_string_alloc(route->state, &state);
+        assert(ret);
 
         dst = in_addr_is_set(route->family, &route->dst) || route->dst_prefixlen > 0 ?
                 IN_ADDR_PREFIX_TO_STRING(route->family, &route->dst, route->dst_prefixlen) : NULL;
@@ -448,14 +448,37 @@ void log_route_debug(const Route *route, const char *str, Manager *manager) {
         (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
         (void) route_flags_to_string_alloc(route->flags, &flags);
 
-        log_link_debug(link,
-                       "%s %s route (%s): dst: %s, src: %s, %s, prefsrc: %s, "
-                       "table: %s, priority: %"PRIu32", "
-                       "proto: %s, scope: %s, type: %s, flags: %s",
-                       str, strna(network_config_source_to_string(route->source)), strna(state),
-                       strna(dst), strna(src), strna(nexthop), strna(prefsrc),
-                       strna(table), route->priority,
-                       strna(proto), strna(scope), strna(route_type_to_string(route->type)), strna(flags));
+        if (asprintf(ret,
+                     "dst: %s, src: %s, %s, prefsrc: %s, "
+                     "table: %s, priority: %"PRIu32", "
+                     "proto: %s, scope: %s, "
+                     "type: %s, flags: %s",
+                     strna(dst), strna(src), strna(nexthop), strna(prefsrc),
+                     strna(table), route->priority,
+                     strna(proto), strna(scope),
+                     strna(route_type_to_string(route->type)), strna(flags)) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+void log_route_debug(const Route *route, const char *str, Manager *manager) {
+        _cleanup_free_ char *state = NULL, *route_str = NULL;
+        Link *link = NULL;
+
+        assert(route);
+        assert(str);
+        assert(manager);
+
+        if (!DEBUG_LOGGING)
+                return;
+
+        (void) route_get_link(manager, route, &link);
+        (void) network_config_state_to_string_alloc(route->state, &state);
+        (void) route_to_string(route, manager, &route_str);
+
+        log_link_debug(link, "%s %s route (%s): %s",
+                       str, strna(network_config_source_to_string(route->source)), strna(state), strna(route_str));
 }
 
 static void route_forget(Manager *manager, Route *route, const char *msg) {
@@ -768,12 +791,12 @@ static int route_update_on_existing(Request *req) {
         return 0;
 }
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Request *req, const char *error_msg) {
+int route_configure_handler_internal(sd_netlink_message *m, Request *req, Route *route) {
         int r;
 
         assert(m);
         assert(req);
-        assert(error_msg);
+        assert(route);
 
         Link *link = ASSERT_PTR(req->link);
 
@@ -791,7 +814,10 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Re
                 return 1;
         }
         if (r < 0) {
-                log_link_message_warning_errno(link, m, r, error_msg);
+                _cleanup_free_ char *str = NULL;
+                (void) route_to_string(route, link->manager, &str);
+                log_link_message_warning_errno(link, m, r, "Failed to configure %s route (%s)",
+                                               network_config_source_to_string(route->source), strna(str));
                 link_enter_failed(link);
                 return 0;
         }
@@ -1015,9 +1041,11 @@ int link_request_route(
 static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Could not set static route");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 

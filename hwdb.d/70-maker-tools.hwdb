@@ -1,0 +1,72 @@
+# This file is part of systemd.
+#
+# Database for maker tools, like CNCs, laser cutters, 3D printers,
+# or any other so called "maker tools" and and that should be
+# accessible to the seat owner.
+#
+# Permitted keys:
+#   Specify if a device is a maker tool
+#   ID_MAKER_TOOL=1|0
+
+###########################################################
+# Dremel
+###########################################################
+# Dremel IdeaBuilder 3D20
+usb:v2A89p8889*
+ ID_MAKER_TOOL=1
+
+# Dremel IdeaBuilder 3D45
+usb:v2A89p888D*
+ ID_MAKER_TOOL=1
+
+###########################################################
+# Flashforge
+###########################################################
+# Flashforge Dreamer
+usb:v2B71p0001*
+ ID_MAKER_TOOL=1
+
+# Flashforge Finder v1
+usb:v2B71p0002*
+ ID_MAKER_TOOL=1
+
+# Flashforge Guider II
+usb:v2B71p0004*
+ ID_MAKER_TOOL=1
+
+# Flashforge Inventor
+usb:v2B71p0005*
+ ID_MAKER_TOOL=1
+
+# Flashforge Finder v2
+usb:v2B71p0007*
+ ID_MAKER_TOOL=1
+
+# Flashforge Guider IIs
+usb:v2B71p0009*
+ ID_MAKER_TOOL=1
+
+# Flashforge Dreamer NX
+usb:v2B71p000A*
+ ID_MAKER_TOOL=1
+
+# Flashforge Creator Max
+usb:v2B71p00E7*
+ ID_MAKER_TOOL=1
+
+# Flashforge Finder v2.12
+usb:v2B71p00EE*
+ ID_MAKER_TOOL=1
+
+# FlashForge Creator Pro 2
+usb:v2B71p000E*
+ ID_MAKER_TOOL=1
+
+###########################################################
+# PowerSpec
+###########################################################
+# PowerSpec Ultra 3DPrinter
+usb:v0315p0001*
+usb:v2B71p00F6*
+usb:v2B71p00FF
+ ID_MAKER_TOOL=1

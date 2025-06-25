@@ -1,17 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <linux/if.h>
 #include <linux/if_arp.h>
 
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "conf-parser.h"
+#include "alloc-util.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "missing_network.h"
+#include "hashmap.h"
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
@@ -19,14 +20,15 @@
 #include "networkd-network.h"
 #include "networkd-sysctl.h"
 #include "path-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "sysctl-util.h"
 
 #if HAVE_VMLINUX_H
 
 #include "bpf-link.h"
-
 #include "bpf/sysctl_monitor/sysctl-monitor-skel.h"
 #include "bpf/sysctl_monitor/sysctl-write-event.h"
 
@@ -589,7 +591,7 @@ static int link_set_ipv6_mtu_async_impl(Link *link) {
                         link->manager->event, &link->ipv6_mtu_wait_synced_event_source,
                         CLOCK_BOOTTIME, 100 * USEC_PER_MSEC, 0,
                         ipv6_mtu_wait_synced_handler, link,
-                        /* priority = */ 0, "ipv6-mtu-wait-synced", /* force = */ true);
+                        /* priority = */ 0, "ipv6-mtu-wait-synced", /* force_reset = */ true);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure timer event source for waiting for IPv6 MTU being synced: %m");
 

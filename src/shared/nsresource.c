@@ -4,13 +4,16 @@
 
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "missing_sched.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "process-util.h"
+#include "string-util.h"
 
 static int make_pid_name(char **ret) {
         char comm[TASK_COMM_LEN];

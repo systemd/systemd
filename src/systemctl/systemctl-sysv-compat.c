@@ -1,20 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <stdlib.h>
 
 #include "env-util.h"
 #include "fd-util.h"
 #include "initreq.h"
 #include "install.h"
 #include "io-util.h"
+#include "log.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl.h"
+#include "systemctl-sysv-compat.h"
+#include "time-util.h"
 
 int talk_initctl(char rl) {
 #if HAVE_SYSV_COMPAT
@@ -147,7 +150,7 @@ int enable_sysv_units(const char *verb, char **args) {
                         NULL,
                 };
 
-                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL, *v = NULL;
+                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL, *v = NULL, *b = NULL;
                 bool found_native = false, found_sysv;
                 const char *name;
                 unsigned c = 1;
@@ -202,8 +205,12 @@ int enable_sysv_units(const char *verb, char **args) {
                 if (!v)
                         return log_oom();
 
+                j = path_extract_filename(p, &b);
+                if (j < 0)
+                        return log_error_errno(j, "Failed to extract file name from '%s': %m", p);
+
                 argv[c++] = v;
-                argv[c++] = basename(p);
+                argv[c++] = b;
                 argv[c] = NULL;
 
                 l = strv_join((char**)argv, " ");

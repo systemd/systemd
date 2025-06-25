@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <linux/capability.h>
 #include <linux/netlink.h>
-#include <sys/capability.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 
-#include "alloc-util.h"
 #include "log.h"
 #include "nspawn-seccomp.h"
 #include "seccomp-util.h"
-#include "string-util.h"
 #include "strv.h"
 
 #if HAVE_SECCOMP
@@ -112,6 +108,7 @@ static int add_syscall_filters(
                 { CAP_SYS_BOOT,       "reboot"                       },
                 { CAP_SYSLOG,         "syslog"                       },
                 { CAP_SYS_TTY_CONFIG, "vhangup"                      },
+                { CAP_BPF,            "bpf",                         },
 
                 /*
                  * The following syscalls and groups are knowingly excluded:
@@ -121,7 +118,6 @@ static int add_syscall_filters(
                  * @pkey
                  * @swap
                  *
-                 * bpf
                  * fanotify_init
                  * fanotify_mark
                  * kexec_file_load

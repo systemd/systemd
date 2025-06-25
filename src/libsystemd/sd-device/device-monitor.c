@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/filter.h>
 #include <linux/netlink.h>
 #include <linux/sockios.h>
@@ -22,12 +21,13 @@
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
-#include "missing_socket.h"
+#include "log.h"
+#include "log-context.h"
 #include "mountpoint-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "uid-range.h"
 
 #define log_monitor(m, format, ...)                                     \
@@ -305,7 +305,7 @@ _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
 
                 /* Save multicast groups. */
                 r = netlink_socket_get_multicast_groups(m->sock, &m->multicast_group_len, &m->multicast_groups);
-                if (r < 0 && r != -ENOPROTOOPT)
+                if (r < 0)
                         return r;
 
                 /* Leave from all multicast groups to prevent the buffer is filled. */
@@ -470,6 +470,7 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_monitor, sd_device_monitor, devic
 
 static int check_subsystem_filter(sd_device_monitor *m, sd_device *device) {
         const char *s, *d;
+        int r;
 
         assert(m);
         assert(device);
@@ -478,13 +479,9 @@ static int check_subsystem_filter(sd_device_monitor *m, sd_device *device) {
                 return true;
 
         HASHMAP_FOREACH_KEY(d, s, m->subsystem_filter) {
-                if (!device_in_subsystem(device, s))
-                        continue;
-
-                if (d && !device_is_devtype(device, d))
-                        continue;
-
-                return true;
+                r = device_is_subsystem_devtype(device, s, d);
+                if (r != 0)
+                        return r;
         }
 
         return false;

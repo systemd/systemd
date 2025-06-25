@@ -3,22 +3,33 @@
 #include <sys/mount.h>
 
 #include "acl-util.h"
+#include "cgroup.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "exec-credential.h"
 #include "execute.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "label-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "ordered-set.h"
+#include "path-lookup.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "siphash24.h"
+#include "stat-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc) {
         if (!sc)
@@ -227,22 +238,6 @@ bool exec_context_has_credentials(const ExecContext *c) {
                 !ordered_set_isempty(c->import_credentials);
 }
 
-bool exec_context_has_encrypted_credentials(const ExecContext *c) {
-        assert(c);
-
-        const ExecLoadCredential *load_cred;
-        HASHMAP_FOREACH(load_cred, c->load_credentials)
-                if (load_cred->encrypted)
-                        return true;
-
-        const ExecSetCredential *set_cred;
-        HASHMAP_FOREACH(set_cred, c->set_credentials)
-                if (set_cred->encrypted)
-                        return true;
-
-        return false;
-}
-
 bool mount_point_is_credentials(const char *runtime_prefix, const char *path) {
         const char *e;
 
@@ -435,8 +430,30 @@ static int credential_search_path(const ExecParameters *params, CredentialSearch
         return 0;
 }
 
+static bool device_nodes_restricted(
+                const ExecContext *c,
+                const CGroupContext *cgroup_context) {
+
+        assert(c);
+        assert(cgroup_context);
+
+        /* Returns true if we have any reason to believe we might not be able to access the TPM device
+         * directly, even if we run as root/PID 1. This could be because /dev/ is replaced by a private
+         * version, or because a device node access list is configured. */
+
+        if (c->private_devices)
+                return true;
+
+        if (cgroup_context->device_policy != CGROUP_DEVICE_POLICY_AUTO ||
+            cgroup_context->device_allow)
+                return true;
+
+        return false;
+}
+
 struct load_cred_args {
         const ExecContext *context;
+        const CGroupContext *cgroup_context;
         const ExecParameters *params;
         const char *unit;
         bool encrypted;
@@ -463,20 +480,30 @@ static int maybe_decrypt_and_write_credential(
         assert(data || size == 0);
 
         if (args->encrypted) {
+                CredentialFlags flags = 0; /* only allow user creds in user scope */
+
                 switch (args->params->runtime_scope) {
 
                 case RUNTIME_SCOPE_SYSTEM:
-                        /* In system mode talk directly to the TPM */
-                        r = decrypt_credential_and_warn(
-                                        id,
-                                        now(CLOCK_REALTIME),
-                                        /* tpm2_device= */ NULL,
-                                        /* tpm2_signature_path= */ NULL,
-                                        getuid(),
-                                        &IOVEC_MAKE(data, size),
-                                        CREDENTIAL_ANY_SCOPE,
-                                        &plaintext);
-                        break;
+                        /* In system mode talk directly to the TPM – unless we live in a device sandbox
+                         * which might block TPM device access. */
+
+                        flags |= CREDENTIAL_ANY_SCOPE;
+
+                        if (!device_nodes_restricted(args->context, args->cgroup_context)) {
+                                r = decrypt_credential_and_warn(
+                                                id,
+                                                now(CLOCK_REALTIME),
+                                                /* tpm2_device= */ NULL,
+                                                /* tpm2_signature_path= */ NULL,
+                                                getuid(),
+                                                &IOVEC_MAKE(data, size),
+                                                flags,
+                                                &plaintext);
+                                break;
+                        }
+
+                        _fallthrough_;
 
                 case RUNTIME_SCOPE_USER:
                         /* In per user mode we'll not have access to the machine secret, nor to the TPM (most
@@ -488,7 +515,7 @@ static int maybe_decrypt_and_write_credential(
                                         now(CLOCK_REALTIME),
                                         getuid(),
                                         &IOVEC_MAKE(data, size),
-                                        /* flags= */ 0, /* only allow user creds in user scope */
+                                        flags,
                                         &plaintext);
                         break;
 
@@ -529,20 +556,20 @@ static int load_credential_glob(
         assert(search_path);
 
         STRV_FOREACH(d, search_path) {
-                _cleanup_globfree_ glob_t pglob = {};
+                _cleanup_strv_free_ char **paths = NULL;
                 _cleanup_free_ char *j = NULL;
 
                 j = path_join(*d, ic->glob);
                 if (!j)
                         return -ENOMEM;
 
-                r = safe_glob(j, 0, &pglob);
+                r = safe_glob(j, /* flags = */ 0, &paths);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
                         return r;
 
-                FOREACH_ARRAY(p, pglob.gl_pathv, pglob.gl_pathc) {
+                STRV_FOREACH(p, paths) {
                         _cleanup_free_ char *fn = NULL;
                         _cleanup_(erase_and_freep) char *data = NULL;
                         size_t size;
@@ -760,6 +787,7 @@ static int load_cred_recurse_dir_cb(
 
 static int acquire_credentials(
                 const ExecContext *context,
+                const CGroupContext *cgroup_context,
                 const ExecParameters *params,
                 const char *unit,
                 const char *p,
@@ -771,6 +799,7 @@ static int acquire_credentials(
         int r;
 
         assert(context);
+        assert(cgroup_context);
         assert(params);
         assert(unit);
         assert(p);
@@ -785,6 +814,7 @@ static int acquire_credentials(
 
         struct load_cred_args args = {
                 .context = context,
+                .cgroup_context = cgroup_context,
                 .params = params,
                 .unit = unit,
                 .write_dfd = dfd,
@@ -911,6 +941,7 @@ static int acquire_credentials(
 
 static int setup_credentials_internal(
                 const ExecContext *context,
+                const CGroupContext *cgroup_context,
                 const ExecParameters *params,
                 const char *unit,
                 const char *final,        /* This is where the credential store shall eventually end up at */
@@ -1020,7 +1051,7 @@ static int setup_credentials_internal(
 
         (void) label_fix_full(AT_FDCWD, where, final, 0);
 
-        r = acquire_credentials(context, params, unit, where, uid, gid, workspace_mounted);
+        r = acquire_credentials(context, cgroup_context, params, unit, where, uid, gid, workspace_mounted);
         if (r < 0) {
                 /* If we're using final place as workspace, and failed to acquire credentials, we might
                  * have left half-written creds there. Let's get rid of the whole mount, so future
@@ -1064,6 +1095,7 @@ static int setup_credentials_internal(
 
 int exec_setup_credentials(
                 const ExecContext *context,
+                const CGroupContext *cgroup_context,
                 const ExecParameters *params,
                 const char *unit,
                 uid_t uid,
@@ -1130,6 +1162,7 @@ int exec_setup_credentials(
 
                 r = setup_credentials_internal(
                                 context,
+                                cgroup_context,
                                 params,
                                 unit,
                                 p,       /* final mount point */
@@ -1167,6 +1200,7 @@ int exec_setup_credentials(
 
                 r = setup_credentials_internal(
                                 context,
+                                cgroup_context,
                                 params,
                                 unit,
                                 p,           /* final mount point */

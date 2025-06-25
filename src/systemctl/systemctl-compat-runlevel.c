@@ -3,10 +3,9 @@
 #include <getopt.h>
 
 #include "alloc-util.h"
+#include "log.h"
 #include "pretty-print.h"
 #include "systemctl-compat-runlevel.h"
-#include "systemctl.h"
-#include "terminal-util.h"
 #include "utmp-wtmp.h"
 
 static int runlevel_help(void) {

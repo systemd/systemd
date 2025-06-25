@@ -1,33 +1,37 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
-#include "bus-polkit.h"
-#include "cgroup-util.h"
+#include "bus-object.h"
+#include "bus-util.h"
 #include "common-signal.h"
+#include "constants.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
-#include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "format-util.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
 #include "hostname-util.h"
-#include "machined-varlink.h"
+#include "machine.h"
 #include "machined.h"
+#include "machined-varlink.h"
 #include "main-func.h"
 #include "mkdir-label.h"
-#include "process-util.h"
+#include "operation.h"
 #include "service-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
+#include "string-util.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
@@ -60,7 +64,7 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
@@ -175,7 +179,7 @@ static int manager_enumerate_machines(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/machines: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/run/systemd/machines");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -343,7 +347,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
-        r = sd_notify(false, NOTIFY_READY);
+        r = sd_notify(false, NOTIFY_READY_MESSAGE);
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 

@@ -2,9 +2,8 @@
 
 #include "alloc-util.h"
 #include "extract-word.h"
-#include "macro.h"
-#include "parse-argument.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "vmspawn-mount.h"
 

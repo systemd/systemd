@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "user-record.h"
+#include "homework-forward.h"
 
 int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled);
 

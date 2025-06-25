@@ -1,17 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-print-properties.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "escape.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
-#include "stdio-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "user-util.h"
 
 int bus_print_property_value(const char *name, const char *expected_value, BusPrintPropertyFlags flags, const char *value) {
         assert(name);
@@ -161,8 +164,6 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         bus_print_property_value(name, expected_value, flags, "idle");
 
                 else if ((STR_IN_SET(name, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight") && u == CGROUP_WEIGHT_INVALID) ||
-                           (STR_IN_SET(name, "CPUShares", "StartupCPUShares") && u == CGROUP_CPU_SHARES_INVALID) ||
-                           (STR_IN_SET(name, "BlockIOWeight", "StartupBlockIOWeight") && u == CGROUP_BLKIO_WEIGHT_INVALID) ||
                            (STR_IN_SET(name, "MemoryCurrent", "MemoryAvailable", "TasksCurrent") && u == UINT64_MAX) ||
                            (startswith(name, "Memory") && ENDSWITH_SET(name, "Current", "Peak") && u == CGROUP_LIMIT_MAX) ||
                            (startswith(name, "IO") && ENDSWITH_SET(name, "Bytes", "Operations") && u == UINT64_MAX) ||
@@ -426,10 +427,9 @@ int bus_print_all_properties(
                 bus_message_print_t func,
                 char **filter,
                 BusPrintPropertyFlags flags,
-                Set **found_properties) {
+                sd_bus_error *reterr_error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -440,11 +440,11 @@ int bus_print_all_properties(
                         path,
                         "org.freedesktop.DBus.Properties",
                         "GetAll",
-                        &error,
+                        reterr_error,
                         &reply,
                         "s", "");
         if (r < 0)
                 return r;
 
-        return bus_message_print_all_properties(reply, func, filter, flags, found_properties);
+        return bus_message_print_all_properties(reply, func, filter, flags, NULL);
 }

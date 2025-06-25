@@ -1,24 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <sys/types.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-messages.h"
 
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "capability-util.h"
 #include "clock-util.h"
 #include "daemon-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "network-util.h"
 #include "process-util.h"
 #include "service-util.h"
-#include "signal-util.h"
 #include "timesyncd-bus.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
@@ -205,7 +206,7 @@ static int run(int argc, char *argv[]) {
 
         notify_message = notify_start("READY=1\n"
                                       "STATUS=Daemon is running",
-                                      NOTIFY_STOPPING);
+                                      NOTIFY_STOPPING_MESSAGE);
 
         r = manager_setup_save_time_event(m);
         if (r < 0)

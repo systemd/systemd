@@ -32,21 +32,6 @@ static void item_seen(Item *item) {
         item->seen++;
 }
 
-TEST(set_free_with_destructor) {
-        Set *m;
-        struct Item items[4] = {};
-
-        assert_se(m = set_new(NULL));
-        FOREACH_ARRAY(item, items, ELEMENTSOF(items) - 1)
-                assert_se(set_put(m, item) == 1);
-
-        m = set_free_with_destructor(m, item_seen);
-        assert_se(items[0].seen == 1);
-        assert_se(items[1].seen == 1);
-        assert_se(items[2].seen == 1);
-        assert_se(items[3].seen == 0);
-}
-
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
 
 TEST(set_free_with_hash_ops) {
@@ -138,16 +123,15 @@ TEST(set_put_strdupv) {
 TEST(set_ensure_allocated) {
         _cleanup_set_free_ Set *m = NULL;
 
-        assert_se(set_ensure_allocated(&m, &string_hash_ops) == 1);
-        assert_se(set_ensure_allocated(&m, &string_hash_ops) == 0);
-        assert_se(set_ensure_allocated(&m, NULL) == 0);
-        assert_se(set_isempty(m));
+        ASSERT_OK_POSITIVE(set_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_OK_ZERO(set_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_SIGNAL(set_ensure_allocated(&m, NULL), SIGABRT);
+        ASSERT_TRUE(set_isempty(m));
 }
 
 TEST(set_copy) {
-        _cleanup_set_free_ Set *s = NULL;
-        _cleanup_set_free_free_ Set *copy = NULL;
-        char *key1, *key2, *key3, *key4;
+        _cleanup_set_free_ Set *s = NULL, *copy = NULL;
+        _cleanup_free_ char *key1 = NULL, *key2 = NULL, *key3 = NULL, *key4 = NULL;
 
         key1 = strdup("key1");
         assert_se(key1);
@@ -175,13 +159,13 @@ TEST(set_copy) {
 TEST(set_ensure_put) {
         _cleanup_set_free_ Set *m = NULL;
 
-        assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 1);
-        assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 0);
-        assert_se(set_ensure_put(&m, NULL, "a") == 0);
-        assert_se(set_ensure_put(&m, &string_hash_ops, "b") == 1);
-        assert_se(set_ensure_put(&m, &string_hash_ops, "b") == 0);
-        assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 0);
-        assert_se(set_size(m) == 2);
+        ASSERT_OK_POSITIVE(set_ensure_put(&m, &string_hash_ops, "a"));
+        ASSERT_OK_ZERO(set_ensure_put(&m, &string_hash_ops, "a"));
+        ASSERT_SIGNAL(set_ensure_put(&m, NULL, "a"), SIGABRT);
+        ASSERT_OK_POSITIVE(set_ensure_put(&m, &string_hash_ops, "b"));
+        ASSERT_OK_ZERO(set_ensure_put(&m, &string_hash_ops, "b"));
+        ASSERT_OK_ZERO(set_ensure_put(&m, &string_hash_ops, "a"));
+        ASSERT_EQ(set_size(m), 2u);
 }
 
 TEST(set_ensure_consume) {

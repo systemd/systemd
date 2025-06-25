@@ -149,7 +149,7 @@
 
         <listitem><para>Wait for a signal. Takes an object path, interface name, and signal name. To suppress
         output of the returned data, use the <option>--quiet</option> option. The service name may be
-        omitted, in which case busctl will match signals from any sender.</para>
+        omitted, in which case <command>busctl</command> will match signals from any sender.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
@@ -325,32 +325,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--json=<replaceable>MODE</replaceable></option></term>
-
-        <listitem>
-          <para>When used with the <command>call</command> or <command>get-property</command> command, shows output
-          formatted as JSON. Expects one of <literal>short</literal> (for the shortest possible output without any
-          redundant whitespace or line breaks) or <literal>pretty</literal> (for a pretty version of the same, with
-          indentation and line breaks). Note that transformation from D-Bus marshalling to JSON is done in a loss-less
-          way, which means type information is embedded into the JSON object tree.</para>
-
-        <xi:include href="version-info.xml" xpointer="v240"/>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-j</option></term>
-
-        <listitem>
-          <para>Equivalent to <option>--json=pretty</option> when invoked interactively from a terminal. Otherwise
-          equivalent to <option>--json=short</option>, in particular when the output is piped to some other
-          program.</para>
-
-        <xi:include href="version-info.xml" xpointer="v240"/>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--expect-reply=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
@@ -486,6 +460,8 @@
         </listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="j" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />

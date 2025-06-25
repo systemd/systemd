@@ -1,21 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
 #include "dhcp-protocol.h"
+#include "forward.h"
+
+int bootp_message_init(
+                DHCPMessage *message,
+                uint8_t op,
+                uint32_t xid,
+                uint16_t arp_type,
+                uint8_t hlen,
+                const uint8_t *chaddr);
 
 int dhcp_message_init(
                 DHCPMessage *message,
                 uint8_t op,
                 uint32_t xid,
-                uint8_t type,
                 uint16_t arp_type,
                 uint8_t hlen,
                 const uint8_t *chaddr,
+                uint8_t type,
                 size_t optlen,
-                size_t *optoffset);
+                size_t *ret_optoffset);
 
 uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len);
 

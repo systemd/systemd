@@ -1,19 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <stdarg.h>
-#include <stdint.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "chase.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -21,16 +15,18 @@
 #include "hexdecoct.h"
 #include "label.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 /* The maximum size of the file we'll read in one go in read_full_file() (64M). */
@@ -321,7 +317,8 @@ int write_string_file_full(
                 r = fd = fd_reopen(
                                 ASSERT_FD(dir_fd), O_CLOEXEC | O_NOCTTY |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
-                                (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY));
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY) |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_OPEN_NONBLOCKING) ? O_NONBLOCK : 0));
         else {
                 mode_t mode = write_string_file_flags_to_mode(flags);
                 bool call_label_ops_post = false;
@@ -339,7 +336,8 @@ int write_string_file_full(
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
-                                (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY) |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_OPEN_NONBLOCKING) ? O_NONBLOCK : 0),
                                 mode,
                                 &made_file);
                 if (call_label_ops_post)
@@ -889,74 +887,46 @@ int script_get_shebang_interpreter(const char *path, char **ret) {
         return 0;
 }
 
-/**
- * Retrieve one field from a file like /proc/self/status.  pattern
- * should not include whitespace or the delimiter (':'). pattern matches only
- * the beginning of a line. Whitespace before ':' is skipped. Whitespace and
- * zeros after the ':' will be skipped. field must be freed afterwards.
- * terminator specifies the terminating characters of the field value (not
- * included in the value).
- */
-int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field) {
-        _cleanup_free_ char *status = NULL;
-        char *t, *f;
+int get_proc_field(const char *path, const char *key, char **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(terminator);
-        assert(filename);
-        assert(pattern);
-        assert(field);
+        /* Retrieve one field from a file like /proc/self/status. "key" matches the beginning of the line
+         * and should not include whitespace or the delimiter (':').
+         * Whitespaces after the ':' will be skipped. Only the first element is returned
+         * (i.e. for /proc/meminfo line "MemTotal: 1024 kB" -> return "1024"). */
 
-        r = read_full_virtual_file(filename, &status, NULL);
+        assert(path);
+        assert(key);
+
+        r = fopen_unlocked(path, "re", &f);
+        if (r == -ENOENT && proc_mounted() == 0)
+                return -ENOSYS;
         if (r < 0)
                 return r;
 
-        t = status;
+        for (;;) {
+                 _cleanup_free_ char *line = NULL;
 
-        do {
-                bool pattern_ok;
+                 r = read_line(f, LONG_LINE_MAX, &line);
+                 if (r < 0)
+                         return r;
+                 if (r == 0)
+                         return -ENODATA;
 
-                do {
-                        t = strstr(t, pattern);
-                        if (!t)
-                                return -ENOENT;
+                 char *l = startswith(line, key);
+                 if (l && *l == ':') {
+                         if (ret) {
+                                 char *s = strdupcspn(skip_leading_chars(l + 1, " \t"), WHITESPACE);
+                                 if (!s)
+                                         return -ENOMEM;
 
-                        /* Check that pattern occurs in beginning of line. */
-                        pattern_ok = (t == status || t[-1] == '\n');
+                                 *ret = s;
+                         }
 
-                        t += strlen(pattern);
-
-                } while (!pattern_ok);
-
-                t += strspn(t, " \t");
-                if (!*t)
-                        return -ENOENT;
-
-        } while (*t != ':');
-
-        t++;
-
-        if (*t) {
-                t += strspn(t, " \t");
-
-                /* Also skip zeros, because when this is used for
-                 * capabilities, we don't want the zeros. This way the
-                 * same capability set always maps to the same string,
-                 * irrespective of the total capability set size. For
-                 * other numbers it shouldn't matter. */
-                t += strspn(t, "0");
-                /* Back off one char if there's nothing but whitespace
-                   and zeros */
-                if (!*t || isspace(*t))
-                        t--;
+                         return 0;
+                 }
         }
-
-        f = strdupcspn(t, terminator);
-        if (!f)
-                return -ENOMEM;
-
-        *field = f;
-        return 0;
 }
 
 DIR* xopendirat(int dir_fd, const char *name, int flags) {

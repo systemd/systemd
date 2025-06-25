@@ -32,23 +32,25 @@ The following exceptions apply:
  * some sources under src/udev/ are licensed under **GPL-2.0-or-later**,
    so all udev programs (`systemd-udevd`, `udevadm`, and the udev builtins
    and test programs) are also distributed under **GPL-2.0-or-later**.
- * the header files contained in src/basic/linux/ and src/shared/linux/ are copied
+   Note, sources under src/libudev are licensed under **LGPL-2.1-or-later**,
+   so libudev library is also distributed under **LGPL-2.1-or-later**.
+ * the header files contained in src/basic/include/linux are copied
    verbatim from the Linux kernel source tree and are licensed under **GPL-2.0 WITH
    Linux-syscall-note** and are used within the scope of the Linux-syscall-note
    exception provisions
  * the following sources are licensed under the **LGPL-2.0-or-later** license:
    - src/basic/utf8.c
    - src/shared/initreq.h
- * the src/shared/linux/bpf_insn.h header is copied from the Linux kernel
+ * the src/basic/include/linux/bpf_insn.h header is copied from the Linux kernel
    source tree and is licensed under either **BSD-2-Clause** or **GPL-2.0-only**,
    and thus is included in the systemd build under the BSD-2-Clause license.
- * The src/basic/linux/wireguard.h header is copied from the Linux kernel
+ * The src/basic/include/linux/wireguard.h header is copied from the Linux kernel
    source tree and is licensed under either **MIT** or **GPL-2.0 WITH Linux-syscall-note**,
    and thus is included in the systemd build under the MIT license.
  * the following sources are licensed under the **MIT** license (in case of our
    scripts, to facilitate copying and reuse of those helpers to other projects):
    - hwdb.d/parse_hwdb.py
-   - src/basic/linux/batman_adv.h
+   - src/basic/include/linux/batman_adv.h
    - src/basic/sparse-endian.h
    - tools/catalog-report.py
  * the following sources are licensed under the **CC0-1.0** license:

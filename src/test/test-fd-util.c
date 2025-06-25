@@ -7,12 +7,8 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "memfd-util.h"
-#include "memory-util.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "namespace-util.h"
@@ -24,7 +20,6 @@
 #include "seccomp-util.h"
 #include "serialize.h"
 #include "stat-util.h"
-#include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 

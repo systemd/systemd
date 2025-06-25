@@ -2,6 +2,7 @@
 
 #include "console.h"
 #include "line-edit.h"
+#include "string-util-fundamental.h"
 #include "util.h"
 
 static void cursor_left(size_t *cursor, size_t *first) {

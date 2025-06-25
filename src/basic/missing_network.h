@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <netinet/in.h>
-
-/* linux/in.h or netinet/in.h (since glibc-2.32) */
-#ifndef IPPROTO_MPTCP
-#define IPPROTO_MPTCP 262
-#endif
+#include <netinet/in.h> /* IWYU pragma: export */
 
 /* Not exposed but defined at include/net/ip.h */
 #ifndef IPV4_MIN_MTU
@@ -20,11 +15,6 @@
  * is compatible with the kernel's internal definition. */
 #ifndef LOOPBACK_IFINDEX
 #define LOOPBACK_IFINDEX 1
-#endif
-
-/* Not exposed yet. Similar values are defined in net/ethernet.h */
-#ifndef ETHERTYPE_LLDP
-#define ETHERTYPE_LLDP 0x88cc
 #endif
 
 /* Not exposed but defined in linux/netdevice.h */

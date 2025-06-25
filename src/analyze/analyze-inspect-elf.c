@@ -2,16 +2,15 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-inspect-elf.h"
 #include "chase.h"
 #include "elf-util.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "format-table.h"
-#include "format-util.h"
 #include "json-util.h"
-#include "path-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {

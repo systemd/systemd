@@ -2,20 +2,25 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "bootspec.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "efivars.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "reboot-util.h"
+#include "runtime-scope.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-logind.h"
 #include "systemctl-start-special.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 static int load_kexec_kernel(void) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;

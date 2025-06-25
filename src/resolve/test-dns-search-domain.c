@@ -3,8 +3,6 @@
 #include "resolved-dns-search-domain.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
-
-#include "log.h"
 #include "tests.h"
 
 static void check_domains(DnsSearchDomain *head, const char **expected, size_t n) {
@@ -29,7 +27,7 @@ TEST(dns_search_domain_new_system) {
         Manager manager = {};
         _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd = NULL;
 
-        ASSERT_OK(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local"));
+        ASSERT_OK(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local"));
         ASSERT_NOT_NULL(sd);
 
         ASSERT_TRUE(sd->linked);
@@ -41,12 +39,12 @@ TEST(dns_search_domain_new_system_limit) {
         DnsSearchDomain *sd = NULL;
 
         for (size_t i = 0; i < MANAGER_SEARCH_DOMAINS_MAX; i++) {
-                ASSERT_OK(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local"));
+                ASSERT_OK(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local"));
                 ASSERT_NOT_NULL(sd);
                 ASSERT_EQ(manager.n_search_domains, i + 1);
         }
 
-        ASSERT_ERROR(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local"), E2BIG);
+        ASSERT_ERROR(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local"), E2BIG);
         ASSERT_NOT_NULL(sd);
 
         dns_search_domain_unlink_all(manager.search_domains);
@@ -60,7 +58,7 @@ TEST(dns_search_domain_new_link) {
         ASSERT_OK(link_new(&manager, &link, 1));
         ASSERT_NOT_NULL(link);
 
-        ASSERT_OK(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_LINK, link, "local."));
+        ASSERT_OK(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_LINK, link, /* delegate= */ NULL, "local."));
         ASSERT_NOT_NULL(sd);
 
         ASSERT_TRUE(sd->linked);
@@ -76,12 +74,12 @@ TEST(dns_search_domain_new_link_limit) {
         ASSERT_NOT_NULL(link);
 
         for (size_t i = 0; i < LINK_SEARCH_DOMAINS_MAX; i++) {
-                ASSERT_OK(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_LINK, link, "local"));
+                ASSERT_OK(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_LINK, link, /* delegate= */ NULL, "local"));
                 ASSERT_NOT_NULL(sd);
                 ASSERT_EQ(link->n_search_domains, i + 1);
         }
 
-        ASSERT_ERROR(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_LINK, link, "local"), E2BIG);
+        ASSERT_ERROR(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_LINK, link, /* delegate= */ NULL, "local"), E2BIG);
         ASSERT_NOT_NULL(sd);
 }
 
@@ -94,13 +92,13 @@ TEST(dns_search_domain_unlink_system) {
         _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd3 = NULL;
         DnsSearchDomain *sd2 = NULL;
 
-        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local");
         ASSERT_NOT_NULL(sd1);
 
-        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "vpn.example.com");
         ASSERT_NOT_NULL(sd2);
 
-        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "org");
         ASSERT_NOT_NULL(sd3);
 
         ASSERT_TRUE(sd2->linked);
@@ -123,13 +121,13 @@ TEST(dns_search_domain_unlink_link) {
         ASSERT_OK(link_new(&manager, &link, 1));
         ASSERT_NOT_NULL(link);
 
-        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_LINK, link, "local");
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_LINK, link, /* delegate= */ NULL, "local");
         ASSERT_NOT_NULL(sd1);
 
-        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_LINK, link, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_LINK, link, /* delegate= */ NULL, "vpn.example.com");
         ASSERT_NOT_NULL(sd2);
 
-        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_LINK, link, "org");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_LINK, link, /* delegate= */ NULL, "org");
         ASSERT_NOT_NULL(sd3);
 
         ASSERT_TRUE(sd2->linked);
@@ -151,13 +149,13 @@ TEST(dns_search_domain_mark_all) {
         Manager manager = {};
         _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
 
-        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local");
         ASSERT_NOT_NULL(sd1);
 
-        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "vpn.example.com");
         ASSERT_NOT_NULL(sd2);
 
-        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "org");
         ASSERT_NOT_NULL(sd3);
 
         ASSERT_FALSE(sd1->marked);
@@ -179,13 +177,13 @@ TEST(dns_search_domain_move_back_and_unmark) {
         Manager manager = {};
         _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
 
-        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local");
         ASSERT_NOT_NULL(sd1);
 
-        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "vpn.example.com");
         ASSERT_NOT_NULL(sd2);
 
-        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "org");
         ASSERT_NOT_NULL(sd3);
 
         dns_search_domain_move_back_and_unmark(sd1);
@@ -211,13 +209,13 @@ TEST(dns_search_domain_unlink_marked) {
         DnsSearchDomain *sd1 = NULL, *sd2 = NULL;
         _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd3 = NULL;
 
-        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local");
         ASSERT_NOT_NULL(sd1);
 
-        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "vpn.example.com");
         ASSERT_NOT_NULL(sd2);
 
-        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "org");
         ASSERT_NOT_NULL(sd3);
 
         dns_search_domain_unlink_marked(sd1);
@@ -245,13 +243,13 @@ TEST(dns_search_domain_unlink_all) {
         Manager manager = {};
         DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
 
-        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local");
         ASSERT_NOT_NULL(sd1);
 
-        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "vpn.example.com");
         ASSERT_NOT_NULL(sd2);
 
-        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "org");
         ASSERT_NOT_NULL(sd3);
 
         dns_search_domain_unlink_all(sd1);
@@ -267,13 +265,13 @@ TEST(dns_search_domain_find) {
         Manager manager = {};
         _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL, *ret = NULL;
 
-        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "local");
+        dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local");
         ASSERT_NOT_NULL(sd1);
 
-        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "vpn.example.com");
+        dns_search_domain_new(&manager, &sd2, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "vpn.example.com");
         ASSERT_NOT_NULL(sd2);
 
-        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, NULL, "org");
+        dns_search_domain_new(&manager, &sd3, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "org");
         ASSERT_NOT_NULL(sd3);
 
         ASSERT_TRUE(dns_search_domain_find(sd1, "local", &ret));

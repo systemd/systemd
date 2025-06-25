@@ -4,12 +4,16 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "arphrd-util.h"
+#include "hash-funcs.h"
 #include "id128-util.h"
-#include "memory-util.h"
 #include "networkd-address-generation.h"
+#include "networkd-address.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
+#include "set.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 #define DAD_CONFLICTS_IDGEN_RETRIES_RFC7217 3

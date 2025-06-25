@@ -4,28 +4,22 @@
 
 #include "list.h"
 #include "resolved-conf.h"
-
-typedef struct DnssdService DnssdService;
-typedef struct DnssdTxtData DnssdTxtData;
-
-typedef struct Manager Manager;
-typedef struct DnsResourceRecord DnsResourceRecord;
-typedef struct DnsTxtItem DnsTxtItem;
+#include "resolved-forward.h"
 
 enum {
         DNS_TXT_ITEM_TEXT,
         DNS_TXT_ITEM_DATA,
 };
 
-struct DnssdTxtData {
+typedef struct DnssdTxtData {
         DnsResourceRecord *rr;
 
         LIST_HEAD(DnsTxtItem, txts);
 
         LIST_FIELDS(DnssdTxtData, items);
-};
+} DnssdTxtData;
 
-struct DnssdService {
+typedef struct DnssdService {
         char *path;
         char *id;
         char *name_template;
@@ -50,7 +44,7 @@ struct DnssdService {
 
         bool withdrawn:1;
         uid_t originator;
-};
+} DnssdService;
 
 DnssdService *dnssd_service_free(DnssdService *service);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);

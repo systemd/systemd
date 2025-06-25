@@ -2,30 +2,18 @@
 #pragma once
 
 #include "efi.h"
-#include "efi-string.h"
 #include "memory-util-fundamental.h"
-#include "string-util-fundamental.h"
 
 #if SD_BOOT
 
-#include "log.h"
 #include "proto/file-io.h"
 
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
 
-static inline void free(void *p) {
-        if (!p)
-                return;
-
-        /* Debugging an invalid free requires trace logging to find the call site or a debugger attached. For
-         * release builds it is not worth the bother to even warn when we cannot even print a call stack. */
-#ifdef EFI_DEBUG
-        assert_se(BS->FreePool(p) == EFI_SUCCESS);
-#else
-        (void) BS->FreePool(p);
-#endif
-}
+DISABLE_WARNING_REDUNDANT_DECLS;
+void free(void *p);
+REENABLE_WARNING;
 
 static inline void freep(void *p) {
         free(*(void **) p);
@@ -121,7 +109,7 @@ static inline Pages xmalloc_initrd_pages(size_t n_pages) {
                         &addr) == EFI_SUCCESS)
                 return (Pages) {
                         .addr = addr,
-                        .n_pages = n_pages,
+                        .n_pages = EFI_SIZE_TO_PAGES(n_pages),
                 };
 #endif
         return xmalloc_pages(
@@ -171,9 +159,7 @@ bool is_ascii(const char16_t *f);
 
 char16_t **strv_free(char16_t **l);
 
-static inline void strv_freep(char16_t ***p) {
-        strv_free(*p);
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char16_t**, strv_free);
 
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
@@ -242,7 +228,10 @@ void *find_configuration_table(const EFI_GUID *guid);
 char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define be16toh(x) __builtin_bswap16(x)
 #  define be32toh(x) __builtin_bswap32(x)
+#  define le16toh(x) (x)
+#  define le32toh(x) (x)
 #else
 #  error "Unexpected byte order in EFI mode?"
 #endif

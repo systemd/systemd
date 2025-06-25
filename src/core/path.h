@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Path Path;
-typedef struct PathSpec PathSpec;
-typedef struct ActivationDetailsPath ActivationDetailsPath;
-
+#include "core-forward.h"
 #include "unit.h"
 
 typedef enum PathType {
@@ -52,7 +49,7 @@ typedef enum PathResult {
         _PATH_RESULT_INVALID = -EINVAL,
 } PathResult;
 
-struct Path {
+typedef struct Path {
         Unit meta;
 
         LIST_HEAD(PathSpec, specs);
@@ -67,12 +64,12 @@ struct Path {
         RateLimit trigger_limit;
 
         sd_event_source *trigger_notify_event_source;
-};
+} Path;
 
-struct ActivationDetailsPath {
+typedef struct ActivationDetailsPath {
         ActivationDetails meta;
         char *trigger_path_filename;
-};
+} ActivationDetailsPath;
 
 void path_free_specs(Path *p);
 

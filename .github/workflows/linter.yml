@@ -29,36 +29,49 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: super-linter/super-linter/slim@4e8a7c2bf106c4c766c816b35ec612638dc9b6b2
+        uses: super-linter/super-linter/slim@12150456a73e248bdc94d0794898f94e23127c88
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_GITHUB_ACTIONS: true
 
+      - uses: systemd/mkosi@5e739ef1ed02a4f3b6ae64e50a8ee186cbcb21c2
+
       - name: Check that tabs are not used in Python code
         run: sh -c '! git grep -P "\\t" -- src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
 
-      - name: Install ruff and mypy
+      - name: Build tools tree
         run: |
-          python3 -m pip install --break-system-packages --upgrade setuptools wheel pip
-          python3 -m pip install --break-system-packages mypy types-Pillow ruff
+          tee mkosi/mkosi.local.conf <<EOF
+          [Build]
+          ToolsTreeDistribution=fedora
+          ToolsTreeRelease=rawhide
+          EOF
+
+          mkosi -f sandbox -- true
 
       - name: Run mypy
         run: |
-          python3 -m mypy --version
-          python3 -m mypy src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi sandbox -- mypy --version
+          mkosi sandbox -- mypy src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
       - name: Run ruff check
         run: |
-          ruff --version
-          ruff check src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi sandbox -- ruff --version
+          mkosi sandbox -- ruff check src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
       - name: Run ruff format
         run: |
-          ruff --version
-          if ! ruff format --check src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi sandbox -- ruff --version
+          if ! mkosi sandbox -- ruff format --check src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           then
               echo "Please run 'ruff format' on the above files or apply the diffs below manually"
-              ruff format --check --quiet --diff  src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+              mkosi sandbox -- ruff format --check --quiet --diff src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           fi
+
+      - name: Configure meson
+        run: mkosi sandbox -- env CC=clang CXX=clang++ meson setup -Dlocalegen-path=/usr/bin/locale-gen -Dcompat-mutable-uid-boundaries=true build
+
+      - name: Run clang-tidy
+        run: mkosi sandbox -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit

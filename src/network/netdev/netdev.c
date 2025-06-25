@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <netinet/in.h>
 #include <linux/if_arp.h>
 #include <unistd.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "arphrd-util.h"
@@ -12,18 +11,18 @@
 #include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
+#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "dummy.h"
-#include "fd-util.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
+#include "hashmap.h"
 #include "hsr.h"
 #include "ifb.h"
 #include "ipoib.h"
 #include "ipvlan.h"
 #include "l2tp-tunnel.h"
-#include "list.h"
 #include "macsec.h"
 #include "macvlan.h"
 #include "netdev.h"
@@ -32,12 +31,10 @@
 #include "network-util.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
-#include "networkd-setlink.h"
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "nlmon.h"
-#include "path-lookup.h"
-#include "siphash24.h"
+#include "path-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -1004,6 +1001,7 @@ static int netdev_request_to_create(NetDev *netdev) {
 
 int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
+        _cleanup_free_ char *file_basename = NULL;
         const char *dropin_dirname;
         int r;
 
@@ -1027,7 +1025,11 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
                 .state = _NETDEV_STATE_INVALID, /* an invalid state means done() of the implementation won't be called on destruction */
         };
 
-        dropin_dirname = strjoina(basename(filename), ".d");
+        r = path_extract_filename(filename, &file_basename);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to extract file name of '%s': %m", filename);
+
+        dropin_dirname = strjoina(file_basename, ".d");
         r = config_parse_many(
                         STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root = */ NULL,
                         NETDEV_COMMON_SECTIONS NETDEV_OTHER_SECTIONS,
@@ -1163,8 +1165,7 @@ int netdev_reload(Manager *manager) {
         }
 
         /* Detach old NetDev objects from Manager.
-         * Note, the same object may be registered with multiple names, and netdev_detach() may drop multiple
-         * entries. Hence, hashmap_free_with_destructor() cannot be used. */
+         * The same object may be registered with multiple names, and netdev_detach() may drop multiple entries. */
         for (NetDev *n; (n = hashmap_first(manager->netdevs)); )
                 netdev_detach(n);
 

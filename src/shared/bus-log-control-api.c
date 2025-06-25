@@ -1,12 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
-#include "bus-util.h"
+#include "bus-object.h"
 #include "log.h"
-#include "sd-bus.h"
 #include "syslog-util.h"
+
+int bus_log_control_api_register(sd_bus *bus) {
+        return bus_add_implementation(bus, &log_control_object, NULL);
+}
 
 int bus_property_get_log_level(
                 sd_bus *bus,
@@ -15,7 +20,7 @@ int bus_property_get_log_level(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         _cleanup_free_ char *t = NULL;
         int r;
@@ -37,7 +42,7 @@ int bus_property_set_log_level(
                 const char *property,
                 sd_bus_message *value,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         const char *t;
         int r;
@@ -51,7 +56,7 @@ int bus_property_set_log_level(
 
         r = log_level_from_string(t);
         if (r < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid log level '%s'", t);
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid log level '%s'", t);
 
         log_info("Setting log level to %s.", t);
         log_set_max_level(r);
@@ -68,7 +73,7 @@ int bus_property_set_log_target(
                 const char *property,
                 sd_bus_message *value,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         LogTarget target;
         const char *t;
@@ -83,7 +88,7 @@ int bus_property_set_log_target(
 
         target = log_target_from_string(t);
         if (target < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid log target '%s'", t);
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid log target '%s'", t);
 
         log_info("Setting log target to %s.", log_target_to_string(target));
         log_set_target_and_open(target);

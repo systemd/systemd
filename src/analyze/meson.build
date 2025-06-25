@@ -34,15 +34,18 @@ systemd_analyze_sources = files(
         'analyze-unit-files.c',
         'analyze-unit-paths.c',
         'analyze-verify.c',
-        'analyze-verify-util.c',
         'analyze.c',
+)
+systemd_analyze_extract_sources = files(
+        'analyze-verify-util.c'
 )
 
 executables += [
         executable_template + {
                 'name' : 'systemd-analyze',
                 'public' : conf.get('ENABLE_ANALYZE') == 1,
-                'sources' : systemd_analyze_sources,
+                'sources' : systemd_analyze_sources + systemd_analyze_extract_sources,
+                'extract' : systemd_analyze_extract_sources,
                 'include_directories' : core_includes,
                 'link_with' : [
                         libcore,
@@ -52,9 +55,7 @@ executables += [
                 'install' : conf.get('ENABLE_ANALYZE') == 1,
         },
         core_test_template + {
-                'sources' : files(
-                        'test-verify.c',
-                        'analyze-verify-util.c',
-                ),
+                'sources' : files('test-verify.c'),
+                'objects' : ['systemd-analyze'],
         },
 ]

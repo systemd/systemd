@@ -1,22 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_VALGRIND_MEMCHECK_H
-#include <valgrind/memcheck.h>
-#endif
-
-#include <errno.h>
-#include <stddef.h>
-
 #include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-control.h"
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "capability-util.h"
 #include "fd-util.h"
+#include "log.h"
+#include "pidref.h"
 #include "process-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -360,14 +353,14 @@ _public_ int sd_bus_release_name_async(
                         name);
 }
 
-_public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable) {
+_public_ int sd_bus_list_names(sd_bus *bus, char ***ret_acquired, char ***ret_activatable) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **x = NULL, **y = NULL;
         int r;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(acquired || activatable, -EINVAL);
+        assert_return(ret_acquired || ret_activatable, -EINVAL);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!bus->bus_client)
@@ -376,7 +369,7 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        if (acquired) {
+        if (ret_acquired) {
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
@@ -396,7 +389,7 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
                 reply = sd_bus_message_unref(reply);
         }
 
-        if (activatable) {
+        if (ret_activatable) {
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
@@ -413,11 +406,11 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
                 if (r < 0)
                         return r;
 
-                *activatable = TAKE_PTR(y);
+                *ret_activatable = TAKE_PTR(y);
         }
 
-        if (acquired)
-                *acquired = TAKE_PTR(x);
+        if (ret_acquired)
+                *ret_acquired = TAKE_PTR(x);
 
         return 0;
 }
@@ -426,7 +419,7 @@ _public_ int sd_bus_get_name_creds(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
-                sd_bus_creds **creds) {
+                sd_bus_creds **ret) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_unique = NULL, *reply = NULL;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
@@ -437,7 +430,7 @@ _public_ int sd_bus_get_name_creds(
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
-        assert_return(mask == 0 || creds, -EINVAL);
+        assert_return(mask == 0 || ret, -EINVAL);
         assert_return(!bus_origin_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
 
@@ -453,7 +446,7 @@ _public_ int sd_bus_get_name_creds(
                 return -EINVAL;
 
         if (streq(name, "org.freedesktop.DBus"))
-                return sd_bus_get_owner_creds(bus, mask, creds);
+                return sd_bus_get_owner_creds(bus, mask, ret);
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
@@ -790,8 +783,8 @@ _public_ int sd_bus_get_name_creds(
                 }
         }
 
-        if (creds)
-                *creds = TAKE_PTR(c);
+        if (ret)
+                *ret = TAKE_PTR(c);
 
         return 0;
 }
@@ -1082,7 +1075,7 @@ int bus_remove_match_internal(
                         e);
 }
 
-_public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
+_public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         const char *mid;
         int r;
@@ -1090,7 +1083,7 @@ _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
-        assert_return(machine, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!bus_origin_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
 
@@ -1101,7 +1094,7 @@ _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_
                 return -ENOTCONN;
 
         if (streq_ptr(name, bus->unique_name))
-                return sd_id128_get_machine(machine);
+                return sd_id128_get_machine(ret);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -1125,5 +1118,5 @@ _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_
         if (r < 0)
                 return r;
 
-        return sd_id128_from_string(mid, machine);
+        return sd_id128_from_string(mid, ret);
 }

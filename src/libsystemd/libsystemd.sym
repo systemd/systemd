@@ -1062,14 +1062,19 @@ global:
 
 LIBSYSTEMD_258 {
 global:
+        sd_bus_message_dump_json;
         sd_device_enumerator_add_all_parents;
+        sd_device_get_sysattr_value_with_size;
         sd_json_variant_type_from_string;
         sd_json_variant_type_to_string;
+        sd_pidfd_get_inode_id;
         sd_varlink_get_current_method;
         sd_varlink_get_description;
         sd_varlink_get_input_fd;
         sd_varlink_get_n_fds;
         sd_varlink_get_output_fd;
+        sd_varlink_idl_parse;
+        sd_varlink_interface_free;
         sd_varlink_reset_fds;
         sd_varlink_server_listen_name;
 } LIBSYSTEMD_257;

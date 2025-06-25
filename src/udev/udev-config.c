@@ -1,20 +1,24 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
+#include <stdlib.h>
 
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "daemon-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "limits-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "serialize.h"
 #include "signal-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "udev-config.h"
 #include "udev-manager.h"
 #include "udev-rules.h"
@@ -552,9 +556,6 @@ int manager_serialize_config(Manager *manager) {
         r = finish_serialization_file(f);
         if (r < 0)
                 return log_warning_errno(r, "Failed to finalize serialization file: %m");
-
-        /* Remove the previous serialization to make it replaced with the new one. */
-        (void) notify_remove_fd_warn("config-serialization");
 
         r = notify_push_fd(fileno(f), "config-serialization");
         if (r < 0)

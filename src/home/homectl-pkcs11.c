@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "errno-util.h"
-#include "format-table.h"
 #include "hexdecoct.h"
 #include "homectl-pkcs11.h"
 #include "libcrypt-util.h"
-#include "memory-util.h"
+#include "log.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 int identity_add_token_pin(sd_json_variant **v, const char *pin) {
@@ -47,6 +49,8 @@ int identity_add_token_pin(sd_json_variant **v, const char *pin) {
         r = sd_json_variant_set_field(&w, "tokenPin", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to update PIN field: %m");
+
+        sd_json_variant_sensitive(w);
 
         r = sd_json_variant_set_field(v, "secret", w);
         if (r < 0)
@@ -144,7 +148,10 @@ static int add_pkcs11_encrypted_key(
         return 0;
 }
 
+#endif
+
 int identity_add_pkcs11_key_data(sd_json_variant **v, const char *uri) {
+#if HAVE_P11KIT
         _cleanup_(erase_and_freep) void *decrypted_key = NULL, *saved_key = NULL;
         _cleanup_(erase_and_freep) char *pin = NULL;
         size_t decrypted_key_size, saved_key_size;
@@ -190,6 +197,7 @@ int identity_add_pkcs11_key_data(sd_json_variant **v, const char *uri) {
                 return r;
 
         return 0;
-}
-
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PKCS#11 tokens not supported on this build.");
 #endif
+}

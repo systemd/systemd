@@ -1,18 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/vm_sockets.h>
+
+#include "sd-event.h"
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
 #include "discover-image.h"
+#include "errno-util.h"
 #include "format-util.h"
-#include "hostname-util.h"
+#include "hashmap.h"
+#include "image-policy.h"
 #include "image-varlink.h"
 #include "json-util.h"
+#include "local-addresses.h"
+#include "machine.h"
 #include "machine-varlink.h"
+#include "machined.h"
 #include "machined-varlink.h"
-#include "mkdir.h"
-#include "process-util.h"
-#include "socket-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
@@ -693,11 +700,8 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        _cleanup_hashmap_free_ Hashmap *images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, images);
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, &images);
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover images: %m");
 

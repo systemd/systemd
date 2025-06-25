@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <mntent.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "env-util.h"
 #include "exit-status.h"
+#include "format-util.h"
 #include "fstab-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
 #include "mount-setup.h"
@@ -17,7 +18,6 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
-#include "strv.h"
 
 /* Goes through /etc/fstab and remounts all API file systems, applying options that are in /etc/fstab that
  * systemd might not have respected. */

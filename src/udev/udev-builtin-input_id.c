@@ -6,12 +6,8 @@
  * Copyright © 2014 Carlos Garnacho <carlosg@gnome.org>
  */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/input.h>
-#include <linux/limits.h>
-#include <stdarg.h>
-#include <unistd.h>
 
 #include "device-util.h"
 #include "fd-util.h"
@@ -384,8 +380,8 @@ static int builtin_input_id(UdevEvent *event, int argc, char *argv[]) {
                 bitmask_key[NBITS(KEY_MAX)],
                 bitmask_rel[NBITS(REL_MAX)],
                 bitmask_props[NBITS(INPUT_PROP_MAX)];
-        const char *sysname;
         bool is_pointer, is_key;
+        int r;
 
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
@@ -425,8 +421,10 @@ static int builtin_input_id(UdevEvent *event, int argc, char *argv[]) {
                         udev_builtin_add_property(event, "ID_INPUT_SWITCH", "1");
         }
 
-        if (sd_device_get_sysname(dev, &sysname) >= 0 &&
-            startswith(sysname, "event"))
+        r = device_sysname_startswith(dev, "event");
+        if (r < 0)
+                return r;
+        if (r > 0)
                 extract_info(event);
 
         return 0;

@@ -10,7 +10,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "unit.h"
-#include "virt.h"
 
 static int test_restrict_filesystems(Manager *m, const char *unit_name, const char *file_path, char **allowed_filesystems) {
         _cleanup_free_ char *exec_start = NULL;
@@ -39,6 +38,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
+        ASSERT_OK(unit_patch_contexts(u));
         r = unit_start(u, NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed %m");

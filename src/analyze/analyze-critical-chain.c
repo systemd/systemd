@@ -1,16 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "analyze.h"
 #include "analyze-critical-chain.h"
 #include "analyze-time-data.h"
-#include "analyze.h"
+#include "ansi-color.h"
 #include "bus-error.h"
-#include "copy.h"
-#include "path-util.h"
+#include "bus-util.h"
+#include "glyph-util.h"
+#include "hashmap.h"
+#include "log.h"
+#include "pager.h"
+#include "runtime-scope.h"
 #include "sort-util.h"
 #include "special.h"
 #include "static-destruct.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 
 static Hashmap *unit_times_hashmap = NULL;
 STATIC_DESTRUCTOR_REGISTER(unit_times_hashmap, hashmap_freep);

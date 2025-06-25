@@ -1,24 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/prctl.h>
+#include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "btrfs-util.h"
-#include "capability-util.h"
-#include "copy.h"
 #include "dirent-util.h"
-#include "discover-image.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "hostname-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "memory-util.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
 #include "rm-rf.h"
-#include "signal-util.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
@@ -462,6 +458,8 @@ static int verify_gpg(
                  * otherwise. */
                 if (access(USER_KEYRING_PATH, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH;
+                else if (access(USER_KEYRING_PATH_LEGACY, F_OK) >= 0)
+                        cmd[k++] = "--keyring=" USER_KEYRING_PATH_LEGACY;
                 else
                         cmd[k++] = "--keyring=" VENDOR_KEYRING_PATH;
 

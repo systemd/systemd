@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-internal.h"
+#include "sd-bus.h"
+#include "sd-event.h"
+
 #include "bus-message.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
-#include "process-util.h"
+#include "errno-util.h"
+#include "hashmap.h"
+#include "list.h"
+#include "log.h"
+#include "pidref.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 #include "varlink-util.h"
 
 static int bus_message_check_good_user(sd_bus_message *m, uid_t good_user) {
@@ -103,8 +109,8 @@ int bus_test_polkit(
                 const char *action,
                 const char **details,
                 uid_t good_user,
-                bool *_challenge,
-                sd_bus_error *ret_error) {
+                bool *ret_challenge,
+                sd_bus_error *reterr_error) {
 
         int r;
 
@@ -120,22 +126,25 @@ int bus_test_polkit(
         r = sd_bus_query_sender_privilege(call, -1);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r > 0) {
+                if (ret_challenge)
+                        *ret_challenge = false;
                 return 1;
+        }
 
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL, *reply = NULL;
         int authorized = false, challenge = false;
 
-        r = bus_message_new_polkit_auth_call_for_bus(call, action, details, /* interactive = */ false, &request);
+        r = bus_message_new_polkit_auth_call_for_bus(call, action, details, /* flags = */ 0, &request);
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(call->bus, request, 0, ret_error, &reply);
+        r = sd_bus_call(call->bus, request, 0, reterr_error, &reply);
         if (r < 0) {
                 /* Treat no PK available as access denied */
-                if (bus_error_is_unknown_service(ret_error)) {
-                        sd_bus_error_free(ret_error);
+                if (bus_error_is_unknown_service(reterr_error)) {
+                        sd_bus_error_free(reterr_error);
                         return -EACCES;
                 }
 
@@ -153,8 +162,8 @@ int bus_test_polkit(
         if (authorized)
                 return 1;
 
-        if (_challenge) {
-                *_challenge = challenge;
+        if (ret_challenge) {
+                *ret_challenge = challenge;
                 return 0;
         }
 #endif
@@ -171,7 +180,7 @@ typedef struct AsyncPolkitQueryAction {
         LIST_FIELDS(struct AsyncPolkitQueryAction, authorized);
 } AsyncPolkitQueryAction;
 
-static AsyncPolkitQueryAction *async_polkit_query_action_free(AsyncPolkitQueryAction *a) {
+static AsyncPolkitQueryAction* async_polkit_query_action_free(AsyncPolkitQueryAction *a) {
         if (!a)
                 return NULL;
 
@@ -203,7 +212,7 @@ typedef struct AsyncPolkitQuery {
         sd_bus_error error;                                     /* the precise error, in case error_action is set */
 } AsyncPolkitQuery;
 
-static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
+static AsyncPolkitQuery* async_polkit_query_free(AsyncPolkitQuery *q) {
         if (!q)
                 return NULL;
 
@@ -317,7 +326,8 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
         } else if (challenge) {
                 log_debug("Polkit authorization for action '%s' requires interactive authentication, which we didn't allow.", a->action);
                 q->error_action = TAKE_PTR(a);
-                sd_bus_error_set_const(&q->error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
+                sd_bus_error_set_const(&q->error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED,
+                                       "Access denied as the requested operation requires interactive authentication. However, interactive authentication has not been enabled by the calling program.");
         } else {
                 log_debug("Polkit authorization for action '%s' denied.", a->action);
                 q->denied_action = TAKE_PTR(a);
@@ -383,7 +393,7 @@ static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q
         return 1;
 }
 
-static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error) {
         AsyncPolkitQuery *q = ASSERT_PTR(userdata);
         int r;
 
@@ -421,7 +431,7 @@ static int async_polkit_query_check_action(
                 const char *action,
                 const char **details,
                 PolkitFlags flags,
-                sd_bus_error *ret_error) {
+                sd_bus_error *reterr_error) {
 
         assert(q);
         assert(action);
@@ -430,7 +440,7 @@ static int async_polkit_query_check_action(
                 return 1; /* Allow! */
 
         if (q->error_action && streq(q->error_action->action, action))
-                return sd_bus_error_copy(ret_error, &q->error);
+                return sd_bus_error_copy(reterr_error, &q->error);
 
         if (q->denied_action && streq(q->denied_action->action, action))
                 return -EACCES; /* Deny! */
@@ -534,7 +544,7 @@ int bus_verify_polkit_async_full(
                 uid_t good_user,
                 PolkitFlags flags,
                 Hashmap **registry,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         int r;
 
@@ -555,7 +565,7 @@ int bus_verify_polkit_async_full(
         /* This is a repeated invocation of this function, hence let's check if we've already got
          * a response from polkit for this action */
         if (q) {
-                r = async_polkit_query_check_action(q, action, details, flags, error);
+                r = async_polkit_query_check_action(q, action, details, flags, reterr_error);
                 if (r != 0) {
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
                         return r;
@@ -885,3 +895,8 @@ bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char 
         return false;
 #endif
 }
+
+const sd_json_dispatch_field dispatch_table_polkit_only[] = {
+        VARLINK_DISPATCH_POLKIT_FIELD,
+        {}
+};

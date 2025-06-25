@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "json-util.h"
+#include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "udev-manager.h"
 #include "udev-varlink.h"
@@ -135,6 +137,14 @@ static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *pa
 
         log_debug("Received %s()", method);
         manager->stop_exec_queue = streq(method, "io.systemd.Udev.StopExecQueue");
+
+        /* In case that processing queued events will be stopped for a while, regardless if there exist
+         * queued events, enable the kill workers timer here unless it is already enabled. Note, it is not
+         * necessary to disable the timer when processing is restarted, as it will be anyway disabled in
+         * on_post() -> event_queue_start(). */
+        if (manager->stop_exec_queue)
+                (void) manager_reset_kill_workers_timer(manager);
+
         return sd_varlink_reply(link, NULL);
 }
 
@@ -169,7 +179,7 @@ int manager_start_varlink_server(Manager *manager) {
         /* This needs to be after the inotify and uevent handling, to make sure that the ping is send back
          * after fully processing the pending uevents (including the synthetic ones we may create due to
          * inotify events). */
-        r = sd_varlink_server_attach_event(v, manager->event, SD_EVENT_PRIORITY_IDLE);
+        r = sd_varlink_server_attach_event(v, manager->event, EVENT_PRIORITY_VARLINK);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink connection to event loop: %m");
 

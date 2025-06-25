@@ -1,30 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <linux/batman_adv.h>
 #include <linux/can/netlink.h>
 #include <linux/can/vxcan.h>
 #include <linux/cfm_bridge.h>
 #include <linux/fib_rules.h>
-#include <linux/fou.h>
 #include <linux/if.h>
 #include <linux/if_addr.h>
 #include <linux/if_addrlabel.h>
 #include <linux/if_bridge.h>
 #include <linux/if_link.h>
-#include <linux/if_macsec.h>
 #include <linux/if_tunnel.h>
-#include <linux/ip.h>
-#include <linux/l2tp.h>
 #include <linux/net_namespace.h>
-#include <linux/netlink.h>
 #include <linux/nexthop.h>
-#include <linux/nl80211.h>
 #include <linux/pkt_sched.h>
 #include <linux/rtnetlink.h>
 #include <linux/veth.h>
-#include <linux/wireguard.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 #include "missing_network.h"
 #include "netlink-types-internal.h"

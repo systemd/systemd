@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
+#include "resolved-forward.h"
 #include "time-util.h"
 
 /* Input + Output: The various protocols we can use */

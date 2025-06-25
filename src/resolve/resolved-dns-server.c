@@ -1,22 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if_arp.h>
-
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "hash-funcs.h"
 #include "json-util.h"
 #include "resolved-bus.h"
+#include "resolved-dns-cache.h"
+#include "resolved-dns-delegate.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
-#include "resolved-dns-stub.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
 #include "siphash24.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /* The amount of time to wait before retrying with a full feature set */
 #define DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC (6 * USEC_PER_HOUR)
@@ -29,7 +38,8 @@ int dns_server_new(
                 Manager *m,
                 DnsServer **ret,
                 DnsServerType type,
-                Link *l,
+                Link *link,
+                DnsDelegate *delegate,
                 int family,
                 const union in_addr_union *in_addr,
                 uint16_t port,
@@ -41,14 +51,18 @@ int dns_server_new(
         DnsServer *s;
 
         assert(m);
-        assert((type == DNS_SERVER_LINK) == !!l);
+        assert((type == DNS_SERVER_LINK) == !!link);
+        assert((type == DNS_SERVER_DELEGATE) == !!delegate);
         assert(in_addr);
 
         if (!IN_SET(family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
 
-        if (l) {
-                if (l->n_dns_servers >= LINK_DNS_SERVERS_MAX)
+        if (link) {
+                if (link->n_dns_servers >= LINK_DNS_SERVERS_MAX)
+                        return -E2BIG;
+        } else if (delegate) {
+                if (delegate->n_dns_servers >= DELEGATE_DNS_SERVERS_MAX)
                         return -E2BIG;
         } else {
                 if (m->n_dns_servers >= MANAGER_DNS_SERVERS_MAX)
@@ -83,9 +97,9 @@ int dns_server_new(
         switch (type) {
 
         case DNS_SERVER_LINK:
-                s->link = l;
-                LIST_APPEND(servers, l->dns_servers, s);
-                l->n_dns_servers++;
+                s->link = link;
+                LIST_APPEND(servers, link->dns_servers, s);
+                link->n_dns_servers++;
                 break;
 
         case DNS_SERVER_SYSTEM:
@@ -98,16 +112,20 @@ int dns_server_new(
                 m->n_dns_servers++;
                 break;
 
+        case DNS_SERVER_DELEGATE:
+                s->delegate = delegate;
+                LIST_APPEND(servers, delegate->dns_servers, s);
+                delegate->n_dns_servers++;
+                break;
         default:
                 assert_not_reached();
         }
 
         s->linked = true;
 
-        /* A new DNS server that isn't fallback is added and the one
-         * we used so far was a fallback one? Then let's try to pick
-         * the new one */
-        if (type != DNS_SERVER_FALLBACK && dns_server_is_fallback(m->current_dns_server))
+        /* A new non-fallback DNS server is added and the one we used so far was a fallback one? Then
+         * let's try to pick the new one */
+        if (type == DNS_SERVER_SYSTEM && dns_server_is_fallback(m->current_dns_server))
                 manager_set_dns_server(m, NULL);
 
         if (ret)
@@ -164,6 +182,14 @@ void dns_server_unlink(DnsServer *s) {
                 LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
                 s->manager->n_dns_servers--;
                 break;
+
+        case DNS_SERVER_DELEGATE:
+                assert(s->delegate);
+                assert(s->delegate->n_dns_servers > 0);
+                LIST_REMOVE(servers, s->delegate->dns_servers, s);
+                s->delegate->n_dns_servers--;
+                break;
+
         default:
                 assert_not_reached();
         }
@@ -175,6 +201,9 @@ void dns_server_unlink(DnsServer *s) {
 
         if (s->manager->current_dns_server == s)
                 manager_set_dns_server(s->manager, NULL);
+
+        if (s->delegate && s->delegate->current_dns_server == s)
+                dns_delegate_set_dns_server(s->delegate, NULL);
 
         /* No need to keep a default stream around anymore */
         dns_server_unref_stream(s);
@@ -195,8 +224,8 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
         if (!s->linked || !s->servers_next)
                 return;
 
-        /* Move us to the end of the list, so that the order is
-         * strictly kept, if we are not at the end anyway. */
+        /* Move us to the end of the list, so that the order is strictly kept, if we are not at the end
+         * anyway. */
 
         switch (s->type) {
 
@@ -217,6 +246,13 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
                 tail = LIST_FIND_TAIL(servers, s);
                 LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
                 LIST_INSERT_AFTER(servers, s->manager->fallback_dns_servers, tail, s);
+                break;
+
+        case DNS_SERVER_DELEGATE:
+                assert(s->delegate);
+                tail = LIST_FIND_TAIL(servers, s);
+                LIST_REMOVE(servers, s->delegate->dns_servers, s);
+                LIST_INSERT_AFTER(servers, s->delegate->dns_servers, tail, s);
                 break;
 
         default:
@@ -847,6 +883,128 @@ DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_uni
         return NULL;
 }
 
+static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
+        _cleanup_free_ char *server_name = NULL;
+        union in_addr_union address;
+        int family, r, ifindex = 0;
+        uint16_t port;
+        DnsServer *s;
+
+        assert(m);
+        assert(word);
+
+        r = in_addr_port_ifindex_name_from_string_auto(word, &family, &address, &port, &ifindex, &server_name);
+        if (r < 0)
+                return r;
+
+        /* Silently filter out 0.0.0.0, 127.0.0.53, 127.0.0.54 (our own stub DNS listener) */
+        if (!dns_server_address_valid(family, &address))
+                return 0;
+
+        /* By default, the port number is determined with the transaction feature level.
+         * See dns_transaction_port() and dns_server_port(). */
+        if (IN_SET(port, 53, 853))
+                port = 0;
+
+        /* Filter out duplicates */
+        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name);
+        if (s) {
+                /* Drop the marker. This is used to find the servers that ceased to exist, see
+                 * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
+                dns_server_move_back_and_unmark(s);
+                return 0;
+        }
+
+        return dns_server_new(
+                        m,
+                        /* ret= */ NULL,
+                        type,
+                        /* link= */ NULL,
+                        /* delegate= */ NULL,
+                        family,
+                        &address,
+                        port,
+                        ifindex,
+                        server_name,
+                        RESOLVE_CONFIG_SOURCE_FILE);
+}
+
+int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
+        int r;
+
+        assert(m);
+        assert(string);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r <= 0)
+                        return r;
+
+                r = manager_add_dns_server_by_string(m, type, word);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add DNS server address '%s', ignoring: %m", word);
+        }
+}
+
+static int manager_add_search_domain_by_string(Manager *m, const char *domain) {
+        DnsSearchDomain *d;
+        bool route_only;
+        int r;
+
+        assert(m);
+        assert(domain);
+
+        route_only = *domain == '~';
+        if (route_only)
+                domain++;
+
+        if (dns_name_is_root(domain) || streq(domain, "*")) {
+                route_only = true;
+                domain = ".";
+        }
+
+        r = dns_search_domain_find(m->search_domains, domain, &d);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                dns_search_domain_move_back_and_unmark(d);
+        else {
+                r = dns_search_domain_new(
+                                m,
+                                &d,
+                                DNS_SEARCH_DOMAIN_SYSTEM,
+                                /* link= */ NULL,
+                                /* delegate= */ NULL,
+                                domain);
+                if (r < 0)
+                        return r;
+        }
+
+        d->route_only = route_only;
+        return 0;
+}
+
+int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
+        int r;
+
+        assert(m);
+        assert(string);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&string, &word, NULL, EXTRACT_UNQUOTE);
+                if (r <= 0)
+                        return r;
+
+                r = manager_add_search_domain_by_string(m, word);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add search domain '%s', ignoring: %m", word);
+        }
+}
+
 DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t) {
         assert(m);
 
@@ -887,8 +1045,27 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         return s;
 }
 
+static bool manager_search_default_route_dns_server(Manager *m) {
+        assert(m);
+
+        LIST_FOREACH(scopes, scope, m->dns_scopes) {
+                /* Ignore the global scope, it's handled separately */
+                if (scope->origin == DNS_SCOPE_GLOBAL)
+                        continue;
+
+                /* Scope has no DNS server? */
+                if (dns_scope_get_n_dns_servers(scope) == 0)
+                        continue;
+
+                /* If this is suitable as default route, we found what we are looking for */
+                if (dns_scope_is_default_route(scope))
+                        return true;
+        }
+
+        return false;
+}
+
 DnsServer *manager_get_dns_server(Manager *m) {
-        Link *l;
         assert(m);
 
         /* Try to read updates resolv.conf */
@@ -907,22 +1084,10 @@ DnsServer *manager_get_dns_server(Manager *m) {
                         manager_set_dns_server(m, NULL);
         }
 
-        if (!m->current_dns_server) {
-                bool found = false;
-
-                /* No DNS servers configured, let's see if there are
-                 * any on any links. If not, we use the fallback
-                 * servers */
-
-                HASHMAP_FOREACH(l, m->links)
-                        if (l->dns_servers && l->default_route) {
-                                found = true;
-                                break;
-                        }
-
-                if (!found)
-                        manager_set_dns_server(m, m->fallback_dns_servers);
-        }
+        /* If no DNS servers are configured, let's see if there are any on any links or delegates. If not, we
+         * use the fallback servers */
+        if (!m->current_dns_server && !manager_search_default_route_dns_server(m))
+                manager_set_dns_server(m, m->fallback_dns_servers);
 
         return m->current_dns_server;
 }
@@ -978,11 +1143,15 @@ void dns_server_flush_cache(DnsServer *s) {
 
         /* Flush the cache of the scope this server belongs to */
 
-        current = s->link ? s->link->current_dns_server : s->manager->current_dns_server;
+        current =   s->link ? s->link->current_dns_server :
+                s->delegate ? s->delegate->current_dns_server :
+                              s->manager->current_dns_server;
         if (current != s)
                 return;
 
-        scope = s->link ? s->link->unicast_scope : s->manager->unicast_scope;
+        scope =     s->link ? s->link->unicast_scope :
+                s->delegate ? s->delegate->scope :
+                              s->manager->unicast_scope;
         if (!scope)
                 return;
 
@@ -1087,10 +1256,14 @@ void dns_server_unref_stream(DnsServer *s) {
 
 DnsScope *dns_server_scope(DnsServer *s) {
         assert(s);
+        assert(s->linked);
         assert((s->type == DNS_SERVER_LINK) == !!s->link);
+        assert((s->type == DNS_SERVER_DELEGATE) == !!s->delegate);
 
         if (s->link)
                 return s->link->unicast_scope;
+        if (s->delegate)
+                return s->delegate->scope;
 
         return s->manager->unicast_scope;
 }
@@ -1162,7 +1335,7 @@ int dns_server_is_accessible(DnsServer *s) {
                         return r;
         }
 
-        r = RET_NERRNO(connect(fd, &sa.sa, SOCKADDR_LEN(sa)));
+        r = RET_NERRNO(connect(fd, &sa.sa, sockaddr_len(&sa)));
         if (!IN_SET(r,
                     0,
                     -ENETUNREACH,

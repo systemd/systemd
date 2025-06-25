@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
+#include <getopt.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
@@ -9,12 +11,19 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "device-private.h"
+#include "errno-util.h"
+#include "extract-word.h"
+#include "log.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
 #include "udev-ctrl.h"
 #include "udev-rules.h"
 #include "udev-varlink.h"
 #include "udevadm-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "varlink-util.h"
 
@@ -65,6 +74,9 @@ static int find_device_from_unit(const char *unit_name, sd_device **ret) {
 int find_device(const char *id, const char *prefix, sd_device **ret) {
         assert(id);
         assert(ret);
+
+        if (sd_device_new_from_device_id(ret, id) >= 0)
+                return 0;
 
         if (sd_device_new_from_path(ret, id) >= 0)
                 return 0;
@@ -141,6 +153,29 @@ int parse_resolve_name_timing(const char *str, ResolveNameTiming *ret) {
         if (ret)
                 *ret = v;
         return 1;
+}
+
+int parse_key_value_argument(const char *str, bool require_value, char **key, char **value) {
+        _cleanup_free_ char *k = NULL, *v = NULL;
+        const char *s = str;
+        int r;
+
+        assert(s);
+        assert(key);
+        assert(value);
+
+        r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse key/value pair %s: %m", str);
+        if (require_value && r < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in key/value pair %s.", str);
+
+        if (!filename_is_valid(k))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid key name", k);
+
+        free_and_replace(*key, k);
+        free_and_replace(*value, v);
+        return 0;
 }
 
 static int udev_ping_via_ctrl(usec_t timeout_usec, bool ignore_connection_failure) {

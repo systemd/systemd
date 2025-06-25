@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-smbios11.h"
 #include "escape.h"
+#include "glyph-util.h"
+#include "log.h"
 #include "smbios11.h"
-#include "virt.h"
 
 int verb_smbios11(int argc, char *argv[], void *userdata) {
         unsigned n = 0;

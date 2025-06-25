@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-device.h"
+#include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "devnum-util.h"
 #include "fileio.h"
@@ -10,9 +12,14 @@
 #include "journalctl.h"
 #include "journalctl-filter.h"
 #include "journalctl-util.h"
+#include "log.h"
 #include "logs-show.h"
 #include "missing_sched.h"
 #include "path-util.h"
+#include "set.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "unit-name.h"
 
 static int add_invocation(sd_journal *j) {

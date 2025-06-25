@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "ticks.h"
-#include "util.h"
 #include "vmm.h"
 
 #if defined(__i386__) || defined(__x86_64__)

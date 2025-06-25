@@ -1,14 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <gnu/libc-version.h>
-#include <limits.h>
-#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
@@ -18,7 +13,6 @@
 #include "alloc-util.h"
 #include "apparmor-util.h"
 #include "architecture.h"
-#include "audit-util.h"
 #include "battery-util.h"
 #include "bitfield.h"
 #include "blockdev-util.h"
@@ -30,8 +24,8 @@
 #include "confidential-virt.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
-#include "efi-api.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "extract-word.h"
@@ -40,19 +34,20 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
-#include "ima-util.h"
 #include "id128-util.h"
+#include "ima-util.h"
 #include "initrd-util.h"
+#include "libaudit-util.h"
 #include "limits-util.h"
 #include "list.h"
-#include "macro.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
@@ -62,6 +57,8 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "tomoyo-util.h"
 #include "tpm2-util.h"
 #include "uid-classification.h"
@@ -411,21 +408,17 @@ static int condition_test_user(Condition *c, char **env) {
 }
 
 static int condition_test_control_group_controller(Condition *c, char **env) {
+        CGroupMask system_mask, wanted_mask;
         int r;
-        CGroupMask system_mask, wanted_mask = 0;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_CONTROL_GROUP_CONTROLLER);
 
         if (streq(c->parameter, "v2"))
-                return cg_all_unified();
-        if (streq(c->parameter, "v1")) {
-                r = cg_all_unified();
-                if (r < 0)
-                        return r;
-                return !r;
-        }
+                return true;
+        if (streq(c->parameter, "v1"))
+                return false;
 
         r = cg_mask_supported(&system_mask);
         if (r < 0)
@@ -437,7 +430,7 @@ static int condition_test_control_group_controller(Condition *c, char **env) {
                  * mixed in with valid ones -- these are only assessed on the
                  * validity of the valid controllers found. */
                 log_debug("Failed to parse cgroup string: %s", c->parameter);
-                return 1;
+                return true;
         }
 
         return FLAGS_SET(system_mask, wanted_mask);
@@ -526,7 +519,7 @@ static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
         if (r < 0) {
                 /* if the path doesn't exist it is incompatible */
                 if (r != -ENOENT)
-                        log_debug_errno(r, "Failed to open() '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
+                        log_debug_errno(r, "Failed to open '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
                 return false;
         }
 
@@ -1084,14 +1077,6 @@ static int condition_test_psi(Condition *c, char **env) {
                 slice = strstrip(first);
                 if (!slice)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s.", c->parameter);
-
-                r = cg_all_unified();
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
-                if (r == 0) {
-                        log_debug("PSI condition check requires the unified cgroups hierarchy, skipping.");
-                        return 1;
-                }
 
                 r = cg_mask_supported(&mask);
                 if (r < 0)

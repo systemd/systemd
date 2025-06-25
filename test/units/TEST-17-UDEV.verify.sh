@@ -8,8 +8,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-PATH=/var/build:$PATH
-
 # shellcheck disable=SC2317
 cleanup() {
     cd /
@@ -293,16 +291,62 @@ test_syntax_error 'OWNER{a}="b"' 'Invalid attribute for OWNER.'
 test_syntax_error 'OWNER-="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER!="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER+="0"' "OWNER key takes '=' or ':=' operator, assuming '='."
-test_syntax_error 'OWNER=":nosuchuser:"' "Unknown user ':nosuchuser:', ignoring."
-test_syntax_error 'OWNER="testuser"' "User 'testuser' is not a system user (UID=$(id -u testuser 2>/dev/null)), ignoring."
-test_syntax_error 'OWNER="12345"' "UID=12345 is not in the system user range, ignoring."
+# numeric system UID is valid even if it does not exist
+SYS_UID_MAX=999
+if command userdbctl >/dev/null; then
+    # For the case if non-default setting is used. E.g. OpenSUSE uses 499.
+    SYS_UID_MAX="$(userdbctl user -S --no-legend --no-pager | grep 'end system' | awk '{print $8}')"
+    echo "SYS_UID_MAX=$SYS_UID_MAX acquired from userdbctl"
+elif [[ -e /etc/login.defs ]]; then
+    SYS_UID_MAX=$(awk '$1 == "SYS_UID_MAX" { print $2 }' /etc/login.defs)
+    echo "SYS_UID_MAX=$SYS_UID_MAX acquired from /etc/login.defs"
+fi
+for ((i=0;i<=SYS_UID_MAX;i++)); do
+    echo "OWNER=\"$i\""
+done >"${rules}"
+assert_0 "${rules}"
+# invalid user name
+test_syntax_error 'OWNER=":nosuchuser:"' "Failed to resolve user ':nosuchuser:', ignoring: Invalid argument"
+# nonexistent user
+if ! getent passwd nosuchuser >/dev/null; then
+    test_syntax_error 'OWNER="nosuchuser"' "Unknown user 'nosuchuser', ignoring."
+fi
+if ! getent passwd 12345 >/dev/null; then
+    test_syntax_error 'OWNER="12345"' "Unknown user '12345', ignoring."
+fi
+# regular user
+test_syntax_error 'OWNER="testuser"' "User 'testuser' is not a system user, ignoring."
+test_syntax_error "OWNER=\"$(id -u testuser)\"" "User '$(id -u testuser)' is not a system user, ignoring."
 test_syntax_error 'GROUP{a}="b"' 'Invalid attribute for GROUP.'
 test_syntax_error 'GROUP-="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP!="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP+="0"' "GROUP key takes '=' or ':=' operator, assuming '='."
-test_syntax_error 'GROUP=":nosuchgroup:"' "Unknown group ':nosuchgroup:', ignoring."
-test_syntax_error 'GROUP="testuser"' "Group 'testuser' is not a system group (GID=$(id -u testuser 2>/dev/null)), ignoring."
-test_syntax_error 'GROUP="12345"' "GID=12345 is not in the system group range, ignoring."
+# numeric system GID is valid even if it does not exist
+SYS_GID_MAX=999
+if command userdbctl >/dev/null; then
+    # For the case if non-default setting is used. E.g. OpenSUSE uses 499.
+    SYS_GID_MAX="$(userdbctl group -S --no-legend --no-pager | grep 'end system' | awk '{print $8}')"
+    echo "SYS_GID_MAX=$SYS_GID_MAX acquired from userdbctl"
+elif [[ -e /etc/login.defs ]]; then
+    SYS_GID_MAX=$(awk '$1 == "SYS_GID_MAX" { print $2 }' /etc/login.defs)
+    echo "SYS_GID_MAX=$SYS_GID_MAX acquired from /etc/login.defs"
+fi
+for ((i=0;i<=SYS_GID_MAX;i++)); do
+    echo "GROUP=\"$i\""
+done >"${rules}"
+assert_0 "${rules}"
+# invalid group name
+test_syntax_error 'GROUP=":nosuchgroup:"' "Failed to resolve group ':nosuchgroup:', ignoring: Invalid argument"
+# nonexistent group
+if ! getent group nosuchgroup >/dev/null; then
+    test_syntax_error 'GROUP="nosuchgroup"' "Unknown group 'nosuchgroup', ignoring."
+fi
+if ! getent group 12345 >/dev/null; then
+    test_syntax_error 'GROUP="12345"' "Unknown group '12345', ignoring."
+fi
+# regular group
+test_syntax_error 'GROUP="testuser"' "Group 'testuser' is not a system group, ignoring."
+test_syntax_error "GROUP=\"$(id -g testuser)\"" "Group '$(id -g testuser)' is not a system group, ignoring."
 test_syntax_error 'MODE{a}="b"' 'Invalid attribute for MODE.'
 test_syntax_error 'MODE-="b"' 'Invalid operator for MODE.'
 test_syntax_error 'MODE!="b"' 'Invalid operator for MODE.'

@@ -2,13 +2,16 @@
 
 #include <netinet/icmp6.h>
 
+#include "sd-ndisc-protocol.h"
+#include "sd-ndisc-router-solicit.h"
 #include "sd-radv.h"
 
 #include "alloc-util.h"
-#include "in-addr-util.h"
+#include "icmp6-packet.h"
 #include "ndisc-option.h"
 #include "ndisc-router-solicit-internal.h"
 #include "radv-internal.h"
+#include "set.h"
 
 static sd_ndisc_router_solicit* ndisc_router_solicit_free(sd_ndisc_router_solicit *rs) {
         if (!rs)
@@ -48,7 +51,7 @@ int ndisc_router_solicit_parse(sd_radv *ra, sd_ndisc_router_solicit *rs) {
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EBADMSG),
                                       "Too small to be a router solicit, ignoring.");
 
-        const struct nd_router_solicit *a = (const struct nd_router_solicit*) rs->packet->raw_packet;
+        _unused_ const struct nd_router_solicit *a = (const struct nd_router_solicit*) rs->packet->raw_packet;
         assert(a);
         assert(a->nd_rs_type == ND_ROUTER_SOLICIT);
         assert(a->nd_rs_code == 0);

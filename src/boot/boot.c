@@ -6,20 +6,19 @@
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "drivers.h"
+#include "efi-efivars.h"
+#include "efi-log.h"
 #include "efi-string-table.h"
 #include "efivars-fundamental.h"
-#include "efivars.h"
 #include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
 #include "line-edit.h"
-#include "linux.h"
 #include "measure.h"
 #include "memory-util-fundamental.h"
 #include "part-discovery.h"
 #include "pe.h"
 #include "proto/block-io.h"
-#include "proto/device-path.h"
 #include "proto/load-file.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
@@ -27,6 +26,8 @@
 #include "secure-boot.h"
 #include "shim.h"
 #include "smbios.h"
+#include "strv-fundamental.h"
+#include "sysfail.h"
 #include "ticks.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
@@ -133,6 +134,7 @@ typedef struct {
         char16_t *entry_default_efivar;
         char16_t *entry_oneshot;
         char16_t *entry_saved;
+        char16_t *entry_sysfail;
         bool editor;
         bool auto_entries;
         bool auto_firmware;
@@ -141,10 +143,12 @@ typedef struct {
         bool reboot_for_bitlocker;
         RebootOnError reboot_on_error;
         secure_boot_enroll secure_boot_enroll;
+        secure_boot_enroll_action secure_boot_enroll_action;
         bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
         bool beep;
+        bool sysfail_occured;
         int64_t console_mode;
         int64_t console_mode_efivar;
 } Config;
@@ -324,35 +328,38 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 printf("     default (EFI var): %ls\n", config->entry_default_efivar);
         if (config->entry_oneshot)
                 printf("    default (one-shot): %ls\n", config->entry_oneshot);
+        if (config->entry_sysfail)
+                printf("               sysfail: %ls\n", config->entry_sysfail);
         if (config->entry_saved)
-                printf("           saved entry: %ls\n", config->entry_saved);
-        printf("                editor: %ls\n", yes_no(config->editor));
-        printf("          auto-entries: %ls\n", yes_no(config->auto_entries));
-        printf("         auto-firmware: %ls\n", yes_no(config->auto_firmware));
-        printf("         auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
-        printf("           auto-reboot: %ls\n", yes_no(config->auto_reboot));
-        printf("                  beep: %ls\n", yes_no(config->beep));
-        printf("  reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
-        printf("       reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
-        printf("    secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
+                printf("             saved entry: %ls\n", config->entry_saved);
+        printf("                   editor: %ls\n", yes_no(config->editor));
+        printf("             auto-entries: %ls\n", yes_no(config->auto_entries));
+        printf("            auto-firmware: %ls\n", yes_no(config->auto_firmware));
+        printf("            auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
+        printf("              auto-reboot: %ls\n", yes_no(config->auto_reboot));
+        printf("                     beep: %ls\n", yes_no(config->beep));
+        printf("     reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
+        printf("          reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
+        printf("       secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
+        printf("secure-boot-enroll-action: %s\n",  secure_boot_enroll_action_to_string(config->secure_boot_enroll_action));
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
-                printf(" console-mode (config): auto\n");
+                printf("    console-mode (config): auto\n");
                 break;
         case CONSOLE_MODE_KEEP:
-                printf(" console-mode (config): keep\n");
+                printf("    console-mode (config): keep\n");
                 break;
         case CONSOLE_MODE_FIRMWARE_MAX:
-                printf(" console-mode (config): max\n");
+                printf("    console-mode (config): max\n");
                 break;
         default:
-                printf(" console-mode (config): %" PRIi64 "\n", config->console_mode);
+                printf("    console-mode (config): %" PRIi64 "\n", config->console_mode);
         }
 
         /* EFI var console mode is always a concrete value or unset. */
         if (config->console_mode_efivar != CONSOLE_MODE_KEEP)
-                printf("console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
+                printf("   console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
 
         if (!ps_continue())
                 return;
@@ -1080,7 +1087,14 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else
                                 log_error("Error parsing 'secure-boot-enroll' config option, ignoring: %s",
                                           value);
-
+                } else if (streq8(key, "secure-boot-enroll-action")) {
+                        if (streq8(value, "reboot"))
+                                config->secure_boot_enroll_action = ENROLL_ACTION_REBOOT;
+                        else if (streq8(value, "shutdown"))
+                                config->secure_boot_enroll_action = ENROLL_ACTION_SHUTDOWN;
+                        else
+                                log_error("Error parsing 'secure-boot-enroll-action' config option, ignoring: %s",
+                                          value);
                 } else if (streq8(key, "console-mode")) {
                         if (streq8(value, "auto"))
                                 config->console_mode = CONSOLE_MODE_AUTO;
@@ -1436,6 +1450,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_firmware = true,
                 .reboot_on_error = REBOOT_AUTO,
                 .secure_boot_enroll = ENROLL_IF_SAFE,
+                .secure_boot_enroll_action = ENROLL_ACTION_REBOOT,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
@@ -1486,11 +1501,13 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryOneShot", EFI_VARIABLE_NON_VOLATILE);
 
         (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", &config->entry_default_efivar);
+        (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySysFail", &config->entry_sysfail);
 
         strtolower16(config->entry_default_config);
         strtolower16(config->entry_default_efivar);
         strtolower16(config->entry_oneshot);
         strtolower16(config->entry_saved);
+        strtolower16(config->entry_sysfail);
 
         config->use_saved_entry = streq16(config->entry_default_config, u"@saved");
         config->use_saved_entry_efivar = streq16(config->entry_default_efivar, u"@saved");
@@ -1551,7 +1568,7 @@ static void config_load_type1_entries(
                                 /* offset= */ 0,
                                 /* size= */ 0,
                                 &content,
-                                /* ret_size= */ NULL);
+                                /* content_size= */ NULL);
                 if (err != EFI_SUCCESS)
                         continue;
 
@@ -1673,10 +1690,37 @@ static size_t config_find_entry(Config *config, const char16_t *pattern) {
         return IDX_INVALID;
 }
 
+static bool sysfail_process(Config *config) {
+        SysFailType sysfail_type;
+
+        assert(config);
+
+        sysfail_type = sysfail_check();
+        if (sysfail_type == SYSFAIL_NO_FAILURE)
+                return false;
+
+        /* Store reason string in LoaderSysFailReason EFI variable */
+        const char16_t *reason_str = sysfail_get_error_str(sysfail_type);
+        if (reason_str)
+                (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderSysFailReason", reason_str, 0);
+
+        config->sysfail_occured = true;
+
+        return true;
+}
+
 static void config_select_default_entry(Config *config) {
         size_t i;
 
         assert(config);
+
+        if (config->sysfail_occured) {
+                i = config_find_entry(config, config->entry_sysfail);
+                if (i != IDX_INVALID) {
+                        config->idx_default = i;
+                        return;
+                }
+        }
 
         i = config_find_entry(config, config->entry_oneshot);
         if (i != IDX_INVALID) {
@@ -2246,7 +2290,7 @@ static void boot_entry_add_type2(
                 boot_entry_parse_tries(entry, path, filename, u".efi");
 
                 if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
-                        return;
+                        continue;
 
                 content = mfree(content);
 
@@ -2644,7 +2688,8 @@ static EFI_STATUS call_image_start(
         if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
                 uint32_t compat_address;
 
-                err = pe_kernel_info(loaded_image->ImageBase, &compat_address, /* ret_size_in_memory= */ NULL);
+                err = pe_kernel_info(loaded_image->ImageBase, /* ret_entry_point= */ NULL, &compat_address,
+                                     /* ret_image_base= */ NULL, /* ret_size_in_memory= */ NULL);
                 if (err != EFI_SUCCESS) {
                         if (err != EFI_UNSUPPORTED)
                                 return log_error_status(err, "Error finding kernel compat entry address: %m");
@@ -2672,6 +2717,7 @@ static void config_free(Config *config) {
         free(config->entry_default_efivar);
         free(config->entry_oneshot);
         free(config->entry_saved);
+        free(config->entry_sysfail);
 }
 
 static void config_write_entries_to_variable(Config *config) {
@@ -2723,7 +2769,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
 static EFI_STATUS call_secure_boot_enroll(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
         assert(entry);
 
-        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true);
+        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true, /* action= */ ENROLL_ACTION_REBOOT);
 }
 
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
@@ -2774,7 +2820,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                     strcaseeq16(dirent->FileName, u"auto"))
                         /* If we auto enroll successfully this call does not return.
                          * If it fails we still want to add other potential entries to the menu. */
-                        secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE);
+                        secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE, config->secure_boot_enroll_action);
         }
 
         return EFI_SUCCESS;
@@ -2970,6 +3016,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ char16_t *loaded_image_path = NULL;
         (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
+        (void) sysfail_process(&config);
 
         if (config.n_entries == 0)
                 return log_error_status(

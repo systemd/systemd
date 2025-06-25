@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
 #include "chown-recursive.h"
-#include "log.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"

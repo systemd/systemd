@@ -1,15 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-netlink.h"
-
-#include "alloc-util.h"
-#include "hash-funcs.h"
-
-typedef struct Link Link;
-typedef struct NetDev NetDev;
-typedef struct Manager Manager;
-typedef struct Request Request;
+#include "netif-sriov.h"
+#include "networkd-forward.h"
 
 typedef int (*request_process_func_t)(Request *req, Link *link, void *userdata);
 typedef int (*request_netlink_handler_t)(sd_netlink *nl, sd_netlink_message *m, Request *req, Link *link, void *userdata);
@@ -44,7 +37,13 @@ typedef enum RequestType {
         REQUEST_TYPE_SET_LINK_MAC,                     /* Setting MAC address. */
         REQUEST_TYPE_SET_LINK_MASTER,                  /* Setting IFLA_MASTER. */
         REQUEST_TYPE_SET_LINK_MTU,                     /* Setting MTU. */
-        REQUEST_TYPE_SRIOV,
+        _REQUEST_TYPE_SRIOV_BASE,
+        REQUEST_TYPE_SRIOV_VF_MAC          = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_MAC,
+        REQUEST_TYPE_SRIOV_VF_SPOOFCHK     = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_SPOOFCHK,
+        REQUEST_TYPE_SRIOV_VF_RSS_QUERY_EN = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_RSS_QUERY_EN,
+        REQUEST_TYPE_SRIOV_VF_TRUST        = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_TRUST,
+        REQUEST_TYPE_SRIOV_VF_LINK_STATE   = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_LINK_STATE,
+        REQUEST_TYPE_SRIOV_VF_VLAN_LIST    = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_VLAN_LIST,
         REQUEST_TYPE_TC_CLASS,
         REQUEST_TYPE_TC_QDISC,
         REQUEST_TYPE_UP_DOWN,
@@ -52,7 +51,7 @@ typedef enum RequestType {
         _REQUEST_TYPE_INVALID = -EINVAL,
 } RequestType;
 
-struct Request {
+typedef struct Request {
         unsigned n_ref;
 
         Manager *manager; /* must be non-NULL */
@@ -82,7 +81,7 @@ struct Request {
         request_netlink_handler_t netlink_handler;
 
         bool waiting_reply;
-};
+} Request;
 
 Request *request_ref(Request *req);
 Request *request_unref(Request *req);

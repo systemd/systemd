@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mount.h>
 #include <linux/loop.h>
+#include <poll.h>
+#include <stdlib.h>
+#include <sys/mount.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-varlink.h"
 
 #include "argv-util.h"
@@ -14,20 +17,29 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
+#include "format-util.h"
+#include "hashmap.h"
+#include "image-policy.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "missing_syscall.h"
+#include "memory-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
 #include "os-util.h"
-#include "process-util.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "tmpfile-util.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
-#include "user-util.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-util.h"
 
@@ -91,15 +103,22 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
         assert(fd >= 0);
         assert(p);
 
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return r;
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return -errno;
+        /* Only support regular files and block devices. Let's use stat_verify_regular() here for the nice
+         * error numbers it generates. */
+        if (!S_ISBLK(st.st_mode)) {
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return r;
+        }
 
         fl = fd_verify_safe_flags(fd);
         if (fl < 0)
                 return log_debug_errno(fl, "Image file descriptor has unsafe flags set: %m");
 
-        switch (fl & O_ACCMODE) {
+        switch (fl & O_ACCMODE_STRICT) {
 
         case O_RDONLY:
                 p->read_only = true;
@@ -116,8 +135,6 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
 }
 
 static int verify_trusted_image_fd_by_path(int fd) {
-        _cleanup_free_ char *p = NULL;
-        struct stat sta;
         int r;
 
         assert(fd >= 0);
@@ -136,11 +153,18 @@ static int verify_trusted_image_fd_by_path(int fd) {
                 return false;
         }
 
+        _cleanup_free_ char *p = NULL;
         r = fd_get_path(fd, &p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get path of passed image file descriptor: %m");
+
+        struct stat sta;
         if (fstat(fd, &sta) < 0)
                 return log_debug_errno(errno, "Failed to stat() passed image file descriptor: %m");
+        if (!S_ISREG(sta.st_mode)) {
+                log_debug("Image '%s' is not a regular file, hence skipping trusted directory check.", p);
+                return false;
+        }
 
         log_debug("Checking if image '%s' is in trusted directories.", p);
 
@@ -897,6 +921,130 @@ static int vl_method_mount_directory(
                         SD_JSON_BUILD_PAIR("mountFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)));
 }
 
+typedef struct MakeDirectoryParameters {
+        unsigned parent_fd_idx;
+        const char *name;
+} MakeDirectoryParameters;
+
+static int vl_method_make_directory(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "parentFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
+                { "name",                 SD_JSON_VARIANT_STRING,   json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        MakeDirectoryParameters p = {
+                .parent_fd_idx = UINT_MAX,
+        };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.parent_fd_idx == UINT_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "parentFileDescriptor");
+
+        _cleanup_close_ int parent_fd = sd_varlink_peek_dup_fd(link, p.parent_fd_idx);
+        if (parent_fd < 0)
+                return log_debug_errno(parent_fd, "Failed to peek parent directory fd from client: %m");
+
+        uid_t peer_uid;
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client UID: %m");
+
+        struct stat parent_stat;
+        if (fstat(parent_fd, &parent_stat) < 0)
+                return r;
+
+        r = stat_verify_directory(&parent_stat);
+        if (r < 0)
+                return r;
+
+        int fl = fd_verify_safe_flags_full(parent_fd, O_DIRECTORY);
+        if (fl < 0)
+                return log_debug_errno(fl, "Directory file descriptor has unsafe flags set: %m");
+
+        _cleanup_free_ char *parent_path = NULL;
+        (void) fd_get_path(parent_fd, &parent_path);
+
+        _cleanup_free_ char *new_path = parent_path ? path_join(parent_path, p.name) : NULL;
+        log_debug("Asked to make directory: %s", strna(new_path));
+
+        const char *polkit_details[] = {
+                "directory", strna(new_path),
+                NULL,
+        };
+
+        const char *polkit_action;
+        PolkitFlags polkit_flags;
+        if (parent_stat.st_uid != peer_uid) {
+                polkit_action = "io.systemd.mount-file-system.make-directory-untrusted";
+                polkit_flags = 0;
+        } else {
+                polkit_action = "io.systemd.mount-file-system.make-directory";
+                polkit_flags = POLKIT_DEFAULT_ALLOW;
+        }
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        polkit_action,
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        polkit_flags,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        _cleanup_free_ char *t = NULL;
+        r = tempfn_random(p.name, "mountfsd", &t);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, 0700);
+        if (fd < 0)
+                return fd;
+
+        r = RET_NERRNO(fchmod(fd, 0700)); /* Set mode explicitly, as paranoia regarding umask games */
+        if (r < 0)
+                goto fail;
+
+        r = RET_NERRNO(fchown(fd, FOREIGN_UID_BASE, FOREIGN_UID_BASE));
+        if (r < 0)
+                goto fail;
+
+        r = rename_noreplace(parent_fd, t, parent_fd, p.name);
+        if (r < 0)
+                goto fail;
+
+        t = mfree(t); /* temporary filename no longer exists */
+
+        int fd_idx = sd_varlink_push_fd(link, fd);
+        if (fd_idx < 0) {
+                r = fd_idx;
+                goto fail;
+        }
+
+        TAKE_FD(fd);
+
+        return sd_varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR("directoryFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)));
+
+fail:
+        (void) unlinkat(parent_fd, t ?: p.name, AT_REMOVEDIR);
+        return r;
+}
+
 static int process_connection(sd_varlink_server *server, int _fd) {
         _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
@@ -967,7 +1115,8 @@ static int run(int argc, char *argv[]) {
         r = sd_varlink_server_bind_method_many(
                         server,
                         "io.systemd.MountFileSystem.MountImage",     vl_method_mount_image,
-                        "io.systemd.MountFileSystem.MountDirectory", vl_method_mount_directory);
+                        "io.systemd.MountFileSystem.MountDirectory", vl_method_mount_directory,
+                        "io.systemd.MountFileSystem.MakeDirectory",  vl_method_make_directory);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
 

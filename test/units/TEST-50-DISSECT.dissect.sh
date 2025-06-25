@@ -558,6 +558,196 @@ rm -rf "$VDIR" "$EMPTY_VDIR"
 systemd-dissect --umount "$IMAGE_DIR/app0"
 systemd-dissect --umount "$IMAGE_DIR/app1"
 
+# Check reloading refreshes vpick extensions
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+mkdir "$VDIR"
+rm -rf /tmp/markers/
+mkdir /tmp/markers/
+cat >/run/systemd/system/testservice-50g.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+ExtensionDirectories=-${VDIR}
+ExecStart=bash -c ' \\
+    trap "{ \\
+        systemd-notify --reloading; \\
+        (ls /etc | grep marker || echo no-marker) >/tmp/markers/50g; \\
+        systemd-notify --ready; \\
+    }" SIGHUP; \\
+    systemd-notify --ready; \\
+    while true; do sleep 1; done; \\
+'
+EOF
+mkdir -p "$VDIR/${VBASE}_1/etc/extension-release.d/"
+echo "ID=_any" >"$VDIR/${VBASE}_1/etc/extension-release.d/extension-release.${VBASE}_1"
+touch "$VDIR/${VBASE}_1/etc/${VBASE}_1.marker"
+systemctl start testservice-50g.service
+systemctl is-active testservice-50g.service
+# First reload; at reload time, the marker file in /etc should be picked up.
+systemctl reload testservice-50g.service
+grep -q -F "${VBASE}_1.marker" /tmp/markers/50g
+# Make a version 2 and reload again; this time we should see the v2 marker
+mkdir -p "$VDIR/${VBASE}_2/etc/extension-release.d/"
+echo "ID=_any" >"$VDIR/${VBASE}_2/etc/extension-release.d/extension-release.${VBASE}_2"
+touch "$VDIR/${VBASE}_2/etc/${VBASE}_2.marker"
+systemctl reload testservice-50g.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50g
+# Do it for a couple more times (to make sure we're tearing down old overlays)
+for _ in {1..5}; do systemctl reload testservice-50g.service; done
+systemctl stop testservice-50g.service
+rm -f /run/systemd/system/testservice-50g.service
+
+# Repeat the same vpick notify-reload test with ExtensionImages= (keeping the
+# same VBASE and reusing VDIR files for convenience, but using .raw extensions
+# this time)
+VDIR2="/tmp/${VBASE}.raw.v"
+mkdir "$VDIR2"
+cat >/run/systemd/system/testservice-50h.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+ExtensionImages=-$VDIR2
+ExecStart=bash -c ' \\
+    trap "{ \\
+        systemd-notify --reloading; \\
+        (ls /etc | grep marker || echo no-marker) >/tmp/markers/50h; \\
+        systemd-notify --ready; \\
+    }" SIGHUP; \\
+    systemd-notify --ready; \\
+    while true; do sleep 1; done; \\
+'
+EOF
+mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw"
+systemctl start testservice-50h.service
+systemctl is-active testservice-50h.service
+# First reload should pick up the v1 marker
+systemctl reload testservice-50h.service
+grep -q -F "${VBASE}_1.marker" /tmp/markers/50h
+# Second reload should pick up the v2 marker
+mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw"
+systemctl reload testservice-50h.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50h
+# Test that removing all the extensions don't cause any issues
+rm -rf "${VDIR2:?}"/*
+systemctl reload testservice-50h.service
+systemctl is-active testservice-50h.service
+grep -q -F "no-marker" /tmp/markers/50h
+systemctl stop testservice-50h.service
+rm -f /run/systemd/system/testservice-50h.service
+
+# Test combining vpick reload/restart with RootDirectory= & RootImage=
+cat >/run/systemd/system/testservice-50i.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+RootImage=$MINIMAL_IMAGE.raw
+ExtensionDirectories=-${VDIR}
+NotifyAccess=all
+ExecStart=bash -c ' \
+    trap '"'"' \
+        now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
+        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        (ls /etc | grep marker) >/tmp/markers/50i; \
+        (cat /usr/lib/os-release) >>/tmp/markers/50i; \
+        echo -n "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    '"'"' SIGHUP; \
+    echo -n "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    while true; do sleep 1; done; \
+'
+EOF
+# Move away the v2 extension for now
+mv "$VDIR/${VBASE}_2/" "$VDIR/.${VBASE}_2"
+systemctl start testservice-50i.service
+systemctl is-active testservice-50i.service
+# Move the v2 extension back and reload
+mv "$VDIR/.${VBASE}_2" "$VDIR/${VBASE}_2/"
+systemctl reload testservice-50i.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50i
+# Ensure that we are also still seeing files exclusive to the root image
+grep -q -F "MARKER=1" /tmp/markers/50i
+systemctl stop testservice-50i.service
+rm -f /run/systemd/system/testservice-50i.service
+
+unsquashfs -no-xattrs -d /tmp/vpickminimg "$MINIMAL_IMAGE.raw"
+cat >/run/systemd/system/testservice-50j.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+RootDirectory=/tmp/vpickminimg
+ExtensionDirectories=-${VDIR}
+NotifyAccess=all
+ExecStart=bash -c ' \
+    trap '"'"' \
+        now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
+        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        (ls /etc | grep marker) >/tmp/markers/50j; \
+        (cat /usr/lib/os-release) >>/tmp/markers/50j; \
+        echo -n "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    '"'"' SIGHUP; \
+    echo -n "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    while true; do sleep 1; done; \
+'
+EOF
+systemctl start testservice-50j.service
+systemctl is-active testservice-50j.service
+systemctl reload testservice-50j.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50j
+grep -q -F "MARKER=1" /tmp/markers/50j
+systemctl stop testservice-50j.service
+rm -f /run/systemd/system/testservice-50j.service
+
+cat >/run/systemd/system/testservice-50k.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+RootImage=$MINIMAL_IMAGE.raw
+ExtensionImages=-$VDIR2 /tmp/app0.raw
+PrivateUsers=yes
+NotifyAccess=all
+ExecStart=bash -c ' \
+    trap '"'"' \
+        now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
+        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        (ls /etc | grep marker) >/tmp/markers/50k; \
+        (cat /usr/lib/os-release) >>/tmp/markers/50k; \
+        echo -n "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    '"'"' SIGHUP; \
+    echo -n "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    while true; do sleep 1; done; \
+'
+EOF
+systemctl start testservice-50k.service
+systemctl is-active testservice-50k.service
+# First reload should pick up the v1 marker
+mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw"
+systemctl reload testservice-50k.service
+grep -q -F "${VBASE}_1.marker" /tmp/markers/50k
+# Second reload should pick up the v2 marker
+mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw"
+systemctl reload testservice-50k.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50k
+# Test that removing all the extensions don't cause any issues
+rm -rf "${VDIR2:?}"/*
+systemctl reload testservice-50k.service
+systemctl is-active testservice-50k.service
+grep -q -F "MARKER=1" /tmp/markers/50k
+systemctl stop testservice-50k.service
+rm -f /run/systemd/system/testservice-50k.service
+
+systemctl daemon-reload
+rm -rf "$VDIR" "$VDIR2" /tmp/vpickminimg /tmp/markers/
+
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
 ln -s /tmp/app-nodistro.raw /var/lib/extensions/app-nodistro.raw

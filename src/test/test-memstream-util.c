@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "memstream-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(memstream_done) {

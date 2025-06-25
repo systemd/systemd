@@ -4,9 +4,11 @@
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "env-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"

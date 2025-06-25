@@ -3,16 +3,17 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
-#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
 #include "label-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
@@ -20,6 +21,7 @@
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -407,6 +409,8 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         r = flink_tmpfile(f, filename_tmp, filename, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)
                 return r;
+
+        filename_tmp = mfree(filename_tmp);
 
         /* write succeeded */
 

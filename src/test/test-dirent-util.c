@@ -1,20 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <dirent.h>
-#include <fcntl.h>
-#include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 
-#include "alloc-util.h"
 #include "dirent-util.h"
 #include "fs-util.h"
-#include "mkdir.h"
-#include "path-util.h"
 #include "rm-rf.h"
-#include "stat-util.h"
 #include "string-util.h"
-#include "tmpfile-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 TEST (test_dirent_ensure_type) {
         int r, dir_fd;

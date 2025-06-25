@@ -1,25 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
-#include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
+#include "format-util.h"
 #include "iovec-util.h"
 #include "journal-importer.h"
 #include "journal-internal.h"
-#include "journal-util.h"
 #include "journald-client.h"
 #include "journald-console.h"
+#include "journald-context.h"
 #include "journald-kmsg.h"
+#include "journald-manager.h"
 #include "journald-native.h"
-#include "journald-server.h"
 #include "journald-syslog.h"
 #include "journald-wall.h"
+#include "log.h"
+#include "log-ratelimit.h"
 #include "memfd-util.h"
 #include "memory-util.h"
 #include "parse-util.h"
@@ -27,15 +30,15 @@
 #include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "unaligned.h"
 
 static bool allow_object_pid(const struct ucred *ucred) {
         return ucred && ucred->uid == 0;
 }
 
-static void server_process_entry_meta(
+static void manager_process_entry_meta(
                 const char *p, size_t l,
                 const struct ucred *ucred,
                 int *priority,
@@ -90,8 +93,8 @@ static void server_process_entry_meta(
         }
 }
 
-static int server_process_entry(
-                Server *s,
+static int manager_process_entry(
+                Manager *m,
                 const void *buffer, size_t *remaining,
                 ClientContext *context,
                 const struct ucred *ucred,
@@ -174,7 +177,7 @@ static int server_process_entry(
                                 iovec[n++] = IOVEC_MAKE((char*) p, l);
                                 entry_size += l;
 
-                                server_process_entry_meta(p, l, ucred,
+                                manager_process_entry_meta(p, l, ucred,
                                                           &priority,
                                                           &identifier,
                                                           &message,
@@ -227,7 +230,7 @@ static int server_process_entry(
                                 entry_size += iovec[n].iov_len;
                                 n++;
 
-                                server_process_entry_meta(k, (e - p) + 1 + l, ucred,
+                                manager_process_entry_meta(k, (e - p) + 1 + l, ucred,
                                                           &priority,
                                                           &identifier,
                                                           &message,
@@ -259,26 +262,26 @@ static int server_process_entry(
 
         if (message) {
                 /* Ensure message is not NULL, otherwise strlen(message) would crash. This check needs to
-                 * be here until server_process_entry() is able to process messages containing \0 characters,
+                 * be here until manager_process_entry() is able to process messages containing \0 characters,
                  * as we would have access to the actual size of message. */
                 r = client_context_check_keep_log(context, message, strlen(message));
                 if (r <= 0)
                         goto finish;
 
-                if (s->forward_to_syslog)
-                        server_forward_syslog(s, syslog_fixup_facility(priority), identifier, message, ucred, tv);
+                if (m->forward_to_syslog)
+                        manager_forward_syslog(m, syslog_fixup_facility(priority), identifier, message, ucred, tv);
 
-                if (s->forward_to_kmsg)
-                        server_forward_kmsg(s, priority, identifier, message, ucred);
+                if (m->forward_to_kmsg)
+                        manager_forward_kmsg(m, priority, identifier, message, ucred);
 
-                if (s->forward_to_console)
-                        server_forward_console(s, priority, identifier, message, ucred);
+                if (m->forward_to_console)
+                        manager_forward_console(m, priority, identifier, message, ucred);
 
-                if (s->forward_to_wall)
-                        server_forward_wall(s, priority, identifier, message, ucred);
+                if (m->forward_to_wall)
+                        manager_forward_wall(m, priority, identifier, message, ucred);
         }
 
-        server_dispatch_message(s, iovec, n, MALLOC_ELEMENTSOF(iovec), context, tv, priority, object_pid);
+        manager_dispatch_message(m, iovec, n, MALLOC_ELEMENTSOF(iovec), context, tv, priority, object_pid);
 
 finish:
         for (j = 0; j < n; j++)  {
@@ -297,8 +300,8 @@ finish:
         return r;
 }
 
-void server_process_native_message(
-                Server *s,
+void manager_process_native_message(
+                Manager *m,
                 const char *buffer, size_t buffer_size,
                 const struct ucred *ucred,
                 const struct timeval *tv,
@@ -308,11 +311,11 @@ void server_process_native_message(
         ClientContext *context = NULL;
         int r;
 
-        assert(s);
+        assert(m);
         assert(buffer || buffer_size == 0);
 
         if (ucred && pid_is_valid(ucred->pid)) {
-                r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
+                r = client_context_get(m, ucred->pid, ucred, label, label_len, NULL, &context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
@@ -320,14 +323,14 @@ void server_process_native_message(
         }
 
         do {
-                r = server_process_entry(s,
+                r = manager_process_entry(m,
                                          (const uint8_t*) buffer + (buffer_size - remaining), &remaining,
                                          context, ucred, tv, label, label_len);
         } while (r == 0);
 }
 
-int server_process_native_file(
-                Server *s,
+int manager_process_native_file(
+                Manager *m,
                 int fd,
                 const struct ucred *ucred,
                 const struct timeval *tv,
@@ -339,7 +342,7 @@ int server_process_native_file(
 
         /* Data is in the passed fd, probably it didn't fit in a datagram. */
 
-        assert(s);
+        assert(m);
         assert(fd >= 0);
 
         if (fstat(fd, &st) < 0)
@@ -408,7 +411,7 @@ int server_process_native_file(
                         return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
                                                          "Failed to map memfd: %m");
 
-                server_process_native_message(s, p, st.st_size, ucred, tv, label, label_len);
+                manager_process_native_message(m, p, st.st_size, ucred, tv, label, label_len);
                 assert_se(munmap(p, ps) >= 0);
 
                 return 0;
@@ -449,18 +452,18 @@ int server_process_native_file(
                 return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
                                                  "Failed to read file: %m");
         if (n > 0)
-                server_process_native_message(s, p, n, ucred, tv, label, label_len);
+                manager_process_native_message(m, p, n, ucred, tv, label, label_len);
 
         return 0;
 }
 
-int server_open_native_socket(Server *s, const char *native_socket) {
+int manager_open_native_socket(Manager *m, const char *native_socket) {
         int r;
 
-        assert(s);
+        assert(m);
         assert(native_socket);
 
-        if (s->native_fd < 0) {
+        if (m->native_fd < 0) {
                 union sockaddr_union sa;
                 size_t sa_len;
 
@@ -469,39 +472,39 @@ int server_open_native_socket(Server *s, const char *native_socket) {
                         return log_error_errno(r, "Unable to use namespace path %s for AF_UNIX socket: %m", native_socket);
                 sa_len = r;
 
-                s->native_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (s->native_fd < 0)
+                m->native_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                if (m->native_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
                 (void) sockaddr_un_unlink(&sa.un);
 
-                r = bind(s->native_fd, &sa.sa, sa_len);
+                r = bind(m->native_fd, &sa.sa, sa_len);
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
                 (void) chmod(sa.un.sun_path, 0666);
         } else
-                (void) fd_nonblock(s->native_fd, true);
+                (void) fd_nonblock(m->native_fd, true);
 
-        r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
                 return log_error_errno(r, "SO_PASSCRED failed: %m");
 
         if (mac_selinux_use()) {
-                r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_PASSSEC, true);
+                r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_warning_errno(r, "SO_PASSSEC failed: %m");
+                        log_full_errno(ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r, "SO_PASSSEC failed, ignoring: %m");
         }
 
-        r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
                 return log_error_errno(r, "SO_TIMESTAMP failed: %m");
 
-        r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, server_process_datagram, s);
+        r = sd_event_add_io(m->event, &m->native_event_source, m->native_fd, EPOLLIN, manager_process_datagram, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add native server fd to event loop: %m");
+                return log_error_errno(r, "Failed to add native manager fd to event loop: %m");
 
-        r = sd_event_source_set_priority(s->native_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(m->native_event_source, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust native event source priority: %m");
 

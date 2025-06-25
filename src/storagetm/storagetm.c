@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
 #include <sys/file.h>
+#include <unistd.h>
+
+#include "sd-event.h"
+#include "sd-netlink.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -12,23 +17,25 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "id128-util.h"
 #include "local-addresses.h"
-#include "loop-util.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
 #include "os-util.h"
-#include "parse-argument.h"
 #include "path-util.h"
 #include "plymouth-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
+#include "siphash24.h"
 #include "socket-util.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "udev-util.h"
 
 static char **arg_devices = NULL;
@@ -413,7 +420,7 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *devi
         _cleanup_close_ int subsystems_fd = -EBADF;
         subsystems_fd = RET_NERRNO(open("/sys/kernel/config/nvmet/subsystems", O_DIRECTORY|O_CLOEXEC|O_RDONLY));
         if (subsystems_fd < 0)
-                return log_error_errno(subsystems_fd, "Failed to open /sys/kernel/config/nvmet/subsystems: %m");
+                return log_error_errno(subsystems_fd, "Failed to open %s: %m", "/sys/kernel/config/nvmet/subsystems");
 
         _cleanup_close_ int subsystem_fd = -EBADF;
         subsystem_fd = open_mkdir_at(subsystems_fd, j, O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
@@ -628,7 +635,7 @@ static int nvme_port_add(const char *name, int ip_family, NvmePort **ret) {
         _cleanup_close_ int ports_fd = -EBADF;
         ports_fd = RET_NERRNO(open("/sys/kernel/config/nvmet/ports", O_DIRECTORY|O_RDONLY|O_CLOEXEC));
         if (ports_fd < 0)
-                return log_error_errno(ports_fd, "Failed to open /sys/kernel/config/nvmet/ports: %m");
+                return log_error_errno(ports_fd, "Failed to open %s: %m", "/sys/kernel/config/nvmet/ports");
 
         _cleanup_close_ int port_fd = -EBADF;
         uint16_t portnr = calculate_start_port(name, ip_family);
@@ -842,7 +849,7 @@ static void device_track_back(sd_device *d, sd_device **ret) {
 
         _cleanup_(sd_device_unrefp) sd_device *d_originating = NULL;
         r = block_device_get_originating(d, &d_originating);
-        if (r < 0)
+        if (r < 0 && r != -ENOENT)
                 log_device_debug_errno(d, r, "Failed to get originating device for '%s', ignoring: %m", strna(devname));
 
         sd_device *d_whole = NULL;
@@ -1080,7 +1087,7 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *mm, void *use
         if (!c->display_refresh_scheduled) {
                 r = sd_event_add_time_relative(
                                 sd_netlink_get_event(rtnl),
-                                /* ret_slot= */ NULL,
+                                /* ret= */ NULL,
                                 CLOCK_MONOTONIC,
                                 750 * USEC_PER_MSEC,
                                 0,
@@ -1240,7 +1247,7 @@ static int run(int argc, char* argv[]) {
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
                 notify_start("READY=1\n"
                              "STATUS=Exposing disks in target mode...",
-                             NOTIFY_STOPPING);
+                             NOTIFY_STOPPING_MESSAGE);
 
         r = sd_event_loop(event);
         if (r < 0)

@@ -1,21 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
 #include "install.h"
+#include "log.h"
 #include "missing_socket.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
+#include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 /* A small generator binding potentially five or more SSH sockets:
@@ -107,10 +111,11 @@ static int make_sshd_template_unit(
                         "[Unit]\n"
                         "Description=OpenSSH Per-Connection Server Daemon\n"
                         "Documentation=man:systemd-ssh-generator(8) man:sshd(8)\n"
+                        "\n"
                         "[Service]\n"
                         "ExecStart=-%s -i -o \"AuthorizedKeysFile ${CREDENTIALS_DIRECTORY}/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys\"\n"
                         "StandardInput=socket\n"
-                        "ImportCredential=ssh.ephemeral-authorized_keys-all",
+                        "ImportCredential=ssh.ephemeral-authorized_keys-all\n",
                         sshd_binary);
 
                 r = fflush_and_check(f);
@@ -455,7 +460,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         strv_sort_uniq(arg_listen_extra);
 
         if (!arg_auto && strv_isempty(arg_listen_extra)) {
-                log_debug("Disabling SSH generator logic, because as it has been turned off explicitly.");
+                log_debug("Disabling SSH generator logic, because it has been turned off explicitly.");
                 return 0;
         }
 

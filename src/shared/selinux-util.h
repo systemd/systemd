@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <stdbool.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 
-#include "macro.h"
-#include "label-util.h"
+#include "forward.h"
 
 #if HAVE_SELINUX
-#include <selinux/selinux.h>
+#include <selinux/selinux.h> /* IWYU pragma: export */
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
 #else
@@ -29,6 +25,8 @@ int mac_selinux_init(void);
 int mac_selinux_init_lazy(void);
 void mac_selinux_maybe_reload(void);
 void mac_selinux_finish(void);
+
+void mac_selinux_disable_logging(void);
 
 int mac_selinux_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
 

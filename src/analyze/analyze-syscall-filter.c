@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze-syscall-filter.h"
+#include "alloc-util.h"
 #include "analyze.h"
+#include "analyze-syscall-filter.h"
+#include "ansi-color.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "nulstr-util.h"
+#include "pager.h"
 #include "seccomp-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 #if HAVE_SECCOMP
 

@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-event.h"
 
-#include "hash-funcs.h"
-#include "pidref.h"
+#include "forward.h"
 
 extern const struct hash_ops event_source_hash_ops;
 
@@ -38,7 +35,7 @@ static inline int event_source_disable(sd_event_source *s) {
 
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata);
 
-int event_add_child_pidref(sd_event *e, sd_event_source **s, const PidRef *pid, int options, sd_event_child_handler_t callback, void *userdata);
+int event_add_child_pidref(sd_event *e, sd_event_source **ret, const PidRef *pid, int options, sd_event_child_handler_t callback, void *userdata);
 
 int event_source_get_child_pidref(sd_event_source *s, PidRef *ret);
 

@@ -1,29 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <netinet/ether.h>
-#include <netinet/in.h>
 #include <linux/fou.h>
 #include <linux/genetlink.h>
 #include <linux/if_macsec.h>
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
+#include <linux/unix_diag.h>
+#include <net/ethernet.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "ether-addr-util.h"
-#include "macro.h"
+#include "fd-util.h"
+#include "missing_network.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
+#include "netlink-sock-diag.h"
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(message_newlink_bridge) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -421,8 +424,9 @@ TEST(dump_addresses) {
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 uint16_t type;
-                unsigned char scope, flags;
+                unsigned char scope;
                 int family, ifindex;
+                uint32_t flags;
 
                 ASSERT_OK(sd_netlink_message_get_type(m, &type));
                 ASSERT_EQ(type, RTM_NEWADDR);
@@ -430,7 +434,7 @@ TEST(dump_addresses) {
                 ASSERT_OK(sd_rtnl_message_addr_get_ifindex(m, &ifindex));
                 ASSERT_OK(sd_rtnl_message_addr_get_family(m, &family));
                 ASSERT_OK(sd_rtnl_message_addr_get_scope(m, &scope));
-                ASSERT_OK(sd_rtnl_message_addr_get_flags(m, &flags));
+                ASSERT_OK(sd_netlink_message_read_u32(m, IFA_FLAGS, &flags));
 
                 ASSERT_GT(ifindex, 0);
                 ASSERT_TRUE(IN_SET(family, AF_INET, AF_INET6));
@@ -697,6 +701,32 @@ TEST(rtnl_set_link_name) {
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname3");
         ASSERT_NULL(resolved = mfree(resolved));
+}
+
+TEST(sock_diag_unix) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        int r;
+
+        ASSERT_OK(sd_sock_diag_socket_open(&nl));
+
+        _cleanup_close_ int unix_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK(socket_autobind(unix_fd, /* ret_name= */ NULL));
+        ASSERT_OK_ERRNO(listen(unix_fd, 123));
+
+        struct stat st;
+        ASSERT_OK_ERRNO(fstat(unix_fd, &st));
+
+        uint64_t cookie;
+        ASSERT_OK(socket_get_cookie(unix_fd, &cookie));
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        ASSERT_OK(sd_sock_diag_message_new_unix(nl, &message, st.st_ino, cookie, UDIAG_SHOW_RQLEN));
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        r = sd_netlink_call(nl, message, /* timeout= */ 0, &reply);
+        if (r == -ENOENT)
+                return (void) log_tests_skipped("CONFIG_UNIX_DIAG disabled");
+        ASSERT_OK(r);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

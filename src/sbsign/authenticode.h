@@ -3,7 +3,7 @@
 
 #include <openssl/asn1t.h>
 
-#include "macro.h"
+#include "forward.h"
 
 #define SPC_INDIRECT_DATA_OBJID "1.3.6.1.4.1.311.2.1.4"
 #define SPC_PE_IMAGE_DATA_OBJID "1.3.6.1.4.1.311.2.1.15"

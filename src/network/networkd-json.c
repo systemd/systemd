@@ -2,11 +2,14 @@
 
 #include <linux/nexthop.h>
 
+#include "sd-device.h"
+#include "sd-dhcp-client.h"
+#include "sd-dhcp6-client.h"
+
 #include "dhcp-lease-internal.h"
 #include "dhcp-server-lease-internal.h"
-#include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
-#include "dns-domain.h"
+#include "extract-word.h"
 #include "ip-protocol-list.h"
 #include "json-util.h"
 #include "netif-util.h"
@@ -19,13 +22,14 @@
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-ntp.h"
-#include "networkd-route-util.h"
 #include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
-#include "sort-util.h"
+#include "ordered-set.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "udev-util.h"
-#include "user-util.h"
 #include "wifi-util.h"
 
 static int address_append_json(Address *address, bool serializing, sd_json_variant **array) {
@@ -448,6 +452,18 @@ static int network_append_json(Network *network, sd_json_variant **v) {
                                                   link_required_address_family_to_string(network->required_family_for_online)),
                         SD_JSON_BUILD_PAIR_STRING("ActivationPolicy",
                                                   activation_policy_to_string(network->activation_policy)));
+}
+
+static int netdev_append_json(NetDev *netdev, sd_json_variant **v) {
+        assert(v);
+
+        if (!netdev)
+                return 0;
+
+        return sd_json_variant_merge_objectbo(
+                        v,
+                        SD_JSON_BUILD_PAIR_STRING("NetDevFile", netdev->filename),
+                        SD_JSON_BUILD_PAIR_STRV("NetDevFileDropins", netdev->dropins));
 }
 
 static int device_append_json(sd_device *device, sd_json_variant **v) {
@@ -914,7 +930,7 @@ static int domains_append_json(Link *link, bool is_route, sd_json_variant **v) {
                         NDiscDNSSL *a;
 
                         SET_FOREACH(a, link->ndisc_dnssl) {
-                                r = domain_append_json(AF_INET6, NDISC_DNSSL_DOMAIN(a), NETWORK_CONFIG_SOURCE_NDISC,
+                                r = domain_append_json(AF_INET6, ndisc_dnssl_domain(a), NETWORK_CONFIG_SOURCE_NDISC,
                                                        &(union in_addr_union) { .in6 = a->router },
                                                        &array);
                                 if (r < 0)
@@ -1388,6 +1404,23 @@ static int dhcp_client_append_json(Link *link, sd_json_variant **v) {
         return json_variant_set_field_non_null(v, "DHCPv4Client", w);
 }
 
+static int lldp_tx_append_json(Link *link, sd_json_variant **v) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->lldp_tx)
+                return 0;
+
+        r = sd_lldp_tx_describe(link->lldp_tx, &w);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field_non_null(v, "LLDP", w);
+}
+
 int link_build_json(Link *link, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -1445,6 +1478,10 @@ int link_build_json(Link *link, sd_json_variant **ret) {
                 return r;
 
         r = network_append_json(link->network, &v);
+        if (r < 0)
+                return r;
+
+        r = netdev_append_json(link->netdev, &v);
         if (r < 0)
                 return r;
 
@@ -1517,6 +1554,10 @@ int link_build_json(Link *link, sd_json_variant **ret) {
                 return r;
 
         r = dhcp6_client_append_json(link, &v);
+        if (r < 0)
+                return r;
+
+        r = lldp_tx_append_json(link, &v);
         if (r < 0)
                 return r;
 

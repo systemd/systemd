@@ -1,31 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
-#include "sd-id128.h"
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "async.h"
 #include "cgroup.h"
-#include "dbus-job.h"
+#include "condition.h"
 #include "dbus.h"
+#include "dbus-job.h"
 #include "escape.h"
-#include "fileio.h"
 #include "job.h"
 #include "log.h"
-#include "macro.h"
+#include "manager.h"
 #include "parse-util.h"
+#include "prioq.h"
 #include "serialize.h"
 #include "set.h"
 #include "sort-util.h"
 #include "special.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "unit.h"
 #include "virt.h"
 
@@ -652,6 +649,7 @@ static const char* job_done_message_format(Unit *u, JobType t, JobResult result)
                 [JOB_COLLECTED]   = "Unnecessary job was removed for %s.",
                 [JOB_ONCE]        = "Unit %s has been started before and cannot be started again.",
                 [JOB_FROZEN]      = "Cannot start frozen unit %s.",
+                [JOB_CONCURRENCY] = "Hard concurrency limit hit for slice of unit %s.",
         };
         static const char* const generic_finished_stop_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Stopped %s.",
@@ -726,6 +724,7 @@ static const struct {
         [JOB_COLLECTED]   = { LOG_INFO,                                    },
         [JOB_ONCE]        = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    " ONCE " },
         [JOB_FROZEN]      = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    "FROZEN" },
+        [JOB_CONCURRENCY] = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    "CONCUR" },
 };
 
 static const char* job_done_mid(JobType type, JobResult result) {
@@ -978,6 +977,8 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_ONCE, true, false);
                 else if (r == -EDEADLK)
                         r = job_finish_and_invalidate(j, JOB_FROZEN, true, false);
+                else if (r == -ETOOMANYREFS)
+                        r = job_finish_and_invalidate(j, JOB_CONCURRENCY, /* recursive= */ true, /* already= */ false);
                 else if (r < 0)
                         r = job_finish_and_invalidate(j, JOB_FAILED, true, false);
         }
@@ -1035,7 +1036,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                 goto finish;
         }
 
-        if (IN_SET(result, JOB_FAILED, JOB_INVALID, JOB_FROZEN))
+        if (IN_SET(result, JOB_FAILED, JOB_INVALID, JOB_FROZEN, JOB_CONCURRENCY))
                 j->manager->n_failed_jobs++;
 
         job_uninstall(j);
@@ -1667,6 +1668,7 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_COLLECTED]   = "collected",
         [JOB_ONCE]        = "once",
         [JOB_FROZEN]      = "frozen",
+        [JOB_CONCURRENCY] = "concurrency",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);

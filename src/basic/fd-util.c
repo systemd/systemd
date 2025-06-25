@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
+#include <linux/fs.h>
 #include <linux/kcmp.h>
-#include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -11,13 +10,13 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
-#include "io-util.h"
-#include "macro.h"
+#include "log.h"
 #include "missing_fcntl.h"
-#include "missing_fs.h"
 #include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
@@ -27,7 +26,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
-#include "tmpfile-util.h"
+#include "string-util.h"
 
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */
@@ -607,24 +606,6 @@ int same_fd(int a, int b) {
         return fa == fb;
 }
 
-void cmsg_close_all(struct msghdr *mh) {
-        assert(mh);
-
-        struct cmsghdr *cmsg;
-        CMSG_FOREACH(cmsg, mh) {
-                if (cmsg->cmsg_level != SOL_SOCKET)
-                        continue;
-
-                if (cmsg->cmsg_type == SCM_RIGHTS)
-                        close_many(CMSG_TYPED_DATA(cmsg, int),
-                                   (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
-                else if (cmsg->cmsg_type == SCM_PIDFD) {
-                        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
-                        safe_close(*CMSG_TYPED_DATA(cmsg, int));
-                }
-        }
-}
-
 bool fdname_is_valid(const char *s) {
         const char *p;
 
@@ -1001,13 +982,13 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
         if (flags < 0)
                 return -errno;
 
-        unexpected_flags = flags & ~(O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
+        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
         if (unexpected_flags != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
                                        "Unexpected flags set for extrinsic fd: 0%o",
                                        (unsigned) unexpected_flags);
 
-        return flags & (O_ACCMODE | extra_flags); /* return the flags variable, but remove the noise */
+        return flags & (O_ACCMODE_STRICT | extra_flags); /* return the flags variable, but remove the noise */
 }
 
 int read_nr_open(void) {
@@ -1131,8 +1112,15 @@ int fds_are_same_mount(int fd1, int fd2) {
         return statx_mount_same(&sx1, &sx2);
 }
 
+char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
+        assert(buf);
+        assert(fd >= 0);
+        assert_se(snprintf_ok(buf, PROC_FD_PATH_MAX, "/proc/self/fd/%i", fd));
+        return buf;
+}
+
 const char* accmode_to_string(int flags) {
-        switch (flags & O_ACCMODE) {
+        switch (flags & O_ACCMODE_STRICT) {
         case O_RDONLY:
                 return "ro";
         case O_WRONLY:

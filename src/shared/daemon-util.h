@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "sd-daemon.h" /* IWYU pragma: export */
 
-#include "sd-daemon.h"
+#include "forward.h"
 
-#include "macro.h"
-
-#define NOTIFY_READY "READY=1\n" "STATUS=Processing requests..."
-#define NOTIFY_STOPPING "STOPPING=1\n" "STATUS=Shutting down..."
+#define NOTIFY_READY_MESSAGE "READY=1\n" "STATUS=Processing requests..."
+#define NOTIFY_STOPPING_MESSAGE "STOPPING=1\n" "STATUS=Shutting down..."
 
 static inline const char* notify_start(const char *start, const char *stop) {
         if (start)

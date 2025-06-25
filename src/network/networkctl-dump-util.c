@@ -1,10 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-dhcp-lease.h"
+#include "sd-hwdb.h"
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
+#include "ether-addr-util.h"
 #include "format-ifname.h"
+#include "format-table.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
+#include "log.h"
 #include "networkctl-dump-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 int dump_list(Table *table, const char *key, char * const *l) {

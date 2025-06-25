@@ -1,20 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct TunTap TunTap;
-
+#include "forward.h"
 #include "netdev.h"
 
-struct TunTap {
+typedef struct TunTap {
         NetDev meta;
 
         char *user_name;
+        uid_t uid;
         char *group_name;
+        gid_t gid;
         bool multi_queue;
         bool packet_info;
         bool vnet_hdr;
         bool keep_fd;
-};
+} TunTap;
 
 DEFINE_NETDEV_CAST(TUN, TunTap);
 DEFINE_NETDEV_CAST(TAP, TunTap);

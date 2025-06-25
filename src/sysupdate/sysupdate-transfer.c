@@ -1,17 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <sys/stat.h>
+
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "blockdev-util.h"
 #include "build-path.h"
 #include "chase.h"
 #include "conf-parser.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "event-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "install-file.h"
 #include "mkdir.h"
@@ -19,21 +25,21 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "process-util.h"
-#include "random-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "specifier.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
 #include "sysupdate.h"
 #include "sysupdate-feature.h"
+#include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "web-util.h"
 
@@ -1124,7 +1130,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
 
-                if (!path_is_valid_full(formatted_pattern, /* accept_dot_dot = */ false))
+                if (!path_is_safe(formatted_pattern))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as file name, refusing: %s", formatted_pattern);
 
                 t->final_path = path_join(t->target.path, formatted_pattern);

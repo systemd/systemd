@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
-#include <linux/if.h>
 #include <getopt.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -18,15 +16,14 @@
 #include "architecture.h"
 #include "bootspec.h"
 #include "build.h"
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-locator.h"
+#include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "capability-util.h"
-#include "chase.h"
 #include "common-signal.h"
 #include "copy.h"
-#include "creds-util.h"
-#include "dirent-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "escape.h"
@@ -34,18 +31,15 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
-#include "io-util.h"
-#include "kernel-image.h"
+#include "id128-util.h"
 #include "log.h"
 #include "machine-credential.h"
-#include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "namespace-util.h"
@@ -65,14 +59,14 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
-#include "time-util.h"
+#include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
+#include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-register.h"
 #include "vmspawn-scope.h"
@@ -94,6 +88,11 @@ typedef struct SSHInfo {
         char *private_key_path;
         unsigned port;
 } SSHInfo;
+
+typedef struct ShutdownInfo {
+        SSHInfo *ssh_info;
+        PidRef *pidref;
+} ShutdownInfo;
 
 static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
@@ -888,80 +887,68 @@ static int bus_open_in_machine(sd_bus **ret, unsigned cid, unsigned port, const 
         return 0;
 }
 
-static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        PidRef *pidref = userdata;
-        int r;
-
-        /* Backup method to shut down the VM when D-BUS access over SSH is not available */
-
-        if (pidref) {
-                r = pidref_kill(pidref, SIGKILL);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to kill qemu, terminating: %m");
-                else {
-                        log_info("Trying to halt qemu. Send SIGTERM again to trigger vmspawn to immediately terminate.");
-                        sd_event_source_set_userdata(s, NULL);
-                        return 0;
-                }
-        }
-
-        sd_event_exit(sd_event_source_get_event(s), 0);
-        return 0;
-}
-
-static int forward_signal_to_vm_pid1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+static int shutdown_vm_graceful(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        SSHInfo *ssh_info = ASSERT_PTR(userdata);
-        const char *vm_pid1;
+        ShutdownInfo *shutdown_info = ASSERT_PTR(userdata);
+        SSHInfo *ssh_info = ASSERT_PTR(shutdown_info->ssh_info);
         int r;
 
         assert(s);
         assert(si);
 
+        /* If we don't have the vsock address and the SSH key, go to fallback */
+        if (ssh_info->cid == VMADDR_CID_ANY || !ssh_info->private_key_path)
+                goto fallback;
+
+        /*
+         * In order we should try:
+         * 1. PowerOff from logind respects inhibitors but might not be available
+         * 2. PowerOff from systemd heavy handed but should always be available
+         * 3. SIGKILL qemu (this waits for qemu to die still)
+         * 4. kill ourselves by shutting down our event loop (this does not wait for qemu)
+         */
+
         r = bus_open_in_machine(&bus, ssh_info->cid, ssh_info->port, ssh_info->private_key_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to VM to forward signal: %m");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to connect to VM to forward signal, ignoring: %m");
+                goto fallback;
+        }
 
-        r = bus_wait_for_jobs_new(bus, &w);
-        if (r < 0)
-                return log_error_errno(r, "Could not watch job: %m");
+        r = bus_call_method(bus, bus_login_mgr, "PowerOff", &error, /* ret_reply= */ NULL, "b", false);
+        if (r >= 0) {
+                log_info("Requested powering off VM through D-Bus.");
+                return 0;
+        }
 
-        r = bus_call_method(
-                        bus,
-                        bus_systemd_mgr,
-                        "GetUnitByPID",
-                        &error,
-                        NULL,
-                        "");
-        if (r < 0)
-                return log_error_errno(r, "Failed to get init process of VM: %s", bus_error_message(&error, r));
+        log_warning_errno(r, "Failed to shutdown VM via logind, ignoring: %s", bus_error_message(&error, r));
+        sd_bus_error_free(&error);
 
-        r = sd_bus_message_read(reply, "o", &vm_pid1);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        r = bus_call_method(bus, bus_systemd_mgr, "PowerOff", &error, /* ret_reply= */ NULL, /* types= */ NULL);
+        if (r >= 0) {
+                log_info("Requested powering off VM through D-Bus.");
+                return 0;
+        }
 
-        r = bus_wait_for_jobs_one(w, vm_pid1, /* quiet */ false, NULL);
-        if (r < 0)
-                return r;
+        log_warning_errno(r, "Failed to shutdown VM via systemd, ignoring: %s", bus_error_message(&error, r));
 
-        r = bus_call_method(
-                        bus,
-                        bus_systemd_mgr,
-                        "KillUnit",
-                        &error,
-                        NULL,
-                        "ssi",
-                        vm_pid1,
-                        "leader",
-                        si->ssi_signo);
-        if (r < 0)
-                return log_error_errno(r, "Failed to forward signal to PID 1 of the VM: %s", bus_error_message(&error, r));
-        log_info("Sent signal %"PRIu32" to the VM's PID 1.", si->ssi_signo);
+fallback:
+        /* at this point SSH clearly isn't working so don't try it again */
+        TAKE_STRUCT(*ssh_info);
 
-        return 0;
+        /* Backup method to shut down the VM when D-BUS access over SSH is not available */
+        if (shutdown_info->pidref) {
+                r = pidref_kill(shutdown_info->pidref, SIGKILL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to kill qemu, terminating: %m");
+                else {
+                        TAKE_PTR(shutdown_info->pidref);
+                        log_info("Trying to halt qemu. Send SIGTERM again to trigger vmspawn to immediately terminate.");
+                        return 0;
+                }
+        }
+
+        return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
@@ -1459,28 +1446,6 @@ static int merge_initrds(char **ret) {
         return 0;
 }
 
-static void set_window_title(PTYForward *f) {
-        _cleanup_free_ char *hn = NULL, *dot = NULL;
-
-        assert(f);
-
-        if (!shall_set_terminal_title())
-                return;
-
-        (void) gethostname_strict(&hn);
-
-        if (emoji_enabled())
-                dot = strjoin(glyph(GLYPH_GREEN_CIRCLE), " ");
-
-        if (hn)
-                (void) pty_forward_set_titlef(f, "%sVirtual Machine %s on %s", strempty(dot), arg_machine, hn);
-        else
-                (void) pty_forward_set_titlef(f, "%sVirtual Machine %s", strempty(dot), arg_machine);
-
-        if (dot)
-                (void) pty_forward_set_title_prefix(f, dot);
-}
-
 static int generate_ssh_keypair(const char *key_path, const char *key_type) {
         _cleanup_free_ char *ssh_keygen = NULL;
         _cleanup_strv_free_ char **cmdline = NULL;
@@ -1567,7 +1532,6 @@ static int grow_image(const char *path, uint64_t size) {
 }
 
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
-        SSHInfo ssh_info; /* Used when talking to pid1 via SSH, but must survive until the function ends. */
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL, *kernel = NULL;
@@ -1656,23 +1620,25 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strv_extend_many(&cmdline, "-uuid", SD_ID128_TO_UUID_STRING(arg_uuid)) < 0)
                         return log_oom();
 
-        /* Derive a vmgenid automatically from the invocation ID, in a deterministic way. */
-        sd_id128_t vmgenid;
-        r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(bd,84,6d,e3,e4,7d,4b,6c,a6,85,4a,87,0f,3c,a3,a0), &vmgenid);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to get invocation ID, making up randomized vmgenid: %m");
+        if (ARCHITECTURE_SUPPORTS_VMGENID) {
+                /* Derive a vmgenid automatically from the invocation ID, in a deterministic way. */
+                sd_id128_t vmgenid;
+                r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(bd,84,6d,e3,e4,7d,4b,6c,a6,85,4a,87,0f,3c,a3,a0), &vmgenid);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get invocation ID, making up randomized vmgenid: %m");
 
-                r = sd_id128_randomize(&vmgenid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to make up randomized vmgenid: %m");
+                        r = sd_id128_randomize(&vmgenid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make up randomized vmgenid: %m");
+                }
+
+                _cleanup_free_ char *vmgenid_device = NULL;
+                if (asprintf(&vmgenid_device, "vmgenid,guid=" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid)) < 0)
+                        return log_oom();
+
+                if (strv_extend_many(&cmdline, "-device", vmgenid_device) < 0)
+                        return log_oom();
         }
-
-        _cleanup_free_ char *vmgenid_device = NULL;
-        if (asprintf(&vmgenid_device, "vmgenid,guid=" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid)) < 0)
-                return log_oom();
-
-        if (strv_extend_many(&cmdline, "-device", vmgenid_device) < 0)
-                return log_oom();
 
         /* if we are going to be starting any units with state then create our runtime dir */
         _cleanup_free_ char *runtime_dir = NULL;
@@ -1952,9 +1918,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", ovmf_vars_from, ovmf_vars_to);
 
-                /* These aren't always available so don't raise an error if they fail */
-                (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
-                (void) copy_access(source_fd, target_fd);
+                /* This isn't always available so don't raise an error if it fails */
                 (void) copy_times(source_fd, target_fd, 0);
 
                 r = strv_extend_many(
@@ -1976,31 +1940,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_image || strv_length(arg_extra_drives) > 0) {
                 r = strv_extend_many(&cmdline, "-device", "virtio-scsi-pci,id=scsi");
-                if (r < 0)
-                        return log_oom();
-        }
-
-        unsigned i = 0;
-        STRV_FOREACH(drive, arg_extra_drives) {
-                _cleanup_free_ char *escaped_drive = NULL;
-
-                r = strv_extend(&cmdline, "-blockdev");
-                if (r < 0)
-                        return log_oom();
-
-                escaped_drive = escape_qemu_value(*drive);
-                if (!escaped_drive)
-                        return log_oom();
-
-                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s,node-name=vmspawn_extra_%u", escaped_drive, i);
-                if (r < 0)
-                        return log_oom();
-
-                r = strv_extend(&cmdline, "-device");
-                if (r < 0)
-                        return log_oom();
-
-                r = strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra_%u", i++);
                 if (r < 0)
                         return log_oom();
         }
@@ -2039,6 +1978,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = strv_extend_many(&cmdline, "-device", "scsi-hd,drive=vmspawn,bootindex=1");
                 if (r < 0)
                         return log_oom();
+
+                r = grow_image(arg_image, arg_grow_image);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_directory) {
@@ -2064,6 +2007,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
+                        return log_oom();
+        }
+
+        size_t i = 0;
+        STRV_FOREACH(drive, arg_extra_drives) {
+                _cleanup_free_ char *escaped_drive = NULL;
+
+                r = strv_extend(&cmdline, "-blockdev");
+                if (r < 0)
+                        return log_oom();
+
+                escaped_drive = escape_qemu_value(*drive);
+                if (!escaped_drive)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s,node-name=vmspawn_extra_%zu", escaped_drive, i);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend(&cmdline, "-device");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra_%zu", i++);
+                if (r < 0)
                         return log_oom();
         }
 
@@ -2328,15 +2296,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         const char *e = secure_getenv("SYSTEMD_VMSPAWN_QEMU_EXTRA");
         if (e) {
                 r = strv_split_and_extend_full(&cmdline, e,
-                                               /* separator = */ NULL, /* filter_duplicates = */ false,
+                                               /* separators = */ NULL, /* filter_duplicates = */ false,
                                                EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse $SYSTEMD_VMSPAWN_QEMU_EXTRA: %m");
         }
-
-        r = grow_image(arg_image, arg_grow_image);
-        if (r < 0)
-                return r;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *joined = quote_command_line(cmdline, SHELL_ESCAPE_EMPTY);
@@ -2413,21 +2377,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to setup event loop to handle VSOCK notify events: %m");
         }
 
-        /* If we have the vsock address and the SSH key, ask pid1 inside the guest to shutdown. */
-        if (child_cid != VMADDR_CID_ANY && ssh_private_key_path) {
-                ssh_info = (SSHInfo) {
-                        .cid = child_cid,
-                        .private_key_path = ssh_private_key_path,
-                        .port = 22,
-                };
+        /* Used when talking to pid1 via SSH, but must survive until the function ends. */
+        SSHInfo ssh_info = {
+                .cid = child_cid,
+                .private_key_path = ssh_private_key_path,
+                .port = 22,
+        };
+        ShutdownInfo shutdown_info = {
+                .ssh_info = &ssh_info,
+                .pidref = &child_pidref,
+        };
 
-                (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, forward_signal_to_vm_pid1, &ssh_info);
-                (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, forward_signal_to_vm_pid1, &ssh_info);
-        } else {
-                /* As a fallback in case SSH cannot be used, send a shutdown signal to the VMM instead. */
-                (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
-                (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
-        }
+        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, NULL, (SIGRTMIN+4) | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
 
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
@@ -2436,7 +2399,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
         /* Exit when the child exits */
-        r = event_add_child_pidref(event, /* ret_event_source= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
+        r = event_add_child_pidref(event, /* ret= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to watch qemu process: &m");
 
@@ -2464,7 +2427,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 } else if (!isempty(arg_background))
                         (void) pty_forward_set_background_color(forward, arg_background);
 
-                set_window_title(forward);
+                (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname = */ NULL,
+                                                    STRV_MAKE("Virtual Machine", arg_machine));
         }
 
         r = sd_event_loop(event);

@@ -8,11 +8,12 @@
 #include "dbus-kill.h"
 #include "dbus-manager.h"
 #include "dbus-scope.h"
-#include "dbus-unit.h"
 #include "dbus-util.h"
-#include "dbus.h"
+#include "manager.h"
+#include "pidref.h"
 #include "scope.h"
 #include "selinux-access.h"
+#include "string-util.h"
 #include "unit.h"
 
 int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_error *error) {

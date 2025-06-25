@@ -1,40 +1,42 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
-#include "cgroup-util.h"
 #include "clean-ipc.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "label-util.h"
 #include "limits-util.h"
+#include "logind-session.h"
+#include "logind.h"
 #include "logind-dbus.h"
-#include "logind-user-dbus.h"
+#include "logind-seat.h"
 #include "logind-user.h"
+#include "logind-user-dbus.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "percent-util.h"
-#include "rm-rf.h"
 #include "serialize.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "unit-name.h"
+#include "user-record.h"
 #include "user-util.h"
 
 int user_new(Manager *m, UserRecord *ur, User **ret) {
@@ -142,8 +144,6 @@ User *user_free(User *u) {
 }
 
 static int user_save_internal(User *u) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(u);
@@ -151,13 +151,16 @@ static int user_save_internal(User *u) {
 
         r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/users/: %m");
 
-        r = fopen_temporary(u->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(u->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", u->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", u->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -171,17 +174,11 @@ static int user_save_internal(User *u) {
                 user_gc_mode_to_string(u->gc_mode));
 
         /* LEGACY: no-one reads RUNTIME= anymore, drop it at some point */
-        if (u->runtime_path)
-                fprintf(f, "RUNTIME=%s\n", u->runtime_path);
-
-        if (u->runtime_dir_job)
-                fprintf(f, "RUNTIME_DIR_JOB=%s\n", u->runtime_dir_job);
-
-        if (u->service_manager_job)
-                fprintf(f, "SERVICE_JOB=%s\n", u->service_manager_job);
-
+        env_file_fputs_assignment(f, "RUNTIME=", u->runtime_path);
+        env_file_fputs_assignment(f, "RUNTIME_DIR_JOB=", u->runtime_dir_job);
+        env_file_fputs_assignment(f, "SERVICE_JOB=", u->service_manager_job);
         if (u->display)
-                fprintf(f, "DISPLAY=%s\n", u->display->id);
+                env_file_fputs_assignment(f, "DISPLAY=", u->display->id);
 
         if (dual_timestamp_is_set(&u->timestamp))
                 fprintf(f,
@@ -280,22 +277,12 @@ static int user_save_internal(User *u) {
                 fputc('\n', f);
         }
 
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, u->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", u->state_file);
 
-        if (rename(temp_path, u->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
         return 0;
-
-fail:
-        (void) unlink(u->state_file);
-
-        return log_error_errno(r, "Failed to save user data %s: %m", u->state_file);
 }
 
 int user_save(User *u) {

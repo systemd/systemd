@@ -7,6 +7,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include <stddef.h>
 #include "conf-parser.h"
 #include "logind.h"
+#include "logind-user.h"
 %}
 struct ConfigPerfItem;
 %null_strings
@@ -55,4 +56,4 @@ Login.SessionsMax,                  config_parse_uint64,                0, offse
 Login.DesignatedMaintenanceTime,    config_parse_calendar,              0, offsetof(Manager, maintenance_time)
 Login.UserTasksMax,                 config_parse_compat_user_tasks_max, 0, 0
 Login.StopIdleSessionSec,           config_parse_sec_fix_0,             0, offsetof(Manager, stop_idle_session_usec)
-Login.EnableWallMessages,           config_parse_bool,                  0, offsetof(Manager, enable_wall_messages)
+Login.WallMessages,                 config_parse_bool,                  0, offsetof(Manager, wall_messages)

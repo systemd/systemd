@@ -1,16 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_LOGIND') != 1
+        subdir_done()
+endif
+
 systemd_logind_sources = files(
         'logind.c',
 )
-
-logind_gperf_c = custom_target(
-        'logind_gperf.c',
-        input : 'logind-gperf.gperf',
-        output : 'logind-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
-
-liblogind_core_sources = files(
+systemd_logind_extract_sources = files(
         'logind-action.c',
         'logind-brightness.c',
         'logind-button.c',
@@ -31,15 +28,14 @@ liblogind_core_sources = files(
         'logind-wall.c',
 )
 
-liblogind_core_sources += [logind_gperf_c]
+logind_gperf_c = custom_target(
+        'logind-gperf.c',
+        input : 'logind-gperf.gperf',
+        output : 'logind-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-liblogind_core = static_library(
-        'logind-core',
-        liblogind_core_sources,
-        include_directories : includes,
-        dependencies : [libacl,
-                        userspace],
-        build_by_default : false)
+generated_sources += logind_gperf_c
+systemd_logind_extract_sources += [logind_gperf_c]
 
 loginctl_sources = files(
         'loginctl.c',
@@ -50,21 +46,16 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-logind',
                 'dbus' : true,
-                'conditions' : ['ENABLE_LOGIND'],
-                'sources' : systemd_logind_sources,
-                'link_with' : [
-                        liblogind_core,
-                        libshared,
-                ],
+                'sources' : systemd_logind_sources + systemd_logind_extract_sources,
+                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
+                'extract' : systemd_logind_extract_sources,
                 'dependencies' : [
-                        libacl,
                         threads,
                 ],
         },
         executable_template + {
                 'name' : 'loginctl',
                 'public' : true,
-                'conditions' : ['ENABLE_LOGIND'],
                 'sources' : loginctl_sources,
                 'dependencies' : [
                         liblz4_cflags,
@@ -76,12 +67,10 @@ executables += [
         executable_template + {
                 'name' : 'systemd-inhibit',
                 'public' : true,
-                'conditions' : ['ENABLE_LOGIND'],
                 'sources' : files('inhibit.c'),
         },
         libexec_template + {
                 'name' : 'systemd-user-runtime-dir',
-                'conditions' : ['ENABLE_LOGIND'],
                 'sources' : files('user-runtime-dir.c'),
         },
         test_template + {
@@ -90,10 +79,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-login-tables.c'),
-                'link_with' : [
-                        liblogind_core,
-                        libshared,
-                ],
+                'objects' : ['systemd-logind'],
                 'dependencies' : threads,
         },
         test_template + {
@@ -109,31 +95,24 @@ simple_tests += files(
 modules += [
         pam_template + {
                 'name' : 'pam_systemd',
-                'conditions' : [
-                        'ENABLE_LOGIND',
-                        'HAVE_PAM',
-                ],
+                'conditions' : ['HAVE_PAM'],
                 'sources' : files('pam_systemd.c'),
                 'version-script' : meson.current_source_dir() / 'pam_systemd.sym',
         },
         pam_template + {
                 'name' : 'pam_systemd_loadkey',
-                'conditions' : [
-                        'HAVE_PAM',
-                ],
+                'conditions' : ['HAVE_PAM'],
                 'sources' : files('pam_systemd_loadkey.c'),
                 'version-script' : meson.current_source_dir() / 'pam_systemd_loadkey.sym',
         },
 ]
-
-enable_logind = conf.get('ENABLE_LOGIND') == 1
 
 custom_target(
         'logind.conf',
         input : 'logind.conf.in',
         output : 'logind.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : enable_logind and install_sysconfdir_samples and pkgsysconfdir != 'no',
+        install : install_sysconfdir_samples and pkgsysconfdir != 'no',
         install_dir : pkgconfigfiledir)
 
 custom_target(
@@ -141,16 +120,14 @@ custom_target(
         input : 'systemd-user.in',
         output : 'systemd-user',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : enable_logind and pamconfdir != 'no',
+        install : pamconfdir != 'no',
         install_dir : pamconfdir)
 
-if enable_logind
-        install_data('org.freedesktop.login1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.login1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.login1.policy',
-                     install_dir : polkitpolicydir)
-        install_data('10-systemd-logind-root-ignore-inhibitors.rules.example',
-                     install_dir : polkitrulesdir)
-endif
+install_data('org.freedesktop.login1.conf',
+                install_dir : dbuspolicydir)
+install_data('org.freedesktop.login1.service',
+                install_dir : dbussystemservicedir)
+install_data('org.freedesktop.login1.policy',
+                install_dir : polkitpolicydir)
+install_data('10-systemd-logind-root-ignore-inhibitors.rules.example',
+                install_dir : polkitrulesdir)

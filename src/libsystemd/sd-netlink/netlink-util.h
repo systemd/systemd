@@ -3,12 +3,8 @@
 
 #include <linux/rtnetlink.h>
 
-#include "sd-netlink.h"
-
-#include "ether-addr-util.h"
+#include "forward.h"
 #include "in-addr-util.h"
-#include "ordered-set.h"
-#include "socket-util.h"
 
 #define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
 #define RTA_TYPE(rta)  ((rta)->rta_type & NLA_TYPE_MASK)
@@ -101,16 +97,7 @@ static inline int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name) {
 static inline int rtnl_resolve_interface(sd_netlink **rtnl, const char *name) {
         return rtnl_resolve_ifname_full(rtnl, _RESOLVE_IFNAME_ALL, name, NULL, NULL);
 }
-static inline int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        assert(name);
-
-        r = rtnl_resolve_interface(rtnl, name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
-        return r;
-}
+int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name);
 
 int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names);
 int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char* const *alternative_names);

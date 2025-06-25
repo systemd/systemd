@@ -1,15 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <malloc.h>
-#include <stdbool.h>
 #include <string.h>
-#include <sys/types.h>
 
-#include "alloc-util.h"
-#include "macro.h"
-#include "memory-util-fundamental.h"
+#include "forward.h"
+#include "memory-util-fundamental.h" /* IWYU pragma: export */
 
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l)          ALIGN_TO(l, page_size())
@@ -98,16 +93,7 @@ static inline void* mempmem_safe(const void *haystack, size_t haystacklen, const
         return (uint8_t*) p + needlelen;
 }
 
-static inline void* erase_and_free(void *p) {
-        size_t l;
-
-        if (!p)
-                return NULL;
-
-        l = MALLOC_SIZEOF_SAFE(p);
-        explicit_bzero_safe(p, l);
-        return mfree(p);
-}
+void* erase_and_free(void *p);
 
 static inline void erase_and_freep(void *p) {
         erase_and_free(*(void**) p);

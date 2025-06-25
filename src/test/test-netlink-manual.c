@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <arpa/inet.h>
 #include <linux/if_tunnel.h>
-#include <linux/ip.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-netlink.h"
 
-#include "macro.h"
 #include "module-util.h"
 #include "tests.h"
 

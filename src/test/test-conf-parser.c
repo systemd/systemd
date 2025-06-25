@@ -2,15 +2,13 @@
 
 #include "conf-parser.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir.h"
 #include "rm-rf.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {

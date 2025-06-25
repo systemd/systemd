@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
+#include <stdlib.h>
 
 #include "sd-messages.h"
 
@@ -9,15 +9,18 @@
 #include "argv-util.h"
 #include "build.h"
 #include "capability-util.h"
+#include "cgroup.h"
+#include "dynamic-user.h"
 #include "exec-invoke.h"
-#include "execute-serialize.h"
 #include "execute.h"
+#include "execute-serialize.h"
 #include "exit-status.h"
-#include "fdset.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
 #include "getopt-defs.h"
 #include "label-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
@@ -238,6 +241,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to deserialize: %m");
 
+        LOG_CONTEXT_PUSH_EXEC(&context, &params);
+
         arg_serialization = safe_fclose(arg_serialization);
         fdset = fdset_free(fdset);
 
@@ -251,11 +256,11 @@ static int run(int argc, char *argv[]) {
                 const char *status = ASSERT_PTR(
                                 exit_status_to_string(exit_status, EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD));
 
-                log_exec_struct_errno(&context, &params, LOG_ERR, r,
-                                      LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED_STR),
-                                      LOG_EXEC_MESSAGE(&params, "Failed at step %s spawning %s: %m",
-                                                       status, command.path),
-                                      LOG_ITEM("EXECUTABLE=%s", command.path));
+                log_struct_errno(LOG_ERR, r,
+                                 LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED_STR),
+                                 LOG_EXEC_MESSAGE(&params, "Failed at step %s spawning %s: %m",
+                                                  status, command.path),
+                                 LOG_ITEM("EXECUTABLE=%s", command.path));
         } else
                 /* r == 0: 'skip' is chosen in the confirm spawn prompt
                  * r > 0:  expected/ignored failure, do not log at error level */

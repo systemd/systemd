@@ -1,16 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-
-#include "macro.h"
-#include "time-util.h"
+#include "udev-forward.h"
 
 #define READ_END  0
 #define WRITE_END 1
-
-typedef struct UdevEvent UdevEvent;
 
 int udev_event_spawn(
                 UdevEvent *event,

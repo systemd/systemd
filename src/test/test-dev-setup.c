@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "capability-util.h"
 #include "dev-setup.h"
-#include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -11,7 +12,7 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
-        const char *f;
+        _cleanup_free_ char *f = NULL;
         struct stat st;
 
         test_setup_logging(LOG_DEBUG);
@@ -21,33 +22,38 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(mkdtemp_malloc("/tmp/test-dev-setupXXXXXX", &p));
 
-        f = prefix_roota(p, "/run/systemd");
+        f = ASSERT_NOT_NULL(path_join(p, "/run/systemd"));
         ASSERT_OK(mkdir_p(f, 0755));
 
         ASSERT_OK(make_inaccessible_nodes(f, 1, 1));
         ASSERT_OK(make_inaccessible_nodes(f, 1, 1)); /* 2nd call should be a clean NOP */
 
-        f = prefix_roota(p, "/run/systemd/inaccessible/reg");
+        free(f);
+        f = ASSERT_NOT_NULL(path_join(p, "/run/systemd/inaccessible/reg"));
         ASSERT_OK_ERRNO(stat(f, &st));
         ASSERT_TRUE(S_ISREG(st.st_mode));
         ASSERT_EQ(st.st_mode & 07777, 0000U);
 
-        f = prefix_roota(p, "/run/systemd/inaccessible/dir");
+        free(f);
+        f = ASSERT_NOT_NULL(path_join(p, "/run/systemd/inaccessible/dir"));
         ASSERT_OK_ERRNO(stat(f, &st));
         ASSERT_TRUE(S_ISDIR(st.st_mode));
         ASSERT_EQ(st.st_mode & 07777, 0000U);
 
-        f = prefix_roota(p, "/run/systemd/inaccessible/fifo");
+        free(f);
+        f = ASSERT_NOT_NULL(path_join(p, "/run/systemd/inaccessible/fifo"));
         ASSERT_OK_ERRNO(stat(f, &st));
         ASSERT_TRUE(S_ISFIFO(st.st_mode));
         ASSERT_EQ(st.st_mode & 07777, 0000U);
 
-        f = prefix_roota(p, "/run/systemd/inaccessible/sock");
+        free(f);
+        f = ASSERT_NOT_NULL(path_join(p, "/run/systemd/inaccessible/sock"));
         ASSERT_OK_ERRNO(stat(f, &st));
         ASSERT_TRUE(S_ISSOCK(st.st_mode));
         ASSERT_EQ(st.st_mode & 07777, 0000U);
 
-        f = prefix_roota(p, "/run/systemd/inaccessible/chr");
+        free(f);
+        f = ASSERT_NOT_NULL(path_join(p, "/run/systemd/inaccessible/chr"));
         if (stat(f, &st) < 0)
                 ASSERT_EQ(errno, ENOENT);
         else {
@@ -55,7 +61,8 @@ int main(int argc, char *argv[]) {
                 ASSERT_EQ(st.st_mode & 07777, 0000U);
         }
 
-        f = prefix_roota(p, "/run/systemd/inaccessible/blk");
+        free(f);
+        f = ASSERT_NOT_NULL(path_join(p, "/run/systemd/inaccessible/blk"));
         if (stat(f, &st) < 0)
                 ASSERT_EQ(errno, ENOENT);
         else {

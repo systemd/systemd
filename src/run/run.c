@@ -1,16 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <stdlib.h>
+#include <sys/resource.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "ask-password-agent.h"
 #include "build.h"
 #include "bus-error.h"
@@ -18,34 +20,42 @@
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
 #include "capsule-util.h"
 #include "chase.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "event-util.h"
 #include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "fork-journal.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "hostname-setup.h"
 #include "hostname-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "osc-context.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
+#include "runtime-scope.h"
 #include "signal-util.h"
 #include "special.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "unit-def.h"
 #include "unit-name.h"
@@ -89,6 +99,7 @@ static char **arg_socket_property = NULL;
 static char **arg_timer_property = NULL;
 static bool arg_with_timer = false;
 static bool arg_quiet = false;
+static bool arg_verbose = false;
 static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
 static bool arg_shell = false;
@@ -101,6 +112,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static char *arg_shell_prompt_prefix = NULL;
 static int arg_lightweight = -1;
 static char *arg_area = NULL;
+static bool arg_via_shell = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -155,6 +167,7 @@ static int help(void) {
                "                                  agents until unit is started up\n"
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
+               "  -v --verbose                    Show unit logs while executing operation\n"
                "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
@@ -212,6 +225,8 @@ static int help_sudo_mode(void) {
                "  -g --group=GROUP                Run as system group\n"
                "     --nice=NICE                  Nice level\n"
                "  -D --chdir=PATH                 Set working directory\n"
+               "     --via-shell                  Invoke command via target user's login shell\n"
+               "  -i                              Shortcut for --via-shell --chdir='~'\n"
                "     --setenv=NAME[=VALUE]        Set environment variable\n"
                "     --background=COLOR           Set ANSI color for background\n"
                "     --pty                        Request allocation of a pseudo TTY for stdio\n"
@@ -221,7 +236,7 @@ static int help_sudo_mode(void) {
                "     --shell-prompt-prefix=PREFIX Set $SHELL_PROMPT_PREFIX\n"
                "     --lightweight=BOOLEAN        Control whether to register a session with service manager\n"
                "                                  or without\n"
-               "  -a --area=AREA                  Home area to log into\n"
+               "     --area=AREA                  Home area to log into\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -254,7 +269,7 @@ static int add_timer_property(const char *name, const char *val) {
         return 0;
 }
 
-static char **make_login_shell_cmdline(const char *shell) {
+static char** make_login_shell_cmdline(const char *shell) {
         _cleanup_free_ char *argv0 = NULL;
 
         assert(shell);
@@ -332,6 +347,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pty-late",           no_argument,       NULL, 'T'                    },
                 { "pipe",               no_argument,       NULL, 'P'                    },
                 { "quiet",              no_argument,       NULL, 'q'                    },
+                { "verbose",            no_argument,       NULL, 'v'                    },
                 { "on-active",          required_argument, NULL, ARG_ON_ACTIVE          },
                 { "on-boot",            required_argument, NULL, ARG_ON_BOOT            },
                 { "on-startup",         required_argument, NULL, ARG_ON_STARTUP         },
@@ -365,7 +381,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hrC:H:M:E:p:tTPqGdSu:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrC:H:M:E:p:tTPqvGdSu:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -441,8 +457,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SERVICE_TYPE:
@@ -490,6 +507,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'q':
                         arg_quiet = true;
+                        break;
+
+                case 'v':
+                        arg_verbose = true;
                         break;
 
                 case ARG_ON_ACTIVE:
@@ -823,6 +844,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_PIPE,
                 ARG_SHELL_PROMPT_PREFIX,
                 ARG_LIGHTWEIGHT,
+                ARG_AREA,
+                ARG_VIA_SHELL,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -842,6 +865,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "group",               required_argument, NULL, 'g'                     },
                 { "nice",                required_argument, NULL, ARG_NICE                },
                 { "chdir",               required_argument, NULL, 'D'                     },
+                { "via-shell",           no_argument,       NULL, ARG_VIA_SHELL           },
+                { "login",               no_argument,       NULL, 'i'                     }, /* compat with sudo, --via-shell + --chdir='~' */
                 { "setenv",              required_argument, NULL, ARG_SETENV              },
                 { "background",          required_argument, NULL, ARG_BACKGROUND          },
                 { "pty",                 no_argument,       NULL, ARG_PTY                 },
@@ -849,7 +874,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "pipe",                no_argument,       NULL, ARG_PIPE                },
                 { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
                 { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
-                { "area",                required_argument, NULL, 'a'                     },
+                { "area",                required_argument, NULL, ARG_AREA                },
                 {},
         };
 
@@ -861,7 +886,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hVu:g:D:a:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hVu:g:D:i", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -876,8 +901,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case ARG_MACHINE:
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_UNIT:
@@ -921,8 +947,11 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case 'D':
-                        /* Root will be manually suppressed later. */
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_working_directory);
+                        if (streq(optarg, "~"))
+                                r = free_and_strdup_warn(&arg_working_directory, optarg);
+                        else
+                                /* Root will be manually suppressed later. */
+                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_working_directory);
                         if (r < 0)
                                 return r;
 
@@ -964,7 +993,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case 'a':
+                case ARG_AREA:
                         /* We allow an empty --area= specification to allow logging into the primary home directory */
                         if (!isempty(optarg) && !filename_is_valid(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid area name, refusing: %s", optarg);
@@ -973,6 +1002,16 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case 'i':
+                        r = free_and_strdup_warn(&arg_working_directory, "~");
+                        if (r < 0)
+                                return r;
+
+                        _fallthrough_;
+                case ARG_VIA_SHELL:
+                        arg_via_shell = true;
                         break;
 
                 case '?':
@@ -1023,9 +1062,11 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_send_sighup = true;
 
         _cleanup_strv_free_ char **l = NULL;
-        if (argc > optind)
+        if (argc > optind) {
                 l = strv_copy(argv + optind);
-        else {
+                if (!l)
+                        return log_oom();
+        } else if (!arg_via_shell) {
                 const char *e;
 
                 e = strv_env_get(arg_environment, "SHELL");
@@ -1050,9 +1091,19 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 }
 
                 l = make_login_shell_cmdline(arg_exec_path);
+                if (!l)
+                        return log_oom();
         }
-        if (!l)
-                return log_oom();
+
+        if (arg_via_shell) {
+                arg_exec_path = strdup(_PATH_BSHELL);
+                if (!arg_exec_path)
+                        return log_oom();
+
+                r = strv_prepend(&l, "-sh");
+                if (r < 0)
+                        return log_oom();
+        }
 
         strv_free_and_replace(arg_cmdline, l);
 
@@ -1090,6 +1141,11 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 return log_oom();
 
         if (strv_extend(&arg_property, "PAMName=systemd-run0") < 0)
+                return log_oom();
+
+        /* The service manager ignores SIGPIPE for all spawned processes by default. Let's explicitly override
+         * that here, since we're primarily invoked in interactive environments where this does matter. */
+        if (strv_extend(&arg_property, "IgnoreSIGPIPE=no") < 0)
                 return log_oom();
 
         if (!arg_background && arg_stdio == ARG_STDIO_PTY && shall_tint_background()) {
@@ -1260,10 +1316,8 @@ static int transient_kill_set_properties(sd_bus_message *m) {
 static int transient_service_set_properties(sd_bus_message *m, const char *pty_path, int pty_fd) {
         int r, send_term; /* tri-state */
 
-        /* We disable environment expansion on the server side via ExecStartEx=:.
-         * ExecStartEx was added relatively recently (v243), and some bugs were fixed only later.
-         * So use that feature only if required. It will fail with older systemds. */
-        bool use_ex_prop = !arg_expand_environment;
+        /* Use ExecStartEx if new exec flags are required. */
+        bool use_ex_prop = !arg_expand_environment || arg_via_shell;
 
         assert(m);
         assert((!!pty_path) == (pty_fd >= 0));
@@ -1450,7 +1504,9 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         _cleanup_strv_free_ char **opts = NULL;
 
                         r = exec_command_flags_to_strv(
-                                        (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|(arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0),
+                                        (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|
+                                        (arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0)|
+                                        (arg_via_shell ? EXEC_COMMAND_VIA_SHELL : 0),
                                         &opts);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to format execute flags: %m");
@@ -1671,15 +1727,10 @@ static int run_context_reconnect(RunContext *c) {
                                "org.freedesktop.systemd1.Unit",
                                "Ref",
                                &error,
-                               /* reply = */ NULL, NULL);
+                               /* ret_reply = */ NULL, NULL);
         if (r < 0) {
                 /* Hmm, the service manager probably hasn't finished reexecution just yet? Try again later. */
-                if (sd_bus_error_has_names(&error,
-                                           SD_BUS_ERROR_NO_REPLY,
-                                           SD_BUS_ERROR_DISCONNECTED,
-                                           SD_BUS_ERROR_TIMED_OUT,
-                                           SD_BUS_ERROR_SERVICE_UNKNOWN,
-                                           SD_BUS_ERROR_NAME_HAS_NO_OWNER))
+                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error))
                         goto retry_timer;
 
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
@@ -1820,14 +1871,7 @@ static int run_context_update(RunContext *c) {
         if (r < 0) {
                 /* If this is a connection error, then try to reconnect. This might be because the service
                  * manager is being restarted. Handle this gracefully. */
-                if (sd_bus_error_has_names(
-                                    &error,
-                                    SD_BUS_ERROR_NO_REPLY,
-                                    SD_BUS_ERROR_DISCONNECTED,
-                                    SD_BUS_ERROR_TIMED_OUT,
-                                    SD_BUS_ERROR_SERVICE_UNKNOWN,
-                                    SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
-
+                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error)) {
                         log_info_errno(r, "Bus call failed due to connection problems. Trying to reconnect...");
                         /* Not propagating error, because we handled it already, by reconnecting. */
                         return run_context_reconnect(c);
@@ -2021,40 +2065,24 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
                                 &error,
                                 &reply,
                                 "ay");
-        if (r < 0)
+        if (r < 0) {
+                /* Let's ignore connection errors. This might be caused by that the service manager is being
+                 * restarted. Handle this gracefully. */
+                if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error)) {
+                        log_debug_errno(r, "Invocation ID request failed due to bus connection problems, ignoring: %s",
+                                        bus_error_message(&error, r));
+                        *ret = SD_ID128_NULL;
+                        return 0;
+                }
+
                 return log_error_errno(r, "Failed to request invocation ID for unit: %s", bus_error_message(&error, r));
+        }
 
         r = bus_message_read_id128(reply, ret);
         if (r < 0)
                 return bus_log_parse_error(r);
 
         return r; /* Return true when we get a non-null invocation ID. */
-}
-
-static void set_window_title(PTYForward *f) {
-        _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
-
-        assert(f);
-
-        if (!shall_set_terminal_title())
-                return;
-
-        if (!arg_host)
-                (void) gethostname_strict(&hn);
-
-        cl = strv_join(arg_cmdline, " ");
-        if (!cl)
-                return (void) log_oom();
-
-        if (emoji_enabled())
-                dot = strjoin(glyph(privileged_execution() ? GLYPH_RED_CIRCLE : GLYPH_YELLOW_CIRCLE), " ");
-
-        if (arg_host || hn)
-                (void) pty_forward_set_titlef(f, "%s%s on %s", strempty(dot), cl, arg_host ?: hn);
-        else
-                (void) pty_forward_set_titlef(f, "%s%s", strempty(dot), cl);
-
-        (void) pty_forward_set_title_prefix(f, dot);
 }
 
 static int fchown_to_capsule(int fd, const char *capsule) {
@@ -2133,7 +2161,145 @@ static int run_context_setup_ptyfwd(RunContext *c) {
         if (!isempty(arg_background))
                 (void) pty_forward_set_background_color(c->forward, arg_background);
 
-        set_window_title(c->forward);
+        (void) pty_forward_set_window_title(c->forward,
+                                            privileged_execution() ? GLYPH_RED_CIRCLE : GLYPH_YELLOW_CIRCLE,
+                                            arg_host, arg_cmdline);
+        return 0;
+}
+
+static int run_context_show_result(RunContext *c) {
+        int r;
+
+        assert(c);
+
+        _cleanup_(table_unrefp) Table *t = table_new_vertical();
+        if (!t)
+                return log_oom();
+
+        if (!isempty(c->result)) {
+                r = table_add_many(
+                                t,
+                                TABLE_FIELD, "Finished with result",
+                                TABLE_STRING, c->result,
+                                TABLE_SET_COLOR, streq(c->result, "success") ? ansi_highlight_green() : ansi_highlight_red());
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (c->exit_code > 0) {
+                r = table_add_cell(
+                                t,
+                                /* ret_cell= */ NULL,
+                                TABLE_FIELD,
+                                "Main processes terminated with");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(
+                                t,
+                                /* ret_cell= */ NULL,
+                                "code=%s, status=%u/%s",
+                                sigchld_code_to_string(c->exit_code),
+                                c->exit_status,
+                                strna(c->exit_code == CLD_EXITED ?
+                                      exit_status_to_string(c->exit_status, EXIT_STATUS_FULL) :
+                                      signal_to_string(c->exit_status)));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (timestamp_is_set(c->inactive_enter_usec) &&
+            timestamp_is_set(c->inactive_exit_usec) &&
+            c->inactive_enter_usec > c->inactive_exit_usec) {
+                r = table_add_many(
+                                t,
+                                TABLE_FIELD, "Service runtime",
+                                TABLE_TIMESPAN_MSEC, c->inactive_enter_usec - c->inactive_exit_usec);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (c->cpu_usage_nsec != NSEC_INFINITY) {
+                r = table_add_many(
+                                t,
+                                TABLE_FIELD, "CPU time consumed",
+                                TABLE_TIMESPAN_MSEC, DIV_ROUND_UP(c->cpu_usage_nsec, NSEC_PER_USEC));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (c->memory_peak != UINT64_MAX) {
+                const char *swap;
+
+                if (c->memory_swap_peak != UINT64_MAX)
+                        swap = strjoina(" (swap: ", FORMAT_BYTES(c->memory_swap_peak), ")");
+                else
+                        swap = "";
+
+                r = table_add_cell(
+                                t,
+                                /* ret_cell= */ NULL,
+                                TABLE_FIELD, "Memory peak");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(
+                                t,
+                                /* ret_cell= */ NULL,
+                                "%s%s",
+                                FORMAT_BYTES(c->memory_peak), swap);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        const char *ip_ingress = NULL, *ip_egress = NULL;
+        if (!IN_SET(c->ip_ingress_bytes, 0, UINT64_MAX))
+                ip_ingress = strjoina("received ", FORMAT_BYTES(c->ip_ingress_bytes));
+        if (!IN_SET(c->ip_egress_bytes, 0, UINT64_MAX))
+                ip_egress = strjoina("sent ", FORMAT_BYTES(c->ip_egress_bytes));
+
+        if (ip_ingress || ip_egress) {
+                r = table_add_cell(
+                                t,
+                                /* ret_cell= */ NULL,
+                                TABLE_FIELD, "IP Traffic");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(
+                                t,
+                                /* ret_cell= */ NULL,
+                                "%s%s%s", strempty(ip_ingress), ip_ingress && ip_egress ? ", " : "", strempty(ip_egress));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        const char *io_read = NULL, *io_write = NULL;
+        if (!IN_SET(c->io_read_bytes, 0, UINT64_MAX))
+                io_read = strjoina("read ", FORMAT_BYTES(c->io_read_bytes));
+        if (!IN_SET(c->io_write_bytes, 0, UINT64_MAX))
+                io_write = strjoina("written ", FORMAT_BYTES(c->io_write_bytes));
+
+        if (io_read || io_write) {
+                r = table_add_cell(
+                                t,
+                                /* ret_cell= */ NULL,
+                                TABLE_FIELD, "IO Bytes");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(
+                                t,
+                                /* ret_cell= */ NULL,
+                                "%s%s%s", strempty(io_read), io_read && io_write ? ", " : "", strempty(io_write));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_print(t, stderr);
+        if (r < 0)
+                return table_log_print_error(r);
+
         return 0;
 }
 
@@ -2193,12 +2359,20 @@ static int start_transient_service(sd_bus *bus) {
 
                         (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
 
-                        r = bus_call_method(system_bus,
-                                            bus_machine_mgr,
-                                            "OpenMachinePTY",
-                                            &error,
-                                            &pty_reply,
-                                            "s", arg_host);
+                        /* Chop off a username prefix. We allow this for sd-bus machine connections, hence
+                         * support that here too. */
+                        _cleanup_free_ char *h = NULL;
+                        r = split_user_at_host(arg_host, /* ret_user= */ NULL, &h);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to split host specification '%s': %m", arg_host);
+
+                        r = bus_call_method(
+                                        system_bus,
+                                        bus_machine_mgr,
+                                        "OpenMachinePTY",
+                                        &error,
+                                        &pty_reply,
+                                        "s", h ?: ".host");
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get machine PTY: %s", bus_error_message(&error, r));
 
@@ -2250,6 +2424,10 @@ static int start_transient_service(sd_bus *bus) {
         if (r < 0)
                 return r;
         peer_fd = safe_close(peer_fd);
+
+        _cleanup_(journal_terminate) PidRef journal_pid = PIDREF_NULL;
+        if (arg_verbose)
+                (void) journal_fork(arg_runtime_scope, STRV_MAKE(c.unit), &journal_pid);
 
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
@@ -2325,60 +2503,11 @@ static int start_transient_service(sd_bus *bus) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                if (arg_wait && !arg_quiet) {
+                /* Close the journal watch logic before we output the exit summary */
+                journal_terminate(&journal_pid);
 
-                        if (!isempty(c.result))
-                                log_info("Finished with result: %s", strna(c.result));
-
-                        if (c.exit_code > 0)
-                                log_info("Main processes terminated with: code=%s, status=%u/%s",
-                                         sigchld_code_to_string(c.exit_code),
-                                         c.exit_status,
-                                         strna(c.exit_code == CLD_EXITED ?
-                                               exit_status_to_string(c.exit_status, EXIT_STATUS_FULL) :
-                                               signal_to_string(c.exit_status)));
-
-                        if (timestamp_is_set(c.inactive_enter_usec) &&
-                            timestamp_is_set(c.inactive_exit_usec) &&
-                            c.inactive_enter_usec > c.inactive_exit_usec)
-                                log_info("Service runtime: %s",
-                                         FORMAT_TIMESPAN(c.inactive_enter_usec - c.inactive_exit_usec, USEC_PER_MSEC));
-
-                        if (c.cpu_usage_nsec != NSEC_INFINITY)
-                                log_info("CPU time consumed: %s",
-                                         FORMAT_TIMESPAN(DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
-
-                        if (c.memory_peak != UINT64_MAX) {
-                                const char *swap;
-
-                                if (c.memory_swap_peak != UINT64_MAX)
-                                        swap = strjoina(" (swap: ", FORMAT_BYTES(c.memory_swap_peak), ")");
-                                else
-                                        swap = "";
-
-                                log_info("Memory peak: %s%s", FORMAT_BYTES(c.memory_peak), swap);
-                        }
-
-                        const char *ip_ingress = NULL, *ip_egress = NULL;
-
-                        if (!IN_SET(c.ip_ingress_bytes, 0, UINT64_MAX))
-                                ip_ingress = strjoina(" received: ", FORMAT_BYTES(c.ip_ingress_bytes));
-                        if (!IN_SET(c.ip_egress_bytes, 0, UINT64_MAX))
-                                ip_egress = strjoina(" sent: ", FORMAT_BYTES(c.ip_egress_bytes));
-
-                        if (ip_ingress || ip_egress)
-                                log_info("IP traffic%s%s", strempty(ip_ingress), strempty(ip_egress));
-
-                        const char *io_read = NULL, *io_write = NULL;
-
-                        if (!IN_SET(c.io_read_bytes, 0, UINT64_MAX))
-                                io_read = strjoina(" read: ", FORMAT_BYTES(c.io_read_bytes));
-                        if (!IN_SET(c.io_write_bytes, 0, UINT64_MAX))
-                                io_write = strjoina(" written: ", FORMAT_BYTES(c.io_write_bytes));
-
-                        if (io_read || io_write)
-                                log_info("IO bytes%s%s", strempty(io_read), strempty(io_write));
-                }
+                if (arg_wait && !arg_quiet)
+                        run_context_show_result(&c);
 
                 /* Try to propagate the service's return value. But if the service defines
                  * e.g. SuccessExitStatus, honour this, and return 0 to mean "success". */
@@ -2810,7 +2939,12 @@ static int run(int argc, char* argv[]) {
 
                 if (strv_isempty(arg_cmdline))
                         t = strdup(arg_unit);
-                else if (startswith(arg_cmdline[0], "-")) {
+                else if (arg_via_shell) {
+                        if (arg_cmdline[1])
+                                t = quote_command_line(arg_cmdline + 1, SHELL_ESCAPE_EMPTY);
+                        else
+                                t = strjoin("LOGIN", arg_exec_user ? ": " : NULL, arg_exec_user);
+                } else if (startswith(arg_cmdline[0], "-")) {
                         /* Drop the login shell marker from the command line when generating the description,
                          * in order to minimize user confusion. */
                         _cleanup_strv_free_ char **l = strv_copy(arg_cmdline);

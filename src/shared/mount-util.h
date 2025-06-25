@@ -2,15 +2,8 @@
 #pragma once
 
 #include <mntent.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
-#include "alloc-util.h"
-#include "dissect-image.h"
-#include "errno-util.h"
-#include "macro.h"
-#include "pidref.h"
+#include "forward.h"
 
 typedef struct SubMount {
         char *path;
@@ -49,7 +42,7 @@ int mount_verbose_full(
                 int error_log_level,
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 unsigned long flags,
                 const char *options,
                 bool follow_symlink);
@@ -58,20 +51,20 @@ static inline int mount_follow_verbose(
                 int error_log_level,
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 unsigned long flags,
                 const char *options) {
-        return mount_verbose_full(error_log_level, what, where, type, flags, options, true);
+        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, true);
 }
 
 static inline int mount_nofollow_verbose(
                 int error_log_level,
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 unsigned long flags,
                 const char *options) {
-        return mount_verbose_full(error_log_level, what, where, type, flags, options, false);
+        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, false);
 }
 
 int umount_verbose(
@@ -94,25 +87,10 @@ int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest)
 int mount_flags_to_string(unsigned long flags, char **ret);
 
 /* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
-static inline char* umount_and_rmdir_and_free(char *p) {
-        if (!p)
-                return NULL;
-
-        PROTECT_ERRNO;
-        (void) umount_recursive(p, 0);
-        (void) rmdir(p);
-        return mfree(p);
-}
+char* umount_and_rmdir_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
 
-static inline char* umount_and_free(char *p) {
-        if (!p)
-                return NULL;
-
-        PROTECT_ERRNO;
-        (void) umount_recursive(p, 0);
-        return mfree(p);
-}
+char* umount_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_free);
 
 char* umount_and_unlink_and_free(char *p);
@@ -188,6 +166,11 @@ unsigned long credentials_fs_mount_flags(bool ro);
 int mount_credentials_fs(const char *path, size_t size, bool ro);
 
 int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
+
+int path_get_mount_info_at(int dir_fd, const char *path, char **ret_fstype, char **ret_options, char **ret_source);
+static inline int path_get_mount_info(const char *path, char **ret_fstype, char **ret_options, char **ret_source) {
+        return path_get_mount_info_at(AT_FDCWD, path, ret_fstype, ret_options, ret_source);
+}
 
 int path_is_network_fs_harder_at(int dir_fd, const char *path);
 static inline int path_is_network_fs_harder(const char *path) {

@@ -4,18 +4,26 @@
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  */
 
+#include <sys/signalfd.h>
+#include <sys/wait.h>
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "daemon-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "inotify-util.h"
-#include "mkdir.h"
 #include "parse-util.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "rm-rf.h"
+#include "set.h"
+#include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-manager.h"
@@ -196,12 +204,16 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         assert(manager);
         assert(dev);
 
-        const char *sysname;
-        r = sd_device_get_sysname(dev, &sysname);
+        r = device_sysname_startswith(dev, "dm-");
         if (r < 0)
                 return r;
+        if (r > 0)
+                return synthesize_change_one(dev, dev);
 
-        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
+        r = block_device_is_whole_disk(dev);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return synthesize_change_one(dev, dev);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -263,7 +275,7 @@ static int manager_process_inotify(Manager *manager, const struct inotify_event 
 
         log_device_debug(dev, "Received inotify event of watch handle %i.", e->wd);
 
-        (void) event_queue_assume_block_device_unlocked(manager, dev);
+        (void) manager_requeue_locked_events_by_device(manager, dev);
         (void) synthesize_change(manager, dev);
         return 0;
 }
@@ -403,7 +415,7 @@ static int udev_watch_clear_by_wd(sd_device *dev, int dirfd, int wd) {
         if (dirfd < 0) {
                 dirfd_close = RET_NERRNO(open("/run/udev/watch/", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
                 if (dirfd_close < 0)
-                        return log_device_debug_errno(dev, dirfd_close, "Failed to open '/run/udev/watch/': %m");
+                        return log_device_debug_errno(dev, dirfd_close, "Failed to open %s: %m", "/run/udev/watch/");
 
                 dirfd = dirfd_close;
         }
@@ -583,7 +595,7 @@ int manager_remove_watch(Manager *manager, sd_device *dev) {
         if (dirfd == -ENOENT)
                 return 0;
         if (dirfd < 0)
-                return log_device_debug_errno(dev, dirfd, "Failed to open '/run/udev/watch/': %m");
+                return log_device_debug_errno(dev, dirfd, "Failed to open %s: %m", "/run/udev/watch/");
 
         /* First, clear symlinks. */
         r = udev_watch_clear(dev, dirfd, &wd);
@@ -599,6 +611,11 @@ int manager_remove_watch(Manager *manager, sd_device *dev) {
 
 static int on_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         UdevWorker *worker = ASSERT_PTR(userdata);
+
+        if (!si_code_from_process(si->ssi_code)) {
+                log_debug("Received SIGUSR1 with unexpected .si_code %i, ignoring.", si->ssi_code);
+                return 0;
+        }
 
         if ((pid_t) si->ssi_pid != worker->manager_pid) {
                 log_debug("Received SIGUSR1 from unexpected process [%"PRIu32"], ignoring.", si->ssi_pid);
@@ -623,7 +640,7 @@ static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
+        r = sd_event_add_signal(e, /* ret = */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
         if (r < 0)
                 return r;
 

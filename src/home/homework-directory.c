@@ -3,17 +3,22 @@
 #include <sys/mount.h>
 
 #include "btrfs-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "homework-blob.h"
 #include "homework-directory.h"
 #include "homework-mount.h"
 #include "homework-quota.h"
+#include "log.h"
 #include "mkdir.h"
 #include "mount-util.h"
-#include "path-util.h"
+#include "homework.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
+#include "user-record-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 int home_setup_directory(UserRecord *h, HomeSetup *setup) {

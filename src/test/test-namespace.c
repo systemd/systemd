@@ -1,13 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sysexits.h>
+#include <sched.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sysexits.h>
+
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "namespace-util.h"
 #include "namespace.h"
 #include "pidref.h"
 #include "process-util.h"

@@ -2,7 +2,6 @@
 
 #include <getopt.h>
 #include <sys/epoll.h>
-#include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -10,29 +9,28 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "daemon-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "log.h"
-#include "macro.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static char **arg_listen = NULL;
 static bool arg_accept = false;
 static int arg_socket_type = SOCK_STREAM;
-static char **arg_args = NULL;
 static char **arg_setenv = NULL;
 static char **arg_fdnames = NULL;
 static bool arg_inetd = false;
+static bool arg_now = false;
 
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
@@ -49,7 +47,7 @@ static int add_epoll(int epoll_fd, int fd) {
         return 0;
 }
 
-static int open_sockets(int *ret_epoll_fd, bool accept) {
+static int open_sockets(int *ret_epoll_fd) {
         _cleanup_close_ int epoll_fd = -EBADF;
         int n, r, count = 0;
 
@@ -105,9 +103,26 @@ static int open_sockets(int *ret_epoll_fd, bool accept) {
                 log_set_open_when_needed(false);
         }
 
-        epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-        if (epoll_fd < 0)
-                return log_error_errno(errno, "Failed to create epoll object: %m");
+        if (count > 1 && !arg_accept && arg_inetd)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inetd only supported with a single file descriptor, or with --accept.");
+
+        if (arg_fdnames && !arg_inetd) {
+                size_t n_fdnames = strv_length(arg_fdnames);
+
+                if (!arg_accept && n_fdnames != (size_t) count)
+                        log_warning("The number of fd names is different from the number of fds: %zu vs %i",
+                                    n_fdnames, count);
+
+                if (arg_accept && n_fdnames > 1)
+                        log_warning("More than one fd name specified with --accept.");
+        }
+
+        if (!arg_now) {
+                epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+                if (epoll_fd < 0)
+                        return log_error_errno(errno, "Failed to create epoll object: %m");
+        }
 
         for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
                 _cleanup_free_ char *name = NULL;
@@ -115,22 +130,24 @@ static int open_sockets(int *ret_epoll_fd, bool accept) {
                 getsockname_pretty(fd, &name);
                 log_info("Listening on %s as %i.", strna(name), fd);
 
-                r = add_epoll(epoll_fd, fd);
-                if (r < 0)
-                        return r;
+                if (epoll_fd >= 0) {
+                        r = add_epoll(epoll_fd, fd);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         *ret_epoll_fd = TAKE_FD(epoll_fd);
         return count;
 }
 
-static int exec_process(const char *name, char **argv, int start_fd, size_t n_fds) {
+static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
         _cleanup_strv_free_ char **envp = NULL;
         int r;
 
-        if (arg_inetd && n_fds != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--inetd only supported for single file descriptors.");
+        assert(!strv_isempty(argv));
+        assert(start_fd >= 0);
+        assert(n_fds > 0);
 
         FOREACH_STRING(var, "TERM", "COLORTERM", "NO_COLOR", "PATH", "USER", "HOME") {
                 const char *n;
@@ -180,8 +197,6 @@ static int exec_process(const char *name, char **argv, int start_fd, size_t n_fd
                                         if (r < 0)
                                                 return log_oom();
                                 }
-                        else if (len != n_fds)
-                                log_warning("The number of fd names is different than number of fds: %zu vs %zu", len, n_fds);
 
                         names = strv_join(arg_fdnames, ":");
                         if (!names)
@@ -207,16 +222,19 @@ static int exec_process(const char *name, char **argv, int start_fd, size_t n_fd
         if (!joined)
                 return log_oom();
 
-        log_info("Execing %s (%s)", name, joined);
-        execvpe(name, argv, envp);
+        log_info("Executing: %s", joined);
+        execvpe(argv[0], argv, envp);
 
-        return log_error_errno(errno, "Failed to execp %s (%s): %m", name, joined);
+        return log_error_errno(errno, "Failed to execute '%s': %m", joined);
 }
 
-static int fork_and_exec_process(const char *child, char **argv, int fd) {
+static int fork_and_exec_process(char * const *argv, int fd) {
         _cleanup_free_ char *joined = NULL;
         pid_t child_pid;
         int r;
+
+        assert(!strv_isempty(argv));
+        assert(fd >= 0);
 
         joined = strv_join(argv, " ");
         if (!joined)
@@ -229,15 +247,15 @@ static int fork_and_exec_process(const char *child, char **argv, int fd) {
                 return r;
         if (r == 0) {
                 /* In the child */
-                exec_process(child, argv, fd, 1);
+                (void) exec_process(argv, fd, 1);
                 _exit(EXIT_FAILURE);
         }
 
-        log_info("Spawned %s (%s) as PID " PID_FMT ".", child, joined, child_pid);
+        log_info("Spawned '%s' as PID " PID_FMT ".", joined, child_pid);
         return 0;
 }
 
-static int do_accept(const char *name, char **argv, int fd) {
+static int do_accept(char * const *argv, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
         _cleanup_close_ int fd_accepted = -EBADF;
 
@@ -253,18 +271,18 @@ static int do_accept(const char *name, char **argv, int fd) {
         (void) getpeername_pretty(fd_accepted, true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
-        return fork_and_exec_process(name, argv, fd_accepted);
+        return fork_and_exec_process(argv, fd_accepted);
 }
 
 /* SIGCHLD handler. */
 static void sigchld_hdl(int sig) {
+        int r;
+
         PROTECT_ERRNO;
 
         for (;;) {
-                siginfo_t si;
-                int r;
+                siginfo_t si = {};
 
-                si.si_pid = 0;
                 r = waitid(P_ALL, 0, &si, WEXITED | WNOHANG);
                 if (r < 0) {
                         if (errno != ECHILD)
@@ -298,7 +316,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n"
+        printf("%s [OPTIONS...] COMMAND ...\n"
                "\n%sListen on sockets and launch child on connection.%s\n"
                "\nOptions:\n"
                "  -h --help                  Show this help and exit\n"
@@ -310,6 +328,7 @@ static int help(void) {
                "  -E --setenv=NAME[=VALUE]   Pass an environment variable to children\n"
                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
                "     --inetd                 Enable inetd file descriptor passing protocol\n"
+               "     --now                   Start instantly instead of waiting for connection\n"
                "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -326,6 +345,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FDNAME,
                 ARG_SEQPACKET,
                 ARG_INETD,
+                ARG_NOW,
         };
 
         static const struct option options[] = {
@@ -339,6 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "environment", required_argument, NULL, 'E'           }, /* legacy alias */
                 { "fdname",      required_argument, NULL, ARG_FDNAME    },
                 { "inetd",       no_argument,       NULL, ARG_INETD     },
+                { "now",         no_argument,       NULL, ARG_NOW       },
                 {}
         };
 
@@ -419,6 +440,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_inetd = true;
                         break;
 
+                case ARG_NOW:
+                        arg_now = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -436,7 +461,12 @@ static int parse_argv(int argc, char *argv[]) {
                                        "Datagram sockets do not accept connections. "
                                        "The --datagram and --accept options may not be combined.");
 
-        arg_args = argv + optind;
+        if (arg_accept && arg_now)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--now cannot be used in conjunction with --accept.");
+
+        if (arg_fdnames && arg_inetd)
+                log_warning("--fdname= has no effect with --inetd present.");
 
         return 1 /* work to do */;
 }
@@ -452,42 +482,51 @@ static int run(int argc, char **argv) {
         if (r <= 0)
                 return r;
 
-        exec_argv = strv_copy(arg_args);
+        exec_argv = strv_copy(argv + optind);
         if (!exec_argv)
                 return log_oom();
 
         assert(!strv_isempty(exec_argv));
 
-        r = install_chld_handler();
-        if (r < 0)
-                return r;
-
-        n = open_sockets(&epoll_fd, arg_accept);
+        n = open_sockets(&epoll_fd);
         if (n < 0)
                 return n;
         if (n == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No sockets to listen on specified or passed in.");
 
+        /* Notify the caller that all sockets are open now. We only do this in --accept mode however,
+         * since otherwise our process will be replaced and it's better to leave the readiness notify
+         * to the actual payload. */
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify = NULL;
+        if (arg_accept) {
+                r = install_chld_handler();
+                if (r < 0)
+                        return r;
+
+                notify = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
+        }
+
         for (;;) {
                 struct epoll_event event;
 
-                if (epoll_wait(epoll_fd, &event, 1, -1) < 0) {
-                        if (errno == EINTR)
-                                continue;
+                if (epoll_fd >= 0) {
+                        if (epoll_wait(epoll_fd, &event, 1, -1) < 0) {
+                                if (errno == EINTR)
+                                        continue;
 
-                        return log_error_errno(errno, "epoll_wait() failed: %m");
+                                return log_error_errno(errno, "epoll_wait() failed: %m");
+                        }
+
+                        log_info("Communication attempt on fd %i.", event.data.fd);
                 }
 
-                log_info("Communication attempt on fd %i.", event.data.fd);
-                if (arg_accept) {
-                        r = do_accept(exec_argv[0], exec_argv, event.data.fd);
-                        if (r < 0)
-                                return r;
-                } else
-                        break;
-        }
+                if (!arg_accept)
+                        return exec_process(exec_argv, SD_LISTEN_FDS_START, (size_t) n);
 
-        return exec_process(exec_argv[0], exec_argv, SD_LISTEN_FDS_START, (size_t) n);
+                r = do_accept(exec_argv, event.data.fd);
+                if (r < 0)
+                        return r;
+        }
 }
 
 DEFINE_MAIN_FUNCTION(run);

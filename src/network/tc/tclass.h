@@ -2,12 +2,8 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "conf-parser.h"
+#include "networkd-forward.h"
 #include "networkd-util.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Network Network;
 
 typedef enum TClassKind {
         TCLASS_KIND_DRR,
@@ -77,7 +73,3 @@ DEFINE_SECTION_CLEANUP_FUNCTIONS(TClass, tclass_unref);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tclass_parent);
 CONFIG_PARSER_PROTOTYPE(config_parse_tclass_classid);
-
-#include "drr.h"
-#include "htb.h"
-#include "qfq.h"

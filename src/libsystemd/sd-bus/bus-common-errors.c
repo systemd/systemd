@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "sd-bus.h"
 
 #include "bus-common-errors.h"
@@ -27,6 +25,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_UNIT_GENERATED,               EADDRNOTAVAIL),
         SD_BUS_ERROR_MAP(BUS_ERROR_UNIT_LINKED,                  ELOOP),
         SD_BUS_ERROR_MAP(BUS_ERROR_JOB_TYPE_NOT_APPLICABLE,      EBADR),
+        SD_BUS_ERROR_MAP(BUS_ERROR_CONCURRENCY_LIMIT_REACHED,    ETOOMANYREFS),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_ISOLATION,                 EPERM),
         SD_BUS_ERROR_MAP(BUS_ERROR_SHUTTING_DOWN,                ECANCELED),
         SD_BUS_ERROR_MAP(BUS_ERROR_SCOPE_NOT_RUNNING,            EHOSTDOWN),
@@ -85,6 +84,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_STUB_LOOP,                    ELOOP),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_DNSSD_SERVICE,        ENOENT),
         SD_BUS_ERROR_MAP(BUS_ERROR_DNSSD_SERVICE_EXISTS,         EEXIST),
+        SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_DELEGATE,             ENXIO),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_DNS_FORMERR,                  EBADMSG),
         SD_BUS_ERROR_MAP(BUS_ERROR_DNS_SERVFAIL,                 EHOSTDOWN),

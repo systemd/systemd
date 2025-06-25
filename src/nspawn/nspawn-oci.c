@@ -1,28 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/oom.h>
+#include <sys/stat.h>
 
+#include "sd-bus.h"
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "cap-list.h"
+#include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
-#include "format-util.h"
-#include "fs-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
-#include "missing_sched.h"
+#include "nspawn-mount.h"
 #include "nspawn-oci.h"
 #include "path-util.h"
 #include "rlimit-util.h"
-#include "seccomp-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
+#include "time-util.h"
 
 /* TODO:
  * OCI runtime tool implementation
@@ -75,6 +75,18 @@
  * device cgroups matches where minor is specified, but major isn't. similar where major is specified but char/block is not. also, any match that only has a type set that has less than "rwm" set. also, any entry that has none of rwm set.
  *
  */
+
+/* Special values for the cpu.shares attribute */
+#define CGROUP_CPU_SHARES_INVALID UINT64_MAX
+#define CGROUP_CPU_SHARES_MIN UINT64_C(2)
+#define CGROUP_CPU_SHARES_MAX UINT64_C(262144)
+#define CGROUP_CPU_SHARES_DEFAULT UINT64_C(1024)
+
+/* Special values for the blkio.weight attribute */
+#define CGROUP_BLKIO_WEIGHT_INVALID UINT64_MAX
+#define CGROUP_BLKIO_WEIGHT_MIN UINT64_C(10)
+#define CGROUP_BLKIO_WEIGHT_MAX UINT64_C(1000)
+#define CGROUP_BLKIO_WEIGHT_DEFAULT UINT64_C(500)
 
 static int oci_unexpected(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),

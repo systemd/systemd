@@ -6,12 +6,11 @@
 #include "homectl-recovery-key.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
-#include "random-util.h"
 #include "recovery-key.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static int add_privileged(sd_json_variant **v, const char *hashed) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL, *w = NULL, *l = NULL;
@@ -94,6 +93,8 @@ static int add_secret(sd_json_variant **v, const char *password) {
         r = sd_json_variant_set_field(&w, "password", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to update password field: %m");
+
+        sd_json_variant_sensitive(w);
 
         r = sd_json_variant_set_field(v, "secret", w);
         if (r < 0)

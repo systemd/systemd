@@ -1,9 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "fd-util.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
+#include "log.h"
 #include "offline-passwd.h"
 #include "path-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(uid_gid_hash_ops, char, string_hash_func, string_compare_func, free);

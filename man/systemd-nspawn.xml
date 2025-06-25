@@ -1857,6 +1857,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
     </variablelist>
    </refsect2>
   </refsect1>
@@ -1901,12 +1902,14 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
       <programlisting># dnf -y --releasever=&fedora_latest_version; --installroot=/var/lib/machines/f&fedora_latest_version; \
-      --repo=fedora --repo=updates --setopt=install_weak_deps=False install \
-      passwd dnf fedora-release vim-minimal util-linux systemd systemd-networkd
+      --use-host-config --setopt=install_weak_deps=0 \
+      --repo=fedora --repo=updates install \
+      passwd dnf fedora-release nano util-linux systemd systemd-networkd
 # systemd-nspawn -bD /var/lib/machines/f&fedora_latest_version;</programlisting>
 
-      <para>This installs a minimal Fedora distribution into the
-      directory <filename index="false">/var/lib/machines/f&fedora_latest_version;</filename>
+      <para>(Omit <parameter>--use-host-config</parameter> when using <command>dnf</command> &lt;= 4.)
+      This installs a minimal Fedora distribution into the directory
+      <filename index="false">/var/lib/machines/f&fedora_latest_version;</filename>
       and then boots that OS in a namespace container. Because the installation
       is located underneath the standard <filename>/var/lib/machines/</filename>
       directory, it is also possible to start the machine using

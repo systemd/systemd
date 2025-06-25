@@ -3,7 +3,7 @@
 
 #include "sd-varlink.h"
 
-#include "machine.h"
+#include "machine-forward.h"
 
 #define VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE           "io.systemd.Machine.NoSuchMachine"
 #define VARLINK_ERROR_MACHINE_EXISTS                    "io.systemd.Machine.MachineExists"

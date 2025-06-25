@@ -2,16 +2,11 @@
 #pragma once
 
 #if HAVE_SECCOMP
-#include <seccomp.h>
+#include <seccomp.h> /* IWYU pragma: export */
 #endif
-#include <stdbool.h>
-#include <stdint.h>
 
-#include "errno-list.h"
 #include "errno-util.h"
-#include "parse-util.h"
-#include "set.h"
-#include "string-util.h"
+#include "forward.h"
 
 #if HAVE_SECCOMP
 
@@ -164,18 +159,6 @@ enum {
         SECCOMP_ERROR_NUMBER_KILL = INT_MAX - 1,
 };
 
-static inline bool seccomp_errno_or_action_is_valid(int n) {
-        return n == SECCOMP_ERROR_NUMBER_KILL || errno_is_valid(n);
-}
-
-static inline int seccomp_parse_errno_or_action(const char *p) {
-        if (streq_ptr(p, "kill"))
-                return SECCOMP_ERROR_NUMBER_KILL;
-        return parse_errno(p);
-}
-
-static inline const char* seccomp_errno_or_action_to_string(int num) {
-        if (num == SECCOMP_ERROR_NUMBER_KILL)
-                return "kill";
-        return errno_to_name(num);
-}
+bool seccomp_errno_or_action_is_valid(int n) _const_;
+int seccomp_parse_errno_or_action(const char *p) _pure_;
+const char* seccomp_errno_or_action_to_string(int num) _const_;

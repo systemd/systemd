@@ -17,14 +17,10 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <stdarg.h>
-#include <sys/types.h>
-
+#include "_sd-common.h"
 #include "sd-event.h"
 #include "sd-json.h"
 #include "sd-varlink-idl.h"
-
-#include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -72,6 +68,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_server_flags_t) {
         SD_VARLINK_SERVER_INPUT_SENSITIVE         = 1 << 4, /* Automatically mark all connection input as sensitive */
         SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT  = 1 << 5, /* Allow receiving fds over all connections */
         SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT = 1 << 6, /* Allow sending fds over all connections */
+        SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT = 1 << 7, /* Reject input messages with fds if fd passing is disabled (needs kernel v6.16+) */
         _SD_ENUM_FORCE_S64(SD_VARLINK_SERVER)
 } sd_varlink_server_flags_t;
 
@@ -184,7 +181,7 @@ int sd_varlink_get_current_method(sd_varlink *v, const char **ret);
 int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **ret);
 
 /* Parsing incoming data via json_dispatch() and generate a nice error on parse errors */
-int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field table[], void *userdata);
+int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field dispatch_table[], void *userdata);
 
 /* Write outgoing fds into the socket (to be associated with the next enqueued message) */
 int sd_varlink_push_fd(sd_varlink *v, int fd);
@@ -243,7 +240,7 @@ int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd);
 int sd_varlink_server_listen_auto(sd_varlink_server *s);
 int sd_varlink_server_listen_name(sd_varlink_server *s, const char *name);
 int sd_varlink_server_add_connection(sd_varlink_server *s, int fd, sd_varlink **ret);
-int sd_varlink_server_add_connection_pair(sd_varlink_server *s, int input_fd, int output_fd, const struct ucred *ucred_override, sd_varlink **ret);
+int sd_varlink_server_add_connection_pair(sd_varlink_server *s, int input_fd, int output_fd, const struct ucred *override_ucred, sd_varlink **ret);
 int sd_varlink_server_add_connection_stdio(sd_varlink_server *s, sd_varlink **ret);
 
 /* Bind callbacks */

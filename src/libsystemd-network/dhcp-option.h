@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
-
-#include "sd-dhcp-option.h"
-#include "dns-resolver-internal.h"
+#include "sd-dhcp-option.h" /* IWYU pragma: export */
 
 #include "dhcp-protocol.h"
+#include "forward.h"
 #include "hash-funcs.h"
 
 struct sd_dhcp_option {

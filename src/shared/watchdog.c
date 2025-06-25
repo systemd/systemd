@@ -1,21 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
+#include <linux/watchdog.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <linux/watchdog.h>
 
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "path-util.h"
+#include "ratelimit.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "watchdog.h"
 
@@ -201,6 +204,15 @@ static int watchdog_set_pretimeout(void) {
 
 usec_t watchdog_get_last_ping(clockid_t clock) {
         return map_clock_usec(watchdog_last_good_ping, CLOCK_BOOTTIME, clock);
+}
+
+dual_timestamp* watchdog_get_last_ping_as_dual_timestamp(dual_timestamp *ret) {
+        assert(ret);
+
+        ret->monotonic = watchdog_get_last_ping(CLOCK_MONOTONIC);
+        ret->realtime = watchdog_get_last_ping(CLOCK_REALTIME);
+
+        return ret;
 }
 
 static int watchdog_ping_now(void) {

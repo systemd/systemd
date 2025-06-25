@@ -1003,16 +1003,39 @@ testcase_12_resolvectl2() {
     {
         echo "[Resolve]"
         echo "DNS=8.8.8.8"
+        echo "DNSStubListenerExtra=127.0.0.153"
     } >/run/systemd/resolved.conf.d/reload.conf
     resolvectl dns dns0 1.1.1.1
     systemctl reload systemd-resolved.service
     resolvectl status
-    resolvectl dns dns0 | grep -qF "1.1.1.1"
-    # For some reason piping this last command to grep fails with:
-    # 'resolvectl[1378]: Failed to print table: Broken pipe'
-    # so use an intermediate file in /tmp/
-    resolvectl >/tmp/output
-    grep -qF "DNS Servers: 8.8.8.8" /tmp/output
+
+    run resolvectl dns dns0
+    grep -qF "1.1.1.1" "$RUN_OUT"
+
+    run resolvectl dns
+    grep -qF "8.8.8.8" "$RUN_OUT"
+
+    run ss -4nl
+    grep -qF '127.0.0.153' "$RUN_OUT"
+
+    {
+        echo "[Resolve]"
+        echo "DNS=8.8.4.4"
+        echo "DNSStubListenerExtra=127.0.0.154"
+    } >/run/systemd/resolved.conf.d/reload.conf
+    systemctl reload systemd-resolved.service
+    resolvectl status
+
+    run resolvectl dns dns0
+    grep -qF "1.1.1.1" "$RUN_OUT"
+
+    run resolvectl dns
+    (! grep -qF "8.8.8.8" "$RUN_OUT")
+    grep -qF "8.8.4.4" "$RUN_OUT"
+
+    run ss -4nl
+    (! grep -qF '127.0.0.153' "$RUN_OUT")
+    grep -qF '127.0.0.154' "$RUN_OUT"
 
     # Check if resolved exits cleanly.
     restart_resolved
@@ -1120,13 +1143,25 @@ testcase_14_refuse_record_types() {
     run dig localhost -t AAAA
     grep -qF "status: REFUSED" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
     run dig localhost -t SRV
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost @127.0.0.54 -t SRV
     grep -qF "status: REFUSED" "$RUN_OUT"
 
     run dig localhost -t TXT
     grep -qF "status: REFUSED" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t TXT
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
     run dig localhost -t A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    run dig localhost @127.0.0.54 -t A
     grep -qF "status: NOERROR" "$RUN_OUT"
 
     run resolvectl query localhost5
@@ -1157,10 +1192,19 @@ testcase_14_refuse_record_types() {
     run dig localhost -t SRV
     grep -qF "status: NOERROR" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t SRV
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
     run dig localhost -t TXT
     grep -qF "status: NOERROR" "$RUN_OUT"
 
+    run dig localhost @127.0.0.54 -t TXT
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
     run dig localhost -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost @127.0.0.54 -t AAAA
     grep -qF "status: REFUSED" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=SRV)
@@ -1239,6 +1283,108 @@ testcase_14_refuse_record_types() {
 
     (! run resolvectl service _mysvc._tcp signed.test)
     (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}')
+}
+
+# Test systemd-networkd-wait-online interactions with systemd-resolved
+testcase_15_wait_online_dns() {
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        echo "===== journalctl -u $unit ====="
+        journalctl -b --no-pager --no-hostname --full -u "$unit"
+        echo "=========="
+        rm -f "$override"
+        restart_resolved
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN ERR
+
+    local unit
+    local override
+
+    unit="wait-online-dns-$(systemd-id128 new -u).service"
+    override="/run/systemd/resolved.conf.d/90-global-dns.conf"
+
+    # Clear global and per-interface DNS before monitoring the configuration change.
+    mkdir -p "$(dirname "$override")"
+    {
+        echo "[Resolve]"
+        echo "DNS="
+        echo "FallbackDNS="
+    } > "$override"
+    systemctl reload systemd-resolved.service
+    resolvectl dns dns0 ""
+    resolvectl domain dns0 ""
+
+    # Stop systemd-resolved before calling systemd-networkd-wait-online. It should retry connections.
+    systemctl stop systemd-resolved.service
+
+    # Begin systemd-networkd-wait-online --dns
+    systemd-run -u "$unit" -p "Environment=SYSTEMD_LOG_LEVEL=debug" -p "Environment=SYSTEMD_LOG_TARGET=journal" --service-type=exec \
+        /usr/lib/systemd/systemd-networkd-wait-online --timeout=20 --dns --interface=dns0
+
+    # Wait until it blocks waiting for updated DNS config
+    timeout 10 bash -c "journalctl -b -u $unit -f | grep -q -m1 'dns0: No.*DNS server is accessible'"
+
+    # Update the global configuration. Restart rather than reload systemd-resolved so that
+    # systemd-networkd-wait-online has to re-connect to the varlink service.
+    {
+        echo "[Resolve]"
+        echo "DNS=10.0.0.1"
+    } > "$override"
+    systemctl restart systemd-resolved.service
+
+    # Wait for the monitor to exit gracefully.
+    timeout 10 bash -c "while systemctl --quiet is-active $unit; do sleep 0.5; done"
+    journalctl --sync
+
+    # Check that a disconnect happened, and was handled.
+    journalctl -b -u "$unit" --grep="DNS configuration monitor disconnected, reconnecting..." > /dev/null
+
+    # Check that dns0 was found to be online.
+    journalctl -b -u "$unit" --grep="dns0: link is configured by networkd and online." > /dev/null
+}
+
+testcase_delegate() {
+    # Before we install the delegation file the DNS name should be directly resolveable via our DNS server
+    run resolvectl query delegation.excercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
+
+    mkdir -p /run/systemd/dns-delegate.d/
+    cat >/run/systemd/dns-delegate.d/testcase.dns-delegate <<EOF
+[Delegate]
+DNS=192.168.77.78
+Domains=excercise.test
+EOF
+    systemctl reload systemd-resolved
+    resolvectl status
+
+    # Now that we installed the delegation the resolution should fail, because nothing is listening on that IP address
+    (! resolvectl query delegation.excercise.test)
+
+    # Now make that IP address connectible
+    ip link add delegate0 type dummy
+    ip addr add 192.168.77.78 dev delegate0
+
+    # This should work now
+    run resolvectl query delegation.excercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
+
+    ip link del delegate0
+
+    # Let's restart here, as a way to ensure the rtnetlink delete is definitely processed.
+    systemctl restart systemd-resolved
+
+    # Should no longer work
+    (! resolvectl query delegation.excercise.test)
+
+    rm /run/systemd/dns-delegate.d/testcase.dns-delegate
+    systemctl reload systemd-resolved
+
+    # Should work again without delegation in the mix
+    run resolvectl query delegation.excercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
 }
 
 # PRE-SETUP

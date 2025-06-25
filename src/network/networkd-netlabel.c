@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "escape.h"
+#include "sd-netlink.h"
+
+#include "missing_network.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-netlabel.h"
-#include "networkd-network.h"
 
 static int netlabel_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;

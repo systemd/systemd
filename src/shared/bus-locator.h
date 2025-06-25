@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
+#include "forward.h"
 
 typedef struct BusLocator {
         const char *destination;
@@ -26,13 +26,13 @@ extern const BusLocator* const bus_timesync_mgr;
 
 /* Shorthand flavors of the sd-bus convenience helpers with destination,path,interface strings encapsulated
  * within a single struct. */
-int bus_call_method_async(sd_bus *bus, sd_bus_slot **slot, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, ...);
-int bus_call_method(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *types, ...);
-int bus_get_property(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *type);
-int bus_get_property_trivial(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, char type, void *ptr);
-int bus_get_property_string(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, char **ret);
-int bus_get_property_strv(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, char ***ret);
-int bus_set_property(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, const char *type, ...);
-int bus_match_signal(sd_bus *bus, sd_bus_slot **ret, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, void *userdata);
-int bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, sd_bus_message_handler_t install_callback, void *userdata);
-int bus_message_new_method_call(sd_bus *bus, sd_bus_message **m, const BusLocator *locator, const char *member);
+int bus_call_method_async(sd_bus *bus, sd_bus_slot **ret_slot, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, ...);
+int bus_call_method(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *reterr_error, sd_bus_message **ret_reply, const char *types, ...);
+int bus_get_property(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *reterr_error, sd_bus_message **ret_reply, const char *type);
+int bus_get_property_trivial(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *reterr_error, char type, void *ret);
+int bus_get_property_string(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *reterr_error, char **ret);
+int bus_get_property_strv(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *reterr_error, char ***ret);
+int bus_set_property(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *reterr_error, const char *type, ...);
+int bus_match_signal(sd_bus *bus, sd_bus_slot **ret_slot, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, void *userdata);
+int bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret_slot, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, sd_bus_message_handler_t install_callback, void *userdata);
+int bus_message_new_method_call(sd_bus *bus, sd_bus_message **ret, const BusLocator *locator, const char *member);

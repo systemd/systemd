@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "cryptsetup-util.h"
-#include "homework.h"
-#include "user-record.h"
+#include "homework-forward.h"
 
 int home_setup_luks(UserRecord *h, HomeSetupFlags flags, const char *force_image_path, HomeSetup *setup, PasswordCache *cache, UserRecord **ret_luks_home);
 
@@ -26,19 +24,7 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
 
 int home_auto_shrink_luks(UserRecord *h, HomeSetup *setup, PasswordCache *cache);
 
-static inline uint64_t luks_volume_key_size_convert(struct crypt_device *cd) {
-        int k;
-
-        assert(cd);
-
-        /* Convert the "int" to uint64_t, which we usually use for byte sizes stored on disk. */
-
-        k = sym_crypt_get_volume_key_size(cd);
-        if (k <= 0)
-                return UINT64_MAX;
-
-        return (uint64_t) k;
-}
+uint64_t luks_volume_key_size_convert(struct crypt_device *cd);
 
 int run_fitrim(int root_fd);
 int run_fallocate(int backing_fd, const struct stat *st);

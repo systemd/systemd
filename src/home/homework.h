@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/vfs.h>
+#include <linux/fscrypt.h>
 
 #include "sd-id128.h"
 
-#include "cryptsetup-util.h"
-#include "homework-password-cache.h"
-#include "loop-util.h"
-#include "missing_fs.h"
+#include "homework-forward.h"
 #include "missing_keyctl.h"
-#include "missing_syscall.h"
-#include "user-record.h"
 #include "user-record-util.h"
 
 typedef struct HomeSetup {

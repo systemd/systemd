@@ -1,34 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <endian.h>
 #include <linux/nl80211.h>
 
-#include "sd-bus.h"
-#include "sd-device.h"
-#include "sd-dhcp-client.h"
-#include "sd-dhcp-server.h"
-#include "sd-dhcp6-client.h"
-#include "sd-ipv4acd.h"
-#include "sd-ipv4ll.h"
-#include "sd-lldp-rx.h"
-#include "sd-lldp-tx.h"
-#include "sd-ndisc.h"
-#include "sd-radv.h"
-#include "sd-netlink.h"
-
 #include "ether-addr-util.h"
-#include "log-link.h"
-#include "netdev.h"
-#include "netif-util.h"
+#include "forward.h"
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
+#include "networkd-forward.h"
 #include "networkd-ipv6ll.h"
-#include "networkd-util.h"
-#include "ordered-set.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
-#include "set.h"
 
 typedef enum LinkState {
         LINK_STATE_PENDING,     /* udev has not initialized the link */
@@ -46,11 +28,6 @@ typedef enum LinkReconfigurationFlag {
         LINK_RECONFIGURE_UNCONDITIONALLY = 1 << 0, /* Reconfigure an interface even if .network file is unchanged. */
         LINK_RECONFIGURE_CLEANLY         = 1 << 1, /* Drop all existing configs before reconfiguring. Otherwise, reuse existing configs as possible as we can. */
 } LinkReconfigurationFlag;
-
-typedef struct Manager Manager;
-typedef struct Network Network;
-typedef struct NetDev NetDev;
-typedef struct DUID DUID;
 
 typedef struct Link {
         Manager *manager;
@@ -222,6 +199,8 @@ typedef struct Link {
         char **ntp;
 } Link;
 
+extern const struct hash_ops link_hash_ops;
+
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
 
 bool link_is_ready_to_configure(Link *link, bool allow_unmanaged);
@@ -249,10 +228,7 @@ void link_check_ready(Link *link);
 
 void link_update_operstate(Link *link, bool also_update_bond_master);
 
-static inline bool link_has_carrier(Link *link) {
-        assert(link);
-        return netif_has_carrier(link->kernel_operstate, link->flags);
-}
+bool link_has_carrier(Link *link);
 
 bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);

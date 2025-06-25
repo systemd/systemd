@@ -1,17 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <nss.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
-#include "macro.h"
 #include "nss-util.h"
 #include "resolve-util.h"
 #include "signal-util.h"

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <sys/reboot.h>
 #include <unistd.h>
 
@@ -11,23 +12,30 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "chase.h"
 #include "dropin.h"
 #include "env-util.h"
 #include "exit-status.h"
-#include "fs-util.h"
+#include "format-table.h"
+#include "format-util.h"
 #include "glob-util.h"
-#include "macro.h"
+#include "install.h"
+#include "output-mode.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "process-util.h"
 #include "reboot-util.h"
+#include "runtime-scope.h"
 #include "set.h"
-#include "stat-util.h"
-#include "systemctl-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
-#include "terminal-util.h"
+#include "systemctl-util.h"
+#include "unit-file.h"
+#include "unit-name.h"
 #include "verbs.h"
 
 static sd_bus *buses[_BUS_FOCUS_MAX] = {};
@@ -569,15 +577,14 @@ int unit_find_paths(
                                 return log_error_errno(r, "Failed to get DropInPaths: %s", bus_error_message(&error, r));
                 }
         } else {
-                const char *_path;
-                _cleanup_set_free_free_ Set *names = NULL;
-
                 if (!*cached_name_map) {
                         r = unit_file_build_name_map(lp, NULL, cached_id_map, cached_name_map, NULL);
                         if (r < 0)
                                 return r;
                 }
 
+                const char *_path;
+                _cleanup_set_free_ Set *names = NULL;
                 r = unit_file_find_fragment(*cached_id_map, *cached_name_map, unit_name, &_path, &names);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find fragment for '%s': %m", unit_name);

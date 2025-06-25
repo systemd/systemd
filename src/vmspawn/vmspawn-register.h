@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-bus.h"
-#include "sd-id128.h"
+#include "forward.h"
 
 int register_machine(
                 sd_bus *bus,

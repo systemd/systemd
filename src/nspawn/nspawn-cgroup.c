@@ -1,21 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "cgroup-setup.h"
 #include "chase.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "fs-util.h"
-#include "mkdir.h"
+#include "log.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nspawn-cgroup.h"
 #include "nsresource.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "string-util.h"
+#include "strv.h"
 
 static int chown_cgroup_path(const char *path, uid_t uid_shift) {
         _cleanup_close_ int fd = -EBADF;
@@ -44,7 +46,7 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
 }
 
 int create_subcgroup(
-                pid_t pid,
+                const PidRef *pid,
                 bool keep_unit,
                 uid_t uid_shift,
                 int userns_fd,
@@ -54,7 +56,8 @@ int create_subcgroup(
         CGroupMask supported;
         int r;
 
-        assert(pid > 1);
+        assert(pidref_is_set(pid));
+        assert(pid->pid > 1);
         assert((userns_fd >= 0) == (userns_mode == USER_NAMESPACE_MANAGED));
 
         /* In the unified hierarchy inner nodes may only contain subgroups, but not processes. Hence, if we running in
@@ -74,7 +77,7 @@ int create_subcgroup(
         if (keep_unit)
                 r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
         else
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
         if (r < 0)
                 return log_error_errno(r, "Failed to get our control group: %m");
 
@@ -88,9 +91,9 @@ int create_subcgroup(
                 return log_oom();
 
         if (userns_mode != USER_NAMESPACE_MANAGED)
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, payload, pid);
+                r = cg_create_and_attach(payload, pid->pid);
         else
-                r = cg_create(SYSTEMD_CGROUP_CONTROLLER, payload);
+                r = cg_create(payload);
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s subcgroup: %m", payload);
 
@@ -101,9 +104,9 @@ int create_subcgroup(
                 if (cgroup_fd < 0)
                         return log_error_errno(cgroup_fd, "Failed to open cgroup %s: %m", payload);
 
-                r = cg_fd_attach(cgroup_fd, pid);
+                r = cg_fd_attach(cgroup_fd, pid->pid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add process " PID_FMT " to cgroup %s: %m", pid, payload);
+                        return log_error_errno(r, "Failed to add process " PID_FMT " to cgroup %s: %m", pid->pid, payload);
 
                 r = nsresource_add_cgroup(userns_fd, cgroup_fd);
                 if (r < 0)
@@ -125,13 +128,13 @@ int create_subcgroup(
                 if (!supervisor)
                         return log_oom();
 
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, supervisor, 0);
+                r = cg_create_and_attach(supervisor, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create %s subcgroup: %m", supervisor);
         }
 
         /* Try to enable as many controllers as possible for the new payload. */
-        (void) cg_enable_everywhere(supported, supported, cgroup, NULL);
+        (void) cg_enable(supported, supported, cgroup, NULL);
         return 0;
 }
 

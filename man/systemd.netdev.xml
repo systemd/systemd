@@ -1112,7 +1112,7 @@ Ports=eth2</programlisting>
       <varlistentry>
         <term><varname>MinSourcePort=</varname></term>
         <listitem>
-          <para>Specifies the lowest value of the UDP tunnel source UDP port (in range 1…65535).
+          <para>Specifies the lowest value of the UDP tunnel source port (in range 1…65535).
           Defaults to unset.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/>
@@ -1654,12 +1654,61 @@ Ports=eth2</programlisting>
       <varlistentry>
         <term><varname>Mode=</varname></term>
         <listitem>
-          <para>An <literal>ip6tnl</literal> tunnel can be in one of three
-          modes
-          <literal>ip6ip6</literal> for IPv6 over IPv6,
-          <literal>ipip6</literal> for IPv4 over IPv6 or
-          <literal>any</literal> for either.
-          </para>
+          <para>Specifies the tunnel mode. Acceptable values depend on the tunnel kind.</para>
+
+          <table>
+            <title>Supported tunnel modes</title>
+
+            <tgroup cols='3'>
+              <colspec colname='kind' />
+              <colspec colname='mode' />
+              <colspec colname='explanation' />
+              <thead>
+                <row>
+                  <entry>Kind</entry>
+                  <entry>Mode</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry morerows="1"><literal>ipip</literal></entry>
+                  <entry><literal>ipip</literal></entry>
+                  <entry>IPv4 over IPv4 (default)</entry>
+                </row>
+                <row>
+                  <entry><literal>any</literal></entry>
+                  <entry>both IPv4 and IPv6 over IPv4</entry>
+                </row>
+                <row>
+                  <entry morerows="2"><literal>sit</literal></entry>
+                  <entry><literal>ipip</literal></entry>
+                  <entry>IPv4 over IPv4</entry>
+                </row>
+                <row>
+                  <entry><literal>ip6ip</literal></entry>
+                  <entry>IPv6 over IPv4 (default)</entry>
+                </row>
+                <row>
+                  <entry><literal>any</literal></entry>
+                  <entry>both IPv4 and IPv6 over IPv4</entry>
+                </row>
+                <row>
+                  <entry morerows="2"><literal>ip6tnl</literal></entry>
+                  <entry><literal>ipip6</literal></entry>
+                  <entry>IPv4 over IPv6</entry>
+                </row>
+                <row>
+                  <entry><literal>ip6ip6</literal></entry>
+                  <entry>IPv6 over IPv6</entry>
+                </row>
+                <row>
+                  <entry><literal>any</literal></entry>
+                  <entry>both IPv4 and IPv6 over IPv6 (default)</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
 
         <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
@@ -1970,16 +2019,16 @@ Ports=eth2</programlisting>
       </varlistentry>
       <varlistentry>
         <term><varname>User=</varname></term>
-        <listitem><para>User to grant access to the
-        <filename>/dev/net/tun</filename> device.</para>
+        <listitem><para>User to grant access to the <filename>/dev/net/tun</filename> device. The specified
+        user must be a system user.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Group=</varname></term>
-        <listitem><para>Group to grant access to the
-        <filename>/dev/net/tun</filename> device.</para>
+        <listitem><para>Group to grant access to the <filename>/dev/net/tun</filename> device. The specified
+        group must be a system group.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>

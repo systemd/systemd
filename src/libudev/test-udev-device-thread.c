@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "libudev.h"
+
 #include "tests.h"
 
 #define handle_error_errno(error, msg)                          \
         ({                                                      \
-                errno = abs(error);                             \
+                errno = ABS(error);                             \
                 perror(msg);                                    \
                 EXIT_FAILURE;                                   \
         })

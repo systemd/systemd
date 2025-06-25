@@ -1,23 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <linux/prctl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
 
 #include "sd-event.h"
 
+#include "argv-util.h"
 #include "build-path.h"
 #include "capability-util.h"
-#include "cpu-set-util.h"
 #include "copy.h"
+#include "cpu-set-util.h"
 #include "dropin.h"
 #include "errno-list.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "manager.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -27,11 +29,11 @@
 #include "seccomp-util.h"
 #include "service.h"
 #include "signal-util.h"
-#include "static-destruct.h"
 #include "stat-util.h"
+#include "static-destruct.h"
+#include "strv.h"
 #include "sysctl-util.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"
@@ -490,6 +492,24 @@ static void test_exec_privatetmp(Manager *m) {
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
                 test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
                 test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+                (void) unlink("/tmp/test-exec_privatetmp_disconnected");
+                test(m, "exec-privatetmp-disconnected-nodefaultdeps-nor-sandboxing.service", 0, CLD_EXITED);
+                ASSERT_OK_ERRNO(access("/tmp/test-exec_privatetmp_disconnected", F_OK));
+
+                FOREACH_STRING(s,
+                               "exec-privatetmp-disconnected.service",
+                               "exec-privatetmp-disconnected-defaultdependencies-no.service",
+                               "exec-privatetmp-disconnected-requires-mounts-for-var.service",
+                               "exec-privatetmp-disconnected-wants-mounts-for-var.service",
+                               "exec-privatetmp-disconnected-after-and-requires-for-var.service",
+                               "exec-privatetmp-disconnected-after-and-wants-for-var.service") {
+                        (void) unlink("/tmp/test-exec_privatetmp_disconnected");
+                        (void) unlink("/var/tmp/test-exec_privatetmp_disconnected");
+                        test(m, s, can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+                        ASSERT_FAIL(access("/tmp/test-exec_privatetmp_disconnected", F_OK));
+                        ASSERT_FAIL(access("/var/tmp/test-exec_privatetmp_disconnected", F_OK));
+                }
         }
 
         test(m, "exec-privatetmp-no.service", 0, CLD_EXITED);

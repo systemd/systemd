@@ -1,7 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "terminal-util.h"
+#include "forward.h"
+
+/* Limits the use of ANSI colors to a subset. */
+typedef enum ColorMode {
+        COLOR_OFF,   /* No colors, monochrome output. */
+        COLOR_16,    /* Only the base 16 colors. */
+        COLOR_256,   /* Only 256 colors. */
+        COLOR_24BIT, /* For truecolor or 24bit color support, no restriction. */
+        _COLOR_MODE_MAX,
+        _COLOR_MODE_INVALID = -EINVAL,
+} ColorMode;
+
+const char* color_mode_to_string(ColorMode m) _const_;
+ColorMode color_mode_from_string(const char *s) _pure_;
+
+ColorMode get_color_mode(void);
+static inline bool colors_enabled(void) {
+        /* Returns true if colors are considered supported on our stdout. */
+        return get_color_mode() != COLOR_OFF;
+}
+
+ColorMode parse_systemd_colors(void);
+
+bool underline_enabled(void);
+
+void reset_ansi_feature_caches(void);
 
 /* Regular colors */
 #define ANSI_BLACK   "\x1B[0;30m" /* Some type of grey usually. */

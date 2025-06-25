@@ -62,7 +62,13 @@ def setUpModule():
         raise unittest.SkipTest('not virtualized and networkd is already active')
 
     # Ensure we don't mess with an existing networkd config
-    for u in ['systemd-networkd.socket', 'systemd-networkd', 'systemd-resolved']:
+    for u in [
+        'systemd-networkd.socket',
+        'systemd-networkd',
+        'systemd-resolved-varlink.socket',
+        'systemd-resolved-monitor.socket',
+        'systemd-resolved',
+    ]:
         if subprocess.call(['systemctl', 'is-active', '--quiet', u]) == 0:
             subprocess.call(['systemctl', 'stop', u])
             running_units.append(u)

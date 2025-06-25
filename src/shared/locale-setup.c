@@ -1,16 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
-#include "env-file-label.h"
+#include "alloc-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "locale-setup.h"
+#include "log.h"
 #include "proc-cmdline.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 void locale_context_clear(LocaleContext *c) {
@@ -64,11 +67,11 @@ static int locale_context_load_conf(LocaleContext *c, LocaleLoadFlag flag) {
         if (!FLAGS_SET(flag, LOCALE_LOAD_LOCALE_CONF))
                 return 0;
 
-        fd = RET_NERRNO(open("/etc/locale.conf", O_CLOEXEC | O_PATH));
+        fd = RET_NERRNO(open(etc_locale_conf(), O_CLOEXEC | O_PATH));
         if (fd == -ENOENT)
                 return 0;
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open /etc/locale.conf: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/etc/locale.conf");
 
         if (fstat(fd, &st) < 0)
                 return log_debug_errno(errno, "Failed to stat /etc/locale.conf: %m");
@@ -80,7 +83,7 @@ static int locale_context_load_conf(LocaleContext *c, LocaleLoadFlag flag) {
         c->st = st;
         locale_context_clear(c);
 
-        r = parse_env_file_fd(fd, "/etc/locale.conf",
+        r = parse_env_file_fd(fd, etc_locale_conf(),
                               "LANG",              &c->locale[VARIABLE_LANG],
                               "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
                               "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
@@ -196,7 +199,7 @@ int locale_context_save(LocaleContext *c, char ***ret_set, char ***ret_unset) {
                 return r;
 
         if (strv_isempty(set)) {
-                if (unlink("/etc/locale.conf") < 0)
+                if (unlink(etc_locale_conf()) < 0)
                         return errno == ENOENT ? 0 : -errno;
 
                 c->st = (struct stat) {};
@@ -208,11 +211,16 @@ int locale_context_save(LocaleContext *c, char ***ret_set, char ***ret_unset) {
                 return 0;
         }
 
-        r = write_env_file_label(AT_FDCWD, "/etc/locale.conf", NULL, set);
+        r = write_env_file(
+                        AT_FDCWD,
+                        etc_locale_conf(),
+                        /* headers= */ NULL,
+                        set,
+                        WRITE_ENV_FILE_LABEL);
         if (r < 0)
                 return r;
 
-        if (stat("/etc/locale.conf", &c->st) < 0)
+        if (stat(etc_locale_conf(), &c->st) < 0)
                 return -errno;
 
         if (ret_set)
@@ -291,4 +299,22 @@ int locale_setup(char ***environment) {
         }
 
         return 0;
+}
+
+const char* etc_locale_conf(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_LOCALE_CONF") ?: "/etc/locale.conf";
+
+        return cached;
+}
+
+const char* etc_vconsole_conf(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_VCONSOLE_CONF") ?: "/etc/vconsole.conf";
+
+        return cached;
 }

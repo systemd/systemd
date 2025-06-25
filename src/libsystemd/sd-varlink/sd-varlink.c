@@ -1,26 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
 #include <poll.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "list.h"
+#include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -40,6 +44,7 @@
 #define VARLINK_BUFFER_MAX (16U*1024U*1024U)
 #define VARLINK_READ_SIZE (64U*1024U)
 #define VARLINK_COLLECT_MAX 1024U
+#define VARLINK_QUEUE_MAX (64U*1024U)
 
 static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_IDLE_CLIENT]              = "idle-client",
@@ -134,12 +139,14 @@ static int varlink_new(sd_varlink **ret) {
 
                 .ucred = UCRED_INVALID,
 
+                .peer_pidfd = -EBADF,
+
                 .timestamp = USEC_INFINITY,
                 .timeout = VARLINK_DEFAULT_TIMEOUT_USEC,
 
-                .af = -1,
+                .allow_fd_passing_input = -1,
 
-                .peer_pidfd = -EBADF,
+                .af = -1,
         };
 
         *ret = v;
@@ -322,15 +329,11 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
         if (!h)
                 return log_oom_debug();
 
-        _cleanup_free_ char *c = strdup(e + 1);
-        if (!c)
-                return log_oom_debug();
-
-        if (!path_is_absolute(c))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote AF_UNIX socket path is not absolute, refusing: %s", c);
+        if (!path_is_absolute(e + 1))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote AF_UNIX socket path is not absolute, refusing: %s", e + 1);
 
         _cleanup_free_ char *p = NULL;
-        r = path_simplify_alloc(c, &p);
+        r = path_simplify_alloc(e + 1, &p);
         if (r < 0)
                 return r;
 
@@ -630,6 +633,7 @@ static void varlink_clear(sd_varlink *v) {
 
         LIST_CLEAR(queue, v->output_queue, varlink_json_queue_item_free);
         v->output_queue_tail = NULL;
+        v->n_output_queue = 0;
 
         v->event = sd_event_unref(v->event);
 
@@ -847,7 +851,7 @@ static int varlink_read(sd_varlink *v) {
         p = v->input_buffer + v->input_buffer_index + v->input_buffer_size;
         rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
 
-        if (v->allow_fd_passing_input) {
+        if (v->allow_fd_passing_input > 0) {
                 iov = IOVEC_MAKE(p, rs);
 
                 /* Allocate the fd buffer on the heap, since we need a lot of space potentially */
@@ -891,14 +895,14 @@ static int varlink_read(sd_varlink *v) {
                 return n;
         if (n == 0) { /* EOF */
 
-                if (v->allow_fd_passing_input)
+                if (v->allow_fd_passing_input > 0)
                         cmsg_close_all(&mh);
 
                 v->read_disconnected = true;
                 return 1;
         }
 
-        if (v->allow_fd_passing_input) {
+        if (v->allow_fd_passing_input > 0) {
                 struct cmsghdr *cmsg;
 
                 cmsg = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1);
@@ -1945,6 +1949,9 @@ static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
         if (v->n_pushed_fds == 0 && !v->output_queue)
                 return varlink_format_json(v, m);
 
+        if (v->n_output_queue >= VARLINK_QUEUE_MAX)
+                return -ENOBUFS;
+
         /* Otherwise add a queue entry for this */
         q = varlink_json_queue_item_new(m, v->pushed_fds, v->n_pushed_fds);
         if (!q)
@@ -1954,6 +1961,7 @@ static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
 
         LIST_INSERT_AFTER(queue, v->output_queue, v->output_queue_tail, q);
         v->output_queue_tail = q;
+        v->n_output_queue++;
         return 0;
 }
 
@@ -1967,6 +1975,9 @@ static int varlink_format_queue(sd_varlink *v) {
 
         while (v->output_queue) {
                 _cleanup_free_ int *array = NULL;
+
+                assert(v->n_output_queue > 0);
+
                 VarlinkJsonQueueItem *q = v->output_queue;
 
                 if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
@@ -1991,6 +2002,7 @@ static int varlink_format_queue(sd_varlink *v) {
                 LIST_REMOVE(queue, v->output_queue, q);
                 if (!v->output_queue)
                         v->output_queue_tail = NULL;
+                v->n_output_queue--;
 
                 varlink_json_queue_item_free(q);
         }
@@ -2763,7 +2775,7 @@ _public_ int sd_varlink_notifyb(sd_varlink *v, ...) {
         return sd_varlink_notify(v, parameters);
 }
 
-_public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field table[], void *userdata) {
+_public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field dispatch_table[], void *userdata) {
         const char *bad_field = NULL;
         int r;
 
@@ -2771,7 +2783,7 @@ _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, con
 
         /* A wrapper around json_dispatch_full() that returns a nice InvalidParameter error if we hit a problem with some field. */
 
-        r = sd_json_dispatch_full(parameters, table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
+        r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
         if (r < 0) {
                 if (bad_field)
                         return sd_varlink_error_invalid_parameter_name(v, bad_field);
@@ -3111,8 +3123,8 @@ _public_ int sd_varlink_push_fd(sd_varlink *v, int fd) {
         if (!v->allow_fd_passing_output)
                 return -EPERM;
 
-        if (v->n_pushed_fds >= INT_MAX)
-                return -ENOMEM;
+        if (v->n_pushed_fds >= SCM_MAX_FD) /* Kernel doesn't support more than 253 fds per message, refuse early hence */
+                return -ENOBUFS;
 
         if (!GREEDY_REALLOC(v->pushed_fds, v->n_pushed_fds + 1))
                 return -ENOMEM;
@@ -3149,7 +3161,7 @@ _public_ int sd_varlink_peek_fd(sd_varlink *v, size_t i) {
         /* Returns one of the file descriptors that were received along with the current message. This does
          * not duplicate the fd nor invalidate it, it hence remains in our possession. */
 
-        if (!v->allow_fd_passing_input)
+        if (v->allow_fd_passing_input <= 0)
                 return -EPERM;
 
         if (i >= v->n_input_fds)
@@ -3175,7 +3187,7 @@ _public_ int sd_varlink_take_fd(sd_varlink *v, size_t i) {
          * we'll invalidate the reference to it under our possession. If called twice in a row will return
          * -EBADF */
 
-        if (!v->allow_fd_passing_input)
+        if (v->allow_fd_passing_input <= 0)
                 return -EPERM;
 
         if (i >= v->n_input_fds)
@@ -3187,7 +3199,7 @@ _public_ int sd_varlink_take_fd(sd_varlink *v, size_t i) {
 _public_ int sd_varlink_get_n_fds(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
-        if (!v->allow_fd_passing_input)
+        if (v->allow_fd_passing_input <= 0)
                 return -EPERM;
 
         return (int) v->n_input_fds;
@@ -3237,20 +3249,29 @@ _public_ int sd_varlink_set_allow_fd_passing_input(sd_varlink *v, int b) {
 
         assert_return(v, -EINVAL);
 
-        if (v->allow_fd_passing_input == !!b)
+        if (v->allow_fd_passing_input >= 0 && (v->allow_fd_passing_input > 0) == !!b)
                 return 0;
 
-        if (!b) {
-                v->allow_fd_passing_input = false;
-                return 1;
+        r = verify_unix_socket(v);
+        if (r < 0) {
+                assert(v->allow_fd_passing_input <= 0);
+
+                if (!b) {
+                        v->allow_fd_passing_input = false;
+                        return 0;
+                }
+
+                return r;
         }
 
-        r = verify_unix_socket(v);
-        if (r < 0)
-                return r;
+        if (!v->server || FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT)) {
+                r = setsockopt_int(v->input_fd, SOL_SOCKET, SO_PASSRIGHTS, !!b);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_debug_errno(r, "Failed to set SO_PASSRIGHTS socket option: %m");
+        }
 
-        v->allow_fd_passing_input = true;
-        return 0;
+        v->allow_fd_passing_input = !!b;
+        return 1;
 }
 
 _public_ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b) {
@@ -3261,17 +3282,12 @@ _public_ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b) {
         if (v->allow_fd_passing_output == !!b)
                 return 0;
 
-        if (!b) {
-                v->allow_fd_passing_output = false;
-                return 1;
-        }
-
         r = verify_unix_socket(v);
         if (r < 0)
                 return r;
 
-        v->allow_fd_passing_output = true;
-        return 0;
+        v->allow_fd_passing_output = !!b;
+        return 1;
 }
 
 _public_ int sd_varlink_set_input_sensitive(sd_varlink *v) {
@@ -3292,7 +3308,8 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
                                  SD_VARLINK_SERVER_INHERIT_USERDATA|
                                  SD_VARLINK_SERVER_INPUT_SENSITIVE|
                                  SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|
-                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT)) == 0, -EINVAL);
+                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT|
+                                 SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -3488,6 +3505,12 @@ _public_ int sd_varlink_server_add_connection_pair(
         if (r < 0)
                 return r;
 
+        /* Link up the server and the connection, and take reference in both directions. Note that the
+         * reference on the connection is left dangling. It will be dropped when the connection is closed,
+         * which happens in varlink_close(), including in the event loop quit callback. */
+        v->server = sd_varlink_server_ref(server);
+        sd_varlink_ref(v);
+
         v->input_fd = input_fd;
         v->output_fd = output_fd;
         if (server->flags & SD_VARLINK_SERVER_INHERIT_USERDATA)
@@ -3504,12 +3527,6 @@ _public_ int sd_varlink_server_add_connection_pair(
 
         (void) sd_varlink_set_allow_fd_passing_input(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
         (void) sd_varlink_set_allow_fd_passing_output(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
-
-        /* Link up the server and the connection, and take reference in both directions. Note that the
-         * reference on the connection is left dangling. It will be dropped when the connection is closed,
-         * which happens in varlink_close(), including in the event loop quit callback. */
-        v->server = sd_varlink_server_ref(server);
-        sd_varlink_ref(v);
 
         varlink_set_state(v, VARLINK_IDLE_SERVER);
 
@@ -3627,6 +3644,13 @@ _public_ int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd) {
         if (r < 0)
                 return r;
 
+        /* If fd passing is disabled on server, and SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT flag is set,
+         * turn off SO_PASSRIGHTS immediately on listening socket. The conditionalization behind a flag
+         * is needed to retain backwards compat, where implementations would register a connection callback
+         * to enable fd passing after accept(), which might race with clients wrt SO_PASSRIGHTS state. */
+        if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT))
+                (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
+
         r = varlink_server_create_listen_fd_socket(s, fd, &ss);
         if (r < 0)
                 return r;
@@ -3667,6 +3691,10 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
                 return -errno;
 
         fd = fd_move_above_stdio(fd);
+
+        /* See the comment in sd_varlink_server_listen_fd() */
+        if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT))
+                (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
 
         (void) sockaddr_un_unlink(&sockaddr.un);
 

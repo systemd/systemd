@@ -1,18 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdio.h>
-
-#include "sd-id128.h"
-
-#include "fdset.h"
-#include "image-policy.h"
-#include "macro.h"
-#include "pidref.h"
-#include "ratelimit.h"
-#include "set.h"
-#include "string-util.h"
-#include "time-util.h"
+#include "forward.h"
 
 int serialize_item(FILE *f, const char *key, const char *value);
 int serialize_item_escaped(FILE *f, const char *key, const char *value);
@@ -29,13 +18,8 @@ int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref);
 int serialize_ratelimit(FILE *f, const char *key, const RateLimit *rl);
 int serialize_string_set(FILE *f, const char *key, const Set *s);
 int serialize_image_policy(FILE *f, const char *key, const ImagePolicy *p);
-
-static inline int serialize_bool(FILE *f, const char *key, bool b) {
-        return serialize_item(f, key, yes_no(b));
-}
-static inline int serialize_bool_elide(FILE *f, const char *key, bool b) {
-        return b ? serialize_item(f, key, yes_no(b)) : 0;
-}
+int serialize_bool(FILE *f, const char *key, bool b);
+int serialize_bool_elide(FILE *f, const char *key, bool b);
 
 static inline int serialize_item_tristate(FILE *f, const char *key, int value) {
         return value >= 0 ? serialize_item_format(f, key, "%i", value) : 0;

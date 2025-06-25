@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <signal.h>
 #include <stdio.h>
-#include <sys/epoll.h>
+#include <stdlib.h>
+#include <sys/socket.h>
 
 #include "sd-messages.h"
 
@@ -12,31 +12,34 @@
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
+#include "errno-util.h"
 #include "exec-credential.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "fstab-util.h"
+#include "glyph-util.h"
 #include "initrd-util.h"
 #include "libmount-util.h"
 #include "log.h"
 #include "manager.h"
 #include "mkdir-label.h"
-#include "mount-setup.h"
+#include "mount-util.h"
 #include "mount.h"
+#include "mount-setup.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "utf8.h"
 
 #define RETRY_UMOUNT_MAX 32
@@ -633,7 +636,11 @@ static int mount_add_extras(Mount *m) {
         path_simplify(m->where);
 
         if (!u->description) {
-                r = unit_set_description(u, m->where);
+                _cleanup_free_ char *w = mount_get_where_escaped(m);
+                if (!w)
+                        return log_oom();
+
+                r = unit_set_description(u, w);
                 if (r < 0)
                         return r;
         }
@@ -1166,14 +1173,9 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
         if (r < 0)
                 return r;
 
-        if (remount) {
-                if (isempty(opts)) {
-                        opts = strdup("remount");
-                        if (!opts)
-                                return -ENOMEM;
-                } else if (!strprepend(&opts, "remount,"))
+        if (remount)
+                if (!strprepend_with_separator(&opts, ",", "remount"))
                         return -ENOMEM;
-        }
 
         if (!isempty(opts)) {
                 r = exec_command_append(c, "-o", opts, NULL);
@@ -1795,10 +1797,6 @@ static int mount_setup_new_unit(
          * attributes the deps to. */
         mnt->from_proc_self_mountinfo = true;
 
-        r = mount_add_non_exec_dependencies(mnt);
-        if (r < 0)
-                return r;
-
         /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything
          * else is loaded in now. */
         unit_add_to_load_queue(u);
@@ -1855,16 +1853,18 @@ static int mount_setup_existing_unit(
 
         if (UNIT_IS_LOAD_ERROR(u->load_state)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
-                 * /proc/self/mountinfo we should reconsider it this, hence set it to UNIT_LOADED. */
-                u->load_state = UNIT_LOADED;
+                 * /proc/self/mountinfo we should reconsider that. Hence, let's reset the load state and load
+                 * error, and add the unit to load queue. */
+                u->load_state = UNIT_STUB;
                 u->load_error = 0;
+                unit_add_to_load_queue(u);
 
                 flags |= MOUNT_PROC_JUST_CHANGED;
         }
 
-        if (FLAGS_SET(flags, MOUNT_PROC_JUST_CHANGED)) {
-                /* If things changed, then make sure that all deps are regenerated. Let's
-                 * first remove all automatic deps, and then add in the new ones. */
+        if (FLAGS_SET(flags, MOUNT_PROC_JUST_CHANGED) && u->load_state == UNIT_LOADED) {
+                /* If things changed, and we have successfully loaded the unit, then make sure that all deps
+                 * are regenerated. Let's first remove all automatic deps, and then add in the new ones. */
                 r = mount_add_non_exec_dependencies(m);
                 if (r < 0)
                         return r;
@@ -2033,10 +2033,9 @@ static void mount_enumerate_perpetual(Manager *m) {
         u = manager_get_unit(m, SPECIAL_ROOT_MOUNT);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Mount), SPECIAL_ROOT_MOUNT, &u);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_MOUNT " unit: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to allocate the special %s unit: %m",
+                                                      SPECIAL_ROOT_MOUNT);
         }
 
         u->perpetual = true;
@@ -2395,6 +2394,15 @@ static int mount_subsystem_ratelimited(Manager *m) {
         return sd_event_source_is_ratelimited(m->mount_event_source);
 }
 
+char* mount_get_where_escaped(const Mount *m) {
+        assert(m);
+
+        if (!m->where)
+                return strdup("");
+
+        return utf8_escape_invalid(m->where);
+}
+
 char* mount_get_what_escaped(const Mount *m) {
         _cleanup_free_ char *escaped = NULL;
         const char *s = NULL;
@@ -2416,7 +2424,6 @@ char* mount_get_what_escaped(const Mount *m) {
 }
 
 char* mount_get_options_escaped(const Mount *m) {
-        _cleanup_free_ char *escaped = NULL;
         const char *s = NULL;
 
         assert(m);
@@ -2425,14 +2432,10 @@ char* mount_get_options_escaped(const Mount *m) {
                 s = m->parameters_proc_self_mountinfo.options;
         else if (m->from_fragment && m->parameters_fragment.options)
                 s = m->parameters_fragment.options;
+        if (!s)
+                return strdup("");
 
-        if (s) {
-                escaped = utf8_escape_invalid(s);
-                if (!escaped)
-                        return NULL;
-        }
-
-        return escaped ? TAKE_PTR(escaped) : strdup("");
+        return utf8_escape_invalid(s);
 }
 
 const char* mount_get_fstype(const Mount *m) {

@@ -3,19 +3,21 @@
 # Catalan translation for systemd.
 # Walter Garcia-Fontes <walter.garcia@upf.edu>, 2016.
 # Robert Antoni Buj Gelonch <rbuj@fedoraproject.org>, 2018. #zanata
+# naly zzwd <xeanhort007@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2018-02-27 04:18-0500\n"
-"Last-Translator: Robert Antoni Buj Gelonch <rbuj@fedoraproject.org>\n"
-"Language-Team: Català <ubuntu-l10n-ca@lists.ubuntu.com>\n"
+"PO-Revision-Date: 2025-05-11 20:05+0000\n"
+"Last-Translator: naly zzwd <xeanhort007@gmail.com>\n"
+"Language-Team: Catalan <https://translate.fedoraproject.org/projects/systemd/"
+"main/ca/>\n"
 "Language: ca\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Zanata 3.9.6\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.11.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -29,7 +31,7 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr "Gestiona els serveis del sistema o bé altres unitats."
+msgstr "Gestiona els serveis del sistema o bé altres unitats"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
@@ -71,93 +73,84 @@ msgstr "Es requereix autenticació per tornar a carregar l'estat de systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Bolca l'estat del systemd sense límits de velocitat"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr "Es requereix autenticació per tornar a carregar l'estat de systemd."
+msgstr ""
+"Cal autenticació per bolcar l'estat de systemd sense límits de velocitat."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "Crea una àrea d'inici"
 
 #: src/home/org.freedesktop.home1.policy:14
-#, fuzzy
 msgid "Authentication is required to create a user's home area."
-msgstr "Es requereix autenticació per tornar a carregar l'estat de systemd."
+msgstr "Cal autenticació per crear l'àrea d'inici d'un usuari.."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Elimina una àrea d'inici"
 
 #: src/home/org.freedesktop.home1.policy:24
-#, fuzzy
 msgid "Authentication is required to remove a user's home area."
-msgstr "Es requereix autenticació per tornar a carregar l'estat de systemd."
+msgstr "Cal autenticació per eliminar l'àrea d'inici d'un usuari."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Comprova les credencials d'una àrea d'inici"
 
 #: src/home/org.freedesktop.home1.policy:34
-#, fuzzy
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
-"Es requereix autenticació per gestionar les sessions, usuaris i llocs de "
-"treball actius."
+"Es requereix autenticació per comprovar les credencials amb l'àrea d'inici "
+"d'un usuari."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Actualitza una àrea d'inici"
 
 #: src/home/org.freedesktop.home1.policy:44
-#, fuzzy
 msgid "Authentication is required to update a user's home area."
-msgstr ""
-"Es requereix autenticació per annexar un dispositiu a un lloc de treball."
+msgstr "Es requereix autenticació per actualitzar l'àrea d'inici d'un usuari."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
-msgstr ""
+msgstr "Actualitza l'àrea d'inici"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr ""
-"Es requereix autenticació per annexar un dispositiu a un lloc de treball."
+msgstr "Es requereix autenticació per actualitzar la vostra àrea d'inici."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
-msgstr ""
+msgstr "Canvia la mida d'una àrea d'inici"
 
 #: src/home/org.freedesktop.home1.policy:64
-#, fuzzy
 msgid "Authentication is required to resize a user's home area."
-msgstr "Es requereix autenticació per establir un missatge de mur"
+msgstr ""
+"Es requereix autenticació per canviar la mida de l'àrea d'inici d'un usuari."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Canvia la contrasenya d'una àrea d'inici"
 
 #: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
-"Es requereix autenticació per gestionar les sessions, usuaris i llocs de "
-"treball actius."
+"Es requereix autenticació per canviar la contrasenya de l'àrea d'inici d'un "
+"usuari."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
-msgstr ""
+msgstr "Activa una àrea d'inici"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "Es requereix autenticació per tornar a carregar l'estat de systemd."
+msgstr "Cal autenticació per activar l'àrea d'inici d'un usuari."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -165,28 +158,33 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"No hi ha l'àrea d'inici de l'usuari %s, connecteu el dispositiu "
+"d'emmagatzematge o el sistema de fitxers de còpia de seguretat necessaris."
 
 #: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"Intents d'inici de sessió massa freqüents per a l'usuari %s, torneu-ho a "
+"provar més tard."
 
 #: src/home/pam_systemd_home.c:310
 msgid "Password: "
-msgstr ""
+msgstr "Contrasenya: "
 
 #: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Contrasenya incorrecta o no suficient per a l'autenticació de l'usuari %s."
 
 #: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Ho sentim, torneu-ho a provar: "
 
 #: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
-msgstr ""
+msgstr "Clau de recuperació: "
 
 #: src/home/pam_systemd_home.c:337
 #, c-format
@@ -194,19 +192,21 @@ msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"La contrasenya/clau de recuperació és incorrecta o no suficient per a "
+"l'autenticació de l'usuari %s."
 
 #: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Torneu a introduir la clau de recuperació: "
 
 #: src/home/pam_systemd_home.c:358
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "No s'ha inserit el token de seguretat de l'usuari %s."
 
 #: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
-msgstr ""
+msgstr "Torneu-ho a provar amb la contrasenya: "
 
 #: src/home/pam_systemd_home.c:361
 #, c-format
@@ -214,103 +214,120 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"La contrasenya és incorrecta o no suficient, i no s'ha inserit el token de "
+"seguretat configurat de l'usuari %s."
 
 #: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
-msgstr ""
+msgstr "PIN del token de seguretat: "
 
 #: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
+"Si us plau, autenticeu-vos físicament al token de seguretat de l'usuari %s."
 
 #: src/home/pam_systemd_home.c:409
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Confirmeu la presència al token de seguretat de l'usuari %s."
 
 #: src/home/pam_systemd_home.c:420
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
+"Si us plau, verifiqueu l'usuari en el token de seguretat de l'usuari %s."
 
 #: src/home/pam_systemd_home.c:429
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
+"El PIN del token de seguretat està bloquejat, desbloquegeu-lo primer. (Pista:"
+" L'eliminació i la reinserció poden ser suficients.)"
 
 #: src/home/pam_systemd_home.c:437
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "El PIN del token de seguretat és incorrecte per a l'usuari %s."
 
 #: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
 #: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Torneu a provar el PIN del token de seguretat: "
 
 #: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"El PIN del token de seguretat de l'usuari %s és incorrecte (només queden uns "
+"quants intents!)"
 
 #: src/home/pam_systemd_home.c:475
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"El PIN del token de seguretat de l'usuari %s és incorrecte (només queda un "
+"intent!)"
 
 #: src/home/pam_systemd_home.c:643
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"L'àrea d'inici de l'usuari %s no està activa actualment, primer inicieu la "
+"sessió localment."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"L'àrea d'inici de l'usuari %s està bloquejada actualment, desbloquegeu-la "
+"localment primer."
 
 #: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
+"Hi ha massa intents d'inici de sessió fallits per a l'usuari %s, rebutjant."
 
 #: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "El registre d'usuari està bloquejat, prohibint l'accés."
 
 #: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "El registre de l'usuari encara no és vàlid, prohibint-ne l'accés."
 
 #: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "El registre d'usuari ja no és vàlid, prohibint-ne l'accés."
 
 #: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "Registre d'usuari no vàlid, es prohibeix l'accés."
 
 #: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Massa inicis de sessió, torneu-ho a provar en %s."
 
 #: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
-msgstr ""
+msgstr "Es requereix un canvi de contrasenya."
 
 #: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
-msgstr ""
+msgstr "La contrasenya ha caducat, cal canviar-la."
 
 #: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
+"La contrasenya ha caducat, però no es pot canviar, rebutjant l'inici de "
+"sessió."
 
 #: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "La contrasenya caducarà aviat, si us plau, canvieu-la."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -343,79 +360,62 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "Obtén UUID del producte"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
-#, fuzzy
 msgid "Authentication is required to get product UUID."
-msgstr "Es requereix autenticació per tornar a carregar «$(unit)»."
+msgstr "Es requereix autenticació per obtenir el UUID del maquinari."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Obté el número de sèrie del maquinari"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Es requereix autenticació per establir l'hora del sistema."
+msgstr "Es requereix autenticació per obtenir el número de sèrie del maquinari."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Estableix la zona horària del sistema"
+msgstr "Obtén la descripció del sistema"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Es requereix autenticació per establir la zona horària del sistema."
+msgstr "Es requereix autenticació per obtenir la descripció del sistema."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "Importa una màquina virtual o una imatge de contenidor"
+msgstr "Importa una imatge de disc"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image."
-msgstr ""
-"Es requereix autenticació per importar una màquina virtual o una imatge de "
-"contenidor"
+msgstr "Es requereix autenticació per importar una imatge."
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "Exporta una màquina virtual o una imatge de contenidor"
+msgstr "Exporta una imatge de disc"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image."
-msgstr ""
-"Es requereix autenticació per exportar una màquina virtual o una imatge de "
-"contenidor"
+msgstr "Es requereix autenticació per exportar una imatge de disc."
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "Baixa una màquina virtual o una imatge de contenidor"
+msgstr "Baixa una imatge de disc"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image."
-msgstr ""
-"Es requereix autenticació per baixar una màquina virtual o una imatge de "
-"contenidor"
+msgstr "Es requereix autenticació per baixar una imatge de disc."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Cancel·la la transferència d'una imatge de disc"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
-"Es requereix autenticació per gestionar les sessions, usuaris i llocs de "
-"treball actius."
+"Es requereix autenticació per cancel·lar la transferència en curs d'una "
+"imatge de disc."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -544,20 +544,18 @@ msgstr ""
 "tancament de la tapa per part del sistema."
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
-"Permet a les aplicacions inhibir la gestió de la tecla d'encesa per part del "
-"sistema"
+"Permet a les aplicacions inhibir la gestió de la tecla de reinici per part "
+"del sistema"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
 "Es requereix autenticació perquè una aplicació inhibeixi la gestió de la "
-"tecla d'encesa per part del sistema."
+"tecla de reinici per part del sistema."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -576,12 +574,12 @@ msgstr "Permet als usuaris sense inici de sessió executar programes"
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
-"Es requereix una sol·licitud explícita per executar programes com a usuari "
-"sense inici de sessió."
+"Es requereix una autenticació per executar programes com a usuari sense "
+"inici de sessió."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr "Permet l'annexió de dispositius als llocs de treball"
+msgstr "Permet vincular dispositius als llocs de treball"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
@@ -590,12 +588,12 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
-msgstr "Allibera els dispositius a les annexions dels llocs de treball"
+msgstr "Allibera els dispositius a les vinculacions dels llocs de treball"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
-"Es requereix autenticació per restablir com s'annexionen els dispositius als "
+"Es requereix autenticació per restablir com es vinculen els dispositius als "
 "llocs de treball."
 
 #: src/login/org.freedesktop.login1.policy:169
@@ -689,12 +687,11 @@ msgstr ""
 "Atura el sistema mentre hi ha una aplicació que ha demanat d'inhibir-ho"
 
 #: src/login/org.freedesktop.login1.policy:258
-#, fuzzy
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"Es requereix autenticació per hibernar el sistema mentre hi ha una aplicació "
+"Es requereix autenticació per aturar el sistema mentre hi ha una aplicació "
 "que ha demanat d'inhibir-ho."
 
 #: src/login/org.freedesktop.login1.policy:268
@@ -784,71 +781,65 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr ""
+msgstr "Estableix el \"motiu\" del reinici al nucli"
 
 #: src/login/org.freedesktop.login1.policy:353
-#, fuzzy
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr "Es requereix autenticació per establir la zona horària del sistema."
+msgstr ""
+"Es requereix autenticació per definir el \"motiu\" del reinici al nucli."
 
 #: src/login/org.freedesktop.login1.policy:363
-#, fuzzy
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr ""
-"Permet la indicació al microprogramari en l'arrencada perquè prepari la "
-"interfície"
+"Indica al microprogramari que s'ha d'arrencar a la interfície de configuració"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
-"Es requereix autenticació per indicar al microprogramari en l'arrencada "
-"perquè prepari la interfície."
+"Es requereix autenticació per indicar al microprogramari que s'ha d'arrencar "
+"a la interfície de configuració."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr ""
+msgstr "Indica al boot loader que arrenqui al menú del boot loader"
 
 #: src/login/org.freedesktop.login1.policy:375
-#, fuzzy
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"Es requereix autenticació per indicar al microprogramari en l'arrencada "
-"perquè prepari la interfície."
+"Es requereix autenticació per indicar al boot loader que arrenqui al menú "
+"del boot loader."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr ""
+msgstr "Indica al boot loader que arrenqui a una entrada específica"
 
 #: src/login/org.freedesktop.login1.policy:386
-#, fuzzy
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"Es requereix autenticació per indicar al microprogramari en l'arrencada "
-"perquè prepari la interfície."
+"Es requereix autenticació per indicar al boot loader que ha d'arrencar en "
+"una entrada específica del boot loader."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
 msgstr "Estableix un missatge de mur"
 
 #: src/login/org.freedesktop.login1.policy:397
-#, fuzzy
 msgid "Authentication is required to set a wall message."
-msgstr "Es requereix autenticació per establir un missatge de mur"
+msgstr "Es requereix autenticació per establir un missatge de mur."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "Canvia la Sessió"
 
 #: src/login/org.freedesktop.login1.policy:407
-#, fuzzy
 msgid "Authentication is required to change the virtual terminal."
-msgstr "Es requereix autenticació per aturar el sistema."
+msgstr "Es requereix autenticació per canviar el terminal virtual."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -904,7 +895,7 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
-msgstr "Gestiona les màquines virtuals i els contenidors locals "
+msgstr "Gestiona les màquines virtuals i els contenidors locals"
 
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
@@ -914,17 +905,14 @@ msgstr ""
 "contenidors locals."
 
 #: src/machine/org.freedesktop.machine1.policy:95
-#, fuzzy
 msgid "Create a local virtual machine or container"
-msgstr "Gestiona les màquines virtuals i els contenidors locals "
+msgstr "Crea una màquina virtual o contenidor local"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-#, fuzzy
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
-"Es requereix autenticació per gestionar les màquines virtuals i els "
-"contenidors locals."
+"Es requereix autenticació per crear una màquina virtual o contenidor local."
 
 #: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
@@ -940,322 +928,301 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
-msgstr ""
+msgstr "Estableix els servidors d'NTP"
 
 #: src/network/org.freedesktop.network1.policy:23
-#, fuzzy
 msgid "Authentication is required to set NTP servers."
-msgstr "Es requereix autenticació per establir l'hora del sistema."
+msgstr "Es requereix autenticació per configurar els servidors NTP."
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
-#, fuzzy
 msgid "Set DNS servers"
-msgstr "Registra un servei DNS-SD"
+msgstr "Configura els servidors DNS"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
-#, fuzzy
 msgid "Authentication is required to set DNS servers."
-msgstr "Es requereix autenticació per registrar un servei DNS-SD"
+msgstr "Es requereix autenticació per configurar els servidors DNS."
 
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr ""
+msgstr "Estableix els dominis"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
-#, fuzzy
 msgid "Authentication is required to set domains."
-msgstr "Es requereix autenticació per aturar «$(unit)»."
+msgstr "Es requereix autenticació per definir dominis."
 
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr ""
+msgstr "Estableix la ruta predeterminada"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
-#, fuzzy
 msgid "Authentication is required to set default route."
-msgstr "Es requereix autenticació per establir el nom d'amfitrió local."
+msgstr "Es requereix autenticació per establir la ruta predeterminada."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "Habilita/inhabilita LLMNR"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
-#, fuzzy
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr "Es requereix autenticació per hibernar el sistema."
+msgstr "Es requereix autenticació habilitar o inhabilitar l'LLMNR."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
-msgstr ""
+msgstr "Habilita/inhabilita el DNS de multidifusió"
 
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
-#, fuzzy
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr "Es requereix autenticació per iniciar la sessió a l'amfitrió local."
+msgstr ""
+"Es requereix autenticació per habilitar o inhabilitar el DNS de multidifusió."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "Habilita/inhabilita el DNS sobre TLS"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
-#, fuzzy
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "Es requereix autenticació per registrar un servei DNS-SD"
+msgstr "Es requereix autenticació habilitar o inhabilitar el DNS sobre TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "Habilita/inhabilita el DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
-#, fuzzy
 msgid "Authentication is required to enable or disable DNSSEC."
-msgstr "Es requereix autenticació per hibernar el sistema."
+msgstr "Es requereix autenticació per habilitar o inhabilitar el DNSSEC."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr ""
+msgstr "Estableix els Negative Trust Anchors del DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
-#, fuzzy
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr ""
-"Es requereix autenticació per establir la configuració regional del sistema."
+"Es requereix autenticació per establir els Negative Trust Anchors del DNSSEC."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
-msgstr ""
+msgstr "Reverteix la configuració d'NTP"
 
 #: src/network/org.freedesktop.network1.policy:122
-#, fuzzy
 msgid "Authentication is required to reset NTP settings."
-msgstr "Es requereix autenticació per establir l'hora del sistema."
+msgstr "Es requereix autenticació per restablir la configuració NTP."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
-msgstr ""
+msgstr "Reverteix la configuració de DNS"
 
 #: src/network/org.freedesktop.network1.policy:133
-#, fuzzy
 msgid "Authentication is required to reset DNS settings."
-msgstr "Es requereix autenticació per establir l'hora del sistema."
+msgstr "Es requereix autenticació per restablir la configuració del DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
+msgstr "El servidor DHCP envia un missatge de renovació forçada"
 
 #: src/network/org.freedesktop.network1.policy:144
-#, fuzzy
 msgid "Authentication is required to send force renew message."
-msgstr "Es requereix autenticació per establir un missatge de mur"
+msgstr "Es requereix autenticació per enviar el missatge de renovació forçada."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
-msgstr ""
+msgstr "Renova les adreces dinàmiques"
 
 #: src/network/org.freedesktop.network1.policy:155
-#, fuzzy
 msgid "Authentication is required to renew dynamic addresses."
-msgstr "Es requereix autenticació per establir un missatge de mur"
+msgstr "Es requereix autenticació per renovar les adreces dinàmiques."
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
-msgstr ""
+msgstr "Torna a carregar la configuració de la xarxa"
 
 #: src/network/org.freedesktop.network1.policy:166
-#, fuzzy
 msgid "Authentication is required to reload network settings."
-msgstr "Es requereix autenticació per tornar a carregar l'estat de systemd."
+msgstr ""
+"Es requereix autenticació per tornar a carregar la configuració de xarxa."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
-msgstr ""
+msgstr "Reconfigura la interfície de xarxa"
 
 #: src/network/org.freedesktop.network1.policy:177
-#, fuzzy
 msgid "Authentication is required to reconfigure network interface."
-msgstr "Es requereix autenticació per reiniciar el sistema."
+msgstr "Es requereix autenticació per reconfigurar la interfície de xarxa."
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
+"Especifiqueu si hi ha disponible un emmagatzematge persistent per a systemd-"
+"networkd"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Es requereix autenticació per especificar si hi ha disponible un "
+"emmagatzematge persistent per a systemd-networkd."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
-msgstr ""
+msgstr "Inspecciona una imatge de servei portàtil"
 
 #: src/portable/org.freedesktop.portable1.policy:14
-#, fuzzy
 msgid "Authentication is required to inspect a portable service image."
 msgstr ""
-"Es requereix autenticació per importar una màquina virtual o una imatge de "
-"contenidor"
+"Es requereix autenticació per inspeccionar una imatge de servei portàtil."
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr ""
+msgstr "Vincula o desvincula una imatge de servei portàtil"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-#, fuzzy
 msgid ""
 "Authentication is required to attach or detach a portable service image."
 msgstr ""
-"Es requereix autenticació per annexar un dispositiu a un lloc de treball."
+"Es requereix autenticació per vincular o desvincular una imatge de servei "
+"portàtil."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr ""
+msgstr "Suprimeix o modifica la imatge del servei portàtil"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-#, fuzzy
 msgid ""
 "Authentication is required to delete or modify a portable service image."
 msgstr ""
-"Es requereix autenticació per baixar una màquina virtual o una imatge de "
-"contenidor"
+"Es requereix autenticació per suprimir o modificar la imatge del servei "
+"portàtil."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
 msgstr "Registra un servei DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#, fuzzy
 msgid "Authentication is required to register a DNS-SD service."
-msgstr "Es requereix autenticació per registrar un servei DNS-SD"
+msgstr "Es requereix autenticació per registrar un servei DNS-SD."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
 msgstr "Desregistra un servei DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr "Es requereix autenticació per desregistrar un servei DNS-SD"
+msgstr "Es requereix autenticació per desregistrar un servei DNS-SD."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr ""
+msgstr "Reverteix la configuració de resolució de noms"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
-#, fuzzy
 msgid "Authentication is required to reset name resolution settings."
 msgstr ""
-"Es requereix autenticació per establir els ajusts del teclat del sistema."
+"Es requereix autenticació per restablir la configuració de resolució de noms."
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Subscriu els resultats de la consulta"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
-#, fuzzy
 msgid "Authentication is required to subscribe query results."
-msgstr "Es requereix autenticació per suspendre el sistema."
+msgstr ""
+"Es requereix autenticació per subscriure's als resultats de la consulta."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Dump cache"
-msgstr ""
+msgstr "Bolca la memòria cau"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to dump cache."
-msgstr "Es requereix autenticació per aturar «$(unit)»."
+msgstr "Es requereix autenticació per bolcar la memòria cau."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump server state"
-msgstr ""
+msgstr "Bolca l'estat del servidor"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
-#, fuzzy
 msgid "Authentication is required to dump server state."
-msgstr "Es requereix autenticació per establir l'hora del sistema."
+msgstr "Es requereix autenticació per bolcar l'estat del servidor."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump statistics"
-msgstr ""
+msgstr "Bolca estadístiques"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
-#, fuzzy
 msgid "Authentication is required to dump statistics."
-msgstr "Es requereix autenticació per aturar «$(unit)»."
+msgstr "Es requereix autenticació per bolcar estadístiques."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
-msgstr ""
+msgstr "Restableix les estadístiques"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
-#, fuzzy
 msgid "Authentication is required to reset statistics."
-msgstr "Es requereix autenticació per establir l'hora del sistema."
+msgstr "Es requereix autenticació per restablir les estadístiques."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Comprova si hi ha actualitzacions del sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "Es requereix autenticació per establir l'hora del sistema."
+msgstr ""
+"Es requereix autenticació per comprovar si hi ha actualitzacions del sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Instal·la les actualitzacions del sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "Es requereix autenticació per establir l'hora del sistema."
+msgstr ""
+"Es requereix autenticació per instal·lar les actualitzacions del sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Instal·la una versió específica del sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
-#, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "Es requereix autenticació per establir la zona horària del sistema."
+msgstr ""
+"Es requereix autenticació per instal·lar una versió específica del sistema ("
+"possiblement antiga)."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Neteja les actualitzacions antigues del sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
 msgid "Authentication is required to cleanup old system updates."
-msgstr "Es requereix autenticació per establir l'hora del sistema."
+msgstr ""
+"Es requereix autenticació per netejar les actualitzacions antigues del "
+"sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Gestiona les característiques opcionals"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr ""
-"Es requereix autenticació per gestionar les sessions, usuaris i llocs de "
-"treball actius."
+msgstr "Es requereix autenticació per gestionar les característiques opcionals."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1314,11 +1281,12 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr "Es requereix autenticació per reiniciar «$(unit)»."
 
 #: src/core/dbus-unit.c:566
-#, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
-msgstr "Es requereix autenticació per establir les propietats a «$(unit)»."
+msgstr ""
+"Es requereix autenticació per enviar un senyal UNIX als processos de "
+"'$(unit)'."
 
 #: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1329,17 +1297,19 @@ msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Es requereix autenticació per establir les propietats a «$(unit)»."
 
 #: src/core/dbus-unit.c:721
-#, fuzzy
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
-msgstr "Es requereix autenticació per restablir l'estat «failed» de «$(unit)»."
+msgstr ""
+"Es requereix autenticació per suprimir fitxers i directoris associats amb "
+"'$(unit)'."
 
 #: src/core/dbus-unit.c:758
-#, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr "Es requereix autenticació per restablir l'estat «failed» de «$(unit)»."
+msgstr ""
+"Es requereix autenticació per congelar o descongelar els processos de la "
+"unitat '$(unit)'."
 
 #~ msgid ""
 #~ "Authentication is required to halt the system while an application asked "

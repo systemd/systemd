@@ -256,6 +256,10 @@ option('system-uid-max', type : 'integer', value : 0,
        description : 'maximum system UID')
 option('system-gid-max', type : 'integer', value : 0,
        description : 'maximum system GID')
+option('greeter-uid-min', type : 'integer', value : 0x0000ECA2,
+       description : 'minimum greeter UID')
+option('greeter-uid-max', type : 'integer', value : 0x0000ED21,
+       description : 'maximum greeter UID')
 option('dynamic-uid-min', type : 'integer', value : 0x0000EF00,
        description : 'minimum dynamic UID')
 option('dynamic-uid-max', type : 'integer', value : 0x0000FFEF,
@@ -359,10 +363,11 @@ option('default-llmnr', type : 'combo',
        description : 'default LLMNR mode',
        value : 'yes')
 option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', 'true', 'false'],
+       deprecated : { 'gnutls' : 'auto' },
        description : 'DNS-over-TLS support')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
-       value : '1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google 1.0.0.1#cloudflare-dns.com 8.8.4.4#dns.google 2606:4700:4700::1111#cloudflare-dns.com 2001:4860:4860::8888#dns.google 2606:4700:4700::1001#cloudflare-dns.com 2001:4860:4860::8844#dns.google')
+       value : '1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google 9.9.9.9#dns.quad9.net 193.110.81.0#dns0.eu 1.0.0.1#cloudflare-dns.com 8.8.4.4#dns.google 149.112.112.112#dns.quad9.net 185.253.5.0#dns0.eu 2606:4700:4700::1111#cloudflare-dns.com 2001:4860:4860::8888#dns.google 2620:fe::fe#dns.quad9.net 2a0f:fc80::#dns0.eu 2606:4700:4700::1001#cloudflare-dns.com 2001:4860:4860::8844#dns.google 2620:fe::9#dns.quad9.net 2a0f:fc81::#dns0.eu')
 option('ntp-servers', type : 'string',
        description : 'space-separated list of default NTP servers',
        value : 'time1.google.com time2.google.com time3.google.com time4.google.com')
@@ -434,8 +439,7 @@ option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'gnutls support')
 option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'openssl support')
-option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'],
-       description : 'whether to use openssl or gcrypt where both are supported')
+option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'], deprecated : true)
 option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'p11kit support')
 option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -466,6 +470,8 @@ option('dbus', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
        description : 'libdbus support (for tests only)')
 option('libarchive', type : 'feature',
        description : 'libarchive support')
+option('libmount', type : 'feature',
+       description : 'libmount support')
 
 option('bootloader', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'sd-boot/stub and userspace tools')
@@ -503,13 +509,13 @@ option('tests', type : 'combo', choices : ['true', 'unsafe', 'false'],
        description : 'enable extra tests with =unsafe')
 option('slow-tests', type : 'boolean', value : false,
        description : 'run the slow tests by default')
-option('fuzz-tests', type : 'boolean', value : false,
-       description : 'run the fuzzer regression tests by default (with sanitizers)')
+option('fuzz-tests', type : 'boolean', value : true,
+       description : 'run the fuzzer regression tests')
 option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
 option('log-message-verification', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'do fake printf() calls to verify format strings')
-option('integration-tests', type : 'boolean', value : false,
+option('integration-tests', type : 'boolean', value : false, deprecated : true,
        description : 'run the integration tests')
 
 option('ok-color', type : 'combo',

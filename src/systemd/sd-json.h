@@ -17,15 +17,11 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <stddef.h>
 #include <stdio.h>
 
-#include "sd-id128.h"
-
 #include "_sd-common.h"
+#include "sd-id128.h"
 
 _SD_BEGIN_DECLARATIONS;
 

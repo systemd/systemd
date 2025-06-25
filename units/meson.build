@@ -287,6 +287,10 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-boot-clear-sysfail.service',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        {
           'file' : 'systemd-boot-update.service',
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
@@ -660,6 +664,14 @@ units = [
         },
         {
           'file' : 'systemd-resolved.service.in',
+          'conditions' : ['ENABLE_RESOLVE'],
+        },
+        {
+          'file' : 'systemd-resolved-varlink.socket',
+          'conditions' : ['ENABLE_RESOLVE'],
+        },
+        {
+          'file' : 'systemd-resolved-monitor.socket',
           'conditions' : ['ENABLE_RESOLVE'],
         },
         {

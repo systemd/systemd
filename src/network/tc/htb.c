@@ -2,13 +2,13 @@
 
 #include <linux/pkt_sched.h>
 
-#include "alloc-util.h"
-#include "conf-parser.h"
-#include "netlink-util.h"
+#include "sd-netlink.h"
+
+#include "htb.h"
+#include "log-link.h"
 #include "networkd-link.h"
 #include "parse-util.h"
 #include "qdisc.h"
-#include "htb.h"
 #include "string-util.h"
 #include "tc-util.h"
 
@@ -470,6 +470,8 @@ static int hierarchy_token_bucket_class_verify(TClass *tclass) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read /proc/net/psched: %m");
 
+        /* Kernel would never hand us 0 Hz. */
+        assert(hz > 0);
         if (htb->buffer == 0)
                 htb->buffer = htb->rate / hz + htb->mtu;
         if (htb->ceil_buffer == 0)

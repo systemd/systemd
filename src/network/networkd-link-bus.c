@@ -1,26 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
-#include <netinet/in.h>
-#include <sys/capability.h>
+
+#include "sd-bus.h"
+#include "sd-dhcp-server.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-message-util.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
 #include "networkd-dhcp4.h"
 #include "networkd-json.h"
-#include "networkd-link-bus.h"
 #include "networkd-link.h"
+#include "networkd-link-bus.h"
 #include "networkd-manager.h"
 #include "networkd-state-file.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "resolve-util.h"
+#include "set.h"
 #include "socket-netlink.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_carrier_state, link_carrier_state, LinkCarrierState);
@@ -193,11 +197,13 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        search_domains = ordered_set_new(&string_hash_ops_free);
+        /* The method accepts an empty strv, to override the domains set in .network.
+         * Hence, we need to explicitly allocate empty sets here. */
+        search_domains = ordered_set_new(&dns_name_hash_ops_free);
         if (!search_domains)
                 return -ENOMEM;
 
-        route_domains = ordered_set_new(&string_hash_ops_free);
+        route_domains = ordered_set_new(&dns_name_hash_ops_free);
         if (!route_domains)
                 return -ENOMEM;
 
@@ -479,7 +485,7 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_set_free_free_ Set *ns = NULL;
+        _cleanup_set_free_ Set *ns = NULL;
         _cleanup_strv_free_ char **ntas = NULL;
         Link *l = ASSERT_PTR(userdata);
         int r;
@@ -502,12 +508,14 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid negative trust anchor domain: %s", *i);
         }
 
-        ns = set_new(&dns_name_hash_ops);
+        /* The method accepts an empty strv, to override the negative trust anchors set in .network.
+         * Hence, we need to explicitly allocate an empty set here. */
+        ns = set_new(&dns_name_hash_ops_free);
         if (!ns)
                 return -ENOMEM;
 
         STRV_FOREACH(i, ntas) {
-                r = set_put_strdup(&ns, *i);
+                r = set_put_strdup_full(&ns, &dns_name_hash_ops_free, *i);
                 if (r < 0)
                         return r;
         }
@@ -523,8 +531,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        set_free_free(l->dnssec_negative_trust_anchors);
-        l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
+        set_free_and_replace(l->dnssec_negative_trust_anchors, ns);
 
         r = link_save_and_clean_full(l, /* also_save_manager = */ true);
         if (r < 0)
@@ -697,7 +704,7 @@ int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static const sd_bus_vtable link_vtable[] = {
@@ -901,14 +908,6 @@ int link_send_changed_strv(Link *link, char **properties) {
                         p,
                         "org.freedesktop.network1.Link",
                         properties);
-}
-
-int link_send_changed(Link *link, const char *property, ...) {
-        char **properties;
-
-        properties = strv_from_stdarg_alloca(property);
-
-        return link_send_changed_strv(link, properties);
 }
 
 const BusObjectImplementation link_object = {

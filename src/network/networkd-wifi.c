@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/ethernet.h>
 #include <linux/nl80211.h>
+#include <net/ethernet.h>
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "ether-addr-util.h"
-#include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-wifi.h"
 #include "networkd-wiphy.h"
+#include "set.h"
 #include "string-util.h"
 #include "wifi-util.h"
 

@@ -5,7 +5,6 @@
 #include "log.h"
 #include "nulstr-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
@@ -419,17 +418,10 @@ TEST(hashmap_remove_and_replace) {
 
 TEST(hashmap_ensure_allocated) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-        int r;
 
-        r = hashmap_ensure_allocated(&m, &string_hash_ops);
-        assert_se(r == 1);
-
-        r = hashmap_ensure_allocated(&m, &string_hash_ops);
-        assert_se(r == 0);
-
-        /* different hash ops shouldn't matter at this point */
-        r = hashmap_ensure_allocated(&m, &trivial_hash_ops);
-        assert_se(r == 0);
+        ASSERT_OK_POSITIVE(hashmap_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_OK_ZERO(hashmap_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_SIGNAL(hashmap_ensure_allocated(&m, &trivial_hash_ops), SIGABRT);
 }
 
 TEST(hashmap_foreach_key) {
@@ -762,29 +754,6 @@ TEST(hashmap_free) {
 
                 assert_se(custom_counter == test->expect_counter);
         }
-}
-
-typedef struct Item {
-        int seen;
-} Item;
-static void item_seen(Item *item) {
-        item->seen++;
-}
-
-TEST(hashmap_free_with_destructor) {
-        Hashmap *m;
-        struct Item items[4] = {};
-        unsigned i;
-
-        assert_se(m = hashmap_new(NULL));
-        for (i = 0; i < ELEMENTSOF(items) - 1; i++)
-                assert_se(hashmap_put(m, INT_TO_PTR(i), items + i) == 1);
-
-        m = hashmap_free_with_destructor(m, item_seen);
-        assert_se(items[0].seen == 1);
-        assert_se(items[1].seen == 1);
-        assert_se(items[2].seen == 1);
-        assert_se(items[3].seen == 0);
 }
 
 TEST(hashmap_first) {

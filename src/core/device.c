@@ -1,28 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <sys/epoll.h>
-
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "dbus-device.h"
 #include "dbus-unit.h"
+#include "device.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "device.h"
+#include "extract-word.h"
+#include "hashmap.h"
 #include "log.h"
-#include "parse-util.h"
+#include "manager.h"
 #include "path-util.h"
-#include "ratelimit.h"
 #include "serialize.h"
-#include "stat-util.h"
+#include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "swap.h"
 #include "udev-util.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD]      = UNIT_INACTIVE,
@@ -363,7 +362,7 @@ static const struct {
 static int device_found_to_string_many(DeviceFound flags, char **ret) {
         _cleanup_free_ char *s = NULL;
 
-        assert(flags >= 0);
+        assert((flags & ~_DEVICE_FOUND_MASK) == 0);
         assert(ret);
 
         FOREACH_ELEMENT(i, device_found_map) {

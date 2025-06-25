@@ -2,11 +2,14 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "battery-util.h"
 #include "build.h"
+#include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
+#include "string-util.h"
 
 static bool arg_verbose = false;
 

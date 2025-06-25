@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Timer Timer;
-typedef struct ActivationDetailsTimer ActivationDetailsTimer;
-
-#include "calendarspec.h"
+#include "core-forward.h"
 #include "unit.h"
 
 typedef enum TimerBase {
@@ -37,11 +34,12 @@ typedef enum TimerResult {
         _TIMER_RESULT_INVALID = -EINVAL,
 } TimerResult;
 
-struct Timer {
+typedef struct Timer {
         Unit meta;
 
         usec_t accuracy_usec;
-        usec_t random_usec;
+        usec_t random_delay_usec;
+        usec_t random_offset_usec;
 
         LIST_HEAD(TimerValue, values);
         usec_t next_elapse_realtime;
@@ -64,12 +62,12 @@ struct Timer {
         bool defer_reactivation;
 
         char *stamp_path;
-};
+} Timer;
 
-struct ActivationDetailsTimer {
+typedef struct ActivationDetailsTimer {
         ActivationDetails meta;
         dual_timestamp last_trigger;
-};
+} ActivationDetailsTimer;
 
 #define TIMER_MONOTONIC_CLOCK(t) ((t)->wake_system ? CLOCK_BOOTTIME_ALARM : CLOCK_MONOTONIC)
 

@@ -2,8 +2,9 @@
 
 #if HAVE_GCRYPT
 
+#include <sys/syslog.h>
+
 #include "gcrypt-util.h"
-#include "hexdecoct.h"
 
 static void *gcrypt_dl = NULL;
 
@@ -105,39 +106,4 @@ int initialize_libgcrypt(bool secmem) {
 
         return 0;
 }
-
-#  if !PREFER_OPENSSL
-int string_hashsum(const char *s, size_t len, int md_algorithm, char **out) {
-        _cleanup_(sym_gcry_md_closep) gcry_md_hd_t md = NULL;
-        gcry_error_t err;
-        size_t hash_size;
-        void *hash;
-        char *enc;
-        int r;
-
-        r = initialize_libgcrypt(false);
-        if (r < 0)
-                return r;
-
-        hash_size = sym_gcry_md_get_algo_dlen(md_algorithm);
-        assert(hash_size > 0);
-
-        err = sym_gcry_md_open(&md, md_algorithm, 0);
-        if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
-                return -EIO;
-
-        sym_gcry_md_write(md, s, len);
-
-        hash = sym_gcry_md_read(md, 0);
-        if (!hash)
-                return -EIO;
-
-        enc = hexmem(hash, hash_size);
-        if (!enc)
-                return -ENOMEM;
-
-        *out = enc;
-        return 0;
-}
-#  endif
 #endif

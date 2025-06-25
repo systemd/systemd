@@ -1,21 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/filter.h>
 #include <poll.h>
+#include <stdlib.h>
 
+#include "sd-event.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "io-util.h"
-#include "macro.h"
+#include "log.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-slot.h"
 #include "netlink-util.h"
+#include "ordered-set.h"
+#include "prioq.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /* Some really high limit, to catch programming errors */
 #define REPLY_CALLBACKS_MAX UINT16_MAX
@@ -67,7 +74,7 @@ static int netlink_new(sd_netlink **ret) {
 
 int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
-        int r, protocol;
+        int r, protocol = 0; /* Avoid maybe-uninitialized false positive */
 
         assert_return(ret, -EINVAL);
         assert_return(fd >= 0, -EBADF);

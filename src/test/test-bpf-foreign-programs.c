@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
+#include <linux/bpf.h>
 #include <linux/bpf_insn.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
-#include "bpf-foreign.h"
+#include "bpf-program.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "service.h"
+#include "strv.h"
 #include "tests.h"
 #include "unit.h"
 #include "virt.h"
@@ -246,6 +246,7 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
+        ASSERT_OK(unit_patch_contexts(u));
         r = unit_start(u, NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed %m");
@@ -281,6 +282,10 @@ int main(int argc, char *argv[]) {
 
         if (getuid() != 0)
                 return log_tests_skipped("not running as root");
+
+        r = bpf_program_supported();
+        if (r < 0)
+                return log_tests_skipped_errno(r, "BPF programs not supported");
 
         ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);

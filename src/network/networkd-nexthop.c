@@ -2,11 +2,16 @@
  * Copyright © 2019 VMware, Inc.
  */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/nexthop.h>
+#include <net/if.h>
+#include <stdio.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -15,9 +20,10 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
-#include "stdio-util.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 static void nexthop_detach_from_group_members(NextHop *nexthop) {
@@ -459,9 +465,30 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
         return -EBUSY;
 }
 
-void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *manager) {
-        _cleanup_free_ char *state = NULL, *group = NULL, *flags = NULL;
+static int nexthop_to_string(const NextHop *nexthop, Manager *manager, char **ret) {
+        _cleanup_free_ char *group = NULL, *flags = NULL;
+
+        assert(nexthop);
+        assert(manager);
+        assert(ret);
+
+        (void) route_flags_to_string_alloc(nexthop->flags, &flags);
+
         struct nexthop_grp *nhg;
+        HASHMAP_FOREACH(nhg, nexthop->group)
+                (void) strextendf_with_separator(&group, ",", "%"PRIu32":%"PRIu32, nhg->id, nhg->weight+1u);
+
+        if (asprintf(ret, "id: %"PRIu32", gw: %s, blackhole: %s, group: %s, flags: %s",
+                     nexthop->id,
+                     IN_ADDR_TO_STRING(nexthop->family, &nexthop->gw.address),
+                     yes_no(nexthop->blackhole), strna(group), strna(flags)) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *manager) {
+        _cleanup_free_ char *state = NULL, *nexthop_str = NULL;
         Link *link = NULL;
 
         assert(nexthop);
@@ -473,16 +500,10 @@ void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *manager
 
         (void) link_get_by_index(manager, nexthop->ifindex, &link);
         (void) network_config_state_to_string_alloc(nexthop->state, &state);
-        (void) route_flags_to_string_alloc(nexthop->flags, &flags);
+        (void) nexthop_to_string(nexthop, manager, &nexthop_str);
 
-        HASHMAP_FOREACH(nhg, nexthop->group)
-                (void) strextendf_with_separator(&group, ",", "%"PRIu32":%"PRIu32, nhg->id, nhg->weight+1u);
-
-        log_link_debug(link, "%s %s nexthop (%s): id: %"PRIu32", gw: %s, blackhole: %s, group: %s, flags: %s",
-                       str, strna(network_config_source_to_string(nexthop->source)), strna(state),
-                       nexthop->id,
-                       IN_ADDR_TO_STRING(nexthop->family, &nexthop->gw.address),
-                       yes_no(nexthop->blackhole), strna(group), strna(flags));
+        log_link_debug(link, "%s %s nexthop (%s): %s",
+                       str, strna(network_config_source_to_string(nexthop->source)), strna(state), strna(nexthop_str));
 }
 
 static void nexthop_forget_dependents(NextHop *nexthop, Manager *manager) {
@@ -673,16 +694,19 @@ static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-int nexthop_configure_handler_internal(sd_netlink_message *m, Link *link, const char *error_msg) {
+int nexthop_configure_handler_internal(sd_netlink_message *m, Link *link, NextHop *nexthop) {
         int r;
 
         assert(m);
         assert(link);
-        assert(error_msg);
+        assert(nexthop);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, error_msg);
+                _cleanup_free_ char *str = NULL;
+                (void) nexthop_to_string(nexthop, link->manager, &str);
+                log_link_message_warning_errno(link, m, r, "Failed to set %s nexthop (%s)",
+                                               network_config_source_to_string(nexthop->source), strna(str));
                 link_enter_failed(link);
                 return 0;
         }
@@ -695,7 +719,7 @@ static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
 
         assert(link);
 
-        r = nexthop_configure_handler_internal(m, link, "Failed to set static nexthop");
+        r = nexthop_configure_handler_internal(m, link, nexthop);
         if (r <= 0)
                 return r;
 
@@ -1262,6 +1286,7 @@ static int nexthop_section_verify(NextHop *nh) {
 
 int network_drop_invalid_nexthops(Network *network) {
         _cleanup_hashmap_free_ Hashmap *nexthops = NULL;
+        _cleanup_set_free_ Set *duplicated_nexthops = NULL;
         NextHop *nh;
         int r;
 
@@ -1284,8 +1309,13 @@ int network_drop_invalid_nexthops(Network *network) {
                                     dup->section->filename,
                                     nh->id, nh->section->line,
                                     dup->section->line, dup->section->line);
-                        /* nexthop_detach() will drop the nexthop from nexthops_by_section. */
-                        nexthop_detach(dup);
+
+                        /* Do not call nexthop_detach() for 'dup' now, as we can remove only the current
+                         * entry in the loop. We will drop the nexthop from nexthops_by_section later. */
+                        r = set_ensure_put(&duplicated_nexthops, &nexthop_hash_ops, dup);
+                        if (r < 0)
+                                return log_oom();
+                        assert(r > 0);
                 }
 
                 r = hashmap_ensure_put(&nexthops, NULL, UINT32_TO_PTR(nh->id), nh);

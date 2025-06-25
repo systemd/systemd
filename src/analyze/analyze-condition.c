@@ -6,9 +6,11 @@
 #include "analyze-condition.h"
 #include "analyze-verify-util.h"
 #include "condition.h"
-#include "conf-parser.h"
 #include "load-fragment.h"
+#include "manager.h"
 #include "service.h"
+#include "string-util.h"
+#include "strv.h"
 
 static int parse_condition(Unit *u, const char *line) {
         assert(u);
@@ -61,7 +63,6 @@ static int parse_condition(Unit *u, const char *line) {
 _printf_(7, 8)
 static int log_helper(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
         Unit *u = ASSERT_PTR(userdata);
-        Manager *m = ASSERT_PTR(u->manager);
         va_list ap;
         int r;
 
@@ -70,7 +71,7 @@ static int log_helper(void *userdata, int level, int error, const char *file, in
 
         va_start(ap, format);
         r = log_object_internalv(level, error, file, line, func,
-                                 /* object_field = */ m->unit_log_field,
+                                 /* object_field = */ unit_log_field(u),
                                  /* object = */ u->id,
                                  /* extra_field = */ NULL,
                                  /* extra = */ NULL,

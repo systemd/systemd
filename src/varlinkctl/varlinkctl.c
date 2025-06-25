@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
+#include "sd-daemon.h"
 #include "sd-varlink.h"
 
 #include "build.h"
@@ -9,18 +12,28 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
-#include "io-util.h"
+#include "format-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
 #include "pager.h"
 #include "parse-argument.h"
-#include "path-util.h"
+#include "parse-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "varlink-idl-util.h"
 #include "varlink-util.h"
 #include "verbs.h"
 #include "version.h"
+
+typedef struct PushFds {
+        int *fds;
+        size_t n_fds;
+} PushFds;
 
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -30,8 +43,17 @@ static bool arg_quiet = false;
 static char **arg_graceful = NULL;
 static usec_t arg_timeout = 0;
 static bool arg_exec = false;
+static PushFds arg_push_fds = {};
+
+static void push_fds_done(PushFds *p) {
+        assert(p);
+
+        close_many_and_free(p->fds, p->n_fds);
+        *p = (PushFds) {};
+}
 
 STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_push_fds, push_fds_done);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -73,6 +95,7 @@ static int help(void) {
                "     --graceful=ERROR    Treat specified Varlink error as success\n"
                "     --timeout=SECS      Maximum time to wait for method call completion\n"
                "  -E                     Short for --more --timeout=infinity\n"
+               "     --push-fd=FD        Pass the specified fd along with method call\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -100,6 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GRACEFUL,
                 ARG_TIMEOUT,
                 ARG_EXEC,
+                ARG_PUSH_FD,
         };
 
         static const struct option options[] = {
@@ -114,6 +138,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "graceful", required_argument, NULL, ARG_GRACEFUL },
                 { "timeout",  required_argument, NULL, ARG_TIMEOUT  },
                 { "exec",     no_argument,       NULL, ARG_EXEC     },
+                { "push-fd",  required_argument, NULL, ARG_PUSH_FD  },
                 {},
         };
 
@@ -197,6 +222,34 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_EXEC:
                         arg_exec = true;
                         break;
+
+                case ARG_PUSH_FD: {
+                        if (!GREEDY_REALLOC(arg_push_fds.fds, arg_push_fds.n_fds + 1))
+                                return log_oom();
+
+                        _cleanup_close_ int add_fd = -EBADF;
+                        if (STARTSWITH_SET(optarg, "/", "./")) {
+                                /* We usually expect a numeric fd spec, but as an extension let's treat this
+                                 * as a path to open in read-only mode in case this is clearly an absolute or
+                                 * relative path */
+                                add_fd = open(optarg, O_CLOEXEC|O_RDONLY|O_NOCTTY);
+                                if (add_fd < 0)
+                                        return log_error_errno(errno, "Failed to open '%s': %m", optarg);
+                        } else {
+                                int parsed_fd = parse_fd(optarg);
+                                if (parsed_fd < 0)
+                                        return log_error_errno(parsed_fd, "Failed to parse --push-fd= parameter: %s", optarg);
+
+                                /* Make a copy, so that the same fd could be used multiple times in a reasonable
+                                 * way. This also validates the fd early */
+                                add_fd = fcntl(parsed_fd, F_DUPFD_CLOEXEC, 3);
+                                if (add_fd < 0)
+                                        return log_error_errno(errno, "Failed to duplicate file descriptor %i: %m", parsed_fd);
+                        }
+
+                        arg_push_fds.fds[arg_push_fds.n_fds++] = TAKE_FD(add_fd);
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -442,7 +495,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                                 {}
                         };
-                        _cleanup_(varlink_interface_freep) sd_varlink_interface *vi = NULL;
+                        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
                         const char *description = NULL;
                         unsigned line = 0, column = 0;
 
@@ -454,7 +507,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 print_separator();
 
                         /* Try to parse the returned description, so that we can add syntax highlighting */
-                        r = varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
+                        r = sd_varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
                         if (r < 0) {
                                 if (list_methods)
                                         return log_error_errno(r, "Failed to parse returned interface description at %u:%u: %m", line, column);
@@ -525,8 +578,14 @@ static int reply_callback(
                                  "Method call returned expected error: %s", error);
 
                         r = 0;
-                } else
-                        r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
+                } else {
+                        /* If we can translate this to an errno, let's print that as errno and return it, otherwise, return a generic error code */
+                        r = sd_varlink_error_to_errno(error, parameters);
+                        if (r != -EBADR)
+                                *ret = log_error_errno(r, "Method call failed: %m");
+                        else
+                                r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
+                }
         } else
                 r = 0;
 
@@ -603,6 +662,20 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        if (arg_push_fds.n_fds > 0) {
+                r = sd_varlink_set_allow_fd_passing_output(vl, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable fd passing: %m");
+
+                FOREACH_ARRAY(f, arg_push_fds.fds, arg_push_fds.n_fds) {
+                        r = sd_varlink_push_fd(vl, *f);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to push file descriptor: %m");
+
+                        TAKE_FD(*f); /* we passed ownership away */
+                }
+        }
+
         if (arg_collect) {
                 sd_json_variant *reply = NULL;
                 const char *error = NULL;
@@ -619,8 +692,13 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                          "Method call %s() returned expected error: %s", method, error);
 
                                 r = 0;
-                        } else
-                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        } else {
+                                r = sd_varlink_error_to_errno(error, reply);
+                                if (r != -EBADR)
+                                        log_error_errno(r, "Method call %s() failed: %m", method);
+                                else
+                                        r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        }
                 } else
                         r = 0;
 
@@ -699,8 +777,13 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                          "Method call %s() returned expected error: %s", method, error);
 
                                 r = 0;
-                        } else
-                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        } else {
+                                r = sd_varlink_error_to_errno(error, reply);
+                                if (r != -EBADR)
+                                        log_error_errno(r, "Method call %s() failed: %m", method);
+                                else
+                                        r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                        }
                 } else
                         r = 0;
 
@@ -811,7 +894,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_validate_idl(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_interface_freep) sd_varlink_interface *vi = NULL;
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *text = NULL;
         const char *fname;
         unsigned line = 1, column = 1;
@@ -831,7 +914,7 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
                 fname = "<stdin>";
         }
 
-        r = varlink_idl_parse(text, &line, &column, &vi);
+        r = sd_varlink_idl_parse(text, &line, &column, &vi);
         if (r == -EBADMSG)
                 return log_error_errno(r, "%s:%u:%u: Bad syntax.", fname, line, column);
         if (r == -ENETUNREACH)

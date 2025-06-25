@@ -2,8 +2,8 @@
 #pragma once
 
 #include "ask-password-api.h"
+#include "forward.h"
 #include "iovec-util.h"
-#include "macro.h"
 #include "sha256.h"
 
 typedef enum CertificateSourceType {
@@ -30,26 +30,26 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 
 #if HAVE_OPENSSL
-#  include <openssl/bio.h>
-#  include <openssl/bn.h>
-#  include <openssl/crypto.h>
-#  include <openssl/err.h>
-#  include <openssl/evp.h>
-#  include <openssl/opensslv.h>
-#  include <openssl/pkcs7.h>
-#  include <openssl/ssl.h>
-#  include <openssl/ui.h>
-#  include <openssl/x509v3.h>
+#  include <openssl/bio.h>              /* IWYU pragma: export */
+#  include <openssl/bn.h>               /* IWYU pragma: export */
+#  include <openssl/crypto.h>           /* IWYU pragma: export */
+#  include <openssl/err.h>              /* IWYU pragma: export */
+#  include <openssl/evp.h>              /* IWYU pragma: export */
+#  include <openssl/opensslv.h>         /* IWYU pragma: export */
+#  include <openssl/pkcs7.h>            /* IWYU pragma: export */
+#  include <openssl/ssl.h>              /* IWYU pragma: export */
+#  include <openssl/ui.h>               /* IWYU pragma: export */
+#  include <openssl/x509v3.h>           /* IWYU pragma: export */
 #  ifndef OPENSSL_VERSION_MAJOR
 /* OPENSSL_VERSION_MAJOR macro was added in OpenSSL 3. Thus, if it doesn't exist,  we must be before OpenSSL 3. */
 #    define OPENSSL_VERSION_MAJOR 1
 #  endif
 #  if OPENSSL_VERSION_MAJOR >= 3
-#    include <openssl/core_names.h>
-#    include <openssl/kdf.h>
-#    include <openssl/param_build.h>
-#    include <openssl/provider.h>
-#    include <openssl/store.h>
+#    include <openssl/core_names.h>     /* IWYU pragma: export */
+#    include <openssl/kdf.h>            /* IWYU pragma: export */
+#    include <openssl/param_build.h>    /* IWYU pragma: export */
+#    include <openssl/provider.h>       /* IWYU pragma: export */
+#    include <openssl/store.h>          /* IWYU pragma: export */
 #  endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(void*, OPENSSL_free, NULL);
@@ -147,8 +147,6 @@ int rsa_oaep_encrypt_bytes(const EVP_PKEY *pkey, const char *digest_alg, const c
 
 int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
 
-int rsa_pkey_new(size_t bits, EVP_PKEY **ret);
-
 int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size, EVP_PKEY **ret);
 
 int rsa_pkey_to_n_e(const EVP_PKEY *pkey, void **ret_n, size_t *ret_n_size, void **ret_e, size_t *ret_e_size);
@@ -167,7 +165,9 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
 int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
 
-int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si);
+int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, const char *hash_algorithm, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si);
+
+int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret);
 
 #else
 
@@ -196,6 +196,10 @@ static inline void* ASN1_TYPE_free(ASN1_TYPE *p) {
 static inline void* ASN1_STRING_free(ASN1_STRING *p) {
         assert(p == NULL);
         return NULL;
+}
+
+static inline int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret) {
+        return -EOPNOTSUPP;
 }
 
 #endif
@@ -230,29 +234,6 @@ int openssl_load_private_key(
                 EVP_PKEY **ret_private_key,
                 OpenSSLAskPasswordUI **ret_user_interface);
 
-#if PREFER_OPENSSL
-/* The openssl definition */
-typedef const EVP_MD* hash_md_t;
-typedef const EVP_MD* hash_algorithm_t;
-typedef int elliptic_curve_t;
-typedef EVP_MD_CTX* hash_context_t;
-#  define OPENSSL_OR_GCRYPT(a, b) (a)
-
-#elif HAVE_GCRYPT
-
-#  include <gcrypt.h>
-
-/* The gcrypt definition */
-typedef int hash_md_t;
-typedef const char* hash_algorithm_t;
-typedef const char* elliptic_curve_t;
-typedef gcry_md_hd_t hash_context_t;
-#  define OPENSSL_OR_GCRYPT(a, b) (b)
-#endif
-
-#if PREFER_OPENSSL
-int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret);
-
 static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
         return string_hashsum(s, len, "SHA224", ret);
 }
@@ -260,4 +241,3 @@ static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
 static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
         return string_hashsum(s, len, "SHA256", ret);
 }
-#endif

@@ -71,7 +71,10 @@ REQUIREMENTS:
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.9 for pidfs
+                     ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
+                            and block device 'partscan' sysfs attribute
                      ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat()
+                     ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
@@ -163,7 +166,7 @@ REQUIREMENTS:
 
         Required for reading credentials from SMBIOS:
           CONFIG_DMI
-          CONFIG_DMI_SYSFS
+          CONFIG_DMI_SYSFS (must be built-in, not as kmod)
 
         Required for RestrictFileSystems= in service units:
           CONFIG_BPF
@@ -240,8 +243,7 @@ REQUIREMENTS:
         libcurl >= 7.32.0 (optional)
         libidn2 or libidn (optional)
         gnutls >= 3.1.4 (optional)
-               >= 3.6.0 is required to support DNS-over-TLS with gnutls
-        openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
+        openssl >= 1.1.0 (optional, required to support DNS-over-TLS)
         p11-kit >= 0.23.3 (optional)
         libfido2 (optional)
         tpm2-tss (optional)

@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/utsname.h>
+#include <linux/capability.h>
 
-#include "af-list.h"
+#include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "analyze-verify-util.h"
 #include "analyze.h"
 #include "analyze-security.h"
-#include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -17,8 +19,6 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "in-addr-prefix-util.h"
-#include "locale-util.h"
-#include "macro.h"
 #include "manager.h"
 #include "missing_sched.h"
 #include "mkdir.h"
@@ -31,8 +31,8 @@
 #include "service.h"
 #include "set.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "unit-serialize.h"

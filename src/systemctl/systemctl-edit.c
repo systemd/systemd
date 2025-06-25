@@ -1,17 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-error.h"
+#include <unistd.h>
+
+#include "alloc-util.h"
+#include "bus-util.h"
 #include "edit-util.h"
-#include "fs-util.h"
+#include "hashmap.h"
+#include "label-util.h"
 #include "pager.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "selinux-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "systemctl.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-edit.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
+#include "unit-name.h"
 
 int verb_cat(int argc, char *argv[], void *userdata) {
         _cleanup_hashmap_free_ Hashmap *cached_id_map = NULL, *cached_name_map = NULL;

@@ -3,8 +3,16 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "log.h"
+#include "machine.h"
+#include "machined.h"
 #include "operation.h"
 #include "process-util.h"
 
@@ -154,4 +162,22 @@ Operation *operation_free(Operation *o) {
                 LIST_REMOVE(operations_by_machine, o->machine->operations, o);
 
         return mfree(o);
+}
+
+void operation_attach_bus_reply(Operation *op, sd_bus_message *message) {
+        assert(op);
+        assert(!op->message);
+        assert(!op->link);
+        assert(message);
+
+        op->message = sd_bus_message_ref(message);
+}
+
+void operation_attach_varlink_reply(Operation *op, sd_varlink *link) {
+        assert(op);
+        assert(!op->message);
+        assert(!op->link);
+        assert(link);
+
+        op->link = sd_varlink_ref(link);
 }

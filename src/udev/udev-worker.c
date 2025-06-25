@@ -1,23 +1,22 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <linux/fs.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
+#include "sd-netlink.h"
 
-#include "alloc-util.h"
 #include "blockdev-util.h"
-#include "common-signal.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "path-util.h"
+#include "hashmap.h"
 #include "process-util.h"
-#include "signal-util.h"
-#include "string-util.h"
 #include "udev-error.h"
 #include "udev-event.h"
 #include "udev-rules.h"
@@ -46,17 +45,16 @@ int udev_get_whole_disk(sd_device *dev, sd_device **ret_device, const char **ret
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 goto irrelevant;
 
-        r = sd_device_get_sysname(dev, &val);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
-
         /* Exclude the following devices:
          * For "dm-", see the comment added by e918a1b5a94f270186dca59156354acd2a596494.
          * For "md", see the commit message of 2e5b17d01347d3c3118be2b8ad63d20415dbb1f0,
          * but not sure the assumption is still valid even when partitions are created on the md
          * devices, surprisingly which seems to be possible, see PR #22973.
          * For "drbd", see the commit message of fee854ee8ccde0cd28e0f925dea18cce35f3993d. */
-        if (STARTSWITH_SET(val, "dm-", "md", "drbd"))
+        r = device_sysname_startswith(dev, "dm-", "md", "drbd");
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check sysname: %m");
+        if (r > 0)
                 goto irrelevant;
 
         r = block_device_get_whole_disk(dev, &dev);
@@ -85,12 +83,13 @@ irrelevant:
         return 0;
 }
 
-static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
+static int worker_lock_whole_disk(UdevWorker *worker, sd_device *dev, int *ret_fd) {
         _cleanup_close_ int fd = -EBADF;
         sd_device *dev_whole_disk;
-        const char *val;
+        const char *whole_disk;
         int r;
 
+        assert(worker);
         assert(dev);
         assert(ret_fd);
 
@@ -105,7 +104,7 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 goto nolock;
 
-        r = udev_get_whole_disk(dev, &dev_whole_disk, &val);
+        r = udev_get_whole_disk(dev, &dev_whole_disk, &whole_disk);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -115,17 +114,29 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
 
-                log_device_debug_errno(dev, fd, "Failed to open '%s'%s: %m", val, ignore ? ", ignoring" : "");
+                log_device_debug_errno(dev, fd, "Failed to open '%s'%s: %m", whole_disk, ignore ? ", ignoring" : "");
                 if (!ignore)
                         return fd;
 
                 goto nolock;
         }
 
-        if (flock(fd, LOCK_SH|LOCK_NB) < 0)
-                return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", val);
+        if (flock(fd, LOCK_SH|LOCK_NB) < 0) {
+                if (errno != EAGAIN)
+                        return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", whole_disk);
 
-        log_device_debug(dev, "Successfully took flock(LOCK_SH) for %s, it will be released after the event has been processed.", val);
+                log_device_debug_errno(dev, errno, "Block device %s is currently locked, requeuing the event.", whole_disk);
+
+                r = sd_notifyf(/* unset_environment = */ false, "TRY_AGAIN=1\nWHOLE_DISK=%s", whole_disk);
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to send notification message to manager process: %m");
+                        (void) sd_event_exit(worker->event, r);
+                }
+
+                return -EAGAIN;
+        }
+
+        log_device_debug(dev, "Successfully took flock(LOCK_SH) for %s, it will be released after the event has been processed.", whole_disk);
         *ret_fd = TAKE_FD(fd);
         return 1;
 
@@ -135,9 +146,7 @@ nolock:
 }
 
 static int worker_mark_block_device_read_only(sd_device *dev) {
-        _cleanup_close_ int fd = -EBADF;
-        const char *val;
-        int state = 1, r;
+        int r;
 
         assert(dev);
 
@@ -147,23 +156,31 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
         if (!device_for_action(dev, SD_DEVICE_ADD))
                 return 0;
 
-        if (!device_in_subsystem(dev, "block"))
-                return 0;
-
-        r = sd_device_get_sysname(dev, &val);
+        r = device_in_subsystem(dev, "block");
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+                return r;
+        if (r == 0)
+                return 0;
 
         /* Exclude synthetic devices for now, this is supposed to be a safety feature to avoid modification
          * of physical devices, and what sits on top of those doesn't really matter if we don't allow the
          * underlying block devices to receive changes. */
-        if (STARTSWITH_SET(val, "dm-", "md", "drbd", "loop", "nbd", "zram"))
+        r = device_sysname_startswith(dev, "dm-", "md", "drbd", "loop", "nbd", "zram");
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check sysname: %m");
+        if (r > 0)
                 return 0;
 
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        const char *val;
+        r = sd_device_get_devname(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device node: %m");
+
+        _cleanup_close_ int fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_device_debug_errno(dev, fd, "Failed to open '%s', ignoring: %m", val);
 
+        int state = 1;
         if (ioctl(fd, BLKROSET, &state) < 0)
                 return log_device_warning_errno(dev, errno, "Failed to mark block device '%s' read-only: %m", val);
 
@@ -172,8 +189,6 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 }
 
 static int worker_process_device(UdevWorker *worker, sd_device *dev) {
-        _cleanup_(udev_event_unrefp) UdevEvent *udev_event = NULL;
-        _cleanup_close_ int fd_lock = -EBADF;
         int r;
 
         assert(worker);
@@ -181,28 +196,15 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
 
         log_device_uevent(dev, "Processing device");
 
-        udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
-        if (!udev_event)
-                return -ENOMEM;
-        udev_event->trace = worker->config.trace;
-
         /* If this is a block device and the device is locked currently via the BSD advisory locks,
          * someone else is using it exclusively. We don't run our udev rules now to not interfere.
          * Instead of processing the event, we requeue the event and will try again after a delay.
          *
          * The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING */
-        r = worker_lock_whole_disk(dev, &fd_lock);
-        if (r == -EAGAIN) {
-                log_device_debug(dev, "Block device is currently locked, requeuing the event.");
-
-                r = sd_notify(/* unset_environment = */ false, "TRY_AGAIN=1");
-                if (r < 0) {
-                        log_device_warning_errno(dev, r, "Failed to send notification message to manager process: %m");
-                        (void) sd_event_exit(worker->event, r);
-                }
-
+        _cleanup_close_ int fd_lock = -EBADF;
+        r = worker_lock_whole_disk(worker, dev, &fd_lock);
+        if (r == -EAGAIN)
                 return 0;
-        }
         if (r < 0)
                 return r;
 
@@ -213,6 +215,11 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         r = udev_watch_end(worker, dev);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
+
+        _cleanup_(udev_event_unrefp) UdevEvent *udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
+        if (!udev_event)
+                return -ENOMEM;
+        udev_event->trace = worker->config.trace;
 
         /* apply rules, create node, symlinks */
         r = udev_event_execute_rules(udev_event, worker->rules);

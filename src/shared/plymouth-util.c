@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "plymouth-util.h"
 #include "socket-util.h"
 
@@ -16,7 +18,7 @@ int plymouth_connect(int flags) {
         if (fd < 0)
                 return -errno;
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+        if (connect(fd, &sa.sa, sockaddr_un_len(&sa.un)) < 0)
                 return -errno;
 
         return TAKE_FD(fd);

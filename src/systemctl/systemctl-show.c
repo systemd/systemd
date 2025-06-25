@@ -2,44 +2,52 @@
 
 #include <sys/mount.h>
 
+#include "sd-bus.h"
+#include "sd-journal.h"
+
 #include "af-list.h"
 #include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-print-properties.h"
 #include "bus-unit-procs.h"
+#include "bus-unit-util.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cpu-set-util.h"
 #include "errno-util.h"
 #include "exec-util.h"
 #include "exit-status.h"
-#include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
-#include "hostname-util.h"
 #include "hostname-setup.h"
 #include "in-addr-util.h"
+#include "install.h"
 #include "ip-protocol-list.h"
 #include "journal-file.h"
 #include "list.h"
-#include "locale-util.h"
+#include "logs-show.h"
 #include "memory-util.h"
 #include "numa-util.h"
 #include "open-file.h"
+#include "output-mode.h"
+#include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "sort-util.h"
 #include "special.h"
-#include "string-table.h"
-#include "systemctl-list-machines.h"
 #include "systemctl-list-units.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "systemctl.h"
+#include "systemctl-list-machines.h"
 #include "systemctl-show.h"
 #include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 #include "utf8.h"
 #include "json-util.h"
@@ -260,6 +268,11 @@ typedef struct UnitStatusInfo {
         /* Swap */
         const char *what;
 
+        /* Slice */
+        unsigned concurrency_hard_max;
+        unsigned concurrency_soft_max;
+        unsigned n_currently_active;
+
         /* CGroup */
         uint64_t memory_current;
         uint64_t memory_peak;
@@ -402,7 +415,7 @@ static void print_status_info(
                 bool last = false;
 
                 STRV_FOREACH(dropin, i->dropin_paths) {
-                        _cleanup_free_ char *dropin_formatted = NULL;
+                        _cleanup_free_ char *dropin_formatted = NULL, *dropin_basename = NULL;
                         const char *df;
 
                         if (!dir || last) {
@@ -424,7 +437,13 @@ static void print_status_info(
 
                         last = ! (*(dropin + 1) && startswith(*(dropin + 1), dir));
 
-                        if (terminal_urlify_path(*dropin, basename(*dropin), &dropin_formatted) >= 0)
+                        r = path_extract_filename(*dropin, &dropin_basename);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to extract file name of '%s': %m", *dropin);
+                                break;
+                        }
+
+                        if (terminal_urlify_path(*dropin, dropin_basename, &dropin_formatted) >= 0)
                                 df = dropin_formatted;
                         else
                                 df = *dropin;
@@ -711,6 +730,26 @@ static void print_status_info(
                 if (i->status_varlink_error) {
                         printf("%sVarlink: %s", prefix, i->status_varlink_error);
                         prefix = "; ";
+                }
+
+                putchar('\n');
+        }
+
+        if (endswith(i->id, ".slice")) {
+                printf(" Act. Units: %u", i->n_currently_active);
+
+                if (i->concurrency_soft_max != UINT_MAX || i->concurrency_hard_max != UINT_MAX) {
+                        fputs(" (", stdout);
+
+                        if (i->concurrency_soft_max != UINT_MAX && i->concurrency_soft_max < i->concurrency_hard_max) {
+                                printf("soft limit: %u", i->concurrency_soft_max);
+                                if (i->concurrency_hard_max != UINT_MAX)
+                                        fputs("; ", stdout);
+                        }
+                        if (i->concurrency_hard_max != UINT_MAX)
+                                printf("hard limit: %u", i->concurrency_hard_max);
+
+                        putchar(')');
                 }
 
                 putchar('\n');
@@ -1485,8 +1524,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         return 1;
 
-                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
-                           STR_IN_SET(name, "IODeviceWeight", "BlockIODeviceWeight")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "IODeviceWeight")) {
                         const char *path;
                         uint64_t weight;
 
@@ -1506,8 +1544,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
 
                 } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
-                           (cgroup_io_limit_type_from_string(name) >= 0 ||
-                            STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth"))) {
+                           cgroup_io_limit_type_from_string(name) >= 0) {
                         const char *path;
                         uint64_t bandwidth;
 
@@ -2491,6 +2528,9 @@ static int show_one(
                 { "SysFSPath",                      "s",               NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },
                 { "Where",                          "s",               NULL,           offsetof(UnitStatusInfo, where)                             },
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
+                { "ConcurrencyHardMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_hard_max)              },
+                { "ConcurrencySoftMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_soft_max)              },
+                { "NCurrentlyActive",               "u",               NULL,           offsetof(UnitStatusInfo, n_currently_active)                },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
                 { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
                 { "MemorySwapCurrent",              "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_current)               },

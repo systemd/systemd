@@ -1,16 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "event-util.h"
 #include "glyph-util.h"
-#include "hostname-util.h"
-#include "local-addresses.h"
+#include "log.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
 #include "resolved-dns-synthesize.h"
+#include "resolved-dns-transaction.h"
 #include "resolved-etc-hosts.h"
+#include "resolved-manager.h"
 #include "resolved-timeouts.h"
+#include "set.h"
 #include "string-util.h"
 
 #define QUERIES_MAX 2048
@@ -199,6 +210,8 @@ static int dns_query_candidate_go(DnsQueryCandidate *c) {
         /* Let's keep a reference to the query while we're operating */
         keep_c = dns_query_candidate_ref(c);
 
+        uint64_t generation = c->generation;
+
         /* Start the transactions that are not started yet */
         SET_FOREACH(t, c->transactions) {
                 if (t->state != DNS_TRANSACTION_NULL)
@@ -207,6 +220,13 @@ static int dns_query_candidate_go(DnsQueryCandidate *c) {
                 r = dns_transaction_go(t);
                 if (r < 0)
                         return r;
+
+                if (c->generation != generation)
+                        /* The transaction has been completed, and dns_transaction_complete() ->
+                         * dns_query_candidate_notify() has been already called. Moreover, the query
+                         * candidate has been regenerated, and the query should be already restarted.
+                         * Let's exit from the loop now. */
+                        return 0;
 
                 n++;
         }
@@ -268,6 +288,8 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
         assert(c->query); /* We shan't add transactions to a candidate that has been detached already */
 
         dns_query_candidate_stop(c);
+
+        c->generation++;
 
         if (c->query->question_bypass) {
                 /* If this is a bypass query, then pass the original query packet along to the transaction */
@@ -358,7 +380,7 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
                                         c->query->manager->event,
                                         &c->timeout_event_source,
                                         CLOCK_BOOTTIME,
-                                        CANDIDATE_EXPEDITED_TIMEOUT_USEC, /* accuracy_usec= */ 0,
+                                        CANDIDATE_EXPEDITED_TIMEOUT_USEC, /* accuracy= */ 0,
                                         on_candidate_timeout, c,
                                         /* priority= */ 0, "candidate-timeout",
                                         /* force_reset= */ false);
@@ -382,7 +404,7 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
                                 goto fail;
 
                         if (r > 0) {
-                                /* New transactions where queued. Start them and wait */
+                                /* New transactions have been queued. Start them and wait */
 
                                 r = dns_query_candidate_go(c);
                                 if (r < 0)
@@ -506,6 +528,32 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
+typedef enum RefuseRecordTypeResult {
+        REFUSE_BAD,
+        REFUSE_GOOD,
+        REFUSE_PARTIAL,
+} RefuseRecordTypeResult;
+
+static RefuseRecordTypeResult test_refuse_record_types(Set *refuse_record_types, DnsQuestion *question) {
+        bool has_good = false, has_bad = false;
+        DnsResourceKey *key;
+
+        DNS_QUESTION_FOREACH(key, question)
+                if (set_contains(refuse_record_types, INT_TO_PTR(key->type)))
+                        has_bad = true;
+                else
+                        has_good = true;
+
+        if (has_bad && !has_good)
+                return REFUSE_BAD;
+        if (!has_bad) {
+                assert(has_good); /* The question should have at least one key. */
+                return REFUSE_GOOD;
+        }
+
+        return REFUSE_PARTIAL;
+}
+
 static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **question, DnsQuestion **ret_allocated) {
         int r;
 
@@ -513,7 +561,7 @@ static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **
         assert(question);
         assert(ret_allocated);
 
-        if (!*question) {
+        if (dns_question_isempty(*question)) {
                 *ret_allocated = NULL;
                 return 0;
         }
@@ -523,21 +571,15 @@ static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **
                 return 0; /* No filtering configured. Let's shortcut. */
         }
 
-        bool has_good = false, has_bad = false;
-        DnsResourceKey *key;
-        DNS_QUESTION_FOREACH(key, *question)
-                if (set_contains(manager->refuse_record_types, INT_TO_PTR(key->type)))
-                        has_bad = true;
-                else
-                        has_good = true;
-
-        if (has_bad && !has_good)
+        RefuseRecordTypeResult result = test_refuse_record_types(manager->refuse_record_types, *question);
+        if (result == REFUSE_BAD)
                 return -ENOANO; /* All bad, refuse.*/
-        if (!has_bad) {
-                assert(has_good); /* The question should have at least one key. */
+        if (result == REFUSE_GOOD) {
                 *ret_allocated = NULL;
                 return 0; /* All good. Not necessary to filter. */
         }
+
+        assert(result == REFUSE_PARTIAL);
 
         /* Mangle the question suppressing bad entries, leaving good entries */
         _cleanup_(dns_question_unrefp) DnsQuestion *new_question = dns_question_new(dns_question_size(*question));
@@ -590,6 +632,13 @@ int dns_query_new(
                 if (question_utf8 || question_idna)
                         return -EINVAL;
 
+                assert(dns_question_size(question_bypass->question) == 1);
+
+                /* In bypass mode we'll never mangle the question, but only deny or allow. (In bypass mode
+                 * there's only going to be one entry in the query, hence there's no point in mangling
+                 * questions, i.e. leaving some entries in and removing others.) */
+                if (test_refuse_record_types(m->refuse_record_types, question_bypass->question) != REFUSE_GOOD)
+                        return -ENOANO;
         } else {
                 bool good = false;
 
@@ -1492,4 +1541,14 @@ int validate_and_mangle_query_flags(
                 *flags |= SD_RESOLVED_NO_TXT;
 
         return 0;
+}
+
+uint64_t dns_query_reply_flags_make(DnsQuery *q) {
+        assert(q);
+
+        return SD_RESOLVED_FLAGS_MAKE(q->answer_protocol,
+                                      q->answer_family,
+                                      dns_query_fully_authenticated(q),
+                                      dns_query_fully_confidential(q)) |
+                (q->answer_query_flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC));
 }

@@ -43,7 +43,7 @@ rules = [
          conf.get('HAVE_DMI') == 1],
 
         [files('70-power-switch.rules'),
-         enable_logind],
+         conf.get('ENABLE_LOGIND') == 1]
 ]
 
 all_rules = []
@@ -65,9 +65,9 @@ rules_in = [
         ['64-btrfs.rules'],
         ['99-systemd.rules'],
 
-        ['70-uaccess.rules',   enable_logind and conf.get('HAVE_ACL') == 1],
-        ['71-seat.rules',      enable_logind],
-        ['73-seat-late.rules', enable_logind],
+        ['70-uaccess.rules',   conf.get('ENABLE_LOGIND') == 1 and conf.get('HAVE_ACL') == 1],
+        ['71-seat.rules',      conf.get('ENABLE_LOGIND') == 1],
+        ['73-seat-late.rules', conf.get('ENABLE_LOGIND') == 1],
 
         ['90-vconsole.rules',  conf.get('ENABLE_VCONSOLE') == 1],
 ]

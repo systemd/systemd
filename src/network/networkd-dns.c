@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
+#include "conf-parser.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "hostname-util.h"
 #include "networkd-dns.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
-#include "parse-util.h"
+#include "ordered-set.h"
+#include "set.h"
 #include "string-table.h"
+#include "string-util.h"
 
 UseDomains link_get_use_domains(Link *link, NetworkConfigSource proto) {
         UseDomains n, c, m;
@@ -194,7 +200,7 @@ int config_parse_domains(
                 }
 
                 OrderedSet **set = is_route ? &n->route_domains : &n->search_domains;
-                r = ordered_set_put_strdup(set, domain);
+                r = ordered_set_put_strdup_full(set, &dns_name_hash_ops_free, domain);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -281,7 +287,7 @@ int config_parse_dnssec_negative_trust_anchors(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                *nta = set_free_free(*nta);
+                *nta = set_free(*nta);
                 return 0;
         }
 
@@ -306,7 +312,7 @@ int config_parse_dnssec_negative_trust_anchors(
                         continue;
                 }
 
-                r = set_ensure_consume(nta, &dns_name_hash_ops, TAKE_PTR(w));
+                r = set_ensure_consume(nta, &dns_name_hash_ops_free, TAKE_PTR(w));
                 if (r < 0)
                         return log_oom();
         }

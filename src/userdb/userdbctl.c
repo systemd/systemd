@@ -1,28 +1,33 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "build.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
+#include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "pager.h"
 #include "parse-argument.h"
-#include "parse-util.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
 #include "umask-util.h"
@@ -166,6 +171,12 @@ static const struct {
                 .last = SYSTEM_UID_MAX,
                 .name = "system",
                 .disposition = USER_SYSTEM,
+        },
+        {
+                .first = GREETER_UID_MIN,
+                .last = GREETER_UID_MAX,
+                .name = "dynamic greeter",
+                .disposition = USER_DYNAMIC,
         },
         {
                 .first = DYNAMIC_UID_MIN,
@@ -1035,7 +1046,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return 0;
                 }
 
-                return log_error_errno(errno, "Failed to open /run/systemd/userdb/: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/run/systemd/userdb/");
         }
 
         t = table_new("service", "listening");
@@ -1456,7 +1467,7 @@ static int load_credentials(int argc, char *argv[], void *userdata) {
                 /* xopen_flags= */ XO_LABEL,
                 /* mode= */ 0755);
         if (userdb_dir_fd < 0)
-                return log_error_errno(userdb_dir_fd, "Failed to open '/etc/userdb/': %m");
+                return log_error_errno(userdb_dir_fd, "Failed to open %s: %m", "/etc/userdb/");
 
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
                 struct dirent *de = *i;

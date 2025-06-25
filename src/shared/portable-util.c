@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "fs-util.h"
 #include "nulstr-util.h"
 #include "portable-util.h"

@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mman.h>
-#include <sys/quota.h>
 #include <sys/vfs.h>
+
+#include "sd-bus.h"
 
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
+#include "device-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
@@ -16,31 +18,35 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
-#include "fs-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "home-util.h"
 #include "homed-home.h"
 #include "homed-home-bus.h"
+#include "homed-manager.h"
+#include "homed-operation.h"
 #include "json-util.h"
+#include "log.h"
 #include "memfd-util.h"
-#include "missing_magic.h"
 #include "missing_mman.h"
 #include "mkdir.h"
+#include "ordered-set.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "quota-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
-#include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "time-util.h"
 #include "uid-classification.h"
+#include "user-record.h"
 #include "user-record-password-quality.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
-#include "user-record.h"
 #include "user-util.h"
 
 /* Retry to deactivate home directories again and again every 15s until it works */
@@ -79,7 +85,8 @@ static int suitable_home_record(UserRecord *hr) {
 
         /* Insist we are outside of the dynamic and system range */
         if (uid_is_system(hr->uid) || gid_is_system(user_record_gid(hr)) ||
-            uid_is_dynamic(hr->uid) || gid_is_dynamic(user_record_gid(hr)))
+            uid_is_dynamic(hr->uid) || gid_is_dynamic(user_record_gid(hr)) ||
+            uid_is_greeter(hr->uid))
                 return -EADDRNOTAVAIL;
 
         /* Insist that GID and UID match */
@@ -1249,6 +1256,8 @@ static int home_start_work(
                 if (!sub)
                         return -ENOKEY;
 
+                sd_json_variant_sensitive(sub);
+
                 r = sd_json_variant_set_field(&v, "secret", sub);
                 if (r < 0)
                         return r;
@@ -1293,7 +1302,16 @@ static int home_start_work(
         if (stdin_fd < 0)
                 return stdin_fd;
 
-        log_debug("Sending to worker: %s", formatted);
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = sd_json_variant_format(v, /* flags= */ SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                log_debug("Sending to worker: %s", censored_text);
+        }
 
         stdout_fd = memfd_new("homework-stdout");
         if (stdout_fd < 0)
@@ -3203,10 +3221,8 @@ static int home_get_image_path_seat(Home *h, char **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_device_get_property_value(d, "ID_SEAT", &seat);
-        if (r == -ENOENT) /* no property means seat0 */
-                seat = "seat0";
-        else if (r < 0)
+        r = device_get_seat(d, &seat);
+        if (r < 0)
                 return r;
 
         return strdup_to(ret, seat);

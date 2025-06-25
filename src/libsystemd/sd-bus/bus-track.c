@@ -5,13 +5,15 @@
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-track.h"
+#include "hashmap.h"
+#include "log.h"
 #include "string-util.h"
 
-struct track_item {
+typedef struct BusTrackItem {
         unsigned n_ref;
         char *name;
         sd_bus_slot *slot;
-};
+} BusTrackItem;
 
 struct sd_bus_track {
         unsigned n_ref;
@@ -39,7 +41,7 @@ struct sd_bus_track {
                  "member='NameOwnerChanged',"           \
                  "arg0='", name, "'")
 
-static struct track_item* track_item_free(struct track_item *i) {
+static BusTrackItem* track_item_free(BusTrackItem *i) {
         if (!i)
                 return NULL;
 
@@ -48,10 +50,10 @@ static struct track_item* track_item_free(struct track_item *i) {
         return mfree(i);
 }
 
-DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(struct track_item, track_item, track_item_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_unref);
+DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(BusTrackItem, track_item, track_item_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(BusTrackItem*, track_item_unref);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(track_item_hash_ops, char, string_hash_func, string_compare_func,
-                                              struct track_item, track_item_free);
+                                              BusTrackItem, track_item_free);
 
 static void bus_track_add_to_queue(sd_bus_track *track) {
         assert(track);
@@ -95,7 +97,7 @@ static void bus_track_remove_from_queue(sd_bus_track *track) {
 }
 
 static int bus_track_remove_name_fully(sd_bus_track *track, const char *name) {
-        struct track_item *i;
+        BusTrackItem *i;
 
         assert(track);
         assert(name);
@@ -114,7 +116,7 @@ static int bus_track_remove_name_fully(sd_bus_track *track, const char *name) {
 
 _public_ int sd_bus_track_new(
                 sd_bus *bus,
-                sd_bus_track **track,
+                sd_bus_track **ret,
                 sd_bus_track_handler_t handler,
                 void *userdata) {
 
@@ -122,7 +124,7 @@ _public_ int sd_bus_track_new(
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(track, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (!bus->bus_client)
                 return -EINVAL;
@@ -141,11 +143,11 @@ _public_ int sd_bus_track_new(
 
         bus_track_add_to_queue(t);
 
-        *track = t;
+        *ret = t;
         return 0;
 }
 
-static sd_bus_track *track_free(sd_bus_track *track) {
+static sd_bus_track* track_free(sd_bus_track *track) {
         assert(track);
 
         if (track->in_list)
@@ -163,7 +165,7 @@ static sd_bus_track *track_free(sd_bus_track *track) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_track, sd_bus_track, track_free);
 
-static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         sd_bus_track *track = ASSERT_PTR(userdata);
         const char *name;
         int r;
@@ -179,8 +181,8 @@ static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus
 }
 
 _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
-        _cleanup_(track_item_unrefp) struct track_item *n = NULL;
-        struct track_item *i;
+        _cleanup_(track_item_unrefp) BusTrackItem *n = NULL;
+        BusTrackItem *i;
         const char *match;
         int r;
 
@@ -210,11 +212,11 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
         if (r < 0)
                 return r;
 
-        n = new(struct track_item, 1);
+        n = new(BusTrackItem, 1);
         if (!n)
                 return -ENOMEM;
 
-        *n = (struct track_item) {
+        *n = (BusTrackItem) {
                 .n_ref = 1,
         };
 
@@ -258,7 +260,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 }
 
 _public_ int sd_bus_track_remove_name(sd_bus_track *track, const char *name) {
-        struct track_item *i;
+        BusTrackItem *i;
 
         assert_return(name, -EINVAL);
 
@@ -409,13 +411,13 @@ void bus_track_close(sd_bus_track *track) {
                 bus_track_dispatch(track);
 }
 
-_public_ void *sd_bus_track_get_userdata(sd_bus_track *track) {
+_public_ void* sd_bus_track_get_userdata(sd_bus_track *track) {
         assert_return(track, NULL);
 
         return track->userdata;
 }
 
-_public_ void *sd_bus_track_set_userdata(sd_bus_track *track, void *userdata) {
+_public_ void* sd_bus_track_set_userdata(sd_bus_track *track, void *userdata) {
         void *ret;
 
         assert_return(track, NULL);
@@ -480,7 +482,7 @@ _public_ int sd_bus_track_count_sender(sd_bus_track *track, sd_bus_message *m) {
 }
 
 _public_ int sd_bus_track_count_name(sd_bus_track *track, const char *name) {
-        struct track_item *i;
+        BusTrackItem *i;
 
         assert_return(service_name_is_valid(name), -EINVAL);
 

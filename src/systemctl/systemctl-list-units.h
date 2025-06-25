@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "time-util.h"
+
 int verb_list_units(int argc, char *argv[], void *userdata);
 int verb_list_sockets(int argc, char *argv[], void *userdata);
 int verb_list_timers(int argc, char *argv[], void *userdata);

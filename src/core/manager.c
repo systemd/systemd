@@ -1,40 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/kd.h>
-#include <sys/epoll.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
-#include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#if HAVE_AUDIT
-#include <libaudit.h>
-#endif
-
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-messages.h"
 #include "sd-path.h"
 
 #include "all-units.h"
 #include "alloc-util.h"
+#include "architecture.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
+#include "bpf-restrict-fs.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
-#include "bus-kernel.h"
-#include "bus-util.h"
 #include "clean-ipc.h"
-#include "clock-util.h"
 #include "common-signal.h"
 #include "confidential-virt.h"
 #include "constants.h"
-#include "core-varlink.h"
 #include "creds-util.h"
 #include "daemon-util.h"
 #include "dbus-job.h"
@@ -42,6 +34,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dirent-util.h"
+#include "dynamic-user.h"
 #include "env-util.h"
 #include "escape.h"
 #include "event-util.h"
@@ -49,7 +42,9 @@
 #include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "fileio.h"
+#include "fdset.h"
+#include "format-util.h"
+#include "fs-util.h"
 #include "generator-setup.h"
 #include "hashmap.h"
 #include "initrd-util.h"
@@ -57,24 +52,21 @@
 #include "install.h"
 #include "io-util.h"
 #include "iovec-util.h"
-#include "label-util.h"
-#include "load-fragment.h"
+#include "libaudit-util.h"
 #include "locale-setup.h"
 #include "log.h"
-#include "macro.h"
-#include "manager.h"
 #include "manager-dump.h"
 #include "manager-serialize.h"
-#include "memory-util.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "notify-recv.h"
-#include "os-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "plymouth-util.h"
 #include "pretty-print.h"
+#include "prioq.h"
 #include "process-util.h"
 #include "psi-util.h"
 #include "ratelimit.h"
@@ -82,6 +74,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
@@ -96,10 +89,10 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "transaction.h"
-#include "uid-range.h"
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "varlink.h"
 #include "virt.h"
 #include "watchdog.h"
 
@@ -427,7 +420,7 @@ static int manager_read_timezone_stat(Manager *m) {
         assert(m);
 
         /* Read the current stat() data of /etc/localtime so that we detect changes */
-        if (lstat("/etc/localtime", &st) < 0) {
+        if (lstat(etc_localtime(), &st) < 0) {
                 log_debug_errno(errno, "Failed to stat /etc/localtime, ignoring: %m");
                 changed = m->etc_localtime_accessible;
                 m->etc_localtime_accessible = false;
@@ -464,14 +457,20 @@ static int manager_setup_timezone_change(Manager *m) {
          * Note that we create the new event source first here, before releasing the old one. This should optimize
          * behaviour as this way sd-event can reuse the old watch in case the inode didn't change. */
 
-        r = sd_event_add_inotify(m->event, &new_event, "/etc/localtime",
+        r = sd_event_add_inotify(m->event, &new_event, etc_localtime(),
                                  IN_ATTRIB|IN_MOVE_SELF|IN_CLOSE_WRITE|IN_DONT_FOLLOW, manager_dispatch_timezone_change, m);
         if (r == -ENOENT) {
                 /* If the file doesn't exist yet, subscribe to /etc instead, and wait until it is created either by
                  * O_CREATE or by rename() */
+                _cleanup_free_ char *localtime_dir = NULL;
 
-                log_debug_errno(r, "/etc/localtime doesn't exist yet, watching /etc instead.");
-                r = sd_event_add_inotify(m->event, &new_event, "/etc",
+                int dir_r = path_extract_directory(etc_localtime(), &localtime_dir);
+                if (dir_r < 0)
+                        return log_error_errno(dir_r, "Failed to extract directory from path '%s': %m", etc_localtime());
+
+                log_debug_errno(r, "%s doesn't exist yet, watching %s instead.", etc_localtime(), localtime_dir);
+
+                r = sd_event_add_inotify(m->event, &new_event, localtime_dir,
                                          IN_CREATE|IN_MOVED_TO|IN_ONLYDIR, manager_dispatch_timezone_change, m);
         }
         if (r < 0)
@@ -504,7 +503,7 @@ static int manager_enable_special_signals(Manager *m) {
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 /* Support systems without virtual console (ENOENT) gracefully */
-                log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd, "Failed to open /dev/tty0, ignoring: %m");
+                log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd, "Failed to open %s, ignoring: %m", "/dev/tty0");
         else {
                 /* Enable that we get SIGWINCH on kbrequest */
                 if (ioctl(fd, KDSIGACCEPT, SIGWINCH) < 0)
@@ -513,8 +512,6 @@ static int manager_enable_special_signals(Manager *m) {
 
         return 0;
 }
-
-#define RTSIG_IF_AVAILABLE(signum) (signum <= SIGRTMAX ? signum : -1)
 
 static int manager_setup_signals(Manager *m) {
         static const struct sigaction sa = {
@@ -528,10 +525,8 @@ static int manager_setup_signals(Manager *m) {
 
         assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
-        /* We make liberal use of realtime signals here. On
-         * Linux/glibc we have 30 of them (with the exception of Linux
-         * on hppa, see below), between SIGRTMIN+0 ... SIGRTMIN+30
-         * (aka SIGRTMAX). */
+        /* We make liberal use of realtime signals here. On Linux/glibc we have 30 of them, between
+         * SIGRTMIN+0 ... SIGRTMIN+30 (aka SIGRTMAX). */
 
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask,
@@ -571,20 +566,10 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+24, /* systemd: Immediate exit (--user only) */
                         SIGRTMIN+25, /* systemd: reexecute manager */
 
-                        /* Apparently Linux on hppa had fewer RT signals until v3.18,
-                         * SIGRTMAX was SIGRTMIN+25, and then SIGRTMIN was lowered,
-                         * see commit v3.17-7614-g1f25df2eff.
-                         *
-                         * We cannot unconditionally make use of those signals here,
-                         * so let's use a runtime check. Since these commands are
-                         * accessible by different means and only really a safety
-                         * net, the missing functionality on hppa shouldn't matter.
-                         */
-
-                        RTSIG_IF_AVAILABLE(SIGRTMIN+26), /* systemd: set log target to journal-or-kmsg */
-                        RTSIG_IF_AVAILABLE(SIGRTMIN+27), /* systemd: set log target to console */
-                        RTSIG_IF_AVAILABLE(SIGRTMIN+28), /* systemd: set log target to kmsg */
-                        RTSIG_IF_AVAILABLE(SIGRTMIN+29), /* systemd: set log target to syslog-or-kmsg (obsolete) */
+                        SIGRTMIN+26, /* systemd: set log target to journal-or-kmsg */
+                        SIGRTMIN+27, /* systemd: set log target to console */
+                        SIGRTMIN+28, /* systemd: set log target to kmsg */
+                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete) */
 
                         /* ... one free signal here SIGRTMIN+30 ... */
                         -1);
@@ -882,6 +867,10 @@ static int compare_job_priority(const void *a, const void *b) {
         return unit_compare_priority(x->unit, y->unit);
 }
 
+usec_t manager_default_timeout(RuntimeScope scope) {
+        return scope == RUNTIME_SCOPE_SYSTEM ? DEFAULT_TIMEOUT_USEC : DEFAULT_USER_TIMEOUT_USEC;
+}
+
 int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -941,15 +930,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                                 m->timestamps + MANAGER_TIMESTAMP_FIRMWARE,
                                 m->timestamps + MANAGER_TIMESTAMP_LOADER);
 #endif
-
-        /* Prepare log fields we can use for structured logging */
-        if (MANAGER_IS_SYSTEM(m)) {
-                m->unit_log_field = "UNIT=";
-                m->invocation_log_field = "INVOCATION_ID=";
-        } else {
-                m->unit_log_field = "USER_UNIT=";
-                m->invocation_log_field = "USER_INVOCATION_ID=";
-        }
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
         m->ctrl_alt_del_ratelimit = (const RateLimit) { .interval = 2 * USEC_PER_SEC, .burst = 7 };
@@ -1162,6 +1142,10 @@ static int manager_setup_user_lookup_fd(Manager *m) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->user_lookup_fds) < 0)
                         return log_error_errno(errno, "Failed to allocate user lookup socket: %m");
 
+                r = setsockopt_int(m->user_lookup_fds[0], SOL_SOCKET, SO_PASSRIGHTS, false);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_warning_errno(r, "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: %m");
+
                 (void) fd_increase_rxbuf(m->user_lookup_fds[0], MANAGER_SOCKET_RCVBUF_SIZE);
         }
 
@@ -1202,7 +1186,11 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
 
                 r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
-                        return log_error_errno(r, "SO_PASSCRED failed: %m");
+                        return log_error_errno(r, "Failed to enable SO_PASSCRED on handoff timestamp socket: %m");
+
+                r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSRIGHTS, false);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_warning_errno(r, "Failed to turn off SO_PASSRIGHTS on handoff timestamp socket, ignoring: %m");
 
                 /* Mark the receiving socket as O_NONBLOCK (but leave sending side as-is) */
                 r = fd_nonblock(m->handoff_timestamp_fds[0], true);
@@ -1249,7 +1237,7 @@ static int manager_setup_pidref_transport_fd(Manager *m) {
 
                 r = setsockopt_int(m->pidref_transport_fds[0], SOL_SOCKET, SO_PASSPIDFD, true);
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        log_debug("SO_PASSPIDFD is not supported for pidref socket, ignoring.");
+                        log_debug_errno(r, "SO_PASSPIDFD is not supported for pidref socket, ignoring.");
                 else if (r < 0)
                         log_warning_errno(r, "Failed to enable SO_PASSPIDFD for pidref socket, ignoring: %m");
 
@@ -1389,7 +1377,6 @@ good:
 
 static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
         unsigned n = 0, gc_marker;
-        Unit *u;
 
         assert(m);
 
@@ -1401,11 +1388,13 @@ static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
 
         gc_marker = m->gc_marker;
 
-        while ((u = LIST_POP(gc_queue, m->gc_unit_queue))) {
+        Unit *u;
+        while ((u = m->gc_unit_queue)) {
                 assert(u->in_gc_queue);
 
                 unit_gc_sweep(u, gc_marker);
 
+                LIST_REMOVE(gc_queue, m->gc_unit_queue, u);
                 u->in_gc_queue = false;
 
                 n++;
@@ -1872,6 +1861,7 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
                     SERVICE_MOUNTING,
                     SERVICE_RELOAD,
                     SERVICE_RELOAD_NOTIFY,
+                    SERVICE_REFRESH_EXTENSIONS,
                     SERVICE_RELOAD_SIGNAL))
                 return false;
 
@@ -1917,8 +1907,15 @@ static void manager_preset_all(Manager *m) {
         /* If this is the first boot, and we are in the host system, then preset everything */
         UnitFilePresetMode mode =
                 ENABLE_FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
 
-        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, mode, NULL, NULL);
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        log_info("Applying preset policy.");
+        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags = */ 0,
+                                 /* root_dir = */ NULL, mode, &changes, &n_changes);
+        install_changes_dump(r, "preset", changes, n_changes, /* quiet = */ false);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -2175,6 +2172,17 @@ int manager_add_job_full(
 
         tr = transaction_free(tr);
         return 0;
+}
+
+int manager_add_job(
+        Manager *m,
+        JobType type,
+        Unit *unit,
+        JobMode mode,
+        sd_bus_error *error,
+        Job **ret) {
+
+        return manager_add_job_full(m, type, unit, mode, 0, NULL, error, ret);
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret) {
@@ -3915,9 +3923,14 @@ static int manager_run_environment_generators(Manager *m) {
         };
 
         WITH_UMASK(0022)
-                r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
-                                        args, NULL, m->transient_environment,
-                                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
+                r = execute_directories(
+                                (const char* const*) paths,
+                                DEFAULT_TIMEOUT_USEC,
+                                gather_environment,
+                                args,
+                                /* argv[]= */ NULL,
+                                m->transient_environment,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
         return r;
 }
 
@@ -4219,10 +4232,8 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
 
         m->defaults.start_limit = defaults->start_limit;
 
-        m->defaults.cpu_accounting = defaults->cpu_accounting;
         m->defaults.memory_accounting = defaults->memory_accounting;
         m->defaults.io_accounting = defaults->io_accounting;
-        m->defaults.blockio_accounting = defaults->blockio_accounting;
         m->defaults.tasks_accounting = defaults->tasks_accounting;
         m->defaults.ip_accounting = defaults->ip_accounting;
 
@@ -5118,12 +5129,8 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
                 .device_timeout_usec = manager_default_timeout(scope),
                 .start_limit = { DEFAULT_START_LIMIT_INTERVAL, DEFAULT_START_LIMIT_BURST },
 
-                /* On 4.15+ with unified hierarchy, CPU accounting is essentially free as it doesn't require the CPU
-                 * controller to be enabled, so the default is to enable it unless we got told otherwise. */
-                .cpu_accounting = cpu_accounting_is_cheap(),
                 .memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
                 .io_accounting = false,
-                .blockio_accounting = false,
                 .tasks_accounting = true,
                 .ip_accounting = false,
 
@@ -5205,11 +5212,3 @@ static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
-
-static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
-        [OOM_CONTINUE] = "continue",
-        [OOM_STOP]     = "stop",
-        [OOM_KILL]     = "kill",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);

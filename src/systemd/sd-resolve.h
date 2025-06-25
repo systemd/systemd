@@ -22,16 +22,15 @@
 #define _GNU_SOURCE 1
 #endif
 
-#include <inttypes.h>
-#include <netdb.h>
 #include <sys/socket.h>
-#include <sys/types.h>
-
-#include "sd-event.h"
 
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct addrinfo;
+
+typedef struct sd_event sd_event;
 
 /* An opaque sd-resolve session structure */
 typedef struct sd_resolve sd_resolve;

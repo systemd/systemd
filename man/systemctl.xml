@@ -163,10 +163,9 @@ PATH                           CONDITION         UNIT                           
             shown. Produces output similar to
             <programlisting>
 LISTEN           UNIT                        ACTIVATES
-/dev/initctl     systemd-initctl.socket      systemd-initctl.service
-…
-[::]:22          sshd.socket                 sshd.service
 kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
+/dev/rfkill      systemd-rfkill.socket       systemd-rfkill.service
+…
 
 5 sockets listed.</programlisting>
             Note: because the addresses might contains spaces, this output
@@ -559,7 +558,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>clean <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Remove the configuration, state, cache, logs or runtime data of the specified units. Use
+            <para>Remove the configuration, state, cache, logs, runtime or file descriptor store data of the specified units. Use
             <option>--what=</option> to select which kind of resource to remove. For service units this may
             be used to remove the directories configured with <varname>ConfigurationDirectory=</varname>,
             <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
@@ -574,7 +573,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             command only applies to units that use either of these settings. If <option>--what=</option> is
             not specified, the cache and runtime data as well as the file descriptor store are removed (as
             these three types of resources are generally redundant and reproducible on the next invocation of
-            the unit). Note that the specified units must be stopped to invoke this operation.</para>
+            the unit). Multiple values can be separated by commas. Note that the specified units must be stopped
+            to invoke this operation.</para>
 
             <table>
               <title>
@@ -616,6 +616,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   <row>
                     <entry><literal>all</literal></entry>
                     <entry>All of the above</entry>
+                  </row>
+                  <row>
+                    <entry><literal>help</literal></entry>
+                    <entry>Show the supported values and exit</entry>
                   </row>
                 </tbody>
               </tgroup>
@@ -993,7 +997,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>preset <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
-            <para>Reset the enable/disable status one or more unit files, as specified on
+            <para>Reset the enable/disable status of one or more unit files, as specified on
             the command line, to the defaults configured in the preset policy files. This
             has the same effect as <command>disable</command> or
             <command>enable</command>, depending how the unit is listed in the preset
@@ -2294,11 +2298,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>When system shutdown or sleep state is requested, this option controls checking of inhibitor
-          locks. It takes one of <literal>auto</literal>, <literal>yes</literal> or
-          <literal>no</literal>. Defaults to <literal>auto</literal>, which means logind will perform the
-          check and respect active inhibitor locks, but systemctl will only do a client-side check for
-          interactive invocations (i.e. from a TTY), so that a more friendly and informative error can be
-          returned to users. <literal>no</literal> disables both the systemctl and logind checks.</para>
+          locks. It takes one of <literal>auto</literal>, <literal>yes</literal>, and <literal>no</literal>.
+          Defaults to <literal>auto</literal>, which means logind will perform the check and respect active
+          inhibitor locks, but <command>systemctl</command> will only do a client-side check for interactive
+          invocations (i.e. from a TTY), so that a more friendly and informative error can be returned to
+          users. <literal>no</literal> disables the checks both in <command>systemctl</command> and
+          <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          </para>
 
           <para>Applications can establish inhibitor locks to prevent certain important operations (such as
           CD burning) from being interrupted by system shutdown or sleep. Any user may take these locks and
@@ -2346,6 +2352,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           suppress output of commands for which the printed output is
           the only result (like <command>show</command>). Errors are
           always printed.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--verbose</option></term>
+
+        <listitem>
+          <para>Display unit log output while executing unit operations.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
 

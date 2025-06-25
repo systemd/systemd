@@ -1,23 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <inttypes.h>
-#include <sys/uio.h>
-
-#if HAVE_GCRYPT
-#  include <gcrypt.h>
-#endif
-
-#include "sd-event.h"
-#include "sd-id128.h"
-
 #include "compress.h"
-#include "hashmap.h"
+#include "forward.h"
+#include "gcrypt-util.h"
 #include "journal-def.h"
+#include "missing_fcntl.h"
 #include "mmap-cache.h"
 #include "sparse-endian.h"
-#include "time-util.h"
 
 typedef struct JournalMetrics {
         /* For all these: UINT64_MAX means "pick automatically", and 0 means "no limit enforced" */
@@ -106,7 +96,6 @@ typedef struct JournalFile {
         void *compress_buffer;
 #endif
 
-#if HAVE_GCRYPT
         gcry_md_hd_t hmac;
         bool hmac_running;
 
@@ -121,7 +110,6 @@ typedef struct JournalFile {
 
         void *fsprg_seed;
         size_t fsprg_seed_size;
-#endif
 
         /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
         sd_id128_t newest_boot_id;
@@ -137,13 +125,15 @@ typedef enum JournalFileFlags {
         JOURNAL_COMPRESS        = 1 << 0,
         JOURNAL_SEAL            = 1 << 1,
         JOURNAL_STRICT_ORDER    = 1 << 2,
-        _JOURNAL_FILE_FLAGS_MAX = JOURNAL_COMPRESS|JOURNAL_SEAL|JOURNAL_STRICT_ORDER,
+        _JOURNAL_FILE_FLAGS_ALL = JOURNAL_COMPRESS|JOURNAL_SEAL|JOURNAL_STRICT_ORDER,
 } JournalFileFlags;
 
 typedef struct {
         uint64_t object_offset;
         uint64_t hash;
 } EntryItem;
+
+extern const struct hash_ops journal_file_hash_ops_by_path;
 
 int journal_file_open(
                 int fd,
@@ -389,5 +379,5 @@ static inline uint32_t COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(Compression c) {
 
 static inline bool journal_file_writable(JournalFile *f) {
         assert(f);
-        return (f->open_flags & O_ACCMODE) != O_RDONLY;
+        return (f->open_flags & O_ACCMODE_STRICT) != O_RDONLY;
 }

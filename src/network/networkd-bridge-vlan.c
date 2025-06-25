@@ -3,18 +3,17 @@
   Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
-#include <netinet/in.h>
 #include <linux/if_bridge.h>
-#include <stdbool.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "conf-parser.h"
 #include "netlink-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-link.h"
-#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "vlan-util.h"
 
 static bool is_bit_set(unsigned nr, const uint32_t *addr) {

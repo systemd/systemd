@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "af-list.h"
+#include <paths.h>
+#include <sys/mount.h>
+
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -11,24 +15,21 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "constants.h"
 #include "coredump-util.h"
 #include "cpu-set-util.h"
-#include "dissect-image.h"
 #include "escape.h"
 #include "exec-util.h"
 #include "exit-status.h"
-#include "fileio.h"
+#include "extract-word.h"
 #include "firewall-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "install.h"
 #include "ioprio-util.h"
 #include "ip-protocol-list.h"
-#include "libmount-util.h"
-#include "locale-util.h"
 #include "log.h"
-#include "macro.h"
-#include "missing_fs.h"
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "numa-util.h"
@@ -37,20 +38,17 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "sort-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "unit-def.h"
-#include "user-util.h"
-#include "utf8.h"
 
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
         assert(message);
@@ -71,6 +69,11 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                         &u->job_id,
                         &u->job_type,
                         &u->job_path);
+}
+
+static int warn_deprecated(const char *field, const char *eq) {
+        log_warning("D-Bus property %s is deprecated, ignoring assignment: %s=%s", field, field, eq);
+        return 1;
 }
 
 #define DEFINE_BUS_APPEND_PARSE_PTR(bus_type, cast_type, type, parse_func) \
@@ -126,8 +129,6 @@ DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, ioprio_parse_priority);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, parse_nice);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, safe_atoi);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, nsec_t, parse_nsec);
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_blkio_weight_parse);
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_shares_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_weight_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_weight_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, unsigned long, mount_propagation_flag_from_string);
@@ -333,17 +334,28 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         }
                         break;
 
+                case '|':
+                        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL))
+                                done = true;
+                        else {
+                                flags |= EXEC_COMMAND_VIA_SHELL;
+                                eq++;
+                        }
+                        break;
+
                 default:
                         done = true;
                 }
         } while (!done);
 
-        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID))) {
+        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_VIA_SHELL))) {
                 /* Upgrade the ExecXYZ= property to ExecXYZEx= for convenience */
                 is_ex_prop = true;
+
                 upgraded_name = strjoin(field, "Ex");
                 if (!upgraded_name)
                         return log_oom();
+                field = upgraded_name;
         }
 
         if (is_ex_prop) {
@@ -352,21 +364,36 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         return log_error_errno(r, "Failed to convert ExecCommandFlags to strv: %m");
         }
 
-        if (explicit_path) {
+        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
+                path = strdup(_PATH_BSHELL);
+                if (!path)
+                        return log_oom();
+
+        } else if (explicit_path) {
                 r = extract_first_word(&eq, &path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse path: %m");
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No executable path specified, refusing.");
+                if (isempty(eq))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got empty command line, refusing.");
         }
 
         r = strv_split_full(&l, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse command line: %m");
 
+        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
+                r = strv_prepend(&l, explicit_path ? "-sh" : "sh");
+                if (r < 0)
+                        return log_oom();
+        }
+
         r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, upgraded_name ?: field);
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -568,11 +595,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (STR_IN_SET(field, "CPUAccounting",
-                              "MemoryAccounting",
+        if (STR_IN_SET(field, "MemoryAccounting",
                               "MemoryZSwapWriteback",
                               "IOAccounting",
-                              "BlockIOAccounting",
                               "TasksAccounting",
                               "IPAccounting",
                               "CoredumpReceive"))
@@ -585,10 +610,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (STR_IN_SET(field, "IOWeight",
                               "StartupIOWeight"))
                 return bus_append_cg_weight_parse(m, field, eq);
-
-        if (STR_IN_SET(field, "CPUShares",
-                              "StartupCPUShares"))
-                return bus_append_cg_cpu_shares_parse(m, field, eq);
 
         if (STR_IN_SET(field, "AllowedCPUs",
                               "StartupAllowedCPUs",
@@ -608,10 +629,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                 return bus_append_byte_array(m, field, array, allocated);
         }
-
-        if (STR_IN_SET(field, "BlockIOWeight",
-                              "StartupBlockIOWeight"))
-                return bus_append_cg_blkio_weight_parse(m, field, eq);
 
         if (streq(field, "DisableControllers"))
                 return bus_append_strv(m, "DisableControllers", eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
@@ -636,7 +653,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "MemoryMax",
                               "MemorySwapMax",
                               "MemoryZSwapMax",
-                              "MemoryLimit",
                               "TasksMax")) {
 
                 if (streq(eq, "infinity")) {
@@ -735,9 +751,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (cgroup_io_limit_type_from_string(field) >= 0 ||
-            STR_IN_SET(field, "BlockIOReadBandwidth",
-                              "BlockIOWriteBandwidth")) {
+        if (cgroup_io_limit_type_from_string(field) >= 0) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
@@ -771,8 +785,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (STR_IN_SET(field, "IODeviceWeight",
-                              "BlockIODeviceWeight")) {
+        if (streq(field, "IODeviceWeight")) {
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
                 else {
@@ -1019,6 +1032,19 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 /* While infinity is disallowed in unit file, infinity is allowed in D-Bus API which
                  * means use the default memory pressure duration from oomd.conf. */
                 return bus_append_parse_sec_rename(m, field, isempty(eq) ? "infinity" : eq);
+
+        if (STR_IN_SET(field,
+                       "MemoryLimit",
+                       "CPUShares",
+                       "StartupCPUShares",
+                       "BlockIOAccounting",
+                       "BlockIOWeight",
+                       "StartupBlockIOWeight",
+                       "BlockIODeviceWeight",
+                       "BlockIOReadBandwidth",
+                       "BlockIOWriteBandwidth",
+                       "CPUAccounting"))
+                return warn_deprecated(field, eq);
 
         return 0;
 }
@@ -2557,11 +2583,13 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "Transparent",
                               "Broadcast",
                               "PassCredentials",
-                              "PassFileDescriptorsToExec",
+                              "PassPIDFD",
                               "PassSecurity",
                               "PassPacketInfo",
+                              "AcceptFileDescriptors",
                               "ReusePort",
                               "RemoveOnStop",
+                              "PassFileDescriptorsToExec",
                               "SELinuxContextFromNet"))
                 return bus_append_parse_boolean(m, field, eq);
 
@@ -2916,7 +2944,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
                                "Unknown assignment: %s", assignment);
 }
 
-int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char **l) {
+int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char * const *l) {
         int r;
 
         assert(m);
@@ -2986,7 +3014,7 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
         return 0;
 }
 
-int unit_load_state(sd_bus *bus, const char *name, char **load_state) {
+int unit_load_state(sd_bus *bus, const char *name, char **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         int r;
@@ -3005,7 +3033,7 @@ int unit_load_state(sd_bus *bus, const char *name, char **load_state) {
                         "org.freedesktop.systemd1.Unit",
                         "LoadState",
                         &error,
-                        load_state);
+                        ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to get load state of %s: %s", name, bus_error_message(&error, r));
 
@@ -3104,7 +3132,7 @@ static int unit_freezer_action(UnitFreezer *f, bool freeze) {
         r = bus_call_method(f->bus, bus_systemd_mgr,
                             freeze ? "FreezeUnit" : "ThawUnit",
                             &error,
-                            /* reply = */ NULL,
+                            /* ret_reply = */ NULL,
                             "s",
                             f->name);
         if (r < 0) {

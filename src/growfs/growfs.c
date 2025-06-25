@@ -1,34 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/magic.h>
-#include <sys/ioctl.h>
-#include <sys/mount.h>
-#include <sys/types.h>
 #include <sys/vfs.h>
 
-#include "sd-device.h"
-
+#include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build.h"
 #include "cryptsetup-util.h"
-#include "device-nodes.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
-#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "missing_fs.h"
 #include "mountpoint-util.h"
-#include "parse-util.h"
 #include "pretty-print.h"
 #include "resize-fs.h"
+#include "string-util.h"
 
 static const char *arg_target = NULL;
 static bool arg_dry_run = false;

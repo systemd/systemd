@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <libcryptsetup.h>
 #include <string.h>
 
+#include "sd-json.h"
+
+#include "alloc-util.h"
 #include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
-#include "hexdecoct.h"
-#include "json-util.h"
 #include "luks2-fido2.h"
 #include "memory-util.h"
 #include "version.h"

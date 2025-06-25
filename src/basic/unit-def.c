@@ -2,7 +2,9 @@
 
 #include "alloc-util.h"
 #include "bus-label.h"
+#include "glyph-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 
@@ -66,14 +68,6 @@ const char* unit_dbus_interface_from_name(const char *name) {
                 return NULL;
 
         return unit_dbus_interface_from_type(t);
-}
-
-const char* unit_type_to_capitalized_string(UnitType t) {
-        const char *di = unit_dbus_interface_from_type(t);
-        if (!di)
-                return NULL;
-
-        return ASSERT_PTR(startswith(di, "org.freedesktop.systemd1."));
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
@@ -221,6 +215,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_RELOAD]                     = "reload",
         [SERVICE_RELOAD_SIGNAL]              = "reload-signal",
         [SERVICE_RELOAD_NOTIFY]              = "reload-notify",
+        [SERVICE_REFRESH_EXTENSIONS]         = "refresh-extensions",
         [SERVICE_STOP]                       = "stop",
         [SERVICE_STOP_WATCHDOG]              = "stop-watchdog",
         [SERVICE_STOP_SIGTERM]               = "stop-sigterm",

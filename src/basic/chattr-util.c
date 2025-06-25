@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -10,7 +9,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "macro.h"
+#include "log.h"
 #include "string-util.h"
 
 int chattr_full(
@@ -81,16 +80,15 @@ int chattr_full(
                 errno = EINVAL;
         }
 
-        if ((errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED(errno)) ||
-            !FLAGS_SET(flags, CHATTR_FALLBACK_BITWISE))
+        if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno) || !FLAGS_SET(flags, CHATTR_FALLBACK_BITWISE))
                 return -errno;
 
-        /* When -EINVAL is returned, we assume that incompatible attributes are simultaneously
-         * specified. E.g., compress(c) and nocow(C) attributes cannot be set to files on btrfs.
-         * As a fallback, let's try to set attributes one by one.
+        /* When -EINVAL is returned, incompatible attributes might be simultaneously specified. E.g.,
+         * compress(c) and nocow(C) attributes cannot be set to files on btrfs. As a fallback, let's try to
+         * set attributes one by one.
          *
-         * Also, when we get EOPNOTSUPP (or a similar error code) we assume a flag might just not be
-         * supported, and we can ignore it too */
+         * Alternatively, when we get EINVAL or EOPNOTSUPP (or a similar error code) we assume a flag might
+         * just not be supported, and we can ignore it too */
 
         unsigned current_attr = old_attr;
 
@@ -111,7 +109,7 @@ int chattr_full(
 
                         /* Ensures that we record whether only EOPNOTSUPP&friends are encountered, or if a more serious
                          * error (thus worth logging at a different level, etc) was seen too. */
-                        if (set_flags_errno == 0 || !ERRNO_IS_NOT_SUPPORTED(errno))
+                        if (set_flags_errno == 0 || !ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
                                 set_flags_errno = -errno;
 
                         continue;
@@ -126,10 +124,10 @@ int chattr_full(
         if (ret_final)
                 *ret_final = current_attr;
 
-        /* -ENOANO indicates that some attributes cannot be set. ERRNO_IS_NOT_SUPPORTED indicates that all
-         * encountered failures were due to flags not supported by the FS, so return a specific error in
+        /* -ENOANO indicates that some attributes cannot be set. ERRNO_IS_IOCTL_NOT_SUPPORTED indicates that
+         * all encountered failures were due to flags not supported by the FS, so return a specific error in
          * that case, so callers can handle it properly (e.g.: tmpfiles.d can use debug level logging). */
-        return current_attr == new_attr ? 1 : ERRNO_IS_NOT_SUPPORTED(set_flags_errno) ? set_flags_errno : -ENOANO;
+        return current_attr == new_attr ? 1 : ERRNO_IS_IOCTL_NOT_SUPPORTED(set_flags_errno) ? set_flags_errno : -ENOANO;
 }
 
 int read_attr_fd(int fd, unsigned *ret) {

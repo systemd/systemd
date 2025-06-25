@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <syslog.h>
+
 #include "alloc-util.h"
 #include "hashmap.h"
 #include "journald-rate-limit.h"
 #include "logarithm.h"
-#include "string-util.h"
 #include "time-util.h"
 
 #define POOLS_MAX 5

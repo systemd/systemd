@@ -5,18 +5,11 @@
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 
-#include "hashmap.h"
 #include "in-addr-util.h"
-#include "macro.h"
-#include "sparse-endian.h"
-
-typedef struct DnsPacketHeader DnsPacketHeader;
-typedef struct DnsPacket DnsPacket;
-
+#include "memory-util.h"
 #include "resolved-def.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
+#include "resolved-forward.h"
+#include "sparse-endian.h"
 
 typedef enum DnsProtocol {
         DNS_PROTOCOL_DNS,
@@ -26,14 +19,14 @@ typedef enum DnsProtocol {
         _DNS_PROTOCOL_INVALID = -EINVAL,
 } DnsProtocol;
 
-struct DnsPacketHeader {
+typedef struct DnsPacketHeader {
         uint16_t id;
         be16_t flags;
         be16_t qdcount;
         be16_t ancount;
         be16_t nscount;
         be16_t arcount;
-} _packed_;
+} _packed_ DnsPacketHeader;
 
 #define DNS_PACKET_HEADER_SIZE sizeof(DnsPacketHeader)
 #define UDP4_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
@@ -58,7 +51,7 @@ assert_cc(sizeof(DnsPacketHeader) == 12);
 /* With EDNS0 we can use larger packets, default to 1232, which is what is commonly used */
 #define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 1232u
 
-struct DnsPacket {
+typedef struct DnsPacket {
         unsigned n_ref;
         DnsProtocol protocol;
         size_t size, allocated, rindex, max_size, fragsize;
@@ -88,7 +81,7 @@ struct DnsPacket {
         bool canonical_form;
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-};
+} DnsPacket;
 
 static inline uint8_t* DNS_PACKET_DATA(const DnsPacket *p) {
         if (_unlikely_(!p))
@@ -115,46 +108,10 @@ static inline uint8_t* DNS_PACKET_DATA(const DnsPacket *p) {
 #define DNS_PACKET_FLAG_AD (UINT16_C(1) << 5)
 #define DNS_PACKET_FLAG_TC (UINT16_C(1) << 9)
 
-static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {
-        uint16_t rcode;
-
-        if (p->opt)
-                rcode = (uint16_t) ((p->opt->ttl >> 20) & 0xFF0);
-        else
-                rcode = 0;
-
-        return rcode | (be16toh(DNS_PACKET_HEADER(p)->flags) & 0xF);
-}
-
-static inline uint16_t DNS_PACKET_PAYLOAD_SIZE_MAX(DnsPacket *p) {
-
-        /* Returns the advertised maximum size for replies, or the DNS default if there's nothing defined. */
-
-        if (p->ipproto == IPPROTO_TCP) /* we ignore EDNS(0) size data on TCP, like everybody else */
-                return DNS_PACKET_SIZE_MAX;
-
-        if (p->opt)
-                return MAX(DNS_PACKET_UNICAST_SIZE_MAX, p->opt->key->class);
-
-        return DNS_PACKET_UNICAST_SIZE_MAX;
-}
-
-static inline bool DNS_PACKET_DO(DnsPacket *p) {
-        if (!p->opt)
-                return false;
-
-        return !!(p->opt->ttl & (1U << 15));
-}
-
-static inline bool DNS_PACKET_VERSION_SUPPORTED(DnsPacket *p) {
-        /* Returns true if this packet is in a version we support. Which means either non-EDNS or EDNS(0), but not EDNS
-         * of any newer versions */
-
-        if (!p->opt)
-                return true;
-
-        return DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(p->opt);
-}
+uint16_t dns_packet_rcode(DnsPacket *p);
+uint16_t dns_packet_payload_size_max(DnsPacket *p);
+bool dns_packet_do(DnsPacket *p);
+bool dns_packet_version_supported(DnsPacket *p);
 
 static inline bool DNS_PACKET_IS_FRAGMENTED(DnsPacket *p) {
         assert(p);

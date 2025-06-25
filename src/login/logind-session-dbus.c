@@ -1,28 +1,40 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <sys/eventfd.h>
+
+#include "sd-bus.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-label.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "hashmap.h"
+#include "log.h"
+#include "logind.h"
 #include "logind-brightness.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"
+#include "logind-seat.h"
 #include "logind-seat-dbus.h"
+#include "logind-session.h"
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
-#include "logind-session.h"
+#include "logind-user.h"
 #include "logind-user-dbus.h"
-#include "logind.h"
 #include "path-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 static int property_get_user(
@@ -536,7 +548,7 @@ static int method_set_tty(sd_bus_message *message, void *userdata, sd_bus_error 
         flags = fcntl(fd, F_GETFL, 0);
         if (flags < 0)
                 return -errno;
-        if ((flags & O_ACCMODE) != O_RDWR)
+        if ((flags & O_ACCMODE_STRICT) != O_RDWR)
                 return -EACCES;
         if (FLAGS_SET(flags, O_PATH))
                 return -ENOTTY;
@@ -701,7 +713,10 @@ static int method_set_brightness(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to open device %s:%s: %m", subsystem, name);
 
-        if (sd_device_get_property_value(d, "ID_SEAT", &seat) >= 0 && !streq_ptr(seat, s->seat->id))
+        r = device_get_seat(d, &seat);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to get seat of %s:%s: %m", subsystem, name);
+        if (!streq(seat, s->seat->id))
                 return sd_bus_error_setf(error, BUS_ERROR_NOT_YOUR_DEVICE, "Device %s:%s does not belong to your seat %s, refusing.", subsystem, name, s->seat->id);
 
         r = manager_write_brightness(s->manager, d, brightness, message);
@@ -843,9 +858,8 @@ int session_send_signal(Session *s, bool new_session) {
                         "so", s->id, p);
 }
 
-int session_send_changed(Session *s, const char *properties, ...) {
+int session_send_changed_strv(Session *s, char **properties) {
         _cleanup_free_ char *p = NULL;
-        char **l;
 
         assert(s);
 
@@ -856,9 +870,7 @@ int session_send_changed(Session *s, const char *properties, ...) {
         if (!p)
                 return -ENOMEM;
 
-        l = strv_from_stdarg_alloca(properties);
-
-        return sd_bus_emit_properties_changed_strv(s->manager->bus, p, "org.freedesktop.login1.Session", l);
+        return sd_bus_emit_properties_changed_strv(s->manager->bus, p, "org.freedesktop.login1.Session", properties);
 }
 
 int session_send_lock(Session *s, bool lock) {
@@ -911,25 +923,23 @@ int session_send_create_reply_bus(Session *s, const sd_bus_error *error) {
         if (sd_bus_error_is_set(error))
                 return sd_bus_reply_method_error(c, error);
 
-        _cleanup_close_ int fifo_fd = session_create_fifo(s);
-        if (fifo_fd < 0)
-                return fifo_fd;
-
-        /* Update the session state file before we notify the client about the result. */
-        session_save(s);
+        /* Prior to v258, logind tracked sessions by installing a fifo in client and subscribe to its EOF.
+         * Now we can fully rely on pidfd for this, but still need to return *something* to the client.
+         * Allocate something lightweight and isolated as placeholder. */
+        _cleanup_close_ int fd = eventfd(0, EFD_CLOEXEC);
+        if (fd < 0)
+                return -errno;
 
         _cleanup_free_ char *p = session_bus_path(s);
         if (!p)
                 return -ENOMEM;
 
         log_debug("Sending D-Bus reply about created session: "
-                  "id=%s object_path=%s uid=" UID_FMT " runtime_path=%s "
-                  "session_fd=%d seat=%s vtnr=%u",
+                  "id=%s object_path=%s uid=" UID_FMT " runtime_path=%s seat=%s vtnr=%u",
                   s->id,
                   p,
                   s->user->user_record->uid,
                   s->user->runtime_path,
-                  fifo_fd,
                   s->seat ? s->seat->id : "",
                   s->vtnr);
 
@@ -938,7 +948,7 @@ int session_send_create_reply_bus(Session *s, const sd_bus_error *error) {
                         s->id,
                         p,
                         s->user->runtime_path,
-                        fifo_fd,
+                        fd, /* not really used - see comments above */
                         (uint32_t) s->user->user_record->uid,
                         s->seat ? s->seat->id : "",
                         (uint32_t) s->vtnr,
@@ -983,6 +993,7 @@ static const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("Desktop", "s", NULL, offsetof(Session, desktop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Scope", "s", NULL, offsetof(Session, scope), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Leader", "u", bus_property_get_pid, offsetof(Session, leader.pid), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LeaderPIDFDId", "t", bus_property_get_pidfdid, offsetof(Session, leader), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Audit", "u", NULL, offsetof(Session, audit_id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Session, type), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Session, class), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),

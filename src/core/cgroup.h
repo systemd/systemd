@@ -1,18 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-event.h"
-
-#include "bpf-program.h"
-#include "bpf-restrict-fs.h"
 #include "cgroup-util.h"
+#include "core-forward.h"
 #include "cpu-set-util.h"
 #include "firewall-util.h"
 #include "list.h"
-#include "pidref.h"
-#include "time-util.h"
 
 typedef struct CGroupTasksMax {
         /* If scale == 0, just use value; otherwise, value / scale.
@@ -28,17 +21,6 @@ static inline bool cgroup_tasks_max_isset(const CGroupTasksMax *tasks_max) {
 }
 
 uint64_t cgroup_tasks_max_resolve(const CGroupTasksMax *tasks_max);
-
-typedef struct CGroupContext CGroupContext;
-typedef struct CGroupDeviceAllow CGroupDeviceAllow;
-typedef struct CGroupIODeviceWeight CGroupIODeviceWeight;
-typedef struct CGroupIODeviceLimit CGroupIODeviceLimit;
-typedef struct CGroupIODeviceLatency CGroupIODeviceLatency;
-typedef struct CGroupBlockIODeviceWeight CGroupBlockIODeviceWeight;
-typedef struct CGroupBlockIODeviceBandwidth CGroupBlockIODeviceBandwidth;
-typedef struct CGroupBPFForeignProgram CGroupBPFForeignProgram;
-typedef struct CGroupSocketBindItem CGroupSocketBindItem;
-typedef struct CGroupRuntime CGroupRuntime;
 
 typedef enum CGroupDevicePolicy {
         /* When devices listed, will allow those, plus built-in ones, if none are listed will allow
@@ -74,56 +56,43 @@ typedef enum CGroupDevicePermissions {
         _CGROUP_DEVICE_PERMISSIONS_INVALID = -EINVAL,
 } CGroupDevicePermissions;
 
-struct CGroupDeviceAllow {
+typedef struct CGroupDeviceAllow {
         LIST_FIELDS(CGroupDeviceAllow, device_allow);
         char *path;
         CGroupDevicePermissions permissions;
-};
+} CGroupDeviceAllow;
 
-struct CGroupIODeviceWeight {
+typedef struct CGroupIODeviceWeight {
         LIST_FIELDS(CGroupIODeviceWeight, device_weights);
         char *path;
         uint64_t weight;
-};
+} CGroupIODeviceWeight;
 
-struct CGroupIODeviceLimit {
+typedef struct CGroupIODeviceLimit {
         LIST_FIELDS(CGroupIODeviceLimit, device_limits);
         char *path;
         uint64_t limits[_CGROUP_IO_LIMIT_TYPE_MAX];
-};
+} CGroupIODeviceLimit;
 
-struct CGroupIODeviceLatency {
+typedef struct CGroupIODeviceLatency {
         LIST_FIELDS(CGroupIODeviceLatency, device_latencies);
         char *path;
         usec_t target_usec;
-};
+} CGroupIODeviceLatency;
 
-struct CGroupBlockIODeviceWeight {
-        LIST_FIELDS(CGroupBlockIODeviceWeight, device_weights);
-        char *path;
-        uint64_t weight;
-};
-
-struct CGroupBlockIODeviceBandwidth {
-        LIST_FIELDS(CGroupBlockIODeviceBandwidth, device_bandwidths);
-        char *path;
-        uint64_t rbps;
-        uint64_t wbps;
-};
-
-struct CGroupBPFForeignProgram {
+typedef struct CGroupBPFForeignProgram {
         LIST_FIELDS(CGroupBPFForeignProgram, programs);
         uint32_t attach_type;
         char *bpffs_path;
-};
+} CGroupBPFForeignProgram;
 
-struct CGroupSocketBindItem {
+typedef struct CGroupSocketBindItem {
         LIST_FIELDS(CGroupSocketBindItem, socket_bind_items);
         int address_family;
         int ip_protocol;
         uint16_t nr_ports;
         uint16_t port_min;
-};
+} CGroupSocketBindItem;
 
 typedef enum CGroupPressureWatch {
         CGROUP_PRESSURE_WATCH_NO,       /* → tells the service payload explicitly not to watch for memory pressure */
@@ -135,12 +104,10 @@ typedef enum CGroupPressureWatch {
 } CGroupPressureWatch;
 
 /* The user-supplied cgroup-related configuration options. This remains mostly immutable while the service
- * manager is running (except for an occasional SetProperty() configuration change), outside of reload
- * cycles. When adding members make sure to update cgroup_context_copy() accordingly. */
-struct CGroupContext {
-        bool cpu_accounting;
+ * manager is running (except for an occasional SetProperties() configuration change), outside of reload
+ * cycles. */
+typedef struct CGroupContext {
         bool io_accounting;
-        bool blockio_accounting;
         bool memory_accounting;
         bool tasks_accounting;
         bool ip_accounting;
@@ -212,17 +179,6 @@ struct CGroupContext {
         Set *restrict_network_interfaces;
         bool restrict_network_interfaces_is_allow_list;
 
-        /* For legacy hierarchies */
-        uint64_t cpu_shares;
-        uint64_t startup_cpu_shares;
-
-        uint64_t blockio_weight;
-        uint64_t startup_blockio_weight;
-        LIST_HEAD(CGroupBlockIODeviceWeight, blockio_device_weights);
-        LIST_HEAD(CGroupBlockIODeviceBandwidth, blockio_device_bandwidths);
-
-        uint64_t memory_limit;
-
         CGroupDevicePolicy device_policy;
         LIST_HEAD(CGroupDeviceAllow, device_allow);
 
@@ -250,7 +206,7 @@ struct CGroupContext {
         /* Forward coredumps for processes that crash within this cgroup.
          * Requires 'delegate' to also be true. */
         bool coredump_receive;
-};
+} CGroupContext;
 
 /* Used when querying IP accounting data */
 typedef enum CGroupIPAccountingMetric {
@@ -367,7 +323,6 @@ typedef struct CGroupRuntime {
         struct bpf_link *restrict_ifaces_egress_bpf_link;
 #endif
 
-        bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
 
         /* Reset cgroup accounting next time we fork something off */
@@ -375,11 +330,9 @@ typedef struct CGroupRuntime {
 
         /* Whether we warned about clamping the CPU quota period */
         bool warned_clamping_cpu_quota_period:1;
-} CGroupRuntime;
 
-typedef struct Unit Unit;
-typedef struct Manager Manager;
-typedef enum ManagerState ManagerState;
+        int deserialized_cgroup_realized; /* tristate, for backwards compat */
+} CGroupRuntime;
 
 uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
 
@@ -396,8 +349,6 @@ void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_io_device_weight(CGroupContext *c, CGroupIODeviceWeight *w);
 void cgroup_context_free_io_device_limit(CGroupContext *c, CGroupIODeviceLimit *l);
 void cgroup_context_free_io_device_latency(CGroupContext *c, CGroupIODeviceLatency *l);
-void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
-void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
 void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeignProgram *p);
 void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head);
 
@@ -411,17 +362,6 @@ static inline bool cgroup_context_want_memory_pressure(const CGroupContext *c) {
 int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
-static inline int cgroup_context_add_bpf_foreign_program_dup(CGroupContext *c, const CGroupBPFForeignProgram *p) {
-        return cgroup_context_add_bpf_foreign_program(c, p->attach_type, p->bpffs_path);
-}
-int cgroup_context_add_io_device_limit_dup(CGroupContext *c, const CGroupIODeviceLimit *l);
-int cgroup_context_add_io_device_weight_dup(CGroupContext *c, const CGroupIODeviceWeight *w);
-int cgroup_context_add_io_device_latency_dup(CGroupContext *c, const CGroupIODeviceLatency *l);
-int cgroup_context_add_block_io_device_weight_dup(CGroupContext *c, const CGroupBlockIODeviceWeight *w);
-int cgroup_context_add_block_io_device_bandwidth_dup(CGroupContext *c, const CGroupBlockIODeviceBandwidth *b);
-int cgroup_context_add_device_allow_dup(CGroupContext *c, const CGroupDeviceAllow *a);
-int cgroup_context_add_socket_bind_item_allow_dup(CGroupContext *c, const CGroupSocketBindItem *i);
-int cgroup_context_add_socket_bind_item_deny_dup(CGroupContext *c, const CGroupSocketBindItem *i);
 
 void unit_modify_nft_set(Unit *u, bool add);
 
@@ -438,15 +378,10 @@ void unit_invalidate_cgroup_members_masks(Unit *u);
 
 void unit_add_family_to_cgroup_realize_queue(Unit *u);
 
-const char* unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
-int unit_default_cgroup_path(const Unit *u, char **ret);
-int unit_set_cgroup_path(Unit *u, const char *path);
-int unit_pick_cgroup_path(Unit *u);
+int unit_get_cgroup_path_with_fallback(const Unit *u, char **ret);
 
 int unit_realize_cgroup(Unit *u);
 void unit_prune_cgroup(Unit *u);
-int unit_watch_cgroup(Unit *u);
-int unit_watch_cgroup_memory(Unit *u);
 void unit_add_to_cgroup_realize_queue(Unit *u);
 
 int unit_cgroup_is_empty(Unit *u);

@@ -1,16 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/rtnetlink.h>
 #include <netinet/in.h>
-#include <linux/if.h>
 
+#include "sd-event.h"
+#include "sd-ipv4ll.h"
+
+#include "errno-util.h"
 #include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
-#include "networkd-queue.h"
 #include "parse-util.h"
+#include "set.h"
+#include "string-util.h"
 
 bool link_ipv4ll_enabled(Link *link) {
         assert(link);
@@ -80,8 +85,9 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
 
         assert(link);
         assert(!link->ipv4ll_address_configured);
+        assert(address);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Could not set ipv4ll address");
+        r = address_configure_handler_internal(m, link, address);
         if (r <= 0)
                 return r;
 
@@ -223,6 +229,7 @@ int ipv4ll_configure(Link *link) {
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (!link_ipv4ll_enabled(link))
                 return 0;
@@ -253,6 +260,10 @@ int ipv4ll_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_ipv4ll_set_timeout(link->ipv4ll, link->network->ipv4_dad_timeout_usec);
+        if (r < 0)
+                return r;
+
         r = sd_ipv4ll_set_ifindex(link->ipv4ll, link->ifindex);
         if (r < 0)
                 return r;
@@ -262,6 +273,34 @@ int ipv4ll_configure(Link *link) {
                 return r;
 
         return sd_ipv4ll_set_check_mac_callback(link->ipv4ll, ipv4ll_check_mac, link->manager);
+}
+
+int ipv4ll_start(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->ipv4ll)
+                return 0;
+
+        if (sd_ipv4ll_is_running(link->ipv4ll))
+                return 0;
+
+        if (!link_has_carrier(link))
+                return 0;
+
+        /* On exit, we cannot and should not start sd-ipv4ll. */
+        r = sd_event_get_state(link->manager->event);
+        if (r < 0)
+                return r;
+        if (r == SD_EVENT_FINISHED)
+                return 0;
+
+        r = sd_ipv4ll_start(link->ipv4ll);
+        if (r < 0)
+                return r;
+
+        return 1; /* started */
 }
 
 int link_drop_ipv4ll_config(Link *link, Network *network) {

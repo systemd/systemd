@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "cgroup-util.h"
 #include "dropin.h"
 #include "escape.h"
@@ -13,12 +15,10 @@
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir-label.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "special.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -1054,10 +1054,10 @@ int generator_write_veritysetup_service_section(
 void log_setup_generator(void) {
         if (invoked_by_systemd()) {
                 /* Disable talking to syslog/journal (i.e. the two IPC-based loggers) if we run in system context. */
-                if (cg_pid_get_owner_uid(0, NULL) == -ENXIO /* not running in a per-user slice */)
+                if (streq_ptr(getenv("SYSTEMD_SCOPE"), "system"))
                         log_set_prohibit_ipc(true);
 
-                /* This effectively means: journal for per-user generators, kmsg otherwise */
+                /* This effectively means: journal for per-user service manager generators, kmsg for per-system service manager generators */
                 log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         } else
                 log_set_target(LOG_TARGET_AUTO);

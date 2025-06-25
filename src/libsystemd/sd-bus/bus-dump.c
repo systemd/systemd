@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/time.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -13,35 +13,26 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "glyph-util.h"
-#include "macro.h"
+#include "log.h"
 #include "pcapng.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 
-static char *indent(unsigned level, uint64_t flags) {
-        char *p;
-        unsigned n, i = 0;
-
-        n = 0;
-
-        if (flags & SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY && level > 0)
+static char* indent(unsigned level, uint64_t flags) {
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY) && level > 0)
                 level -= 1;
 
-        if (flags & SD_BUS_MESSAGE_DUMP_WITH_HEADER)
+        unsigned n = level * 8;
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_WITH_HEADER))
                 n += 2;
 
-        p = new(char, n + level*8 + 1);
+        char *p = new(char, n + 1);
         if (!p)
                 return NULL;
 
-        if (flags & SD_BUS_MESSAGE_DUMP_WITH_HEADER) {
-                p[i++] = ' ';
-                p[i++] = ' ';
-        }
-
-        memset(p + i, ' ', level*8);
-        p[i + level*8] = 0;
+        memset(p, ' ', n);
+        p[n] = '\0';
 
         return p;
 }
@@ -56,7 +47,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
         if (!f)
                 f = stdout;
 
-        if (flags & SD_BUS_MESSAGE_DUMP_WITH_HEADER) {
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_WITH_HEADER)) {
                 usec_t ts = m->realtime;
 
                 if (ts == 0)
@@ -124,16 +115,16 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
                 bus_creds_dump(&m->creds, f, true);
         }
 
-        r = sd_bus_message_rewind(m, !(flags & SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY));
+        r = sd_bus_message_rewind(m, !FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY));
         if (r < 0)
-                return log_error_errno(r, "Failed to rewind: %m");
+                return log_debug_errno(r, "Failed to rewind: %m");
 
-        if (!(flags & SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+        if (!FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
                 _cleanup_free_ char *prefix = NULL;
 
                 prefix = indent(0, flags);
                 if (!prefix)
-                        return log_oom();
+                        return log_oom_debug();
 
                 fprintf(f, "%sMESSAGE \"%s\" {\n", prefix, strempty(m->root_container.signature));
         }
@@ -157,7 +148,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
 
                 r = sd_bus_message_peek_type(m, &type, &contents);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to peek type: %m");
+                        return log_debug_errno(r, "Failed to peek type: %m");
 
                 if (r == 0) {
                         if (level <= 1)
@@ -165,13 +156,13 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to exit container: %m");
+                                return log_debug_errno(r, "Failed to exit container: %m");
 
                         level--;
 
                         prefix = indent(level, flags);
                         if (!prefix)
-                                return log_oom();
+                                return log_oom_debug();
 
                         fprintf(f, "%s};\n", prefix);
                         continue;
@@ -179,12 +170,12 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
 
                 prefix = indent(level, flags);
                 if (!prefix)
-                        return log_oom();
+                        return log_oom_debug();
 
                 if (bus_type_is_container(type) > 0) {
                         r = sd_bus_message_enter_container(m, type, contents);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to enter container: %m");
+                                return log_debug_errno(r, "Failed to enter container: %m");
 
                         if (type == SD_BUS_TYPE_ARRAY)
                                 fprintf(f, "%sARRAY \"%s\" {\n", prefix, contents);
@@ -202,7 +193,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
 
                 r = sd_bus_message_read_basic(m, type, &basic);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get basic: %m");
+                        return log_debug_errno(r, "Failed to get basic: %m");
 
                 assert(r > 0);
 
@@ -265,12 +256,12 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
                 }
         }
 
-        if (!(flags & SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+        if (!FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
                 _cleanup_free_ char *prefix = NULL;
 
                 prefix = indent(0, flags);
                 if (!prefix)
-                        return log_oom();
+                        return log_oom_debug();
 
                 fprintf(f, "%s};\n\n", prefix);
         }
@@ -539,8 +530,8 @@ static void pcapng_section_header(FILE *f, const char *os, const char *app) {
                 len += pcapng_optlen(strlen(os));
         if (app)
                 len += pcapng_optlen(strlen(app));
-        len += pcapng_optlen(0);	/* OPT_END */
-        len += sizeof(uint32_t);	/* trailer length */
+        len += pcapng_optlen(0);        /* OPT_END */
+        len += sizeof(uint32_t);        /* trailer length */
 
         struct pcapng_section hdr = {
                 .block_type = PCAPNG_SECTION_BLOCK,
@@ -591,19 +582,19 @@ int bus_pcap_header(size_t snaplen, const char *os, const char *info, FILE *f) {
 }
 
 int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
-        struct bus_body_part *part;
+        BusMessageBodyPart *part;
         size_t msglen, caplen, pad;
         uint32_t length;
         uint64_t ts;
         unsigned i;
         size_t w;
 
-        if (!f)
-                f = stdout;
-
         assert(m);
         assert(snaplen > 0);
         assert((size_t) (uint32_t) snaplen == snaplen);
+
+        if (!f)
+                f = stdout;
 
         ts = m->realtime ?: now(CLOCK_REALTIME);
         msglen = BUS_MESSAGE_SIZE(m);

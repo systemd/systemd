@@ -1,23 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <sys/time.h>
 #include <sys/xattr.h>
 #include <threads.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "macro.h"
+#include "fs-util.h"
 #include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -104,7 +99,7 @@ static ssize_t getxattr_pinned_internal(
         if (n < 0)
                 return -errno;
 
-        assert((size_t) n <= size);
+        assert(size == 0 || (size_t) n <= size);
         return n;
 }
 
@@ -234,7 +229,7 @@ static int listxattr_pinned_internal(
         if (n < 0)
                 return -errno;
 
-        assert((size_t) n <= size);
+        assert(size == 0 || (size_t) n <= size);
 
         if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
                 return -E2BIG;

@@ -1,0 +1,52 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-boot-clear-sysfail.service" conditional='ENABLE_BOOTLOADER'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-boot-clear-sysfail.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-boot-clear-sysfail.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-boot-clear-sysfail.service</refname>
+    <refpurpose>Clear LoaderEntrySysFail entry </refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-boot-clear-sysfail.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-boot-clear-sysfail.service</filename> is a system service that automatically clears the
+    'LoaderEntrySysFail' boot loader entry if the boot was successful and the 'LoaderSysFailReason' EFI variable,
+    which indicates the reason for the system failure, is not set. </para>
+
+    <para>The <filename>systemd-boot-clear-sysfail.service</filename> unit invokes the <command>bootctl --graceful
+    set-sysfail ""</command> command, which clears the LoaderEntrySysFail entry. The service is conditionalized
+    so that it is run only when a LoaderSysFailReason entry is not set.</para><para>For further details see
+    <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, regarding
+    the command this service invokes.</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

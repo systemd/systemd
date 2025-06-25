@@ -107,9 +107,10 @@
       describing separate boot phases. If one of
       <varname>SigningEngine=</varname>/<option>--signing-engine=</option> or
       <varname>SigningProvider=</varname>/<option>--signing-provider=</option> is specified, then the private
-      key arguments will be passed verbatim to OpenSSL as URIs, and the public key arguments will be loaded
-      as X.509 certificates, so that signing can be performed with an OpenSSL engine or provider
-      respectively.</para>
+      key arguments will be passed verbatim to
+      <citerefentry project='openssl'><refentrytitle>openssl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      as URIs, and the public key arguments will be loaded as X.509 certificates, so that signing can be
+      performed with an OpenSSL engine or provider respectively.</para>
 
       <para>If a SecureBoot signing key is provided via the
       <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option, the resulting
@@ -582,7 +583,9 @@
           <term><varname>SigningEngine=<replaceable>ENGINE</replaceable></varname></term>
           <term><option>--signing-engine=<replaceable>ENGINE</replaceable></option></term>
 
-          <listitem><para>An OpenSSL engine to be used for signing the resulting binary and PCR measurements.
+          <listitem><para>An OpenSSL engine to be used for signing the resulting binary and PCR measurements,
+          see
+          <citerefentry project='openssl'><refentrytitle>openssl-engine</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
@@ -593,8 +596,10 @@
           <term><option>--signing-provider=<replaceable>PROVIDER</replaceable></option></term>
 
           <listitem><para>An OpenSSL provider to be used for signing the resulting binary and PCR
-          measurements. This option can only be used when using <command>systemd-sbsign</command> as the
-          signing tool.</para>
+          measurements, see
+          <citerefentry project='openssl'><refentrytitle>provider</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          This option can only be used when <command>systemd-sbsign</command> is used as the signing
+          tool.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
@@ -604,8 +609,10 @@
           <term><option>--certificate-provider=<replaceable>PROVIDER</replaceable></option></term>
 
           <listitem><para>An OpenSSL provider to be used for loading the certificate used to sign the
-          resulting binary and PCR measurements. This option can only be used when using
-          <command>systemd-sbsign</command> as the signing tool.</para>
+          resulting binary and PCR measurements, see
+          <citerefentry project='openssl'><refentrytitle>provider</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          This option can only be used when <command>systemd-sbsign</command> is used as the signing
+          tool.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
@@ -844,7 +851,7 @@ Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pe
       <programlisting>$ ukify build \
       --profile='TITLE=Boot into Storage Target Mode
 ID=storagetm' \
-      --cmdline='quiet rw rd.systemd.unit=stroage-target-mode.target' \
+      --cmdline='quiet rw rd.systemd.unit=storage-target-mode.target' \
       --output=profile1.efi
 </programlisting>
 

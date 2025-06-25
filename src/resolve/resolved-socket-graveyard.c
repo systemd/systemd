@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+#include "alloc-util.h"
+#include "assert-fundamental.h"
+#include "log.h"
+#include "resolved-manager.h"
 #include "resolved-socket-graveyard.h"
+#include "time-util.h"
 
 #define SOCKET_GRAVEYARD_USEC (5 * USEC_PER_SEC)
 #define SOCKET_GRAVEYARD_MAX 100

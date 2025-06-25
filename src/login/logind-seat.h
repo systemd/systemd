@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Seat Seat;
-
 #include "list.h"
-#include "logind-session.h"
+#include "logind-forward.h"
 
-struct Seat {
+typedef struct Seat {
         Manager *manager;
         char *id;
 
         char *state_file;
 
         LIST_HEAD(Device, devices);
+
+        Set *uevents;
 
         Session *active;
         Session *pending_switch;
@@ -24,7 +24,7 @@ struct Seat {
         bool started:1;
 
         LIST_FIELDS(Seat, gc_queue);
-};
+} Seat;
 
 int seat_new(Manager *m, const char *id, Seat **ret);
 Seat* seat_free(Seat *s);
@@ -34,7 +34,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Seat*, seat_free);
 int seat_save(Seat *s);
 int seat_load(Seat *s);
 
-int seat_apply_acls(Seat *s, Session *old_active);
+int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev);
+
 int seat_set_active(Seat *s, Session *session);
 int seat_switch_to(Seat *s, unsigned num);
 int seat_switch_to_next(Seat *s);
@@ -64,11 +65,5 @@ bool seat_may_gc(Seat *s, bool drop_not_started);
 void seat_add_to_gc_queue(Seat *s);
 
 bool seat_name_is_valid(const char *name);
-
-static inline bool SEAT_IS_SELF(const char *name) {
-        return isempty(name) || streq(name, "self");
-}
-
-static inline bool SEAT_IS_AUTO(const char *name) {
-        return streq_ptr(name, "auto");
-}
+bool seat_is_self(const char *name);
+bool seat_is_auto(const char *name);

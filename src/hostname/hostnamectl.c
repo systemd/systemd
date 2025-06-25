@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <linux/vm_sockets.h>
 #include <locale.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "sd-bus.h"
@@ -12,27 +10,30 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
-#include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
+#include "bus-util.h"
+#include "errno-util.h"
 #include "format-table.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
-#include "socket-util.h"
-#include "terminal-util.h"
+#include "runtime-scope.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
@@ -66,6 +67,8 @@ typedef struct StatusInfo {
         const char *hardware_serial;
         sd_id128_t product_uuid;
         uint32_t vsock_cid;
+        const char *hardware_sku;
+        const char *hardware_version;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
@@ -320,6 +323,22 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
+        if (!isempty(i->hardware_sku)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Hardware SKU",
+                                   TABLE_STRING, i->hardware_sku);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i->hardware_version)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Hardware Version",
+                                   TABLE_STRING, i->hardware_version);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (!isempty(i->firmware_version)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Firmware Version",
@@ -413,6 +432,8 @@ static int show_all_names(sd_bus *bus) {
                 { "HomeURL",                     "s",  NULL,          offsetof(StatusInfo, home_url)         },
                 { "HardwareVendor",              "s",  NULL,          offsetof(StatusInfo, hardware_vendor)  },
                 { "HardwareModel",               "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
+                { "HardwareSKU",                 "s",  NULL,          offsetof(StatusInfo, hardware_sku)     },
+                { "HardwareVersion",             "s",  NULL,          offsetof(StatusInfo, hardware_version) },
                 { "FirmwareVersion",             "s",  NULL,          offsetof(StatusInfo, firmware_version) },
                 { "FirmwareDate",                "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
                 { "MachineID",                   "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
@@ -770,8 +791,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_TRANSIENT:

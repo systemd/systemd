@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <sys/param.h>
+#include "forward.h"
 
 #if defined(__FreeBSD_kernel__)
 #  define INIT_FIFO  "/etc/.initctl"
@@ -25,13 +25,6 @@
 #define INIT_CMD_UNSETENV	7
 
 #define INIT_CMD_CHANGECONS	12345
-
-#ifdef MAXHOSTNAMELEN
-#  define INITRQ_HLEN	MAXHOSTNAMELEN
-#else
-#  define INITRQ_HLEN	64
-#endif
-
 /*
  *	This is what BSD 4.4 uses when talking to init.
  *	Linux doesn't use this right now.
@@ -39,7 +32,7 @@
 struct init_request_bsd {
         char	gen_id[8];		/* Beats me.. telnetd uses "fe" */
         char	tty_id[16];		/* Tty name minus /dev/tty      */
-        char	host[INITRQ_HLEN];	/* Hostname                     */
+        char	host[HOST_NAME_MAX];	/* Hostname                     */
         char	term_type[16];		/* Terminal type                */
         int	signal;			/* Signal to send               */
         int	pid;			/* Process to send to           */

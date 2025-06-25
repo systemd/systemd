@@ -10,8 +10,8 @@
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
 
 TEST(mkdir_p_safe) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;

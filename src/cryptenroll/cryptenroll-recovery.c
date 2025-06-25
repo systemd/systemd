@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "cryptenroll-recovery.h"
+#include "cryptsetup-util.h"
 #include "glyph-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
-#include "memory-util.h"
+#include "log.h"
 #include "qrcode-util.h"
 #include "recovery-key.h"
-#include "terminal-util.h"
 
 int enroll_recovery(
                 struct crypt_device *cd,

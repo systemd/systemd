@@ -413,7 +413,7 @@ for fun in set-environment unset-environment ; do
             suf='-S='
         fi
         _wanted systemd-environment expl 'environment variable' \
-                compadd "$@" ${suf} - ${${(f)"$(systemctl show-environment)"}%%=*}
+                compadd "$@" ${suf} - ${${(f)"$(systemctl "$_sys_service_mgr" show-environment)"}%%=*}
     }
 done
 

@@ -22,3 +22,5 @@ restrict_fs_skel_h = custom_target(
         output : 'restrict-fs.skel.h',
         command : skel_h_cmd,
         capture : true)
+
+generated_sources += restrict_fs_skel_h

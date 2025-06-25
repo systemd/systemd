@@ -1,19 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/fs.h>
 #include <linux/loop.h>
 #include <pthread.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
 
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "fs-util.h"
 #include "gpt.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
@@ -23,8 +22,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
 #include "virt.h"
 
 static unsigned arg_n_threads = 5;
@@ -267,16 +266,16 @@ static int run(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", NULL, id, true, false, 0, NULL, NULL, NULL) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", NULL, id, MKFS_DISCARD, 0, NULL, NULL, NULL) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_XBOOTLDR].node, "vfat", "xbootldr", NULL, id, true, false, 0, NULL, NULL, NULL) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_XBOOTLDR].node, "vfat", "xbootldr", NULL, id, MKFS_DISCARD, 0, NULL, NULL, NULL) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_ROOT].node, "ext4", "root", NULL, id, true, false, 0, NULL, NULL, NULL) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_ROOT].node, "ext4", "root", NULL, id, MKFS_DISCARD, 0, NULL, NULL, NULL) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", NULL, id, true, false, 0, NULL, NULL, NULL) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", NULL, id, MKFS_DISCARD, 0, NULL, NULL, NULL) >= 0);
 
         dissected = dissected_image_unref(dissected);
 
@@ -332,7 +331,7 @@ static int run(int argc, char *argv[]) {
                                   mounted,
                                   /* uid_shift= */ UID_INVALID,
                                   /* uid_range= */ UID_INVALID,
-                                  /* usernfs_fd= */ -EBADF,
+                                  /* userns_fd= */ -EBADF,
                                   0) >= 0);
 
         /* Now we mounted everything, the partitions are pinned. Now it's fine to release the lock

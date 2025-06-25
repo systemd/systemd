@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <sys/file.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
 
@@ -9,20 +11,23 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "label-util.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "siphash24.h"
 #include "smack-util.h"
-#include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-node.h"
 #include "user-util.h"
 
@@ -65,7 +70,7 @@ static int node_create_symlink(sd_device *dev, const char *devnode, const char *
                 return log_device_debug_errno(dev, r, "Failed to create parent directory of '%s': %m", slink);
 
         /* use relative link */
-        r = symlink_atomic_full_label(devnode, slink, /* make_relative = */ true);
+        r = symlinkat_atomic_full(devnode, AT_FDCWD, slink, SYMLINK_MAKE_RELATIVE|SYMLINK_LABEL);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink, devnode);
 
@@ -504,7 +509,11 @@ static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
         if (r < 0)
                 return r;
 
-        return device_path_make_major_minor(device_in_subsystem(dev, "block") ? S_IFBLK : S_IFCHR, devnum, ret);
+        r = device_in_subsystem(dev, "block");
+        if (r < 0)
+                return r;
+
+        return device_path_make_major_minor(r > 0 ? S_IFBLK : S_IFCHR, devnum, ret);
 }
 
 int udev_node_update(sd_device *dev, sd_device *dev_old) {

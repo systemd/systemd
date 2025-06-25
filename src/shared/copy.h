@@ -1,15 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
-#include "set.h"
+#include "forward.h"
 
 typedef enum CopyFlags {
         COPY_REFLINK                      = 1 << 0,  /* Try to reflink */
@@ -40,6 +32,7 @@ typedef enum CopyFlags {
          * copy because reflinking from COW to NOCOW files is not supported.
          */
         COPY_NOCOW_AFTER                  = 1 << 20,
+        COPY_PRESERVE_FS_VERITY           = 1 << 21, /* Preserve fs-verity when copying. */
 } CopyFlags;
 
 typedef enum DenyType {

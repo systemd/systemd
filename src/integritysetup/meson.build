@@ -11,13 +11,12 @@ executables += [
                         'integrity-util.c',
                         'integritysetup.c',
                 ),
+                'extract' : files('integrity-util.c'),
                 'dependencies' : libcryptsetup,
         },
         generator_template + {
                 'name' : 'systemd-integritysetup-generator',
-                'sources' : files(
-                        'integrity-util.c',
-                        'integritysetup-generator.c',
-                ),
+                'sources' : files('integritysetup-generator.c'),
+                'objects' : ['systemd-integritysetup'],
         },
 ]

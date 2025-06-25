@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdbool.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <unistd.h>
+
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -12,14 +10,13 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "hexdecoct.h"
-#include "id128-util.h"
-#include "main-func.h"
-#include "mkdir.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "specifier.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit-name.h"
 
 static const char *arg_dest = NULL;

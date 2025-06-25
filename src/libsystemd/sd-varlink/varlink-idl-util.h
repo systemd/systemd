@@ -4,11 +4,7 @@
 #include "sd-varlink.h"
 #include "sd-varlink-idl.h"
 
-#include "macro.h"
-
-int varlink_idl_parse(const char *text, unsigned *ret_line, unsigned *ret_column, sd_varlink_interface **ret);
-sd_varlink_interface* varlink_interface_free(sd_varlink_interface *interface);
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_varlink_interface*, varlink_interface_free);
+#include "forward.h"
 
 bool varlink_idl_field_name_is_valid(const char *name);
 bool varlink_idl_symbol_name_is_valid(const char *name);

@@ -23,3 +23,5 @@ userns_restrict_skel_h = custom_target(
         output : 'userns-restrict.skel.h',
         command : skel_h_cmd,
         capture : true)
+
+generated_sources += userns_restrict_skel_h

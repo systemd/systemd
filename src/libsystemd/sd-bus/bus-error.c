@@ -1,11 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "sd-bus.h"
 
 #include "alloc-util.h"
@@ -13,7 +7,6 @@
 #include "errno-list.h"
 #include "errno-util.h"
 #include "string-util.h"
-#include "strv.h"
 
 BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_standard_errors[] = {
         SD_BUS_ERROR_MAP(SD_BUS_ERROR_FAILED,                             EACCES),
@@ -591,7 +584,7 @@ const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static
         if (e && e->message)
                 return e->message;
 
-        return strerror_r(abs(error), buf, ERRNO_BUF_LEN);
+        return strerror_r(ABS(error), buf, ERRNO_BUF_LEN);
 }
 
 static bool map_ok(const sd_bus_error_map *map) {

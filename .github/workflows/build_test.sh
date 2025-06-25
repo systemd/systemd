@@ -10,7 +10,7 @@ fatal() { echo >&2 -e "\033[31;1m$1\033[0m"; exit 1; }
 success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
 ARGS=(
-    "--optimization=0 -Dopenssl=disabled -Dcryptolib=gcrypt -Ddns-over-tls=gnutls -Dtpm=true -Dtpm2=enabled"
+    "--optimization=0 -Dopenssl=disabled -Dtpm=true -Dtpm2=enabled"
     "--optimization=s -Dutmp=false"
     "--optimization=2 -Dc_args=-Wmaybe-uninitialized -Ddns-over-tls=openssl"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
@@ -67,7 +67,6 @@ PACKAGES=(
 COMPILER="${COMPILER:?}"
 COMPILER_VERSION="${COMPILER_VERSION:?}"
 LINKER="${LINKER:?}"
-CRYPTOLIB="${CRYPTOLIB:?}"
 RELEASE="$(lsb_release -cs)"
 
 # Note: As we use postfixed clang/gcc binaries, we need to override $AR
@@ -150,7 +149,7 @@ for args in "${ARGS[@]}"; do
          CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="$CXXFLAGS" \
          meson setup \
                -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
-               -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" -Ddebug=false \
+               -Dnobody-group=nogroup -Ddebug=false \
                $args build; then
 
         cat build/meson-logs/meson-log.txt

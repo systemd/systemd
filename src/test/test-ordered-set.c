@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-
 #include "ordered-set.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stddef.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -139,12 +137,12 @@ TEST(label_ops_post) {
         fd = RET_NERRNO(get_dir_fd("label_test_dir", 0755));
         text1 = "Add initial texts to file for testing label operations to file1\n";
 
-        assert(labelling_op(fd, text1, "file1.txt", 0644) == 0);
+        assert_se(labelling_op(fd, text1, "file1.txt", 0644) == 0);
         assert_se(label_ops_post(fd, "file1.txt", true) == 0);
         assert_se(strlen(text1) == (size_t)buf.st_size);
         text2 = "Add text2 data to file2\n";
 
-        assert(labelling_op(fd, text2, "file2.txt", 0644) == 0);
+        assert_se(labelling_op(fd, text2, "file2.txt", 0644) == 0);
         assert_se(label_ops_post(fd, "file2.txt", true) == 0);
         assert_se(strlen(text2) == (size_t)buf.st_size);
         assert_se(label_ops_post(fd, "file3.txt", true) == -ENOENT);

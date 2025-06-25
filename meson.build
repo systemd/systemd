@@ -13,6 +13,12 @@ project('systemd', 'c',
         meson_version : '>= 0.62.0',
 )
 
+add_test_setup(
+        'default',
+        exclude_suites : ['clang-tidy', 'integration-tests'],
+        is_default : true,
+)
+
 project_major_version = meson.project_version().split('.')[0].split('~')[0]
 if meson.project_version().contains('.')
         project_minor_version = meson.project_version().split('.')[-1].split('~')[0]
@@ -27,6 +33,8 @@ conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
 conf.set('PROJECT_VERSION', project_major_version,
          description : 'Numerical project version (used where a simple number is expected)')
+conf.set_quoted('PROJECT_VERSION_STR', project_major_version,
+        description: 'Stringified project version (used where a simple string is expected)')
 conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
 relative_source_path = run_command('realpath',
@@ -312,9 +320,10 @@ conf.set_quoted('USER_CONFIG_UNIT_DIR',                       pkgsysconfdir / 'u
 conf.set_quoted('USER_DATA_UNIT_DIR',                         userunitdir)
 conf.set_quoted('USER_ENV_GENERATOR_DIR',                     userenvgeneratordir)
 conf.set_quoted('USER_GENERATOR_DIR',                         usergeneratordir)
-conf.set_quoted('USER_KEYRING_PATH',                          pkgsysconfdir / 'import-pubring.gpg')
+conf.set_quoted('USER_KEYRING_PATH',                          pkgsysconfdir / 'import-pubring.pgp')
+conf.set_quoted('USER_KEYRING_PATH_LEGACY',                   pkgsysconfdir / 'import-pubring.gpg')
 conf.set_quoted('USER_PRESET_DIR',                            userpresetdir)
-conf.set_quoted('VENDOR_KEYRING_PATH',                        libexecdir / 'import-pubring.gpg')
+conf.set_quoted('VENDOR_KEYRING_PATH',                        libexecdir / 'import-pubring.pgp')
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
 conf.set10('ENABLE_URLIFY',                                   get_option('urlify'))
@@ -339,7 +348,6 @@ meson_build_sh = find_program('tools/meson-build.sh')
 want_tests = get_option('tests')
 want_slow_tests = want_tests != 'false' and get_option('slow-tests')
 want_fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
-want_integration_tests = want_tests != 'false' and get_option('integration-tests')
 install_tests = want_tests != 'false' and get_option('install-tests')
 
 if add_languages('cpp', native : false, required : fuzzer_build)
@@ -351,13 +359,10 @@ else
 endif
 
 if want_libfuzzer
-        fuzzing_engine = meson.get_compiler('cpp').find_library('Fuzzer', required : false)
-        if fuzzing_engine.found()
-                userspace_c_args += '-fsanitize-coverage=trace-pc-guard,trace-cmp'
-        elif cc.has_argument('-fsanitize=fuzzer-no-link')
+        if cc.has_argument('-fsanitize=fuzzer-no-link')
                 userspace_c_args += '-fsanitize=fuzzer-no-link'
         else
-                error('Looks like neither libFuzzer nor -fsanitize=fuzzer-no-link is supported')
+                error('Looks like -fsanitize=fuzzer-no-link is not supported')
         endif
 elif want_ossfuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
@@ -387,6 +392,7 @@ possible_common_cc_flags = [
         '-Werror=incompatible-pointer-types',
         '-Werror=int-conversion',
         '-Werror=missing-declarations',
+        '-Werror=missing-parameter-name',
         '-Werror=missing-prototypes',
         '-Werror=overflow',
         '-Werror=override-init',
@@ -438,8 +444,16 @@ possible_common_link_flags = [
 c_args = get_option('c_args')
 
 # Our json library does not support -ffinite-math-only, which is enabled by -Ofast or -ffast-math.
-if (('-Ofast' in c_args or '-ffast-math' in c_args or '-ffinite-math-only' in c_args) and '-fno-finite-math-only' not in c_args)
-        error('-Ofast, -ffast-math, or -ffinite-math-only is specified in c_args.')
+have = false
+foreach arg : c_args
+        if arg in ['-ffinite-math-only', '-ffast-math', '-Ofast']
+                have = true
+        elif arg in ['-fno-finite-math-only', '-fno-fast-math']
+                have = false
+        endif
+endforeach
+if have
+        error('-ffinite-math-only is enabled (may be implied by -ffast-math or -Ofast) in c_args.')
 endif
 
 # Disable -Wmaybe-uninitialized when compiling with -Os/-O1/-O3/etc. There are
@@ -451,7 +465,8 @@ if cc.get_id() == 'gcc' and (not '02'.contains(get_option('optimization')) or
                              '-Os' in c_args or
                              '-O1' in c_args or
                              '-O3' in c_args or
-                             '-Og' in c_args)
+                             '-Og' in c_args or
+                             '-Ofast' in c_args)
         possible_common_cc_flags += '-Wno-maybe-uninitialized'
 endif
 
@@ -471,13 +486,6 @@ possible_link_flags = [
 
 if get_option('b_sanitize') == 'none'
         possible_link_flags += '-Wl,--warn-common'
-endif
-
-if cc.get_id() == 'clang'
-        possible_common_cc_flags += [
-                '-Wno-typedef-redefinition',
-                '-Wno-gnu-variable-sized-type-not-at-end',
-        ]
 endif
 
 if get_option('mode') == 'release'
@@ -568,20 +576,9 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
-        ['struct dirent64',   '''##include <dirent.h>'''],      # for musl, but only for compile time check, see dirent-util.h
-        ['struct sched_attr', '''#include <sched.h>'''],        # since glibc-2.41
-]
-        # We get -1 if the size cannot be determined
-        have = cc.sizeof(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE') > 0
-        conf.set10('HAVE_' + ident[0].underscorify().to_upper(), have)
-endforeach
-
-foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['posix_getdents',    '''#include <dirent.h>'''],       # glibc does not implement it, but musl does
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
-        ['mallinfo',          '''#include <malloc.h>'''],       # deprecated since glibc-2.33, but check it for musl
         ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
         ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34
         ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34
@@ -796,6 +793,11 @@ endif
 if conf.get('SYSTEM_ALLOC_GID_MIN') >= conf.get('SYSTEM_GID_MAX')
         error('Invalid gid allocation range')
 endif
+
+greeter_uid_min = get_option('greeter-uid-min')
+greeter_uid_max = get_option('greeter-uid-max')
+conf.set('GREETER_UID_MIN', greeter_uid_min)
+conf.set('GREETER_UID_MAX', greeter_uid_max)
 
 dynamic_uid_min = get_option('dynamic-uid-min')
 dynamic_uid_max = get_option('dynamic-uid-max')
@@ -1107,7 +1109,9 @@ else
 endif
 
 libmount = dependency('mount',
-                      version : fuzzer_build ? '>= 0' : '>= 2.30')
+                      version : fuzzer_build ? '>= 0' : '>= 2.30',
+                      disabler : true,
+                      required : get_option('libmount'))
 
 libfdisk = dependency('fdisk',
                       version : '>= 2.32',
@@ -1477,50 +1481,18 @@ endif
 dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips', 'riscv64']
 conf.set10('HAVE_DMI', host_machine.cpu_family() in dmi_arches)
 
-# We support one or the other. If gcrypt is available, we assume it's there to
-# be used, and use it in preference.
-opt = get_option('cryptolib')
-if opt == 'openssl' and conf.get('HAVE_OPENSSL') == 0
-        error('openssl requested as the default cryptolib, but not available')
-endif
-conf.set10('PREFER_OPENSSL',
-           opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
-conf.set10('HAVE_OPENSSL_OR_GCRYPT',
-           conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
-lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? [libopenssl] : [libgcrypt, libgpg_error]
-
 dns_over_tls = get_option('dns-over-tls')
-if dns_over_tls != 'false'
-        if dns_over_tls == 'gnutls' and conf.get('PREFER_OPENSSL') == 1
-                error('Sorry, -Ddns-over-tls=gnutls is not supported when openssl is used as the cryptolib')
-        endif
-
-        if dns_over_tls == 'gnutls'
-                have_openssl = false
-        else
-                have_openssl = conf.get('HAVE_OPENSSL') == 1
-                if dns_over_tls == 'openssl' and not have_openssl
-                        error('DNS-over-TLS support was requested with openssl, but dependencies are not available')
-                endif
-        endif
-        if dns_over_tls == 'openssl' or have_openssl
-                have_gnutls = false
-        else
-                have_gnutls = conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.0')
-                if dns_over_tls != 'auto' and not have_gnutls
-                        str = dns_over_tls == 'gnutls' ? ' with gnutls' : ''
-                        error('DNS-over-TLS support was requested@0@, but dependencies are not available'.format(str))
-                endif
-        endif
-        have = have_gnutls or have_openssl
-else
+have_openssl = conf.get('HAVE_OPENSSL') == 1
+if dns_over_tls == 'false'
         have = false
-        have_gnutls = false
-        have_openssl = false
+elif dns_over_tls == 'auto'
+        have = have_openssl
+elif have_openssl
+        have = true
+else
+        error('DNS-over-TLS support was requested, but OpenSSL support is disabled.')
 endif
 conf.set10('ENABLE_DNS_OVER_TLS', have)
-conf.set10('DNS_OVER_TLS_USE_GNUTLS', have_gnutls)
-conf.set10('DNS_OVER_TLS_USE_OPENSSL', have_openssl)
 
 default_dns_over_tls = get_option('default-dns-over-tls')
 if default_dns_over_tls != 'no' and conf.get('ENABLE_DNS_OVER_TLS') == 0
@@ -1547,8 +1519,8 @@ have = get_option('repart').require(
 conf.set10('ENABLE_REPART', have)
 
 default_dnssec = get_option('default-dnssec')
-if default_dnssec != 'no' and conf.get('HAVE_OPENSSL_OR_GCRYPT') == 0
-        message('default-dnssec cannot be set to yes or allow-downgrade openssl and gcrypt are disabled. Setting default-dnssec to no.')
+if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
+        message('default-dnssec cannot be set to yes or allow-downgrade when openssl is disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'
 endif
 conf.set('DEFAULT_DNSSEC_MODE',
@@ -1579,7 +1551,7 @@ conf.set10('ENABLE_STORAGETM', get_option('storagetm'))
 
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and
-        conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
+        conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_ZLIB') == 1 and
         conf.get('HAVE_XZ') == 1,
         error_message : 'curl, openssl/grypt, zlib and xz required').allowed()
@@ -1597,17 +1569,17 @@ have = have and conf.get('HAVE_PAM') == 1
 conf.set10('ENABLE_PAM_HOME', have)
 
 feature = get_option('remote')
-have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
-             conf.get('HAVE_LIBCURL') == 1]
-# sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
-# it's possible to build one without the other. Complain only if
-# support was explicitly requested. The auxiliary files like sysusers
-# config should be installed when any of the programs are built.
-if feature.enabled() and not (have_deps[0] and have_deps[1])
-        error('remote support was requested, but dependencies are not available')
+if feature.enabled()
+        if conf.get('HAVE_MICROHTTPD') != 1
+                error('remote support was requested, but microhttpd is not available')
+        endif
+        if conf.get('HAVE_LIBCURL') != 1
+                error('remote support was requested, but libcurl is not available')
+        endif
 endif
-have = feature.allowed() and (have_deps[0] or have_deps[1])
-conf.set10('ENABLE_REMOTE', have)
+# A more minimal version of systemd-journal-remote can always be built, even if neither
+# libcurl nor microhttpd are available.
+conf.set10('ENABLE_REMOTE', feature.allowed())
 
 feature = get_option('vmspawn').disable_auto_if(conf.get('BUILD_MODE_DEVELOPER') == 0)
 conf.set10('ENABLE_VMSPAWN', feature.allowed())
@@ -1938,11 +1910,11 @@ if conf.get('BPF_FRAMEWORK') == 1
         endif
 endif
 
+vmlinux_h_dependency = []
 if use_provided_vmlinux_h
         if not fs.exists(provided_vmlinux_h_path)
                 error('Path to provided vmlinux.h does not exist.')
         endif
-        vmlinux_h_dependency = []
         bpf_o_unstripped_cmd += ['-I' + fs.parent(provided_vmlinux_h_path)]
         message('Using provided @0@'.format(provided_vmlinux_h_path))
 elif use_generated_vmlinux_h
@@ -1987,14 +1959,7 @@ endif
 
 conf.set_quoted('VERSION_TAG', version_tag)
 
-vcs_tag = get_option('vcs-tag')
-version_h = custom_target('version',
-        build_always_stale : vcs_tag,
-        input : 'src/version/version.h.in',
-        output : 'version.h',
-        capture : true,
-        command : ['tools/vcs-tag.sh', '@INPUT@', get_option('mode'), vcs_tag ? '1' : '0'],
-)
+subdir('src/version')
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
@@ -2004,7 +1969,7 @@ endif
 #####################################################################
 
 if get_option('b_coverage')
-        userspace_c_args += ['-include', 'src/basic/coverage.h']
+        userspace_c_args += ['-include', 'coverage.h']
 endif
 
 #####################################################################
@@ -2034,7 +1999,10 @@ catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
+objects_by_name = {}
 fuzzer_exes = []
+generated_sources = [version_h, vmlinux_h_dependency]
+sources = []
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
@@ -2046,13 +2014,18 @@ dbus_programs = []
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
 
-build_dir_include = include_directories('.')
-
-basic_includes = include_directories(
-        'src/basic',
-        'src/fundamental',
-        'src/systemd',
-        '.')
+basic_includes = [
+        include_directories(
+                'src/basic',
+                'src/fundamental',
+                'src/systemd',
+        ),
+        include_directories(
+                'src/basic/include',
+                is_system : true,
+        ),
+        version_include,
+]
 
 libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-bus',
@@ -2082,6 +2055,7 @@ libsystemd = shared_library(
         'systemd',
         version : libsystemd_version,
         include_directories : libsystemd_includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
@@ -2096,33 +2070,30 @@ libsystemd = shared_library(
         install_tag: 'libsystemd',
         install_dir : libdir)
 
-install_libsystemd_static = static_library(
-        'systemd',
-        libsystemd_sources,
-        basic_sources,
-        fundamental_sources,
-        include_directories : libsystemd_includes,
-        build_by_default : static_libsystemd != 'false',
-        install : static_libsystemd != 'false',
-        install_tag: 'libsystemd',
-        install_dir : libdir,
-        pic : static_libsystemd_pic,
-        dependencies : [libblkid,
-                        libcap,
-                        libdl,
-                        libgcrypt_cflags,
-                        liblz4_cflags,
-                        libm,
-                        libmount,
-                        libopenssl,
-                        librt,
-                        libxz_cflags,
-                        libzstd_cflags,
-                        threads,
-                        userspace],
-        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
-
 if static_libsystemd != 'false'
+        install_libsystemd_static = static_library(
+                'systemd',
+                libsystemd_sources,
+                basic_sources,
+                fundamental_sources,
+                include_directories : libsystemd_includes,
+                implicit_include_directories : false,
+                install : true,
+                install_tag: 'libsystemd',
+                install_dir : libdir,
+                pic : static_libsystemd_pic,
+                dependencies : [libcap,
+                                libdl,
+                                libgcrypt_cflags,
+                                liblz4_cflags,
+                                libm,
+                                librt,
+                                libxz_cflags,
+                                libzstd_cflags,
+                                threads,
+                                userspace],
+                c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
+
         alias_target('libsystemd', libsystemd, install_libsystemd_static)
 else
         alias_target('libsystemd', libsystemd)
@@ -2132,6 +2103,7 @@ libudev = shared_library(
         'udev',
         version : libudev_version,
         include_directories : includes,
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static, libshared_static],
@@ -2143,26 +2115,26 @@ libudev = shared_library(
         install_tag: 'libudev',
         install_dir : libdir)
 
-install_libudev_static = static_library(
-        'udev',
-        basic_sources,
-        fundamental_sources,
-        shared_sources,
-        libsystemd_sources,
-        libudev_sources,
-        include_directories : includes,
-        build_by_default : static_libudev != 'false',
-        install : static_libudev != 'false',
-        install_tag: 'libudev',
-        install_dir : libdir,
-        link_depends : libudev_sym,
-        dependencies : [libmount,
-                        libshared_deps,
-                        userspace],
-        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
-        pic : static_libudev_pic)
-
 if static_libudev != 'false'
+        install_libudev_static = static_library(
+                'udev',
+                basic_sources,
+                fundamental_sources,
+                shared_sources,
+                libsystemd_sources,
+                libudev_sources,
+                include_directories : includes,
+                implicit_include_directories : false,
+                install : true,
+                install_tag: 'libudev',
+                install_dir : libdir,
+                link_depends : libudev_sym,
+                dependencies : [libmount,
+                                libshared_deps,
+                                userspace],
+                c_args : static_libudev_pic ? [] : ['-fno-PIC'],
+                pic : static_libudev_pic)
+
         alias_target('libudev', libudev, install_libudev_static)
 else
         alias_target('libudev', libudev)
@@ -2222,15 +2194,15 @@ test_additional_kwargs = {
 }
 
 fuzz_template = executable_template + {
-        'build_by_default' : fuzzer_build,
+        'build_by_default' : want_fuzz_tests,
         'install' : false,
 }
 
-if want_ossfuzz or (want_libfuzzer and fuzzing_engine.found())
+if want_ossfuzz
         fuzz_additional_kwargs = {
                 'dependencies' : fuzzing_engine,
         }
-elif want_libfuzzer and not fuzzing_engine.found()
+elif want_libfuzzer
         fuzz_additional_kwargs = {
                 'link_args' : ['-fsanitize=fuzzer'],
         }
@@ -2449,10 +2421,15 @@ foreach dict : executables
                 continue
         endif
 
+        if name.endswith('.standalone') and not have_standalone_binaries
+                continue
+        endif
+
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions',
-                           'type', 'suite', 'timeout', 'parallel']
+                           'type', 'suite', 'timeout', 'parallel',
+                           'objects', 'extract']
                         continue
                 endif
 
@@ -2461,6 +2438,17 @@ foreach dict : executables
 
         foreach key, val : executable_additional_kwargs
                 kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
+
+        foreach val : dict.get('objects', [])
+                obj = objects_by_name[val]
+                kwargs += {
+                        'objects' : obj['objects'],
+                        'include_directories' : [
+                                kwargs.get('include_directories', []),
+                                obj['include_directories'],
+                        ],
+                }
         endforeach
 
         if is_test
@@ -2479,9 +2467,23 @@ foreach dict : executables
         exe = executable(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         executables_by_name += { name : exe }
+
+        if not name.endswith('.standalone')
+                sources += dict.get('sources', [])
+        endif
+
+        if dict.has_key('extract')
+                objects_by_name += {
+                        name : {
+                                'objects' : exe.extract_objects(dict['extract']),
+                                'include_directories' : fs.parent(dict['extract'][0]),
+                        }
+                }
+        endif
 
         if dict.get('build_by_default', true)
                 if dict.get('dbus', false)
@@ -2518,9 +2520,7 @@ foreach dict : executables
         if is_fuzz
                 fuzzer_exes += exe
 
-                if want_tests != 'false'
-                        # Run the fuzz regression tests without any sanitizers enabled.
-                        # Additional invocations with sanitizers may get added below.
+                if want_tests != 'false' and want_fuzz_tests
                         fuzz_ins = fuzz_regression_tests.get(name, {})
                         foreach directive : fuzz_ins.get('directives', [])
                                 tt = '@0@_@1@'.format(name, fs.name(directive.full_path()))
@@ -2532,6 +2532,8 @@ foreach dict : executables
                                      exe,
                                      suite : 'fuzz',
                                      args : directive.full_path(),
+                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
+                                     timeout : 60,
                                      depends : directive)
                         endforeach
                         foreach file : fuzz_ins.get('files', [])
@@ -2543,6 +2545,8 @@ foreach dict : executables
                                 test(tt,
                                      exe,
                                      suite : 'fuzz',
+                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
+                                     timeout : 60,
                                      args : file)
                         endforeach
                 endif
@@ -2598,12 +2602,13 @@ foreach dict : modules
         lib = shared_library(
                 name,
                 kwargs : kwargs,
+                implicit_include_directories : false,
         )
 
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
                 # Unfortunately shared_library insists on creating the symlink…
-                meson.add_install_script(sh, '-c', 'rm $DESTDIR@0@/lib@1@.so'.format(libdir, name),
+                meson.add_install_script(sh, '-c', 'rm -f $DESTDIR@0@/lib@1@.so'.format(libdir, name),
                                          install_tag : 'nss')
                 nss_targets += lib
         endif
@@ -2661,10 +2666,6 @@ endif
 #####################################################################
 
 mkosi = find_program('mkosi', required : false)
-if want_integration_tests and not mkosi.found()
-        error('Could not find mkosi which is required to run the integration tests')
-endif
-
 mkosi_depends = public_programs
 
 foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyutil']
@@ -2783,52 +2784,6 @@ foreach exec : public_programs
         endif
 endforeach
 
-# Enable tests for all supported sanitizers
-foreach tuple : fuzz_sanitizers
-        sanitizer = tuple[0]
-        build = tuple[1]
-
-        if cc.has_link_argument('-fsanitize=@0@'.format(sanitizer))
-                foreach fuzzer, fuzz_ins : fuzz_regression_tests
-                        name = '@0@:@1@'.format(fuzzer, sanitizer)
-                        if want_tests == 'false'
-                                message('Not compiling @0@ because tests is set to false'.format(name))
-                                continue
-                        endif
-                        if not want_fuzz_tests
-                                message('Not compiling @0@ because fuzz-tests is set to false'.format(name))
-                                continue
-                        endif
-                        exe = custom_target(
-                                name,
-                                output : name,
-                                depends : build,
-                                command : [ln, '-fs',
-                                           build.full_path() / fuzzer,
-                                           '@OUTPUT@'],
-                                build_by_default : true)
-
-                        foreach directive : fuzz_ins.get('directives', [])
-                                test('@0@_@1@_@2@'.format(fuzzer, fs.name(directive.full_path()), sanitizer),
-                                     env,
-                                     suite : 'fuzz+san',
-                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
-                                     timeout : 60,
-                                     args : [exe.full_path(), directive.full_path()],
-                                     depends : directive)
-                        endforeach
-                        foreach file : fuzz_ins.get('files', [])
-                                test('@0@_@1@_@2@'.format(fuzzer, fs.name(file), sanitizer),
-                                     env,
-                                     suite : 'fuzz+san',
-                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
-                                     timeout : 60,
-                                     args : [exe.full_path(), file])
-                        endforeach
-                endforeach
-        endif
-endforeach
-
 #####################################################################
 
 if git.found()
@@ -2847,16 +2802,6 @@ if git.found()
                 run_target(
                         'ctags',
                         command : [env, 'ctags', '--tag-relative=never', '-o', '@0@/tags'.format(meson.project_source_root())] + all_files)
-
-                ############################################
-
-                if want_tests != 'false' and conf.get('BUILD_MODE_DEVELOPER') == 1
-                        test('check-includes',
-                             files('tools/check-includes.py'),
-                             args: all_files,
-                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(meson.project_source_root())],
-                             suite : 'headers')
-                endif
         endif
 
         ####################################################
@@ -2887,6 +2832,40 @@ if git.found()
 endif
 
 #####################################################################
+
+alias_target('gensources', generated_sources)
+
+clang_tidy = find_program('clang-tidy', required : false)
+if meson.version().version_compare('>=1.4.0')
+        foreach source : sources
+                if systemd_headers.contains(source)
+                        continue
+                endif
+
+                if not source.full_path().endswith('.c') and not source.full_path().endswith('.h')
+                        continue
+                endif
+
+                inputs = [source]
+
+                header = source.full_path().replace('.c', '.h')
+                if fs.exists(header) and header != source.full_path() and header != libudev_h_path
+                        inputs += header
+                endif
+
+                foreach input : inputs
+                        if clang_tidy.found()
+                                test(
+                                        'clang-tidy-@0@'.format(fs.name(input)),
+                                        clang_tidy,
+                                        args : ['-p', meson.project_build_root(), input],
+                                        suite : 'clang-tidy',
+                                        depends : generated_sources,
+                                )
+                        endif
+                endforeach
+        endforeach
+endif
 
 check_api_docs_sh = find_program('tools/check-api-docs.sh')
 run_target(
@@ -2960,6 +2939,7 @@ summary({
                                                                          conf.get('SYSTEM_ALLOC_UID_MIN')),
         'system GIDs' :                     '<=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
                                                                          conf.get('SYSTEM_ALLOC_GID_MIN')),
+        'greeter UIDs' :                    '@0@…@1@'.format(greeter_uid_min, greeter_uid_max),
         'dynamic UIDs' :                    '@0@…@1@'.format(dynamic_uid_min, dynamic_uid_max),
         'container UID bases' :             '@0@…@1@'.format(container_uid_base_min, container_uid_base_max),
         'foreign UID base' :                '@0@'.format(foreign_uid_base),
@@ -3089,6 +3069,7 @@ foreach tuple : [
 
         # optional features
         ['dmi'],
+        ['DNS-over-TLS'],
         ['idn'],
         ['polkit'],
         ['legacy-pkla',            install_polkit_pkla],
@@ -3151,22 +3132,6 @@ if static_libudev == 'false'
         missing += 'static-libudev'
 else
         found += 'static-libudev(@0@)'.format(static_libudev)
-endif
-
-if conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and conf.get('PREFER_OPENSSL') == 1
-        found += 'cryptolib(openssl)'
-elif conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1
-        found += 'cryptolib(gcrypt)'
-else
-        missing += 'cryptolib'
-endif
-
-if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
-        found += 'DNS-over-TLS(gnutls)'
-elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
-        found += 'DNS-over-TLS(openssl)'
-else
-        missing += 'DNS-over-TLS'
 endif
 
 summary({

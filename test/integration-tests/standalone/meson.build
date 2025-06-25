@@ -16,7 +16,6 @@ project('systemd-testsuite',
 
 fs = import('fs')
 mkosi = find_program('mkosi', required : true)
-want_integration_tests = true
 
 # meson refuses .. in subdir() so we use a symlink to trick it into accepting it anyway.
 subdir('integration-tests')

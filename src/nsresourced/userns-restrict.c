@@ -1,22 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "userns-restrict.h"
-
-#if HAVE_VMLINUX_H
-
-#include <sched.h>
-#include <sys/mount.h>
+#include <sys/stat.h>
 
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "fd-util.h"
-#include "fs-util.h"
+#include "log.h"
 #include "lsm-util.h"
 #include "mkdir.h"
-#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "string-util.h"
+#include "userns-restrict.h"
 
 #define USERNS_MAX (16U*1024U)
 #define MOUNTS_MAX 4096U
@@ -25,10 +21,14 @@
 #define MAP_LINK_PREFIX "/sys/fs/bpf/systemd/userns-restrict/maps"
 
 struct userns_restrict_bpf *userns_restrict_bpf_free(struct userns_restrict_bpf *obj) {
+#if HAVE_VMLINUX_H
         (void) userns_restrict_bpf__destroy(obj); /* this call is fine with NULL */
+#endif
         return NULL;
+
 }
 
+#if HAVE_VMLINUX_H
 static int make_inner_hash_map(void) {
         int fd;
 
@@ -44,11 +44,13 @@ static int make_inner_hash_map(void) {
 
         return fd;
 }
+#endif
 
 int userns_restrict_install(
                 bool pin,
                 struct userns_restrict_bpf **ret) {
 
+#if HAVE_VMLINUX_H
         _cleanup_(userns_restrict_bpf_freep) struct userns_restrict_bpf *obj = NULL;
         _cleanup_close_ int dummy_mnt_id_hash_fd = -EBADF;
         int r;
@@ -175,6 +177,9 @@ int userns_restrict_install(
                 *ret = TAKE_PTR(obj);
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "User Namespace Restriction BPF support disabled.");
+#endif
 }
 
 int userns_restrict_put_by_inode(
@@ -184,6 +189,7 @@ int userns_restrict_put_by_inode(
                 const int mount_fds[],
                 size_t n_mount_fds) {
 
+#if HAVE_VMLINUX_H
         _cleanup_close_ int inner_map_fd = -EBADF;
         _cleanup_free_ int *mnt_ids = NULL;
         uint64_t ino = userns_inode;
@@ -267,6 +273,9 @@ int userns_restrict_put_by_inode(
         }
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "User Namespace Restriction BPF support disabled.");
+#endif
 }
 
 int userns_restrict_put_by_fd(
@@ -276,6 +285,7 @@ int userns_restrict_put_by_fd(
                 const int mount_fds[],
                 size_t n_mount_fds) {
 
+#if HAVE_VMLINUX_H
         struct stat st;
         int r;
 
@@ -298,12 +308,16 @@ int userns_restrict_put_by_fd(
                         replace,
                         mount_fds,
                         n_mount_fds);
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "User Namespace Restriction BPF support disabled.");
+#endif
 }
 
 int userns_restrict_reset_by_inode(
                 struct userns_restrict_bpf *obj,
                 uint64_t ino) {
 
+#if HAVE_VMLINUX_H
         int r, outer_map_fd;
         unsigned u;
 
@@ -324,26 +338,7 @@ int userns_restrict_reset_by_inode(
                 return log_debug_errno(r, "Failed to remove entry for inode %" PRIu64 " from outer map: %m", ino);
 
         return 0;
-}
-
 #else
-int userns_restrict_install(bool pin, struct userns_restrict_bpf **ret) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "User Namespace Restriction BPF support disabled.");
-}
-
-struct userns_restrict_bpf *userns_restrict_bpf_free(struct userns_restrict_bpf *obj) {
-        return NULL;
-}
-
-int userns_restrict_put_by_fd(struct userns_restrict_bpf *obj, int userns_fd, bool replace, const int mount_fds[], size_t n_mount_fds) {
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "User Namespace Restriction BPF support disabled.");
-}
-
-int userns_restrict_put_by_inode(struct userns_restrict_bpf *obj, uint64_t userns_inode, bool replace, const int mount_fds[], size_t n_mount_fds) {
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "User Namespace Restriction BPF support disabled.");
-}
-
-int userns_restrict_reset_by_inode(struct userns_restrict_bpf *obj, uint64_t userns_inode) {
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "User Namespace Restriction BPF support disabled.");
-}
 #endif
+}

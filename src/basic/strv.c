@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fnmatch.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "env-util.h"
@@ -12,8 +9,9 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "gunicode.h"
+#include "hashmap.h"
+#include "log.h"
 #include "memory-util.h"
-#include "nulstr-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -404,6 +402,15 @@ int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
         return n;
 }
 
+char** strv_split_newlines(const char *s) {
+        char **ret;
+
+        if (strv_split_newlines_full(&ret, s, 0) < 0)
+                return NULL;
+
+        return ret;
+}
+
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {
         _cleanup_strv_free_ char **l = NULL;
         size_t n = 0;
@@ -439,6 +446,15 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
         return (int) n;
 }
 
+char** strv_split(const char *s, const char *separators) {
+        char **ret;
+
+        if (strv_split_full(&ret, s, separators, EXTRACT_RETAIN_ESCAPE) < 0)
+                return NULL;
+
+        return ret;
+}
+
 int strv_split_and_extend_full(char ***t, const char *s, const char *separators, bool filter_duplicates, ExtractFlags flags) {
         char **l;
         int r;
@@ -455,6 +471,10 @@ int strv_split_and_extend_full(char ***t, const char *s, const char *separators,
                 return r;
 
         return (int) strv_length(*t);
+}
+
+int strv_split_and_extend(char ***t, const char *s, const char *separators, bool filter_duplicates) {
+        return strv_split_and_extend_full(t, s, separators, filter_duplicates, 0);
 }
 
 int strv_split_colon_pairs(char ***t, const char *s) {
@@ -1082,6 +1102,10 @@ void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value) 
         strv_free(hashmap_remove2(h, key, (void**) &key_free));
 }
 
+void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value) {
+        string_strv_hashmap_remove(PLAIN_HASHMAP(h), key, value);
+}
+
 static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const char *value) {
         char **l;
         int r;
@@ -1125,28 +1149,28 @@ static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const c
         return 1;
 }
 
-int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
+int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
         int r;
 
         assert(h);
         assert(key);
         assert(value);
 
-        r = _hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free);
         if (r < 0)
                 return r;
 
         return string_strv_hashmap_put_internal(*h, key, value);
 }
 
-int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
+int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value) {
         int r;
 
         assert(h);
         assert(key);
         assert(value);
 
-        r = _ordered_hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = ordered_hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free);
         if (r < 0)
                 return r;
 

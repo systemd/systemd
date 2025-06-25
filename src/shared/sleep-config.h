@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "strv.h"
-#include "time-util.h"
+#include "forward.h"
 
 typedef enum SleepOperation {
         SLEEP_SUSPEND,
@@ -42,17 +41,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, sleep_config_free);
 
 int parse_sleep_config(SleepConfig **sleep_config);
 
-static inline bool SLEEP_NEEDS_MEM_SLEEP(const SleepConfig *sc, SleepOperation operation) {
-        assert(sc);
-        assert(operation >= 0 && operation < _SLEEP_OPERATION_CONFIG_MAX);
-
-        /* As per https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation,
-         * /sys/power/mem_sleep is honored if /sys/power/state is set to "mem" (common for suspend)
-         * or /sys/power/disk is set to "suspend" (hybrid-sleep). */
-
-        return strv_contains(sc->states[operation], "mem") ||
-               strv_contains(sc->modes[operation], "suspend");
-}
+bool sleep_needs_mem_sleep(const SleepConfig *sc, SleepOperation operation) _pure_;
 
 typedef enum SleepSupport {
         SLEEP_SUPPORTED,

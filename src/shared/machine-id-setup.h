@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "sd-id128.h"
+
+#include "forward.h"
 
 typedef enum MachineIdSetupFlags {
         MACHINE_ID_SETUP_FORCE_TRANSIENT = 1 << 0,

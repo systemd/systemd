@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <string.h>
-#include <unistd.h>
-
 #include "log.h"
 #include "tests.h"
+#include "time-util.h"
 #include "watchdog.h"
 
 int main(int argc, char *argv[]) {

@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <stdbool.h>
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
+#include "bus-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -17,14 +18,14 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
-#include "proc-cmdline.h"
-#include "set.h"
+#include "runtime-scope.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "verbs.h"
-#include "virt.h"
 
 /* Enough time for locale-gen to finish server-side (in case it is in use) */
 #define LOCALE_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)
@@ -452,7 +453,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int r, c;
 
         assert(argc >= 0);
         assert(argv);
@@ -489,8 +490,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':

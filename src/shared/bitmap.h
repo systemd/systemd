@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "hashmap.h"
-#include "macro.h"
+#include "forward.h"
+#include "iterator.h"
 
 typedef struct Bitmap {
         uint64_t *bitmaps;
@@ -18,13 +16,13 @@ Bitmap* bitmap_free(Bitmap *b);
 
 int bitmap_set(Bitmap *b, unsigned n);
 void bitmap_unset(Bitmap *b, unsigned n);
-bool bitmap_isset(const Bitmap *b, unsigned n);
-bool bitmap_isclear(const Bitmap *b);
+bool bitmap_isset(const Bitmap *b, unsigned n) _pure_;
+bool bitmap_isclear(const Bitmap *b) _pure_;
 void bitmap_clear(Bitmap *b);
 
 bool bitmap_iterate(const Bitmap *b, Iterator *i, unsigned *n);
 
-bool bitmap_equal(const Bitmap *a, const Bitmap *b);
+bool bitmap_equal(const Bitmap *a, const Bitmap *b) _pure_;
 
 #define _BITMAP_FOREACH(n, b, i) \
         for (Iterator i = {}; bitmap_iterate((b), &i, (unsigned*)&(n)); )

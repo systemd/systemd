@@ -108,8 +108,9 @@
       follows the syntax and rules as described in the <ulink
       url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> page. The purpose of this
       file is to identify the extension and to allow the operating system to verify that the extension image
-      matches the base OS. This is typically implemented by checking that the <varname>ID=</varname> options
-      match, and either <varname>SYSEXT_LEVEL=</varname> exists and matches too, or if it is not present,
+      matches the base OS. This is typically implemented by checking that the extension <varname>ID=</varname>
+      option either matches the host <varname>ID=</varname> option or is included the host <varname>ID_LIKE=</varname>
+      option, and either <varname>SYSEXT_LEVEL=</varname> exists and matches too, or if it is not present,
       <varname>VERSION_ID=</varname> exists and matches. This ensures ABI/API compatibility between the
       layers and prevents merging of an incompatible image in an overlay.</para>
 
@@ -343,7 +344,7 @@
             <listitem><para><literal>lts</literal> is for long term support releases of the system, suitable
             for production use and supported for an extended period of time. Generally, LTS releases
             continue to receive support even if newer major releases of the distribution are available.
-            Examples include Ubuntu 24.04, Debian 12 Bookworm and RHEL 9.4.</para></listitem>
+            Examples include Ubuntu 24.04, Debian 12 Bookworm, and RHEL 9.4.</para></listitem>
 
             <listitem><para><literal>development</literal> is for unstable versions of the system,
             unsuitable for production use, such as alpha, beta, or rolling unstable releases. Examples

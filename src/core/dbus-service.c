@@ -1,32 +1,35 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 #include "alloc-util.h"
 #include "async.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
+#include "constants.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
 #include "dbus-manager.h"
 #include "dbus-service.h"
 #include "dbus-util.h"
+#include "dissect-image.h"
 #include "execute.h"
-#include "exec-credential.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "fileio.h"
+#include "glyph-util.h"
 #include "locale-util.h"
+#include "manager.h"
 #include "missing_fcntl.h"
+#include "mount-util.h"
 #include "open-file.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "selinux-access.h"
 #include "service.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, service_type, ServiceType);
@@ -292,7 +295,7 @@ int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void 
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 #if __SIZEOF_SIZE_T__ == 8

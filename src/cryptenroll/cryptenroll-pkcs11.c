@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "cryptenroll-pkcs11.h"
+#include "cryptsetup-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
-#include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
 
+#if HAVE_P11KIT && HAVE_OPENSSL
 static int uri_set_private_class(const char *uri, char **ret_uri) {
         _cleanup_(sym_p11_kit_uri_freep) P11KitUri *p11kit_uri = NULL;
         _cleanup_free_ char *private_uri = NULL;
@@ -30,12 +32,10 @@ static int uri_set_private_class(const char *uri, char **ret_uri) {
         *ret_uri = TAKE_PTR(private_uri);
         return 0;
 }
+#endif
 
-int enroll_pkcs11(
-                struct crypt_device *cd,
-                const struct iovec *volume_key,
-                const char *uri) {
-
+int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const char *uri) {
+#if HAVE_P11KIT && HAVE_OPENSSL
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -112,4 +112,7 @@ int enroll_pkcs11(
 
         log_info("New PKCS#11 token enrolled as key slot %i.", keyslot);
         return keyslot;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PKCS#11 key enrollment not supported.");
+#endif
 }

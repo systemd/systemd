@@ -1,20 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dns-def.h"
+#include "forward.h"
 #include "list.h"
 #include "ratelimit.h"
-
-typedef struct DnsQueryCandidate DnsQueryCandidate;
-typedef struct DnsScope DnsScope;
-
+#include "resolve-util.h"
 #include "resolved-dns-cache.h"
-#include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
-#include "resolved-dns-query.h"
-#include "resolved-dns-search-domain.h"
-#include "resolved-dns-server.h"
-#include "resolved-dns-stream.h"
 #include "resolved-dns-zone.h"
+#include "resolved-forward.h"
 
 typedef enum DnsScopeMatch {
         DNS_SCOPE_NO,
@@ -26,8 +21,18 @@ typedef enum DnsScopeMatch {
         _DNS_SCOPE_MATCH_INVALID = -EINVAL,
 } DnsScopeMatch;
 
-struct DnsScope {
+typedef enum DnsScopeOrigin {
+        DNS_SCOPE_GLOBAL,
+        DNS_SCOPE_LINK,
+        DNS_SCOPE_DELEGATE,
+        _DNS_SCOPE_ORIGIN_MAX,
+        _DNS_SCOPE_ORIGIN_INVALID = -EINVAL,
+} DnsScopeOrigin;
+
+typedef struct DnsScope {
         Manager *manager;
+
+        DnsScopeOrigin origin;
 
         DnsProtocol protocol;
         int family;
@@ -37,6 +42,7 @@ struct DnsScope {
         DnsOverTlsMode dns_over_tls_mode;
 
         Link *link;
+        DnsDelegate *delegate;
 
         DnsCache cache;
         DnsZone zone;
@@ -67,9 +73,9 @@ struct DnsScope {
         LIST_FIELDS(DnsScope, scopes);
 
         bool announced;
-};
+} DnsScope;
 
-int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family);
+int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeOrigin origin, Link *link, DnsDelegate *delegate, DnsProtocol protocol, int family);
 DnsScope* dns_scope_free(DnsScope *s);
 
 void dns_scope_packet_received(DnsScope *s, usec_t rtt);
@@ -119,3 +125,6 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret);
 
 int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol);
 int dns_question_types_suitable_for_protocol(DnsQuestion *q, DnsProtocol protocol);
+
+const char* dns_scope_origin_to_string(DnsScopeOrigin origin) _const_;
+DnsScopeOrigin dns_scope_origin_from_string(const char *s) _pure_;

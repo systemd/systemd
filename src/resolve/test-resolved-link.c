@@ -1,13 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
 #include <linux/if.h>
 
+#include "sd-event.h"
+#include "sd-netlink.h"
+
 #include "netlink-internal.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-server.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
-
-#include "log.h"
 #include "tests.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkAddress*, link_address_free);
@@ -182,7 +185,7 @@ static void link_alloc_env_setup(LinkAllocEnv *env, int family, DnsServerType se
                 link = env->link;
 
         ASSERT_OK(dns_server_new(&env->manager, &env->server, env->server_type,
-                        link, family, &env->server_addr, env->server_port,
+                        link, /* delegate= */ NULL, family, &env->server_addr, env->server_port,
                         env->ifindex, env->server_name, RESOLVE_CONFIG_SOURCE_DBUS));
 
         ASSERT_NOT_NULL(env->server);

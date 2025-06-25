@@ -1,25 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <signal.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <unistd.h>
-
-#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "build.h"
-#include "bus-error.h"
-#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "log.h"
 #include "main-func.h"
-#include "missing_sched.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -27,10 +20,8 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "sort-util.h"
-#include "stdio-util.h"
-#include "strv.h"
 #include "terminal-util.h"
-#include "unit-name.h"
+#include "time-util.h"
 #include "virt.h"
 
 typedef struct Group {
@@ -148,8 +139,167 @@ static bool is_root_cgroup(const char *path) {
         return empty_or_root(path);
 }
 
+static int process_memory(Group *g) {
+        int r;
+
+        assert(g);
+
+        if (is_root_cgroup(g->path))
+                r = procfs_memory_get_used(&g->memory);
+        else {
+                _cleanup_free_ char *p = NULL, *v = NULL;
+
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, g->path, "memory.current", &p);
+                if (r < 0)
+                        return r;
+
+                r = read_one_line_file(p, &v);
+                if (r == -ENOENT)
+                        return 0;
+                if (r < 0)
+                        return r;
+
+                r = safe_atou64(v, &g->memory);
+        }
+        if (r < 0)
+                return r;
+
+        if (g->memory > 0)
+                g->memory_valid = true;
+
+        return 0;
+}
+
+static int process_io(Group *g, unsigned iteration) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        uint64_t wr = 0, rd = 0;
+        nsec_t timestamp;
+        int r;
+
+        assert(g);
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, g->path, "io.stat", &p);
+        if (r < 0)
+                return r;
+
+        f = fopen(p, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                uint64_t k;
+                char *l;
+
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                /* Skip the device */
+                l = line + strcspn(line, WHITESPACE);
+                l += strspn(l, WHITESPACE);
+
+                while (!isempty(l)) {
+                        if (sscanf(l, "rbytes=%" SCNu64, &k) == 1)
+                                rd += k;
+                        else if (sscanf(l, "wbytes=%" SCNu64, &k) == 1)
+                                wr += k;
+
+                        l += strcspn(l, WHITESPACE);
+                        l += strspn(l, WHITESPACE);
+                }
+        }
+
+        timestamp = now_nsec(CLOCK_MONOTONIC);
+
+        if (g->io_iteration == iteration - 1) {
+                uint64_t x, yr, yw;
+
+                x = (uint64_t) (timestamp - g->io_timestamp);
+                if (x < 1)
+                        x = 1;
+
+                if (rd > g->io_input)
+                        yr = rd - g->io_input;
+                else
+                        yr = 0;
+
+                if (wr > g->io_output)
+                        yw = wr - g->io_output;
+                else
+                        yw = 0;
+
+                if (yr > 0 || yw > 0) {
+                        g->io_input_bps = (yr * 1000000000ULL) / x;
+                        g->io_output_bps = (yw * 1000000000ULL) / x;
+                        g->io_valid = true;
+                }
+        }
+
+        g->io_input = rd;
+        g->io_output = wr;
+        g->io_timestamp = timestamp;
+        g->io_iteration = iteration;
+
+        return 0;
+}
+
+static int process_cpu(Group *g, unsigned iteration) {
+        nsec_t new_usage, timestamp;
+        int r;
+
+        assert(g);
+
+        if (is_root_cgroup(g->path)) {
+                r = procfs_cpu_get_usage(&new_usage);
+                if (r < 0)
+                        return r;
+        } else {
+                _cleanup_free_ char *val = NULL;
+                uint64_t u;
+
+                r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, g->path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
+                if (IN_SET(r, -ENOENT, -ENXIO))
+                        return 0;
+                if (r < 0)
+                        return r;
+
+                r = safe_atou64(val, &u);
+                if (r < 0)
+                        return r;
+
+                new_usage = u * NSEC_PER_USEC;
+        }
+
+        timestamp = now_nsec(CLOCK_MONOTONIC);
+
+        if (g->cpu_iteration == iteration - 1 && new_usage > g->cpu_usage) {
+                nsec_t x, y;
+
+                x = timestamp - g->cpu_timestamp;
+                if (x < 1)
+                        x = 1;
+
+                y = new_usage - g->cpu_usage;
+                g->cpu_fraction = (double) y / (double) x;
+                g->cpu_valid = true;
+        }
+
+        g->cpu_usage = new_usage;
+        g->cpu_timestamp = timestamp;
+        g->cpu_iteration = iteration;
+
+        return 0;
+}
+
 static int process(
-                const char *controller,
                 const char *path,
                 Hashmap *a,
                 Hashmap *b,
@@ -157,15 +307,10 @@ static int process(
                 Group **ret) {
 
         Group *g;
-        int r, all_unified;
+        int r;
 
-        assert(controller);
         assert(path);
         assert(a);
-
-        all_unified = cg_all_unified();
-        if (all_unified < 0)
-                return all_unified;
 
         g = hashmap_get(a, path);
         if (!g) {
@@ -195,253 +340,77 @@ static int process(
                 }
         }
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) &&
-            IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
+        if (IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t pid;
 
-                r = cg_enumerate_processes(controller, path, &f);
-                if (r == -ENOENT)
-                        return 0;
-                if (r < 0)
+                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
+                if (r < 0 && r != -ENOENT)
                         return r;
+                if (r >= 0) {
+                        g->n_tasks = 0;
+                        while (cg_read_pid(f, &pid, CGROUP_DONT_SKIP_UNMAPPED) > 0) {
 
-                g->n_tasks = 0;
-                while (cg_read_pid(f, &pid, CGROUP_DONT_SKIP_UNMAPPED) > 0) {
+                                if (arg_count == COUNT_USERSPACE_PROCESSES && pid_is_kernel_thread(pid) > 0)
+                                        continue;
 
-                        if (arg_count == COUNT_USERSPACE_PROCESSES && pid_is_kernel_thread(pid) > 0)
-                                continue;
+                                g->n_tasks++;
+                        }
 
-                        g->n_tasks++;
+                        if (g->n_tasks > 0)
+                                g->n_tasks_valid = true;
                 }
 
-                if (g->n_tasks > 0)
-                        g->n_tasks_valid = true;
-
-        } else if (streq(controller, "pids") && arg_count == COUNT_PIDS) {
+        } else if (arg_count == COUNT_PIDS) {
 
                 if (is_root_cgroup(path)) {
                         r = procfs_tasks_get_current(&g->n_tasks);
                         if (r < 0)
                                 return r;
-                } else {
-                        _cleanup_free_ char *p = NULL, *v = NULL;
 
-                        r = cg_get_path(controller, path, "pids.current", &p);
-                        if (r < 0)
-                                return r;
-
-                        r = read_one_line_file(p, &v);
-                        if (r == -ENOENT)
-                                return 0;
-                        if (r < 0)
-                                return r;
-
-                        r = safe_atou64(v, &g->n_tasks);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (g->n_tasks > 0)
                         g->n_tasks_valid = true;
-
-        } else if (streq(controller, "memory")) {
-
-                if (is_root_cgroup(path)) {
-                        r = procfs_memory_get_used(&g->memory);
-                        if (r < 0)
-                                return r;
                 } else {
                         _cleanup_free_ char *p = NULL, *v = NULL;
 
-                        if (all_unified)
-                                r = cg_get_path(controller, path, "memory.current", &p);
-                        else
-                                r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
+                        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "pids.current", &p);
                         if (r < 0)
                                 return r;
 
                         r = read_one_line_file(p, &v);
-                        if (r == -ENOENT)
-                                return 0;
-                        if (r < 0)
+                        if (r < 0 && r != -ENOENT)
                                 return r;
-
-                        r = safe_atou64(v, &g->memory);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (g->memory > 0)
-                        g->memory_valid = true;
-
-        } else if ((streq(controller, "io") && all_unified) ||
-                   (streq(controller, "blkio") && !all_unified)) {
-                _cleanup_fclose_ FILE *f = NULL;
-                _cleanup_free_ char *p = NULL;
-                uint64_t wr = 0, rd = 0;
-                nsec_t timestamp;
-
-                r = cg_get_path(controller, path, all_unified ? "io.stat" : "blkio.io_service_bytes", &p);
-                if (r < 0)
-                        return r;
-
-                f = fopen(p, "re");
-                if (!f) {
-                        if (errno == ENOENT)
-                                return 0;
-                        return -errno;
-                }
-
-                for (;;) {
-                        _cleanup_free_ char *line = NULL;
-                        uint64_t k, *q;
-                        char *l;
-
-                        r = read_stripped_line(f, LONG_LINE_MAX, &line);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                break;
-
-                        /* Skip the device */
-                        l = line + strcspn(line, WHITESPACE);
-                        l += strspn(l, WHITESPACE);
-
-                        if (all_unified) {
-                                while (!isempty(l)) {
-                                        if (sscanf(l, "rbytes=%" SCNu64, &k) == 1)
-                                                rd += k;
-                                        else if (sscanf(l, "wbytes=%" SCNu64, &k) == 1)
-                                                wr += k;
-
-                                        l += strcspn(l, WHITESPACE);
-                                        l += strspn(l, WHITESPACE);
-                                }
-                        } else {
-                                if (first_word(l, "Read")) {
-                                        l += 4;
-                                        q = &rd;
-                                } else if (first_word(l, "Write")) {
-                                        l += 5;
-                                        q = &wr;
-                                } else
-                                        continue;
-
-                                l += strspn(l, WHITESPACE);
-                                r = safe_atou64(l, &k);
+                        if (r >= 0) {
+                                r = safe_atou64(v, &g->n_tasks);
                                 if (r < 0)
-                                        continue;
+                                        return r;
 
-                                *q += k;
+                                if (g->n_tasks > 0)
+                                        g->n_tasks_valid = true;
                         }
                 }
 
-                timestamp = now_nsec(CLOCK_MONOTONIC);
+        } else
+                assert_not_reached();
 
-                if (g->io_iteration == iteration - 1) {
-                        uint64_t x, yr, yw;
+        r = process_memory(g);
+        if (r < 0)
+                return r;
 
-                        x = (uint64_t) (timestamp - g->io_timestamp);
-                        if (x < 1)
-                                x = 1;
+        r = process_io(g, iteration);
+        if (r < 0)
+                return r;
 
-                        if (rd > g->io_input)
-                                yr = rd - g->io_input;
-                        else
-                                yr = 0;
-
-                        if (wr > g->io_output)
-                                yw = wr - g->io_output;
-                        else
-                                yw = 0;
-
-                        if (yr > 0 || yw > 0) {
-                                g->io_input_bps = (yr * 1000000000ULL) / x;
-                                g->io_output_bps = (yw * 1000000000ULL) / x;
-                                g->io_valid = true;
-                        }
-                }
-
-                g->io_input = rd;
-                g->io_output = wr;
-                g->io_timestamp = timestamp;
-                g->io_iteration = iteration;
-        } else if (STR_IN_SET(controller, "cpu", "cpuacct") || cpu_accounting_is_cheap()) {
-                _cleanup_free_ char *p = NULL, *v = NULL;
-                uint64_t new_usage;
-                nsec_t timestamp;
-
-                if (is_root_cgroup(path)) {
-                        r = procfs_cpu_get_usage(&new_usage);
-                        if (r < 0)
-                                return r;
-                } else if (all_unified) {
-                        _cleanup_free_ char *val = NULL;
-
-                        if (!streq(controller, "cpu"))
-                                return 0;
-
-                        r = cg_get_keyed_attribute("cpu", path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
-                        if (IN_SET(r, -ENOENT, -ENXIO))
-                                return 0;
-                        if (r < 0)
-                                return r;
-
-                        r = safe_atou64(val, &new_usage);
-                        if (r < 0)
-                                return r;
-
-                        new_usage *= NSEC_PER_USEC;
-                } else {
-                        if (!streq(controller, "cpuacct"))
-                                return 0;
-
-                        r = cg_get_path(controller, path, "cpuacct.usage", &p);
-                        if (r < 0)
-                                return r;
-
-                        r = read_one_line_file(p, &v);
-                        if (r == -ENOENT)
-                                return 0;
-                        if (r < 0)
-                                return r;
-
-                        r = safe_atou64(v, &new_usage);
-                        if (r < 0)
-                                return r;
-                }
-
-                timestamp = now_nsec(CLOCK_MONOTONIC);
-
-                if (g->cpu_iteration == iteration - 1 &&
-                    (nsec_t) new_usage > g->cpu_usage) {
-
-                        nsec_t x, y;
-
-                        x = timestamp - g->cpu_timestamp;
-                        if (x < 1)
-                                x = 1;
-
-                        y = (nsec_t) new_usage - g->cpu_usage;
-                        g->cpu_fraction = (double) y / (double) x;
-                        g->cpu_valid = true;
-                }
-
-                g->cpu_usage = (nsec_t) new_usage;
-                g->cpu_timestamp = timestamp;
-                g->cpu_iteration = iteration;
-
-        }
+        r = process_cpu(g, iteration);
+        if (r < 0)
+                return r;
 
         if (ret)
                 *ret = g;
 
-        return 0;
+        return 1;
 }
 
-static int refresh_one(
-                const char *controller,
+static int refresh(
                 const char *path,
                 Hashmap *a,
                 Hashmap *b,
@@ -450,29 +419,34 @@ static int refresh_one(
                 Group **ret) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        Group *ours = NULL;
+        Group *ours;
         int r;
 
-        assert(controller);
         assert(path);
         assert(a);
 
-        if (depth > arg_depth)
+        if (depth > arg_depth) {
+                if (ret)
+                        *ret = NULL;
                 return 0;
+        }
 
-        r = process(controller, path, a, b, iteration, &ours);
+        r = process(path, a, b, iteration, &ours);
         if (r < 0)
                 return r;
 
-        r = cg_enumerate_subgroups(controller, path, &d);
-        if (r == -ENOENT)
+        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
+        if (r == -ENOENT) {
+                if (ret)
+                        *ret = NULL;
                 return 0;
+        }
         if (r < 0)
                 return r;
 
         for (;;) {
                 _cleanup_free_ char *fn = NULL, *p = NULL;
-                Group *child = NULL;
+                Group *child;
 
                 r = cg_read_subgroup(d, &fn);
                 if (r < 0)
@@ -486,15 +460,13 @@ static int refresh_one(
 
                 path_simplify(p);
 
-                r = refresh_one(controller, p, a, b, iteration, depth + 1, &child);
+                r = refresh(p, a, b, iteration, depth + 1, &child);
                 if (r < 0)
                         return r;
-
-                if (arg_recursive &&
+                if (r > 0 &&
+                    arg_recursive &&
                     IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES) &&
-                    child &&
-                    child->n_tasks_valid &&
-                    streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                    child->n_tasks_valid) {
 
                         /* Recursively sum up processes */
 
@@ -511,18 +483,6 @@ static int refresh_one(
                 *ret = ours;
 
         return 1;
-}
-
-static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration) {
-        int r;
-
-        FOREACH_STRING(c, SYSTEMD_CGROUP_CONTROLLER, "cpu", "cpuacct", "memory", "io", "blkio", "pids") {
-                r = refresh_one(c, root, a, b, iteration, 0, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
 }
 
 static int group_compare(Group * const *a, Group * const *b) {
@@ -931,7 +891,7 @@ static int loop(const char *root) {
 
                 if (t >= usec_add(last_refresh, arg_delay) || immediate_refresh) {
 
-                        r = refresh(root, a, b, iteration++);
+                        r = refresh(root, a, b, iteration++, /* depth = */ 0, /* ret = */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to refresh: %m");
 

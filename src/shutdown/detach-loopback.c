@@ -5,7 +5,6 @@
 
 #include <linux/loop.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
@@ -17,7 +16,9 @@
 #include "blockdev-util.h"
 #include "detach-loopback.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "list.h"
 #include "shutdown.h"
 
 typedef struct LoopbackDevice {
@@ -106,8 +107,12 @@ static int delete_loopback(const char *device) {
 
         fd = open(device, O_RDONLY|O_CLOEXEC);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed to open loopback device %s: %m", device);
-                return errno == ENOENT ? 0 : -errno;
+                if (ERRNO_IS_DEVICE_ABSENT(errno)) {
+                        log_debug_errno(errno, "Tried to open loopback device '%s', but device disappeared by now, ignoring: %m", device);
+                        return 0;
+                }
+
+                return log_debug_errno(errno, "Failed to open loopback device '%s': %m", device);
         }
 
         /* Loopback block devices don't sync in-flight blocks when we clear the fd, hence sync explicitly

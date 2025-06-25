@@ -42,7 +42,7 @@ _systemd_run() {
     )
     local OPTS="${opts_with_values[*]} --no-ask-password --scope -u --slice-inherit -r --remain-after-exit
                 --send-sighup -d --same-dir -t --pty -P --pipe -S --shell -q --quiet --ignore-failure
-                --on-clock-change --on-timezone-change --no-block --wait -G --collect --user --system -h --help --version"
+                --on-clock-change --on-timezone-change --no-block --wait -G --collect --user --system -h --help --version -v --verbose"
     local mode=--system
     local i
     for (( i=1; i <= COMP_CWORD; i++ )); do
