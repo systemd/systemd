@@ -14,12 +14,11 @@
 # where /dev/input/eventXX is the device in question. If in
 # doubt, simply use /dev/input/event* to reload all input rules.
 #
-# If your changes are generally applicable, preferably send them as a pull
-# request to
+# If your changes are generally applicable, send them as a pull request to
 #   https://github.com/systemd/systemd
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
-#   udevadm info /dev/input/eventXX.
+#   udevadm info /dev/input/eventXX
 #
 # This file must only be used where the input_id builtin assigns the wrong
 # properties or lacks the assignment of some properties. This is almost always
@@ -50,6 +49,16 @@
 #  ID_INPUT=1
 
 # Sort by brand, model
+
+# Code Mercenaries Hard- und Software GmbH Virtual RC USB
+id-input:modalias:input:b0003v07C0p1125*
+ ID_INPUT_MOUSE=
+ ID_INPUT_JOYSTICK=1
+
+# GOLD WARRIOR SIM PhoenixRC 10411R
+id-input:modalias:input:b0003v1781p0898*
+ ID_INPUT_ACCELEROMETER=
+ ID_INPUT_JOYSTICK=1
 
 # XP-PEN STAR 06
 id-input:modalias:input:b0003v28bdp0078*
@@ -93,3 +102,7 @@ id-input:modalias:input:b0003v26CEp01A2*
  ID_INPUT_JOYSTICK=
  ID_INPUT_KEY=
  ID_INPUT=
+
+# Saitek PLC Pro Flight Rudder Pedals
+id-input:modalias:input:b0003v06A3p0763*
+ ID_INPUT_JOYSTICK=1

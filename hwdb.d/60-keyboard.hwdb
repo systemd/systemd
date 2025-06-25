@@ -51,12 +51,11 @@
 # where /dev/input/eventXX is the keyboard in question. If in doubt, simply use
 # /dev/input/event* to reload all input rules.
 #
-# If your changes are generally applicable, preferably send them as a pull
-# request to
+# If your changes are generally applicable, send them as a pull request to
 #   https://github.com/systemd/systemd
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
-#   udevadm info /dev/input/eventXX.
+#   udevadm info /dev/input/eventXX
 
 # ######################### KEY MAPPING ######################################
 #
@@ -241,14 +240,24 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
  KEYBOARD_KEY_8a=micmute                                # Microphone mute button
  KEYBOARD_KEY_55=power
 
+# Nitro ANV15-51
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
+ KEYBOARD_KEY_66=micmute                                # Microphone mute button
+
 ###########################################################
 # Alienware
 ###########################################################
 
 # Alienware/Dell reserves these keys; safe to apply on all their devices
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*:*
+ KEYBOARD_KEY_68=!prog3                                 # Fn+f1 Performance mode toggle
  KEYBOARD_KEY_81=touchpad_toggle                        # Touchpad toggle
  KEYBOARD_KEY_8a=ejectcd
+ KEYBOARD_KEY_92=macro1                                 # Fn+f2
+ KEYBOARD_KEY_93=macro2                                 # Fn+f3
+ KEYBOARD_KEY_94=macro3                                 # Fn+f4
+ KEYBOARD_KEY_95=macro4                                 # Fn+f5
+ KEYBOARD_KEY_96=macro5                                 # Fn+f6
  KEYBOARD_KEY_bf=!prog1                                 # graphics amplifier, cable plug-in event
  KEYBOARD_KEY_c1=!prog2                                 # graphics amplifier, undock-button event
  KEYBOARD_KEY_c2=!power                                 # graphics amplifier, surprise undock event
@@ -383,6 +392,7 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:bvn*:bvr*:bd*:svncube:pni1-T
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*:*
+ KEYBOARD_KEY_68=!prog2                                 # G-Mode (Dell-specific)
  KEYBOARD_KEY_81=playpause                              # Play/Pause
  KEYBOARD_KEY_82=stopcd                                 # Stop
  KEYBOARD_KEY_83=previoussong                           # Previous song
@@ -649,6 +659,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][aA][bB][lL][eE][tT]*:*
 
 # Pavilion
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
+ KEYBOARD_KEY_66=backspace
  KEYBOARD_KEY_88=media                                  # FIXME: quick play
  KEYBOARD_KEY_b7=print
  KEYBOARD_KEY_d8=!touchpad_off                          # touchpad off
@@ -1103,6 +1115,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*U300s*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 # Lenovo IdeaPad Flex 5
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:*:pvrIdeaPadFlex5*
+# Lenovo IdeaPad Slim 5
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:*:pvrIdeaPadSlim5*
 # Lenovo Yoga S940 (9th gen)
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940:*
 # Lenovo ThinkBook 16G6IRL
@@ -1471,6 +1485,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro*7000*:*
 evdev:atkbd:dmi:bvn*:bvr*:svnMEDION*:pnS3409*:*
 evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnAkoya*:*
 evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnP6669*:*
+evdev:atkbd:dmi:bvn*:bvr*:svnMEDION*:pnP15645MD61587*:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
@@ -1573,8 +1588,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
  KEYBOARD_KEY_97=unknown                                # Lid close
  KEYBOARD_KEY_98=unknown                                # Lid open
 
-# MSI Claw, MSI Claw 8
+# MSI Claw A1M, MSI Claw 7 AI+ A2VM, MSI Claw 8 AI+ A2VM
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClawA1M:*
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClaw7AI+A2VM:*
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClaw8AI+A2VM:*
  KEYBOARD_KEY_b9=f15                                   # Right Face Button
  KEYBOARD_KEY_ba=f16                                   # Left Face Button
@@ -2057,6 +2073,18 @@ evdev:name:Quickstart Button 2:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
 
 evdev:name:Quickstart Button 3:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
  KEYBOARD_KEY_1=touchpad_toggle                         # Touchpad toggle
+
+###########################################################
+# TUXEDO Computers
+###########################################################
+
+# TUXEDO Computers notebooks with board_vendor NB02
+evdev:atkbd:dmi:*:svnTUXEDO:*:rvnNB02:*
+ KEYBOARD_KEY_f8=fn
+
+# TUXEDO InfinityFlex 14 Gen1
+evdev:atkbd:dmi:*:svnTUXEDO:*:rnDN50Z-140HC-YD:*
+ KEYBOARD_KEY_6e=fn
 
 ###########################################################
 # VIA

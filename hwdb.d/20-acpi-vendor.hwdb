@@ -33,6 +33,9 @@ acpi:APMC*:
 acpi:APTA*:
  ID_VENDOR_FROM_DATABASE=Aptina Imaging Corporation
 
+acpi:AREU*:
+ ID_VENDOR_FROM_DATABASE=Areus GmbH
+
 acpi:ARMH*:
  ID_VENDOR_FROM_DATABASE=ARM Ltd.
 
@@ -84,6 +87,9 @@ acpi:CORE*:
 acpi:CPLM*:
  ID_VENDOR_FROM_DATABASE=Capella Microsystems Inc.
 
+acpi:DBSI*:
+ ID_VENDOR_FROM_DATABASE=DreamBig Semiconductor Inc.
+
 acpi:DELL*:
  ID_VENDOR_FROM_DATABASE=Dell, Inc.
 
@@ -128,6 +134,9 @@ acpi:FRMW*:
 
 acpi:FRSC*:
  ID_VENDOR_FROM_DATABASE=Freescale, Inc
+
+acpi:FSAS*:
+ ID_VENDOR_FROM_DATABASE=Fsas Technologies Inc.
 
 acpi:FTSC*:
  ID_VENDOR_FROM_DATABASE=FocalTech Systems Co., Ltd.
@@ -222,6 +231,9 @@ acpi:JMIC*:
 acpi:JSYS*:
  ID_VENDOR_FROM_DATABASE=Juniper Systems, Inc.
 
+acpi:JUMP*:
+ ID_VENDOR_FROM_DATABASE=JUMPtec GmbH
+
 acpi:KIOX*:
  ID_VENDOR_FROM_DATABASE=Kionix, Inc.
 
@@ -312,6 +324,9 @@ acpi:RAYD*:
 acpi:RKCP*:
  ID_VENDOR_FROM_DATABASE=Fuzhou Rockchip Electronics Co., Ltd.
 
+acpi:ROKL*:
+ ID_VENDOR_FROM_DATABASE=Rockwell Automation, Inc
+
 acpi:RPIL*:
  ID_VENDOR_FROM_DATABASE=Raspberry Pi
 
@@ -342,8 +357,17 @@ acpi:SNSL*:
 acpi:SONY*:
  ID_VENDOR_FROM_DATABASE=Sony Corporation
 
+acpi:SOPH*:
+ ID_VENDOR_FROM_DATABASE=Sophgo Technologies Ltd.
+
+acpi:SSLC*:
+ ID_VENDOR_FROM_DATABASE=SmartSens Technology (Shanghai) CO., Ltd.
+
 acpi:ST86*:
  ID_VENDOR_FROM_DATABASE=Shenzhen South-Top Computer Co., Ltd.
+
+acpi:SUNW*:
+ ID_VENDOR_FROM_DATABASE=Wuxi Institute of Advanced Technology
 
 acpi:SWEM*:
  ID_VENDOR_FROM_DATABASE=Sierra Wireless
@@ -1184,6 +1208,9 @@ acpi:BEO*:
 
 acpi:BFE*:
  ID_VENDOR_FROM_DATABASE=B.F. Engineering Corporation
+
+acpi:BFT*:
+ ID_VENDOR_FROM_DATABASE=Barnfind Technologies
 
 acpi:BGB*:
  ID_VENDOR_FROM_DATABASE=Barco Graphics N.V
@@ -7466,6 +7493,9 @@ acpi:UFG*:
 
 acpi:UFO*:
  ID_VENDOR_FROM_DATABASE=UFO Systems Inc
+
+acpi:UGR*:
+ ID_VENDOR_FROM_DATABASE=Ugreen Group Ltd.
 
 acpi:UHB*:
  ID_VENDOR_FROM_DATABASE=XOCECO
