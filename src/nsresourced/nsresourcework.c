@@ -6,6 +6,7 @@
 #include <linux/veth.h>
 #include <net/if.h>
 #include <poll.h>
+#include <sched.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
