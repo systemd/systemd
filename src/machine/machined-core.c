@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-event.h"
+
 #include "cgroup-util.h"
 #include "copy.h"
 #include "discover-image.h"

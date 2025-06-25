@@ -1,17 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <features.h>
 #include <linux/fs.h>
 #include <linux/mount.h> /* IWYU pragma: export */
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
-#include <sys/syscall.h>
-#include <unistd.h>
 
-#include "missing_fcntl.h"
-#include "missing_syscall_def.h"
+/* Since glibc-2.37 (774058d72942249f71d74e7f2b639f77184160a6), sys/mount.h includes linux/mount.h, and
+ * we can safely include both headers in the same source file. However, we cannot do that with older glibc.
+ * To avoid conflicts, let's not use glibc's sys/mount.h, and provide our own minimal implementation.
+ * Fortunately, most of definitions we need are covered by linux/fs.h and linux/mount.h, so only one enum
+ * and a few function prototypes need to be defined here. */
 
 /* Possible value for FLAGS parameter of `umount2'.  */
 enum
@@ -38,67 +40,46 @@ extern int umount2(const char *__special_file, int __flags) __THROW;
 /* Open the filesystem referenced by FS_NAME so it can be configured for
    mouting.  */
 #if HAVE_FSOPEN
+/* since glibc-2.36 */
 extern int fsopen(const char *__fs_name, unsigned int __flags) __THROW;
 #else
-static inline int missing_fsopen(const char *fsname, unsigned flags) {
-        return syscall(__NR_fsopen, fsname, flags);
-}
-#  define fsopen missing_fsopen
+int fsopen(const char *__fs_name, unsigned int __flags);
 #endif
 
 /* Create a mount representation for the FD created by fsopen using
    FLAGS with ATTR_FLAGS describing how the mount is to be performed.  */
 #if HAVE_FSMOUNT
+/* since glibc-2.36 */
 extern int fsmount(int __fd, unsigned int __flags, unsigned int __ms_flags) __THROW;
 #else
-static inline int missing_fsmount(int fd, unsigned flags, unsigned ms_flags) {
-        return syscall(__NR_fsmount, fd, flags, ms_flags);
-}
-#  define fsmount missing_fsmount
+int fsmount(int __fd, unsigned int __flags, unsigned int __ms_flags);
 #endif
 
 /* Add the mounted FROM_DFD referenced by FROM_PATHNAME filesystem returned
    by fsmount in the hierarchy in the place TO_DFD reference by TO_PATHNAME
    using FLAGS.  */
 #if HAVE_MOVE_MOUNT
+/* since glibc-2.36 */
 extern int move_mount(int __from_dfd, const char *__from_pathname, int __to_dfd, const char *__to_pathname, unsigned int flags) __THROW;
 #else
-static inline int missing_move_mount(
-                int from_dfd,
-                const char *from_pathname,
-                int to_dfd,
-                const char *to_pathname,
-                unsigned flags) {
-
-        return syscall(__NR_move_mount, from_dfd, from_pathname, to_dfd, to_pathname, flags);
-}
-#  define move_mount missing_move_mount
+int move_mount(int __from_dfd, const char *__from_pathname, int __to_dfd, const char *__to_pathname, unsigned int flags);
 #endif
 
 /* Set parameters and trigger CMD action on the FD context.  KEY, VALUE,
    and AUX are used depending ng of the CMD.  */
 #if HAVE_FSCONFIG
+/* since glibc-2.36 */
 extern int fsconfig(int __fd, unsigned int __cmd, const char *__key, const void *__value, int __aux) __THROW;
 #else
-static inline int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, int aux) {
-        return syscall(__NR_fsconfig, fd, cmd, key, value, aux);
-}
-#  define fsconfig missing_fsconfig
-#endif
-
-/* Equivalent of fopen for an existing mount point.  */
-#if HAVE_FSPICK
-extern int fspick(int __dfd, const char *__path, unsigned int __flags) __THROW;
+int fsconfig(int __fd, unsigned int __cmd, const char *__key, const void *__value, int __aux);
 #endif
 
 /* Open the mount point FILENAME in directory DFD using FLAGS.  */
 #if HAVE_OPEN_TREE
+/* since glibc-2.36 */
 extern int open_tree(int __dfd, const char *__filename, unsigned int __flags) __THROW;
 #else
-static inline int missing_open_tree(int dfd, const char *filename, unsigned flags) {
-        return syscall(__NR_open_tree, dfd, filename, flags);
-}
-#  define open_tree missing_open_tree
+int open_tree(int __dfd, const char *__filename, unsigned int __flags);
 #endif
 
 /* Change the mount properties of the mount or an entire mount tree.  If
@@ -107,10 +88,8 @@ static inline int missing_open_tree(int dfd, const char *filename, unsigned flag
    the special value AT_FDCWD then PATH is interpreted relative to the current
    working directory of the calling process.  */
 #if HAVE_MOUNT_SETATTR
+/* since glibc-2.36 */
 extern int mount_setattr(int __dfd, const char *__path, unsigned int __flags, struct mount_attr *__uattr, size_t __usize) __THROW;
 #else
-static inline int missing_mount_setattr(int dfd, const char *path, unsigned flags, struct mount_attr *attr, size_t size) {
-        return syscall(__NR_mount_setattr, dfd, path, flags, attr, size);
-}
-#  define mount_setattr missing_mount_setattr
+int mount_setattr(int __dfd, const char *__path, unsigned int __flags, struct mount_attr *__attr, size_t __size);
 #endif

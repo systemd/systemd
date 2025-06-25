@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "errno-util.h"
 #include "fd-util.h"
@@ -10,7 +11,6 @@
 #include "log.h"
 #include "missing_magic.h"
 #include "missing_namespace.h"
-#include "missing_sched.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
