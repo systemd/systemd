@@ -1093,6 +1093,9 @@ static int manager_setup_notify(Manager *m) {
         }
 
         if (!m->notify_event_source) {
+                const usec_t NOTIFY_RATE_LIMIT_INTERVAL = 1 * USEC_PER_SEC;
+                const unsigned NOTIFY_RATE_LIMIT_BURST = 10;
+
                 r = sd_event_add_io(m->event, &m->notify_event_source, m->notify_fd, EPOLLIN, manager_dispatch_notify_fd, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate notify event source: %m");
@@ -1102,6 +1105,10 @@ static int manager_setup_notify(Manager *m) {
                 r = sd_event_source_set_priority(m->notify_event_source, EVENT_PRIORITY_NOTIFY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of notify event source: %m");
+
+                r = sd_event_source_set_ratelimit(m->notify_event_source, NOTIFY_RATE_LIMIT_INTERVAL, NOTIFY_RATE_LIMIT_BURST);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to ratelimit of notify event source, ignoring: %m");
 
                 (void) sd_event_source_set_description(m->notify_event_source, "manager-notify");
         }
