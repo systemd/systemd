@@ -59,21 +59,22 @@ typedef struct SessionStatusInfo {
         uid_t uid;
         const char *name;
         dual_timestamp timestamp;
-        unsigned vtnr;
+        uint32_t vtnr;
         const char *seat;
         const char *tty;
         const char *display;
-        bool remote;
+        int remote;
         const char *remote_host;
         const char *remote_user;
         const char *service;
+        const char *desktop;
+        const char *scope;
         pid_t leader;
+        uint64_t leader_pidfdid;
         const char *type;
         const char *class;
         const char *state;
-        const char *scope;
-        const char *desktop;
-        bool idle_hint;
+        int idle_hint;
         dual_timestamp idle_hint_timestamp;
 } SessionStatusInfo;
 
@@ -137,74 +138,19 @@ static int list_table_print(Table *table, const char *type) {
         return 0;
 }
 
-static int list_sessions_table_add(Table *table, sd_bus_message *reply) {
-        int r;
+typedef enum ListSessionsLevel {
+        LIST_SESSIONS_TRADITIONAL,
+        LIST_SESSIONS_EX,
+        LIST_SESSIONS_EX_EX,
+        _LIST_SESSIONS_LEVEL_MAX,
+} ListSessionsLevel;
 
-        assert(table);
-        assert(reply);
+static int list_sessions_table(Table *table, sd_bus_message *reply, sd_bus *bus, ListSessionsLevel level) {
 
-        r = sd_bus_message_enter_container(reply, 'a', "(sussussbto)");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        for (;;) {
-                const char *session_id, *user, *seat, *class, *tty;
-                uint32_t uid, leader_pid;
-                int idle;
-                uint64_t idle_timestamp_monotonic;
-
-                r = sd_bus_message_read(reply, "(sussussbto)",
-                                        &session_id,
-                                        &uid,
-                                        &user,
-                                        &seat,
-                                        &leader_pid,
-                                        &class,
-                                        &tty,
-                                        &idle,
-                                        &idle_timestamp_monotonic,
-                                        /* object = */ NULL);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-                if (r == 0)
-                        break;
-
-                r = table_add_many(table,
-                                   TABLE_STRING, session_id,
-                                   TABLE_UID, (uid_t) uid,
-                                   TABLE_STRING, user,
-                                   TABLE_STRING, empty_to_null(seat),
-                                   TABLE_PID, (pid_t) leader_pid,
-                                   TABLE_STRING, class,
-                                   TABLE_STRING, empty_to_null(tty),
-                                   TABLE_BOOLEAN, idle);
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                if (idle)
-                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, &idle_timestamp_monotonic);
-                else
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        return 0;
-}
-
-static int list_sessions_table_add_fallback(Table *table, sd_bus_message *reply, sd_bus *bus) {
-
-        static const struct bus_properties_map map[] = {
-                { "Leader",                 "u", NULL, offsetof(SessionStatusInfo, leader)                        },
-                { "Class",                  "s", NULL, offsetof(SessionStatusInfo, class)                         },
-                { "TTY",                    "s", NULL, offsetof(SessionStatusInfo, tty)                           },
-                { "IdleHint",               "b", NULL, offsetof(SessionStatusInfo, idle_hint)                     },
-                { "IdleSinceHintMonotonic", "t", NULL, offsetof(SessionStatusInfo, idle_hint_timestamp.monotonic) },
-                {},
+        static const char *const signature[_LIST_SESSIONS_LEVEL_MAX] = {
+                [LIST_SESSIONS_TRADITIONAL] = "susso",
+                [LIST_SESSIONS_EX]          = "sussussbto",
+                [LIST_SESSIONS_EX_EX]       = "sussussbttttusbssssto",
         };
 
         int r;
@@ -213,48 +159,175 @@ static int list_sessions_table_add_fallback(Table *table, sd_bus_message *reply,
         assert(reply);
         assert(bus);
 
-        r = sd_bus_message_enter_container(reply, 'a', "(susso)");
+        const char *j = strjoina("(", signature[level], ")");
+        r = sd_bus_message_enter_container(reply, 'a', j);
         if (r < 0)
                 return bus_log_parse_error(r);
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-                const char *id, *user, *seat, *object;
-                uint32_t uid;
-                SessionStatusInfo i = {};
-
-                r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
+                r = sd_bus_message_enter_container(reply, 'r', signature[level]);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
                         break;
 
-                r = bus_map_all_properties(bus, "org.freedesktop.login1", object, map, BUS_MAP_BOOLEAN_AS_BOOL, &e, &m, &i);
-                if (r < 0) {
-                        log_full_errno(sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT) ? LOG_DEBUG : LOG_WARNING,
-                                       r,
-                                       "Failed to get properties of session %s, ignoring: %s",
-                                       id, bus_error_message(&e, r));
-                        continue;
+                SessionStatusInfo i = {};
+                r = sd_bus_message_read(
+                                reply,
+                                "suss",
+                                &i.id,
+                                &i.uid,
+                                &i.name,
+                                &i.seat);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                const struct bus_properties_map *map = NULL;
+                if (level >= LIST_SESSIONS_EX) {
+                        r = sd_bus_message_read(
+                                        reply,
+                                        "ussbt",
+                                        &i.leader,
+                                        &i.class,
+                                        &i.tty,
+                                        &i.idle_hint,
+                                        &i.idle_hint_timestamp.monotonic);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (level >= LIST_SESSIONS_EX_EX) {
+                                r = sd_bus_message_read(
+                                                reply,
+                                                "tttusbsssst",
+                                                &i.idle_hint_timestamp.realtime,
+                                                &i.timestamp.monotonic,
+                                                &i.timestamp.realtime,
+                                                &i.vtnr,
+                                                &i.type,
+                                                &i.remote,
+                                                &i.remote_host,
+                                                &i.remote_user,
+                                                &i.service,
+                                                &i.desktop,
+                                                &i.leader_pidfdid);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                        } else {
+                                static const struct bus_properties_map _map[] = {
+                                        { "IdleSinceHint",      "t", NULL, offsetof(SessionStatusInfo, idle_hint_timestamp.realtime) },
+                                        { "TimestampMonotonic", "t", NULL, offsetof(SessionStatusInfo, timestamp.monotonic)          },
+                                        { "Timestamp",          "t", NULL, offsetof(SessionStatusInfo, timestamp.realtime)           },
+                                        { "VTNr",               "u", NULL, offsetof(SessionStatusInfo, vtnr)                         },
+                                        { "Type",               "s", NULL, offsetof(SessionStatusInfo, type)                         },
+                                        { "Remote",             "b", NULL, offsetof(SessionStatusInfo, remote)                       },
+                                        { "RemoteHost",         "s", NULL, offsetof(SessionStatusInfo, remote_host)                  },
+                                        { "RemoteUser",         "s", NULL, offsetof(SessionStatusInfo, remote_user)                  },
+                                        { "Service",            "s", NULL, offsetof(SessionStatusInfo, service)                      },
+                                        { "Desktop",            "s", NULL, offsetof(SessionStatusInfo, desktop)                      },
+                                        { "LeaderPIDFDId",      "t", NULL, offsetof(SessionStatusInfo, leader_pidfdid)               },
+                                        {},
+                                };
+
+                                map = _map;
+                        }
+                } else {
+                        static const struct bus_properties_map _map[] = {
+                                { "Leader",                 "u", NULL, offsetof(SessionStatusInfo, leader)                        },
+                                { "Class",                  "s", NULL, offsetof(SessionStatusInfo, class)                         },
+                                { "TTY",                    "s", NULL, offsetof(SessionStatusInfo, tty)                           },
+                                { "IdleHint",               "b", NULL, offsetof(SessionStatusInfo, idle_hint)                     },
+                                { "IdleSinceHintMonotonic", "t", NULL, offsetof(SessionStatusInfo, idle_hint_timestamp.monotonic) },
+                                { "IdleSinceHint",          "t", NULL, offsetof(SessionStatusInfo, idle_hint_timestamp.realtime)  },
+                                { "TimestampMonotonic",     "t", NULL, offsetof(SessionStatusInfo, timestamp.monotonic)           },
+                                { "Timestamp",              "t", NULL, offsetof(SessionStatusInfo, timestamp.realtime)            },
+                                { "VTNr",                   "u", NULL, offsetof(SessionStatusInfo, vtnr)                         },
+                                { "Type",                   "s", NULL, offsetof(SessionStatusInfo, type)                          },
+                                { "Remote",                 "b", NULL, offsetof(SessionStatusInfo, remote)                        },
+                                { "RemoteHost",             "s", NULL, offsetof(SessionStatusInfo, remote_host)                   },
+                                { "RemoteUser",             "s", NULL, offsetof(SessionStatusInfo, remote_user)                   },
+                                { "Service",                "s", NULL, offsetof(SessionStatusInfo, service)                       },
+                                { "Desktop",                "s", NULL, offsetof(SessionStatusInfo, desktop)                       },
+                                { "LeaderPIDFDId",          "t", NULL, offsetof(SessionStatusInfo, leader_pidfdid)                },
+                                {},
+                        };
+
+                        map = _map;
                 }
 
-                r = table_add_many(table,
-                                   TABLE_STRING, id,
-                                   TABLE_UID, (uid_t) uid,
-                                   TABLE_STRING, user,
-                                   TABLE_STRING, empty_to_null(seat),
-                                   TABLE_PID, i.leader,
-                                   TABLE_STRING, i.class,
-                                   TABLE_STRING, empty_to_null(i.tty),
-                                   TABLE_BOOLEAN, i.idle_hint);
+                const char *object = NULL;
+                r = sd_bus_message_read(
+                                reply,
+                                "o",
+                                &object);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                if (map) {
+                        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+                        r = bus_map_all_properties(bus, "org.freedesktop.login1", object, map, /* flags= */ 0, &e, &m, &i);
+                        if (r < 0) {
+                                log_full_errno(sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT) ? LOG_DEBUG : LOG_WARNING,
+                                               r,
+                                               "Failed to get properties of session %s, ignoring: %s",
+                                               i.id, bus_error_message(&e, r));
+                                continue;
+                        }
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, i.id,
+                                TABLE_UID, (uid_t) i.uid,
+                                TABLE_STRING, i.name,
+                                TABLE_STRING, empty_to_null(i.seat),
+                                TABLE_PID, i.leader,
+                                TABLE_UINT64, i.leader_pidfdid,
+                                TABLE_STRING, empty_to_null(i.class),
+                                TABLE_STRING, empty_to_null(i.type),
+                                TABLE_STRING, empty_to_null(i.service),
+                                TABLE_STRING, empty_to_null(i.desktop),
+                                TABLE_STRING, empty_to_null(i.tty),
+                                TABLE_UINT, i.vtnr,
+                                TABLE_BOOLEAN, i.idle_hint);
                 if (r < 0)
                         return table_log_add_error(r);
 
                 if (i.idle_hint)
-                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, &i.idle_hint_timestamp.monotonic);
+                        r = table_add_many(
+                                        table,
+                                        TABLE_TIMESTAMP_RELATIVE_MONOTONIC, i.idle_hint_timestamp.monotonic,
+                                        TABLE_TIMESTAMP, i.idle_hint_timestamp.realtime);
                 else
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_many(
+                                        table,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(
+                                table,
+                                TABLE_TIMESTAMP_RELATIVE_MONOTONIC, i.timestamp.monotonic,
+                                TABLE_TIMESTAMP, i.timestamp.realtime,
+                                TABLE_BOOLEAN, i.remote);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (i.remote)
+                        r = table_add_many(
+                                        table,
+                                        TABLE_STRING, &i.remote_user,
+                                        TABLE_STRING, &i.remote_host);
+                else
+                        r = table_add_many(
+                                        table,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -271,37 +344,62 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        bool use_ex = true;
+        ListSessionsLevel level;
         int r;
 
         assert(argv);
 
-        r = bus_call_method(bus, bus_login_mgr, "ListSessionsEx", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_login_mgr, "ListSessionsExEx", &error, &reply, NULL);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                        return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
+
+                sd_bus_error_free(&error);
+
+                r = bus_call_method(bus, bus_login_mgr, "ListSessionsEx", &error, &reply, NULL);
+                if (r < 0) {
+                        if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                                return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
+
                         sd_bus_error_free(&error);
 
-                        use_ex = false;
                         r = bus_call_method(bus, bus_login_mgr, "ListSessions", &error, &reply, NULL);
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
-        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
 
-        table = table_new("session", "uid", "user", "seat", "leader", "class", "tty", "idle", "since");
+                        level = LIST_SESSIONS_TRADITIONAL;
+                } else
+                        level = LIST_SESSIONS_EX;
+        } else
+                level = LIST_SESSIONS_EX_EX;
+
+        /* We add all fields to the table, but then hide some columns in the output */
+        table = table_new("session", "uid", "user", "seat",
+                          "leader", "leader-pidfdid",
+                          "class", "type", "service", "desktop",
+                          "tty", "vtnr",
+                          "idle", "since", "since-realtime",
+                          "created", "created-realtime",
+                          "remote", "remote-user", "remote-host");
         if (!table)
                 return log_oom();
 
-        /* Right-align the first two fields (since they are numeric) */
+        /* Right-align some fields (since they are numeric) */
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(1), 100);
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(4), 100);
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(5), 100);
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(11), 100);
+
+        /* Hide some not so interesting fields (we still generate them for JSON) */
+        (void) table_hide_column_from_display(
+                        table,
+                        (size_t) 5, (size_t) 15, (size_t) 17,
+                        (size_t) 11, (size_t) 18, (size_t) 19);
 
         (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        if (use_ex)
-                r = list_sessions_table_add(table, reply);
-        else
-                r = list_sessions_table_add_fallback(table, reply, bus);
+        r = list_sessions_table(table, reply, bus, level);
         if (r < 0)
                 return r;
 
@@ -554,6 +652,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                 { "State",                  "s",    NULL,                     offsetof(SessionStatusInfo,  state)                         },
                 { "VTNr",                   "u",    NULL,                     offsetof(SessionStatusInfo,  vtnr)                          },
                 { "Leader",                 "u",    NULL,                     offsetof(SessionStatusInfo,  leader)                        },
+                { "LeaderPIDFDId",          "t",    NULL,                     offsetof(SessionStatusInfo,  leader_pidfdid)                },
                 { "Remote",                 "b",    NULL,                     offsetof(SessionStatusInfo,  remote)                        },
                 { "Timestamp",              "t",    NULL,                     offsetof(SessionStatusInfo,  timestamp.realtime)            },
                 { "TimestampMonotonic",     "t",    NULL,                     offsetof(SessionStatusInfo,  timestamp.monotonic)           },
