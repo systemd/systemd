@@ -111,6 +111,7 @@ static int add_syscall_filters(
                 { CAP_SYS_BOOT,       "reboot"                       },
                 { CAP_SYSLOG,         "syslog"                       },
                 { CAP_SYS_TTY_CONFIG, "vhangup"                      },
+                { CAP_BPF,            "bpf",                         },
 
                 /*
                  * The following syscalls and groups are knowingly excluded:
@@ -121,7 +122,6 @@ static int add_syscall_filters(
                  * @pkey
                  * @swap
                  *
-                 * bpf
                  * fanotify_init
                  * fanotify_mark
                  * kexec_file_load
