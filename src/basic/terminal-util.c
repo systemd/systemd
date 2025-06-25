@@ -122,18 +122,18 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool echo, bool *need_nl) {
                 new_termios.c_cc[VMIN] = 1;
                 new_termios.c_cc[VTIME] = 0;
 
-                if (tcsetattr(fd, TCSADRAIN, &new_termios) >= 0) {
+                if (tcsetattr(fd, TCSANOW, &new_termios) >= 0) {
                         char c;
 
                         if (t != USEC_INFINITY) {
                                 if (fd_wait_for_event(fd, POLLIN, t) <= 0) {
-                                        (void) tcsetattr(fd, TCSADRAIN, &old_termios);
+                                        (void) tcsetattr(fd, TCSANOW, &old_termios);
                                         return -ETIMEDOUT;
                                 }
                         }
 
                         r = safe_fgetc(f, &c);
-                        (void) tcsetattr(fd, TCSADRAIN, &old_termios);
+                        (void) tcsetattr(fd, TCSANOW, &old_termios);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -323,7 +323,7 @@ int ask_string_full(
 
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
-        if (tcsetattr(fd_input, TCSADRAIN, &new_termios) < 0)
+        if (tcsetattr(fd_input, TCSANOW, &new_termios) < 0)
                 return -errno;
 
         for (;;) {
@@ -446,7 +446,7 @@ int ask_string_full(
                 fflush(stdout);
         }
 
-        if (tcsetattr(fd_input, TCSADRAIN, &old_termios) < 0)
+        if (tcsetattr(fd_input, TCSANOW, &old_termios) < 0)
                 return -errno;
 
         if (!string) {
@@ -459,7 +459,7 @@ int ask_string_full(
         return 0;
 
 fail:
-        (void) tcsetattr(fd_input, TCSADRAIN, &old_termios);
+        (void) tcsetattr(fd_input, TCSANOW, &old_termios);
         return r;
 
 fallback:
@@ -2105,7 +2105,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
 
-        if (tcsetattr(STDIN_FILENO, TCSADRAIN, &new_termios) < 0)
+        if (tcsetattr(STDIN_FILENO, TCSANOW, &new_termios) < 0)
                 return -errno;
 
         r = loop_write(STDOUT_FILENO, ANSI_OSC "11;?" ANSI_ST, SIZE_MAX);
@@ -2177,7 +2177,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         }
 
 finish:
-        RET_GATHER(r, RET_NERRNO(tcsetattr(STDIN_FILENO, TCSADRAIN, &old_termios)));
+        RET_GATHER(r, RET_NERRNO(tcsetattr(STDIN_FILENO, TCSANOW, &old_termios)));
         return r;
 }
 
@@ -2302,7 +2302,7 @@ int terminal_get_size_by_dsr(
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
 
-        if (tcsetattr(input_fd, TCSADRAIN, &new_termios) < 0)
+        if (tcsetattr(input_fd, TCSANOW, &new_termios) < 0)
                 return log_debug_errno(errno, "Failed to set new terminal settings: %m");
 
         unsigned saved_row = 0, saved_column = 0;
@@ -2414,7 +2414,7 @@ finish:
         if (saved_row > 0 && saved_column > 0)
                 RET_GATHER(r, terminal_set_cursor_position(output_fd, saved_row, saved_column));
 
-        RET_GATHER(r, RET_NERRNO(tcsetattr(input_fd, TCSADRAIN, &old_termios)));
+        RET_GATHER(r, RET_NERRNO(tcsetattr(input_fd, TCSANOW, &old_termios)));
         return r;
 }
 
@@ -2513,7 +2513,7 @@ int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
 
-        if (tcsetattr(fd, TCSADRAIN, &new_termios) < 0)
+        if (tcsetattr(fd, TCSANOW, &new_termios) < 0)
                 return -errno;
 
         r = loop_write(fd, DCS_TERMINFO_Q, SIZE_MAX);
@@ -2568,7 +2568,7 @@ int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
 
 finish:
         /* We ignore failure here. We already got a reply and if cleanup fails, we can't help that. */
-        (void) tcsetattr(fd, TCSADRAIN, &old_termios);
+        (void) tcsetattr(fd, TCSANOW, &old_termios);
         return r;
 }
 
