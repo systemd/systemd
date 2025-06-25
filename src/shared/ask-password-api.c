@@ -566,7 +566,7 @@ int ask_password_tty(
                 new_termios = old_termios;
                 termios_disable_echo(&new_termios);
 
-                r = RET_NERRNO(tcsetattr(ttyfd, TCSADRAIN, &new_termios));
+                r = RET_NERRNO(tcsetattr(ttyfd, TCSANOW, &new_termios));
                 if (r < 0)
                         goto finish;
 
@@ -783,7 +783,7 @@ skipped:
 finish:
         if (ttyfd >= 0 && reset_tty) {
                 (void) loop_write(ttyfd, "\n", 1);
-                (void) tcsetattr(ttyfd, TCSADRAIN, &old_termios);
+                (void) tcsetattr(ttyfd, TCSANOW, &old_termios);
         }
 
         return r;
