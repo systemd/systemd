@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sched.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <unistd.h>
