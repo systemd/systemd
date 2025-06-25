@@ -217,7 +217,7 @@ static int parse_config(void) {
 #if HAVE_DWFL_SET_SYSROOT
                 { "Coredump", "EnterNamespace",  config_parse_bool,                0,                      &arg_enter_namespace   },
 #else
-                { "Coredump", "EnterNamespace",  config_parse_warn_compat,         DISABLED_CONFIGURATION, 0                      },
+                { "Coredump", "EnterNamespace",  config_parse_warn_compat,         DISABLED_CONFIGURATION, NULL                   },
 #endif
                 {}
         };

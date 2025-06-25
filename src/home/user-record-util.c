@@ -1053,8 +1053,11 @@ int user_record_set_fido2_user_presence_permitted(UserRecord *h, int b) {
 
         if (sd_json_variant_is_blank_object(w))
                 r = sd_json_variant_filter(&h->json, STRV_MAKE("secret"));
-        else
+        else {
+                sd_json_variant_sensitive(w);
+
                 r = sd_json_variant_set_field(&h->json, "secret", w);
+        }
         if (r < 0)
                 return r;
 
@@ -1081,8 +1084,11 @@ int user_record_set_fido2_user_verification_permitted(UserRecord *h, int b) {
 
         if (sd_json_variant_is_blank_object(w))
                 r = sd_json_variant_filter(&h->json, STRV_MAKE("secret"));
-        else
+        else {
+                sd_json_variant_sensitive(w);
+
                 r = sd_json_variant_set_field(&h->json, "secret", w);
+        }
         if (r < 0)
                 return r;
 
