@@ -8,7 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "missing_syscall.h"
+#include "missing_mempolicy.h"
 #include "numa-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"
