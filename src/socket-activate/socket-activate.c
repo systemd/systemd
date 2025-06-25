@@ -316,7 +316,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n"
+        printf("%s [OPTIONS...] COMMAND ...\n"
                "\n%sListen on sockets and launch child on connection.%s\n"
                "\nOptions:\n"
                "  -h --help                  Show this help and exit\n"
