@@ -10,7 +10,6 @@
 #include "generator.h"
 #include "install.h"
 #include "log.h"
-#include "missing_socket.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"

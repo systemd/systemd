@@ -559,11 +559,13 @@ conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 # compilation result tests
 
 conf.set('_GNU_SOURCE', 1)
+# glibc always defines _LARGEFILE64_SOURCE when _GNU_SOURCE is set, but musl does not do that,
+# and it is necessary for making getdents64() and struct dirent64 exist.
+conf.set('_LARGEFILE64_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>'))
-conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>'))
 conf.set('SIZEOF_TIME_T', cc.sizeof('time_t', prefix : '#include <sys/time.h>'))
 conf.set('SIZEOF_TIMEX_MEMBER', cc.sizeof('typeof(((struct timex *)0)->freq)', prefix : '#include <sys/timex.h>'))
 
@@ -576,6 +578,10 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
+        ['mallinfo',          '''#include <malloc.h>'''],       # for musl
+        ['malloc_info',       '''#include <malloc.h>'''],       # for musl
+        ['malloc_trim',       '''#include <malloc.h>'''],       # for musl
+        ['renameat2',         '''#include <stdio.h>'''],        # for musl, hopefully defined in musl-1.2.6 and newer
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
@@ -586,7 +592,6 @@ foreach ident : [
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsopen',            '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['fspick',            '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
@@ -602,14 +607,38 @@ foreach ident : [
         ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
         ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
         ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
-        ['pivot_root',        '''#include <sys/syscall.h>'''],  # no known header declares pivot_root
+        ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
+        ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
         ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
+        ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
+
+# rlim_t is sometimes 32bit, and sometimes 64bit. Moreover,
+# glibc uses uint64_t for 64bit rlim_t, but musl uses unsigned long long.
+# Let's determine the correct format string for rlim_t here.
+rlim_test = '''
+#include <sys/resource.h>
+#include <stdio.h>
+int main(void) {
+        rlim_t x = 1;
+        printf("@0@", x);
+        return 0;
+}
+'''
+foreach fmt : ['%u', '%lu', '%llu']
+        if cc.compiles(rlim_test.format(fmt), args : ['-Werror=format', '-D_GNU_SOURCE'])
+                conf.set_quoted('RLIM_FMT', fmt)
+                break
+        endif
+endforeach
+if not conf.has('RLIM_FMT')
+        error('Cannot determine format string for rlim_t')
+endif
 
 #####################################################################
 
@@ -692,6 +721,10 @@ if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
 foreach header : ['crypt.h',
+                  'gnu/libc-version.h',  # for musl
+                  'gshadow.h',           # for musl
+                  'nss.h',               # for musl
+                  'printf.h',            # for musl
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
@@ -1597,11 +1630,9 @@ foreach term : ['analyze',
                 'efi',
                 'environment-d',
                 'firstboot',
-                'gshadow',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
-                'idn',
                 'ima',
                 'ipe',
                 'initrd',
@@ -1613,8 +1644,6 @@ foreach term : ['analyze',
                 'mountfsd',
                 'networkd',
                 'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
                 'oomd',
                 'portabled',
                 'pstore',
@@ -1640,15 +1669,51 @@ endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
+have = get_option('idn')
+if have
+        # musl does not have NI_IDN. Let's check if it is defined, and gracefully disable the support if not.
+        if meson.version().version_compare('>=1.3.0')
+                have_ni_idn = cc.has_define('NI_IDN', prefix : '''#include <netdb.h>''', args : '-D_GNU_SOURCE')
+        else
+                have_ni_idn = cc.has_header_symbol('netdb.h', 'NI_IDN', args : '-D_GNU_SOURCE')
+        endif
+        if not have_ni_idn
+                warning('IDN support is requested but NI_IDN is not defined, disabling it.')
+                have = false
+        endif
+endif
+conf.set10('ENABLE_IDN', have)
+
+have = get_option('gshadow')
+if have and conf.get('HAVE_GSHADOW_H') == 0
+        warning('support for shadow group is requested but gshadow.h does not exist, disabling it.')
+        have = false
+endif
+conf.set10('ENABLE_GSHADOW', have)
+
+have_nss_h = conf.get('HAVE_NSS_H') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
         if want.allowed()
-                have = get_option(tuple[1])
+                have = get_option(tuple[1]) and have_nss_h
                 if want.enabled() and not have
+                        if not have_nss_h
+                                error('@0@ is requested but nss.h does not exist'.format(tuple[0]))
+                        endif
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
         else
+                have = false
+        endif
+        name = 'ENABLE_' + tuple[0].underscorify().to_upper()
+        conf.set10(name, have)
+endforeach
+foreach tuple : [['nss-myhostname'],
+                 ['nss-systemd']]
+        have = get_option(tuple[0])
+        if have and not have_nss_h
+                warning('@0@ is requested but nss.h does not exist, disabling it.'.format(tuple[0]))
                 have = false
         endif
         name = 'ENABLE_' + tuple[0].underscorify().to_upper()
