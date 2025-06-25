@@ -617,6 +617,7 @@ def main() -> None:
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
         'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
+        '--', '--capability=CAP_BPF',
     ]  # fmt: skip
 
     try:
