@@ -9,4 +9,4 @@ Before=initrd-root-fs.target
 What=rootfs
 Where=/sysroot
 Type=tmpfs
-Options=rw
+Options=rw,mode=0755

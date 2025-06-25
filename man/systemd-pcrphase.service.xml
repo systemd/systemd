@@ -73,7 +73,8 @@
 
       <listitem><para><literal>leave-initrd</literal> — when the initrd is about to transition into the host
       file system. It acts as barrier between initrd code and host OS code. (This extension happens when the
-      <filename>systemd-pcrphase-initrd.service</filename> service is stopped.)</para></listitem>
+      <citerefentry><refentrytitle>systemd-pcrphase-sysinit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service is stopped.)</para></listitem>
 
       <listitem><para><literal>sysinit</literal> — when basic system initialization is complete (which
       includes local file systems having been mounted), and the system begins starting regular system
@@ -85,7 +86,9 @@
       activated (i.e. after <filename>remote-fs.target</filename>), but before users are permitted to log in
       (i.e. before <filename>systemd-user-sessions.service</filename>). It acts as barrier between the time
       where unprivileged regular users are still prohibited to log in and where they are allowed to log in.
-      (This extension happens when the <filename>systemd-pcrphase.service</filename> service is started.)
+      (This extension happens when the
+      <citerefentry><refentrytitle>systemd-pcrphase-sysinit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service is started.)
       </para></listitem>
 
       <listitem><para><literal>shutdown</literal> — when the system shutdown begins. It acts as barrier

@@ -102,3 +102,7 @@ id-input:modalias:input:b0003v26CEp01A2*
  ID_INPUT_JOYSTICK=
  ID_INPUT_KEY=
  ID_INPUT=
+
+# Saitek PLC Pro Flight Rudder Pedals
+id-input:modalias:input:b0003v06A3p0763*
+ ID_INPUT_JOYSTICK=1

@@ -10,10 +10,14 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
+#include "mkdir.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -21,6 +25,67 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
+
+TEST(mdio_bus) {
+        int r;
+
+        /* For issue #37711 */
+
+        if (getuid() != 0)
+                return (void) log_tests_skipped("not running as root");
+
+        ASSERT_OK(r = safe_fork("(mdio_bus)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL));
+        if (r == 0) {
+                const char *syspath = "/sys/bus/mdio_bus/drivers/Qualcomm Atheros AR8031!AR8033";
+                const char *id = "+drivers:mdio_bus:Qualcomm Atheros AR8031!AR8033";
+
+                struct {
+                        int (*getter)(sd_device*, const char**);
+                        const char *val;
+                } table[] = {
+                        { sd_device_get_syspath,          syspath                          },
+                        { sd_device_get_device_id,        id                               },
+                        { sd_device_get_subsystem,        "drivers"                        },
+                        { sd_device_get_driver_subsystem, "mdio_bus"                       },
+                        { sd_device_get_sysname,          "Qualcomm Atheros AR8031/AR8033" },
+                };
+
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_DEVICE_VERIFY_SYSFS", "0", /* overwrite = */ false));
+                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", "/sys/bus/", "tmpfs", 0, NULL));
+                r = mkdir_p(syspath, 0755);
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                        log_tests_skipped("Lacking privileges to create %s", syspath);
+                        _exit(EXIT_SUCCESS);
+                }
+                ASSERT_OK(r);
+
+                _cleanup_free_ char *uevent = path_join(syspath, "uevent");
+                ASSERT_NOT_NULL(uevent);
+                ASSERT_OK(touch(uevent));
+
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                ASSERT_OK(sd_device_new_from_syspath(&dev, syspath));
+
+                FOREACH_ELEMENT(t, table) {
+                        const char *v;
+
+                        ASSERT_OK(t->getter(dev, &v));
+                        ASSERT_STREQ(v, t->val);
+                }
+
+                dev = sd_device_unref(dev);
+                ASSERT_OK(sd_device_new_from_device_id(&dev, id));
+
+                FOREACH_ELEMENT(t, table) {
+                        const char *v;
+
+                        ASSERT_OK(t->getter(dev, &v));
+                        ASSERT_STREQ(v, t->val);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+}
 
 static void test_sd_device_one(sd_device *d) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;

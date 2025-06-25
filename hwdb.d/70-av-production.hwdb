@@ -30,6 +30,29 @@
 usb:v2982p1967*
  ID_AV_PRODUCTION_CONTROLLER=1
 
+####################
+# Beacn
+####################
+# Beacn Mic
+usb:v33AEp0001*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Beacn Studio
+usb:v33AEp0003*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Beacn Studio (PC2 Port)
+usb:v33AEp4003*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Beacn Mix
+usb:v33AEp0004*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Beacn Mix Create
+usb:v33AEp0007*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
 ################
 # Contour
 ################
@@ -121,6 +144,21 @@ usb:v06F8pB107*
 usb:v0C26p001E*
  ID_AV_PRODUCTION_CONTROLLER=1
 
+####################
+# Loupedeck
+####################
+# CT
+usb:v2EC2p0003*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Live
+usb:v2EC2p0004*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Live S
+usb:v2EC2p0006*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
 #####################
 # Native Instruments
 #####################
@@ -201,10 +239,32 @@ usb:v2B73p0005*
  ID_AV_PRODUCTION_CONTROLLER=1
 
 ####################
+# Razer
+####################
+# Stream Controller
+usb:v1532p0D06*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Controller X
+usb:v1532p0D09*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+####################
 # SunSDR
 ####################
 # E-Coder 2 Controller
 usb:v1FC9p0003*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+####################
+# TC-Helicon
+####################
+# GoXLR
+usb:v1220p8FE4*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# GoXLR Mini
+usb:v1220p8FE0*
  ID_AV_PRODUCTION_CONTROLLER=1
 
 ####################
