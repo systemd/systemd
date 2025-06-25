@@ -115,6 +115,8 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("TriggerLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, trigger_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PollLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, poll_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PollLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, poll_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DeferTrigger", "b", bus_property_get_bool, offsetof(Socket, defer_trigger), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DeferTriggerMaxUSec", "t", bus_property_get_usec, offsetof(Socket, defer_trigger_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("PassFileDescriptorsToExec", "b", bus_property_get_bool, offsetof(Socket, pass_fds_to_exec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -273,6 +275,12 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "PollLimitIntervalUSec"))
                 return bus_set_transient_usec(u, name, &s->poll_limit.interval, message, flags, error);
+
+        if (streq(name, "DeferTrigger"))
+                return bus_set_transient_bool(u, name, &s->defer_trigger, message, flags, error);
+
+        if (streq(name, "DeferTriggerMaxUSec"))
+                return bus_set_transient_usec_fix_0(u, name, &s->defer_trigger_max_usec, message, flags, error);
 
         if (streq(name, "SmackLabel"))
                 return bus_set_transient_string(u, name, &s->smack, message, flags, error);
