@@ -23,6 +23,46 @@ dmi:*:pnTobefilledbyO.E.M.:*
 dmi:*:pnToBeFilledByO.E.M.:*
     ID_PRODUCT_NAME_IS_RUBBISH=1
 
+dmi:*:pvrDefaultstring:*
+dmi:*:pvrDefault string:*
+dmi:*:pvrN/A:*
+dmi:*:pvrO.E.M.:*
+dmi:*:pvrOEM:*
+dmi:*:pvrTobefilledbyO.E.M.:*
+dmi:*:pvrToBeFilledByO.E.M.:*
+dmi:*:pvrTo Be Filled By O.E.M.:*
+    ID_PRODUCT_VERSION_IS_RUBBISH=1
+
+dmi:*:rvrDefaultstring:*
+dmi:*:rvrDefault string:*
+dmi:*:rvrN/A:*
+dmi:*:rvrO.E.M.:*
+dmi:*:rvrOEM:*
+dmi:*:rvrTobefilledbyO.E.M.:*
+dmi:*:rvrToBeFilledByO.E.M.:*
+dmi:*:rvrTo Be Filled By O.E.M.:*
+    ID_BOARD_VERSION_IS_RUBBISH=1
+
+dmi:*:skuDefaultstring:*
+dmi:*:skuDefault string:*
+dmi:*:skuN/A:*
+dmi:*:skuO.E.M.:*
+dmi:*:skuOEM:*
+dmi:*:skuTobefilledbyO.E.M.:*
+dmi:*:skuToBeFilledByO.E.M.:*
+dmi:*:skuTo Be Filled By O.E.M.:*
+    ID_PRODUCT_SKU_IS_RUBBISH=1
+
+dmi:*:catDefaultstring:*
+dmi:*:catDefault string:*
+dmi:*:catN/A:*
+dmi:*:catO.E.M.:*
+dmi:*:catOEM:*
+dmi:*:catTobefilledbyO.E.M.:*
+dmi:*:catToBeFilledByO.E.M.:*
+dmi:*:catTo Be Filled By O.E.M.:*
+    ID_CHASSIS_ASSET_TAG_IS_RUBBISH=1
+
 # Fix "Lenovo" capitalization in /sys/class/dmi/id/sys_vendor
 dmi:bvnLENOVO*
     ID_SYSFS_ATTRIBUTE_MODEL=product_version
