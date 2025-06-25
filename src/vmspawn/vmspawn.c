@@ -81,6 +81,11 @@ typedef struct SSHInfo {
         unsigned port;
 } SSHInfo;
 
+typedef struct ShutdownInfo {
+        SSHInfo *ssh_info;
+        PidRef *pidref;
+} ShutdownInfo;
+
 static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
 static char *arg_directory = NULL;
@@ -812,80 +817,68 @@ static int bus_open_in_machine(sd_bus **ret, unsigned cid, unsigned port, const 
         return 0;
 }
 
-static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        PidRef *pidref = userdata;
-        int r;
-
-        /* Backup method to shut down the VM when D-BUS access over SSH is not available */
-
-        if (pidref) {
-                r = pidref_kill(pidref, SIGKILL);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to kill qemu, terminating: %m");
-                else {
-                        log_info("Trying to halt qemu. Send SIGTERM again to trigger vmspawn to immediately terminate.");
-                        sd_event_source_set_userdata(s, NULL);
-                        return 0;
-                }
-        }
-
-        sd_event_exit(sd_event_source_get_event(s), 0);
-        return 0;
-}
-
-static int forward_signal_to_vm_pid1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+static int shutdown_vm_graceful(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        SSHInfo *ssh_info = ASSERT_PTR(userdata);
-        const char *vm_pid1;
+        ShutdownInfo *shutdown_info = ASSERT_PTR(userdata);
+        SSHInfo *ssh_info = ASSERT_PTR(shutdown_info->ssh_info);
         int r;
 
         assert(s);
         assert(si);
 
+        /* If we don't have the vsock address and the SSH key, go to fallback */
+        if (ssh_info->cid == VMADDR_CID_ANY || !ssh_info->private_key_path)
+                goto fallback;
+
+        /*
+         * In order we should try:
+         * 1. PowerOff from logind respects inhibitors but might not be available
+         * 2. PowerOff from systemd heavy handed but should always be available
+         * 3. SIGKILL qemu (this waits for qemu to die still)
+         * 4. kill ourselves by shutting down our event loop (this does not wait for qemu)
+         */
+
         r = bus_open_in_machine(&bus, ssh_info->cid, ssh_info->port, ssh_info->private_key_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to VM to forward signal: %m");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to connect to VM to forward signal, ignoring: %m");
+                goto fallback;
+        }
 
-        r = bus_wait_for_jobs_new(bus, &w);
-        if (r < 0)
-                return log_error_errno(r, "Could not watch job: %m");
+        r = bus_call_method(bus, bus_login_mgr, "PowerOff", &error, /* reply= */ NULL, "b", false);
+        if (r >= 0) {
+                log_info("Requested powering off VM through D-Bus.");
+                return 0;
+        }
 
-        r = bus_call_method(
-                        bus,
-                        bus_systemd_mgr,
-                        "GetUnitByPID",
-                        &error,
-                        NULL,
-                        "");
-        if (r < 0)
-                return log_error_errno(r, "Failed to get init process of VM: %s", bus_error_message(&error, r));
+        log_warning_errno(r, "Failed to shutdown VM via logind, ignoring: %s", bus_error_message(&error, r));
+        sd_bus_error_free(&error);
 
-        r = sd_bus_message_read(reply, "o", &vm_pid1);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        r = bus_call_method(bus, bus_systemd_mgr, "PowerOff", &error, /* reply= */ NULL, /* types= */ NULL);
+        if (r >= 0) {
+                log_info("Requested powering off VM through D-Bus.");
+                return 0;
+        }
 
-        r = bus_wait_for_jobs_one(w, vm_pid1, /* quiet */ false, NULL);
-        if (r < 0)
-                return r;
+        log_warning_errno(r, "Failed to shutdown VM via systemd, ignoring: %s", bus_error_message(&error, r));
 
-        r = bus_call_method(
-                        bus,
-                        bus_systemd_mgr,
-                        "KillUnit",
-                        &error,
-                        NULL,
-                        "ssi",
-                        vm_pid1,
-                        "leader",
-                        si->ssi_signo);
-        if (r < 0)
-                return log_error_errno(r, "Failed to forward signal to PID 1 of the VM: %s", bus_error_message(&error, r));
-        log_info("Sent signal %"PRIu32" to the VM's PID 1.", si->ssi_signo);
+fallback:
+        /* at this point SSH clearly isn't working so don't try it again */
+        TAKE_STRUCT(*ssh_info);
 
-        return 0;
+        /* Backup method to shut down the VM when D-BUS access over SSH is not available */
+        if (shutdown_info->pidref) {
+                r = pidref_kill(shutdown_info->pidref, SIGKILL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to kill qemu, terminating: %m");
+                else {
+                        TAKE_PTR(shutdown_info->pidref);
+                        log_info("Trying to halt qemu. Send SIGTERM again to trigger vmspawn to immediately terminate.");
+                        return 0;
+                }
+        }
+
+        return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
@@ -1371,7 +1364,6 @@ static int generate_ssh_keypair(const char *key_path, const char *key_type) {
 }
 
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
-        SSHInfo ssh_info; /* Used when talking to pid1 via SSH, but must survive until the function ends. */
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL, *kernel = NULL;
@@ -1707,9 +1699,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", ovmf_vars_from, ovmf_vars_to);
 
-                /* These aren't always available so don't raise an error if they fail */
-                (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
-                (void) copy_access(source_fd, target_fd);
+                /* This isn't always available so don't raise an error if it fails */
                 (void) copy_times(source_fd, target_fd, 0);
 
                 r = strv_extend_many(
@@ -2160,21 +2150,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to setup event loop to handle VSOCK notify events: %m");
         }
 
-        /* If we have the vsock address and the SSH key, ask pid1 inside the guest to shutdown. */
-        if (child_cid != VMADDR_CID_ANY && ssh_private_key_path) {
-                ssh_info = (SSHInfo) {
-                        .cid = child_cid,
-                        .private_key_path = ssh_private_key_path,
-                        .port = 22,
-                };
+        /* Used when talking to pid1 via SSH, but must survive until the function ends. */
+        SSHInfo ssh_info = {
+                .cid = child_cid,
+                .private_key_path = ssh_private_key_path,
+                .port = 22,
+        };
+        ShutdownInfo shutdown_info = {
+                .ssh_info = &ssh_info,
+                .pidref = &child_pidref,
+        };
 
-                (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, forward_signal_to_vm_pid1, &ssh_info);
-                (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, forward_signal_to_vm_pid1, &ssh_info);
-        } else {
-                /* As a fallback in case SSH cannot be used, send a shutdown signal to the VMM instead. */
-                (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
-                (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
-        }
+        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, NULL, (SIGRTMIN+4) | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
 
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 

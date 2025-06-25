@@ -943,7 +943,6 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
 
                 /* How much do we need to fit? */
                 required = partition_min_size_with_padding(context, p);
-                assert(required % context->grain_size == 0);
 
                 for (size_t i = 0; i < context->n_free_areas; i++) {
                         a = context->free_areas[i];
@@ -6576,6 +6575,29 @@ static bool need_fstab(const Context *context) {
         return false;
 }
 
+static int make_by_uuid_symlink_path(const Partition *p, char **ret) {
+        _cleanup_free_ char *what = NULL;
+
+        assert(p);
+        assert(ret);
+
+        if (streq_ptr(p->format, "vfat")) {
+                if (asprintf(&what, "UUID=%04X-%04X",
+                             ((uint32_t) p->fs_uuid.bytes[0] << 8) |
+                             ((uint32_t) p->fs_uuid.bytes[1] << 0),
+                             ((uint32_t) p->fs_uuid.bytes[2] << 8) |
+                             ((uint32_t) p->fs_uuid.bytes[3])) < 0) /* Take first 32 bytes of UUID */
+                        return log_oom();
+        } else {
+                what = strjoin("UUID=", SD_ID128_TO_UUID_STRING(p->fs_uuid));
+                if (!what)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(what);
+        return 0;
+}
+
 static int context_fstab(Context *context) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -6609,9 +6631,9 @@ static int context_fstab(Context *context) {
                 if (!need_fstab_one(p))
                         continue;
 
-                what = strjoin("UUID=", SD_ID128_TO_UUID_STRING(p->fs_uuid));
-                if (!what)
-                        return log_oom();
+                r = make_by_uuid_symlink_path(p, &what);
+                if (r < 0)
+                        return r;
 
                 FOREACH_ARRAY(mountpoint, p->mountpoints, p->n_mountpoints) {
                         r = partition_pick_mount_options(

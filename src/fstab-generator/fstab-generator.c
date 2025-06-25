@@ -1121,7 +1121,7 @@ static int sysroot_is_nfsroot(void) {
 
 static int add_sysroot_mount(void) {
         _cleanup_free_ char *what = NULL;
-        const char *opts, *fstype;
+        const char *extra_opts = NULL, *fstype;
         bool default_rw, makefs;
         MountPointFlags flags;
         int r;
@@ -1175,6 +1175,9 @@ static int add_sysroot_mount(void) {
                 fstype = arg_root_fstype ?: "tmpfs"; /* tmpfs, unless overridden */
 
                 default_rw = true; /* writable, unless overridden */;
+
+                if (streq(fstype, "tmpfs") && !fstab_test_option(arg_root_options, "mode\0"))
+                        extra_opts = "mode=0755"; /* root directory should not be world/group writable, unless overridden */
         } else {
 
                 what = fstab_node_to_udev_node(arg_root_what);
@@ -1186,17 +1189,21 @@ static int add_sysroot_mount(void) {
                 default_rw = false; /* read-only, unless overridden */
         }
 
-        if (!arg_root_options)
-                opts = arg_root_rw > 0 || (arg_root_rw < 0 && default_rw) ? "rw" : "ro";
-        else if (arg_root_rw >= 0 ||
-                 !fstab_test_option(arg_root_options, "ro\0" "rw\0"))
-                opts = strjoina(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
-        else
-                opts = arg_root_options;
+        _cleanup_free_ char *combined_options = NULL;
+        if (strdup_to(&combined_options, arg_root_options) < 0)
+                return log_oom();
 
-        log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(arg_root_fstype), strempty(opts));
+        if (arg_root_rw >= 0 || !fstab_test_option(combined_options, "ro\0" "rw\0"))
+                if (!strextend_with_separator(&combined_options, ",", arg_root_rw > 0 || (arg_root_rw < 0 && default_rw) ? "rw" : "ro"))
+                        return log_oom();
 
-        makefs = fstab_test_option(opts, "x-systemd.makefs\0");
+        if (extra_opts)
+                if (!strextend_with_separator(&combined_options, ",", extra_opts))
+                        return log_oom();
+
+        log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(fstype), strempty(combined_options));
+
+        makefs = fstab_test_option(combined_options, "x-systemd.makefs\0");
         flags = makefs * MOUNT_MAKEFS;
 
         return add_mount("/proc/cmdline",
@@ -1205,7 +1212,7 @@ static int add_sysroot_mount(void) {
                          "/sysroot",
                          NULL,
                          fstype,
-                         opts,
+                         combined_options,
                          is_device_path(what) ? 1 : 0, /* passno */
                          flags,                        /* makefs off, pcrfs off, quota off, noauto off, nofail off, automount off */
                          SPECIAL_INITRD_ROOT_FS_TARGET);

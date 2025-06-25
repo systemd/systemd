@@ -601,6 +601,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         dns_server_unlink_on_reload(m->dns_servers);
         dns_server_unlink_on_reload(m->fallback_dns_servers);
         m->dns_extra_stub_listeners = ordered_set_free(m->dns_extra_stub_listeners);
+        manager_dns_stub_stop(m);
         dnssd_service_clear_on_reload(m->dnssd_services);
         m->unicast_scope = dns_scope_free(m->unicast_scope);
 
@@ -637,6 +638,10 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         (void) dns_stream_disconnect_all(m);
         manager_flush_caches(m, LOG_INFO);
         manager_verify_all(m);
+
+        r = manager_dns_stub_start(m);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), r);
 
         (void) sd_notify(/* unset= */ false, NOTIFY_READY);
         return 0;

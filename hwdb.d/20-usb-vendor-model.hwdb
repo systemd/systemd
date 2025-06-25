@@ -50568,7 +50568,7 @@ usb:v1209p0CBD*
  ID_MODEL_FROM_DATABASE=Andrzej Szombierski kuku.eu.org keyboard
 
 usb:v1209p0D32*
- ID_MODEL_FROM_DATABASE=ODrive Robotics ODrive v3
+ ID_MODEL_FROM_DATABASE=ODrive Robotics ODrive
 
 usb:v1209p1001*
  ID_MODEL_FROM_DATABASE=InterBiometrics Hub
@@ -69275,6 +69275,12 @@ usb:v357Dp7788*
 usb:v3636*
  ID_VENDOR_FROM_DATABASE=InVibro
 
+usb:v3752*
+ ID_VENDOR_FROM_DATABASE=Arculus Holdings, LLC
+
+usb:v3752p0001*
+ ID_MODEL_FROM_DATABASE=AuthentiKey
+
 usb:v3767*
  ID_VENDOR_FROM_DATABASE=Fanatec
 
@@ -71035,6 +71041,9 @@ usb:v8087p0032*
 
 usb:v8087p0033*
  ID_MODEL_FROM_DATABASE=AX211 Bluetooth
+
+usb:v8087p0036*
+ ID_MODEL_FROM_DATABASE=BE200 Bluetooth
 
 usb:v8087p0716*
  ID_MODEL_FROM_DATABASE=Modem Flashloader

@@ -204,7 +204,7 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
                                         "Skipping \"%s\", it's owned by another boot loader.", to);
 
         r = compare_version(a, b);
-        log_debug("Comparing versions: \"%s\" %s \"%s", a, comparison_operator(r), b);
+        log_debug("Comparing versions: \"%s\" %s \"%s\"", a, comparison_operator(r), b);
         if (r < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(ESTALE),
                                          "Skipping \"%s\", newer boot loader version in place already.", to);
@@ -337,9 +337,9 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
+                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, /* mode= */ 0);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
+                        return log_error_errno(fd, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
                 r = get_file_version(fd, &v);
                 if (r == -ESRCH)
@@ -889,9 +889,9 @@ static int remove_boot_efi(const char *esp_path) {
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
+                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, /* mode= */ 0);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
+                        return log_error_errno(fd, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
                 r = get_file_version(fd, &v);
                 if (r == -ESRCH)

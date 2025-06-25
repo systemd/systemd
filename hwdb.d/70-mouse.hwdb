@@ -41,12 +41,22 @@
 #   udevadm info /dev/input/eventXX.
 #
 # Allowed properties are:
+#   ID_INPUT_3D_MOUSE
 #   ID_INPUT_TRACKBALL
 #   MOUSE_DPI
 #   MOUSE_WHEEL_CLICK_ANGLE
 #   MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL
 #   MOUSE_WHEEL_CLICK_COUNT
 #   MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL
+#
+#########################################
+#         ID_INPUT_3D_MOUSE             #
+#########################################
+#
+# Specified if the device is a 3D mouse[1]. This gives access to the
+# hidraw device node to applications that consume its events directly.
+#
+# [1]: See https://en.wikipedia.org/wiki/3Dconnexion for definition
 #
 #########################################
 #         ID_INPUT_TRACKBALL            #
@@ -142,6 +152,34 @@ mouse:*:name:*Trackball*:*
 mouse:*:name:*trackball*:*
 mouse:*:name:*TrackBall*:*
  ID_INPUT_TRACKBALL=1
+
+##########################################
+# 3D Connexion
+##########################################
+# From https://github.com/FreeSpacenav/spacenavd/blob/39856625a6de1e8c4b57c5938e1bf29d13cf1a9f/src/dev.c#L63
+mouse:usb:v046dpc603:name:*
+mouse:usb:v046dpc605:name:*
+mouse:usb:v046dpc606:name:*
+mouse:usb:v046dpc621:name:*
+mouse:usb:v046dpc623:name:*
+mouse:usb:v046dpc625:name:*
+mouse:usb:v046dpc626:name:*
+mouse:usb:v046dpc627:name:*
+mouse:usb:v046dpc628:name:*
+mouse:usb:v046dpc629:name:*
+mouse:usb:v046dpc62b:name:*
+mouse:usb:v046dpc640:name:*
+mouse:usb:v256fpc62e:name:*
+mouse:usb:v256fpc62f:name:*
+mouse:usb:v256fpc631:name:*
+mouse:usb:v256fpc632:name:*
+mouse:usb:v256fpc633:name:*
+mouse:usb:v256fpc635:name:*
+mouse:usb:v256fpc636:name:*
+ ID_INPUT_3D_MOUSE=1
+
+mouse:bluetooth:v256fpc63a:name:*
+ ID_INPUT_3D_MOUSE=1
 
 ##########################################
 # Apple
@@ -290,6 +328,10 @@ mouse:usb:v093ap2510:name:PIXART USB OPTICAL MOUSE:*
 # HP X1200 Optical Mouse
 mouse:usb:v03f0p0641:name:PixArt HP X1200 USB Optical Mouse:*
  MOUSE_DPI=1100@125
+
+# HP 150 Wired Mouse
+mouse:usb:v03f0p6a41:name:PixArt HP USB Optical Mouse:
+ MOUSE_DPI=1700@132
 
 ##########################################
 # IBM

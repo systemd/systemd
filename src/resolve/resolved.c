@@ -58,11 +58,10 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Could not create runtime directory: %m");
 
-                /* Drop privileges, but keep three caps. Note that we drop two of those too, later on (see below) */
+                /* Drop privileges, but keep two caps. */
                 r = drop_privileges(uid, gid,
-                                    (UINT64_C(1) << CAP_NET_RAW)|          /* needed for SO_BINDTODEVICE */
-                                    (UINT64_C(1) << CAP_NET_BIND_SERVICE)| /* needed to bind on port 53 */
-                                    (UINT64_C(1) << CAP_SETPCAP)           /* needed in order to drop the caps later */);
+                                    (UINT64_C(1) << CAP_NET_RAW)|           /* needed for SO_BINDTODEVICE */
+                                    (UINT64_C(1) << CAP_NET_BIND_SERVICE)); /* needed to bind on port 53 */
                 if (r < 0)
                         return log_error_errno(r, "Failed to drop privileges: %m");
         }
@@ -81,11 +80,6 @@ static int run(int argc, char *argv[]) {
         (void) manager_write_resolv_conf(m);
 
         (void) manager_check_resolv_conf(m);
-
-        /* Let's drop the remaining caps now */
-        r = capability_bounding_set_drop((UINT64_C(1) << CAP_NET_RAW), true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to drop remaining caps: %m");
 
         notify_stop = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 

@@ -27,8 +27,7 @@
 #   udevadm trigger -v -p DEVNAME=/dev/iio:deviceXXX
 # where /dev/iio:deviceXXX is the device in question.
 #
-# If your changes are generally applicable, preferably send them as a pull
-# request to
+# If your changes are generally applicable, send them as a pull request to
 #   https://github.com/systemd/systemd
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
@@ -189,6 +188,10 @@ sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LAB:*
 sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*TP412UA:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
+# ASUS ROG Ally X (2024)
+sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*RC72LA:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
+
 sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:pn*BR1100FKA:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
@@ -240,6 +243,11 @@ sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pn*NEXT*:*
 # BMAX Y13
 sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH2M6:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+ ACCEL_LOCATION=display
+
+# BMAX MaxBook Y14
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH8Y6:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
  ACCEL_LOCATION=display
 
 #########################################
@@ -583,6 +591,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/25/201
 
 # GPD Pocket 3
 sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1621-02:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+# GPD Pocket 4
+sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1628-04:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 # GPD WinMax2
@@ -1226,3 +1238,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnWortmann_AG:pnTERRA_PAD_1061:*
 #########################################
 sensor:modalias:acpi:BMA250E*:dmi:*:svnYOURS:pnY8W81:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
+# Unknown manufacturer
+#########################################
+# ANP09 Intel N100 based 7-inch tablet
+sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrANP09_INTEL001:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, -1

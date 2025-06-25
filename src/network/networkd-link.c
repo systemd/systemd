@@ -2173,8 +2173,8 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 
         r = sd_netlink_message_read_u32(message, IFLA_MASTER, (uint32_t*) &master_ifindex);
         if (r == -ENODATA)
-                return 0;
-        if (r < 0)
+                master_ifindex = 0; /* no master interface */
+        else if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read master ifindex: %m");
 
         if (master_ifindex == link->ifindex)
@@ -2191,6 +2191,9 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 
                 link_drop_from_master(link);
                 link->master_ifindex = master_ifindex;
+
+                /* Updating master ifindex may cause operational state change, e.g. carrier <-> enslaved */
+                link_dirty(link);
         }
 
         r = link_append_to_master(link);
