@@ -105,6 +105,15 @@
  * filesystems will then also be compatible with sector sizes 512, 1024 and 2048. */
 #define DEFAULT_FILESYSTEM_SECTOR_SIZE 4096ULL
 
+/* Minimum sizes for the ESP depending on sector size. What the minimum is, is severely underdocumented, but
+ * it appears for 4K sector size it must be 260M, and otherwise 100M. This is what Microsoft says here:
+ *
+ * https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/configure-uefigpt-based-hard-drive-partitions?view=windows-11
+ * https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/oem-deployment-of-windows-desktop-editions-sample-scripts?view=windows-11&preserve-view=true#-createpartitions-uefitxt
+ */
+#define ESP_MIN_SIZE (100 * U64_MB)
+#define ESP_MIN_SIZE_4K (260 * U64_MB)
+
 #define APIVFS_TMP_DIRS_NULSTR "proc\0sys\0dev\0tmp\0run\0var/tmp\0"
 
 #define AUTOMATIC_FSTAB_HEADER_START "# Start section ↓ of automatically generated fstab by systemd-repart"
@@ -929,6 +938,21 @@ static uint64_t partition_fs_sector_size(const Context *c, const Partition *p) {
         return MAX(ss, c->sector_size);
 }
 
+static uint64_t partition_fstype_min_size(const Context *c, const Partition *p) {
+        assert(c);
+        assert(p);
+
+        /* If a file system type is configured, then take it into consideration for the minimum partition
+         * size */
+
+        if (IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) && streq_ptr(p->format, "vfat")) {
+                uint64_t ss = partition_fs_sector_size(c, p);
+                return ss >= 4096 ? ESP_MIN_SIZE_4K : ESP_MIN_SIZE;
+        }
+
+        return minimal_size_by_fs_name(p->format);
+}
+
 static uint64_t partition_min_size(const Context *context, const Partition *p) {
         uint64_t sz, override_min;
 
@@ -964,8 +988,8 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
                         uint64_t f;
 
                         /* If we shall synthesize a file system, take minimal fs size into account (assumed to be 4K if not known) */
-                        f = p->format ? round_up_size(minimal_size_by_fs_name(p->format), context->grain_size) : UINT64_MAX;
-                        d += f == UINT64_MAX ? context->grain_size : f;
+                        f = partition_fstype_min_size(context, p);
+                        d += f == UINT64_MAX ? context->grain_size : round_up_size(f, context->grain_size);
                 }
 
                 if (d > sz)

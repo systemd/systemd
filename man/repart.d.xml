@@ -341,6 +341,11 @@
         and the placing algorithm restarted. By default, a minimum size constraint of 10M and no maximum size
         constraint is set.</para>
 
+        <para>If <varname>Format=</varname> is set, the minimum size is automatically raised to the minimum
+        file system size for the selected file system type, if known. Moreover, for the ESP/XBOOTLDR
+        partitions the minimum is raised to 100M (for 512b sector images) or 260M (for 4K sector images)
+        automatically, if specified smaller.</para>
+
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 

@@ -565,9 +565,9 @@ EOF
 
     output=$(sfdisk --dump "$imgs/zzz")
 
-    assert_in "$imgs/zzz1 : start=        2048, size=       20480, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, uuid=39107B09-615D-48FB-BA37-C663885FCE67, name=\"esp\"" "$output"
-    assert_in "$imgs/zzz2 : start=       22528, size=       65536, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"" "$output"
-    assert_in "$imgs/zzz3 : start=       88064, size=       65536, type=${usr_guid}, uuid=${usr_uuid}, name=\"usr-${architecture}\", attrs=\"GUID:60\"" "$output"
+    assert_in "$imgs/zzz1 : start=        2048, size=      532480, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, uuid=39107B09-615D-48FB-BA37-C663885FCE67, name=\"esp\"" "$output"
+    assert_in "$imgs/zzz2 : start=      534528, size=       65536, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"" "$output"
+    assert_in "$imgs/zzz3 : start=      600064, size=       65536, type=${usr_guid}, uuid=${usr_uuid}, name=\"usr-${architecture}\", attrs=\"GUID:60\"" "$output"
 
     if systemd-detect-virt --quiet --container; then
         echo "Skipping second part of copy blocks tests in container."
@@ -1573,7 +1573,7 @@ EOF
     systemd-repart --empty=create --size=auto --dry-run=no --definitions="$defs" "$image"
 
     output=$(sfdisk -d "$image")
-    assert_in "${image}1 : start=        2048, size=      204800, type=${esp_guid}" "$output"
+    assert_in "${image}1 : start=        2048, size=      532480, type=${esp_guid}" "$output"
     assert_not_in "${image}2" "$output"
 
     # Disk with small ESP => ESP grows
@@ -1586,12 +1586,12 @@ EOF
     systemd-repart --dry-run=no --definitions="$defs" "$image"
 
     output=$(sfdisk -d "$image")
-    assert_in "${image}1 : start=        2048, size=      204800, type=${esp_guid}" "$output"
+    assert_in "${image}1 : start=        2048, size=      532480, type=${esp_guid}" "$output"
     assert_not_in "${image}2" "$output"
 
     # Disk with small ESP that can't grow => XBOOTLDR created
 
-    truncate -s 150M "$image"
+    truncate -s 400M "$image"
     sfdisk "$image" <<EOF
 label: gpt
 size=10M, type=${esp_guid},
@@ -1602,7 +1602,7 @@ EOF
 
     output=$(sfdisk -d "$image")
     assert_in "${image}1 : start=        2048, size=       20480, type=${esp_guid}" "$output"
-    assert_in "${image}3 : start=       43008, size=      264152, type=${xbootldr_guid}" "$output"
+    assert_in "${image}3 : start=       43008, size=      776152, type=${xbootldr_guid}" "$output"
 
     # Disk with existing XBOOTLDR partition => XBOOTLDR grows, small ESP created
 
@@ -1614,8 +1614,8 @@ EOF
     systemd-repart --dry-run=no --definitions="$defs" "$image"
 
     output=$(sfdisk -d "$image")
-    assert_in "${image}1 : start=        2048, size=      204800, type=${xbootldr_guid}" "$output"
-    assert_in "${image}2 : start=      206848, size=      100312, type=${esp_guid}" "$output"
+    assert_in "${image}1 : start=        2048, size=      284632, type=${xbootldr_guid}" "$output"
+    assert_in "${image}2 : start=      286680, size=      532480, type=${esp_guid}" "$output"
 }
 
 OFFLINE="yes"
