@@ -250,6 +250,7 @@ static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_START_CHOWN]      = "start-chown",
         [SOCKET_START_POST]       = "start-post",
         [SOCKET_LISTENING]        = "listening",
+        [SOCKET_DEFERRED]         = "deferred",
         [SOCKET_RUNNING]          = "running",
         [SOCKET_STOP_PRE]         = "stop-pre",
         [SOCKET_STOP_PRE_SIGTERM] = "stop-pre-sigterm",
@@ -341,6 +342,7 @@ DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 
 static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_FAIL]                 = "fail",
+        [JOB_LENIENT]              = "lenient",
         [JOB_REPLACE]              = "replace",
         [JOB_REPLACE_IRREVERSIBLY] = "replace-irreversibly",
         [JOB_ISOLATE]              = "isolate",
