@@ -2240,8 +2240,8 @@ static int verify_shutdown_creds(
                 if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS) &&
                     (offending->mode != INHIBIT_BLOCK_WEAK ||
                      (uid == 0 && FLAGS_SET(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS))))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED,
-                                                 "Access denied due to active block inhibitor");
+                        return sd_bus_error_setf(error, BUS_ERROR_BLOCKED_BY_INHIBITOR_LOCK,
+                                                 "Operation denied due to active block inhibitor");
 
                 /* We want to always ask here, even for root, to only allow bypassing if explicitly allowed
                  * by polkit, unless a weak blocker is used, in which case it will be authorized. */
