@@ -45,7 +45,7 @@ used for new, additional measurements.
 
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
-### PCS 5, `EV_EVENT_TAG`, `loader.conf`
+### PCR 5, `EV_EVENT_TAG`, `loader.conf`
 
 The content of `systemd-boot`'s configuration file, `loader/loader.conf`, is
 measured as a tagged event.
