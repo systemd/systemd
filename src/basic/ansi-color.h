@@ -184,3 +184,5 @@ DEFINE_ANSI_FUNC_UNDERLINE_256(highlight_grey_underline,    HIGHLIGHT_GREY, HIGH
 static inline const char* ansi_highlight_green_red(bool b) {
         return b ? ansi_highlight_green() : ansi_highlight_red();
 }
+
+bool validate_ansi_color(const char* color);
