@@ -1479,7 +1479,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         if (err == EFI_SUCCESS)
                 config->timeout_sec = config->timeout_sec_efivar;
         else if (err != EFI_NOT_FOUND)
-                log_error_status(err, "Error reading LoaderConfigTimeout EFI variable: %m");
+                log_warning_status(err, "Error reading LoaderConfigTimeout EFI variable, ignoring: %m");
 
         err = efivar_get_timeout(u"LoaderConfigTimeoutOneShot", &config->timeout_sec);
         if (err == EFI_SUCCESS) {
@@ -1488,7 +1488,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
 
                 config->force_menu = true; /* force the menu when this is set */
         } else if (err != EFI_NOT_FOUND)
-                log_error_status(err, "Error reading LoaderConfigTimeoutOneShot EFI variable: %m");
+                log_warning_status(err, "Error reading LoaderConfigTimeoutOneShot EFI variable, ignoring: %m");
 
         uint64_t value;
         err = efivar_get_uint64_str16(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", &value);
