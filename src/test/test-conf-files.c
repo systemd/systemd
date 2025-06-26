@@ -251,64 +251,80 @@ TEST(conf_files_list) {
         assert_se(strv_equal(result, STRV_MAKE("a.conf", "aa.conf", "b.conf")));
 }
 
-static void test_conf_files_insert_one(const char *root) {
+static void test_conf_files_insert_one(const char *tmp, const char *root) {
         _cleanup_strv_free_ char **s = NULL;
 
         log_info("/* %s root=%s */", __func__, strempty(root));
 
-        char **dirs = STRV_MAKE("/dir1", "/dir2", "/dir3");
+        _cleanup_free_ char *prefix = strdup(path_startswith_full(tmp, empty_to_root(root), PATH_STARTSWITH_RETURN_LEADING_SLASH) ?: "");
 
-        _cleanup_free_ const char
-                *foo1 = path_join(root, "/dir1/foo.conf"),
-                *foo2 = path_join(root, "/dir2/foo.conf"),
-                *bar2 = path_join(root, "/dir2/bar.conf"),
-                *zzz3 = path_join(root, "/dir3/zzz.conf"),
-                *whatever = path_join(root, "/whatever.conf");
+        char **dirs = STRV_MAKE(strjoina(prefix, "/dir1"),
+                                strjoina(prefix, "/dir2"),
+                                strjoina(prefix, "/dir3"),
+                                strjoina(prefix, "/dir4"));
 
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(foo2)));
+        _cleanup_free_ char
+                *foo1 = path_join(tmp, "/dir1/foo.conf"),
+                *foo2 = path_join(tmp, "/dir2/foo.conf"),
+                *bar2 = path_join(tmp, "/dir2/bar.conf"),
+                *zzz3 = path_join(tmp, "/dir3/zzz.conf"),
+                *whatever = path_join(tmp, "/whatever.conf");
+
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir2/foo.conf"), /* ret_inserted = */ NULL));
+        strv_print(s);
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE(foo2)));
 
         /* The same file again, https://github.com/systemd/systemd/issues/11124 */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(foo2)));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir2/foo.conf"), /* ret_inserted = */ NULL));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE(foo2)));
 
         /* Lower priority → new entry is ignored */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir3/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(foo2)));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir3/foo.conf"), /* ret_inserted = */ NULL));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE(foo2)));
 
         /* Higher priority → new entry replaces */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir1/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(foo1)));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir1/foo.conf"), /* ret_inserted = */ NULL));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE(foo1)));
 
         /* Earlier basename */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/bar.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1)));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir2/bar.conf"), /* ret_inserted = */ NULL));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE(bar2, foo1)));
 
         /* Later basename */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir3/zzz.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1, zzz3)));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir3/zzz.conf"), /* ret_inserted = */ NULL));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE(bar2, foo1, zzz3)));
 
         /* All lower priority → all ignored */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir3/zzz.conf") == 0);
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/bar.conf") == 0);
-        assert_se(conf_files_insert(&s, root, dirs, "/dir3/bar.conf") == 0);
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1, zzz3)));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir3/zzz.conf"), /* ret_inserted = */ NULL));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir2/bar.conf"), /* ret_inserted = */ NULL));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir3/bar.conf"), /* ret_inserted = */ NULL));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir2/foo.conf"), /* ret_inserted = */ NULL));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE(bar2, foo1, zzz3)));
 
         /* Two entries that don't match any of the directories, but match basename */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir4/zzz.conf") == 0);
-        assert_se(conf_files_insert(&s, root, dirs, "/zzz.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1, zzz3)));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/dir4/zzz.conf"), /* ret_inserted = */ NULL));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/zzz.conf"), /* ret_inserted = */ NULL));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE(bar2, foo1, zzz3)));
 
         /* An entry that doesn't match any of the directories, no match at all */
-        assert_se(conf_files_insert(&s, root, dirs, "/whatever.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1, whatever, zzz3)));
+        ASSERT_OK(conf_files_insert(&s, root, dirs, strjoina(prefix, "/whatever.conf"), /* ret_inserted = */ NULL));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE(bar2, foo1, whatever, zzz3)));
 }
 
 TEST(conf_files_insert) {
-        test_conf_files_insert_one(NULL);
-        test_conf_files_insert_one("/root");
-        test_conf_files_insert_one("/root/");
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open("/tmp/test-conf-files-XXXXXX", O_PATH, &t));
+
+        ASSERT_OK(mkdirat(tfd, "dir1", 0755));
+        ASSERT_OK(mkdirat(tfd, "dir2", 0755));
+        ASSERT_OK(mkdirat(tfd, "dir3", 0755));
+        ASSERT_OK(mkdirat(tfd, "dir4", 0755));
+
+        test_conf_files_insert_one(t, NULL);
+        test_conf_files_insert_one(t, t);
+        test_conf_files_insert_one(t, strjoina(t, "/"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
