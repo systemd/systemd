@@ -149,6 +149,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
 CONFIG_PARSER_PROTOTYPE(config_parse_swap_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_mount_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_timestamping);
+CONFIG_PARSER_PROTOTYPE(config_parse_socket_defer_trigger);
 CONFIG_PARSER_PROTOTYPE(config_parse_extension_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_bpf_foreign_program);
 CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_socket_bind);

@@ -66,6 +66,14 @@ typedef enum SocketTimestamping {
         _SOCKET_TIMESTAMPING_INVALID = -EINVAL,
 } SocketTimestamping;
 
+typedef enum SocketDeferTrigger {
+        SOCKET_DEFER_NO,
+        SOCKET_DEFER_YES,
+        SOCKET_DEFER_PATIENT,
+        _SOCKET_DEFER_MAX,
+        _SOCKET_DEFER_INVALID = -EINVAL,
+} SocketDeferTrigger;
+
 typedef struct Socket {
         Unit meta;
 
@@ -165,6 +173,9 @@ typedef struct Socket {
 
         RateLimit trigger_limit;
         RateLimit poll_limit;
+
+        usec_t defer_trigger_max_usec;
+        SocketDeferTrigger defer_trigger;
 } Socket;
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
