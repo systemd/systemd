@@ -9,6 +9,7 @@
 #include "conf-files.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
@@ -17,19 +18,21 @@
 #include "tmpfile-util.h"
 
 TEST(conf_files_list) {
-        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL, *t2 = NULL;
+        _cleanup_close_ int tfd = -EBADF, tfd2 = -EBADF;
         _cleanup_strv_free_ char **result = NULL;
-        const char *search1, *search2, *search1_a, *search1_b, *search1_c, *search2_aa;
+        const char *search1, *search2, *search3, *search1_a, *search1_b, *search1_c, *search2_aa;
 
-        tfd = mkdtemp_open("/tmp/test-conf-files-XXXXXX", O_PATH, &t);
-        assert(tfd >= 0);
+        ASSERT_OK(tfd = mkdtemp_open("/tmp/test-conf-files-XXXXXX", O_PATH, &t));
+        ASSERT_OK(tfd2 = mkdtemp_open("/tmp/test-conf-files-XXXXXX", O_PATH, &t2));
 
-        assert_se(mkdirat(tfd, "dir1", 0755) >= 0);
-        assert_se(mkdirat(tfd, "dir2", 0755) >= 0);
+        ASSERT_OK(mkdirat(tfd, "dir1", 0755));
+        ASSERT_OK(mkdirat(tfd, "dir2", 0755));
+        ASSERT_OK(mkdirat(tfd, "dir3", 0755));
 
         search1 = strjoina(t, "/dir1/");
         search2 = strjoina(t, "/dir2/");
+        search3 = strjoina(t, "/dir3/");
 
         FOREACH_STRING(p, "a.conf", "b.conf", "c.foo") {
                 _cleanup_free_ char *path = NULL;
@@ -46,6 +49,18 @@ TEST(conf_files_list) {
                 assert_se(path = path_join(search2, p));
                 assert_se(write_string_file(path, "hogehoge", WRITE_STRING_FILE_CREATE) >= 0);
         }
+
+        ASSERT_OK(touch(strjoina(t2, "/absolute-empty.conf")));
+        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/absolute-empty.conf"), AT_FDCWD, strjoina(search3, "absolute-empty.conf"), /* flags = */ 0));
+
+        ASSERT_OK(write_string_file_at(tfd2, "absolute-non-empty.conf", "absolute-non-empty", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/absolute-non-empty.conf"), AT_FDCWD, strjoina(search3, "absolute-non-empty.conf"), /* flags = */ 0));
+
+        ASSERT_OK(touch(strjoina(t2, "/relative-empty.conf")));
+        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/relative-empty.conf"), AT_FDCWD, strjoina(search3, "relative-empty.conf"), SYMLINK_MAKE_RELATIVE));
+
+        ASSERT_OK(write_string_file_at(tfd2, "relative-non-empty.conf", "relative-non-empty", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/relative-non-empty.conf"), AT_FDCWD, strjoina(search3, "relative-non-empty.conf"), SYMLINK_MAKE_RELATIVE));
 
         search1_a = strjoina(search1, "a.conf");
         search1_b = strjoina(search1, "b.conf");
@@ -125,6 +140,91 @@ TEST(conf_files_list) {
         strv_print(result);
         assert_se(strv_equal(result, STRV_MAKE("dir1/a.conf", "dir2/aa.conf", "dir1/b.conf")));
 
+        result = strv_free(result);
+
+        /* search dir3 */
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, /* root = */ NULL, CONF_FILES_FILTER_MASKED, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(search3, "absolute-non-empty.conf"), strjoina(search3, "relative-non-empty.conf"))));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, /* root = */ NULL, CONF_FILES_FILTER_MASKED_BY_EMPTY, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(search3, "absolute-non-empty.conf"), strjoina(search3, "relative-non-empty.conf"))));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, /* root = */ NULL, CONF_FILES_FILTER_MASKED_BY_SYMLINK, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(search3, "absolute-empty.conf"), strjoina(search3, "absolute-non-empty.conf"),
+                                                 strjoina(search3, "relative-empty.conf"), strjoina(search3, "relative-non-empty.conf"))));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, /* root = */ NULL, /* flags = */ 0, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(search3, "absolute-empty.conf"), strjoina(search3, "absolute-non-empty.conf"),
+                                                 strjoina(search3, "relative-empty.conf"), strjoina(search3, "relative-non-empty.conf"))));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, t, CONF_FILES_FILTER_MASKED, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_isempty(result));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, t, CONF_FILES_FILTER_MASKED_BY_EMPTY, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_isempty(result));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, t, CONF_FILES_FILTER_MASKED_BY_SYMLINK, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_isempty(result));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, t, /* flags = */ 0, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_isempty(result));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, AT_FDCWD, CONF_FILES_FILTER_MASKED, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(search3, "absolute-non-empty.conf"), strjoina(search3, "relative-non-empty.conf"))));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, AT_FDCWD, CONF_FILES_FILTER_MASKED_BY_EMPTY, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(search3, "absolute-non-empty.conf"), strjoina(search3, "relative-non-empty.conf"))));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, AT_FDCWD, CONF_FILES_FILTER_MASKED_BY_SYMLINK, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(search3, "absolute-empty.conf"), strjoina(search3, "absolute-non-empty.conf"),
+                                                 strjoina(search3, "relative-empty.conf"), strjoina(search3, "relative-non-empty.conf"))));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, AT_FDCWD, /* flags = */ 0, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(search3, "absolute-empty.conf"), strjoina(search3, "absolute-non-empty.conf"),
+                                                 strjoina(search3, "relative-empty.conf"), strjoina(search3, "relative-non-empty.conf"))));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, tfd, CONF_FILES_FILTER_MASKED, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_isempty(result));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, tfd, CONF_FILES_FILTER_MASKED_BY_EMPTY, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_isempty(result));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, tfd, CONF_FILES_FILTER_MASKED_BY_SYMLINK, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_isempty(result));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, tfd, /* flags = */ 0, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_isempty(result));
         result = strv_free(result);
 
         /* filename only */
