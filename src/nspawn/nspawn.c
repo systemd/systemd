@@ -240,6 +240,7 @@ static char **arg_sysctl = NULL;
 static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
 static MachineCredentialContext arg_credentials = {};
 static char **arg_bind_user = NULL;
+static char *arg_bind_user_shell = NULL;
 static bool arg_suppress_sync = false;
 static char *arg_settings_filename = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
@@ -282,6 +283,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_reset);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
@@ -692,6 +694,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
                 ARG_BIND_USER,
+                ARG_BIND_USER_SHELL,
                 ARG_SUPPRESS_SYNC,
                 ARG_IMAGE_POLICY,
                 ARG_BACKGROUND,
@@ -769,6 +772,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "set-credential",         required_argument, NULL, ARG_SET_CREDENTIAL         },
                 { "load-credential",        required_argument, NULL, ARG_LOAD_CREDENTIAL        },
                 { "bind-user",              required_argument, NULL, ARG_BIND_USER              },
+                { "bind-user-shell",        required_argument, NULL, ARG_BIND_USER_SHELL        },
                 { "suppress-sync",          required_argument, NULL, ARG_SUPPRESS_SYNC          },
                 { "image-policy",           required_argument, NULL, ARG_IMAGE_POLICY           },
                 { "background",             required_argument, NULL, ARG_BACKGROUND             },
@@ -1537,6 +1541,19 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_BIND_USER;
                         break;
 
+                case ARG_BIND_USER_SHELL: {
+                        char *sh = NULL;
+                        r = parse_bind_user_shell(optarg, &sh);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid user shell to bind: %s", optarg);
+
+                        free_and_replace(arg_bind_user_shell, sh);
+                        arg_settings_mask |= SETTING_BIND_USER_SHELL;
+                        break;
+                }
+
                 case ARG_SUPPRESS_SYNC:
                         r = parse_boolean_argument("--suppress-sync=", optarg, &arg_suppress_sync);
                         if (r < 0)
@@ -1722,6 +1739,9 @@ static int verify_arguments(void) {
 
         /* Drop duplicate --bind-user= entries */
         strv_uniq(arg_bind_user);
+
+        if (arg_bind_user_shell && strv_isempty(arg_bind_user))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-shell= without --bind-user=");
 
         r = custom_mount_check_all();
         if (r < 0)
@@ -4023,6 +4043,7 @@ static int outer_child(
         r = bind_user_prepare(
                         directory,
                         arg_bind_user,
+                        arg_bind_user_shell,
                         chown_uid,
                         chown_range,
                         &arg_custom_mounts, &arg_n_custom_mounts,
@@ -4841,6 +4862,10 @@ static int merge_settings(Settings *settings, const char *path) {
         if ((arg_settings_mask & SETTING_BIND_USER) == 0 &&
             !strv_isempty(settings->bind_user))
                 strv_free_and_replace(arg_bind_user, settings->bind_user);
+
+        if (!FLAGS_SET(arg_settings_mask, SETTING_BIND_USER_SHELL) &&
+            !isempty(settings->bind_user_shell))
+                free_and_replace(arg_bind_user_shell, settings->bind_user_shell);
 
         if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0 &&
             settings->notify_ready >= 0)
