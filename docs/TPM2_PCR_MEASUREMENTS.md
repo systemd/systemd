@@ -16,6 +16,10 @@ measurements listed below are (by default) only done if a system is booted with
 to systemd's UEFI-mode measurements, and if the latter are not done the former
 aren't made either.
 
+See
+[Linux TPM PCR Registry](https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/)
+for an overview of PCRs.
+
 systemd will measure to PCRs 5 (`boot-loader-config`), 11 (`kernel-boot`),
 12 (`kernel-config`), 13 (`sysexts`), 15 (`system-identity`).
 
