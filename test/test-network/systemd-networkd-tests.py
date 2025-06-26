@@ -5161,6 +5161,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         call('ip -4 addr add 10.20.30.40/32 dev unmanaged0')
         call('ip -6 addr add 2001:db8:9999:f101::15/64 dev unmanaged0')
 
+        # Wait for all addresses
+        self.wait_address('unmanaged0', 'inet 10.20.30.40/32',             scope='global', ipv='-4', timeout_sec=10)
+        self.wait_address('unmanaged0', 'inet6 2001:db8:9999:f101::15/64', scope='global', ipv='-6', timeout_sec=10)
+        self.wait_address('unmanaged0', 'inet6 fe80::[0-9a-f:]*/64',       scope='link',   ipv='-6', timeout_sec=10)
+
+        # Wait for all routes
+        self.wait_route('unmanaged0', 'local 10.20.30.40 proto kernel',       table='local', ipv='-4', timeout_sec=10)
+        self.wait_route('unmanaged0', 'local fe80::[0-9a-f:]* proto kernel',  table='local', ipv='-6', timeout_sec=10)
+        self.wait_route('unmanaged0', 'multicast ff00::/8 proto kernel',      table='local', ipv='-6', timeout_sec=10)
+        self.wait_route('unmanaged0', '2001:db8:9999:f101::/64 proto kernel', table='main',  ipv='-6', timeout_sec=10)
+        self.wait_route('unmanaged0', 'fe80::/64 proto kernel',               table='main',  ipv='-6', timeout_sec=10)
+
         # Start `ip monitor` with output to a temporary file
         with tempfile.TemporaryFile(mode='r+', prefix='ip_monitor_u') as logfile_unmanaged:
             process_u = subprocess.Popen(['ip', 'monitor', 'dev', 'unmanaged0'], stdout=logfile_unmanaged, text=True)
@@ -5200,13 +5212,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
             print('### ip monitor dev unmanaged0 BEGIN')
 
-            # Read the `ip monitor` output looking for network changes
+            # Read the `ip monitor` output looking for network changes and check if something happened
             logfile_unmanaged.seek(0)
-            for line in logfile_unmanaged:
-                line = line.rstrip()
-                print(line)
-                # Check if something happened
-                self.assertEqual(line, '')
+            self.assertEqual(logfile_unmanaged.read().rstrip(), '')
 
         print('### ip monitor dev unmanaged0 END')
 
