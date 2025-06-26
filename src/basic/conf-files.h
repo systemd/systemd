@@ -4,11 +4,13 @@
 #include "forward.h"
 
 typedef enum ConfFilesFlags {
-        CONF_FILES_EXECUTABLE    = 1 << 0,
-        CONF_FILES_REGULAR       = 1 << 1,
-        CONF_FILES_DIRECTORY     = 1 << 2,
-        CONF_FILES_BASENAME      = 1 << 3,
-        CONF_FILES_FILTER_MASKED = 1 << 4,
+        CONF_FILES_EXECUTABLE               = 1 << 0,
+        CONF_FILES_REGULAR                  = 1 << 1,
+        CONF_FILES_DIRECTORY                = 1 << 2,
+        CONF_FILES_BASENAME                 = 1 << 3,
+        CONF_FILES_FILTER_MASKED_BY_SYMLINK = 1 << 4,
+        CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 5,
+        CONF_FILES_FILTER_MASKED            = CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_FILTER_MASKED_BY_EMPTY,
 } ConfFilesFlags;
 
 int conf_files_list(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dir);
@@ -17,7 +19,7 @@ int conf_files_list_strv(char ***ret, const char *suffix, const char *root, Conf
 int conf_files_list_strv_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char * const *dirs);
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs);
 int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs);
-int conf_files_insert(char ***strv, const char *root, char **dirs, const char *path);
+int conf_files_insert(char ***strv, const char *root, char **dirs, const char *path, char **ret_inserted);
 int conf_files_list_with_replacement(
                 const char *root,
                 char **config_dirs,
