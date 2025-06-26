@@ -496,6 +496,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BindUserShell=</varname></term>
+
+        <listitem><para>When used with <varname>BindUser</varname>, specifies the shell that is included in
+        the user record of users bound from the host into the container. This option is equivalent to the
+        command line switch <option>--bind-user-shell=</option>, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details about the specific options supported. This setting is privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TemporaryFileSystem=</varname></term>
 
         <listitem><para>Adds a <literal>tmpfs</literal> mount to the
