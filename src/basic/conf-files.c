@@ -63,16 +63,16 @@ static int files_add(
                         }
 
                 /* Is this a masking entry? */
-                if ((flags & CONF_FILES_FILTER_MASKED))
-                        if (null_or_empty(&st)) {
-                                /* Mark this one as masked */
-                                r = set_put_strdup(masked, de->d_name);
-                                if (r < 0)
-                                        return r;
+                if ((FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK) && stat_is_null(&st)) ||
+                    (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_EMPTY) && stat_is_empty(&st))) {
+                        /* Mark this one as masked */
+                        r = set_put_strdup(masked, de->d_name);
+                        if (r < 0)
+                                return r;
 
-                                log_debug("File '%s/%s' is a mask.", dirpath, de->d_name);
-                                continue;
-                        }
+                        log_debug("File '%s/%s' is a mask.", dirpath, de->d_name);
+                        continue;
+                }
 
                 /* Does this node have the right type? */
                 if (flags & (CONF_FILES_REGULAR|CONF_FILES_DIRECTORY))
