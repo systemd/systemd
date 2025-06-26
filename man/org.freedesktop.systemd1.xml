@@ -12266,6 +12266,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
     <refsect2>
       <title>Timer Objects</title>
       <para><varname>DeferReactivation</varname> was added in version 257.</para>
+      <para><varname>RandomizedOffsetUSec</varname> was added in version 258.</para>
     </refsect2>
   </refsect1>
 
