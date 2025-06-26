@@ -1157,8 +1157,14 @@ void dns_query_ready(DnsQuery *q) {
                         break;
 
                 default:
-                        /* Any kind of failure */
-                        bad = c;
+                        /* Any kind of failure: save the most recent error, as long as we never saved one
+                         * before or our current one is "conclusive" in the sense that we definitely did a
+                         * lookup, and thus have a real answer (which might be a failure, but is still *some*
+                         * answer). */
+
+                        if (!bad || !IN_SET(state, DNS_TRANSACTION_NO_SERVERS, DNS_TRANSACTION_NETWORK_DOWN, DNS_TRANSACTION_NO_SOURCE))
+                                bad = c;
+                        break;
                 }
         }
 
