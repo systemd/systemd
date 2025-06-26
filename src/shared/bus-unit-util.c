@@ -2687,7 +2687,8 @@ static int bus_append_timer_property(sd_bus_message *m, const char *field, const
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field, "AccuracySec",
-                              "RandomizedDelaySec"))
+                              "RandomizedDelaySec",
+                              "RandomizedOffsetSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
         if (STR_IN_SET(field, "OnActiveSec",
