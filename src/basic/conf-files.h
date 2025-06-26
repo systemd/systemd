@@ -20,13 +20,12 @@ int conf_files_list_strv(char ***ret, const char *suffix, const char *root, Conf
 int conf_files_list_strv_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char * const *dirs);
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs);
 int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs);
-int conf_files_insert(char ***strv, const char *root, char **dirs, const char *path);
 int conf_files_list_with_replacement(
                 const char *root,
                 char **config_dirs,
                 const char *replacement,
-                char ***files,
-                char **replace_file);
+                char ***ret_files,
+                char **ret_inserted);
 int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
