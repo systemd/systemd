@@ -219,13 +219,56 @@ static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfF
         return 0;
 }
 
+static int insert_replacement(Hashmap **fh, char *filename_replacement, char *resolved_replacement, char **ret) {
+        _cleanup_free_ char *fname = ASSERT_PTR(filename_replacement), *path = ASSERT_PTR(resolved_replacement);
+        int r;
+
+        assert(fh);
+
+        /* This consumes the input filename and path. */
+
+        const char *existing = hashmap_get(*fh, fname);
+        if (existing) {
+                log_debug("An entry with higher priority already exists ('%s' -> '%s'), ignoring the replacement: %s",
+                          fname, existing, path);
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        _cleanup_free_ char *copy = NULL;
+        if (ret) {
+                copy = strdup(path);
+                if (!copy)
+                        return log_oom_debug();
+        }
+
+        r = hashmap_ensure_put(fh, &string_hash_ops_free_free, fname, path);
+        if (r < 0) {
+                assert(r == -ENOMEM);
+                return log_oom_debug();
+        }
+        assert(r > 0);
+
+        log_debug("Inserted replacement: '%s' -> '%s'", fname, path);
+
+        TAKE_PTR(fname);
+        TAKE_PTR(path);
+
+        if (ret)
+                *ret = TAKE_PTR(copy);
+        return 0;
+}
+
 static int conf_files_list_impl(
                 const char *suffix,
                 int rfd,
                 const char *root, /* for logging, can be NULL */
                 ConfFilesFlags flags,
                 const char * const *dirs,
-                Hashmap **ret) {
+                const char *replacement,
+                Hashmap **ret,
+                char **ret_inserted) {
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
         _cleanup_set_free_ Set *masked = NULL;
@@ -233,6 +276,35 @@ static int conf_files_list_impl(
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(ret);
+
+        _cleanup_free_ char *filename_replacement = NULL, *resolved_dirpath_replacement = NULL, *resolved_replacement = NULL, *inserted = NULL;
+        if (replacement) {
+                r = path_extract_filename(replacement, &filename_replacement);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ char *d = NULL;
+                r = path_extract_directory(replacement, &d);
+                if (r < 0)
+                        return r;
+
+                r = chaseat(rfd, d, CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &resolved_dirpath_replacement, /* ret_fd = */ NULL);
+                if (r < 0)
+                        return r;
+
+                resolved_replacement = path_join(resolved_dirpath_replacement, filename_replacement);
+                if (!resolved_replacement)
+                        return log_oom_debug();
+
+                if (FLAGS_SET(flags, CONF_FILES_CHASE_BASENAME)) {
+                        _cleanup_free_ char *p = NULL;
+                        r = chaseat(rfd, resolved_replacement, CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &p, /* ret_fd = */ NULL);
+                        if (r < 0)
+                                return r;
+
+                        free_and_replace(resolved_replacement, p);
+                }
+        }
 
         STRV_FOREACH(p, dirs) {
                 _cleanup_closedir_ DIR *dir = NULL;
@@ -245,12 +317,26 @@ static int conf_files_list_impl(
                         continue;
                 }
 
+                if (resolved_replacement && path_equal(resolved_dirpath_replacement, path)) {
+                        r = insert_replacement(&fh, TAKE_PTR(filename_replacement), TAKE_PTR(resolved_replacement), ret_inserted ? &inserted : NULL);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = files_add(dir, path, rfd, root, &fh, &masked, suffix, flags);
                 if (r == -ENOMEM)
                         return r;
         }
 
+        if (resolved_replacement) {
+                r = insert_replacement(&fh, TAKE_PTR(filename_replacement), TAKE_PTR(resolved_replacement), ret_inserted ? &inserted : NULL);
+                if (r < 0)
+                        return r;
+        }
+
         *ret = TAKE_PTR(fh);
+        if (ret_inserted)
+                *ret_inserted = TAKE_PTR(inserted);
         return 0;
 }
 
@@ -270,7 +356,7 @@ int conf_files_list_strv(
         if (rfd < 0)
                 return log_debug_errno(errno, "Failed to open '%s': %m", root);
 
-        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, &fh);
+        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
         if (r < 0)
                 return r;
 
@@ -294,79 +380,11 @@ int conf_files_list_strv_at(
         if (rfd >= 0 && DEBUG_LOGGING)
                 (void) fd_get_path(rfd, &root); /* for logging */
 
-        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, &fh);
+        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
         if (r < 0)
                 return r;
 
         return copy_and_sort_files_from_hashmap(fh, /* root = */ NULL, flags, ret);
-}
-
-int conf_files_insert(char ***strv, const char *root, char **dirs, const char *path) {
-        /* Insert a path into strv, at the place honouring the usual sorting rules:
-         * - we first compare by the basename
-         * - and then we compare by dirname, allowing just one file with the given
-         *   basename.
-         * This means that we will
-         * - add a new entry if basename(path) was not on the list,
-         * - do nothing if an entry with higher priority was already present,
-         * - do nothing if our new entry matches the existing entry,
-         * - replace the existing entry if our new entry has higher priority.
-         */
-        size_t i, n;
-        char *t;
-        int r;
-
-        n = strv_length(*strv);
-        for (i = 0; i < n; i++) {
-                int c;
-
-                c = path_compare_filename((*strv)[i], path);
-                if (c == 0)
-                        /* Oh, there already is an entry with a matching name (the last component). */
-                        STRV_FOREACH(dir, dirs) {
-                                _cleanup_free_ char *rdir = NULL;
-                                char *p1, *p2;
-
-                                rdir = path_join(root, *dir);
-                                if (!rdir)
-                                        return -ENOMEM;
-
-                                p1 = path_startswith((*strv)[i], rdir);
-                                if (p1)
-                                        /* Existing entry with higher priority
-                                         * or same priority, no need to do anything. */
-                                        return 0;
-
-                                p2 = path_startswith(path, *dir);
-                                if (p2) {
-                                        /* Our new entry has higher priority */
-
-                                        t = path_join(root, path);
-                                        if (!t)
-                                                return log_oom();
-
-                                        return free_and_replace((*strv)[i], t);
-                                }
-                        }
-
-                else if (c > 0)
-                        /* Following files have lower priority, let's go insert our
-                         * new entry. */
-                        break;
-
-                /* … we are not there yet, let's continue */
-        }
-
-        /* The new file has lower priority than all the existing entries */
-        t = path_join(root, path);
-        if (!t)
-                return -ENOMEM;
-
-        r = strv_insert(strv, i, t);
-        if (r < 0)
-                free(t);
-
-        return r;
 }
 
 int conf_files_list(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dir) {
@@ -406,34 +424,39 @@ int conf_files_list_with_replacement(
                 char **config_dirs,
                 const char *replacement,
                 char ***ret_files,
-                char **ret_replace_file) {
+                char **ret_inserted) {
 
-        _cleanup_strv_free_ char **f = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_free_ char *inserted = NULL;
+        ConfFilesFlags flags = CONF_FILES_REGULAR | CONF_FILES_CHASE_BASENAME | CONF_FILES_FILTER_MASKED_BY_SYMLINK;
         int r;
 
-        assert(config_dirs);
         assert(ret_files);
-        assert(ret_replace_file || !replacement);
 
-        r = conf_files_list_strv(&f, ".conf", root, 0, (const char* const*) config_dirs);
+        root = empty_to_root(root);
+        _cleanup_close_ int rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (rfd < 0)
+                return log_debug_errno(errno, "Failed to open '%s': %m", root);
+
+        r = conf_files_list_impl(".conf", rfd, root, flags, (const char * const *) config_dirs,
+                                 replacement, &fh, ret_inserted ? &inserted : NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate config files: %m");
+                return r;
 
-        if (replacement) {
-                r = conf_files_insert(&f, root, config_dirs, replacement);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extend config file list: %m");
-
-                p = path_join(root, replacement);
+        if (inserted) {
+                char *p = path_join(empty_to_root(root), skip_leading_slash(inserted));
                 if (!p)
-                        return log_oom();
+                        return log_oom_debug();
+
+                free_and_replace(inserted, p);
         }
 
-        *ret_files = TAKE_PTR(f);
-        if (ret_replace_file)
-                *ret_replace_file = TAKE_PTR(p);
+        r = copy_and_sort_files_from_hashmap(fh, empty_to_root(root), flags, ret_files);
+        if (r < 0)
+                return r;
 
+        if (ret_inserted)
+                *ret_inserted = TAKE_PTR(inserted);
         return 0;
 }
 
