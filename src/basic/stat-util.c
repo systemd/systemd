@@ -184,19 +184,23 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
         return 1;
 }
 
-bool null_or_empty(struct stat *st) {
+bool stat_is_null(struct stat *st) {
         assert(st);
-
-        if (S_ISREG(st->st_mode) && st->st_size <= 0)
-                return true;
 
         /* We don't want to hardcode the major/minor of /dev/null, hence we do a simpler "is this a character
          * device node?" check. */
 
-        if (S_ISCHR(st->st_mode))
-                return true;
+        return S_ISCHR(st->st_mode);
+}
 
-        return false;
+bool stat_is_empty(struct stat *st) {
+        assert(st);
+
+        return S_ISREG(st->st_mode) && st->st_size <= 0;
+}
+
+bool null_or_empty(struct stat *st) {
+        return stat_is_null(st) || stat_is_empty(st);
 }
 
 int null_or_empty_path_with_root(const char *fn, const char *root) {

@@ -29,6 +29,8 @@ static inline int dir_is_empty(const char *path, bool ignore_hidden_or_backup) {
         return dir_is_empty_at(AT_FDCWD, path, ignore_hidden_or_backup);
 }
 
+bool stat_is_null(struct stat *st) _pure_;
+bool stat_is_empty(struct stat *st) _pure_;
 bool null_or_empty(struct stat *st) _pure_;
 int null_or_empty_path_with_root(const char *fn, const char *root);
 
