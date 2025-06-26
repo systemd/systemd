@@ -13,6 +13,7 @@
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
@@ -138,6 +139,7 @@ Settings* settings_free(Settings *s) {
         free(s->hostname);
         cpu_set_reset(&s->cpu_set);
         strv_free(s->bind_user);
+        free(s->bind_user_shell);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);
@@ -1016,6 +1018,63 @@ int config_parse_bind_user(
                 if (strv_consume(bind_user, TAKE_PTR(word)) < 0)
                         return log_oom();
         }
+
+        return 0;
+}
+
+int parse_bind_user_shell(const char *s, char **ret) {
+        int r;
+        char *sh;
+
+        if (path_is_absolute(s))
+                sh = strdup(s);
+        else {
+                r = parse_boolean(s);
+                if (r < 0)
+                        return r;
+
+                sh = strdup(r ? "yes" : "no");
+        }
+        if (!sh)
+                return -ENOMEM;
+
+        *ret = sh;
+
+        return 0;
+}
+
+int config_parse_bind_user_shell(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = ASSERT_PTR(data);
+        char *sh = NULL;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                settings->bind_user_shell = NULL;
+                return 0;
+        }
+
+        r = parse_bind_user_shell(rvalue, &sh);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse BindUserShell= value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        free_and_replace(settings->bind_user_shell, sh);
 
         return 0;
 }
