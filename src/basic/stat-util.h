@@ -29,7 +29,11 @@ static inline int dir_is_empty(const char *path, bool ignore_hidden_or_backup) {
         return dir_is_empty_at(AT_FDCWD, path, ignore_hidden_or_backup);
 }
 
-bool null_or_empty(struct stat *st) _pure_;
+bool stat_may_be_dev_null(struct stat *st) _pure_;
+bool stat_is_empty(struct stat *st) _pure_;
+static inline bool null_or_empty(struct stat *st) {
+        return stat_may_be_dev_null(st) || stat_is_empty(st);
+}
 int null_or_empty_path_with_root(const char *fn, const char *root);
 
 static inline int null_or_empty_path(const char *fn) {
