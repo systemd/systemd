@@ -21,8 +21,9 @@
 #include "strv.h"
 
 static int files_add(
-                DIR *dir,
                 const char *dirpath,
+                const char *root,
+                int rfd,
                 Hashmap **files,
                 Set **masked,
                 const char *suffix,
@@ -30,14 +31,23 @@ static int files_add(
 
         int r;
 
-        assert(dir);
         assert(dirpath);
         assert(files);
         assert(masked);
 
+        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_free_ char *resolved_dirpath = NULL;
+        if (rfd >= 0 || rfd == AT_FDCWD) {
+                assert(!root);
+                r = chase_and_opendirat(rfd, dirpath, CHASE_AT_RESOLVE_IN_ROOT, &resolved_dirpath, &dir);
+        } else
+                r = chase_and_opendir(dirpath, root, CHASE_PREFIX_ROOT, &resolved_dirpath, &dir);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to chase and open directory '%s%s', ignoring: %m", strempty(root), dirpath);
+
         FOREACH_DIRENT(de, dir, return -errno) {
-                _cleanup_free_ char *n = NULL, *p = NULL;
-                struct stat st;
 
                 /* Does this match the suffix? */
                 if (suffix && !endswith(de->d_name, suffix))
@@ -45,22 +55,76 @@ static int files_add(
 
                 /* Has this file already been found in an earlier directory? */
                 if (hashmap_contains(*files, de->d_name)) {
-                        log_debug("Skipping overridden file '%s/%s'.", dirpath, de->d_name);
+                        log_debug("Skipping overridden file '%s/%s'.", resolved_dirpath, de->d_name);
                         continue;
                 }
 
                 /* Has this been masked in an earlier directory? */
-                if ((flags & CONF_FILES_FILTER_MASKED) && set_contains(*masked, de->d_name)) {
-                        log_debug("File '%s/%s' is masked by previous entry.", dirpath, de->d_name);
+                if ((flags & CONF_FILES_FILTER_MASKED) != 0 && set_contains(*masked, de->d_name)) {
+                        log_debug("File '%s/%s' is masked by previous entry.", resolved_dirpath, de->d_name);
                         continue;
                 }
 
-                /* Read file metadata if we shall validate the check for file masks, for node types or whether the node is marked executable. */
-                if (flags & (CONF_FILES_FILTER_MASKED|CONF_FILES_REGULAR|CONF_FILES_DIRECTORY|CONF_FILES_EXECUTABLE))
-                        if (fstatat(dirfd(dir), de->d_name, &st, 0) < 0) {
-                                log_debug_errno(errno, "Failed to stat '%s/%s', ignoring: %m", dirpath, de->d_name);
+                struct stat st;
+                if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK)) {
+
+                        _cleanup_free_ char *p = path_join(resolved_dirpath, de->d_name);
+                        if (!p)
+                                return log_oom_debug();
+
+                        _cleanup_free_ char *resolved_path = NULL;
+                        if (rfd >= 0 || rfd == AT_FDCWD)
+                                r = chaseat(rfd, p, CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &resolved_path, /* ret_fd = */ NULL);
+                        else
+                                r = chase(p, root, CHASE_NONEXISTENT, &resolved_path, /* ret_fd = */ NULL);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to chase '%s/%s', ignoring: %m", resolved_dirpath, de->d_name);
                                 continue;
                         }
+
+                        if (r == 0) {
+                                /* If the path points to /dev/null in a image or so, then the device node may not exist. */
+                                if (path_equal(path_startswith(resolved_path, strempty(root)), "dev/null")) {
+                                        /* Mark this one as masked */
+                                        r = set_put_strdup(masked, de->d_name);
+                                        if (r < 0)
+                                                return log_oom_debug();
+
+                                        log_debug("File '%s/%s' is a mask (symlink to /dev/null).", resolved_dirpath, de->d_name);
+                                        continue;
+                                }
+
+                                log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to chase '%s/%s', ignoring: %m", resolved_dirpath, de->d_name);
+                                continue;
+                        }
+
+                        if (rfd >= 0 || rfd == AT_FDCWD)
+                                r = fstatat(rfd, resolved_path, &st, AT_SYMLINK_NOFOLLOW);
+                        else
+                                r = stat(resolved_path, &st);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to stat '%s/%s', ignoring: %m", resolved_dirpath, de->d_name);
+                                continue;
+                        }
+
+                } else {
+
+                        /* Even if no verification is requested, let's unconditionally call chase(), to drop
+                         * unresolvable symlinks. */
+
+                        _cleanup_free_ char *p = path_join(resolved_dirpath, de->d_name);
+                        if (!p)
+                                return log_oom_debug();
+
+                        if (rfd >= 0 || rfd == AT_FDCWD)
+                                r = chase_and_statat(rfd, p, CHASE_AT_RESOLVE_IN_ROOT, /* ret_path = */ NULL, &st);
+                        else
+                                r = chase_and_stat(p, root, /* chase_flags = */ 0, /* ret_path = */ NULL, &st);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to chase and stat '%s/%s', ignoring: %m", resolved_dirpath, de->d_name);
+                                continue;
+                        }
+                }
 
                 /* Is this a masking entry? */
                 if ((FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK) && stat_is_null(&st)) ||
@@ -68,50 +132,55 @@ static int files_add(
                         /* Mark this one as masked */
                         r = set_put_strdup(masked, de->d_name);
                         if (r < 0)
-                                return r;
+                                return log_oom_debug();
 
-                        log_debug("File '%s/%s' is a mask.", dirpath, de->d_name);
+                        log_debug("File '%s/%s' is a mask.", resolved_dirpath, de->d_name);
                         continue;
                 }
 
-                /* Does this node have the right type? */
-                if (flags & (CONF_FILES_REGULAR|CONF_FILES_DIRECTORY))
-                        if (!((flags & CONF_FILES_DIRECTORY) && S_ISDIR(st.st_mode)) &&
-                            !((flags & CONF_FILES_REGULAR) && S_ISREG(st.st_mode))) {
-                                log_debug("Ignoring '%s/%s', as it does not have the right type.", dirpath, de->d_name);
-                                continue;
-                        }
+                /* Is this node a regular file? */
+                if (FLAGS_SET(flags, CONF_FILES_REGULAR) && !S_ISREG(st.st_mode)) {
+                        log_debug("Ignoring '%s/%s', as it is not a regular file.", resolved_dirpath, de->d_name);
+                        continue;
+                }
 
-                /* Does this node have the executable bit set? */
-                if (flags & CONF_FILES_EXECUTABLE)
-                        /* As requested: check if the file is marked executable. Note that we don't check access(X_OK)
-                         * here, as we care about whether the file is marked executable at all, and not whether it is
-                         * executable for us, because if so, such errors are stuff we should log about. */
+                /* Is this node a directory? */
+                if (FLAGS_SET(flags, CONF_FILES_DIRECTORY) && !S_ISDIR(st.st_mode)) {
+                        log_debug("Ignoring '%s/%s', as it is not a directory.", resolved_dirpath, de->d_name);
+                        continue;
+                }
 
-                        if ((st.st_mode & 0111) == 0) { /* not executable */
-                                log_debug("Ignoring '%s/%s', as it is not marked executable.", dirpath, de->d_name);
-                                continue;
-                        }
+                /* Does this node have the executable bit set?
+                 * As requested: check if the file is marked executable. Note that we don't check access(X_OK)
+                 * here, as we care about whether the file is marked executable at all, and not whether it is
+                 * executable for us, because if so, such errors are stuff we should log about. */
+                if (FLAGS_SET(flags, CONF_FILES_EXECUTABLE) && (st.st_mode & 0111) == 0) {
+                        log_debug("Ignoring '%s/%s', as it is not marked executable.", resolved_dirpath, de->d_name);
+                        continue;
+                }
 
-                n = strdup(de->d_name);
+                _cleanup_free_ char *n = strdup(de->d_name);
                 if (!n)
-                        return -ENOMEM;
+                        return log_oom_debug();
 
-                if ((flags & CONF_FILES_BASENAME))
+                if (FLAGS_SET(flags, CONF_FILES_BASENAME)) {
                         r = hashmap_ensure_put(files, &string_hash_ops_free, n, n);
-                else {
-                        p = path_join(dirpath, de->d_name);
+                        if (r < 0)
+                                return log_oom_debug();
+                } else {
+                        _cleanup_free_ char *p = path_join(resolved_dirpath, de->d_name);
                         if (!p)
-                                return -ENOMEM;
+                                return log_oom_debug();
 
                         r = hashmap_ensure_put(files, &string_hash_ops_free_free, n, p);
+                        if (r < 0)
+                                return log_oom_debug();
+
+                        TAKE_PTR(p);
                 }
-                if (r < 0)
-                        return r;
                 assert(r > 0);
 
                 TAKE_PTR(n);
-                TAKE_PTR(p);
         }
 
         return 0;
@@ -151,21 +220,9 @@ int conf_files_list_strv(
         assert(ret);
 
         STRV_FOREACH(p, dirs) {
-                _cleanup_closedir_ DIR *dir = NULL;
-                _cleanup_free_ char *path = NULL;
-
-                r = chase_and_opendir(*p, root, CHASE_PREFIX_ROOT, &path, &dir);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                log_debug_errno(r, "Failed to chase and open directory '%s', ignoring: %m", *p);
-                        continue;
-                }
-
-                r = files_add(dir, path, &fh, &masked, suffix, flags);
+                r = files_add(*p, root, /* rfd = */ -EBADF, &fh, &masked, suffix, flags);
                 if (r == -ENOMEM)
                         return r;
-                if (r < 0)
-                        log_debug_errno(r, "Failed to search for files in '%s', ignoring: %m", path);
         }
 
         return copy_and_sort_files_from_hashmap(fh, ret);
@@ -186,21 +243,9 @@ int conf_files_list_strv_at(
         assert(ret);
 
         STRV_FOREACH(p, dirs) {
-                _cleanup_closedir_ DIR *dir = NULL;
-                _cleanup_free_ char *path = NULL;
-
-                r = chase_and_opendirat(rfd, *p, CHASE_AT_RESOLVE_IN_ROOT, &path, &dir);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                log_debug_errno(r, "Failed to chase and open directory '%s', ignoring: %m", *p);
-                        continue;
-                }
-
-                r = files_add(dir, path, &fh, &masked, suffix, flags);
+                r = files_add(*p, /* root = */ NULL, rfd, &fh, &masked, suffix, flags);
                 if (r == -ENOMEM)
                         return r;
-                if (r < 0)
-                        log_debug_errno(r, "Failed to search for files in '%s', ignoring: %m", path);
         }
 
         return copy_and_sort_files_from_hashmap(fh, ret);
