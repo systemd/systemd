@@ -2044,7 +2044,6 @@ org.freedesktop.systemd1.Timer.OnClockChange
 org.freedesktop.systemd1.Timer.OnTimezoneChange
 org.freedesktop.systemd1.Timer.Persistent
 org.freedesktop.systemd1.Timer.RandomizedDelayUSec
-org.freedesktop.systemd1.Timer.RandomizedOffsetUSec
 org.freedesktop.systemd1.Timer.RemainAfterElapse
 org.freedesktop.systemd1.Timer.Result
 org.freedesktop.systemd1.Timer.TimersCalendar
