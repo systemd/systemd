@@ -323,66 +323,147 @@ TEST(conf_files_list) {
         assert_se(conf_files_list_strv_at(&result, ".conf", tfd, CONF_FILES_FILTER_MASKED | CONF_FILES_BASENAME, STRV_MAKE_CONST("/dir1/", "/dir2/")) >= 0);
         strv_print(result);
         assert_se(strv_equal(result, STRV_MAKE("a.conf", "aa.conf", "b.conf")));
-}
 
-static void test_conf_files_insert_one(const char *root) {
-        _cleanup_strv_free_ char **s = NULL;
+        result = strv_free(result);
 
-        log_info("/* %s root=%s */", __func__, strempty(root));
+        /* with replacement */
+        _cleanup_free_ char *inserted = NULL;
+        ASSERT_OK(conf_files_list_with_replacement(/* root = */ NULL, STRV_MAKE(search1, search2, search3), search1_a, &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 search2_aa,
+                                                 strjoina(t2, "/absolute-empty.real"),
+                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 search1_b,
+                                                 strjoina(search2, "mm.conf"),
+                                                 strjoina(t2, "/relative-empty.real"),
+                                                 strjoina(t2, "/relative-non-empty.real"))));
+        ASSERT_STREQ(inserted, search1_a);
+        result = strv_free(result);
+        inserted = mfree(inserted);
 
-        char **dirs = STRV_MAKE("/dir1", "/dir2", "/dir3");
+        ASSERT_OK(conf_files_list_with_replacement(/* root = */ NULL, STRV_MAKE(search1, search2, search3), strjoina(t, "/dir1/aa.conf"), &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 strjoina(search1, "aa.conf"),
+                                                 strjoina(t2, "/absolute-empty.real"),
+                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 search1_b,
+                                                 strjoina(search2, "mm.conf"),
+                                                 strjoina(t2, "/relative-empty.real"),
+                                                 strjoina(t2, "/relative-non-empty.real"))));
+        ASSERT_STREQ(inserted, strjoina(search1, "aa.conf"));
+        result = strv_free(result);
+        inserted = mfree(inserted);
 
-        _cleanup_free_ const char
-                *foo1 = path_join(root, "/dir1/foo.conf"),
-                *foo2 = path_join(root, "/dir2/foo.conf"),
-                *bar2 = path_join(root, "/dir2/bar.conf"),
-                *zzz3 = path_join(root, "/dir3/zzz.conf"),
-                *whatever = path_join(root, "/whatever.conf");
+        ASSERT_OK(conf_files_list_with_replacement(/* root = */ NULL, STRV_MAKE(search1, search2, search3), strjoina(t, "/dir2/a.conf"), &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 search2_aa,
+                                                 strjoina(t2, "/absolute-empty.real"),
+                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 search1_b,
+                                                 strjoina(search2, "mm.conf"),
+                                                 strjoina(t2, "/relative-empty.real"),
+                                                 strjoina(t2, "/relative-non-empty.real"))));
+        ASSERT_NULL(inserted);
+        result = strv_free(result);
+        inserted = mfree(inserted);
 
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(foo2)));
+        ASSERT_OK(conf_files_list_with_replacement(/* root = */ NULL, STRV_MAKE(search1, search2, search3), strjoina(t, "/dir4/a.conf"), &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 search2_aa,
+                                                 strjoina(t2, "/absolute-empty.real"),
+                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 search1_b,
+                                                 strjoina(search2, "mm.conf"),
+                                                 strjoina(t2, "/relative-empty.real"),
+                                                 strjoina(t2, "/relative-non-empty.real"))));
+        ASSERT_NULL(inserted);
+        result = strv_free(result);
+        inserted = mfree(inserted);
 
-        /* The same file again, https://github.com/systemd/systemd/issues/11124 */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(foo2)));
+        ASSERT_OK(conf_files_list_with_replacement(/* root = */ NULL, STRV_MAKE(search1, search2, search3), strjoina(t, "/dir4/x.conf"), &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 search2_aa,
+                                                 strjoina(t2, "/absolute-empty.real"),
+                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 search1_b,
+                                                 strjoina(search2, "mm.conf"),
+                                                 strjoina(t2, "/relative-empty.real"),
+                                                 strjoina(t2, "/relative-non-empty.real"),
+                                                 strjoina(t, "/dir4/x.conf"))));
+        ASSERT_STREQ(inserted, strjoina(t, "/dir4/x.conf"));
+        result = strv_free(result);
+        inserted = mfree(inserted);
 
-        /* Lower priority → new entry is ignored */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir3/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(foo2)));
+        ASSERT_OK(conf_files_list_with_replacement(t, STRV_MAKE("/dir1/", "/dir2/", "/dir3/"), "/dir1/a.conf", &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 search2_aa,
+                                                 strjoina(t, "/absolute-empty-for-root.real"),
+                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 search1_b,
+                                                 strjoina(t, "/relative-empty-for-root.real"),
+                                                 strjoina(t, "/relative-non-empty-for-root.real"))));
+        ASSERT_STREQ(inserted, search1_a);
+        result = strv_free(result);
+        inserted = mfree(inserted);
 
-        /* Higher priority → new entry replaces */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir1/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(foo1)));
+        ASSERT_OK(conf_files_list_with_replacement(t, STRV_MAKE("/dir1/", "/dir2/", "/dir3/"), "/dir1/aa.conf", &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 strjoina(search1, "aa.conf"),
+                                                 strjoina(t, "/absolute-empty-for-root.real"),
+                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 search1_b,
+                                                 strjoina(t, "/relative-empty-for-root.real"),
+                                                 strjoina(t, "/relative-non-empty-for-root.real"))));
+        ASSERT_STREQ(inserted, strjoina(search1, "aa.conf"));
+        result = strv_free(result);
+        inserted = mfree(inserted);
 
-        /* Earlier basename */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/bar.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1)));
+        ASSERT_OK(conf_files_list_with_replacement(t, STRV_MAKE("/dir1/", "/dir2/", "/dir3/"), "/dir2/a.conf", &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 search2_aa,
+                                                 strjoina(t, "/absolute-empty-for-root.real"),
+                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 search1_b,
+                                                 strjoina(t, "/relative-empty-for-root.real"),
+                                                 strjoina(t, "/relative-non-empty-for-root.real"))));
+        ASSERT_NULL(inserted);
+        result = strv_free(result);
+        inserted = mfree(inserted);
 
-        /* Later basename */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir3/zzz.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1, zzz3)));
+        ASSERT_OK(conf_files_list_with_replacement(t, STRV_MAKE("/dir1/", "/dir2/", "/dir3/"), "/dir4/a.conf", &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 search2_aa,
+                                                 strjoina(t, "/absolute-empty-for-root.real"),
+                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 search1_b,
+                                                 strjoina(t, "/relative-empty-for-root.real"),
+                                                 strjoina(t, "/relative-non-empty-for-root.real"))));
+        ASSERT_NULL(inserted);
+        result = strv_free(result);
+        inserted = mfree(inserted);
 
-        /* All lower priority → all ignored */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir3/zzz.conf") == 0);
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/bar.conf") == 0);
-        assert_se(conf_files_insert(&s, root, dirs, "/dir3/bar.conf") == 0);
-        assert_se(conf_files_insert(&s, root, dirs, "/dir2/foo.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1, zzz3)));
-
-        /* Two entries that don't match any of the directories, but match basename */
-        assert_se(conf_files_insert(&s, root, dirs, "/dir4/zzz.conf") == 0);
-        assert_se(conf_files_insert(&s, root, dirs, "/zzz.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1, zzz3)));
-
-        /* An entry that doesn't match any of the directories, no match at all */
-        assert_se(conf_files_insert(&s, root, dirs, "/whatever.conf") == 0);
-        assert_se(strv_equal(s, STRV_MAKE(bar2, foo1, whatever, zzz3)));
-}
-
-TEST(conf_files_insert) {
-        test_conf_files_insert_one(NULL);
-        test_conf_files_insert_one("/root");
-        test_conf_files_insert_one("/root/");
+        ASSERT_OK(conf_files_list_with_replacement(t, STRV_MAKE("/dir1/", "/dir2/", "/dir3/"), "/dir4/x.conf", &result, &inserted));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
+                                                 search2_aa,
+                                                 strjoina(t, "/absolute-empty-for-root.real"),
+                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 search1_b,
+                                                 strjoina(t, "/relative-empty-for-root.real"),
+                                                 strjoina(t, "/relative-non-empty-for-root.real"),
+                                                 strjoina(t, "/dir4/x.conf"))));
+        ASSERT_STREQ(inserted, strjoina(t, "/dir4/x.conf"));
+        result = strv_free(result);
+        inserted = mfree(inserted);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
