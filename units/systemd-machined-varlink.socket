@@ -16,3 +16,4 @@ ListenStream=/run/systemd/machine/io.systemd.Machine
 ListenStream=/run/systemd/machine/io.systemd.MachineImage
 FileDescriptorName=varlink
 SocketMode=0666
+Service=systemd-machined.service

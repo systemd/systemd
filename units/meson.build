@@ -488,14 +488,14 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-machined-varlink.socket',
+          'conditions' : ['ENABLE_MACHINED'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-machined.service.in',
           'conditions' : ['ENABLE_MACHINED'],
           'symlinks' : ['dbus-org.freedesktop.machine1.service'],
-        },
-        {
-          'file' : 'systemd-machined.socket',
-          'conditions' : ['ENABLE_MACHINED'],
-          'symlinks' : ['sockets.target.wants/'],
         },
         {
           'file' : 'systemd-modules-load.service.in',
