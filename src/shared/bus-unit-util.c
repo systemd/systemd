@@ -2184,6 +2184,21 @@ static int bus_append_exit_status(sd_bus_message *m, const char *field, const ch
         return 1;
 }
 
+static int bus_append_listen(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        assert(startswith(field, "Listen"));
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 0);
+        else
+                r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 1, field + strlen("Listen"), eq);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -2713,8 +2728,6 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 }
 
 static int bus_append_socket_property(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
         if (STR_IN_SET(field, "Accept",
                               "FlushPending",
                               "Writable",
@@ -2802,16 +2815,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "ListenSpecial",
                               "ListenMessageQueue",
                               "ListenFIFO",
-                              "ListenUSBFunction")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 0);
-                else
-                        r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 1, field + STRLEN("Listen"), eq);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "ListenUSBFunction"))
+                return bus_append_listen(m, field, eq);
 
         return 0;
 }
