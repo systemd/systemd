@@ -1804,6 +1804,34 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item(f, "exec-context-private-bpf", private_bpf_to_string(c->private_bpf));
+        if (r < 0)
+                return r;
+
+        if (c->bpf_delegate_commands != 0) {
+                r = serialize_item_format(f, "exec-context-bpf-delegate-commands", "0x%"PRIx64, c->bpf_delegate_commands);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->bpf_delegate_maps != 0) {
+                r = serialize_item_format(f, "exec-context-bpf-delegate-maps", "0x%"PRIx64, c->bpf_delegate_maps);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->bpf_delegate_programs != 0) {
+                r = serialize_item_format(f, "exec-context-bpf-delegate-programs", "0x%"PRIx64, c->bpf_delegate_programs);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->bpf_delegate_attachments != 0) {
+                r = serialize_item_format(f, "exec-context-bpf-delegate-attachments", "0x%"PRIx64, c->bpf_delegate_attachments);
+                if (r < 0)
+                        return r;
+        }
+
         r = serialize_item(f, "exec-context-runtime-directory-preserve-mode", exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
         if (r < 0)
                 return r;
@@ -2720,6 +2748,26 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         c->proc_subset = proc_subset_from_string(val);
                         if (c->proc_subset < 0)
                                 return -EINVAL;
+                } else if ((val = startswith(l, "exec-context-private-bpf="))) {
+                        c->private_bpf = private_bpf_from_string(val);
+                        if (c->private_bpf < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-context-bpf-delegate-commands="))) {
+                        r = safe_atoux64(val, &c->bpf_delegate_commands);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-bpf-delegate-maps="))) {
+                        r = safe_atoux64(val, &c->bpf_delegate_maps);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-bpf-delegate-programs="))) {
+                        r = safe_atoux64(val, &c->bpf_delegate_programs);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-bpf-delegate-attachments="))) {
+                        r = safe_atoux64(val, &c->bpf_delegate_attachments);
+                        if (r < 0)
+                                return r;
                 } else if ((val = startswith(l, "exec-context-runtime-directory-preserve-mode="))) {
                         c->runtime_directory_preserve_mode = exec_preserve_mode_from_string(val);
                         if (c->runtime_directory_preserve_mode < 0)
