@@ -8,8 +8,9 @@ typedef enum ConfFilesFlags {
         CONF_FILES_REGULAR                  = 1 << 1,
         CONF_FILES_DIRECTORY                = 1 << 2,
         CONF_FILES_BASENAME                 = 1 << 3,
-        CONF_FILES_FILTER_MASKED_BY_SYMLINK = 1 << 4,
-        CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 5,
+        CONF_FILES_CHASE_BASENAME           = 1 << 4, /* If set, also resolve symlink files in config directories. */
+        CONF_FILES_FILTER_MASKED_BY_SYMLINK = 1 << 5,
+        CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 6,
         CONF_FILES_FILTER_MASKED            = CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_FILTER_MASKED_BY_EMPTY,
 } ConfFilesFlags;
 
