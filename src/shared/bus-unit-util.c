@@ -2097,6 +2097,85 @@ static int bus_append_paths(sd_bus_message *m, const char *field, const char *eq
         return 1;
 }
 
+static int bus_append_exit_status(sd_bus_message *m, const char *field, const char *eq) {
+        _cleanup_free_ int *status = NULL, *signal = NULL;
+        size_t n_status = 0, n_signal = 0;
+        int r;
+
+        for (const char *p = eq;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Invalid syntax in %s: %s", field, eq);
+
+                /* We need to call exit_status_from_string() first, because we want
+                 * to parse numbers as exit statuses, not signals. */
+
+                r = exit_status_from_string(word);
+                if (r >= 0) {
+                        assert(r >= 0 && r < 256);
+
+                        if (!GREEDY_REALLOC(status, n_status + 1))
+                                return log_oom();
+
+                        status[n_status++] = r;
+
+                } else if ((r = signal_from_string(word)) >= 0) {
+                        if (!GREEDY_REALLOC(signal, n_signal + 1))
+                                return log_oom();
+
+                        signal[n_signal++] = r;
+
+                } else
+                        /* original r from exit_status_to_string() */
+                        return log_error_errno(r, "Invalid status or signal %s in %s: %m",
+                                               word, field);
+        }
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "(aiai)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'r', "aiai");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_array(m, 'i', status, n_status * sizeof(int));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_array(m, 'i', signal, n_signal * sizeof(int));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -2508,7 +2587,6 @@ static int bus_append_mount_property(sd_bus_message *m, const char *field, const
 }
 
 static int bus_append_path_property(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
 
         if (streq(field, "MakeDirectory"))
                 return bus_append_parse_boolean(m, field, eq);
@@ -2617,84 +2695,8 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field, "RestartPreventExitStatus",
                               "RestartForceExitStatus",
-                              "SuccessExitStatus")) {
-                _cleanup_free_ int *status = NULL, *signal = NULL;
-                size_t n_status = 0, n_signal = 0;
-                const char *p;
-
-                for (p = eq;;) {
-                        _cleanup_free_ char *word = NULL;
-
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                        if (r == 0)
-                                break;
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        if (r < 0)
-                                return log_error_errno(r, "Invalid syntax in %s: %s", field, eq);
-
-                        /* We need to call exit_status_from_string() first, because we want
-                         * to parse numbers as exit statuses, not signals. */
-
-                        r = exit_status_from_string(word);
-                        if (r >= 0) {
-                                assert(r >= 0 && r < 256);
-
-                                if (!GREEDY_REALLOC(status, n_status + 1))
-                                        return log_oom();
-
-                                status[n_status++] = r;
-
-                        } else if ((r = signal_from_string(word)) >= 0) {
-                                if (!GREEDY_REALLOC(signal, n_signal + 1))
-                                        return log_oom();
-
-                                signal[n_signal++] = r;
-
-                        } else
-                                /* original r from exit_status_to_string() */
-                                return log_error_errno(r, "Invalid status or signal %s in %s: %m",
-                                                       word, field);
-                }
-
-                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'v', "(aiai)");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'r', "aiai");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_array(m, 'i', status, n_status * sizeof(int));
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_array(m, 'i', signal, n_signal * sizeof(int));
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "SuccessExitStatus"))
+                return bus_append_exit_status(m, field, eq);
 
         if (streq(field, "OpenFile"))
                 return bus_append_open_file(m, field, eq);
