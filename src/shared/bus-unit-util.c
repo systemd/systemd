@@ -262,6 +262,10 @@ static int bus_append_parse_sec_rename(sd_bus_message *m, const char *field, con
         return 1;
 }
 
+static int bus_append_parse_sec_rename_infinity(sd_bus_message *m, const char *field, const char *eq) {
+        return bus_append_parse_sec_rename(m, field, isempty(eq) ? "infinity" : eq);
+}
+
 static int bus_append_parse_size(sd_bus_message *m, const char *field, const char *eq, uint64_t base) {
         uint64_t v;
         int r;
@@ -2349,7 +2353,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return bus_append_parse_cpu_quota(m, field, eq);
 
         if (streq(field, "CPUQuotaPeriodSec"))
-                return bus_append_parse_sec_rename(m, field, isempty(eq) ? "infinity" : eq);
+                return bus_append_parse_sec_rename_infinity(m, field, eq);
 
         if (streq(field, "DeviceAllow"))
                 return bus_append_parse_device_allow(m, field, eq);
@@ -2387,7 +2391,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (streq(field, "ManagedOOMMemoryPressureDurationSec"))
                 /* While infinity is disallowed in unit file, infinity is allowed in D-Bus API which
                  * means use the default memory pressure duration from oomd.conf. */
-                return bus_append_parse_sec_rename(m, field, isempty(eq) ? "infinity" : eq);
+                return bus_append_parse_sec_rename_infinity(m, field, eq);
 
         if (STR_IN_SET(field,
                        "MemoryLimit",
