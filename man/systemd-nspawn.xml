@@ -1649,6 +1649,28 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><option>--bind-user-shell=</option></term>
+
+        <listitem><para>When used with <option>--bind-user=</option>, includes the specified shell in the
+        user records of users bound into the container. Takes either a boolean or an absolute path.</para>
+
+        <itemizedlist>
+          <listitem><para>If false (the default), no shell is passed in the user records for users bound into
+          the container. This causes bound users to the use the container's default shell.</para></listitem>
+
+          <listitem><para>If true, the shells specified by the host user records are included in the user records of all users bound into the container.</para></listitem>
+
+          <listitem><para>If passed an absolute path, sets that path as the shell for user records of all users bound into the container.</para></listitem>
+        </itemizedlist>
+
+        <para>Note: This will not check whether the specified shells exist in the container.</para>
+
+        <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--inaccessible=</option></term>
 
         <listitem><para>Make the specified path inaccessible in the container. This over-mounts the specified path
