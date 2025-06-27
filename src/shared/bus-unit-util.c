@@ -399,6 +399,39 @@ static int bus_append_parse_device_allow(sd_bus_message *m, const char *field, c
         return 1;
 }
 
+static int bus_append_parse_cgroup_io_limit(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
+        else {
+                const char *e = strchr(eq, ' ');
+                if (!e)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to parse %s value %s.",
+                                               field, eq);
+
+                const char *path = strndupa_safe(eq, e - eq);
+                const char *bandwidth = e + 1;
+
+                uint64_t bytes;
+                if (streq(bandwidth, "infinity"))
+                        bytes = CGROUP_LIMIT_MAX;
+                else {
+                        r = parse_size(bandwidth, 1000, &bytes);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse byte value %s: %m", bandwidth);
+                }
+
+                r = sd_bus_message_append(m, "(sv)", field, "a(st)", 1, path, bytes);
+        }
+
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -764,40 +797,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (streq(field, "DeviceAllow"))
                 return bus_append_parse_device_allow(m, field, eq);
 
-
-        if (cgroup_io_limit_type_from_string(field) >= 0) {
-
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
-                else {
-                        const char *path, *bandwidth, *e;
-                        uint64_t bytes;
-
-                        e = strchr(eq, ' ');
-                        if (!e)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse %s value %s.",
-                                                       field, eq);
-
-                        path = strndupa_safe(eq, e - eq);
-                        bandwidth = e+1;
-
-                        if (streq(bandwidth, "infinity"))
-                                bytes = CGROUP_LIMIT_MAX;
-                        else {
-                                r = parse_size(bandwidth, 1000, &bytes);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse byte value %s: %m", bandwidth);
-                        }
-
-                        r = sd_bus_message_append(m, "(sv)", field, "a(st)", 1, path, bytes);
-                }
-
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (cgroup_io_limit_type_from_string(field) >= 0)
+                return bus_append_parse_cgroup_io_limit(m, field, eq);
 
         if (streq(field, "IODeviceWeight")) {
                 if (isempty(eq))
