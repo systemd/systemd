@@ -8,11 +8,18 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Virtual Machine and Container Registration Service Socket
-Documentation=man:systemd-machined.service(8)
+Description=Network Service Varlink Socket
+Documentation=man:systemd-networkd.service(8)
+ConditionCapability=CAP_NET_ADMIN
+DefaultDependencies=no
+Before=sockets.target shutdown.target
+Conflicts=shutdown.target
 
 [Socket]
-ListenStream=/run/systemd/machine/io.systemd.Machine
-ListenStream=/run/systemd/machine/io.systemd.MachineImage
+ListenStream=/run/systemd/netif/io.systemd.Network
 FileDescriptorName=varlink
 SocketMode=0666
+Service=systemd-networkd.service
+
+[Install]
+WantedBy=sockets.target
