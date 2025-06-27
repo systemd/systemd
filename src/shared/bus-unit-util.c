@@ -886,17 +886,20 @@ static int bus_append_parse_ip_address_filter(sd_bus_message *m, const char *fie
         return 1;
 }
 
+#define bus_append_trivial_array(m, field, eq, types, ...)              \
+        ({                                                              \
+                int r;                                                  \
+                                                                        \
+                if (isempty(eq))                                        \
+                        r = sd_bus_message_append(m, "(sv)", field, types, 0); \
+                else                                                    \
+                        r = sd_bus_message_append(m, "(sv)", field, types, 1, __VA_ARGS__); \
+                r < 0 ? bus_log_create_error(r) : 1;                    \
+        })
+
 static int bus_append_ip_filter_path(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
-        if (isempty(eq))
-                r = sd_bus_message_append(m, "(sv)", field, "as", 0);
-        else
-                r = sd_bus_message_append(m, "(sv)", field, "as", 1, eq);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return 1;
+        return bus_append_trivial_array(m, field, eq,
+                                        "as", eq);
 }
 
 static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *eq) {
@@ -985,18 +988,10 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
 }
 
 static int bus_append_environment_files(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
-        if (isempty(eq))
-                r = sd_bus_message_append(m, "(sv)", "EnvironmentFiles", "a(sb)", 0);
-        else
-                r = sd_bus_message_append(m, "(sv)", "EnvironmentFiles", "a(sb)", 1,
-                                          eq[0] == '-' ? eq + 1 : eq,
-                                          eq[0] == '-');
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return 1;
+        return bus_append_trivial_array(m, "EnvironmentFiles", eq,
+                                        "a(sb)",
+                                        eq[0] == '-' ? eq + 1 : eq,
+                                        eq[0] == '-');
 }
 
 static int bus_append_set_credential(sd_bus_message *m, const char *field, const char *eq) {
@@ -2114,16 +2109,8 @@ static int bus_append_protect_hostname(sd_bus_message *m, const char *field, con
 }
 
 static int bus_append_paths(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
-        if (isempty(eq))
-                r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 0);
-        else
-                r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 1, field, eq);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return 1;
+        return bus_append_trivial_array(m, "Paths", eq,
+                                        "a(ss)", field, eq);
 }
 
 static int bus_append_exit_status(sd_bus_message *m, const char *field, const char *eq) {
@@ -2226,18 +2213,10 @@ static int bus_append_action_exit_status(sd_bus_message *m, const char *field, c
 }
 
 static int bus_append_listen(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
         assert(startswith(field, "Listen"));
 
-        if (isempty(eq))
-                r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 0);
-        else
-                r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 1, field + strlen("Listen"), eq);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return 1;
+        return bus_append_trivial_array(m, "Listen", eq,
+                                        "a(ss)", field + strlen("Listen"), eq);
 }
 
 static int bus_append_timers_monotonic(sd_bus_message *m, const char *field, const char *eq) {
@@ -2260,51 +2239,35 @@ static int bus_append_timers_monotonic(sd_bus_message *m, const char *field, con
 }
 
 static int bus_append_timers_calendar(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
-        if (isempty(eq))
-                r = sd_bus_message_append(m, "(sv)", "TimersCalendar", "a(ss)", 0);
-        else
-                r = sd_bus_message_append(m, "(sv)", "TimersCalendar", "a(ss)", 1, field, eq);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return 1;
+        return bus_append_trivial_array(m, "TimersCalendar", eq,
+                                        "a(ss)", field, eq);
 }
 
 static int bus_try_append_condition(sd_bus_message *m, const char *field, const char *eq) {
-        bool is_condition = false;
-        int r;
-
         ConditionType t = condition_type_from_string(field);
-        if (t >= 0)
-                is_condition = true;
-        else
+        bool is_condition = t >= 0;
+
+        if (!is_condition) {
                 t = assert_type_from_string(field);
-        if (t >= 0) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", is_condition ? "Conditions" : "Asserts", "a(sbbs)", 0);
-                else {
-                        const char *p = eq;
-
-                        int trigger = *p == '|';
-                        if (trigger)
-                                p++;
-
-                        int negate = *p == '!';
-                        if (negate)
-                                p++;
-
-                        r = sd_bus_message_append(m, "(sv)", is_condition ? "Conditions" : "Asserts", "a(sbbs)", 1,
-                                                  field, trigger, negate, p);
-                }
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
+                if (t < 0)
+                        return 0;
         }
 
-        return 0;
+        const char *p = eq;
+
+        int trigger = p && *p == '|';
+        if (trigger)
+                p++;
+
+        int negate = p && *p == '!';
+        if (negate)
+                p++;
+
+        return bus_append_trivial_array(m,
+                                        is_condition ? "Conditions" : "Asserts",
+                                        eq,
+                                        "a(sbbs)",
+                                        field, trigger, negate, p);
 }
 
 static int bus_try_append_unit_dependency(sd_bus_message *m, const char *field, const char *eq) {
