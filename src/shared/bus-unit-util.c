@@ -300,6 +300,20 @@ static int bus_append_parse_cpu_set(sd_bus_message *m, const char *field, const 
         return bus_append_byte_array(m, field, array, allocated);
 }
 
+static int bus_append_parse_delegate(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        r = parse_boolean(eq);
+        if (r < 0)
+                return bus_append_strv(m, "DelegateControllers", eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
+
+        r = sd_bus_message_append(m, "(sv)", "Delegate", "b", r);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -640,19 +654,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return bus_append_parse_cpu_set(m, field, eq);
 
         if (streq(field, "DisableControllers"))
-                return bus_append_strv(m, "DisableControllers", eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
+                return bus_append_strv(m, field, eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
 
-        if (streq(field, "Delegate")) {
-                r = parse_boolean(eq);
-                if (r < 0)
-                        return bus_append_strv(m, "DelegateControllers", eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
-
-                r = sd_bus_message_append(m, "(sv)", "Delegate", "b", r);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (streq(field, "Delegate"))
+                return bus_append_parse_delegate(m, field, eq);
 
         if (STR_IN_SET(field, "MemoryMin",
                               "DefaultMemoryLow",
