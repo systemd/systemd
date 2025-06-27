@@ -2199,6 +2199,25 @@ static int bus_append_listen(sd_bus_message *m, const char *field, const char *e
         return 1;
 }
 
+static int bus_append_timers_monotonic(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", "TimersMonotonic", "a(st)", 0);
+        else {
+                usec_t t;
+                r = parse_sec(eq, &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+
+                r = sd_bus_message_append(m, "(sv)", "TimersMonotonic", "a(st)", 1, field, t);
+        }
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -2841,22 +2860,8 @@ static int bus_append_timer_property(sd_bus_message *m, const char *field, const
                               "OnBootSec",
                               "OnStartupSec",
                               "OnUnitActiveSec",
-                              "OnUnitInactiveSec")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", "TimersMonotonic", "a(st)", 0);
-                else {
-                        usec_t t;
-                        r = parse_sec(eq, &t);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
-
-                        r = sd_bus_message_append(m, "(sv)", "TimersMonotonic", "a(st)", 1, field, t);
-                }
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "OnUnitInactiveSec"))
+                return bus_append_timers_monotonic(m, field, eq);
 
         if (streq(field, "OnCalendar")) {
                 if (isempty(eq))
