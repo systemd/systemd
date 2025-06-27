@@ -2425,6 +2425,7 @@ static const BusProperty execute_properties[] = {
         { "MountImagePolicy",                      bus_append_string                             },
         { "ExtensionImagePolicy",                  bus_append_string                             },
         { "PrivatePIDs",                           bus_append_string                             },
+        { "PrivateBPF",                            bus_append_string                             },
         { "IgnoreSIGPIPE",                         bus_append_parse_boolean                      },
         { "TTYVHangup",                            bus_append_parse_boolean                      },
         { "TTYReset",                              bus_append_parse_boolean                      },
