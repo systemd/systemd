@@ -2214,6 +2214,19 @@ static int bus_append_timers_monotonic(sd_bus_message *m, const char *field, con
         return 1;
 }
 
+static int bus_append_timers_calendar(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", "TimersCalendar", "a(ss)", 0);
+        else
+                r = sd_bus_message_append(m, "(sv)", "TimersCalendar", "a(ss)", 1, field, eq);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -2836,8 +2849,6 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
         return 0;
 }
 static int bus_append_timer_property(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
         if (STR_IN_SET(field, "WakeSystem",
                               "RemainAfterElapse",
                               "Persistent",
@@ -2859,16 +2870,8 @@ static int bus_append_timer_property(sd_bus_message *m, const char *field, const
                               "OnUnitInactiveSec"))
                 return bus_append_timers_monotonic(m, field, eq);
 
-        if (streq(field, "OnCalendar")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", "TimersCalendar", "a(ss)", 0);
-                else
-                        r = sd_bus_message_append(m, "(sv)", "TimersCalendar", "a(ss)", 1, field, eq);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (streq(field, "OnCalendar"))
+                return bus_append_timers_calendar(m, field, eq);
 
         return 0;
 }
