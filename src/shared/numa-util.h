@@ -3,7 +3,7 @@
 
 #include "cpu-set-util.h"
 #include "forward.h"
-#include "missing_syscall.h"
+#include "missing_mempolicy.h"
 
 static inline bool mpol_is_valid(int t) {
         return t >= MPOL_DEFAULT && t <= MPOL_LOCAL;

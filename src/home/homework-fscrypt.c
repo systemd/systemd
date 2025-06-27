@@ -7,6 +7,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
@@ -21,8 +22,6 @@
 #include "keyring-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_keyctl.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "nulstr-util.h"

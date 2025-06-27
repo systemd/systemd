@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h> /* IWYU pragma: export */
+#include_next <fcntl.h>
+
+/* glibc's fcntl.h includes bits/stat.h since glibc-2.12 (f095bb7204d80f609a73a22796edd6cffd4c6add),
+ * hence 'struct stat' can be used even if sys/stat.h is not included. However musl's fcntl.h does not.
+ * Let's explicitly include sys/stat.h here to make 'struct stat' can be used. */
+#include <sys/stat.h>
 
 /* This is defined since glibc-2.41. */
 #ifndef F_DUPFD_QUERY
@@ -21,21 +26,20 @@
  * are hexa and others are octal; duplicated as-is from the kernel definitions):
  * - alpha, arm, arm64, m68k, mips, parisc, powerpc, sparc: each has a specific value;
  * - others: they use the "generic" value (defined in include/uapi/asm-generic/fcntl.h) */
-#if O_LARGEFILE != 0
-#define RAW_O_LARGEFILE O_LARGEFILE
-#else
+#if O_LARGEFILE == 0
+#undef O_LARGEFILE
 #if defined(__alpha__) || defined(__arm__) || defined(__aarch64__) || defined(__m68k__)
-#define RAW_O_LARGEFILE 0400000
+#define O_LARGEFILE 0400000
 #elif defined(__mips__)
-#define RAW_O_LARGEFILE 0x2000
+#define O_LARGEFILE 0x2000
 #elif defined(__parisc__) || defined(__hppa__)
-#define RAW_O_LARGEFILE 000004000
+#define O_LARGEFILE 000004000
 #elif defined(__powerpc__)
-#define RAW_O_LARGEFILE 0200000
+#define O_LARGEFILE 0200000
 #elif defined(__sparc__)
-#define RAW_O_LARGEFILE 0x40000
+#define O_LARGEFILE 0x40000
 #else
-#define RAW_O_LARGEFILE 00100000
+#define O_LARGEFILE 00100000
 #endif
 #endif
 
@@ -48,4 +52,5 @@
  * (O_RDONLY|O_WRONLY|O_RDWR). Additionally, O_SEARCH is simply defined as O_PATH. This changes the behaviour
  * of O_ACCMODE in certain situations, which we don't want. This definition is copied from glibc and works
  * around the problems with musl's definition. */
-#define O_ACCMODE_STRICT (O_RDONLY|O_WRONLY|O_RDWR)
+#undef O_ACCMODE
+#define O_ACCMODE (O_RDONLY|O_WRONLY|O_RDWR)
