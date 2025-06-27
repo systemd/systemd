@@ -1432,6 +1432,41 @@ static int bus_append_filter_list(sd_bus_message *m, const char *field, const ch
         return 1;
 }
 
+static int bus_append_namespace_list(sd_bus_message *m, const char *field, const char *eq) {
+        bool invert = false;
+        unsigned long all = UPDATE_FLAG(NAMESPACE_FLAGS_ALL, CLONE_NEWUSER, !streq(field, "DelegateNamespaces"));
+        unsigned long flags;
+        int r;
+
+        r = parse_boolean(eq);
+        if (r > 0)
+                /* RestrictNamespaces= value gets stored into a field with reverse semantics (the
+                 * namespaces which are retained), so RestrictNamespaces=true means we retain no
+                 * access to any namespaces and vice-versa. */
+                flags = streq(field, "RestrictNamespaces") ? 0 : all;
+        else if (r == 0)
+                flags = streq(field, "RestrictNamespaces") ? all : 0;
+        else {
+                if (eq[0] == '~') {
+                        invert = true;
+                        eq++;
+                }
+
+                r = namespace_flags_from_string(eq, &flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s.", field, eq);
+        }
+
+        if (invert)
+                flags = (~flags) & all;
+
+        r = sd_bus_message_append(m, "(sv)", field, "t", (uint64_t) flags);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1768,39 +1803,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return bus_append_filter_list(m, field, eq);
 
         if (STR_IN_SET(field, "RestrictNamespaces",
-                              "DelegateNamespaces")) {
-                bool invert = false;
-                unsigned long all = UPDATE_FLAG(NAMESPACE_FLAGS_ALL, CLONE_NEWUSER, !streq(field, "DelegateNamespaces"));
-                unsigned long flags;
-
-                r = parse_boolean(eq);
-                if (r > 0)
-                        /* RestrictNamespaces= value gets stored into a field with reverse semantics (the
-                         * namespaces which are retained), so RestrictNamespaces=true means we retain no
-                         * access to any namespaces and vice-versa. */
-                        flags = streq(field, "RestrictNamespaces") ? 0 : all;
-                else if (r == 0)
-                        flags = streq(field, "RestrictNamespaces") ? all : 0;
-                else {
-                        if (eq[0] == '~') {
-                                invert = true;
-                                eq++;
-                        }
-
-                        r = namespace_flags_from_string(eq, &flags);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s value %s.", field, eq);
-                }
-
-                if (invert)
-                        flags = (~flags) & all;
-
-                r = sd_bus_message_append(m, "(sv)", field, "t", (uint64_t) flags);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "DelegateNamespaces"))
+                return bus_append_namespace_list(m, field, eq);
 
         if (STR_IN_SET(field, "BindPaths",
                               "BindReadOnlyPaths")) {
