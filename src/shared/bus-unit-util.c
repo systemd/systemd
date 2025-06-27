@@ -513,6 +513,30 @@ static int bus_append_bpf_program(sd_bus_message *m, const char *field, const ch
         return 1;
 }
 
+static int bus_append_socket_filter(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", field, "a(iiqq)", 0);
+        else {
+                int32_t family, ip_protocol;
+                uint16_t nr_ports, port_min;
+
+                r = parse_socket_bind_item(eq, &family, &ip_protocol, &nr_ports, &port_min);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s", field);
+
+                r = sd_bus_message_append(
+                                m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, nr_ports, port_min);
+        }
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -948,8 +972,6 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
 }
 
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
                               "ManagedOOMSwap",
@@ -1031,27 +1053,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return  bus_append_bpf_program(m, field, eq);
 
         if (STR_IN_SET(field, "SocketBindAllow",
-                              "SocketBindDeny")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field, "a(iiqq)", 0);
-                else {
-                        int32_t family, ip_protocol;
-                        uint16_t nr_ports, port_min;
-
-                        r = parse_socket_bind_item(eq, &family, &ip_protocol, &nr_ports, &port_min);
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s", field);
-
-                        r = sd_bus_message_append(
-                                        m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, nr_ports, port_min);
-                }
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "SocketBindDeny"))
+                return bus_append_socket_filter(m, field, eq);
 
         if (streq(field, "MemoryPressureThresholdSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
