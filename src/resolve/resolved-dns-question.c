@@ -552,12 +552,3 @@ int dns_question_merge(DnsQuestion *a, DnsQuestion *b, DnsQuestion **ret) {
         *ret = TAKE_PTR(k);
         return 0;
 }
-
-bool dns_question_contains_key_type(DnsQuestion *q, uint16_t type) {
-        DnsResourceKey *t;
-        DNS_QUESTION_FOREACH(t, q)
-                if (t->type == type)
-                        return true;
-
-        return false;
-}
