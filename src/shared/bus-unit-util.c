@@ -2243,6 +2243,16 @@ static int bus_append_timers_calendar(sd_bus_message *m, const char *field, cons
                                         "a(ss)", field, eq);
 }
 
+static int bus_append_timeout_sec(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        r = bus_append_parse_sec_rename(m, "TimeoutStartSec", eq);
+        if (r < 0)
+                return r;
+
+        return bus_append_parse_sec_rename(m, "TimeoutStopSec", eq);
+}
+
 static int bus_try_append_condition(sd_bus_message *m, const char *field, const char *eq) {
         ConditionType t = condition_type_from_string(field);
         bool is_condition = t >= 0;
@@ -2718,8 +2728,6 @@ static int bus_append_scope_property(sd_bus_message *m, const char *field, const
 }
 
 static int bus_append_service_property(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
         if (STR_IN_SET(field, "PIDFile",
                               "Type",
                               "ExitType",
@@ -2751,13 +2759,8 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                               "WatchdogSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
-        if (streq(field, "TimeoutSec")) {
-                r = bus_append_parse_sec_rename(m, "TimeoutStartSec", eq);
-                if (r < 0)
-                        return r;
-
-                return bus_append_parse_sec_rename(m, "TimeoutStopSec", eq);
-        }
+        if (streq(field, "TimeoutSec"))
+                return bus_append_timeout_sec(m, field, eq);
 
         if (STR_IN_SET(field, "FileDescriptorStoreMax",
                               "RestartSteps"))
