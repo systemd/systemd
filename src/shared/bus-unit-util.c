@@ -1241,6 +1241,23 @@ static int bus_append_standard_inputs(sd_bus_message *m, const char *field, cons
         return 1;
 }
 
+static int bus_append_standard_input_text(sd_bus_message *m, const char *field, const char *eq) {
+        _cleanup_free_ char *unescaped = NULL;
+        ssize_t l;
+
+        l = cunescape(eq, 0, &unescaped);
+        if (l < 0)
+                return log_error_errno(l, "Failed to unescape text '%s': %m", eq);
+
+        if (!strextend(&unescaped, "\n"))
+                return log_oom();
+
+        /* Note that we don't expand specifiers here, but that should be OK, as this is a
+         * programmatic interface anyway */
+
+        return bus_append_byte_array(m, field, unescaped, l + 1);
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1531,22 +1548,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "StandardError"))
                 return bus_append_standard_inputs(m, field, eq);
 
-        if (streq(field, "StandardInputText")) {
-                _cleanup_free_ char *unescaped = NULL;
-                ssize_t l;
-
-                l = cunescape(eq, 0, &unescaped);
-                if (l < 0)
-                        return log_error_errno(l, "Failed to unescape text '%s': %m", eq);
-
-                if (!strextend(&unescaped, "\n"))
-                        return log_oom();
-
-                /* Note that we don't expand specifiers here, but that should be OK, as this is a
-                 * programmatic interface anyway */
-
-                return bus_append_byte_array(m, field, unescaped, l + 1);
-        }
+        if (streq(field, "StandardInputText"))
+                return bus_append_standard_input_text(m, field, eq);
 
         if (streq(field, "StandardInputData")) {
                 _cleanup_free_ void *decoded = NULL;
