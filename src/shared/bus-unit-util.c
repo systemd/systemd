@@ -1807,6 +1807,108 @@ static int bus_append_mount_images(sd_bus_message *m, const char *field, const c
         return 1;
 }
 
+static int bus_append_extension_images(sd_bus_message *m, const char *field, const char *eq) {
+        const char *p = eq;
+        int r;
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "a(sba(ss))");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(sba(ss))");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        for (;;) {
+                _cleanup_free_ char *source = NULL, *tuple = NULL;
+                const char *q = NULL, *s = NULL;
+                bool permissive = false;
+
+                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s property: %s", field, eq);
+                if (r == 0)
+                        break;
+
+                q = tuple;
+                r = extract_first_word(&q, &source, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s property: %s", field, eq);
+                if (r == 0)
+                        continue;
+
+                s = source;
+                if (s[0] == '-') {
+                        permissive = true;
+                        s++;
+                }
+
+                r = sd_bus_message_open_container(m, 'r', "sba(ss)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "sb", s, permissive);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "(ss)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                for (;;) {
+                        _cleanup_free_ char *partition = NULL, *mount_options = NULL;
+
+                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s property: %s", field, eq);
+                        if (r == 0)
+                                break;
+                        /* Single set of options, applying to the root partition/single filesystem */
+                        if (r == 1) {
+                                r = sd_bus_message_append(m, "(ss)", "root", partition);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                break;
+                        }
+
+                        r = sd_bus_message_append(m, "(ss)", partition, mount_options);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -2165,106 +2267,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "MountImages"))
                 return bus_append_mount_images(m, field, eq);
 
-        if (streq(field, "ExtensionImages")) {
-                const char *p = eq;
-
-                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'v', "a(sba(ss))");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'a', "(sba(ss))");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                for (;;) {
-                        _cleanup_free_ char *source = NULL, *tuple = NULL;
-                        const char *q = NULL, *s = NULL;
-                        bool permissive = false;
-
-                        r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
-                        if (r == 0)
-                                break;
-
-                        q = tuple;
-                        r = extract_first_word(&q, &source, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
-                        if (r == 0)
-                                continue;
-
-                        s = source;
-                        if (s[0] == '-') {
-                                permissive = true;
-                                s++;
-                        }
-
-                        r = sd_bus_message_open_container(m, 'r', "sba(ss)");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append(m, "sb", s, permissive);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_open_container(m, 'a', "(ss)");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        for (;;) {
-                                _cleanup_free_ char *partition = NULL, *mount_options = NULL;
-
-                                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
-                                if (r == 0)
-                                        break;
-                                /* Single set of options, applying to the root partition/single filesystem */
-                                if (r == 1) {
-                                        r = sd_bus_message_append(m, "(ss)", "root", partition);
-                                        if (r < 0)
-                                                return bus_log_create_error(r);
-
-                                        break;
-                                }
-
-                                r = sd_bus_message_append(m, "(ss)", partition, mount_options);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        }
-
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_close_container(m);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                }
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (streq(field, "ExtensionImages"))
+                return bus_append_extension_images(m, field, eq);
 
         if (STR_IN_SET(field, "StateDirectory", "RuntimeDirectory", "CacheDirectory", "LogsDirectory")) {
                 _cleanup_strv_free_ char **symlinks = NULL, **symlinks_ro = NULL, **sources = NULL, **sources_ro = NULL;
