@@ -283,6 +283,23 @@ static int bus_append_parse_permyriad(sd_bus_message *m, const char *field, cons
         return 1;
 }
 
+static int bus_append_parse_cpu_set(sd_bus_message *m, const char *field, const char *eq) {
+        _cleanup_(cpu_set_done) CPUSet cpuset = {};
+        _cleanup_free_ uint8_t *array = NULL;
+        size_t allocated;
+        int r;
+
+        r = parse_cpu_set(eq, &cpuset);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
+
+        r = cpu_set_to_dbus(&cpuset, &array, &allocated);
+        if (r < 0)
+                return log_error_errno(r, "Failed to serialize %s: %m", field);
+
+        return bus_append_byte_array(m, field, array, allocated);
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -619,22 +636,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (STR_IN_SET(field, "AllowedCPUs",
                               "StartupAllowedCPUs",
                               "AllowedMemoryNodes",
-                              "StartupAllowedMemoryNodes")) {
-
-                _cleanup_(cpu_set_done) CPUSet cpuset = {};
-                _cleanup_free_ uint8_t *array = NULL;
-                size_t allocated;
-
-                r = parse_cpu_set(eq, &cpuset);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
-
-                r = cpu_set_to_dbus(&cpuset, &array, &allocated);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to serialize CPUSet: %m");
-
-                return bus_append_byte_array(m, field, array, allocated);
-        }
+                              "StartupAllowedMemoryNodes"))
+                return bus_append_parse_cpu_set(m, field, eq);
 
         if (streq(field, "DisableControllers"))
                 return bus_append_strv(m, "DisableControllers", eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
