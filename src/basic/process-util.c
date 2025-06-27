@@ -830,6 +830,62 @@ int pidref_get_start_time(const PidRef *pid, usec_t *ret) {
         return 0;
 }
 
+#define SIGCGT_MASK_BITS (sizeof(uint64_t) * CHAR_BIT)
+
+int pid_get_sigcgt(pid_t pid, uint64_t *mask) {
+        _cleanup_free_ char *field = NULL;
+        unsigned long long tmp;
+        int r;
+
+        r = procfs_file_get_field(pid, "status", "SigCgt", &field);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        delete_trailing_chars(field, WHITESPACE);
+
+        r = safe_atollu_full(field, 16, &tmp);
+        if (r < 0)
+                return r;
+
+        *mask = (uint64_t) tmp;
+        return 0;
+}
+
+int pid_has_sigcgt(pid_t pid, int sig) {
+        uint64_t mask;
+        int r;
+
+        if (sig <= 0 || (unsigned) (sig - 1) >= SIGCGT_MASK_BITS)
+                return -EINVAL;
+
+        r = pid_get_sigcgt(pid, &mask);
+        if (r < 0)
+                return r;
+
+        return !!(mask & (UINT64_C(1) << (sig - 1)));
+}
+
+int pidref_has_sigcgt(PidRef *pr, int sig) {
+        int result, r;
+
+        if (!pidref_is_set(pr))
+                return -ESRCH;
+        if (pidref_is_remote(pr))
+                return -EREMOTE;
+
+        result = pid_has_sigcgt(pr->pid, sig);
+        if (result < 0)
+                return result;
+
+        r = pidref_verify(pr);
+        if (r < 0)
+                return r;
+
+        return result;
+}
+
 int get_process_umask(pid_t pid, mode_t *ret) {
         _cleanup_free_ char *m = NULL;
         int r;
