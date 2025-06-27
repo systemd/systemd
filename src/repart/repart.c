@@ -1807,7 +1807,7 @@ static int config_parse_fs_sector_size(
                                   "Value not a power of 2: %s", rvalue);
 
         /* NB: we make no upper restriction here, since the maximum logical sector sizes file systems support
-         * vary greatly, and can be much larger than 4K. (That's also the reason we dont't use
+         * vary greatly, and can be much larger than 4K. (That's also the reason we don't use
          * parse_sector_size() here.) */
 
         *fssecsz = parsed;
