@@ -91,17 +91,15 @@ int apply_numa_policy(const NUMAPolicy *policy) {
 }
 
 int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
+        _cleanup_(cpu_set_done) CPUSet s = {};
         int r;
-        size_t i;
-        _cleanup_(cpu_set_reset) CPUSet s = {};
 
         assert(policy);
         assert(ret);
 
-        for (i = 0; i < policy->nodes.allocated * 8; i++) {
+        for (size_t i = 0; i < policy->nodes.allocated * 8; i++) {
                 _cleanup_free_ char *l = NULL;
                 char p[STRLEN("/sys/devices/system/node/node//cpulist") + DECIMAL_STR_MAX(size_t) + 1];
-                _cleanup_(cpu_set_reset) CPUSet part = {};
 
                 if (!CPU_ISSET_S(i, policy->nodes.allocated, policy->nodes.set))
                         continue;
@@ -112,11 +110,12 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
                 if (r < 0)
                         return r;
 
+                _cleanup_(cpu_set_done) CPUSet part = {};
                 r = parse_cpu_set(l, &part);
                 if (r < 0)
                         return r;
 
-                r = cpu_set_add_all(&s, &part);
+                r = cpu_set_add_set(&s, &part);
                 if (r < 0)
                         return r;
         }

@@ -494,56 +494,28 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         if (c->cpuset_cpus.set)
                                 return -EINVAL; /* duplicated */
 
-                        r = parse_cpu_set_full(
-                                        val,
-                                        &c->cpuset_cpus,
-                                        /* warn= */ false,
-                                        /* unit= */ NULL,
-                                        /* filename= */ NULL,
-                                        /* line= */ 0,
-                                        /* lvalue= */ NULL);
+                        r = parse_cpu_set(val, &c->cpuset_cpus);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-startup-allowed-cpus="))) {
                         if (c->startup_cpuset_cpus.set)
                                 return -EINVAL; /* duplicated */
 
-                        r = parse_cpu_set_full(
-                                        val,
-                                        &c->startup_cpuset_cpus,
-                                        /* warn= */ false,
-                                        /* unit= */ NULL,
-                                        /* filename= */ NULL,
-                                        /* line= */ 0,
-                                        /* lvalue= */ NULL);
+                        r = parse_cpu_set(val, &c->startup_cpuset_cpus);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-allowed-memory-nodes="))) {
                         if (c->cpuset_mems.set)
                                 return -EINVAL; /* duplicated */
 
-                        r = parse_cpu_set_full(
-                                        val,
-                                        &c->cpuset_mems,
-                                        /* warn= */ false,
-                                        /* unit= */ NULL,
-                                        /* filename= */ NULL,
-                                        /* line= */ 0,
-                                        /* lvalue= */ NULL);
+                        r = parse_cpu_set(val, &c->cpuset_mems);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-startup-allowed-memory-nodes="))) {
                         if (c->startup_cpuset_mems.set)
                                 return -EINVAL; /* duplicated */
 
-                        r = parse_cpu_set_full(
-                                        val,
-                                        &c->startup_cpuset_mems,
-                                        /* warn= */ false,
-                                        /* unit= */ NULL,
-                                        /* filename= */ NULL,
-                                        /* line= */ 0,
-                                        /* lvalue= */ NULL);
+                        r = parse_cpu_set(val, &c->startup_cpuset_mems);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-io-weight="))) {
