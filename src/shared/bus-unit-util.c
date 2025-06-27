@@ -461,6 +461,36 @@ static int bus_append_parse_io_device_weight(sd_bus_message *m, const char *fiel
         return 1;
 }
 
+static int bus_append_parse_io_device_latency(sd_bus_message *m, const char *field, const char *eq) {
+        const char *field_usec = "IODeviceLatencyTargetUSec";
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", field_usec, "a(st)", 0);
+        else {
+                const char *e = strchr(eq, ' ');
+                if (!e)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to parse %s value %s.",
+                                               field, eq);
+
+                const char *path = strndupa_safe(eq, e - eq);
+                const char *target = e + 1;
+
+                usec_t usec;
+                r = parse_sec(target, &usec);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, target);
+
+                r = sd_bus_message_append(m, "(sv)", field_usec, "a(st)", 1, path, usec);
+        }
+
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -832,36 +862,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (streq(field, "IODeviceWeight"))
                 return bus_append_parse_io_device_weight(m, field, eq);
 
-        if (streq(field, "IODeviceLatencyTargetSec")) {
-                const char *field_usec = "IODeviceLatencyTargetUSec";
-
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field_usec, "a(st)", 0);
-                else {
-                        const char *path, *target, *e;
-                        usec_t usec;
-
-                        e = strchr(eq, ' ');
-                        if (!e)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse %s value %s.",
-                                                       field, eq);
-
-                        path = strndupa_safe(eq, e - eq);
-                        target = e+1;
-
-                        r = parse_sec(target, &usec);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s value %s: %m", field, target);
-
-                        r = sd_bus_message_append(m, "(sv)", field_usec, "a(st)", 1, path, usec);
-                }
-
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (streq(field, "IODeviceLatencyTargetSec"))
+                return bus_append_parse_io_device_latency(m, field, eq);
 
         if (STR_IN_SET(field, "IPAddressAllow",
                               "IPAddressDeny")) {
