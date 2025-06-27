@@ -130,9 +130,9 @@ assert_1 --root="${workdir}"
 cp "${workdir}/output_0_files" "${exo}"
 assert_0 "${rules_dir}"
 
-# Directory with a loop.
+# Directory with an invalid loop.
 ln -s . "${rules_dir}/loop.rules"
-assert_1 "${rules_dir}"
+assert_0 "${rules_dir}"
 rm "${rules_dir}/loop.rules"
 
 # Empty rules.
