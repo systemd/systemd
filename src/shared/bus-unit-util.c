@@ -1258,6 +1258,18 @@ static int bus_append_standard_input_text(sd_bus_message *m, const char *field, 
         return bus_append_byte_array(m, field, unescaped, l + 1);
 }
 
+static int bus_append_standard_input_data(sd_bus_message *m, const char *field, const char *eq) {
+        _cleanup_free_ void *decoded = NULL;
+        size_t sz;
+        int r;
+
+        r = unbase64mem(eq, &decoded, &sz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode base64 data '%s': %m", eq);
+
+        return bus_append_byte_array(m, field, decoded, sz);
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1551,16 +1563,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "StandardInputText"))
                 return bus_append_standard_input_text(m, field, eq);
 
-        if (streq(field, "StandardInputData")) {
-                _cleanup_free_ void *decoded = NULL;
-                size_t sz;
-
-                r = unbase64mem(eq, &decoded, &sz);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to decode base64 data '%s': %m", eq);
-
-                return bus_append_byte_array(m, field, decoded, sz);
-        }
+        if (streq(field, "StandardInputData"))
+                return bus_append_standard_input_data(m, field, eq);
 
         if ((suffix = startswith(field, "Limit"))) {
                 int rl;
