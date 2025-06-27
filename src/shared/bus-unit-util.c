@@ -71,7 +71,7 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                         &u->job_path);
 }
 
-static int warn_deprecated(const char *field, const char *eq) {
+static int warn_deprecated(_unused_ sd_bus_message *m, const char *field, const char *eq) {
         log_warning("D-Bus property %s is deprecated, ignoring assignment: %s=%s", field, field, eq);
         return 1;
 }
@@ -266,11 +266,11 @@ static int bus_append_parse_sec_rename_infinity(sd_bus_message *m, const char *f
         return bus_append_parse_sec_rename(m, field, isempty(eq) ? "infinity" : eq);
 }
 
-static int bus_append_parse_size(sd_bus_message *m, const char *field, const char *eq, uint64_t base) {
+static int bus_append_parse_size(sd_bus_message *m, const char *field, const char *eq) {
         uint64_t v;
         int r;
 
-        r = parse_size(eq, base, &v);
+        r = parse_size(eq, /* base= */ 1024, &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
 
@@ -364,7 +364,7 @@ static int bus_append_parse_resource_limit(sd_bus_message *m, const char *field,
         if (streq(field, "TasksMax"))
                 return bus_append_safe_atou64(m, field, eq);
 
-        return bus_append_parse_size(m, field, eq, 1024);
+        return bus_append_parse_size(m, field, eq);
 }
 
 static int bus_append_parse_cpu_quota(sd_bus_message *m, const char *field, const char *eq) {
@@ -412,8 +412,11 @@ static int bus_append_parse_device_allow(sd_bus_message *m, const char *field, c
         return 1;
 }
 
-static int bus_append_parse_cgroup_io_limit(sd_bus_message *m, const char *field, const char *eq) {
+static int bus_try_append_parse_cgroup_io_limit(sd_bus_message *m, const char *field, const char *eq) {
         int r;
+
+        if (cgroup_io_limit_type_from_string(field) < 0)
+                return 0;
 
         if (isempty(eq))
                 r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
@@ -1278,11 +1281,14 @@ static int bus_append_standard_input_data(sd_bus_message *m, const char *field, 
         return bus_append_byte_array(m, field, decoded, sz);
 }
 
-static int bus_append_resource_limit(sd_bus_message *m, const char *field, const char *eq) {
-        const char *suffix = ASSERT_PTR(startswith(field, "Limit"));
-        int rl, r;
+static int bus_try_append_resource_limit(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
 
-        rl = rlimit_from_string(suffix);
+        const char *suffix = startswith(field, "Limit");
+        if (!suffix)
+                return 0;
+
+        int rl = rlimit_from_string(suffix);
         if (rl < 0)
                 return log_error_errno(rl, "Unknown setting '%s'.", field);
 
@@ -2287,681 +2293,534 @@ static int bus_try_append_unit_dependency(sd_bus_message *m, const char *field, 
         return bus_append_strv(m, field, eq);
 }
 
-static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
-        if (STR_IN_SET(field, "DevicePolicy",
-                              "Slice",
-                              "ManagedOOMSwap",
-                              "ManagedOOMMemoryPressure",
-                              "ManagedOOMPreference",
-                              "MemoryPressureWatch",
-                              "DelegateSubgroup"))
-                return bus_append_string(m, field, eq);
-
-        if (STR_IN_SET(field, "ManagedOOMMemoryPressureLimit"))
-                return bus_append_parse_permyriad(m, field, eq);
-
-        if (STR_IN_SET(field, "MemoryAccounting",
-                              "MemoryZSwapWriteback",
-                              "IOAccounting",
-                              "TasksAccounting",
-                              "IPAccounting",
-                              "CoredumpReceive"))
-                return bus_append_parse_boolean(m, field, eq);
-
-        if (STR_IN_SET(field, "CPUWeight",
-                              "StartupCPUWeight"))
-                return bus_append_cg_cpu_weight_parse(m, field, eq);
-
-        if (STR_IN_SET(field, "IOWeight",
-                              "StartupIOWeight"))
-                return bus_append_cg_weight_parse(m, field, eq);
-
-        if (STR_IN_SET(field, "AllowedCPUs",
-                              "StartupAllowedCPUs",
-                              "AllowedMemoryNodes",
-                              "StartupAllowedMemoryNodes"))
-                return bus_append_parse_cpu_set(m, field, eq);
-
-        if (streq(field, "DisableControllers"))
-                return bus_append_strv(m, field, eq);
-
-        if (streq(field, "Delegate"))
-                return bus_append_parse_delegate(m, field, eq);
-
-        if (STR_IN_SET(field, "MemoryMin",
-                              "DefaultMemoryLow",
-                              "DefaultMemoryMin",
-                              "MemoryLow",
-                              "MemoryHigh",
-                              "MemoryMax",
-                              "MemorySwapMax",
-                              "MemoryZSwapMax",
-                              "TasksMax"))
-                return bus_append_parse_resource_limit(m, field, eq);
-
-        if (streq(field, "CPUQuota"))
-                return bus_append_parse_cpu_quota(m, field, eq);
-
-        if (streq(field, "CPUQuotaPeriodSec"))
-                return bus_append_parse_sec_rename_infinity(m, field, eq);
-
-        if (streq(field, "DeviceAllow"))
-                return bus_append_parse_device_allow(m, field, eq);
-
-        if (cgroup_io_limit_type_from_string(field) >= 0)
-                return bus_append_parse_cgroup_io_limit(m, field, eq);
-
-        if (streq(field, "IODeviceWeight"))
-                return bus_append_parse_io_device_weight(m, field, eq);
-
-        if (streq(field, "IODeviceLatencyTargetSec"))
-                return bus_append_parse_io_device_latency(m, field, eq);
-
-        if (STR_IN_SET(field, "IPAddressAllow",
-                              "IPAddressDeny"))
-                return bus_append_parse_ip_address_filter(m, field, eq);
-
-        if (STR_IN_SET(field, "IPIngressFilterPath",
-                              "IPEgressFilterPath"))
-                return bus_append_ip_filter_path(m, field, eq);
-
-        if (streq(field, "BPFProgram"))
-                return  bus_append_bpf_program(m, field, eq);
-
-        if (STR_IN_SET(field, "SocketBindAllow",
-                              "SocketBindDeny"))
-                return bus_append_socket_filter(m, field, eq);
-
-        if (streq(field, "MemoryPressureThresholdSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        if (streq(field, "NFTSet"))
-                return bus_append_nft_set(m, field, eq);
-
-        if (streq(field, "ManagedOOMMemoryPressureDurationSec"))
-                /* While infinity is disallowed in unit file, infinity is allowed in D-Bus API which
-                 * means use the default memory pressure duration from oomd.conf. */
-                return bus_append_parse_sec_rename_infinity(m, field, eq);
-
-        if (STR_IN_SET(field,
-                       "MemoryLimit",
-                       "CPUShares",
-                       "StartupCPUShares",
-                       "BlockIOAccounting",
-                       "BlockIOWeight",
-                       "StartupBlockIOWeight",
-                       "BlockIODeviceWeight",
-                       "BlockIOReadBandwidth",
-                       "BlockIOWriteBandwidth",
-                       "CPUAccounting"))
-                return warn_deprecated(field, eq);
-
-        return 0;
-}
-
-static int bus_append_automount_property(sd_bus_message *m, const char *field, const char *eq) {
-        if (STR_IN_SET(field, "Where",
-                              "ExtraOptions"))
-                return bus_append_string(m, field, eq);
-
-        if (streq(field, "DirectoryMode"))
-                return bus_append_parse_mode(m, field, eq);
-
-        if (streq(field, "TimeoutIdleSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        return 0;
-}
-
-static int bus_append_execute_property(sd_bus_message *m, const char *field, const char *eq) {
-        if (STR_IN_SET(field, "User",
-                              "Group",
-                              "UtmpIdentifier",
-                              "UtmpMode",
-                              "PAMName",
-                              "TTYPath",
-                              "WorkingDirectory",
-                              "RootDirectory",
-                              "SyslogIdentifier",
-                              "ProtectSystem",
-                              "ProtectHome",
-                              "PrivateTmpEx",
-                              "PrivateUsersEx",
-                              "ProtectControlGroupsEx",
-                              "SELinuxContext",
-                              "RootImage",
-                              "RootVerity",
-                              "RuntimeDirectoryPreserve",
-                              "Personality",
-                              "KeyringMode",
-                              "ProtectProc",
-                              "ProcSubset",
-                              "NetworkNamespacePath",
-                              "IPCNamespacePath",
-                              "LogNamespace",
-                              "RootImagePolicy",
-                              "MountImagePolicy",
-                              "ExtensionImagePolicy",
-                              "PrivatePIDs"))
-                return bus_append_string(m, field, eq);
-
-        if (STR_IN_SET(field, "IgnoreSIGPIPE",
-                              "TTYVHangup",
-                              "TTYReset",
-                              "TTYVTDisallocate",
-                              "PrivateTmp",
-                              "PrivateDevices",
-                              "PrivateNetwork",
-                              "PrivateUsers",
-                              "PrivateMounts",
-                              "PrivateIPC",
-                              "NoNewPrivileges",
-                              "SyslogLevelPrefix",
-                              "MemoryDenyWriteExecute",
-                              "RestrictRealtime",
-                              "DynamicUser",
-                              "RemoveIPC",
-                              "ProtectKernelTunables",
-                              "ProtectKernelModules",
-                              "ProtectKernelLogs",
-                              "ProtectClock",
-                              "ProtectControlGroups",
-                              "MountAPIVFS",
-                              "BindLogSockets",
-                              "CPUSchedulingResetOnFork",
-                              "LockPersonality",
-                              "MemoryKSM",
-                              "RestrictSUIDSGID",
-                              "RootEphemeral",
-                              "SetLoginEnvironment"))
-                return bus_append_parse_boolean(m, field, eq);
-
-        if (STR_IN_SET(field, "ReadWriteDirectories",
-                              "ReadOnlyDirectories",
-                              "InaccessibleDirectories",
-                              "ReadWritePaths",
-                              "ReadOnlyPaths",
-                              "InaccessiblePaths",
-                              "ExecPaths",
-                              "NoExecPaths",
-                              "ExecSearchPath",
-                              "ExtensionDirectories",
-                              "ConfigurationDirectory",
-                              "SupplementaryGroups",
-                              "SystemCallArchitectures"))
-                return bus_append_strv(m, field, eq);
-
-        if (STR_IN_SET(field, "SyslogLevel",
-                              "LogLevelMax"))
-                return bus_append_log_level_from_string(m, field, eq);
-
-        if (streq(field, "SyslogFacility"))
-                return bus_append_log_facility_unshifted_from_string(m, field, eq);
-
-        if (streq(field, "SecureBits"))
-                return bus_append_secure_bits_from_string(m, field, eq);
-
-        if (streq(field, "CPUSchedulingPolicy"))
-                return bus_append_sched_policy_from_string(m, field, eq);
-
-        if (STR_IN_SET(field, "CPUSchedulingPriority",
-                              "OOMScoreAdjust"))
-                return bus_append_safe_atoi(m, field, eq);
-
-        if (streq(field, "CoredumpFilter"))
-                return bus_append_coredump_filter_mask_from_string(m, field, eq);
-
-        if (streq(field, "Nice"))
-                return bus_append_parse_nice(m, field, eq);
-
-        if (streq(field, "SystemCallErrorNumber"))
-                return bus_append_seccomp_parse_errno_or_action(m, field, eq);
-
-        if (streq(field, "IOSchedulingClass"))
-                return bus_append_ioprio_class_from_string(m, field, eq);
-
-        if (streq(field, "IOSchedulingPriority"))
-                return bus_append_ioprio_parse_priority(m, field, eq);
-
-        if (STR_IN_SET(field, "RuntimeDirectoryMode",
-                              "StateDirectoryMode",
-                              "CacheDirectoryMode",
-                              "LogsDirectoryMode",
-                              "ConfigurationDirectoryMode",
-                              "UMask"))
-                return bus_append_parse_mode(m, field, eq);
-
-        if (streq(field, "TimerSlackNSec"))
-                return bus_append_parse_nsec(m, field, eq);
-
-        if (streq(field, "LogRateLimitIntervalSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        if (STR_IN_SET(field, "LogRateLimitBurst",
-                              "TTYRows",
-                              "TTYColumns"))
-                return bus_append_safe_atou(m, field, eq);
-
-        if (streq(field, "MountFlags"))
-                return bus_append_mount_propagation_flag_from_string(m, field, eq);
-
-        if (STR_IN_SET(field, "Environment",
-                              "UnsetEnvironment",
-                              "PassEnvironment"))
-                return bus_append_strv_cunescape(m, field, eq);
-
-        if (streq(field, "EnvironmentFile"))
-                return bus_append_environment_files(m, field, eq);
-
-        if (STR_IN_SET(field, "SetCredential", "SetCredentialEncrypted"))
-                return bus_append_set_credential(m, field, eq);
-
-        if (STR_IN_SET(field, "LoadCredential", "LoadCredentialEncrypted"))
-                return bus_append_load_credential(m, field, eq);
-
-        if (STR_IN_SET(field, "ImportCredential", "ImportCredentialEx"))
-                return bus_append_import_credential(m, field, eq);
-
-        if (streq(field, "LogExtraFields"))
-                return bus_append_log_extra_fields(m, field, eq);
-
-        if (streq(field, "LogFilterPatterns"))
-                return bus_append_log_filter_patterns(m, field, eq);
-
-        if (STR_IN_SET(field, "StandardInput",
-                              "StandardOutput",
-                              "StandardError"))
-                return bus_append_standard_inputs(m, field, eq);
-
-        if (streq(field, "StandardInputText"))
-                return bus_append_standard_input_text(m, field, eq);
-
-        if (streq(field, "StandardInputData"))
-                return bus_append_standard_input_data(m, field, eq);
-
-        if (startswith(field, "Limit"))
-                return bus_append_resource_limit(m, field, eq);
-
-        if (STR_IN_SET(field, "AppArmorProfile",
-                              "SmackProcessLabel"))
-                return bus_append_smack_stuff(m, field, eq);
-
-        if (STR_IN_SET(field, "CapabilityBoundingSet",
-                              "AmbientCapabilities"))
-                return bus_append_capabilities(m, field, eq);
-
-        if (streq(field, "CPUAffinity"))
-                return bus_append_cpu_affinity(m, field, eq);
-
-        if (streq(field, "NUMAPolicy"))
-                return bus_append_mpol_from_string(m, field, eq);
-
-        if (streq(field, "NUMAMask"))
-                return bus_append_numa_mask(m, field, eq);
-
-        if (STR_IN_SET(field, "RestrictAddressFamilies",
-                              "RestrictFileSystems",
-                              "SystemCallFilter",
-                              "SystemCallLog",
-                              "RestrictNetworkInterfaces"))
-                return bus_append_filter_list(m, field, eq);
-
-        if (STR_IN_SET(field, "RestrictNamespaces",
-                              "DelegateNamespaces"))
-                return bus_append_namespace_list(m, field, eq);
-
-        if (STR_IN_SET(field, "BindPaths",
-                              "BindReadOnlyPaths"))
-                return bus_append_bind_paths(m, field, eq);
-
-        if (streq(field, "TemporaryFileSystem"))
-                return bus_append_temporary_file_system(m, field, eq);
-
-        if (streq(field, "RootHash"))
-                return bus_append_root_hash(m, field, eq);
-
-        if (streq(field, "RootHashSignature"))
-                return bus_append_root_hash_signature(m, field, eq);
-
-        if (streq(field, "RootImageOptions"))
-                return bus_append_root_image_options(m, field, eq);
-
-        if (streq(field, "MountImages"))
-                return bus_append_mount_images(m, field, eq);
-
-        if (streq(field, "ExtensionImages"))
-                return bus_append_extension_images(m, field, eq);
-
-        if (STR_IN_SET(field, "StateDirectory", "RuntimeDirectory", "CacheDirectory", "LogsDirectory"))
-                return bus_append_directory(m, field, eq);
-
-        if (STR_IN_SET(field, "ProtectHostname", "ProtectHostnameEx"))
-                return bus_append_protect_hostname(m, field, eq);
-
-        return 0;
-}
-
-static int bus_append_kill_property(sd_bus_message *m, const char *field, const char *eq) {
-        if (streq(field, "KillMode"))
-                return bus_append_string(m, field, eq);
-
-        if (STR_IN_SET(field, "SendSIGHUP",
-                              "SendSIGKILL"))
-                return bus_append_parse_boolean(m, field, eq);
-
-        if (STR_IN_SET(field, "KillSignal",
-                              "RestartKillSignal",
-                              "FinalKillSignal",
-                              "WatchdogSignal",
-                              "ReloadSignal"))
-                return bus_append_signal_from_string(m, field, eq);
-
-        return 0;
-}
-
-static int bus_append_mount_property(sd_bus_message *m, const char *field, const char *eq) {
-
-        if (STR_IN_SET(field, "What",
-                              "Where",
-                              "Options",
-                              "Type"))
-                return bus_append_string(m, field, eq);
-
-        if (streq(field, "TimeoutSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        if (streq(field, "DirectoryMode"))
-                return bus_append_parse_mode(m, field, eq);
-
-        if (STR_IN_SET(field, "SloppyOptions",
-                              "LazyUnmount",
-                              "ForceUnmount",
-                              "ReadwriteOnly"))
-                return bus_append_parse_boolean(m, field, eq);
-
-        return 0;
-}
-
-static int bus_append_path_property(sd_bus_message *m, const char *field, const char *eq) {
-
-        if (streq(field, "MakeDirectory"))
-                return bus_append_parse_boolean(m, field, eq);
-
-        if (streq(field, "DirectoryMode"))
-                return bus_append_parse_mode(m, field, eq);
-
-        if (STR_IN_SET(field, "PathExists",
-                              "PathExistsGlob",
-                              "PathChanged",
-                              "PathModified",
-                              "DirectoryNotEmpty"))
-                return bus_append_paths(m, field, eq);
-
-        if (STR_IN_SET(field, "TriggerLimitBurst", "PollLimitBurst"))
-                return bus_append_safe_atou(m, field, eq);
-
-        if (STR_IN_SET(field, "TriggerLimitIntervalSec", "PollLimitIntervalSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        return 0;
-}
-
-static int bus_append_scope_property(sd_bus_message *m, const char *field, const char *eq) {
-        if (streq(field, "RuntimeMaxSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        if (streq(field, "RuntimeRandomizedExtraSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        if (streq(field, "TimeoutStopSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
+typedef struct BusProperty {
+        const char *name;
+        int (*converter)(sd_bus_message *m, const char *field, const char *eq);
+} BusProperty;
+
+static const BusProperty cgroup_properties[] = {
+        { "DevicePolicy",                          bus_append_string                             },
+        { "Slice",                                 bus_append_string                             },
+        { "ManagedOOMSwap",                        bus_append_string                             },
+        { "ManagedOOMMemoryPressure",              bus_append_string                             },
+        { "ManagedOOMPreference",                  bus_append_string                             },
+        { "MemoryPressureWatch",                   bus_append_string                             },
+        { "DelegateSubgroup",                      bus_append_string                             },
+        { "ManagedOOMMemoryPressureLimit",         bus_append_parse_permyriad                    },
+        { "MemoryAccounting",                      bus_append_parse_boolean                      },
+        { "MemoryZSwapWriteback",                  bus_append_parse_boolean                      },
+        { "IOAccounting",                          bus_append_parse_boolean                      },
+        { "TasksAccounting",                       bus_append_parse_boolean                      },
+        { "IPAccounting",                          bus_append_parse_boolean                      },
+        { "CoredumpReceive",                       bus_append_parse_boolean                      },
+        { "CPUWeight",                             bus_append_cg_cpu_weight_parse                },
+        { "StartupCPUWeight",                      bus_append_cg_cpu_weight_parse                },
+        { "IOWeight",                              bus_append_cg_weight_parse                    },
+        { "StartupIOWeight",                       bus_append_cg_weight_parse                    },
+        { "AllowedCPUs",                           bus_append_parse_cpu_set                      },
+        { "StartupAllowedCPUs",                    bus_append_parse_cpu_set                      },
+        { "AllowedMemoryNodes",                    bus_append_parse_cpu_set                      },
+        { "StartupAllowedMemoryNodes",             bus_append_parse_cpu_set                      },
+        { "DisableControllers",                    bus_append_strv                               },
+        { "Delegate",                              bus_append_parse_delegate                     },
+        { "MemoryMin",                             bus_append_parse_resource_limit               },
+        { "DefaultMemoryLow",                      bus_append_parse_resource_limit               },
+        { "DefaultMemoryMin",                      bus_append_parse_resource_limit               },
+        { "MemoryLow",                             bus_append_parse_resource_limit               },
+        { "MemoryHigh",                            bus_append_parse_resource_limit               },
+        { "MemoryMax",                             bus_append_parse_resource_limit               },
+        { "MemorySwapMax",                         bus_append_parse_resource_limit               },
+        { "MemoryZSwapMax",                        bus_append_parse_resource_limit               },
+        { "TasksMax",                              bus_append_parse_resource_limit               },
+        { "CPUQuota",                              bus_append_parse_cpu_quota                    },
+        { "CPUQuotaPeriodSec",                     bus_append_parse_sec_rename_infinity          },
+        { "DeviceAllow",                           bus_append_parse_device_allow                 },
+        { "IODeviceWeight",                        bus_append_parse_io_device_weight             },
+        { "IODeviceLatencyTargetSec",              bus_append_parse_io_device_latency            },
+        { "IPAddressAllow",                        bus_append_parse_ip_address_filter            },
+        { "IPAddressDeny",                         bus_append_parse_ip_address_filter            },
+        { "IPIngressFilterPath",                   bus_append_ip_filter_path                     },
+        { "IPEgressFilterPath",                    bus_append_ip_filter_path                     },
+        { "BPFProgram",                            bus_append_bpf_program                        },
+        { "SocketBindAllow",                       bus_append_socket_filter                      },
+        { "SocketBindDeny",                        bus_append_socket_filter                      },
+        { "MemoryPressureThresholdSec",            bus_append_parse_sec_rename                   },
+        { "NFTSet",                                bus_append_nft_set                            },
+
+        /* While infinity is disallowed in unit file, infinity is allowed in D-Bus API which
+         * means use the default memory pressure duration from oomd.conf. */
+        { "ManagedOOMMemoryPressureDurationSec",   bus_append_parse_sec_rename_infinity          },
+
+        { "MemoryLimit",                           warn_deprecated                               },
+        { "CPUShares",                             warn_deprecated                               },
+        { "StartupCPUShares",                      warn_deprecated                               },
+        { "BlockIOAccounting",                     warn_deprecated                               },
+        { "BlockIOWeight",                         warn_deprecated                               },
+        { "StartupBlockIOWeight",                  warn_deprecated                               },
+        { "BlockIODeviceWeight",                   warn_deprecated                               },
+        { "BlockIOReadBandwidth",                  warn_deprecated                               },
+        { "BlockIOWriteBandwidth",                 warn_deprecated                               },
+        { "CPUAccounting",                         warn_deprecated                               },
+
+        { NULL,                                    bus_try_append_parse_cgroup_io_limit          },
+        {}
+};
+
+static const BusProperty automount_properties[] = {
+        { "Where",                                 bus_append_string                             },
+        { "ExtraOptions",                          bus_append_string                             },
+        { "DirectoryMode",                         bus_append_parse_mode                         },
+        { "TimeoutIdleSec",                        bus_append_parse_sec_rename                   },
+        {}
+};
+
+static const BusProperty execute_properties[] = {
+        { "User",                                  bus_append_string                             },
+        { "Group",                                 bus_append_string                             },
+        { "UtmpIdentifier",                        bus_append_string                             },
+        { "UtmpMode",                              bus_append_string                             },
+        { "PAMName",                               bus_append_string                             },
+        { "TTYPath",                               bus_append_string                             },
+        { "WorkingDirectory",                      bus_append_string                             },
+        { "RootDirectory",                         bus_append_string                             },
+        { "SyslogIdentifier",                      bus_append_string                             },
+        { "ProtectSystem",                         bus_append_string                             },
+        { "ProtectHome",                           bus_append_string                             },
+        { "PrivateTmpEx",                          bus_append_string                             },
+        { "PrivateUsersEx",                        bus_append_string                             },
+        { "ProtectControlGroupsEx",                bus_append_string                             },
+        { "SELinuxContext",                        bus_append_string                             },
+        { "RootImage",                             bus_append_string                             },
+        { "RootVerity",                            bus_append_string                             },
+        { "RuntimeDirectoryPreserve",              bus_append_string                             },
+        { "Personality",                           bus_append_string                             },
+        { "KeyringMode",                           bus_append_string                             },
+        { "ProtectProc",                           bus_append_string                             },
+        { "ProcSubset",                            bus_append_string                             },
+        { "NetworkNamespacePath",                  bus_append_string                             },
+        { "IPCNamespacePath",                      bus_append_string                             },
+        { "LogNamespace",                          bus_append_string                             },
+        { "RootImagePolicy",                       bus_append_string                             },
+        { "MountImagePolicy",                      bus_append_string                             },
+        { "ExtensionImagePolicy",                  bus_append_string                             },
+        { "PrivatePIDs",                           bus_append_string                             },
+        { "IgnoreSIGPIPE",                         bus_append_parse_boolean                      },
+        { "TTYVHangup",                            bus_append_parse_boolean                      },
+        { "TTYReset",                              bus_append_parse_boolean                      },
+        { "TTYVTDisallocate",                      bus_append_parse_boolean                      },
+        { "PrivateTmp",                            bus_append_parse_boolean                      },
+        { "PrivateDevices",                        bus_append_parse_boolean                      },
+        { "PrivateNetwork",                        bus_append_parse_boolean                      },
+        { "PrivateUsers",                          bus_append_parse_boolean                      },
+        { "PrivateMounts",                         bus_append_parse_boolean                      },
+        { "PrivateIPC",                            bus_append_parse_boolean                      },
+        { "NoNewPrivileges",                       bus_append_parse_boolean                      },
+        { "SyslogLevelPrefix",                     bus_append_parse_boolean                      },
+        { "MemoryDenyWriteExecute",                bus_append_parse_boolean                      },
+        { "RestrictRealtime",                      bus_append_parse_boolean                      },
+        { "DynamicUser",                           bus_append_parse_boolean                      },
+        { "RemoveIPC",                             bus_append_parse_boolean                      },
+        { "ProtectKernelTunables",                 bus_append_parse_boolean                      },
+        { "ProtectKernelModules",                  bus_append_parse_boolean                      },
+        { "ProtectKernelLogs",                     bus_append_parse_boolean                      },
+        { "ProtectClock",                          bus_append_parse_boolean                      },
+        { "ProtectControlGroups",                  bus_append_parse_boolean                      },
+        { "MountAPIVFS",                           bus_append_parse_boolean                      },
+        { "BindLogSockets",                        bus_append_parse_boolean                      },
+        { "CPUSchedulingResetOnFork",              bus_append_parse_boolean                      },
+        { "LockPersonality",                       bus_append_parse_boolean                      },
+        { "MemoryKSM",                             bus_append_parse_boolean                      },
+        { "RestrictSUIDSGID",                      bus_append_parse_boolean                      },
+        { "RootEphemeral",                         bus_append_parse_boolean                      },
+        { "SetLoginEnvironment",                   bus_append_parse_boolean                      },
+        { "ReadWriteDirectories",                  bus_append_strv                               },
+        { "ReadOnlyDirectories",                   bus_append_strv                               },
+        { "InaccessibleDirectories",               bus_append_strv                               },
+        { "ReadWritePaths",                        bus_append_strv                               },
+        { "ReadOnlyPaths",                         bus_append_strv                               },
+        { "InaccessiblePaths",                     bus_append_strv                               },
+        { "ExecPaths",                             bus_append_strv                               },
+        { "NoExecPaths",                           bus_append_strv                               },
+        { "ExecSearchPath",                        bus_append_strv                               },
+        { "ExtensionDirectories",                  bus_append_strv                               },
+        { "ConfigurationDirectory",                bus_append_strv                               },
+        { "SupplementaryGroups",                   bus_append_strv                               },
+        { "SystemCallArchitectures",               bus_append_strv                               },
+        { "SyslogLevel",                           bus_append_log_level_from_string              },
+        { "LogLevelMax",                           bus_append_log_level_from_string              },
+        { "SyslogFacility",                        bus_append_log_facility_unshifted_from_string },
+        { "SecureBits",                            bus_append_secure_bits_from_string            },
+        { "CPUSchedulingPolicy",                   bus_append_sched_policy_from_string           },
+        { "CPUSchedulingPriority",                 bus_append_safe_atoi                          },
+        { "OOMScoreAdjust",                        bus_append_safe_atoi                          },
+        { "CoredumpFilter",                        bus_append_coredump_filter_mask_from_string   },
+        { "Nice",                                  bus_append_parse_nice                         },
+        { "SystemCallErrorNumber",                 bus_append_seccomp_parse_errno_or_action      },
+        { "IOSchedulingClass",                     bus_append_ioprio_class_from_string           },
+        { "IOSchedulingPriority",                  bus_append_ioprio_parse_priority              },
+        { "RuntimeDirectoryMode",                  bus_append_parse_mode                         },
+        { "StateDirectoryMode",                    bus_append_parse_mode                         },
+        { "CacheDirectoryMode",                    bus_append_parse_mode                         },
+        { "LogsDirectoryMode",                     bus_append_parse_mode                         },
+        { "ConfigurationDirectoryMode",            bus_append_parse_mode                         },
+        { "UMask",                                 bus_append_parse_mode                         },
+        { "TimerSlackNSec",                        bus_append_parse_nsec                         },
+        { "LogRateLimitIntervalSec",               bus_append_parse_sec_rename                   },
+        { "LogRateLimitBurst",                     bus_append_safe_atou                          },
+        { "TTYRows",                               bus_append_safe_atou                          },
+        { "TTYColumns",                            bus_append_safe_atou                          },
+        { "MountFlags",                            bus_append_mount_propagation_flag_from_string },
+        { "Environment",                           bus_append_strv_cunescape                     },
+        { "UnsetEnvironment",                      bus_append_strv_cunescape                     },
+        { "PassEnvironment",                       bus_append_strv_cunescape                     },
+        { "EnvironmentFile",                       bus_append_environment_files                  },
+        { "SetCredential",                         bus_append_set_credential                     },
+        { "SetCredentialEncrypted",                bus_append_set_credential                     },
+        { "LoadCredential",                        bus_append_load_credential                    },
+        { "LoadCredentialEncrypted",               bus_append_load_credential                    },
+        { "ImportCredential",                      bus_append_import_credential                  },
+        { "ImportCredentialEx",                    bus_append_import_credential                  },
+        { "LogExtraFields",                        bus_append_log_extra_fields                   },
+        { "LogFilterPatterns",                     bus_append_log_filter_patterns                },
+        { "StandardInput",                         bus_append_standard_inputs                    },
+        { "StandardOutput",                        bus_append_standard_inputs                    },
+        { "StandardError",                         bus_append_standard_inputs                    },
+        { "StandardInputText",                     bus_append_standard_input_text                },
+        { "StandardInputData",                     bus_append_standard_input_data                },
+        { "AppArmorProfile",                       bus_append_smack_stuff                        },
+        { "SmackProcessLabel",                     bus_append_smack_stuff                        },
+        { "CapabilityBoundingSet",                 bus_append_capabilities                       },
+        { "AmbientCapabilities",                   bus_append_capabilities                       },
+        { "CPUAffinity",                           bus_append_cpu_affinity                       },
+        { "NUMAPolicy",                            bus_append_mpol_from_string                   },
+        { "NUMAMask",                              bus_append_numa_mask                          },
+        { "RestrictAddressFamilies",               bus_append_filter_list                        },
+        { "RestrictFileSystems",                   bus_append_filter_list                        },
+        { "SystemCallFilter",                      bus_append_filter_list                        },
+        { "SystemCallLog",                         bus_append_filter_list                        },
+        { "RestrictNetworkInterfaces",             bus_append_filter_list                        },
+        { "RestrictNamespaces",                    bus_append_namespace_list                     },
+        { "DelegateNamespaces",                    bus_append_namespace_list                     },
+        { "BindPaths",                             bus_append_bind_paths                         },
+        { "BindReadOnlyPaths",                     bus_append_bind_paths                         },
+        { "TemporaryFileSystem",                   bus_append_temporary_file_system              },
+        { "RootHash",                              bus_append_root_hash                          },
+        { "RootHashSignature",                     bus_append_root_hash_signature                },
+        { "RootImageOptions",                      bus_append_root_image_options                 },
+        { "MountImages",                           bus_append_mount_images                       },
+        { "ExtensionImages",                       bus_append_extension_images                   },
+        { "StateDirectory",                        bus_append_directory                          },
+        { "RuntimeDirectory",                      bus_append_directory                          },
+        { "CacheDirectory",                        bus_append_directory                          },
+        { "LogsDirectory",                         bus_append_directory                          },
+        { "ProtectHostname",                       bus_append_protect_hostname                   },
+        { "ProtectHostnameEx",                     bus_append_protect_hostname                   },
+
+        { NULL,                                    bus_try_append_resource_limit                 },
+        {}
+};
+
+static const BusProperty kill_properties[] = {
+        { "KillMode",                              bus_append_string                             },
+        { "SendSIGHUP",                            bus_append_parse_boolean                      },
+        { "SendSIGKILL",                           bus_append_parse_boolean                      },
+        { "KillSignal",                            bus_append_signal_from_string                 },
+        { "RestartKillSignal",                     bus_append_signal_from_string                 },
+        { "FinalKillSignal",                       bus_append_signal_from_string                 },
+        { "WatchdogSignal",                        bus_append_signal_from_string                 },
+        { "ReloadSignal",                          bus_append_signal_from_string                 },
+        {}
+};
+
+static const BusProperty mount_properties[] = {
+        { "What",                                  bus_append_string                             },
+        { "Where",                                 bus_append_string                             },
+        { "Options",                               bus_append_string                             },
+        { "Type",                                  bus_append_string                             },
+        { "TimeoutSec",                            bus_append_parse_sec_rename                   },
+        { "DirectoryMode",                         bus_append_parse_mode                         },
+        { "SloppyOptions",                         bus_append_parse_boolean                      },
+        { "LazyUnmount",                           bus_append_parse_boolean                      },
+        { "ForceUnmount",                          bus_append_parse_boolean                      },
+        { "ReadwriteOnly",                         bus_append_parse_boolean                      },
+        {}
+};
+
+static const BusProperty path_properties[] = {
+        { "MakeDirectory",                         bus_append_parse_boolean                      },
+        { "DirectoryMode",                         bus_append_parse_mode                         },
+        { "PathExists",                            bus_append_paths                              },
+        { "PathExistsGlob",                        bus_append_paths                              },
+        { "PathChanged",                           bus_append_paths                              },
+        { "PathModified",                          bus_append_paths                              },
+        { "DirectoryNotEmpty",                     bus_append_paths                              },
+        { "TriggerLimitBurst",                     bus_append_safe_atou                          },
+        { "PollLimitBurst",                        bus_append_safe_atou                          },
+        { "TriggerLimitIntervalSec",               bus_append_parse_sec_rename                   },
+        { "PollLimitIntervalSec",                  bus_append_parse_sec_rename                   },
+        {}
+};
+
+static const BusProperty scope_properties[] = {
+        { "RuntimeMaxSec",                         bus_append_parse_sec_rename                   },
+        { "RuntimeRandomizedExtraSec",             bus_append_parse_sec_rename                   },
+        { "TimeoutStopSec",                        bus_append_parse_sec_rename                   },
+        { "OOMPolicy",                             bus_append_string                             },
 
         /* Scope units don't have execution context but we still want to allow setting these two,
          * so let's handle them separately. */
-        if (STR_IN_SET(field, "User", "Group"))
-                return bus_append_string(m, field, eq);
+        { "User",                                  bus_append_string                             },
+        { "Group",                                 bus_append_string                             },
+        {}
+};
 
-        if (streq(field, "OOMPolicy"))
-                return bus_append_string(m, field, eq);
+static const BusProperty service_properties[] = {
+        { "PIDFile",                               bus_append_string                             },
+        { "Type",                                  bus_append_string                             },
+        { "ExitType",                              bus_append_string                             },
+        { "Restart",                               bus_append_string                             },
+        { "RestartMode",                           bus_append_string                             },
+        { "BusName",                               bus_append_string                             },
+        { "NotifyAccess",                          bus_append_string                             },
+        { "USBFunctionDescriptors",                bus_append_string                             },
+        { "USBFunctionStrings",                    bus_append_string                             },
+        { "OOMPolicy",                             bus_append_string                             },
+        { "TimeoutStartFailureMode",               bus_append_string                             },
+        { "TimeoutStopFailureMode",                bus_append_string                             },
+        { "FileDescriptorStorePreserve",           bus_append_string                             },
+        { "PermissionsStartOnly",                  bus_append_parse_boolean                      },
+        { "RootDirectoryStartOnly",                bus_append_parse_boolean                      },
+        { "RemainAfterExit",                       bus_append_parse_boolean                      },
+        { "GuessMainPID",                          bus_append_parse_boolean                      },
+        { "RestartSec",                            bus_append_parse_sec_rename                   },
+        { "RestartMaxDelaySec",                    bus_append_parse_sec_rename                   },
+        { "TimeoutStartSec",                       bus_append_parse_sec_rename                   },
+        { "TimeoutStopSec",                        bus_append_parse_sec_rename                   },
+        { "TimeoutAbortSec",                       bus_append_parse_sec_rename                   },
+        { "RuntimeMaxSec",                         bus_append_parse_sec_rename                   },
+        { "RuntimeRandomizedExtraSec",             bus_append_parse_sec_rename                   },
+        { "WatchdogSec",                           bus_append_parse_sec_rename                   },
+        { "TimeoutSec",                            bus_append_timeout_sec                        },
+        { "FileDescriptorStoreMax",                bus_append_safe_atou                          },
+        { "RestartSteps",                          bus_append_safe_atou                          },
+        { "ExecCondition",                         bus_append_exec_command                       },
+        { "ExecStartPre",                          bus_append_exec_command                       },
+        { "ExecStart",                             bus_append_exec_command                       },
+        { "ExecStartPost",                         bus_append_exec_command                       },
+        { "ExecConditionEx",                       bus_append_exec_command                       },
+        { "ExecStartPreEx",                        bus_append_exec_command                       },
+        { "ExecStartEx",                           bus_append_exec_command                       },
+        { "ExecStartPostEx",                       bus_append_exec_command                       },
+        { "ExecReload",                            bus_append_exec_command                       },
+        { "ExecStop",                              bus_append_exec_command                       },
+        { "ExecStopPost",                          bus_append_exec_command                       },
+        { "ExecReloadEx",                          bus_append_exec_command                       },
+        { "ExecStopEx",                            bus_append_exec_command                       },
+        { "ExecStopPostEx",                        bus_append_exec_command                       },
+        { "RestartPreventExitStatus",              bus_append_exit_status                        },
+        { "RestartForceExitStatus",                bus_append_exit_status                        },
+        { "SuccessExitStatus",                     bus_append_exit_status                        },
+        { "OpenFile",                              bus_append_open_file                          },
+        {}
+};
 
-        return 0;
-}
+static const BusProperty socket_properties[] = {
+        { "Accept",                                bus_append_parse_boolean                      },
+        { "FlushPending",                          bus_append_parse_boolean                      },
+        { "Writable",                              bus_append_parse_boolean                      },
+        { "KeepAlive",                             bus_append_parse_boolean                      },
+        { "NoDelay",                               bus_append_parse_boolean                      },
+        { "FreeBind",                              bus_append_parse_boolean                      },
+        { "Transparent",                           bus_append_parse_boolean                      },
+        { "Broadcast",                             bus_append_parse_boolean                      },
+        { "PassCredentials",                       bus_append_parse_boolean                      },
+        { "PassFileDescriptorsToExec",             bus_append_parse_boolean                      },
+        { "PassSecurity",                          bus_append_parse_boolean                      },
+        { "PassPacketInfo",                        bus_append_parse_boolean                      },
+        { "ReusePort",                             bus_append_parse_boolean                      },
+        { "RemoveOnStop",                          bus_append_parse_boolean                      },
+        { "SELinuxContextFromNet",                 bus_append_parse_boolean                      },
+        { "Priority",                              bus_append_safe_atoi                          },
+        { "IPTTL",                                 bus_append_safe_atoi                          },
+        { "Mark",                                  bus_append_safe_atoi                          },
+        { "IPTOS",                                 bus_append_ip_tos_from_string                 },
+        { "Backlog",                               bus_append_safe_atou                          },
+        { "MaxConnections",                        bus_append_safe_atou                          },
+        { "MaxConnectionsPerSource",               bus_append_safe_atou                          },
+        { "KeepAliveProbes",                       bus_append_safe_atou                          },
+        { "TriggerLimitBurst",                     bus_append_safe_atou                          },
+        { "PollLimitBurst",                        bus_append_safe_atou                          },
+        { "SocketMode",                            bus_append_parse_mode                         },
+        { "DirectoryMode",                         bus_append_parse_mode                         },
+        { "MessageQueueMaxMessages",               bus_append_safe_atoi64                        },
+        { "MessageQueueMessageSize",               bus_append_safe_atoi64                        },
+        { "TimeoutSec",                            bus_append_parse_sec_rename                   },
+        { "KeepAliveTimeSec",                      bus_append_parse_sec_rename                   },
+        { "KeepAliveIntervalSec",                  bus_append_parse_sec_rename                   },
+        { "DeferAcceptSec",                        bus_append_parse_sec_rename                   },
+        { "TriggerLimitIntervalSec",               bus_append_parse_sec_rename                   },
+        { "PollLimitIntervalSec",                  bus_append_parse_sec_rename                   },
+        { "ReceiveBuffer",                         bus_append_parse_size                         },
+        { "SendBuffer",                            bus_append_parse_size                         },
+        { "PipeSize",                              bus_append_parse_size                         },
+        { "ExecStartPre",                          bus_append_exec_command                       },
+        { "ExecStartPost",                         bus_append_exec_command                       },
+        { "ExecReload",                            bus_append_exec_command                       },
+        { "ExecStopPost",                          bus_append_exec_command                       },
+        { "SmackLabel",                            bus_append_string                             },
+        { "SmackLabelIPIn",                        bus_append_string                             },
+        { "SmackLabelIPOut",                       bus_append_string                             },
+        { "TCPCongestion",                         bus_append_string                             },
+        { "BindToDevice",                          bus_append_string                             },
+        { "BindIPv6Only",                          bus_append_string                             },
+        { "FileDescriptorName",                    bus_append_string                             },
+        { "SocketUser",                            bus_append_string                             },
+        { "SocketGroup",                           bus_append_string                             },
+        { "Timestamping",                          bus_append_string                             },
+        { "Symlinks",                              bus_append_strv                               },
+        { "SocketProtocol",                        bus_append_parse_ip_protocol                  },
+        { "ListenStream",                          bus_append_listen                             },
+        { "ListenDatagram",                        bus_append_listen                             },
+        { "ListenSequentialPacket",                bus_append_listen                             },
+        { "ListenNetlink",                         bus_append_listen                             },
+        { "ListenSpecial",                         bus_append_listen                             },
+        { "ListenMessageQueue",                    bus_append_listen                             },
+        { "ListenFIFO",                            bus_append_listen                             },
+        { "ListenUSBFunction",                     bus_append_listen                             },
+        {}
+};
 
-static int bus_append_service_property(sd_bus_message *m, const char *field, const char *eq) {
-        if (STR_IN_SET(field, "PIDFile",
-                              "Type",
-                              "ExitType",
-                              "Restart",
-                              "RestartMode",
-                              "BusName",
-                              "NotifyAccess",
-                              "USBFunctionDescriptors",
-                              "USBFunctionStrings",
-                              "OOMPolicy",
-                              "TimeoutStartFailureMode",
-                              "TimeoutStopFailureMode",
-                              "FileDescriptorStorePreserve"))
-                return bus_append_string(m, field, eq);
+static const BusProperty timer_properties[] = {
+        { "WakeSystem",                            bus_append_parse_boolean                      },
+        { "RemainAfterElapse",                     bus_append_parse_boolean                      },
+        { "Persistent",                            bus_append_parse_boolean                      },
+        { "OnTimezoneChange",                      bus_append_parse_boolean                      },
+        { "OnClockChange",                         bus_append_parse_boolean                      },
+        { "FixedRandomDelay",                      bus_append_parse_boolean                      },
+        { "DeferReactivation",                     bus_append_parse_boolean                      },
+        { "AccuracySec",                           bus_append_parse_sec_rename                   },
+        { "RandomizedDelaySec",                    bus_append_parse_sec_rename                   },
+        { "RandomizedOffsetSec",                   bus_append_parse_sec_rename                   },
+        { "OnActiveSec",                           bus_append_timers_monotonic                   },
+        { "OnBootSec",                             bus_append_timers_monotonic                   },
+        { "OnStartupSec",                          bus_append_timers_monotonic                   },
+        { "OnUnitActiveSec",                       bus_append_timers_monotonic                   },
+        { "OnUnitInactiveSec",                     bus_append_timers_monotonic                   },
+        { "OnCalendar",                            bus_append_timers_calendar                    },
+        {}
+};
 
-        if (STR_IN_SET(field, "PermissionsStartOnly",
-                              "RootDirectoryStartOnly",
-                              "RemainAfterExit",
-                              "GuessMainPID"))
-                return bus_append_parse_boolean(m, field, eq);
+static const BusProperty unit_properties[] = {
+        { "Description",                           bus_append_string                             },
+        { "SourcePath",                            bus_append_string                             },
+        { "OnFailureJobMode",                      bus_append_string                             },
+        { "JobTimeoutAction",                      bus_append_string                             },
+        { "JobTimeoutRebootArgument",              bus_append_string                             },
+        { "StartLimitAction",                      bus_append_string                             },
+        { "FailureAction",                         bus_append_string                             },
+        { "SuccessAction",                         bus_append_string                             },
+        { "RebootArgument",                        bus_append_string                             },
+        { "CollectMode",                           bus_append_string                             },
+        { "StopWhenUnneeded",                      bus_append_parse_boolean                      },
+        { "RefuseManualStart",                     bus_append_parse_boolean                      },
+        { "RefuseManualStop",                      bus_append_parse_boolean                      },
+        { "AllowIsolate",                          bus_append_parse_boolean                      },
+        { "IgnoreOnIsolate",                       bus_append_parse_boolean                      },
+        { "SurviveFinalKillSignal",                bus_append_parse_boolean                      },
+        { "DefaultDependencies",                   bus_append_parse_boolean                      },
+        { "JobTimeoutSec",                         bus_append_parse_sec_rename                   },
+        { "JobRunningTimeoutSec",                  bus_append_parse_sec_rename                   },
+        { "StartLimitIntervalSec",                 bus_append_parse_sec_rename                   },
+        { "StartLimitBurst",                       bus_append_safe_atou                          },
+        { "SuccessActionExitStatus",               bus_append_action_exit_status                 },
+        { "FailureActionExitStatus",               bus_append_action_exit_status                 },
+        { "Documentation",                         bus_append_strv                               },
+        { "RequiresMountsFor",                     bus_append_strv                               },
+        { "WantsMountsFor",                        bus_append_strv                               },
+        { "Markers",                               bus_append_strv                               },
 
-        if (STR_IN_SET(field, "RestartSec",
-                              "RestartMaxDelaySec",
-                              "TimeoutStartSec",
-                              "TimeoutStopSec",
-                              "TimeoutAbortSec",
-                              "RuntimeMaxSec",
-                              "RuntimeRandomizedExtraSec",
-                              "WatchdogSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
+        { NULL,                                    bus_try_append_unit_dependency                },
+        { NULL,                                    bus_try_append_condition                      },
+        {}
+};
 
-        if (streq(field, "TimeoutSec"))
-                return bus_append_timeout_sec(m, field, eq);
+static const BusProperty* service_unit_properties[] = {
+        cgroup_properties,
+        execute_properties,
+        kill_properties,
+        service_properties,
+        unit_properties,
+        NULL,
+};
 
-        if (STR_IN_SET(field, "FileDescriptorStoreMax",
-                              "RestartSteps"))
-                return bus_append_safe_atou(m, field, eq);
+static const BusProperty* socket_unit_properties[] = {
+        cgroup_properties,
+        execute_properties,
+        kill_properties,
+        socket_properties,
+        unit_properties,
+        NULL,
+};
 
-        if (STR_IN_SET(field, "ExecCondition",
-                              "ExecStartPre",
-                              "ExecStart",
-                              "ExecStartPost",
-                              "ExecConditionEx",
-                              "ExecStartPreEx",
-                              "ExecStartEx",
-                              "ExecStartPostEx",
-                              "ExecReload",
-                              "ExecStop",
-                              "ExecStopPost",
-                              "ExecReloadEx",
-                              "ExecStopEx",
-                              "ExecStopPostEx"))
-                return bus_append_exec_command(m, field, eq);
+static const BusProperty* timer_unit_properties[] = {
+        timer_properties,
+        unit_properties,
+        NULL,
+};
 
-        if (STR_IN_SET(field, "RestartPreventExitStatus",
-                              "RestartForceExitStatus",
-                              "SuccessExitStatus"))
-                return bus_append_exit_status(m, field, eq);
+static const BusProperty* path_unit_properties[] = {
+        path_properties,
+        unit_properties,
+        NULL,
+};
 
-        if (streq(field, "OpenFile"))
-                return bus_append_open_file(m, field, eq);
+static const BusProperty* slice_unit_properties[] = {
+        cgroup_properties,
+        unit_properties,
+        NULL,
+};
 
-        return 0;
-}
+static const BusProperty* scope_unit_properties[] = {
+        cgroup_properties,
+        kill_properties,
+        scope_properties,
+        unit_properties,
+        NULL,
+};
 
-static int bus_append_socket_property(sd_bus_message *m, const char *field, const char *eq) {
-        if (STR_IN_SET(field, "Accept",
-                              "FlushPending",
-                              "Writable",
-                              "KeepAlive",
-                              "NoDelay",
-                              "FreeBind",
-                              "Transparent",
-                              "Broadcast",
-                              "PassCredentials",
-                              "PassPIDFD",
-                              "PassSecurity",
-                              "PassPacketInfo",
-                              "AcceptFileDescriptors",
-                              "ReusePort",
-                              "RemoveOnStop",
-                              "PassFileDescriptorsToExec",
-                              "SELinuxContextFromNet"))
-                return bus_append_parse_boolean(m, field, eq);
+static const BusProperty* mount_unit_properties[] = {
+        cgroup_properties,
+        execute_properties,
+        kill_properties,
+        mount_properties,
+        unit_properties,
+        NULL,
+};
 
-        if (STR_IN_SET(field, "Priority",
-                              "IPTTL",
-                              "Mark"))
-                return bus_append_safe_atoi(m, field, eq);
+static const BusProperty* automount_unit_properties[] = {
+        automount_properties,
+        unit_properties,
+        NULL,
+};
 
-        if (streq(field, "IPTOS"))
-                return bus_append_ip_tos_from_string(m, field, eq);
+static const BusProperty* other_unit_properties[] = {
+        unit_properties,
+        NULL,
+};
 
-        if (STR_IN_SET(field, "Backlog",
-                              "MaxConnections",
-                              "MaxConnectionsPerSource",
-                              "KeepAliveProbes",
-                              "TriggerLimitBurst",
-                              "PollLimitBurst"))
-                return bus_append_safe_atou(m, field, eq);
-
-        if (STR_IN_SET(field, "SocketMode",
-                              "DirectoryMode"))
-                return bus_append_parse_mode(m, field, eq);
-
-        if (STR_IN_SET(field, "MessageQueueMaxMessages",
-                              "MessageQueueMessageSize"))
-                return bus_append_safe_atoi64(m, field, eq);
-
-        if (STR_IN_SET(field, "TimeoutSec",
-                              "KeepAliveTimeSec",
-                              "KeepAliveIntervalSec",
-                              "DeferAcceptSec",
-                              "TriggerLimitIntervalSec",
-                              "PollLimitIntervalSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        if (STR_IN_SET(field, "ReceiveBuffer",
-                              "SendBuffer",
-                              "PipeSize"))
-                return bus_append_parse_size(m, field, eq, 1024);
-
-        if (STR_IN_SET(field, "ExecStartPre",
-                              "ExecStartPost",
-                              "ExecReload",
-                              "ExecStopPost"))
-                return bus_append_exec_command(m, field, eq);
-
-        if (STR_IN_SET(field, "SmackLabel",
-                              "SmackLabelIPIn",
-                              "SmackLabelIPOut",
-                              "TCPCongestion",
-                              "BindToDevice",
-                              "BindIPv6Only",
-                              "FileDescriptorName",
-                              "SocketUser",
-                              "SocketGroup",
-                              "Timestamping"))
-                return bus_append_string(m, field, eq);
-
-        if (streq(field, "Symlinks"))
-                return bus_append_strv(m, field, eq);
-
-        if (streq(field, "SocketProtocol"))
-                return bus_append_parse_ip_protocol(m, field, eq);
-
-        if (STR_IN_SET(field, "ListenStream",
-                              "ListenDatagram",
-                              "ListenSequentialPacket",
-                              "ListenNetlink",
-                              "ListenSpecial",
-                              "ListenMessageQueue",
-                              "ListenFIFO",
-                              "ListenUSBFunction"))
-                return bus_append_listen(m, field, eq);
-
-        return 0;
-}
-static int bus_append_timer_property(sd_bus_message *m, const char *field, const char *eq) {
-        if (STR_IN_SET(field, "WakeSystem",
-                              "RemainAfterElapse",
-                              "Persistent",
-                              "OnTimezoneChange",
-                              "OnClockChange",
-                              "FixedRandomDelay",
-                              "DeferReactivation"))
-                return bus_append_parse_boolean(m, field, eq);
-
-        if (STR_IN_SET(field, "AccuracySec",
-                              "RandomizedDelaySec",
-                              "RandomizedOffsetSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        if (STR_IN_SET(field, "OnActiveSec",
-                              "OnBootSec",
-                              "OnStartupSec",
-                              "OnUnitActiveSec",
-                              "OnUnitInactiveSec"))
-                return bus_append_timers_monotonic(m, field, eq);
-
-        if (streq(field, "OnCalendar"))
-                return bus_append_timers_calendar(m, field, eq);
-
-        return 0;
-}
-
-static int bus_append_unit_property(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
-        if (STR_IN_SET(field, "Description",
-                              "SourcePath",
-                              "OnFailureJobMode",
-                              "JobTimeoutAction",
-                              "JobTimeoutRebootArgument",
-                              "StartLimitAction",
-                              "FailureAction",
-                              "SuccessAction",
-                              "RebootArgument",
-                              "CollectMode"))
-                return bus_append_string(m, field, eq);
-
-        if (STR_IN_SET(field, "StopWhenUnneeded",
-                              "RefuseManualStart",
-                              "RefuseManualStop",
-                              "AllowIsolate",
-                              "IgnoreOnIsolate",
-                              "SurviveFinalKillSignal",
-                              "DefaultDependencies"))
-                return bus_append_parse_boolean(m, field, eq);
-
-        if (STR_IN_SET(field, "JobTimeoutSec",
-                              "JobRunningTimeoutSec",
-                              "StartLimitIntervalSec"))
-                return bus_append_parse_sec_rename(m, field, eq);
-
-        if (streq(field, "StartLimitBurst"))
-                return bus_append_safe_atou(m, field, eq);
-
-        if (STR_IN_SET(field, "SuccessActionExitStatus",
-                              "FailureActionExitStatus"))
-                return bus_append_action_exit_status(m, field, eq);
-
-        if (STR_IN_SET(field, "Documentation",
-                              "RequiresMountsFor",
-                              "WantsMountsFor",
-                              "Markers"))
-                return bus_append_strv(m, field, eq);
-
-        r = bus_try_append_unit_dependency(m, field, eq);
-        if (r != 0)
-                return r;
-
-        return bus_try_append_condition(m, field, eq);
-}
+static const BusProperty** unit_type_properties[_UNIT_TYPE_MAX] = {
+        [UNIT_SERVICE]   = service_unit_properties,
+        [UNIT_SOCKET]    = socket_unit_properties,
+        [UNIT_TIMER]     = timer_unit_properties,
+        [UNIT_PATH]      = path_unit_properties,
+        [UNIT_SLICE]     = slice_unit_properties,
+        [UNIT_SCOPE]     = scope_unit_properties,
+        [UNIT_MOUNT]     = mount_unit_properties,
+        [UNIT_AUTOMOUNT] = automount_unit_properties,
+        [UNIT_TARGET]    = other_unit_properties,
+        [UNIT_DEVICE]    = other_unit_properties,
+        [UNIT_SWAP]      = other_unit_properties,
+};
 
 int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const char *assignment) {
         const char *eq, *field;
@@ -2978,113 +2837,17 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
         field = strndupa_safe(assignment, eq - assignment);
         eq++;
 
-        switch (t) {
-        case UNIT_SERVICE:
-                r = bus_append_cgroup_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_execute_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_kill_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_service_property(m, field, eq);
-                if (r != 0)
-                        return r;
-                break;
-
-        case UNIT_SOCKET:
-                r = bus_append_cgroup_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_execute_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_kill_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_socket_property(m, field, eq);
-                if (r != 0)
-                        return r;
-                break;
-
-        case UNIT_TIMER:
-                r = bus_append_timer_property(m, field, eq);
-                if (r != 0)
-                        return r;
-                break;
-
-        case UNIT_PATH:
-                r = bus_append_path_property(m, field, eq);
-                if (r != 0)
-                        return r;
-                break;
-
-        case UNIT_SLICE:
-                r = bus_append_cgroup_property(m, field, eq);
-                if (r != 0)
-                        return r;
-                break;
-
-        case UNIT_SCOPE:
-                r = bus_append_cgroup_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_kill_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_scope_property(m, field, eq);
-                if (r != 0)
-                        return r;
-                break;
-
-        case UNIT_MOUNT:
-                r = bus_append_cgroup_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_execute_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_kill_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                r = bus_append_mount_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                break;
-
-        case UNIT_AUTOMOUNT:
-                r = bus_append_automount_property(m, field, eq);
-                if (r != 0)
-                        return r;
-
-                break;
-
-        case UNIT_TARGET:
-        case UNIT_DEVICE:
-        case UNIT_SWAP:
-                break;
-
-        default:
-                assert_not_reached();
-        }
-
-        r = bus_append_unit_property(m, field, eq);
-        if (r != 0)
-                return r;
+        for (const BusProperty** tables = ASSERT_PTR(unit_type_properties[t]); *tables; tables++)
+                for (const BusProperty *item = *tables; item->converter; item++)
+                        if (item->name) {
+                                if (streq(item->name, field))
+                                        return item->converter(m, field, eq);
+                        } else {
+                                /* If .name is not set, the function must be a "try" helper */
+                                r = item->converter(m, field, eq);
+                                if (r != 0)
+                                        return r;
+                        }
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                "Unknown assignment: %s", assignment);
