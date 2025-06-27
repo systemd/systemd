@@ -2048,34 +2048,39 @@ int cg_has_coredump_receive(const char *path) {
 }
 
 const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX] = {
-        [CGROUP_IO_RBPS_MAX]    = CGROUP_LIMIT_MAX,
-        [CGROUP_IO_WBPS_MAX]    = CGROUP_LIMIT_MAX,
-        [CGROUP_IO_RIOPS_MAX]   = CGROUP_LIMIT_MAX,
-        [CGROUP_IO_WIOPS_MAX]   = CGROUP_LIMIT_MAX,
+        [CGROUP_IO_RBPS_MAX]  = CGROUP_LIMIT_MAX,
+        [CGROUP_IO_WBPS_MAX]  = CGROUP_LIMIT_MAX,
+        [CGROUP_IO_RIOPS_MAX] = CGROUP_LIMIT_MAX,
+        [CGROUP_IO_WIOPS_MAX] = CGROUP_LIMIT_MAX,
 };
 
 static const char* const cgroup_io_limit_type_table[_CGROUP_IO_LIMIT_TYPE_MAX] = {
-        [CGROUP_IO_RBPS_MAX]    = "IOReadBandwidthMax",
-        [CGROUP_IO_WBPS_MAX]    = "IOWriteBandwidthMax",
-        [CGROUP_IO_RIOPS_MAX]   = "IOReadIOPSMax",
-        [CGROUP_IO_WIOPS_MAX]   = "IOWriteIOPSMax",
+        [CGROUP_IO_RBPS_MAX]  = "IOReadBandwidthMax",
+        [CGROUP_IO_WBPS_MAX]  = "IOWriteBandwidthMax",
+        [CGROUP_IO_RIOPS_MAX] = "IOReadIOPSMax",
+        [CGROUP_IO_WIOPS_MAX] = "IOWriteIOPSMax",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_io_limit_type, CGroupIOLimitType);
 
+void cgroup_io_limits_list(void) {
+        FOREACH_ARRAY(field, cgroup_io_limit_type_table, ELEMENTSOF(cgroup_io_limit_type_table))
+                puts(*field);
+}
+
 static const char *const cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
-        [CGROUP_CONTROLLER_CPU] = "cpu",
-        [CGROUP_CONTROLLER_CPUACCT] = "cpuacct",
-        [CGROUP_CONTROLLER_CPUSET] = "cpuset",
-        [CGROUP_CONTROLLER_IO] = "io",
-        [CGROUP_CONTROLLER_BLKIO] = "blkio",
-        [CGROUP_CONTROLLER_MEMORY] = "memory",
-        [CGROUP_CONTROLLER_DEVICES] = "devices",
-        [CGROUP_CONTROLLER_PIDS] = "pids",
-        [CGROUP_CONTROLLER_BPF_FIREWALL] = "bpf-firewall",
-        [CGROUP_CONTROLLER_BPF_DEVICES] = "bpf-devices",
-        [CGROUP_CONTROLLER_BPF_FOREIGN] = "bpf-foreign",
-        [CGROUP_CONTROLLER_BPF_SOCKET_BIND] = "bpf-socket-bind",
+        [CGROUP_CONTROLLER_CPU]                             = "cpu",
+        [CGROUP_CONTROLLER_CPUACCT]                         = "cpuacct",
+        [CGROUP_CONTROLLER_CPUSET]                          = "cpuset",
+        [CGROUP_CONTROLLER_IO]                              = "io",
+        [CGROUP_CONTROLLER_BLKIO]                           = "blkio",
+        [CGROUP_CONTROLLER_MEMORY]                          = "memory",
+        [CGROUP_CONTROLLER_DEVICES]                         = "devices",
+        [CGROUP_CONTROLLER_PIDS]                            = "pids",
+        [CGROUP_CONTROLLER_BPF_FIREWALL]                    = "bpf-firewall",
+        [CGROUP_CONTROLLER_BPF_DEVICES]                     = "bpf-devices",
+        [CGROUP_CONTROLLER_BPF_FOREIGN]                     = "bpf-foreign",
+        [CGROUP_CONTROLLER_BPF_SOCKET_BIND]                 = "bpf-socket-bind",
         [CGROUP_CONTROLLER_BPF_RESTRICT_NETWORK_INTERFACES] = "bpf-restrict-network-interfaces",
 };
 
