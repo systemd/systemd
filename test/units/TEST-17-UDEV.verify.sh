@@ -137,12 +137,12 @@ rm "${rules_dir}/loop.rules"
 
 # Empty rules.
 touch "${rules_dir}/empty.rules"
-assert_0 --root="${workdir}"
+assert_1 --root="${workdir}"
 : >"${exo}"
-assert_0 --root="${workdir}" --no-summary
+assert_1 --root="${workdir}" --no-summary
 
-# Directory with a single *.rules file.
-cp "${workdir}/default_output_1_success" "${exo}"
+# Directory with a single empty *.rules file.
+cp "${workdir}/output_0_files" "${exo}"
 assert_0 "${rules_dir}"
 
 # No rules files found in nosuchdir
