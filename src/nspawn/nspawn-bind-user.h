@@ -24,6 +24,6 @@ BindUserContext* bind_user_context_free(BindUserContext *c);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BindUserContext*, bind_user_context_free);
 
-int bind_user_prepare(const char *directory, char **bind_user, uid_t uid_shift, uid_t uid_range, CustomMount **custom_mounts, size_t *n_custom_mounts, BindUserContext **ret);
+int bind_user_prepare(const char *directory, char **bind_user, const char *bind_user_shell, bool bind_user_shell_copy, uid_t uid_shift, uid_t uid_range, CustomMount **custom_mounts, size_t *n_custom_mounts, BindUserContext **ret);
 
 int bind_user_setup(const BindUserContext *c, const char *root);
