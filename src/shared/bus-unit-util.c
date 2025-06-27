@@ -2080,6 +2080,19 @@ static int bus_append_protect_hostname(sd_bus_message *m, const char *field, con
         return 1;
 }
 
+static int bus_append_paths(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 0);
+        else
+                r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 1, field, eq);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -2503,16 +2516,8 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
                               "PathExistsGlob",
                               "PathChanged",
                               "PathModified",
-                              "DirectoryNotEmpty")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 0);
-                else
-                        r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 1, field, eq);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "DirectoryNotEmpty"))
+                return bus_append_paths(m, field, eq);
 
         if (STR_IN_SET(field, "TriggerLimitBurst", "PollLimitBurst"))
                 return bus_append_safe_atou(m, field, eq);
