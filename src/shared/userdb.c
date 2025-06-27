@@ -1669,7 +1669,7 @@ static void discover_membership_dropins(UserDBIterator *i, UserDBFlags flags) {
                         &i->dropins,
                         ".membership",
                         NULL,
-                        CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED,
+                        CONF_FILES_REGULAR|CONF_FILES_BASENAME,
                         USERDB_DROPIN_DIR_NULSTR("userdb"));
         if (r < 0)
                 log_debug_errno(r, "Failed to find membership drop-ins, ignoring: %m");

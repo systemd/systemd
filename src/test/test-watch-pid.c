@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "manager.h"
 #include "process-util.h"
 #include "rm-rf.h"

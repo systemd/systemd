@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <resolv.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-daemon.h"

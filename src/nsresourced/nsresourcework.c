@@ -6,9 +6,11 @@
 #include <linux/veth.h>
 #include <net/if.h>
 #include <poll.h>
+#include <sched.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <utmpx.h>
 
 #include "sd-daemon.h"
@@ -29,8 +31,6 @@
 #include "json-util.h"
 #include "main-func.h"
 #include "missing_magic.h"
-#include "missing_sched.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "netlink-util.h"

@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/wait.h>
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hash-funcs.h"
 #include "log.h"
-#include "missing_wait.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
 #include "pidref.h"

@@ -154,6 +154,10 @@ configure_file(
 ############################################################
 
 efi_includes = [
+        include_directories(
+                'include',
+                is_system : true,
+        ),
         fundamental_include,
         include_directories('.'),
         version_include,
@@ -164,6 +168,7 @@ efi_c_args = [
         '-ffreestanding',
         '-fno-strict-aliasing',
         '-fshort-wchar',
+        '-D__DEFINED_wchar_t', # To make musl not define wchar_t as int, rather than short.
         '-include', 'efi_config.h',
 ]
 

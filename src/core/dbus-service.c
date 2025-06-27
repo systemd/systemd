@@ -22,7 +22,6 @@
 #include "glyph-util.h"
 #include "locale-util.h"
 #include "manager.h"
-#include "missing_fcntl.h"
 #include "mount-util.h"
 #include "open-file.h"
 #include "path-util.h"
@@ -273,7 +272,7 @@ int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void 
                 /* glibc implies O_LARGEFILE everywhere on 64-bit off_t builds, but forgets to hide it away on
                  * F_GETFL, but provides no definition to check for that. Let's mask the flag away manually,
                  * to not confuse clients. */
-                flags &= ~RAW_O_LARGEFILE;
+                flags &= ~O_LARGEFILE;
 
                 (void) fd_get_path(i->fd, &path);
 

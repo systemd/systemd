@@ -3,6 +3,8 @@
   Copyright © 2017 Felipe Sateler
 ***/
 
+#include <unistd.h>
+
 #include "sd-bus.h"
 
 #include "alloc-util.h"

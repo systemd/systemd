@@ -6,6 +6,7 @@
 #include <net/if.h>
 #include <sys/file.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-id128.h"
