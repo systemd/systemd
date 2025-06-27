@@ -2270,6 +2270,62 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
         return 0;
 }
 
+static int bpffs_prepare(
+                int *ret_sock_fd,
+                PidRef *ret_pid,
+                int *ret_pipe) {
+
+        _cleanup_close_pair_ int socket_fds[2] = EBADF_PAIR, bpffs_errno_pipe[2] = EBADF_PAIR;
+        int r;
+
+        assert(ret_sock_fd);
+        assert(ret_pid);
+        assert(ret_pipe);
+
+        r = pipe2(bpffs_errno_pipe, O_CLOEXEC|O_NONBLOCK);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to create pipe: %m");
+
+        r = socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, socket_fds);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+        r = pidref_safe_fork("(sd-bpffs)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, ret_pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork: %m");
+        if (r == 0) {
+                _cleanup_close_ int fs_fd = -EBADF;
+
+                bpffs_errno_pipe[0] = safe_close(bpffs_errno_pipe[0]);
+
+                fs_fd = receive_one_fd(socket_fds[0], 0);
+                if (fs_fd < 0) {
+                        log_debug_errno(fs_fd, "Failed to receive_one_fd from parent: %m");
+                        report_errno_and_exit(bpffs_errno_pipe[1], fs_fd);
+                }
+
+                r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
+                if (r < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_CMD_CREATE: %m");
+                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
+                }
+
+                r = send_one_fd(socket_fds[0], fs_fd, 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send_one_fd to child: %m");
+                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        bpffs_errno_pipe[1] = safe_close(bpffs_errno_pipe[1]);
+        *ret_sock_fd = TAKE_FD(socket_fds[1]);
+        *ret_pipe = TAKE_FD(bpffs_errno_pipe[0]);
+
+        return 0;
+}
+
 static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
@@ -3383,7 +3439,8 @@ static int apply_mount_namespace(
                 bool needs_sandboxing,
                 char **reterr_path,
                 uid_t exec_directory_uid,
-                gid_t exec_directory_gid) {
+                gid_t exec_directory_gid,
+                int bpffs_socket_fd) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
@@ -3595,6 +3652,9 @@ static int apply_mount_namespace(
                 .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
+                .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
+
+                .bpffs_socket_fd = bpffs_socket_fd,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4235,7 +4295,8 @@ static int setup_delegated_namespaces(
                 const ExecCommand *command,
                 bool needs_sandboxing,
                 bool have_cap_sys_admin,
-                int *reterr_exit_status) {
+                int *reterr_exit_status,
+                int bpffs_socket_fd) {
 
         int r;
 
@@ -4357,7 +4418,8 @@ static int setup_delegated_namespaces(
                                           needs_sandboxing,
                                           &error_path,
                                           uid,
-                                          gid);
+                                          gid,
+                                          bpffs_socket_fd);
                 if (r < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_error_errno(r, "Failed to set up mount namespacing%s%s: %m",
@@ -4692,7 +4754,9 @@ int exec_invoke(
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
         int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
+        _cleanup_close_ int bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
         size_t n_storage_fds, n_socket_fds, n_extra_fds;
+        _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pid = PIDREF_NULL;
 
         assert(command);
         assert(context);
@@ -5408,6 +5472,23 @@ int exec_invoke(
                 }
         }
 
+        if (context->private_bpf != PRIVATE_BPF_NO) {
+                /* To create a BPF token, the bpffs has to be mounted with the fsopen()/fsmount() API.
+                 * More specifically, fsopen() must be called within the user namespace, then all the
+                 * fsconfig() and fsmount() as privileged user.
+                 * To do this, we split the code into a bpffs_prepare() and mount_bpffs() functions,
+                 * the first runs as privileged user the second as unprivileged one, and they coordinate
+                 * by sending messages and file descriptors via a socket pair.
+                 * This is the kernel sample doing this:
+                 * https://github.com/torvalds/linux/blob/master/tools/testing/selftests/bpf/prog_tests/token.c
+                 */
+                r = bpffs_prepare(&bpffs_socket_fd, &bpffs_pid, &bpffs_errno_pipe);
+                if (r < 0) {
+                        *exit_status = EXIT_BPF;
+                        return log_error_errno(r, "Failed to mount bpffs in bpffs_prepare(): %m");
+                }
+        }
+
         if (needs_sandboxing && !have_cap_sys_admin && exec_needs_cap_sys_admin(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
@@ -5446,7 +5527,8 @@ int exec_invoke(
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
-                        exit_status);
+                        exit_status,
+                        bpffs_socket_fd);
         if (r < 0)
                 return r;
 
@@ -5505,9 +5587,23 @@ int exec_invoke(
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
-                        exit_status);
+                        exit_status,
+                        bpffs_socket_fd);
         if (r < 0)
                 return r;
+
+        if (context->private_bpf != PRIVATE_BPF_NO) {
+                r = pidref_wait_for_terminate_and_check("(sd-bpffs)", &bpffs_pid, /* flags = */ 0);
+                TAKE_PIDREF(bpffs_pid);
+                if (r < 0)
+                        return r;
+                /* If something strange happened with the child, let's consider this fatal, too */
+                if (r != EXIT_SUCCESS) {
+                        if (read(bpffs_errno_pipe, &r, sizeof(r)) == sizeof(r))
+                                return log_debug_errno(r, "bpffs helper exited with error: %m");
+                        return -EIO;
+                }
+        }
 
         if (needs_sandboxing && exec_needs_cgroup_namespace(context) && params->cgroup_path) {
                 /* Move ourselves into the subcgroup now *after* we've unshared the cgroup namespace, which
