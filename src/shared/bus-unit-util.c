@@ -1467,6 +1467,92 @@ static int bus_append_namespace_list(sd_bus_message *m, const char *field, const
         return 1;
 }
 
+static int bus_append_bind_paths(sd_bus_message *m, const char *field, const char *eq) {
+        const char *p = eq;
+        int r;
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "a(ssbt)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(ssbt)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        for (;;) {
+                _cleanup_free_ char *source = NULL, *destination = NULL;
+                char *s = NULL, *d = NULL;
+                bool ignore_enoent = false;
+                uint64_t flags = MS_REC;
+
+                r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse argument: %m");
+                if (r == 0)
+                        break;
+
+                s = source;
+                if (s[0] == '-') {
+                        ignore_enoent = true;
+                        s++;
+                }
+
+                if (p && p[-1] == ':') {
+                        r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument: %m");
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Missing argument after ':': %s", eq);
+
+                        d = destination;
+
+                        if (p && p[-1] == ':') {
+                                _cleanup_free_ char *options = NULL;
+
+                                r = extract_first_word(&p, &options, NULL, EXTRACT_UNQUOTE);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse argument: %m");
+
+                                if (isempty(options) || streq(options, "rbind"))
+                                        flags = MS_REC;
+                                else if (streq(options, "norbind"))
+                                        flags = 0;
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unknown options: %s", eq);
+                        }
+                } else
+                        d = s;
+
+                r = sd_bus_message_append(m, "(ssbt)", s, d, ignore_enoent, flags);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1807,92 +1893,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return bus_append_namespace_list(m, field, eq);
 
         if (STR_IN_SET(field, "BindPaths",
-                              "BindReadOnlyPaths")) {
-                const char *p = eq;
-
-                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'v', "a(ssbt)");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'a', "(ssbt)");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                for (;;) {
-                        _cleanup_free_ char *source = NULL, *destination = NULL;
-                        char *s = NULL, *d = NULL;
-                        bool ignore_enoent = false;
-                        uint64_t flags = MS_REC;
-
-                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse argument: %m");
-                        if (r == 0)
-                                break;
-
-                        s = source;
-                        if (s[0] == '-') {
-                                ignore_enoent = true;
-                                s++;
-                        }
-
-                        if (p && p[-1] == ':') {
-                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse argument: %m");
-                                if (r == 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Missing argument after ':': %s",
-                                                               eq);
-
-                                d = destination;
-
-                                if (p && p[-1] == ':') {
-                                        _cleanup_free_ char *options = NULL;
-
-                                        r = extract_first_word(&p, &options, NULL, EXTRACT_UNQUOTE);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to parse argument: %m");
-
-                                        if (isempty(options) || streq(options, "rbind"))
-                                                flags = MS_REC;
-                                        else if (streq(options, "norbind"))
-                                                flags = 0;
-                                        else
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                                       "Unknown options: %s",
-                                                                       eq);
-                                }
-                        } else
-                                d = s;
-
-                        r = sd_bus_message_append(m, "(ssbt)", s, d, ignore_enoent, flags);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                }
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "BindReadOnlyPaths"))
+                return bus_append_bind_paths(m, field, eq);
 
         if (streq(field, "TemporaryFileSystem")) {
                 const char *p = eq;
