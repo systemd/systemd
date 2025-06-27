@@ -3,10 +3,8 @@
 
 #include "forward.h"
 
-#if HAVE_ELFUTILS
 int dlopen_dw(void);
 int dlopen_elf(void);
-#endif
 
 /* Parse an ELF object in a forked process, so that errors while iterating over
  * untrusted and potentially malicious data do not propagate to the main caller's process.
