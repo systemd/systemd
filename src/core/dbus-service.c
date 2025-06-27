@@ -203,6 +203,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                         u,
                         is_image ? "mount-image" : "bind-mount",
                         N_("Authentication is required to mount on '$(unit)'."),
+                        /* transient_owner = */ false, /* Establishing arbitrary mount is disallowed even for owners */
                         message,
                         error);
         if (r < 0)
