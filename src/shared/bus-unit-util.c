@@ -1304,6 +1304,23 @@ static int bus_append_resource_limit(sd_bus_message *m, const char *field, const
         return 1;
 }
 
+static int bus_append_string_with_ignore(sd_bus_message *m, const char *field, const char *eq) {
+        int ignore = 0;
+        const char *s = eq;
+        int r;
+
+        if (eq[0] == '-') {
+                ignore = 1;
+                s = eq + 1;
+        }
+
+        r = sd_bus_message_append(m, "(sv)", field, "(bs)", ignore, s);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_capabilities(sd_bus_message *m, const char *field, const char *eq) {
         uint64_t sum = 0;
         bool invert = false;
@@ -2409,8 +2426,6 @@ static int bus_append_automount_property(sd_bus_message *m, const char *field, c
 }
 
 static int bus_append_execute_property(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
         if (STR_IN_SET(field, "User",
                               "Group",
                               "UtmpIdentifier",
@@ -2580,21 +2595,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return bus_append_resource_limit(m, field, eq);
 
         if (STR_IN_SET(field, "AppArmorProfile",
-                              "SmackProcessLabel")) {
-                int ignore = 0;
-                const char *s = eq;
-
-                if (eq[0] == '-') {
-                        ignore = 1;
-                        s = eq + 1;
-                }
-
-                r = sd_bus_message_append(m, "(sv)", field, "(bs)", ignore, s);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                              "SmackProcessLabel"))
+                return bus_append_string_with_ignore(m, field, eq);
 
         if (STR_IN_SET(field, "CapabilityBoundingSet",
                               "AmbientCapabilities"))
