@@ -487,6 +487,28 @@ static int bus_append_parse_io_device_latency(sd_bus_message *m, const char *fie
         return 1;
 }
 
+static int bus_append_bpf_program(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 0);
+        else {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&eq, &word, ":", 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s: %m", field);
+
+                r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, word, eq);
+        }
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
@@ -1001,25 +1023,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "IPEgressFilterPath"))
                 return bus_append_ip_filter_path(m, field, eq);
 
-        if (streq(field, "BPFProgram")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 0);
-                else {
-                        _cleanup_free_ char *word = NULL;
-
-                        r = extract_first_word(&eq, &word, ":", 0);
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s: %m", field);
-
-                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, word, eq);
-                }
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (streq(field, "BPFProgram"))
+                return  bus_append_bpf_program(m, field, eq);
 
         if (STR_IN_SET(field, "SocketBindAllow",
                               "SocketBindDeny")) {
