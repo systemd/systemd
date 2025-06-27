@@ -5,6 +5,7 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/xattr.h>
+#include <unistd.h>
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
 #endif

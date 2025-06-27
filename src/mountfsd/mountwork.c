@@ -4,6 +4,7 @@
 #include <poll.h>
 #include <stdlib.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"
