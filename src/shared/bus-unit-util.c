@@ -1113,6 +1113,56 @@ static int bus_append_load_credential(sd_bus_message *m, const char *field, cons
         return 1;
 }
 
+static int bus_append_import_credential(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        if (isempty(eq))
+                r = sd_bus_message_append(m, "(sv)", "ImportCredential", "as", 0);
+        else {
+                _cleanup_free_ char *word = NULL;
+                const char *p = eq;
+
+                r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s=.", field);
+
+                if (!p)
+                        r = sd_bus_message_append(m, "(sv)", "ImportCredential", "as", 1, eq);
+                else {
+                        /* We need to send ImportCredentialEx */
+                        r = sd_bus_message_open_container(m, 'r', "sv");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append_basic(m, 's', "ImportCredentialEx");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_open_container(m, 'v', "a(ss)");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "a(ss)", 1, word, p);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_close_container(m);
+                }
+        }
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1389,59 +1439,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (STR_IN_SET(field, "LoadCredential", "LoadCredentialEncrypted"))
                 return bus_append_load_credential(m, field, eq);
 
-        if (streq(field, "ImportCredential")) {
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "(sv)", field, "as", 0);
-                else
-                        r = sd_bus_message_append(m, "(sv)", field, "as", 1, eq);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
-
-        if (streq(field, "ImportCredentialEx")) {
-                r = sd_bus_message_open_container(m, 'r', "sv");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_basic(m, 's', field);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'v', "a(ss)");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                if (isempty(eq))
-                        r = sd_bus_message_append(m, "a(ss)", 0);
-                else {
-                         _cleanup_free_ char *word = NULL;
-                        const char *p = eq;
-
-                        r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s=.", field);
-
-                        r = sd_bus_message_append(m, "a(ss)", 1, word, p);
-                }
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (STR_IN_SET(field, "ImportCredential", "ImportCredentialEx"))
+                return bus_append_import_credential(m, field, eq);
 
         if (streq(field, "LogExtraFields")) {
                 r = sd_bus_message_open_container(m, 'r', "sv");
