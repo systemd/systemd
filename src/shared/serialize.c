@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
 
@@ -16,7 +17,6 @@
 #include "image-policy.h"
 #include "log.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "ratelimit.h"
