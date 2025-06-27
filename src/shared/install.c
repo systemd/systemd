@@ -3298,7 +3298,9 @@ static int presets_find_config(RuntimeScope scope, const char *root_dir, char **
         else
                 assert_not_reached();
 
-        return conf_files_list_strv(files, ".preset", root_dir, 0, dirs);
+        return conf_files_list_strv(files, ".preset", root_dir,
+                                    CONF_FILES_REGULAR | CONF_FILES_CHASE_BASENAME | CONF_FILES_FILTER_MASKED,
+                                    dirs);
 }
 
 static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePresets *presets) {

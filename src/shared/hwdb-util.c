@@ -601,7 +601,9 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 
         trie->nodes_count++;
 
-        err = conf_files_list_strv(&files, ".hwdb", root, 0, conf_file_dirs);
+        err = conf_files_list_strv(&files, ".hwdb", root,
+                                   CONF_FILES_REGULAR | CONF_FILES_CHASE_BASENAME | CONF_FILES_FILTER_MASKED,
+                                   conf_file_dirs);
         if (err < 0)
                 return log_error_errno(err, "Failed to enumerate hwdb files: %m");
 

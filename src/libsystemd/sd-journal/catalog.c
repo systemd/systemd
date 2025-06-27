@@ -450,7 +450,9 @@ int catalog_update(const char *database, const char *root, const char* const *di
                 dirs = catalog_file_dirs;
 
         _cleanup_strv_free_ char **files = NULL;
-        r = conf_files_list_strv(&files, ".catalog", root, 0, dirs);
+        r = conf_files_list_strv(&files, ".catalog", root,
+                                 CONF_FILES_REGULAR | CONF_FILES_CHASE_BASENAME | CONF_FILES_FILTER_MASKED,
+                                 dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to get catalog files: %m");
 
