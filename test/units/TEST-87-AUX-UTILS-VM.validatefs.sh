@@ -74,7 +74,7 @@ MountPoint=/somewhere/else
 Format=ext4
 EOF
 
-systemd-repart --dry-run=no --empty=create --size=256M --definitions=/tmp/validatefs-test /var/tmp/validatefs-test.raw
+systemd-repart --dry-run=no --empty=create --size=410M --definitions=/tmp/validatefs-test /var/tmp/validatefs-test.raw
 
 systemd-dissect --mount --mkdir /var/tmp/validatefs-test.raw /tmp/validatefs-test.mount
 

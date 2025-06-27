@@ -341,6 +341,11 @@
         and the placing algorithm restarted. By default, a minimum size constraint of 10M and no maximum size
         constraint is set.</para>
 
+        <para>If <varname>Format=</varname> is set, the minimum size is automatically raised to the minimum
+        file system size for the selected file system type, if known. Moreover, for the ESP/XBOOTLDR
+        partitions the minimum is raised to 100M (for 512b sector images) or 260M (for 4K sector images)
+        automatically, if specified smaller.</para>
+
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
@@ -1003,6 +1008,25 @@
         table. As these extended attributes are stored inside the file system, they are typically
         authenticated as part of the file system (assuming it is contained in protected volume; i.e. LUKS or
         dm-verity), and hence may be used to securely validate the matching partition table fields.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FileSystemSectorSize=</varname></term>
+
+        <listitem><para>Controls the sector size for any file system, LUKS volume or Verity volume formatted
+        on this partition. Expects a power of 2 as value, and must be equal or larger than 512. Typically
+        it's recommended to set the file system sector size to 4096, even on 512 sector disks (and in
+        particular for images that are only ever intended to be stored as file on disks), in order to
+        optimize performance. However, for compatibility with foreign operating systems or firmware it might
+        be advisable to use the native sector size of the backing disk.</para>
+
+        <para>If unspecified and operating on a block device, defaults to the native sector size of the
+        device. If unspecified and operating on a disk image file defaults to 4096.</para>
+
+        <para>Regardless of what is configured here, or which default is picked, the file system sector size
+        is always increased to be equal or larger than the disk sector size.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>

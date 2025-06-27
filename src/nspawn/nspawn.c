@@ -279,7 +279,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_syscall_deny_list, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_seccomp, seccomp_releasep);
 #endif
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
-STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_reset);
+STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_done);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
@@ -1460,8 +1460,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse CPU affinity mask %s: %m", optarg);
 
-                        cpu_set_reset(&arg_cpu_set);
-                        arg_cpu_set = cpuset;
+                        cpu_set_done_and_replace(arg_cpu_set, cpuset);
                         arg_settings_mask |= SETTING_CPU_AFFINITY;
                         break;
                 }
@@ -4908,10 +4907,8 @@ static int merge_settings(Settings *settings, const char *path) {
 
                 if (!arg_settings_trusted)
                         log_warning("Ignoring CPUAffinity= setting, file '%s' is not trusted.", path);
-                else {
-                        cpu_set_reset(&arg_cpu_set);
-                        arg_cpu_set = TAKE_STRUCT(settings->cpu_set);
-                }
+                else
+                        cpu_set_done_and_replace(arg_cpu_set, settings->cpu_set);
         }
 
         if ((arg_settings_mask & SETTING_RESOLV_CONF) == 0 &&

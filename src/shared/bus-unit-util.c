@@ -615,7 +615,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "StartupAllowedCPUs",
                               "AllowedMemoryNodes",
                               "StartupAllowedMemoryNodes")) {
-                _cleanup_(cpu_set_reset) CPUSet cpuset = {};
+
+                _cleanup_(cpu_set_done) CPUSet cpuset = {};
                 _cleanup_free_ uint8_t *array = NULL;
                 size_t allocated;
 
@@ -1564,7 +1565,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         }
 
         if (streq(field, "CPUAffinity")) {
-                _cleanup_(cpu_set_reset) CPUSet cpuset = {};
+                _cleanup_(cpu_set_done) CPUSet cpuset = {};
                 _cleanup_free_ uint8_t *array = NULL;
                 size_t allocated;
 
@@ -1599,7 +1600,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         }
 
         if (streq(field, "NUMAMask")) {
-                _cleanup_(cpu_set_reset) CPUSet nodes = {};
+                _cleanup_(cpu_set_done) CPUSet nodes = {};
                 _cleanup_free_ uint8_t *array = NULL;
                 size_t allocated;
 
@@ -2687,7 +2688,8 @@ static int bus_append_timer_property(sd_bus_message *m, const char *field, const
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field, "AccuracySec",
-                              "RandomizedDelaySec"))
+                              "RandomizedDelaySec",
+                              "RandomizedOffsetSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
         if (STR_IN_SET(field, "OnActiveSec",
