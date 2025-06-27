@@ -1634,6 +1634,29 @@ static int bus_append_root_hash(sd_bus_message *m, const char *field, const char
         return bus_append_byte_array(m, field, roothash_decoded, roothash_decoded_size);
 }
 
+static int bus_append_root_hash_signature(sd_bus_message *m, const char *field, const char *eq) {
+        char *value;
+        _cleanup_free_ void *roothash_sig_decoded = NULL;
+        size_t roothash_sig_decoded_size = 0;
+        int r;
+
+        /* We have the path to a roothash signature to load and decode, eg: RootHash=/foo/bar.roothash.p7s */
+        if (path_is_absolute(eq))
+                return bus_append_string(m, "RootHashSignaturePath", eq);
+
+        if (!(value = startswith(eq, "base64:")))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to decode %s=%s: neither a path nor starts with 'base64:'.",
+                                       field, eq);
+
+        /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
+        r = unbase64mem(value, &roothash_sig_decoded, &roothash_sig_decoded_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode %s=%s: %m", field, eq);
+
+        return bus_append_byte_array(m, field, roothash_sig_decoded, roothash_sig_decoded_size);
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1983,25 +2006,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "RootHash"))
                 return bus_append_root_hash(m, field, eq);
 
-        if (streq(field, "RootHashSignature")) {
-                _cleanup_free_ void *roothash_sig_decoded = NULL;
-                char *value;
-                size_t roothash_sig_decoded_size = 0;
-
-                /* We have the path to a roothash signature to load and decode, eg: RootHash=/foo/bar.roothash.p7s */
-                if (path_is_absolute(eq))
-                        return bus_append_string(m, "RootHashSignaturePath", eq);
-
-                if (!(value = startswith(eq, "base64:")))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decode RootHashSignature= '%s', not a path but doesn't start with 'base64:'.", eq);
-
-                /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
-                r = unbase64mem(value, &roothash_sig_decoded, &roothash_sig_decoded_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to decode RootHashSignature= '%s': %m", eq);
-
-                return bus_append_byte_array(m, field, roothash_sig_decoded, roothash_sig_decoded_size);
-        }
+        if (streq(field, "RootHashSignature"))
+                return bus_append_root_hash_signature(m, field, eq);
 
         if (streq(field, "RootImageOptions")) {
                 _cleanup_strv_free_ char **l = NULL;
