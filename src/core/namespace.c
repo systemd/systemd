@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "base-filesystem.h"
+#include "bitfield.h"
 #include "chase.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
@@ -17,6 +18,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -36,6 +38,7 @@
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -79,6 +82,7 @@ typedef enum MountMode {
         MOUNT_EXTENSION_IMAGE,     /* Mounted outside the root directory, and used by subsequent mounts */
         MOUNT_MQUEUEFS,
         MOUNT_READ_WRITE_IMPLICIT, /* Should have the lowest priority. */
+        MOUNT_BPFFS,               /* Special mount for bpffs, which is mounted with fsmount() and move_mount() */
         _MOUNT_MODE_MAX,
         _MOUNT_MODE_INVALID = -EINVAL,
 } MountMode;
@@ -161,11 +165,15 @@ static const MountEntry protect_kernel_tunables_proc_table[] = {
 
 static const MountEntry protect_kernel_tunables_sys_table[] = {
         { "/sys",                MOUNT_READ_ONLY,           false },
-        { "/sys/fs/bpf",         MOUNT_READ_ONLY,           true  },
         { "/sys/fs/cgroup",      MOUNT_READ_WRITE_IMPLICIT, false }, /* READ_ONLY is set by ProtectControlGroups= option */
         { "/sys/fs/selinux",     MOUNT_READ_WRITE_IMPLICIT, true  },
         { "/sys/kernel/debug",   MOUNT_READ_ONLY,           true  },
         { "/sys/kernel/tracing", MOUNT_READ_ONLY,           true  },
+};
+
+/* PrivateBPF= option */
+static const MountEntry private_bpf_no_table[] = {
+        { "/sys/fs/bpf",         MOUNT_READ_ONLY,    true  },
 };
 
 /* ProtectKernelModules= option */
@@ -922,6 +930,36 @@ static int append_protect_system(MountList *ml, ProtectSystem protect_system, bo
         case PROTECT_SYSTEM_FULL:
                 return append_static_mounts(ml, protect_system_full_table, ELEMENTSOF(protect_system_full_table), ignore_protect);
 
+        default:
+                assert_not_reached();
+        }
+}
+
+static int append_private_bpf(
+                MountList *ml,
+                PrivateBPF private_bpf,
+                bool protect_kernel_tunables,
+                bool ignore_protect,
+                const NamespaceParameters *p) {
+
+        assert(ml);
+
+        switch (private_bpf) {
+        case PRIVATE_BPF_NO:
+                if (protect_kernel_tunables)
+                        return append_static_mounts(ml, private_bpf_no_table, ELEMENTSOF(private_bpf_no_table), ignore_protect);
+                return 0;
+        case PRIVATE_BPF_YES: {
+                MountEntry *me = mount_list_extend(ml);
+                if (!me)
+                        return log_oom_debug();
+
+                *me = (MountEntry) {
+                        .path_const = "/sys/fs/bpf",
+                        .mode = MOUNT_BPFFS,
+                };
+                return 0;
+        }
         default:
                 assert_not_reached();
         }
@@ -1697,6 +1735,35 @@ static int mount_overlay(const MountEntry *m) {
         return 1;
 }
 
+static int mount_bpffs(const MountEntry *m, int socket_fd) {
+        int r;
+
+        assert(m);
+        assert(socket_fd >= 0);
+
+        _cleanup_close_ int fs_fd = fsopen("bpf", 0);
+        if (fs_fd < 0)
+                return log_debug_errno(errno, "Failed to fsopen: %m");
+
+        r = send_one_fd(socket_fd, fs_fd, /* flags = */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send_one_fd to child: %m");
+
+        _cleanup_close_ int bpffs_fd = receive_one_fd(socket_fd, /* flags = */ 0);
+        if (bpffs_fd < 0)
+                return log_debug_errno(bpffs_fd, "Failed to receive_one_fd from child: %m");
+
+        _cleanup_close_ int mnt_fd = fsmount(bpffs_fd, 0, 0);
+        if (mnt_fd < 0)
+                return log_debug_errno(errno, "Failed to fsmount bpffs: %m");
+
+        r = move_mount(mnt_fd, "", AT_FDCWD, mount_entry_path(m), MOVE_MOUNT_F_EMPTY_PATH);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to move bpffs mount to %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
 static int follow_symlink(
                 const char *root_directory,
                 MountEntry *m) {
@@ -1953,6 +2020,9 @@ static int apply_one_mount(
         case MOUNT_OVERLAY:
                 return mount_overlay(m);
 
+        case MOUNT_BPFFS:
+                return mount_bpffs(m, p->bpffs_socket_fd);
+
         default:
                 assert_not_reached();
         }
@@ -2151,6 +2221,7 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
                 p->protect_kernel_tunables ||
                 p->protect_proc != PROTECT_PROC_DEFAULT ||
                 p->proc_subset != PROC_SUBSET_ALL ||
+                p->private_bpf != PRIVATE_BPF_NO ||
                 p->private_pids != PRIVATE_PIDS_NO;
 }
 
@@ -2650,6 +2721,10 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 return r;
 
         r = append_protect_system(&ml, p->protect_system, false);
+        if (r < 0)
+                return r;
+
+        r = append_private_bpf(&ml, p->private_bpf, p->protect_kernel_tunables, /* ignore_protect = */ false, p);
         if (r < 0)
                 return r;
 
@@ -3887,6 +3962,64 @@ static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
+
+static const char* const private_bpf_table[_PRIVATE_BPF_MAX] = {
+        [PRIVATE_BPF_NO]    = "no",
+        [PRIVATE_BPF_YES]   = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(private_bpf, PrivateBPF);
+
+#include "bpf-delegate-configs.inc"
+
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t);
+
+char* bpf_delegate_commands_to_string(uint64_t u) {
+        if (u == UINT64_MAX)
+                return strdup("any");
+
+        _cleanup_free_ char *buf = NULL;
+
+        BIT_FOREACH(i, u)
+                if (strextendf_with_separator(&buf, ",", "%s", bpf_delegate_cmd_to_string(i)) < 0)
+                        return NULL;
+
+        return TAKE_PTR(buf);
+}
+
+int bpf_delegate_commands_from_string(const char *s, uint64_t *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "any")) {
+                *ret = UINT64_MAX;
+                return 0;
+        }
+
+        uint64_t mask = 0;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", /* flags */ 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = bpf_delegate_cmd_from_string(word);
+                if (r < 0)
+                        log_warning_errno(r, "Invalid BPF delegate command: %s", word);
+
+                mask |= UINT64_C(1) << r;
+        }
+
+        *ret = mask;
+
+        return 0;
+}
 
 static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_NO]           = "no",
