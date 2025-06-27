@@ -525,9 +525,8 @@ fail_close:
 }
 
 static int manager_enumerate_sessions(Manager *m) {
-        _cleanup_strv_free_ char **fdnames = NULL;
         _cleanup_closedir_ DIR *d = NULL;
-        int r = 0, n;
+        int r = 0;
 
         assert(m);
 
@@ -560,6 +559,15 @@ static int manager_enumerate_sessions(Manager *m) {
                         RET_GATHER(r, log_warning_errno(k, "Failed to deserialize session '%s', ignoring: %m", s->id));
         }
 
+        return r;
+}
+
+static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd) {
+        _cleanup_strv_free_ char **fdnames = NULL;
+        int varlink_fd = -EBADF, n, r;
+
+        assert(ret_varlink_fd);
+
         n = sd_listen_fds_with_names(/* unset_environment = */ true, &fdnames);
         if (n < 0)
                 return log_error_errno(n, "Failed to acquire passed fd list: %m");
@@ -567,9 +575,21 @@ static int manager_enumerate_sessions(Manager *m) {
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
 
+                if (streq_ptr(fdnames[i], "varlink")) {
+                        if (varlink_fd < 0)
+                                varlink_fd = fd;
+                        else {
+                                log_debug("Received multiple varlink sockets, ignoring");
+                                (void) close_and_notify_warn(fd, fdnames[i]);
+                        }
+
+                        continue;
+                }
+
                 RET_GATHER(r, manager_attach_session_fd_one_consume(m, fdnames[i], fd));
         }
 
+        *ret_varlink_fd = varlink_fd;
         return r;
 }
 
@@ -1171,6 +1191,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 }
 
 static int manager_startup(Manager *m) {
+        _cleanup_close_ int varlink_fd = -EBADF;
         int r;
         Seat *seat;
         Session *session;
@@ -1202,10 +1223,6 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = manager_varlink_init(m);
-        if (r < 0)
-                return r;
-
         /* Instantiate magic seat 0 */
         r = manager_add_seat(m, "seat0", &m->seat0);
         if (r < 0)
@@ -1232,6 +1249,10 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Session enumeration failed: %m");
 
+        r = manager_enumerate_fds(m, &varlink_fd);
+        if (r < 0)
+                log_warning_errno(r, "File descriptor enumeration failed: %m");
+
         r = manager_enumerate_inhibitors(m);
         if (r < 0)
                 log_warning_errno(r, "Inhibitor enumeration failed: %m");
@@ -1239,6 +1260,10 @@ static int manager_startup(Manager *m) {
         r = manager_enumerate_buttons(m);
         if (r < 0)
                 log_warning_errno(r, "Button enumeration failed: %m");
+
+        r = manager_varlink_init(m, TAKE_FD(varlink_fd));
+        if (r < 0)
+                return r;
 
         manager_load_scheduled_shutdown(m);
 
