@@ -23,6 +23,9 @@
 
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
+static bool with_container = true;
+static bool with_consoles = true;
+static bool with_builtins = true;
 
 static int add_getty_impl(const char *tty, const char *type, const char *unit_path) {
         int r;
@@ -147,8 +150,20 @@ static int add_credential_gettys(void) {
                                 break;
                         }
 
-                        if (startswith(tty, "#"))
+                        if (startswith(tty, "#")) {
+                                const char *comment = skip_leading_chars(tty, WHITESPACE);
+
+                                if (streq(comment, "no-auto"))
+                                        with_container = with_consoles = with_builtins = false;
+                                else if (streq(comment, "no-container"))
+                                        with_container = false;
+                                else if (streq(comment, "no-consoles"))
+                                        with_consoles = false;
+                                else if (streq(comment, "no-builtins"))
+                                        with_builtins = false;
+
                                 continue;
+                        }
 
                         r = t->func(tty);
                         if (r < 0)
@@ -210,51 +225,54 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (r < 0)
                 return r;
 
-        if (detect_container() > 0)
+        if (with_container && detect_container() > 0)
                 /* Add console shell and look at $container_ttys, but don't do add any
                  * further magic if we are in a container. */
                 return run_container();
 
         /* Automatically add in a serial getty on all active kernel consoles */
-        _cleanup_strv_free_ char **consoles = NULL;
-        r = get_kernel_consoles(&consoles);
-        if (r < 0)
-                log_warning_errno(r, "Failed to get active kernel consoles, ignoring: %m");
-        else if (r > 0)
-                STRV_FOREACH(i, consoles) {
-                        /* We assume that gettys on virtual terminals are started via manual configuration
-                         * and do this magic only for non-VC terminals. */
-                        if (tty_is_vc(*i))
+        if (with_consoles) {
+                _cleanup_strv_free_ char **consoles = NULL;
+                r = get_kernel_consoles(&consoles);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to get active kernel consoles, ignoring: %m");
+                else if (r > 0)
+                        STRV_FOREACH(i, consoles) {
+                                /* We assume that gettys on virtual terminals are started via manual configuration
+                                 * and do this magic only for non-VC terminals. */
+                                if (tty_is_vc(*i))
+                                        continue;
+
+                                if (verify_tty(*i) < 0)
+                                        continue;
+
+                                r = add_serial_getty(*i);
+                                if (r < 0)
+                                        return r;
+                        }
+        }
+
+        /* Automatically add a serial getty to each available virtualizer console. */
+        if (with_builtins)
+                FOREACH_STRING(j,
+                               "hvc0",
+                               "xvc0",
+                               "hvsi0",
+                               "sclp_line0",
+                               "ttysclp0",
+                               "3270/tty1") {
+                        _cleanup_free_ char *p = NULL;
+
+                        p = path_join("/dev", j);
+                        if (!p)
+                                return log_oom();
+                        if (access(p, F_OK) < 0)
                                 continue;
 
-                        if (verify_tty(*i) < 0)
-                                continue;
-
-                        r = add_serial_getty(*i);
+                        r = add_serial_getty(j);
                         if (r < 0)
                                 return r;
                 }
-
-        /* Automatically add a serial getty to each available virtualizer console. */
-        FOREACH_STRING(j,
-                       "hvc0",
-                       "xvc0",
-                       "hvsi0",
-                       "sclp_line0",
-                       "ttysclp0",
-                       "3270/tty1") {
-                _cleanup_free_ char *p = NULL;
-
-                p = path_join("/dev", j);
-                if (!p)
-                        return log_oom();
-                if (access(p, F_OK) < 0)
-                        continue;
-
-                r = add_serial_getty(j);
-                if (r < 0)
-                        return r;
-        }
 
         return 0;
 }
