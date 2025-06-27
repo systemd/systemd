@@ -1205,6 +1205,18 @@ static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, con
         return 1;
 }
 
+static int bus_append_log_filter_patterns(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        r = sd_bus_message_append(m, "(sv)", "LogFilterPatterns", "a(bs)", 1,
+                                  eq[0] != '~',
+                                  eq[0] != '~' ? eq : eq + 1);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         if (STR_IN_SET(field, "DevicePolicy",
                               "Slice",
@@ -1487,15 +1499,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (streq(field, "LogExtraFields"))
                 return bus_append_log_extra_fields(m, field, eq);
 
-        if (streq(field, "LogFilterPatterns")) {
-                r = sd_bus_message_append(m, "(sv)", "LogFilterPatterns", "a(bs)", 1,
-                                          eq[0] != '~',
-                                          eq[0] != '~' ? eq : eq + 1);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+        if (streq(field, "LogFilterPatterns"))
+                return bus_append_log_filter_patterns(m, field, eq);
 
         if (STR_IN_SET(field, "StandardInput",
                               "StandardOutput",
