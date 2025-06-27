@@ -157,7 +157,7 @@ testcase_transient_unit_container_file_write() {
     -p RootDirectory="$CONTAINER_ROOT_FS" \
     -p PrivatePIDs=yes \
     -p PrivateUsersEx=full \
-    -p ProtectHostnameEx=private \
+    -p ProtectHostname=private \
     -p ProtectControlGroupsEx=private \
     -p PrivateMounts=yes \
     -p PrivateNetwork=yes \
