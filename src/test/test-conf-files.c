@@ -185,6 +185,14 @@ TEST(conf_files_list) {
                                                  strjoina(search3, "relative-non-empty.conf"))));
         result = strv_free(result);
 
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, /* root = */ NULL, CONF_FILES_REGULAR | CONF_FILES_CHASE_BASENAME, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(t2, "/absolute-empty.real"),
+                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 strjoina(t2, "/relative-empty.real"),
+                                                 strjoina(t2, "/relative-non-empty.real"))));
+        result = strv_free(result);
+
         ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, t, CONF_FILES_FILTER_MASKED, "/dir3/"));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(search3, "absolute-non-empty-for-root.conf"),
@@ -211,6 +219,14 @@ TEST(conf_files_list) {
                                                  strjoina(search3, "absolute-non-empty-for-root.conf"),
                                                  strjoina(search3, "relative-empty-for-root.conf"),
                                                  strjoina(search3, "relative-non-empty-for-root.conf"))));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list(&result, /* suffix = */ NULL, t, CONF_FILES_REGULAR | CONF_FILES_CHASE_BASENAME, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(t, "/absolute-empty-for-root.real"),
+                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 strjoina(t, "/relative-empty-for-root.real"),
+                                                 strjoina(t, "/relative-non-empty-for-root.real"))));
         result = strv_free(result);
 
         ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, AT_FDCWD, CONF_FILES_FILTER_MASKED, search3));
@@ -241,6 +257,14 @@ TEST(conf_files_list) {
                                                  strjoina(search3, "relative-non-empty.conf"))));
         result = strv_free(result);
 
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, AT_FDCWD, CONF_FILES_REGULAR | CONF_FILES_CHASE_BASENAME, search3));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(strjoina(t2, "/absolute-empty.real"),
+                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 strjoina(t2, "/relative-empty.real"),
+                                                 strjoina(t2, "/relative-non-empty.real"))));
+        result = strv_free(result);
+
         ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, tfd, CONF_FILES_FILTER_MASKED, "/dir3/"));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE("dir3/absolute-non-empty-for-root.conf",
@@ -267,6 +291,14 @@ TEST(conf_files_list) {
                                                  "dir3/absolute-non-empty-for-root.conf",
                                                  "dir3/relative-empty-for-root.conf",
                                                  "dir3/relative-non-empty-for-root.conf")));
+        result = strv_free(result);
+
+        ASSERT_OK(conf_files_list_at(&result, /* suffix = */ NULL, tfd, CONF_FILES_REGULAR | CONF_FILES_CHASE_BASENAME, "/dir3/"));
+        strv_print(result);
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE("absolute-empty-for-root.real",
+                                                 "absolute-non-empty-for-root.real",
+                                                 "relative-empty-for-root.real",
+                                                 "relative-non-empty-for-root.real")));
         result = strv_free(result);
 
         /* filename only */
