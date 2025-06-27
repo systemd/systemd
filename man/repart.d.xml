@@ -417,6 +417,9 @@
         required for the minimal file system of the specified type (or 4KiB if the minimal size is not
         known).</para>
 
+        <para>This also takes a special meta value <literal>empty</literal>. If specified this is equivalent
+        to specifying <literal>Label=_empty</literal> and <literal>NoAuto=1</literal>.</para>
+
         <para>This option has no effect if the partition already exists.</para>
 
         <para>Similarly to the behaviour of <varname>CopyBlocks=</varname>, the file system is formatted

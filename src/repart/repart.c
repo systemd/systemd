@@ -2632,6 +2632,19 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 }
         }
 
+        if (streq_ptr(p->format, "empty")) {
+                p->format = mfree(p->format);
+
+                if (p->no_auto < 0)
+                        p->no_auto = true;
+
+                if (!p->new_label) {
+                        p->new_label = strdup("_empty");
+                        if (!p->new_label)
+                                return log_oom();
+                }
+        }
+
         if (p->minimize != MINIMIZE_OFF && !p->format && p->verity != VERITY_HASH)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Minimize= can only be enabled if Format= or Verity=hash are set.");
