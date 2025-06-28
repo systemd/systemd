@@ -29,4 +29,26 @@ TEST(errno_list) {
         ASSERT_STREQ(errno_to_name(ECONNREFUSED), "ECONNREFUSED");
 }
 
+TEST(errno_name_full) {
+        char buf[ERRNO_NAME_BUF_LEN];
+
+        ASSERT_STREQ(errno_name_full(0, buf), "0");
+        ASSERT_STREQ(errno_name_full(EPERM, buf), "EPERM");
+        ASSERT_STREQ(errno_name_full(ENOENT, buf), "ENOENT");
+        ASSERT_STREQ(errno_name_full(200, buf), "200");
+        ASSERT_STREQ(errno_name_full(-200, buf), "200");
+}
+
+TEST(ERRNO_NAME_FULL) {
+        ASSERT_STREQ(ERRNO_NAME_FULL(0), "0");
+        ASSERT_STREQ(ERRNO_NAME_FULL(EPERM), "EPERM");
+        ASSERT_STREQ(ERRNO_NAME_FULL(ENOENT), "ENOENT");
+        ASSERT_STREQ(ERRNO_NAME_FULL(200), "200");
+        ASSERT_STREQ(ERRNO_NAME_FULL(-200), "200");
+
+        int x = 0;
+        ASSERT_STREQ(ERRNO_NAME_FULL(++x), "EPERM");  /* Confirm that eval happens just once. */
+        ASSERT_EQ(x, 1);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
