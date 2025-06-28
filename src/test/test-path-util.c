@@ -1238,6 +1238,38 @@ TEST(empty_or_root) {
         assert_se(!empty_or_root("//yy//"));
 }
 
+TEST(empty_or_root_to_null) {
+        const char *p;
+
+        p = NULL;
+        ASSERT_OK(empty_or_root_to_null(&p));
+        ASSERT_NULL(p);
+
+        p = "/";
+        ASSERT_OK(empty_or_root_to_null(&p));
+        ASSERT_NULL(p);
+
+        p = "////////";
+        ASSERT_OK(empty_or_root_to_null(&p));
+        ASSERT_NULL(p);
+
+        p = "/../../././//";
+        ASSERT_OK(empty_or_root_to_null(&p));
+        ASSERT_NULL(p);
+
+        p = "/usr";
+        ASSERT_OK(empty_or_root_to_null(&p));
+        ASSERT_STREQ(p, "/usr");
+
+        p = "/usr/";
+        ASSERT_OK(empty_or_root_to_null(&p));
+        ASSERT_STREQ(p, "/usr/");
+
+        p = "///././/../../usr////";
+        ASSERT_OK(empty_or_root_to_null(&p));
+        ASSERT_STREQ(p, "///././/../../usr////");
+}
+
 TEST(path_startswith_set) {
         ASSERT_STREQ(PATH_STARTSWITH_SET("/foo/bar", "/foo/quux", "/foo/bar", "/zzz"), "");
         ASSERT_STREQ(PATH_STARTSWITH_SET("/foo/bar", "/foo/quux", "/foo/", "/zzz"), "bar");
