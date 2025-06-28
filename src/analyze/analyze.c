@@ -12,7 +12,6 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
-#include "analyze-verify-util.h"
 #include "analyze.h"
 #include "analyze-architectures.h"
 #include "analyze-blame.h"
@@ -46,8 +45,10 @@
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
 #include "analyze-verify.h"
+#include "analyze-verify-util.h"
 #include "build.h"
 #include "bus-error.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "calendarspec.h"
 #include "dissect-image.h"
@@ -66,6 +67,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "verbs.h"
 
@@ -159,6 +161,29 @@ void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timesp
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }
 
+static int verb_transient_settings(int argc, char *argv[], void *userdata) {
+        assert(argc >= 2);
+
+        pager_open(arg_pager_flags);
+
+        bool first = true;
+        STRV_FOREACH(arg, strv_skip(argv, 1)) {
+                UnitType t;
+
+                t = unit_type_from_string(*arg);
+                if (t < 0)
+                        return log_error_errno(t, "Invalid unit type '%s'.", *arg);
+
+                if (!first)
+                        puts("");
+
+                bus_dump_transient_settings(t);
+                first = false;
+        }
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
@@ -200,6 +225,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  architectures [NAME...]    List known architectures\n"
                "  smbios11                   List strings passed via SMBIOS Type #11\n"
                "  chid                       List local CHIDs\n"
+               "  transient-settings TYPE... List transient settings for unit TYPE\n"
                "\n%3$sExpression Evaluation:%4$s\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  compare-versions VERSION1 [OP] VERSION2\n"
@@ -639,46 +665,47 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
 
         static const Verb verbs[] = {
-                { "help",              VERB_ANY, VERB_ANY, 0,            help                   },
-                { "time",              VERB_ANY, 1,        VERB_DEFAULT, verb_time              },
-                { "blame",             VERB_ANY, 1,        0,            verb_blame             },
-                { "critical-chain",    VERB_ANY, VERB_ANY, 0,            verb_critical_chain    },
-                { "plot",              VERB_ANY, 1,        0,            verb_plot              },
-                { "dot",               VERB_ANY, VERB_ANY, 0,            verb_dot               },
+                { "help",               VERB_ANY, VERB_ANY, 0,            help                         },
+                { "time",               VERB_ANY, 1,        VERB_DEFAULT, verb_time                    },
+                { "blame",              VERB_ANY, 1,        0,            verb_blame                   },
+                { "critical-chain",     VERB_ANY, VERB_ANY, 0,            verb_critical_chain          },
+                { "plot",               VERB_ANY, 1,        0,            verb_plot                    },
+                { "dot",                VERB_ANY, VERB_ANY, 0,            verb_dot                     },
                 /* ↓ The following seven verbs are deprecated, from here … ↓ */
-                { "log-level",         VERB_ANY, 2,        0,            verb_log_control       },
-                { "log-target",        VERB_ANY, 2,        0,            verb_log_control       },
-                { "set-log-level",     2,        2,        0,            verb_log_control       },
-                { "get-log-level",     VERB_ANY, 1,        0,            verb_log_control       },
-                { "set-log-target",    2,        2,        0,            verb_log_control       },
-                { "get-log-target",    VERB_ANY, 1,        0,            verb_log_control       },
-                { "service-watchdogs", VERB_ANY, 2,        0,            verb_service_watchdogs },
+                { "log-level",          VERB_ANY, 2,        0,  verb_log_control        },
+                { "log-target",         VERB_ANY, 2,        0,  verb_log_control        },
+                { "set-log-level",      2,        2,        0,  verb_log_control        },
+                { "get-log-level",      VERB_ANY, 1,        0,  verb_log_control        },
+                { "set-log-target",     2,        2,        0,  verb_log_control        },
+                { "get-log-target",     VERB_ANY, 1,        0,  verb_log_control        },
+                { "service-watchdogs",  VERB_ANY, 2,        0,  verb_service_watchdogs  },
                 /* ↑ … until here ↑ */
-                { "dump",              VERB_ANY, VERB_ANY, 0,            verb_dump              },
-                { "cat-config",        2,        VERB_ANY, 0,            verb_cat_config        },
-                { "unit-files",        VERB_ANY, VERB_ANY, 0,            verb_unit_files        },
-                { "unit-paths",        1,        1,        0,            verb_unit_paths        },
-                { "exit-status",       VERB_ANY, VERB_ANY, 0,            verb_exit_status       },
-                { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            verb_syscall_filters   },
-                { "capability",        VERB_ANY, VERB_ANY, 0,            verb_capabilities      },
-                { "filesystems",       VERB_ANY, VERB_ANY, 0,            verb_filesystems       },
-                { "condition",         VERB_ANY, VERB_ANY, 0,            verb_condition         },
-                { "compare-versions",  3,        4,        0,            verb_compare_versions  },
-                { "verify",            2,        VERB_ANY, 0,            verb_verify            },
-                { "calendar",          2,        VERB_ANY, 0,            verb_calendar          },
-                { "timestamp",         2,        VERB_ANY, 0,            verb_timestamp         },
-                { "timespan",          2,        VERB_ANY, 0,            verb_timespan          },
-                { "security",          VERB_ANY, VERB_ANY, 0,            verb_security          },
-                { "inspect-elf",       2,        VERB_ANY, 0,            verb_elf_inspection    },
-                { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
-                { "fdstore",           2,        VERB_ANY, 0,            verb_fdstore           },
-                { "image-policy",      2,        2,        0,            verb_image_policy      },
-                { "has-tpm2",          VERB_ANY, 1,        0,            verb_has_tpm2          },
-                { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
-                { "srk",               VERB_ANY, 1,        0,            verb_srk               },
-                { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
-                { "smbios11",          VERB_ANY, 1,        0,            verb_smbios11          },
-                { "chid",              VERB_ANY, VERB_ANY, 0,            verb_chid              },
+                { "dump",               VERB_ANY, VERB_ANY, 0,  verb_dump               },
+                { "cat-config",         2,        VERB_ANY, 0,  verb_cat_config         },
+                { "unit-files",         VERB_ANY, VERB_ANY, 0,  verb_unit_files         },
+                { "unit-paths",         1,        1,        0,  verb_unit_paths         },
+                { "exit-status",        VERB_ANY, VERB_ANY, 0,  verb_exit_status        },
+                { "syscall-filter",     VERB_ANY, VERB_ANY, 0,  verb_syscall_filters    },
+                { "capability",         VERB_ANY, VERB_ANY, 0,  verb_capabilities       },
+                { "filesystems",        VERB_ANY, VERB_ANY, 0,  verb_filesystems        },
+                { "condition",          VERB_ANY, VERB_ANY, 0,  verb_condition          },
+                { "compare-versions",   3,        4,        0,  verb_compare_versions   },
+                { "verify",             2,        VERB_ANY, 0,  verb_verify             },
+                { "calendar",           2,        VERB_ANY, 0,  verb_calendar           },
+                { "timestamp",          2,        VERB_ANY, 0,  verb_timestamp          },
+                { "timespan",           2,        VERB_ANY, 0,  verb_timespan           },
+                { "security",           VERB_ANY, VERB_ANY, 0,  verb_security           },
+                { "inspect-elf",        2,        VERB_ANY, 0,  verb_elf_inspection     },
+                { "malloc",             VERB_ANY, VERB_ANY, 0,  verb_malloc             },
+                { "fdstore",            2,        VERB_ANY, 0,  verb_fdstore            },
+                { "image-policy",       2,        2,        0,  verb_image_policy       },
+                { "has-tpm2",           VERB_ANY, 1,        0,  verb_has_tpm2           },
+                { "pcrs",               VERB_ANY, VERB_ANY, 0,  verb_pcrs               },
+                { "srk",                VERB_ANY, 1,        0,  verb_srk                },
+                { "architectures",      VERB_ANY, VERB_ANY, 0,  verb_architectures      },
+                { "smbios11",           VERB_ANY, 1,        0,  verb_smbios11           },
+                { "chid",               VERB_ANY, VERB_ANY, 0,  verb_chid               },
+                { "transient-settings", 2,        VERB_ANY, 0,  verb_transient_settings },
                 {}
         };
 
