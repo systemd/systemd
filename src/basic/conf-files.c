@@ -202,9 +202,9 @@ static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfF
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to extract filename from '%s': %m", *s);
                 } else if (root) {
-                        p = path_join(root, skip_leading_slash(*s));
-                        if (!p)
-                                return log_oom_debug();
+                        r = chaseat_prefix_root(*s, root, &p);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to prefix '%s' with root: %m", *s);
                 }
 
                 if (p)
@@ -348,19 +348,32 @@ int conf_files_list_strv(
                 const char * const *dirs) {
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_free_ char *root_abs = NULL;
+        _cleanup_close_ int rfd = AT_FDCWD;
         int r;
 
         assert(ret);
 
-        _cleanup_close_ int rfd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (rfd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", root);
+        if (isempty(root)) {
+                /* Unlike chase(), an empty root means the current working directory. */
+                r = safe_getcwd(&root_abs);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get the current directory: %m");
+        } else {
+                r = path_make_absolute_cwd(root, &root_abs);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make '%s' absolute: %m", root);
 
-        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
+                rfd = open(root_abs, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (rfd < 0)
+                        return log_debug_errno(errno, "Failed to open '%s': %m", root_abs);
+        }
+
+        r = conf_files_list_impl(suffix, rfd, root_abs, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
         if (r < 0)
                 return r;
 
-        return copy_and_sort_files_from_hashmap(fh, empty_to_root(root), flags, ret);
+        return copy_and_sort_files_from_hashmap(fh, root_abs, flags, ret);
 }
 
 int conf_files_list_strv_at(
