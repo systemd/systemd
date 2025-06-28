@@ -32,6 +32,13 @@
 #include "umount.h"
 #include "virt.h"
 
+typedef int (*TimeoutTask)(MountPoint *m, bool last_try);
+static int shutdown_timeout_wrapper(const char* task_name, const char* task_note,
+                                    TimeoutTask func, MountPoint *m, bool last_try);
+static int remount_internal(MountPoint *m, bool last_try);
+static int umount_internal(MountPoint *m, bool last_try);
+static int check_is_dir_internal(MountPoint *m, bool last_try);
+
 static void mount_point_free(MountPoint **head, MountPoint *m) {
         assert(head);
         assert(m);
@@ -248,123 +255,6 @@ static void log_umount_blockers(const char *mnt) {
                 log_warning("Unmounting '%s' blocked by: %s", mnt, blockers);
 }
 
-static int remount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
-        _cleanup_(sigkill_nowaitp) pid_t pid = 0;
-        int r;
-
-        BLOCK_SIGNALS(SIGCHLD);
-
-        assert(m);
-
-        r = pipe2(pfd, O_CLOEXEC|O_NONBLOCK);
-        if (r < 0)
-                return r;
-
-        /* Due to the possibility of a remount operation hanging, we fork a child process and set a
-         * timeout. If the timeout lapses, the assumption is that the particular remount failed. */
-        r = safe_fork_full("(sd-remount)",
-                           NULL,
-                           pfd, ELEMENTSOF(pfd),
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                pfd[0] = safe_close(pfd[0]);
-
-                log_info("Remounting '%s' read-only with options '%s'.", m->path, strempty(m->remount_options));
-
-                /* Start the mount operation here in the child */
-                r = mount(NULL, m->path, NULL, m->remount_flags, m->remount_options);
-                if (r < 0)
-                        log_full_errno(last_try ? LOG_ERR : LOG_INFO,
-                                       errno,
-                                       "Failed to remount '%s' read-only: %m",
-                                       m->path);
-
-                report_errno_and_exit(pfd[1], r);
-        }
-
-        pfd[1] = safe_close(pfd[1]);
-
-        r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
-        if (r == -ETIMEDOUT)
-                log_error_errno(r, "Remounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
-        else if (r == -EPROTO) {
-                /* Try to read error code from child */
-                if (read(pfd[0], &r, sizeof(r)) == sizeof(r))
-                        log_debug_errno(r, "Remounting '%s' failed abnormally, child process " PID_FMT " failed: %m", m->path, pid);
-                else
-                        r = log_debug_errno(EPROTO, "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
-                TAKE_PID(pid); /* child exited (just not as we expected) hence don't kill anymore */
-        } else if (r < 0)
-                log_error_errno(r, "Remounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
-
-        return r;
-}
-
-static int umount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
-        _cleanup_(sigkill_nowaitp) pid_t pid = 0;
-        int r;
-
-        BLOCK_SIGNALS(SIGCHLD);
-
-        assert(m);
-
-        r = pipe2(pfd, O_CLOEXEC|O_NONBLOCK);
-        if (r < 0)
-                return r;
-
-        /* Due to the possibility of a umount operation hanging, we fork a child process and set a
-         * timeout. If the timeout lapses, the assumption is that the particular umount failed. */
-        r = safe_fork_full("(sd-umount)",
-                           NULL,
-                           pfd, ELEMENTSOF(pfd),
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                pfd[0] = safe_close(pfd[0]);
-
-                log_info("Unmounting '%s'.", m->path);
-
-                /* Start the mount operation here in the child Using MNT_FORCE causes some filesystems
-                 * (e.g. FUSE and NFS and other network filesystems) to abort any pending requests and return
-                 * -EIO rather than blocking indefinitely. If the filesysten is "busy", this may allow
-                 * processes to die, thus making the filesystem less busy so the unmount might succeed
-                 * (rather than return EBUSY). */
-                r = RET_NERRNO(umount2(m->path,
-                                       UMOUNT_NOFOLLOW | /* Don't follow symlinks: this should never happen unless our mount list was wrong */
-                                       (m->umount_lazily ? MNT_DETACH : MNT_FORCE)));
-                if (r < 0) {
-                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Failed to unmount %s: %m", m->path);
-
-                        if (r == -EBUSY && last_try)
-                                log_umount_blockers(m->path);
-                }
-
-                report_errno_and_exit(pfd[1], r);
-        }
-
-        pfd[1] = safe_close(pfd[1]);
-
-        r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
-        if (r == -ETIMEDOUT)
-                log_error_errno(r, "Unmounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
-        else if (r == -EPROTO) {
-                /* Try to read error code from child */
-                if (read(pfd[0], &r, sizeof(r)) == sizeof(r))
-                        log_debug_errno(r, "Unmounting '%s' failed abnormally, child process " PID_FMT " failed: %m", m->path, pid);
-                else
-                        r = log_debug_errno(EPROTO, "Unmounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
-                TAKE_PID(pid); /* It died, but abnormally, no purpose in killing */
-        } else if (r < 0)
-                log_error_errno(r, "Unmounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
-
-        return r;
-}
-
 /* This includes remounting readonly, which changes the kernel mount options.  Therefore the list passed to
  * this function is invalidated, and should not be reused. */
 static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_try) {
@@ -388,7 +278,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                          *
                          * Since the remount can hang in the instance of remote filesystems, we remount
                          * asynchronously and skip the subsequent umount if it fails. */
-                        if (remount_with_timeout(m, last_try) < 0) {
+                        if (shutdown_timeout_wrapper("(sd-remount)", "Remouting", remount_internal, m, last_try) < 0) {
                                 /* Remount failed, but try unmounting anyway,
                                  * unless this is a mount point we want to skip. */
                                 if (nonunmountable_path(m->path)) {
@@ -404,7 +294,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                         continue;
 
                 /* Trying to umount */
-                r = umount_with_timeout(m, last_try);
+                r = shutdown_timeout_wrapper("(sd-umount)", "Unmouting", umount_internal, m, last_try);
                 if (r < 0)
                         n_failed++;
                 else
@@ -437,7 +327,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                         xsprintf(newpath, "/run/shutdown/mounts/%016" PRIx64, random_u64());
 
                         /* on error of is_dir, assume directory */
-                        if (is_dir(m->path, true) != 0) {
+                        if (shutdown_timeout_wrapper("(checkdir)", "Checking IsDir", check_is_dir_internal, m, true) != 0) {
                                 r = mkdir_p(newpath, 0000);
                                 if (r < 0) {
                                         log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not create directory %s: %m", newpath);
@@ -497,3 +387,97 @@ int umount_all(bool *changed, bool last_try) {
 
         return r;
 }
+
+static int shutdown_timeout_wrapper(const char* task_name, const char* task_note,
+                                    TimeoutTask func, MountPoint *m, bool last_try)
+{
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        _cleanup_(sigkill_nowaitp) pid_t pid = 0;
+        int r;
+
+        BLOCK_SIGNALS(SIGCHLD);
+
+        assert(m);
+
+        r = pipe2(pfd, O_CLOEXEC|O_NONBLOCK);
+        if (r < 0)
+                return r;
+
+        /* Due to the possibility of a remount operation hanging, we fork a child process and set a
+         * timeout. If the timeout lapses, the assumption is that the particular remount failed. */
+        r = safe_fork_full(task_name,
+                           NULL,
+                           pfd, ELEMENTSOF(pfd),
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                pfd[0] = safe_close(pfd[0]);
+
+                r = func(m, last_try);
+
+                (void) write(pfd[1], &r, sizeof(r)); /* try to send errno up */
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+        }
+
+        pfd[1] = safe_close(pfd[1]);
+
+        r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
+        if (r == -ETIMEDOUT)
+                log_error_errno(r, "%s  '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", task_note, m->path, pid);
+        else if (r == -EPROTO) {
+                /* Try to read error code from child */
+                if (read(pfd[0], &r, sizeof(r)) == sizeof(r))
+                        log_debug_errno(r, "%s '%s' failed abnormally, child process " PID_FMT " failed: %m", task_note, m->path, pid);
+                else
+                        r = log_debug_errno(EPROTO, "%s '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", task_note, m->path, pid);
+                TAKE_PID(pid); /* child exited (just not as we expected) hence don't kill anymore */
+        } else if (r < 0)
+                log_error_errno(r, "%s '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", task_note, m->path, pid);
+
+        return r;
+}
+
+static int remount_internal(MountPoint *m, bool last_try) {
+        int r = 0;
+
+        log_info("Remounting '%s' read-only with options '%s'.", m->path, strempty(m->remount_options));
+
+        /* Start the mount operation here in the child */
+        r = mount(NULL, m->path, NULL, m->remount_flags, m->remount_options);
+        if (r < 0)
+                log_full_errno(last_try ? LOG_ERR : LOG_INFO,
+                                errno,
+                                "Failed to remount '%s' read-only: %m",
+                                m->path);
+
+        return r;
+}
+
+static int umount_internal(MountPoint *m, bool last_try) {
+        int r = 0;
+
+        log_info("Unmounting '%s'.", m->path);
+
+        /* Start the mount operation here in the child Using MNT_FORCE causes some filesystems
+                * (e.g. FUSE and NFS and other network filesystems) to abort any pending requests and return
+                * -EIO rather than blocking indefinitely. If the filesysten is "busy", this may allow
+                * processes to die, thus making the filesystem less busy so the unmount might succeed
+                * (rather than return EBUSY). */
+        r = RET_NERRNO(umount2(m->path,
+                                UMOUNT_NOFOLLOW | /* Don't follow symlinks: this should never happen unless our mount list was wrong */
+                                (m->umount_lazily ? MNT_DETACH : MNT_FORCE)));
+        if (r < 0) {
+                log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Failed to unmount %s: %m", m->path);
+
+                if (r == -EBUSY && last_try)
+                        log_umount_blockers(m->path);
+        }
+
+        return r;
+}
+
+static int check_is_dir_internal(MountPoint *m, bool last_try) {
+        return is_dir(m->path, true);
+}
+
