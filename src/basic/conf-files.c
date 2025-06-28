@@ -196,9 +196,9 @@ static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfF
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to extract filename from '%s': %m", *s);
                 } else if (root) {
-                        p = path_join(root, skip_leading_slash(*s));
-                        if (!p)
-                                return log_oom_debug();
+                        r = chaseat_prefix_root(*s, root, &p);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to prefix '%s' with root: %m", *s);
                 }
 
                 if (p)
@@ -325,6 +325,49 @@ static int conf_files_list_impl(
         return 0;
 }
 
+static int prepare_dirs(const char *root, char * const *dirs, int *ret_rfd, char **ret_root, char ***ret_dirs) {
+        _cleanup_free_ char *root_abs = NULL;
+        _cleanup_strv_free_ char **dirs_abs = NULL;
+        int r;
+
+        assert(ret_rfd);
+        assert(ret_root);
+        assert(ret_dirs);
+
+        r = empty_or_root_to_null(&root);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine if '%s' points to the root directory: %m", strempty(root));
+
+        dirs_abs = strv_copy(dirs);
+        if (!dirs_abs)
+                return log_oom();
+
+        if (root) {
+                /* WHen a non-trivial root is specified, we will prefix the result later. Hence, it is not
+                 * necessary to modify each config directories here. but needs to normalize the root directory. */
+                r = path_make_absolute_cwd(root, &root_abs);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make '%s' absolute: %m", root);
+
+                path_simplify(root_abs);
+        } else {
+                /* When an empty root or "/" is specified, we will open "/" below, hence we need to make
+                 * each config directory absolute if relative. */
+                r = path_strv_make_absolute_cwd(dirs_abs);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make directories absolute: %m");
+        }
+
+        _cleanup_close_ int rfd = open(empty_to_root(root_abs), O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (rfd < 0)
+                return log_debug_errno(errno, "Failed to open '%s': %m", empty_to_root(root_abs));
+
+        *ret_rfd = TAKE_FD(rfd);
+        *ret_root = TAKE_PTR(root_abs);
+        *ret_dirs = TAKE_PTR(dirs_abs);
+        return 0;
+}
+
 int conf_files_list_strv(
                 char ***ret,
                 const char *suffix,
@@ -333,19 +376,23 @@ int conf_files_list_strv(
                 const char * const *dirs) {
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_free_ char *root_abs = NULL;
+        _cleanup_strv_free_ char **dirs_abs = NULL;
         int r;
 
         assert(ret);
 
-        _cleanup_close_ int rfd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (rfd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", root);
-
-        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
+        r = prepare_dirs(root, (char**) dirs, &rfd, &root_abs, &dirs_abs);
         if (r < 0)
                 return r;
 
-        return copy_and_sort_files_from_hashmap(fh, empty_to_root(root), flags, ret);
+        r = conf_files_list_impl(suffix, rfd, root_abs, flags, (const char * const *) dirs_abs,
+                                 /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
+        if (r < 0)
+                return r;
+
+        return copy_and_sort_files_from_hashmap(fh, empty_to_root(root_abs), flags, ret);
 }
 
 int conf_files_list_strv_at(
@@ -414,29 +461,33 @@ int conf_files_list_with_replacement(
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
         _cleanup_free_ char *inserted = NULL;
         ConfFilesFlags flags = CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED_BY_SYMLINK;
+        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_free_ char *root_abs = NULL;
+        _cleanup_strv_free_ char **dirs_abs = NULL;
         int r;
 
         assert(ret_files);
 
-        root = empty_to_root(root);
-        _cleanup_close_ int rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (rfd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", root);
+        r = prepare_dirs(root, config_dirs, &rfd, &root_abs, &dirs_abs);
+        if (r < 0)
+                return r;
 
-        r = conf_files_list_impl(".conf", rfd, root, flags, (const char * const *) config_dirs,
+        r = conf_files_list_impl(".conf", rfd, root_abs, flags, (const char * const *) dirs_abs,
                                  replacement, &fh, ret_inserted ? &inserted : NULL);
         if (r < 0)
                 return r;
 
         if (inserted) {
-                char *p = path_join(empty_to_root(root), skip_leading_slash(inserted));
-                if (!p)
-                        return log_oom_debug();
+                char *p;
+
+                r = chaseat_prefix_root(inserted, root_abs, &p);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to prefix '%s' with root: %m", inserted);
 
                 free_and_replace(inserted, p);
         }
 
-        r = copy_and_sort_files_from_hashmap(fh, empty_to_root(root), flags, ret_files);
+        r = copy_and_sort_files_from_hashmap(fh, empty_to_root(root_abs), flags, ret_files);
         if (r < 0)
                 return r;
 
