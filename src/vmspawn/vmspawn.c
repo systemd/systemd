@@ -2013,6 +2013,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         size_t i = 0;
         STRV_FOREACH(drive, arg_extra_drives) {
                 _cleanup_free_ char *escaped_drive = NULL;
+                const char *driver = NULL;
+                struct stat st;
 
                 r = strv_extend(&cmdline, "-blockdev");
                 if (r < 0)
@@ -2022,7 +2024,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_drive)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s,node-name=vmspawn_extra_%zu", escaped_drive, i);
+                if (stat(*drive, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", *drive);
+
+                if (S_ISREG(st.st_mode))
+                        driver = "file";
+                else if (S_ISBLK(st.st_mode))
+                        driver = "host_device";
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s': %m", *drive);
+
+                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", driver, escaped_drive, i);
                 if (r < 0)
                         return log_oom();
 
