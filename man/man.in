@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-set -ex
+set -e
 
 if [ -z "$1" ]; then
     echo "Use: $0 page-name (with no section suffix)"
@@ -24,7 +24,7 @@ redirect="$(sed -n -r '1 s|^\.so man[0-9]/(.*)|\1|p' "$fullname")"
 if [ -n "$redirect" ]; then
     ninja -C @BUILD_ROOT@ "man/$redirect"
 
-    fullname=@BUILD_ROOT@/man/"$redirect"
+    fullname=@BUILD_ROOT@"/man/$redirect"
 fi
 
 exec man "$fullname"

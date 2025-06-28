@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
+
 set -e
 
 if [ -z "$1" ]; then
@@ -22,7 +23,7 @@ fi
 if [ -n "$redirect" ]; then
     ninja -C @BUILD_ROOT@ "man/$redirect"
 
-    fullname=@BUILD_ROOT@/man/"$redirect"
+    fullname=@BUILD_ROOT@"/man/$redirect"
 fi
 
 set -x
