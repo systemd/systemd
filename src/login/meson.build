@@ -140,10 +140,13 @@ custom_target(
         install_dir : pamconfdir)
 
 if enable_logind
-        install_data('org.freedesktop.login1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.login1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.login1.policy',
-                     install_dir : polkitpolicydir)
+        install_data(
+                'org.freedesktop.login1.conf',
+                install_dir : dbuspolicydir)
+        install_data(
+                'org.freedesktop.login1.service',
+                install_dir : dbussystemservicedir)
+        install_data(
+                'org.freedesktop.login1.policy',
+                install_dir : polkitpolicydir)
 endif
