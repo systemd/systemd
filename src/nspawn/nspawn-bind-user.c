@@ -91,6 +91,8 @@ static int convert_user(
                 UserRecord *u,
                 GroupRecord *g,
                 uid_t allocate_uid,
+                const char *shell,
+                bool shell_copy,
                 UserRecord **ret_converted_user,
                 GroupRecord **ret_converted_group) {
 
@@ -103,6 +105,9 @@ static int convert_user(
         assert(u);
         assert(g);
         assert(user_record_gid(u) == g->gid);
+
+        if (shell_copy)
+                shell = u->shell;
 
         r = check_etc_passwd_collisions(directory, u->user_name, UID_INVALID);
         if (r < 0)
@@ -138,6 +143,7 @@ static int convert_user(
                                         SD_JSON_BUILD_PAIR_CONDITION(u->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(u->disposition))),
                                         SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(h)),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("shell", shell),
                                         SD_JSON_BUILD_PAIR("privileged", SD_JSON_BUILD_OBJECT(
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "hashedPassword", SD_JSON_BUILD_VARIANT(hp)),
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!!ssh, "sshAuthorizedKeys", SD_JSON_BUILD_VARIANT(ssh))))));
@@ -203,6 +209,8 @@ BindUserContext* bind_user_context_free(BindUserContext *c) {
 int bind_user_prepare(
                 const char *directory,
                 char **bind_user,
+                const char *bind_user_shell,
+                bool bind_user_shell_copy,
                 uid_t uid_shift,
                 uid_t uid_range,
                 CustomMount **custom_mounts,
@@ -285,7 +293,7 @@ int bind_user_prepare(
                 if (r < 0)
                         return r;
 
-                r = convert_user(directory, u, g, current_uid, &cu, &cg);
+                r = convert_user(directory, u, g, current_uid, bind_user_shell, bind_user_shell_copy, &cu, &cg);
                 if (r < 0)
                         return r;
 

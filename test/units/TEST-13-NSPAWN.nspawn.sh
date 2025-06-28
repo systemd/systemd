@@ -580,6 +580,151 @@ testcase_bind_user() {
     rm -fr "$root"
 }
 
+testcase_bind_user_shell() {
+    local root
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.bind-user.XXX)"
+    create_dummy_container "$root"
+    useradd --create-home --user-group --shell=/usr/bin/bash nspawn-bind-user-1
+    useradd --create-home --user-group --shell=/usr/bin/sh   nspawn-bind-user-2
+    trap bind_user_cleanup RETURN
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-1.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user-shell=no \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-1.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -q "\"shell\":\"/usr/bin/bash\"" /run/host/userdb/nspawn-bind-user-1.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user-shell=/bin/bash \
+                   bash -xec 'grep -q "\"shell\":\"/bin/bash\"" /run/host/userdb/nspawn-bind-user-1.user'
+
+    (! systemd-nspawn --directory="$root" \
+                      --private-users=pick \
+                      --bind-user=nspawn-bind-user-1 \
+                      --bind-user-shell=bad-argument \
+                      bash -xec 'true')
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-1.user && grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -q "\"shell\":\"/usr/bin/bash\"" /run/host/userdb/nspawn-bind-user-1.user && grep -q "\"shell\":\"/usr/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=/bin/sh \
+                   bash -xec 'grep -q "\"shell\":\"/bin/sh\"" /run/host/userdb/nspawn-bind-user-1.user && grep -q "\"shell\":\"/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    mach=$(basename "$root")
+    mkdir -p /run/systemd/nspawn
+    conf=/run/systemd/nspawn/"$mach".nspawn
+
+    cat <<'EOF' >"$conf"
+# [Files]
+# BindUserShell=no by default
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=no
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=yes
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -q "\"shell\":\"/usr/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=/bin/sh
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -q "\"shell\":\"/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+# [Files]
+# BindUserShell=no default doesn't override
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --settings=override \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -q "\"shell\":\"/usr/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=no
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --settings=override \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=no
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --settings=override \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=/foo \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=/bin/sh
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --settings=override \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -q "\"shell\":\"/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    rm -fr "$root"
+}
+
 testcase_bind_tmp_path() {
     # https://github.com/systemd/systemd/issues/4789
     local root
