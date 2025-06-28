@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "chase.h"
 #include "color-util.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -419,16 +418,12 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         /* First locate the main config file, if any */
         if (!is_collection) {
                 STRV_FOREACH(prefix, prefixes) {
-                        _cleanup_free_ char *p = path_join(*prefix, name);
-                        if (!p)
+                        path = path_join(root, *prefix, name);
+                        if (!path)
                                 return log_oom();
-
-                        r = chase_and_access(p, root, CHASE_PREFIX_ROOT, F_OK, &path);
-                        if (r < 0) {
-                                if (r != -ENOENT)
-                                        log_debug_errno(r, "Failed to chase %s%s, ignoring: %m", strempty(root), p);
-                                continue;
-                        }
+                        if (access(path, F_OK) == 0)
+                                break;
+                        path = mfree(path);
                 }
 
                 if (!path)
@@ -439,7 +434,7 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         }
 
         /* Then locate the drop-ins, if any */
-        r = conf_files_list_strv(&files, extension, root, CONF_FILES_CHASE_BASENAME, (const char* const*) dirs);
+        r = conf_files_list_strv(&files, extension, root, 0, (const char* const*) dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to query file list: %m");
 
