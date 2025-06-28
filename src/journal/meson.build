@@ -24,7 +24,6 @@ systemd_journald_extract_sources = files(
 )
 
 journald_gperf_c = custom_target(
-        'journald-gperf.c',
         input : 'journald-gperf.gperf',
         output : 'journald-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])

@@ -26,7 +26,6 @@ executables += [
 
 if conf.get('ENABLE_SSH_USERDB_CONFIG') == 1
         custom_target(
-                '20-systemd-userdb.conf',
                 input : '20-systemd-userdb.conf.in',
                 output : '20-systemd-userdb.conf',
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
