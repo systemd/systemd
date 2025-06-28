@@ -929,7 +929,6 @@ foreach unit : units
 
         if needs_jinja
                 t = custom_target(
-                        name,
                         input : source,
                         output : name,
                         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

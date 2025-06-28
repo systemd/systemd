@@ -15,7 +15,6 @@ timesyncd_extract_sources = files(
 )
 
 timesyncd_gperf_c = custom_target(
-        'timesyncd-gperf.c',
         input : 'timesyncd-gperf.gperf',
         output : 'timesyncd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -56,7 +55,6 @@ executables += [
 ]
 
 custom_target(
-        'timesyncd.conf',
         input : 'timesyncd.conf.in',
         output : 'timesyncd.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

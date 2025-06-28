@@ -41,7 +41,6 @@ hwdb_files_test = files(
 
 if conf.get('ENABLE_HWDB') == 1
         auto_suspend_rules = custom_target(
-                '60-autosuspend-chromiumos.hwdb',
                 output : '60-autosuspend-chromiumos.hwdb',
                 command : make_autosuspend_rules_py,
                 capture : true,

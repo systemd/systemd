@@ -15,7 +15,6 @@ in_files = [
 foreach tuple : in_files
         file = tuple[0]
         custom_target(
-                file,
                 input : file + '.in',
                 output : file,
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

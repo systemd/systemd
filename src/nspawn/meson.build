@@ -22,7 +22,6 @@ nspawn_extract_sources = files(
 )
 
 nspawn_gperf_c = custom_target(
-        'nspawn-gperf.c',
         input : 'nspawn-gperf.gperf',
         output : 'nspawn-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])

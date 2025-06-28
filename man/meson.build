@@ -29,7 +29,6 @@ custom_html_xsl = files('custom-html.xsl')
 xslt_cmd = [xsltproc, '-o', '@OUTPUT0@'] + xsltproc_flags
 
 custom_entities_ent = custom_target(
-        'custom-entities.ent',
         input : 'custom-entities.ent.in',
         output : 'custom-entities.ent',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'])
@@ -76,7 +75,6 @@ foreach tuple : manpages
 
                 if xsltproc.found()
                         p1 = custom_target(
-                                man,
                                 input : xml,
                                 output : [man] + manaliases,
                                 command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
@@ -88,7 +86,6 @@ foreach tuple : manpages
                         p2 = []
                         foreach htmlalias : htmlaliases
                                 link = custom_target(
-                                        htmlalias,
                                         output : htmlalias,
                                         command : [ln, '-fs', html, '@OUTPUT@'])
                                 if want_html
@@ -101,7 +98,6 @@ foreach tuple : manpages
                         endforeach
 
                         p3 = custom_target(
-                                html,
                                 input : xml,
                                 output : html,
                                 command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
@@ -123,7 +119,6 @@ if not have_lxml
 endif
 
 systemd_directives_xml = custom_target(
-        'systemd.directives.xml',
         input : ['directives-template.xml', source_xml_files],
         output : 'systemd.directives.xml',
         depends : man_page_depends,
@@ -131,7 +126,6 @@ systemd_directives_xml = custom_target(
 
 nonindex_xml_files = source_xml_files + [systemd_directives_xml]
 systemd_index_xml = custom_target(
-        'systemd.index.xml',
         input : nonindex_xml_files,
         output : 'systemd.index.xml',
         command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
@@ -148,7 +142,6 @@ foreach tuple : xsltproc.found() and have_lxml ? [['systemd.directives', '7', sy
         mandirn = get_option('mandir') / ('man' + section)
 
         p1 = custom_target(
-                man,
                 input : xml,
                 output : man,
                 command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
@@ -160,7 +153,6 @@ foreach tuple : xsltproc.found() and have_lxml ? [['systemd.directives', '7', sy
         if html == 'systemd.index.html'
                 htmlalias = 'index.html'
                 link = custom_target(
-                        htmlalias,
                         input : p2,
                         output : htmlalias,
                         command : [ln, '-fs', html, '@OUTPUT@'])
@@ -174,7 +166,6 @@ foreach tuple : xsltproc.found() and have_lxml ? [['systemd.directives', '7', sy
         endif
 
         p3 = custom_target(
-                html,
                 input : xml,
                 output : html,
                 command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
@@ -187,13 +178,11 @@ endforeach
 # Cannot use run_target because those targets are used in depends
 # Also see https://github.com/mesonbuild/meson/issues/368.
 man = custom_target(
-        'man',
         output : 'man',
         depends : man_pages,
         command : [echo])
 
 html = custom_target(
-        'html',
         output : 'html',
         depends : html_pages,
         command : [echo])

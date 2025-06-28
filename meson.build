@@ -1919,7 +1919,6 @@ if use_provided_vmlinux_h
         message('Using provided @0@'.format(provided_vmlinux_h_path))
 elif use_generated_vmlinux_h
         vmlinux_h_dependency = custom_target(
-                'vmlinux.h',
                 output: 'vmlinux.h',
                 command : [ bpftool, 'btf', 'dump', 'file', '/sys/kernel/btf/vmlinux', 'format', 'c' ],
                 capture : true)
@@ -2143,7 +2142,6 @@ endif
 #####################################################################
 
 runtest_env = custom_target(
-        'systemd-runtest.env',
         output : 'systemd-runtest.env',
         command : ['printf',
                    'SYSTEMD_TEST_DATA=%q\nSYSTEMD_CATALOG_DIR=%q\n',
@@ -2647,7 +2645,6 @@ foreach executable : ['systemd-measure', 'systemd-sbsign', 'systemd-keyutil']
 endforeach
 
 ukify = custom_target(
-        'ukify',
         input : 'src/ukify/ukify.py',
         output : 'ukify',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
@@ -2797,7 +2794,6 @@ if git.found()
                 all_files = files(all_files.stdout().split())
 
                 custom_target(
-                        'tags',
                         output : 'tags',
                         command : [env, 'etags', '-o', '@0@/TAGS'.format(meson.project_source_root())] + all_files)
                 run_target(
@@ -2887,7 +2883,7 @@ if not meson.is_cross_build()
 endif
 
 meson_extract_unit_files = find_program('tools/meson-extract-unit-files.py')
-custom_target('installed-unit-files.txt',
+custom_target(
               output : 'installed-unit-files.txt',
               capture : true,
               install : want_tests != 'no' and install_tests,
