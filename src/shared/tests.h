@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "errno-list.h"
 #include "errno-util.h"
 #include "forward.h"
 #include "log.h"
@@ -178,7 +179,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
-                                        #expr, _result, STRERROR(_result));                                             \
+                                        #expr, _result, ERRNO_NAME_FULL(_result));                                      \
          })
 #endif
 
@@ -194,7 +195,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0 && !IN_SET(_result, 0, __VA_ARGS__))                                                    \
                         log_test_failed("\"%s\" failed with unexpected error: %d/%s",                                   \
-                                        #expr, _result, STRERROR(_result));                                             \
+                                        #expr, _result, ERRNO_NAME_FULL(_result));                                      \
          })
 #endif
 
@@ -207,7 +208,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
-                                        #expr, _result, STRERROR(_result));                                             \
+                                        #expr, _result, ERRNO_NAME_FULL(_result));                                      \
                 if (_result == 0)                                                                                       \
                         log_test_failed("Expected \"%s\" to be positive, but it is zero.", #expr);                      \
          })
@@ -221,7 +222,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
-                                        #expr, _result, STRERROR(_result));                                             \
+                                        #expr, _result, ERRNO_NAME_FULL(_result));                                      \
                 if (_result != 0) {                                                                                     \
                         char _sexpr[DECIMAL_STR_MAX(typeof(expr))];                                                     \
                         xsprintf(_sexpr, DECIMAL_STR_FMT(_result), _result);                                            \
@@ -239,7 +240,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr2) _expr2 = (expr2);                                                                         \
                 if (_expr1 < 0)                                                                                         \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
-                                        #expr1, _expr1, STRERROR(_expr1));                                              \
+                                        #expr1, _expr1, ERRNO_NAME_FULL(_expr1));                                       \
                 if (_expr1 != _expr2) {                                                                                 \
                         char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                                   \
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                                   \
@@ -258,7 +259,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
-                                        #expr, errno, STRERROR(errno));                                                 \
+                                        #expr, errno, ERRNO_NAME_FULL(errno));                                          \
         })
 #endif
 
@@ -270,7 +271,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
-                                        #expr, errno, STRERROR(errno));                                                 \
+                                        #expr, errno, ERRNO_NAME_FULL(errno));                                          \
                 if (_result != 0) {                                                                                     \
                         char _sexpr[DECIMAL_STR_MAX(typeof(expr))];                                                     \
                         xsprintf(_sexpr, DECIMAL_STR_FMT(_result), _result);                                            \
@@ -288,7 +289,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr2) _expr2 = (expr2);                                                                         \
                 if (_expr1 < 0)                                                                                         \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
-                                        #expr1, errno, STRERROR(errno));                                                \
+                                        #expr1, errno, ERRNO_NAME_FULL(errno));                                         \
                 if (_expr1 != _expr2) {                                                                                 \
                         char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                                   \
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                                   \
@@ -319,10 +320,10 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 int _expr2 = (expr2);                                                                                   \
                 if (_expr1 >= 0)                                                                                        \
                         log_test_failed("Expected \"%s\" to fail with error %d/\"%s\", but it succeeded",               \
-                                        #expr1, _expr2, STRERROR(_expr2));                                              \
+                                        #expr1, _expr2, ERRNO_NAME_FULL(_expr2));                                       \
                 else if (-_expr1 != _expr2)                                                                             \
                         log_test_failed("Expected \"%s\" to fail with error %d/\"%s\", but got the following error: %d/%s", \
-                                        #expr1, _expr2, STRERROR(_expr2), _expr1, STRERROR(_expr1));                    \
+                                        #expr1, _expr2, ERRNO_NAME_FULL(_expr2), _expr1, ERRNO_NAME_FULL(_expr1));      \
         })
 #endif
 
@@ -335,10 +336,10 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 int _expr2 = (expr2);                                                                                   \
                 if (_expr1 >= 0)                                                                                        \
                         log_test_failed("Expected \"%s\" to fail with error %d/\"%s\", but it succeeded",               \
-                                        #expr1, _expr2, STRERROR(_expr2));                                              \
+                                        #expr1, _expr2, ERRNO_NAME_FULL(_expr2));                                       \
                 else if (errno != _expr2)                                                                               \
                         log_test_failed("Expected \"%s\" to fail with error %d/\"%s\", but got the following error: %d/%s", \
-                                        #expr1, _expr2, STRERROR(_expr2), errno, STRERROR(errno));                      \
+                                        #expr1, _expr2, ERRNO_NAME_FULL(_expr2), errno, ERRNO_NAME_FULL(errno));        \
         })
 #endif
 
