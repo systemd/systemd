@@ -120,11 +120,15 @@ custom_target(
         install : pamconfdir != 'no',
         install_dir : pamconfdir)
 
-install_data('org.freedesktop.login1.conf',
-                install_dir : dbuspolicydir)
-install_data('org.freedesktop.login1.service',
-                install_dir : dbussystemservicedir)
-install_data('org.freedesktop.login1.policy',
-                install_dir : polkitpolicydir)
-install_data('10-systemd-logind-root-ignore-inhibitors.rules.example',
-                install_dir : polkitrulesdir)
+install_data(
+        'org.freedesktop.login1.conf',
+        install_dir : dbuspolicydir)
+install_data(
+        'org.freedesktop.login1.service',
+        install_dir : dbussystemservicedir)
+install_data(
+        'org.freedesktop.login1.policy',
+        install_dir : polkitpolicydir)
+install_data(
+        '10-systemd-logind-root-ignore-inhibitors.rules.example',
+        install_dir : polkitrulesdir)
