@@ -12,7 +12,6 @@ executables += [
 ]
 
 ukify_install = custom_target(
-        '60-ukify.install',
         input : '60-ukify.install.in',
         output : '60-ukify.install',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
@@ -21,7 +20,6 @@ ukify_install = custom_target(
         install_dir : kernelinstalldir)
 
 loaderentry_install = custom_target(
-        '90-loaderentry.install',
         input : '90-loaderentry.install.in',
         output : '90-loaderentry.install',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

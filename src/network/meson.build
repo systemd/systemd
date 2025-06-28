@@ -145,19 +145,16 @@ if conf.get('HAVE_VMLINUX_H') == 1
 endif
 
 networkd_gperf_c = custom_target(
-        'networkd-gperf.c',
         input : 'networkd-gperf.gperf',
         output : 'networkd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 networkd_network_gperf_c = custom_target(
-        'networkd-network-gperf.c',
         input : networkd_network_gperf_gperf,
         output : 'networkd-network-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 netdev_gperf_c = custom_target(
-        'netdev-gperf.c',
         input : networkd_netdev_gperf_gperf,
         output : 'netdev-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])

@@ -31,7 +31,6 @@ generate_hwids_section_py = find_program('generate-hwids-section.py')
 
 if conf.get('ENABLE_UKIFY') == 1
         test_hwids_section_c = custom_target(
-                'test-hwids-section.c',
                 input : ['hwids/device1.json', 'hwids/device2.json', 'hwids/device3.json', 'hwids/device4.json'],
                 output : 'test-hwids-section.c',
                 command : [generate_hwids_section_py, meson.current_source_dir()/'hwids'],
@@ -443,7 +442,6 @@ foreach efi_elf_binary : efi_elf_binaries
         endif
 
         exe = custom_target(
-                name,
                 output : name,
                 input : efi_elf_binary,
                 install : true,

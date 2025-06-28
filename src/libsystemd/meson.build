@@ -163,7 +163,6 @@ static_libsystemd = get_option('static-libsystemd')
 static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
 
 libsystemd_pc = custom_target(
-        'libsystemd.pc',
         input : 'libsystemd.pc.in',
         output : 'libsystemd.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

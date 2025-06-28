@@ -76,7 +76,6 @@ foreach tuple : rules_in
         want = tuple.length() == 1 or tuple[1]
 
         rule = custom_target(
-                tuple[0],
                 input : tuple[0] + '.in',
                 output: tuple[0],
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
