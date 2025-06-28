@@ -230,28 +230,21 @@ TEST(proc, .sd_booted = true) {
                         continue;
 
                 r = cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted);
-                if (r != -ESRCH)
-                        ASSERT_OK(r);
+                ASSERT_OK_OR(r, -ESRCH);
                 r = cg_pidref_get_unit(&pid, &unit);
-                if (r != -ESRCH)
-                        ASSERT_OK(r);
+                ASSERT_OK_OR(r, -ESRCH);
                 r = cg_pid_get_slice(pid.pid, &slice);
-                if (r != -ESRCH)
-                        ASSERT_OK(r);
+                ASSERT_OK_OR(r, -ESRCH);
 
                 /* Not all processes belong to a specific user or a machine */
                 r = cg_pidref_get_owner_uid(&pid, &uid);
-                if (!IN_SET(r, -ESRCH, -ENXIO))
-                        ASSERT_OK(r);
+                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
                 r = cg_pidref_get_session(&pid, &session);
-                if (!IN_SET(r, -ESRCH, -ENXIO))
-                        ASSERT_OK(r);
+                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
                 r = cg_pid_get_user_unit(pid.pid, &user_unit);
-                if (!IN_SET(r, -ESRCH, -ENXIO))
-                        ASSERT_OK(r);
+                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
                 r = cg_pid_get_machine_name(pid.pid, &machine);
-                if (!IN_SET(r, -ESRCH, -ENOENT))
-                        ASSERT_OK(r);
+                ASSERT_OK_OR(r, -ESRCH, -ENOENT);
 
                 log_debug(PID_FMT": %s, %s, "UID_FMT", %s, %s, %s, %s, %s",
                           pid.pid,
