@@ -182,6 +182,22 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
          })
 #endif
 
+#ifdef __COVERITY__
+#  define ASSERT_OK_OR(expr, ...)                                                                                       \
+        ({                                                                                                              \
+                typeof(expr) _result = (expr);                                                                          \
+                __coverity_check__(_result >= 0 || IN_SET(_result, 0, __VA_ARGS__)                                      \
+        })
+#else
+#  define ASSERT_OK_OR(expr, ...)                                                                                       \
+        ({                                                                                                              \
+                typeof(expr) _result = (expr);                                                                          \
+                if (_result < 0 && !IN_SET(_result, 0, __VA_ARGS__))                                                    \
+                        log_test_failed("\"%s\" failed with unexpected error: %d/%s",                                   \
+                                        #expr, _result, STRERROR(_result));                                             \
+         })
+#endif
+
 /* For functions that return a boolean on success and a negative errno on failure. */
 #ifdef __COVERITY__
 #  define ASSERT_OK_POSITIVE(expr) __coverity_check__((expr) > 0)
