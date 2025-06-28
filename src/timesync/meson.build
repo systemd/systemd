@@ -61,11 +61,15 @@ custom_target(
         install : conf.get('ENABLE_TIMESYNCD') == 1 and install_sysconfdir_samples,
         install_dir : pkgconfigfiledir)
 
-install_data('org.freedesktop.timesync1.conf',
-             install_dir : dbuspolicydir)
-install_data('org.freedesktop.timesync1.service',
-             install_dir : dbussystemservicedir)
-install_data('80-systemd-timesync.list',
-             install_dir : ntpservicelistdir)
-install_data('org.freedesktop.timesync1.policy',
-             install_dir : polkitpolicydir)
+install_data(
+        'org.freedesktop.timesync1.conf',
+        install_dir : dbuspolicydir)
+install_data(
+        'org.freedesktop.timesync1.service',
+        install_dir : dbussystemservicedir)
+install_data(
+        '80-systemd-timesync.list',
+        install_dir : ntpservicelistdir)
+install_data(
+        'org.freedesktop.timesync1.policy',
+        install_dir : polkitpolicydir)
