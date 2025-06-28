@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "errno-list.h"
@@ -33,7 +35,6 @@ const char* errno_to_name(int id) {
 #  include "errno-to-name.inc"
 
 const char* errno_to_name(int id) {
-
         if (id < 0)
                 id = -id;
 
@@ -43,3 +44,11 @@ const char* errno_to_name(int id) {
         return errno_names[id];
 }
 #endif
+
+const char* errno_name_full(int id, char buf[static ERRNO_NAME_BUF_LEN]) {
+        const char *a = errno_to_name(id);
+        if (a)
+                return a;
+        snprintf(buf, ERRNO_NAME_BUF_LEN, "%d", abs(id));
+        return buf;
+}

@@ -246,7 +246,7 @@ TEST(mime_type_matches) {
         FOREACH_ELEMENT(t, tags) {
                 _cleanup_free_ char *encoded = NULL;
 
-                ASSERT_OK(base64mem(t, sizeof(sd_id128_t), &encoded));
+                ASSERT_OK((int) base64mem(t, sizeof(sd_id128_t), &encoded));
 
                 /* Validate that the size matches expectations for the 4/3 factor size increase (rounding up) */
                 ASSERT_EQ(strlen(encoded), DIV_ROUND_UP((128U / 8U), 3U) * 4U);

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "errno-list.h"
 #include "errno-util.h"
 #include "forward.h"
 #include "log.h"
@@ -171,38 +172,57 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         unsigned long long: "%llu")
 
 #ifdef __COVERITY__
-#define ASSERT_OK(expr) __coverity_check__((expr) >= 0)
+#  define ASSERT_OK(expr) __coverity_check__((expr) >= 0)
 #else
-#define ASSERT_OK(expr)                                                                                                 \
+#  define ASSERT_OK(expr)                                                                                               \
         ({                                                                                                              \
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
-                        log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr, STRERROR(_result));     \
+                        log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
+                                        #expr, _result, ERRNO_NAME_FULL(_result));                                      \
+         })
+#endif
+
+#ifdef __COVERITY__
+#  define ASSERT_OK_OR(expr, ...)                                                                                       \
+        ({                                                                                                              \
+                typeof(expr) _result = (expr);                                                                          \
+                __coverity_check__(_result >= 0 || IN_SET(_result, 0, __VA_ARGS__)                                      \
+        })
+#else
+#  define ASSERT_OK_OR(expr, ...)                                                                                       \
+        ({                                                                                                              \
+                typeof(expr) _result = (expr);                                                                          \
+                if (_result < 0 && !IN_SET(_result, 0, __VA_ARGS__))                                                    \
+                        log_test_failed("\"%s\" failed with unexpected error: %d/%s",                                   \
+                                        #expr, _result, ERRNO_NAME_FULL(_result));                                      \
          })
 #endif
 
 /* For functions that return a boolean on success and a negative errno on failure. */
 #ifdef __COVERITY__
-#define ASSERT_OK_POSITIVE(expr) __coverity_check__((expr) > 0)
+#  define ASSERT_OK_POSITIVE(expr) __coverity_check__((expr) > 0)
 #else
-#define ASSERT_OK_POSITIVE(expr)                                                                                        \
+#  define ASSERT_OK_POSITIVE(expr)                                                                                      \
         ({                                                                                                              \
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
-                        log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr, STRERROR(_result));     \
+                        log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
+                                        #expr, _result, ERRNO_NAME_FULL(_result));                                      \
                 if (_result == 0)                                                                                       \
                         log_test_failed("Expected \"%s\" to be positive, but it is zero.", #expr);                      \
          })
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_OK_ZERO(expr) __coverity_check__((expr) == 0)
+#  define ASSERT_OK_ZERO(expr) __coverity_check__((expr) == 0)
 #else
-#define ASSERT_OK_ZERO(expr)                                                                                            \
+#  define ASSERT_OK_ZERO(expr)                                                                                          \
         ({                                                                                                              \
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
-                        log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr, STRERROR(_result));     \
+                        log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
+                                        #expr, _result, ERRNO_NAME_FULL(_result));                                      \
                 if (_result != 0) {                                                                                     \
                         char _sexpr[DECIMAL_STR_MAX(typeof(expr))];                                                     \
                         xsprintf(_sexpr, DECIMAL_STR_FMT(_result), _result);                                            \
@@ -212,14 +232,15 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_OK_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
+#  define ASSERT_OK_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
 #else
-#define ASSERT_OK_EQ(expr1, expr2)                                                                                      \
+#  define ASSERT_OK_EQ(expr1, expr2)                                                                                    \
         ({                                                                                                              \
                 typeof(expr1) _expr1 = (expr1);                                                                         \
                 typeof(expr2) _expr2 = (expr2);                                                                         \
                 if (_expr1 < 0)                                                                                         \
-                        log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr1, STRERROR(_expr1));     \
+                        log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
+                                        #expr1, _expr1, ERRNO_NAME_FULL(_expr1));                                       \
                 if (_expr1 != _expr2) {                                                                                 \
                         char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                                   \
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                                   \
@@ -231,24 +252,26 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_OK_ERRNO(expr) __coverity_check__((expr) >= 0)
+#  define ASSERT_OK_ERRNO(expr) __coverity_check__((expr) >= 0)
 #else
-#define ASSERT_OK_ERRNO(expr)                                                                                           \
+#  define ASSERT_OK_ERRNO(expr)                                                                                         \
         ({                                                                                                              \
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
-                        log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr, STRERROR(errno));       \
+                        log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
+                                        #expr, errno, ERRNO_NAME_FULL(errno));                                          \
         })
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_OK_ZERO_ERRNO(expr) __coverity_check__((expr) == 0)
+#  define ASSERT_OK_ZERO_ERRNO(expr) __coverity_check__((expr) == 0)
 #else
-#define ASSERT_OK_ZERO_ERRNO(expr)                                                                                      \
+#  define ASSERT_OK_ZERO_ERRNO(expr)                                                                                    \
         ({                                                                                                              \
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
-                        log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr, STRERROR(errno));       \
+                        log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
+                                        #expr, errno, ERRNO_NAME_FULL(errno));                                          \
                 if (_result != 0) {                                                                                     \
                         char _sexpr[DECIMAL_STR_MAX(typeof(expr))];                                                     \
                         xsprintf(_sexpr, DECIMAL_STR_FMT(_result), _result);                                            \
@@ -258,14 +281,15 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_OK_EQ_ERRNO(expr1, expr2) __coverity_check__((expr1) == (expr2))
+#  define ASSERT_OK_EQ_ERRNO(expr1, expr2) __coverity_check__((expr1) == (expr2))
 #else
-#define ASSERT_OK_EQ_ERRNO(expr1, expr2)                                                                                \
+#  define ASSERT_OK_EQ_ERRNO(expr1, expr2)                                                                              \
         ({                                                                                                              \
                 typeof(expr1) _expr1 = (expr1);                                                                         \
                 typeof(expr2) _expr2 = (expr2);                                                                         \
                 if (_expr1 < 0)                                                                                         \
-                        log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr1, STRERROR(errno));      \
+                        log_test_failed("Expected \"%s\" to succeed, but got error: %d/%s",                             \
+                                        #expr1, errno, ERRNO_NAME_FULL(errno));                                         \
                 if (_expr1 != _expr2) {                                                                                 \
                         char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                                   \
                         char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                                   \
@@ -277,9 +301,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_FAIL(expr) __coverity_check__((expr) < 0)
+#  define ASSERT_FAIL(expr) __coverity_check__((expr) < 0)
 #else
-#define ASSERT_FAIL(expr)                                                                                               \
+#  define ASSERT_FAIL(expr)                                                                                             \
         ({                                                                                                              \
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result >= 0)                                                                                       \
@@ -288,41 +312,41 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_ERROR(expr1, expr2) __coverity_check__((expr1) == -(expr2))
+#  define ASSERT_ERROR(expr1, expr2) __coverity_check__((expr1) == -(expr2))
 #else
-#define ASSERT_ERROR(expr1, expr2)                                                                                      \
+#  define ASSERT_ERROR(expr1, expr2)                                                                                    \
         ({                                                                                                              \
                 int _expr1 = (expr1);                                                                                   \
                 int _expr2 = (expr2);                                                                                   \
                 if (_expr1 >= 0)                                                                                        \
-                        log_test_failed("Expected \"%s\" to fail with error \"%s\", but it succeeded",                  \
-                                        #expr1, STRERROR(_expr2));                                                      \
+                        log_test_failed("Expected \"%s\" to fail with error %d/\"%s\", but it succeeded",               \
+                                        #expr1, _expr2, ERRNO_NAME_FULL(_expr2));                                       \
                 else if (-_expr1 != _expr2)                                                                             \
-                        log_test_failed("Expected \"%s\" to fail with error \"%s\", but got the following error: %s",   \
-                                        #expr1, STRERROR(_expr2), STRERROR(_expr1));                                    \
+                        log_test_failed("Expected \"%s\" to fail with error %d/\"%s\", but got the following error: %d/%s", \
+                                        #expr1, _expr2, ERRNO_NAME_FULL(_expr2), _expr1, ERRNO_NAME_FULL(_expr1));      \
         })
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_ERROR_ERRNO(expr1, expr2) __coverity_check__((expr1) < 0 && errno == (expr2))
+#  define ASSERT_ERROR_ERRNO(expr1, expr2) __coverity_check__((expr1) < 0 && errno == (expr2))
 #else
-#define ASSERT_ERROR_ERRNO(expr1, expr2)                                                                                \
+#  define ASSERT_ERROR_ERRNO(expr1, expr2)                                                                              \
         ({                                                                                                              \
                 int _expr1 = (expr1);                                                                                   \
                 int _expr2 = (expr2);                                                                                   \
                 if (_expr1 >= 0)                                                                                        \
-                        log_test_failed("Expected \"%s\" to fail with error \"%s\", but it succeeded",                  \
-                                        #expr1, STRERROR(_expr2));                                                      \
+                        log_test_failed("Expected \"%s\" to fail with error %d/\"%s\", but it succeeded",               \
+                                        #expr1, _expr2, ERRNO_NAME_FULL(_expr2));                                       \
                 else if (errno != _expr2)                                                                               \
-                        log_test_failed("Expected \"%s\" to fail with error \"%s\", but got the following error: %s",   \
-                                        #expr1, STRERROR(_expr2), STRERROR(errno));                                     \
+                        log_test_failed("Expected \"%s\" to fail with error %d/\"%s\", but got the following error: %d/%s", \
+                                        #expr1, _expr2, ERRNO_NAME_FULL(_expr2), errno, ERRNO_NAME_FULL(errno));        \
         })
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_TRUE(expr) __coverity_check__(!!(expr))
+#  define ASSERT_TRUE(expr) __coverity_check__(!!(expr))
 #else
-#define ASSERT_TRUE(expr)                                                                                               \
+#  define ASSERT_TRUE(expr)                                                                                             \
         ({                                                                                                              \
                 if (!(expr))                                                                                            \
                         log_test_failed("Expected \"%s\" to be true", #expr);                                           \
@@ -330,9 +354,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_FALSE(expr) __coverity_check__(!(expr))
+#  define ASSERT_FALSE(expr) __coverity_check__(!(expr))
 #else
-#define ASSERT_FALSE(expr)                                                                                              \
+#  define ASSERT_FALSE(expr)                                                                                            \
         ({                                                                                                              \
                 if ((expr))                                                                                             \
                         log_test_failed("Expected \"%s\" to be false", #expr);                                          \
@@ -340,9 +364,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_NULL(expr) __coverity_check__((expr) == NULL)
+#  define ASSERT_NULL(expr) __coverity_check__((expr) == NULL)
 #else
-#define ASSERT_NULL(expr)                                                                                               \
+#  define ASSERT_NULL(expr)                                                                                             \
         ({                                                                                                              \
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result != NULL)                                                                                    \
@@ -351,9 +375,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_NOT_NULL(expr) __coverity_check__((expr) != NULL)
+#  define ASSERT_NOT_NULL(expr) __coverity_check__((expr) != NULL)
 #else
-#define ASSERT_NOT_NULL(expr)                                                                                           \
+#  define ASSERT_NOT_NULL(expr)                                                                                         \
         ({                                                                                                              \
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result == NULL)                                                                                    \
@@ -363,9 +387,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_STREQ(expr1, expr2) __coverity_check__(streq_ptr((expr1), (expr2)))
+#  define ASSERT_STREQ(expr1, expr2) __coverity_check__(streq_ptr((expr1), (expr2)))
 #else
-#define ASSERT_STREQ(expr1, expr2)                                                                                      \
+#  define ASSERT_STREQ(expr1, expr2)                                                                                    \
         ({                                                                                                              \
                 const char *_expr1 = (expr1), *_expr2 = (expr2);                                                        \
                 if (!streq_ptr(_expr1, _expr2))                                                                         \
@@ -375,9 +399,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_PTR_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
+#  define ASSERT_PTR_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
 #else
-#define ASSERT_PTR_EQ(expr1, expr2)                                                                                     \
+#  define ASSERT_PTR_EQ(expr1, expr2)                                                                                   \
         ({                                                                                                              \
                 const void *_expr1 = (expr1), *_expr2 = (expr2);                                                        \
                 if (_expr1 != _expr2)                                                                                   \
@@ -390,9 +414,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
  * input into strings first and then format those into the final assertion message. */
 
 #ifdef __COVERITY__
-#define ASSERT_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
+#  define ASSERT_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
 #else
-#define ASSERT_EQ(expr1, expr2)                                                                                 \
+#  define ASSERT_EQ(expr1, expr2)                                                                               \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
@@ -408,9 +432,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_GE(expr1, expr2) __coverity_check__((expr1) >= (expr2))
+#  define ASSERT_GE(expr1, expr2) __coverity_check__((expr1) >= (expr2))
 #else
-#define ASSERT_GE(expr1, expr2)                                                                                 \
+#  define ASSERT_GE(expr1, expr2)                                                                               \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
@@ -426,9 +450,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_LE(expr1, expr2) __coverity_check__((expr1) <= (expr2))
+#  define ASSERT_LE(expr1, expr2) __coverity_check__((expr1) <= (expr2))
 #else
-#define ASSERT_LE(expr1, expr2)                                                                                 \
+#  define ASSERT_LE(expr1, expr2)                                                                               \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
@@ -444,9 +468,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_NE(expr1, expr2) __coverity_check__((expr1) != (expr2))
+# define ASSERT_NE(expr1, expr2) __coverity_check__((expr1) != (expr2))
 #else
-#define ASSERT_NE(expr1, expr2)                                                                                 \
+#  define ASSERT_NE(expr1, expr2)                                                                               \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
@@ -462,9 +486,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_GT(expr1, expr2) __coverity_check__((expr1) > (expr2))
+#  define ASSERT_GT(expr1, expr2) __coverity_check__((expr1) > (expr2))
 #else
-#define ASSERT_GT(expr1, expr2)                                                                                 \
+#  define ASSERT_GT(expr1, expr2)                                                                               \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
@@ -480,9 +504,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_LT(expr1, expr2) __coverity_check__((expr1) < (expr2))
+#  define ASSERT_LT(expr1, expr2) __coverity_check__((expr1) < (expr2))
 #else
-#define ASSERT_LT(expr1, expr2)                                                                                 \
+#  define ASSERT_LT(expr1, expr2)                                                                               \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
@@ -500,9 +524,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 int assert_signal_internal(void);
 
 #ifdef __COVERITY__
-#define ASSERT_SIGNAL(expr, signal) __coverity_check__(((expr), false))
+#  define ASSERT_SIGNAL(expr, signal) __coverity_check__(((expr), false))
 #else
-#define ASSERT_SIGNAL(expr, signal)                                                                             \
+#  define ASSERT_SIGNAL(expr, signal)                                                                           \
         ({                                                                                                      \
                 ASSERT_TRUE(SIGNAL_VALID(signal));                                                              \
                 int _r = assert_signal_internal();                                                              \
@@ -518,9 +542,9 @@ int assert_signal_internal(void);
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_EQ_ID128(expr1, expr2) __coverity_check__(sd_id128_equal((expr1), (expr2)))
+#  define ASSERT_EQ_ID128(expr1, expr2) __coverity_check__(sd_id128_equal((expr1), (expr2)))
 #else
-#define ASSERT_EQ_ID128(expr1, expr2)                                                                           \
+#  define ASSERT_EQ_ID128(expr1, expr2)                                                                         \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
@@ -532,9 +556,9 @@ int assert_signal_internal(void);
 #endif
 
 #ifdef __COVERITY__
-#define ASSERT_NE_ID128(expr1, expr2) __coverity_check__(!sd_id128_equal((expr1), (expr2)))
+#  define ASSERT_NE_ID128(expr1, expr2) __coverity_check__(!sd_id128_equal((expr1), (expr2)))
 #else
-#define ASSERT_NE_ID128(expr1, expr2)                                                                           \
+#  define ASSERT_NE_ID128(expr1, expr2)                                                                         \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
@@ -551,9 +575,9 @@ int assert_signal_internal(void);
                            (guid).Data4[4], (guid).Data4[5], (guid).Data4[6], (guid).Data4[7]  \
 
 #ifdef __COVERITY__
-#define ASSERT_EQ_EFI_GUID(expr1, expr2) __coverity_check__(efi_guid_equal((expr1), (expr2)))
+#  define ASSERT_EQ_EFI_GUID(expr1, expr2) __coverity_check__(efi_guid_equal((expr1), (expr2)))
 #else
-#define ASSERT_EQ_EFI_GUID(expr1, expr2)                                                                        \
+#  define ASSERT_EQ_EFI_GUID(expr1, expr2)                                                                      \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
