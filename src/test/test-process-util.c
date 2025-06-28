@@ -26,7 +26,6 @@
 #include "fd-util.h"
 #include "ioprio-util.h"
 #include "log.h"
-#include "missing_sched.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "pidfd-util.h"

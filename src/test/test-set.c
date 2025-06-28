@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "random-util.h"
 #include "set.h"
 #include "strv.h"

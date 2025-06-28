@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/pidfd.h>          /* IWYU pragma: export */
+
 #include "forward.h"
-#include "missing_pidfd.h"      /* IWYU pragma: export */
-#include "missing_syscall.h"    /* IWYU pragma: export */
 
 int pidfd_get_namespace(int fd, unsigned long ns_type_cmd);
 

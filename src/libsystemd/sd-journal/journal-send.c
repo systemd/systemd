@@ -18,7 +18,6 @@
 #include "journal-send.h"
 #include "log.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"

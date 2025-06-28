@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <linux/fs.h>
-#include <linux/kcmp.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -16,8 +15,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_fcntl.h"
-#include "missing_syscall.h"
+#include "missing_kcmp.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -970,8 +968,8 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
          *             immediately after open(). It should have no effect whatsoever to an already-opened FD,
          *             and since we refuse O_PATH it should be safe.
          *
-         * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
-         *                  See comment in missing_fcntl.h for more details about this.
+         * O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
+         *              See comment in src/basic/include/fcntl.h for more details about this.
          *
          * If 'extra_flags' is specified as non-zero the included flags are also allowed.
          */
@@ -982,13 +980,13 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
         if (flags < 0)
                 return -errno;
 
-        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
+        unexpected_flags = flags & ~(O_ACCMODE|O_NOFOLLOW|O_LARGEFILE|extra_flags);
         if (unexpected_flags != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
                                        "Unexpected flags set for extrinsic fd: 0%o",
                                        (unsigned) unexpected_flags);
 
-        return flags & (O_ACCMODE_STRICT | extra_flags); /* return the flags variable, but remove the noise */
+        return flags & (O_ACCMODE | extra_flags); /* return the flags variable, but remove the noise */
 }
 
 int read_nr_open(void) {
@@ -1120,7 +1118,7 @@ char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
 }
 
 const char* accmode_to_string(int flags) {
-        switch (flags & O_ACCMODE_STRICT) {
+        switch (flags & O_ACCMODE) {
         case O_RDONLY:
                 return "ro";
         case O_WRONLY:

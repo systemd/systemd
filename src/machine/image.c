@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-bus.h"
 
 #include "discover-image.h"
