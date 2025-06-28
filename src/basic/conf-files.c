@@ -295,15 +295,6 @@ static int conf_files_list_impl(
                 resolved_replacement = path_join(resolved_dirpath_replacement, filename_replacement);
                 if (!resolved_replacement)
                         return log_oom_debug();
-
-                if (FLAGS_SET(flags, CONF_FILES_CHASE_BASENAME)) {
-                        _cleanup_free_ char *p = NULL;
-                        r = chaseat(rfd, resolved_replacement, CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &p, /* ret_fd = */ NULL);
-                        if (r < 0)
-                                return r;
-
-                        free_and_replace(resolved_replacement, p);
-                }
         }
 
         STRV_FOREACH(p, dirs) {
@@ -428,7 +419,7 @@ int conf_files_list_with_replacement(
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
         _cleanup_free_ char *inserted = NULL;
-        ConfFilesFlags flags = CONF_FILES_REGULAR | CONF_FILES_CHASE_BASENAME | CONF_FILES_FILTER_MASKED_BY_SYMLINK;
+        ConfFilesFlags flags = CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED_BY_SYMLINK;
         int r;
 
         assert(ret_files);
