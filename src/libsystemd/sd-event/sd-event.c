@@ -5,6 +5,7 @@
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <threads.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"
