@@ -47,6 +47,13 @@
         _describe 'plot options' _options
     }
 
+(( $+functions[_systemd-analyze_transient-settings] )) ||
+    _systemd-analyze_transient-settings() {
+        local -a _types
+        _types=( $(systemctl --no-pager --no-legend -t help) )
+        _describe -t types 'unit types' _types
+    }
+
 (( $+functions[_systemd-analyze_commands] )) ||
     _systemd-analyze_commands(){
         local -a _systemd_analyze_cmds
@@ -74,6 +81,7 @@ JSON or table format'
             'security:Analyze security settings of a service'
             'inspect-elf:Parse and print ELF package metadata'
             'has-tpm2:Report whether TPM2 support is available'
+            'transient-settings:List transient settings for unit types'
             # log-level, log-target, service-watchdogs have been deprecated
         )
 

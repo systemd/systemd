@@ -110,7 +110,7 @@ TEST(serialize_strv) {
         log_info("/* %s (%s) */", __func__, fn);
 
         assert_se(serialize_strv(f, "strv1", NULL) == 0);
-        assert_se(serialize_strv(f, "strv2", STRV_MAKE_EMPTY) == 0);
+        assert_se(serialize_strv(f, "strv2", STRV_EMPTY) == 0);
         assert_se(serialize_strv(f, "strv3", strv) == 1);
         assert_se(serialize_strv(f, "strv4", STRV_MAKE(long_string)) == -EINVAL);
 

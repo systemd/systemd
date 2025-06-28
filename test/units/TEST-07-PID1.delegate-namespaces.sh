@@ -45,8 +45,8 @@ testcase_pid() {
 }
 
 testcase_uts() {
-    (! systemd-run -p PrivateUsersEx=self -p ProtectHostnameEx=private --wait --pipe -- hostname abc)
-    systemd-run -p PrivateUsersEx=self -p ProtectHostnameEx=private -p DelegateNamespaces=uts --wait --pipe -- hostname abc
+    (! systemd-run -p PrivateUsersEx=self -p ProtectHostname=private --wait --pipe -- hostname abc)
+    systemd-run -p PrivateUsersEx=self -p ProtectHostname=private -p DelegateNamespaces=uts --wait --pipe -- hostname abc
 }
 
 testcase_implied_private_users_self() {

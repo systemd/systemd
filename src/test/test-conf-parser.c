@@ -169,14 +169,14 @@ TEST(config_parse_unsigned) {
 }
 
 TEST(config_parse_strv) {
-        test_config_parse_strv_one("", false, STRV_MAKE_EMPTY);
+        test_config_parse_strv_one("", false, STRV_EMPTY);
         test_config_parse_strv_one("foo", false, STRV_MAKE("foo"));
         test_config_parse_strv_one("foo bar foo", false, STRV_MAKE("foo", "bar", "foo"));
         test_config_parse_strv_one("\"foo bar\" foo", false, STRV_MAKE("foo bar", "foo"));
         test_config_parse_strv_one("\xc3\x80", false, STRV_MAKE("\xc3\x80"));
         test_config_parse_strv_one("\xc3\x7f", false, STRV_MAKE("\xc3\x7f"));
 
-        test_config_parse_strv_one("", true, STRV_MAKE_EMPTY);
+        test_config_parse_strv_one("", true, STRV_EMPTY);
         test_config_parse_strv_one("foo", true, STRV_MAKE("foo"));
         test_config_parse_strv_one("foo bar foo", true, STRV_MAKE("foo", "bar"));
         test_config_parse_strv_one("\"foo bar\" foo", true, STRV_MAKE("foo bar", "foo"));
