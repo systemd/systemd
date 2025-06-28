@@ -332,12 +332,12 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  search2_aa,
-                                                 strjoina(t2, "/absolute-empty.real"),
-                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 strjoina(search3, "absolute-empty.conf"),
+                                                 strjoina(search3, "absolute-non-empty.conf"),
                                                  search1_b,
                                                  strjoina(search2, "mm.conf"),
-                                                 strjoina(t2, "/relative-empty.real"),
-                                                 strjoina(t2, "/relative-non-empty.real"))));
+                                                 strjoina(search3, "relative-empty.conf"),
+                                                 strjoina(search3, "relative-non-empty.conf"))));
         ASSERT_STREQ(inserted, search1_a);
         result = strv_free(result);
         inserted = mfree(inserted);
@@ -346,12 +346,12 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  strjoina(search1, "aa.conf"),
-                                                 strjoina(t2, "/absolute-empty.real"),
-                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 strjoina(search3, "absolute-empty.conf"),
+                                                 strjoina(search3, "absolute-non-empty.conf"),
                                                  search1_b,
                                                  strjoina(search2, "mm.conf"),
-                                                 strjoina(t2, "/relative-empty.real"),
-                                                 strjoina(t2, "/relative-non-empty.real"))));
+                                                 strjoina(search3, "relative-empty.conf"),
+                                                 strjoina(search3, "relative-non-empty.conf"))));
         ASSERT_STREQ(inserted, strjoina(search1, "aa.conf"));
         result = strv_free(result);
         inserted = mfree(inserted);
@@ -360,12 +360,12 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  search2_aa,
-                                                 strjoina(t2, "/absolute-empty.real"),
-                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 strjoina(search3, "absolute-empty.conf"),
+                                                 strjoina(search3, "absolute-non-empty.conf"),
                                                  search1_b,
                                                  strjoina(search2, "mm.conf"),
-                                                 strjoina(t2, "/relative-empty.real"),
-                                                 strjoina(t2, "/relative-non-empty.real"))));
+                                                 strjoina(search3, "relative-empty.conf"),
+                                                 strjoina(search3, "relative-non-empty.conf"))));
         ASSERT_NULL(inserted);
         result = strv_free(result);
         inserted = mfree(inserted);
@@ -374,12 +374,12 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  search2_aa,
-                                                 strjoina(t2, "/absolute-empty.real"),
-                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 strjoina(search3, "absolute-empty.conf"),
+                                                 strjoina(search3, "absolute-non-empty.conf"),
                                                  search1_b,
                                                  strjoina(search2, "mm.conf"),
-                                                 strjoina(t2, "/relative-empty.real"),
-                                                 strjoina(t2, "/relative-non-empty.real"))));
+                                                 strjoina(search3, "relative-empty.conf"),
+                                                 strjoina(search3, "relative-non-empty.conf"))));
         ASSERT_NULL(inserted);
         result = strv_free(result);
         inserted = mfree(inserted);
@@ -388,12 +388,12 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  search2_aa,
-                                                 strjoina(t2, "/absolute-empty.real"),
-                                                 strjoina(t2, "/absolute-non-empty.real"),
+                                                 strjoina(search3, "absolute-empty.conf"),
+                                                 strjoina(search3, "absolute-non-empty.conf"),
                                                  search1_b,
                                                  strjoina(search2, "mm.conf"),
-                                                 strjoina(t2, "/relative-empty.real"),
-                                                 strjoina(t2, "/relative-non-empty.real"),
+                                                 strjoina(search3, "relative-empty.conf"),
+                                                 strjoina(search3, "relative-non-empty.conf"),
                                                  strjoina(t, "/dir4/x.conf"))));
         ASSERT_STREQ(inserted, strjoina(t, "/dir4/x.conf"));
         result = strv_free(result);
@@ -403,11 +403,11 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  search2_aa,
-                                                 strjoina(t, "/absolute-empty-for-root.real"),
-                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 strjoina(search3, "absolute-empty-for-root.conf"),
+                                                 strjoina(search3, "absolute-non-empty-for-root.conf"),
                                                  search1_b,
-                                                 strjoina(t, "/relative-empty-for-root.real"),
-                                                 strjoina(t, "/relative-non-empty-for-root.real"))));
+                                                 strjoina(search3, "relative-empty-for-root.conf"),
+                                                 strjoina(search3, "relative-non-empty-for-root.conf"))));
         ASSERT_STREQ(inserted, search1_a);
         result = strv_free(result);
         inserted = mfree(inserted);
@@ -416,11 +416,11 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  strjoina(search1, "aa.conf"),
-                                                 strjoina(t, "/absolute-empty-for-root.real"),
-                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 strjoina(search3, "absolute-empty-for-root.conf"),
+                                                 strjoina(search3, "absolute-non-empty-for-root.conf"),
                                                  search1_b,
-                                                 strjoina(t, "/relative-empty-for-root.real"),
-                                                 strjoina(t, "/relative-non-empty-for-root.real"))));
+                                                 strjoina(search3, "relative-empty-for-root.conf"),
+                                                 strjoina(search3, "relative-non-empty-for-root.conf"))));
         ASSERT_STREQ(inserted, strjoina(search1, "aa.conf"));
         result = strv_free(result);
         inserted = mfree(inserted);
@@ -429,11 +429,11 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  search2_aa,
-                                                 strjoina(t, "/absolute-empty-for-root.real"),
-                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 strjoina(search3, "absolute-empty-for-root.conf"),
+                                                 strjoina(search3, "absolute-non-empty-for-root.conf"),
                                                  search1_b,
-                                                 strjoina(t, "/relative-empty-for-root.real"),
-                                                 strjoina(t, "/relative-non-empty-for-root.real"))));
+                                                 strjoina(search3, "relative-empty-for-root.conf"),
+                                                 strjoina(search3, "relative-non-empty-for-root.conf"))));
         ASSERT_NULL(inserted);
         result = strv_free(result);
         inserted = mfree(inserted);
@@ -442,11 +442,11 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  search2_aa,
-                                                 strjoina(t, "/absolute-empty-for-root.real"),
-                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 strjoina(search3, "absolute-empty-for-root.conf"),
+                                                 strjoina(search3, "absolute-non-empty-for-root.conf"),
                                                  search1_b,
-                                                 strjoina(t, "/relative-empty-for-root.real"),
-                                                 strjoina(t, "/relative-non-empty-for-root.real"))));
+                                                 strjoina(search3, "relative-empty-for-root.conf"),
+                                                 strjoina(search3, "relative-non-empty-for-root.conf"))));
         ASSERT_NULL(inserted);
         result = strv_free(result);
         inserted = mfree(inserted);
@@ -455,11 +455,11 @@ TEST(conf_files_list) {
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a,
                                                  search2_aa,
-                                                 strjoina(t, "/absolute-empty-for-root.real"),
-                                                 strjoina(t, "/absolute-non-empty-for-root.real"),
+                                                 strjoina(search3, "absolute-empty-for-root.conf"),
+                                                 strjoina(search3, "absolute-non-empty-for-root.conf"),
                                                  search1_b,
-                                                 strjoina(t, "/relative-empty-for-root.real"),
-                                                 strjoina(t, "/relative-non-empty-for-root.real"),
+                                                 strjoina(search3, "relative-empty-for-root.conf"),
+                                                 strjoina(search3, "relative-non-empty-for-root.conf"),
                                                  strjoina(t, "/dir4/x.conf"))));
         ASSERT_STREQ(inserted, strjoina(t, "/dir4/x.conf"));
         result = strv_free(result);
