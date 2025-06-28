@@ -2145,10 +2145,11 @@ endif
 runtest_env = custom_target(
         'systemd-runtest.env',
         output : 'systemd-runtest.env',
-        command : [sh, '-c',
-                   '{ echo SYSTEMD_TEST_DATA=@0@; echo SYSTEMD_CATALOG_DIR=@1@; } >@OUTPUT@'.format(
-                           meson.project_source_root() / 'test',
-                           meson.project_build_root() / 'catalog')],
+        command : ['printf',
+                   'SYSTEMD_TEST_DATA=%q\nSYSTEMD_CATALOG_DIR=%q\n',
+                   meson.project_source_root() / 'test',
+                   meson.project_build_root() / 'catalog'],
+        capture: true,
         depends : catalogs,
         build_by_default : true)
 
