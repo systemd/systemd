@@ -100,13 +100,10 @@ static int files_add(
                                 continue;
                         }
 
-                        if (need_stat) {
-                                r = fstatat(rfd, resolved_path, &st, AT_SYMLINK_NOFOLLOW);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to stat '%s/%s', ignoring: %m",
-                                                        root, skip_leading_slash(p));
-                                        continue;
-                                }
+                        if (need_stat && fstatat(rfd, resolved_path, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                                log_debug_errno(errno, "Failed to stat '%s/%s', ignoring: %m",
+                                                root, skip_leading_slash(p));
+                                continue;
                         }
 
                 } else {
