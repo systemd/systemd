@@ -368,10 +368,8 @@ TEST(cg_tests) {
         int all, hybrid, systemd, r;
 
         r = cg_unified();
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM)) {
-                log_tests_skipped("cgroup not mounted");
-                return;
-        }
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+                return (void) log_tests_skipped("cgroup not mounted");
         assert_se(r >= 0);
 
         all = cg_all_unified();
