@@ -46,7 +46,6 @@ systemd_resolved_extract_sources = files(
 ############################################################
 
 dns_type_list_txt = custom_target(
-        'dns_type-list.txt',
         input : ['generate-dns_type-list.sed', 'dns-type.h'],
         output : 'dns_type-list.txt',
         command : [sed, '-n', '-r', '-f', '@INPUT0@', '@INPUT1@'],
@@ -55,14 +54,12 @@ dns_type_list_txt = custom_target(
 generate_dns_type_gperf = find_program('generate-dns_type-gperf.py')
 
 gperf_file = custom_target(
-        'dns_type-from-name.gperf',
         input : dns_type_list_txt,
         output : 'dns_type-from-name.gperf',
         command : [generate_dns_type_gperf, 'dns_type', 'DNS_TYPE_', '@INPUT@'],
         capture : true)
 
 dns_type_from_name_inc = custom_target(
-        'dns_type-from-name.inc',
         input : gperf_file,
         output : 'dns_type-from-name.inc',
         command : [gperf,
@@ -74,26 +71,22 @@ dns_type_from_name_inc = custom_target(
         capture : true)
 
 dns_type_to_name_inc = custom_target(
-        'dns_type-to-name.inc',
         input : ['dns_type-to-name.awk', dns_type_list_txt],
         output : 'dns_type-to-name.inc',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
 resolved_gperf_c = custom_target(
-        'resolved-gperf.c',
         input : 'resolved-gperf.gperf',
         output : 'resolved-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 resolved_dnssd_gperf_c = custom_target(
-        'resolved-dnssd-gperf.c',
         input : 'resolved-dnssd-gperf.gperf',
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 resolved_dns_delegate_gperf_c = custom_target(
-        'resolved-dns-delegate-gperf.c',
         input : 'resolved-dns-delegate-gperf.gperf',
         output : 'resolved-dns-delegate-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -228,7 +221,6 @@ install_symlink('systemd-resolve',
                 install_dir : bindir)
 
 custom_target(
-        'resolved.conf',
         input : 'resolved.conf.in',
         output : 'resolved.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

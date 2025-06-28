@@ -29,7 +29,6 @@ systemd_logind_extract_sources = files(
 )
 
 logind_gperf_c = custom_target(
-        'logind-gperf.c',
         input : 'logind-gperf.gperf',
         output : 'logind-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -108,7 +107,6 @@ modules += [
 ]
 
 custom_target(
-        'logind.conf',
         input : 'logind.conf.in',
         output : 'logind.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
@@ -116,18 +114,21 @@ custom_target(
         install_dir : pkgconfigfiledir)
 
 custom_target(
-        'systemd-user',
         input : 'systemd-user.in',
         output : 'systemd-user',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : pamconfdir != 'no',
         install_dir : pamconfdir)
 
-install_data('org.freedesktop.login1.conf',
-                install_dir : dbuspolicydir)
-install_data('org.freedesktop.login1.service',
-                install_dir : dbussystemservicedir)
-install_data('org.freedesktop.login1.policy',
-                install_dir : polkitpolicydir)
-install_data('10-systemd-logind-root-ignore-inhibitors.rules.example',
-                install_dir : polkitrulesdir)
+install_data(
+        'org.freedesktop.login1.conf',
+        install_dir : dbuspolicydir)
+install_data(
+        'org.freedesktop.login1.service',
+        install_dir : dbussystemservicedir)
+install_data(
+        'org.freedesktop.login1.policy',
+        install_dir : polkitpolicydir)
+install_data(
+        '10-systemd-logind-root-ignore-inhibitors.rules.example',
+        install_dir : polkitrulesdir)

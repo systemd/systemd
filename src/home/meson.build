@@ -37,7 +37,6 @@ systemd_homework_sources = files(
 )
 
 homed_gperf_c = custom_target(
-        'homed-gperf.c',
         input : 'homed-gperf.gperf',
         output : 'homed-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
