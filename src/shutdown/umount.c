@@ -37,6 +37,7 @@ static int shutdown_timeout_wrapper(const char* task_name, const char* task_note
                                     TimeoutTask func, MountPoint *m, bool last_try);
 static int remount_internal(MountPoint *m, bool last_try);
 static int umount_internal(MountPoint *m, bool last_try);
+static int check_is_dir_internal(MountPoint *m, bool last_try);
 
 static void mount_point_free(MountPoint **head, MountPoint *m) {
         assert(head);
@@ -326,7 +327,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                         xsprintf(newpath, "/run/shutdown/mounts/%016" PRIx64, random_u64());
 
                         /* on error of is_dir, assume directory */
-                        if (is_dir(m->path, true) != 0) {
+                        if (shutdown_timeout_wrapper("(checkdir)", "Checking IsDir", check_is_dir_internal, m, true) != 0) {
                                 r = mkdir_p(newpath, 0000);
                                 if (r < 0) {
                                         log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not create directory %s: %m", newpath);
@@ -474,5 +475,9 @@ static int umount_internal(MountPoint *m, bool last_try) {
         }
 
         return r;
+}
+
+static int check_is_dir_internal(MountPoint *m, bool last_try) {
+        return is_dir(m->path, true);
 }
 
