@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/statvfs.h>
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
@@ -29,6 +30,7 @@
 #include "cgroup-setup.h"
 #include "cgroup.h"
 #include "chase.h"
+#include "chattr-util.h"
 #include "chown-recursive.h"
 #include "constants.h"
 #include "copy.h"
@@ -60,15 +62,19 @@
 #include "open-file.h"
 #include "osc-context.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
+#include "quota-util.h"
+#include "random-util.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "siphash24.h"
 #include "smack-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -83,6 +89,11 @@
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
 
 #define SNDBUF_SIZE (8*1024*1024)
+
+/* Project id range for disk quotas */
+#define PROJ_ID_MIN UINT32_C(2147483648)
+#define PROJ_ID_MAX UINT32_C(4294967294)
+#define PROJ_ID_CLAMP_INTO_QUOTA_RANGE(id) ((uint32_t) ((id) % (PROJ_ID_MAX - PROJ_ID_MIN + 1)) + PROJ_ID_MIN)
 
 static int flag_fds(
                 const int fds[],
@@ -2575,6 +2586,218 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
         return 0;
 }
 
+static int set_exec_storage_quota(int fd, uint32_t proj_id, const QuotaLimit *ql) {
+        int r;
+        uint64_t block_limit = 0, inode_limit = 0;
+
+        assert(fd >= 0);
+        assert(ql);
+
+        if (ql->quota_absolute == 0 || ql->quota_scale == 0)
+                /* Limit of 0 means no usage is allowed. For quotactl, use 1 as the limit, since 0 means that
+                 * hard limits are disabled */
+                block_limit = inode_limit = 1;
+        else if (ql->quota_absolute == UINT64_MAX) {
+                _cleanup_close_ int fd_parent = -EBADF;
+
+                /* Use target_dir's parent when setting quotas. If a FD for target_dir has been previously
+                 * used for quotactl_fd(SET) and is passed again for fstatvfs(), the total number of blocks is not
+                 * reported accurately (instead, the block limit is reported as total blocks). Thus, use the FD
+                 * associated with the parent, so that total blocks is accurate */
+                fd_parent = openat(fd, "..", O_PATH|O_CLOEXEC|O_DIRECTORY);
+                if (fd_parent < 0)
+                        return -errno;
+
+                uint32_t xattr_flags = 0;
+                r = read_fs_xattr_fd(fd_parent, &xattr_flags, /* ret_projid = */ NULL);
+                if (r < 0)
+                        return r;
+                /* Refuse if parent has FS_XFLAG_PROJINHERIT since this will mean the total number of blocks will not
+                 * be reported accurately */
+                if (FLAGS_SET(xattr_flags, FS_XFLAG_PROJINHERIT))
+                        return -ENOMEDIUM;
+
+                struct statvfs disk_st;
+                if (fstatvfs(fd_parent, &disk_st) < 0)
+                        return -errno;
+
+                block_limit = (uint64_t) DIV_ROUND_UP((uint64_t)((double) (disk_st.f_frsize * disk_st.f_blocks) / UINT32_MAX * ql->quota_scale), QIF_DQBLKSIZE);
+                inode_limit = (uint64_t) ((double) disk_st.f_files / UINT32_MAX * ql->quota_scale);
+        } else
+                block_limit = (uint64_t) DIV_ROUND_UP(ql->quota_absolute, QIF_DQBLKSIZE);
+
+        struct dqblk req = {
+                .dqb_bhardlimit = block_limit,
+                .dqb_ihardlimit = inode_limit,
+                .dqb_valid = QIF_LIMITS,
+        };
+
+        r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_SETQUOTA, PRJQUOTA), proj_id, &req);
+        if (r < 0)
+                return r;
+
+        log_debug("Storage quotas set for project id %" PRIu32 ". Block limit = %" PRIu64 ", inode limit = %" PRIu64, proj_id, block_limit, inode_limit);
+
+        return 0;
+}
+
+static int unset_exec_storage_quota(int fd, uint32_t proj_id, bool quota_accounting) {
+        int r, quota_supported;
+        struct dqblk req;
+
+        assert(fd >= 0);
+
+        quota_supported = quota_query_proj_id(fd, proj_id, &req);
+        if (quota_supported < 0)
+                return log_debug_errno(quota_supported, "Failed to query disk quota for project ID %" PRIu32 ": %m", proj_id);
+
+        /* Do not enforce quotas anymore */
+        if (quota_supported && FLAGS_SET(req.dqb_valid, QIF_BLIMITS) && (req.dqb_bhardlimit > 0 || req.dqb_ihardlimit > 0)) {
+                req.dqb_bhardlimit = 0, req.dqb_ihardlimit = 0;
+
+                r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_SETQUOTA, PRJQUOTA), proj_id, &req);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to disable project quotas for project ID %" PRIu32 ": %m", proj_id);
+
+                log_debug("Storage quotas for project ID %" PRIu32 " were disabled", proj_id);
+        }
+
+        /* Release project ID if no accounting needed */
+        if (!quota_accounting) {
+                r = set_proj_id_recursive(fd, 0);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to release project ID %" PRIu32 ", ignoring: %m", proj_id);
+        }
+
+        return 0;
+}
+
+static int apply_exec_quotas(
+                const char *target_dir,
+                const char *cgroup_path,
+                ExecDirectoryType type,
+                const QuotaLimit *ql,
+                uint32_t *exec_dt_proj_id, /* in/out */
+                bool *already_enforced) {  /* in/out */
+
+        _cleanup_close_ int fd = -EBADF;
+        int r, quota_supported = 0;
+
+        assert(target_dir);
+        assert(cgroup_path);
+        assert(ql);
+        assert(exec_dt_proj_id);
+        assert(already_enforced);
+
+        /* Do not apply to the Runtime directory since tmpfs does not support project IDs yet */
+        if (!IN_SET(type, EXEC_DIRECTORY_STATE, EXEC_DIRECTORY_CACHE, EXEC_DIRECTORY_LOGS))
+                return 0;
+
+        fd = open(target_dir, O_PATH|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open %s: %m", target_dir);
+
+        /* Get the project ID of the current directory */
+        uint32_t proj_id;
+        r = read_fs_xattr_fd(fd, /* ret_xflags = */ NULL, &proj_id);
+        if (ERRNO_IS_NEG_IOCTL_NOT_SUPPORTED(r)) {
+                log_debug_errno(r, "Not applying storage quotas. FS_IOC_FSGETXATTR not supported for %s: %m", target_dir);
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve project ID for %s: %m", target_dir);
+
+        /* If the first directory of this ExecType already has a project ID, adopt it as the project ID for all dirs of this ExecType */
+        bool proj_id_exists = PROJ_ID_MIN <= proj_id && proj_id <= PROJ_ID_MAX;
+        if (proj_id_exists && *exec_dt_proj_id == 0)
+                *exec_dt_proj_id = proj_id;
+
+        /* Check if enforcement should be disabled. Do not release project ID if accounting is enabled */
+        if (!ql->quota_enforce) {
+                if (proj_id_exists) {
+                        r = unset_exec_storage_quota(fd, proj_id, ql->quota_accounting);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to unset project quotas for %s: %m", target_dir);
+                }
+
+                if (!ql->quota_accounting)
+                        return 0;
+        }
+
+        /* Set the existing project ID only if the current directory's ID does not exist or does not match */
+        if (*exec_dt_proj_id > 0 && *exec_dt_proj_id != proj_id) {
+                proj_id = *exec_dt_proj_id;
+                r = quota_proj_id_set_recursive(fd, proj_id, false);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to set project ID for %s: %m", target_dir);
+
+        /* Only generate a new project ID if it's the first directory of this ExecType to be processed and does not have an existing ID */
+        } else if (*exec_dt_proj_id == 0) {
+                static const sd_id128_t k = SD_ID128_ARRAY(e1,4a,79,9b,64,40,41,4a,a8,46,c2,f3,f9,19,4f,01);
+                _cleanup_free_ char *proj_id_plain = NULL;
+
+                /* Generate candidate project id */
+                proj_id_plain = strjoin(cgroup_path, "|", exec_directory_type_to_string(type));
+                if (!proj_id_plain)
+                        return log_oom_debug();
+
+                struct siphash state;
+                siphash24_init(&state, k.bytes);
+                siphash24_compress_string(proj_id_plain, &state);
+                proj_id = PROJ_ID_CLAMP_INTO_QUOTA_RANGE(siphash24_finalize(&state));
+
+#define MAX_PROJ_ID_RETRIES 10
+                for (unsigned attempt = 0;; attempt++) {
+                        if (attempt >= MAX_PROJ_ID_RETRIES)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Failed to generate unique project ID for %s: %m", target_dir);
+
+                        /* Check if project quotas are supported */
+                        struct dqblk req;
+                        quota_supported = quota_query_proj_id(fd, proj_id, &req);
+                        if (quota_supported < 0)
+                                return log_debug_errno(quota_supported, "Failed to query disk quota for project ID %" PRIu32 ": %m", proj_id);
+                        if (!quota_supported) {
+                                log_debug("Not applying storage quotas. Project quotas are not supported for %s", target_dir);
+                                return 0;
+                        }
+
+                        if (!quota_dqblk_is_populated(&req)) {
+                                int proj_id_was_set = quota_proj_id_set_recursive(fd, proj_id, true);
+                                if (proj_id_was_set < 0)
+                                        return log_debug_errno(proj_id_was_set, "Failed to set project ID for %s: %m", target_dir);
+                                if (proj_id_was_set) {
+                                        *exec_dt_proj_id = proj_id;
+                                        log_debug("Project ID %u generated for %s", proj_id, target_dir);
+                                        break;
+                                }
+                        }
+
+                        proj_id = (uint32_t) (random_u64_range(PROJ_ID_MAX - PROJ_ID_MIN + 1) + PROJ_ID_MIN);
+                }
+        }
+
+        if (ql->quota_enforce && !(*already_enforced)) {
+                if (!quota_supported) {
+                        struct dqblk req;
+                        quota_supported = quota_query_proj_id(fd, proj_id, &req);
+                        if (quota_supported < 0)
+                                return log_debug_errno(quota_supported, "Failed to query disk quota for project ID %" PRIu32 ": %m", proj_id);
+                        if (!quota_supported) {
+                                log_debug("Not applying storage quotas. Project quotas are not supported for %s", target_dir);
+                                return 0;
+                        }
+                }
+
+                r = set_exec_storage_quota(fd, proj_id, ql);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to set storage quotas for %s: %m", target_dir);
+
+                *already_enforced = true;
+        }
+
+        return r;
+}
+
 static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2607,6 +2830,9 @@ static int setup_exec_directory(
                 if (!gid_is_valid(gid))
                         gid = 0;
         }
+
+        uint32_t exec_dt_proj_id = 0;
+        bool quota_already_enforced = false;
 
         FOREACH_ARRAY(i, context->directories[type].items, context->directories[type].n_items) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
@@ -2898,6 +3124,11 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
                 }
+
+                /* Apply storage quotas and accounting */
+                r = apply_exec_quotas(target_dir, params->cgroup_path, type, &context->directories[type].exec_quota, &exec_dt_proj_id, &quota_already_enforced);
+                if (r < 0)
+                        goto fail;
         }
 
         /* If we are not going to run in a namespace, set up the symlinks - otherwise
