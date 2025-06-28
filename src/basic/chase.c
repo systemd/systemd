@@ -565,27 +565,6 @@ chased_one:
         return 0;
 }
 
-static int empty_or_root_to_null(const char **path) {
-        int r;
-
-        assert(path);
-
-        /* This nullifies the input path when the path is empty or points to "/". */
-
-        if (empty_or_root(*path)) {
-                *path = NULL;
-                return 0;
-        }
-
-        r = path_is_root(*path);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                *path = NULL;
-
-        return 0;
-}
-
 int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *root_abs = NULL, *absolute = NULL, *p = NULL;
         _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
@@ -596,7 +575,7 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
         if (isempty(path))
                 return -EINVAL;
 
-        r = empty_or_root_to_null(&root);
+        r = empty_or_root_harder_to_null(&root);
         if (r < 0)
                 return r;
 
@@ -696,7 +675,7 @@ int chaseat_prefix_root(const char *path, const char *root, char **ret) {
         if (!path_is_absolute(path)) {
                 _cleanup_free_ char *root_abs = NULL;
 
-                r = empty_or_root_to_null(&root);
+                r = empty_or_root_harder_to_null(&root);
                 if (r < 0 && r != -ENOENT)
                         return r;
 
@@ -735,7 +714,7 @@ int chase_extract_filename(const char *path, const char *root, char **ret) {
         if (!path_is_absolute(path))
                 return -EINVAL;
 
-        r = empty_or_root_to_null(&root);
+        r = empty_or_root_harder_to_null(&root);
         if (r < 0 && r != -ENOENT)
                 return r;
 

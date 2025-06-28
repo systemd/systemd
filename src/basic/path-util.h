@@ -179,6 +179,7 @@ static inline const char* skip_dev_prefix(const char *p) {
 
 bool empty_or_root(const char *path) _pure_;
 const char* empty_to_root(const char *path) _pure_;
+int empty_or_root_harder_to_null(const char **path);
 
 bool path_strv_contains(char * const *l, const char *path);
 bool prefixed_path_strv_contains(char * const *l, const char *path);
