@@ -232,9 +232,9 @@ TEST(proc, .sd_booted = true) {
                 r = cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted);
                 ASSERT_OK_OR(r, -ESRCH);
                 r = cg_pidref_get_unit(&pid, &unit);
-                ASSERT_OK_OR(r, -ESRCH);
+                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
                 r = cg_pid_get_slice(pid.pid, &slice);
-                ASSERT_OK_OR(r, -ESRCH);
+                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
 
                 /* Not all processes belong to a specific user or a machine */
                 r = cg_pidref_get_owner_uid(&pid, &uid);
