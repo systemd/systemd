@@ -13,7 +13,6 @@ if cc.sizeof('long') > 4
 endif
 
 custom_target(
-        '50-coredump.conf',
         input : '50-coredump.conf.in',
         output : '50-coredump.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

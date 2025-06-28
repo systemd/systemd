@@ -148,19 +148,16 @@ if conf.get('HAVE_VMLINUX_H') == 1
 endif
 
 sources += custom_target(
-        'networkd-gperf.c',
         input : 'networkd-gperf.gperf',
         output : 'networkd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 sources += custom_target(
-        'networkd-network-gperf.c',
         input : networkd_network_gperf_gperf,
         output : 'networkd-network-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 sources += custom_target(
-        'netdev-gperf.c',
         input : networkd_netdev_gperf_gperf,
         output : 'netdev-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])

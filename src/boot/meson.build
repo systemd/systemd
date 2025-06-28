@@ -393,7 +393,6 @@ foreach efi_elf_binary : efi_elf_binaries
         endif
 
         exe = custom_target(
-                name,
                 output : name,
                 input : efi_elf_binary,
                 install : true,

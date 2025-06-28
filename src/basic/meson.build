@@ -121,28 +121,24 @@ basic_sources += missing_syscall_def_h
 
 generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
-        'af-list.txt',
         output : 'af-list.txt',
         command : [generate_af_list, cpp, config_h, missing_socket_h],
         capture : true)
 
 generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
-        'arphrd-list.txt',
         output : 'arphrd-list.txt',
         command : [generate_arphrd_list, cpp, files('linux/if_arp.h'), config_h],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')
 cap_list_txt = custom_target(
-        'cap-list.txt',
         output : 'cap-list.txt',
         command : [generate_cap_list, cpp, config_h, missing_capability_h],
         capture : true)
 
 generate_errno_list = find_program('generate-errno-list.sh')
 errno_list_txt = custom_target(
-        'errno-list.txt',
         output : 'errno-list.txt',
         command : [generate_errno_list, cpp],
         capture : true)
@@ -155,7 +151,6 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
 
         fname = '@0@-from-name.gperf'.format(item[0])
         gperf_file = custom_target(
-                fname,
                 input : item[1],
                 output : fname,
                 command : [generate_gperfs, item[2], item[3], '@INPUT@'],
@@ -163,7 +158,6 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
 
         fname = '@0@-from-name.h'.format(item[0])
         target1 = custom_target(
-                fname,
                 input : gperf_file,
                 output : fname,
                 command : [gperf,
@@ -177,7 +171,6 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
         fname = '@0@-to-name.h'.format(item[0])
         awkscript = '@0@-to-name.awk'.format(item[0])
         target2 = custom_target(
-                fname,
                 input : [awkscript, item[1]],
                 output : fname,
                 command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
@@ -246,7 +239,6 @@ if r.returncode() != 0
 endif
 
 filesystems_gperf_h = custom_target(
-        'filesystems-gperf.h',
         input : 'filesystems-gperf.gperf',
         output : 'filesystems-gperf.h',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -254,7 +246,6 @@ filesystems_gperf_h = custom_target(
 generate_filesystem_list = find_program('generate-filesystem-list.py')
 fname = 'filesystem-list.h'
 filesystem_list_h = custom_target(
-        fname,
         input : 'filesystems-gperf.gperf',
         output : fname,
         command : [generate_filesystem_list,
@@ -264,7 +255,6 @@ filesystem_list_h = custom_target(
 generate_filesystem_switch_case_h = find_program('generate-filesystem-switch-case.py')
 fname = 'filesystem-switch-case.h'
 filesystem_switch_case_h = custom_target(
-        fname,
         input : 'filesystems-gperf.gperf',
         output : 'filesystem-switch-case.h',
         command : [generate_filesystem_switch_case_h,

@@ -820,7 +820,6 @@ foreach unit : units
 
         if needs_jinja
                 custom_target(
-                        name,
                         input : source,
                         output : name,
                         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

@@ -84,20 +84,17 @@ if conf.get('BPF_FRAMEWORK') == 1
 endif
 
 load_fragment_gperf_gperf = custom_target(
-        'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.in',
         output: 'load-fragment-gperf.gperf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'])
 
 load_fragment_gperf_c = custom_target(
-        'load-fragment-gperf.c',
         input : load_fragment_gperf_gperf,
         output : 'load-fragment-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 awkscript = 'load-fragment-gperf-nulstr.awk'
 load_fragment_gperf_nulstr_c = custom_target(
-        'load-fragment-gperf-nulstr.c',
         input : [awkscript, load_fragment_gperf_gperf],
         output : 'load-fragment-gperf-nulstr.c',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
@@ -230,7 +227,6 @@ foreach item : in_files
         dir = item[1]
 
         custom_target(
-                file,
                 input : file + '.in',
                 output: file,
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
@@ -239,7 +235,6 @@ foreach item : in_files
 endforeach
 
 systemd_pc = custom_target(
-        'systemd.pc',
         input : 'systemd.pc.in',
         output : 'systemd.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

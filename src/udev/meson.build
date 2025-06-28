@@ -56,7 +56,6 @@ endif
 
 generate_keyboard_keys_list = find_program('generate-keyboard-keys-list.sh')
 keyboard_keys_list_txt = custom_target(
-        'keyboard-keys-list.txt',
         input : files('../basic/linux/input.h'),
         output : 'keyboard-keys-list.txt',
         command : [generate_keyboard_keys_list, cpp, '@INPUT@'],
@@ -65,7 +64,6 @@ keyboard_keys_list_txt = custom_target(
 generate_keyboard_keys_gperf = find_program('generate-keyboard-keys-gperf.sh')
 fname = 'keyboard-keys-from-name.gperf'
 gperf_file = custom_target(
-        fname,
         input : keyboard_keys_list_txt,
         output : fname,
         command : [generate_keyboard_keys_gperf, '@INPUT@'],
@@ -73,7 +71,6 @@ gperf_file = custom_target(
 
 fname = 'keyboard-keys-from-name.h'
 keyboard_keys_from_name_h = custom_target(
-        fname,
         input : gperf_file,
         output : fname,
         command : [gperf,
@@ -89,7 +86,6 @@ keyboard_keys_from_name_h = custom_target(
 udev_link_gperf_gperf = files('net/link-config-gperf.gperf')
 
 link_config_gperf_c = custom_target(
-        'link-config-gperf.c',
         input : udev_link_gperf_gperf,
         output : 'link-config-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -263,7 +259,6 @@ if install_sysconfdir_samples
 endif
 
 udev_pc = custom_target(
-        'udev.pc',
         input : 'udev.pc.in',
         output : 'udev.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

@@ -17,7 +17,6 @@ rpm_depends = []
 foreach tuple : in_files
         file = tuple[0]
         rpm_depends += custom_target(
-                file,
                 input : file + '.in',
                 output : file,
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
