@@ -1406,6 +1406,27 @@ const char* empty_to_root(const char *path) {
         return isempty(path) ? "/" : path;
 }
 
+int empty_or_root_to_null(const char **path) {
+        int r;
+
+        assert(path);
+
+        /* This nullifies the input path when the path is empty or points to "/". */
+
+        if (empty_or_root(*path)) {
+                *path = NULL;
+                return 0;
+        }
+
+        r = path_is_root(*path);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                *path = NULL;
+
+        return 0;
+}
+
 bool path_strv_contains(char * const *l, const char *path) {
         assert(path);
 
