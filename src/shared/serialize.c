@@ -16,7 +16,6 @@
 #include "image-policy.h"
 #include "log.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "ratelimit.h"

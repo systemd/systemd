@@ -29,7 +29,6 @@
 #include "json-util.h"
 #include "main-func.h"
 #include "missing_magic.h"
-#include "missing_sched.h"
 #include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"

@@ -20,7 +20,6 @@
 #include "format-table.h"
 #include "in-addr-prefix-util.h"
 #include "manager.h"
-#include "missing_sched.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"

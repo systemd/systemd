@@ -11,7 +11,6 @@
 
 #include "log.h"
 #include "macro.h"
-#include "missing_sched.h"
 #include "process-util.h"
 
 /**
