@@ -164,9 +164,6 @@ static int files_add(
                 if (!n)
                         return log_oom_debug();
 
-                if (FLAGS_SET(flags, CONF_FILES_CHASE_BASENAME))
-                        free_and_replace(p, resolved_path);
-
                 r = hashmap_ensure_put(files, &string_hash_ops_free_free, n, p);
                 if (r < 0) {
                         assert(r == -ENOMEM);
