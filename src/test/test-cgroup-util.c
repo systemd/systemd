@@ -229,22 +229,15 @@ TEST(proc, .sd_booted = true) {
                 if (hidden_cgroup(path))
                         continue;
 
-                r = cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted);
-                ASSERT_OK_OR(r, -ESRCH);
-                r = cg_pidref_get_unit(&pid, &unit);
-                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
-                r = cg_pid_get_slice(pid.pid, &slice);
-                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
+                int r1 = cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted);
+                int r2 = cg_pidref_get_unit(&pid, &unit);
+                int r3 = cg_pid_get_slice(pid.pid, &slice);
 
                 /* Not all processes belong to a specific user or a machine */
-                r = cg_pidref_get_owner_uid(&pid, &uid);
-                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
-                r = cg_pidref_get_session(&pid, &session);
-                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
-                r = cg_pid_get_user_unit(pid.pid, &user_unit);
-                ASSERT_OK_OR(r, -ESRCH, -ENXIO);
-                r = cg_pid_get_machine_name(pid.pid, &machine);
-                ASSERT_OK_OR(r, -ESRCH, -ENOENT);
+                int r4 = cg_pidref_get_owner_uid(&pid, &uid);
+                int r5 = cg_pidref_get_session(&pid, &session);
+                int r6 = cg_pid_get_user_unit(pid.pid, &user_unit);
+                int r7 = cg_pid_get_machine_name(pid.pid, &machine);
 
                 log_debug(PID_FMT": %s, %s, "UID_FMT", %s, %s, %s, %s, %s",
                           pid.pid,
@@ -256,6 +249,14 @@ TEST(proc, .sd_booted = true) {
                           strna(user_unit),
                           strna(machine),
                           strna(slice));
+
+                ASSERT_OK_OR(r1, -ESRCH);
+                ASSERT_OK_OR(r2, -ESRCH, -ENXIO);
+                ASSERT_OK_OR(r3, -ESRCH, -ENXIO);
+                ASSERT_OK_OR(r4, -ESRCH, -ENXIO);
+                ASSERT_OK_OR(r5, -ESRCH, -ENXIO);
+                ASSERT_OK_OR(r6, -ESRCH, -ENXIO);
+                ASSERT_OK_OR(r7, -ESRCH, -ENOENT);
         }
 }
 
