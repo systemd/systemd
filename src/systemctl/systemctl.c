@@ -819,6 +819,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         if (OUTPUT_MODE_IS_JSON(arg_output)) {
                                 arg_legend = false;
                                 arg_plain = true;
+                                SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_JSON, true);
+                                if (arg_output == OUTPUT_JSON_PRETTY)
+                                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_JSON_PRETTY, true);
                         }
                         break;
 
