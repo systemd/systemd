@@ -20,6 +20,171 @@
 #include "string-util.h"
 #include "strv.h"
 
+ConfFile* conf_file_free(ConfFile *c) {
+        if (!c)
+                return NULL;
+
+        free(c->name);
+        free(c->result);
+        free(c->original_path);
+        free(c->resolved_path);
+        safe_close(c->fd);
+
+        return mfree(c);
+}
+
+void conf_file_free_many(ConfFile **array, size_t n) {
+        FOREACH_ARRAY(i, array, n)
+                conf_file_free(*i);
+
+        free(array);
+}
+
+static int prepare_dirs(const char *root, char * const *dirs, int *ret_rfd, char **ret_root, char ***ret_dirs) {
+        _cleanup_free_ char *root_abs = NULL;
+        _cleanup_strv_free_ char **dirs_abs = NULL;
+        int r;
+
+        assert(ret_rfd);
+        assert(ret_root);
+        assert(ret_dirs || strv_isempty(dirs));
+
+        r = empty_or_root_harder_to_null(&root);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine if '%s' points to the root directory: %m", strempty(root));
+
+        if (ret_dirs) {
+                dirs_abs = strv_copy(dirs);
+                if (!dirs_abs)
+                        return log_oom();
+        }
+
+        if (root) {
+                /* WHen a non-trivial root is specified, we will prefix the result later. Hence, it is not
+                 * necessary to modify each config directories here. but needs to normalize the root directory. */
+                r = path_make_absolute_cwd(root, &root_abs);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make '%s' absolute: %m", root);
+
+                path_simplify(root_abs);
+        } else if (ret_dirs) {
+                /* When an empty root or "/" is specified, we will open "/" below, hence we need to make
+                 * each config directory absolute if relative. */
+                r = path_strv_make_absolute_cwd(dirs_abs);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make directories absolute: %m");
+        }
+
+        _cleanup_close_ int rfd = open(empty_to_root(root_abs), O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (rfd < 0)
+                return log_debug_errno(errno, "Failed to open '%s': %m", empty_to_root(root_abs));
+
+        *ret_rfd = TAKE_FD(rfd);
+        *ret_root = TAKE_PTR(root_abs);
+        if (ret_dirs)
+                *ret_dirs = TAKE_PTR(dirs_abs);
+        return 0;
+}
+
+static int conf_file_prefix_root(ConfFile *c, const char *root) {
+        char *p;
+        int r;
+
+        assert(c);
+
+        r = chaseat_prefix_root(c->result, root, &p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to prefix '%s' with root '%s': %m", c->result, root);
+        free_and_replace(c->result, p);
+
+        r = chaseat_prefix_root(c->resolved_path, root, &p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to prefix '%s' with root '%s': %m", c->resolved_path, root);
+        free_and_replace(c->resolved_path, p);
+
+        /* Do not use chaseat_prefix_root(), as it is for the result of chaseat(), but the path is not chased. */
+        p = path_join(root, skip_leading_slash(c->original_path));
+        if (!p)
+                return log_oom_debug();
+        free_and_replace(c->original_path, p);
+
+        return 0;
+}
+
+int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile **ret) {
+        int r;
+
+        assert(path);
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(ret);
+
+        _cleanup_free_ char *root = NULL;
+        if (rfd >= 0 && DEBUG_LOGGING)
+                (void) fd_get_path(rfd, &root);
+
+        _cleanup_(conf_file_freep) ConfFile *c = new(ConfFile, 1);
+        if (!c)
+                return log_oom_debug();
+
+        *c = (ConfFile) {
+                .original_path = strdup(path),
+                .fd = -EBADF,
+        };
+
+        if (!c->original_path)
+                return log_oom_debug();
+
+        r = path_extract_filename(path, &c->name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract filename from '%s': %m", path);
+
+        _cleanup_free_ char *dirpath = NULL;
+        r = path_extract_directory(path, &dirpath);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract directory from '%s': %m", path);
+
+        _cleanup_free_ char *resolved_dirpath = NULL;
+        r = chaseat(rfd, dirpath, CHASE_AT_RESOLVE_IN_ROOT | chase_flags, &resolved_dirpath, /* ret_fd = */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(dirpath));
+
+        c->result = path_join(resolved_dirpath, c->name);
+        if (!c->result)
+                return log_oom_debug();
+
+        r = chaseat(rfd, c->result, CHASE_AT_RESOLVE_IN_ROOT | chase_flags, &c->resolved_path, &c->fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(c->original_path));
+
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
+int conf_file_new(const char *path, const char *root, ChaseFlags chase_flags, ConfFile **ret) {
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        _cleanup_free_ char *root_abs = NULL;
+        _cleanup_close_ int rfd = -EBADF;
+        r = prepare_dirs(root, /* dirs = */ NULL, &rfd, &root_abs, /* ret_dirs = */ NULL);
+        if (r < 0)
+                return r;
+
+        _cleanup_(conf_file_freep) ConfFile *c = NULL;
+        r = conf_file_new_at(path, rfd, chase_flags, &c);
+        if (r < 0)
+                return r;
+
+        r = conf_file_prefix_root(c, root_abs);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
 static int files_add(
                 DIR *dir,
                 const char *dirpath,
@@ -322,49 +487,6 @@ static int conf_files_list_impl(
         *ret = TAKE_PTR(fh);
         if (ret_inserted)
                 *ret_inserted = TAKE_PTR(inserted);
-        return 0;
-}
-
-static int prepare_dirs(const char *root, char * const *dirs, int *ret_rfd, char **ret_root, char ***ret_dirs) {
-        _cleanup_free_ char *root_abs = NULL;
-        _cleanup_strv_free_ char **dirs_abs = NULL;
-        int r;
-
-        assert(ret_rfd);
-        assert(ret_root);
-        assert(ret_dirs);
-
-        r = empty_or_root_harder_to_null(&root);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine if '%s' points to the root directory: %m", strempty(root));
-
-        dirs_abs = strv_copy(dirs);
-        if (!dirs_abs)
-                return log_oom();
-
-        if (root) {
-                /* WHen a non-trivial root is specified, we will prefix the result later. Hence, it is not
-                 * necessary to modify each config directories here. but needs to normalize the root directory. */
-                r = path_make_absolute_cwd(root, &root_abs);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to make '%s' absolute: %m", root);
-
-                path_simplify(root_abs);
-        } else {
-                /* When an empty root or "/" is specified, we will open "/" below, hence we need to make
-                 * each config directory absolute if relative. */
-                r = path_strv_make_absolute_cwd(dirs_abs);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to make directories absolute: %m");
-        }
-
-        _cleanup_close_ int rfd = open(empty_to_root(root_abs), O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (rfd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", empty_to_root(root_abs));
-
-        *ret_rfd = TAKE_FD(rfd);
-        *ret_root = TAKE_PTR(root_abs);
-        *ret_dirs = TAKE_PTR(dirs_abs);
         return 0;
 }
 
