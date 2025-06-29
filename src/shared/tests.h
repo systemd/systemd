@@ -203,11 +203,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr, STRERROR(_result));     \
-                if (_result != 0) {                                                                                     \
-                        char _sexpr[DECIMAL_STR_MAX(typeof(expr))];                                                     \
-                        xsprintf(_sexpr, DECIMAL_STR_FMT(_result), _result);                                            \
-                        log_test_failed("Expected \"%s\" to be zero, but it is %s.", #expr, _sexpr);                    \
-                }                                                                                                       \
+                if (_result != 0)                                                                                       \
+                        log_test_failed("Expected \"%s\" to be zero, but it is %"PRIiMAX".",                            \
+                                        #expr, (intmax_t) _result);                                                     \
          })
 #endif
 
@@ -220,13 +218,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr2) _expr2 = (expr2);                                                                         \
                 if (_expr1 < 0)                                                                                         \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr1, STRERROR(_expr1));     \
-                if (_expr1 != _expr2) {                                                                                 \
-                        char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                                   \
-                        char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                                   \
-                        xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                             \
-                        xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                             \
-                        log_test_failed("Expected \"%s == %s\", got %s != %s", #expr1, #expr2, _sexpr1, _sexpr2);       \
-                }                                                                                                       \
+                if (_expr1 != _expr2)                                                                                   \
+                        log_test_failed("Expected \"%s == %s\", got %"PRIiMAX" != %"PRIiMAX,                            \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                          \
         })
 #endif
 
@@ -249,11 +243,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr) _result = (expr);                                                                          \
                 if (_result < 0)                                                                                        \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr, STRERROR(errno));       \
-                if (_result != 0) {                                                                                     \
-                        char _sexpr[DECIMAL_STR_MAX(typeof(expr))];                                                     \
-                        xsprintf(_sexpr, DECIMAL_STR_FMT(_result), _result);                                            \
-                        log_test_failed("Expected \"%s\" to be zero, but it is %s.", #expr, _sexpr);                    \
-                }                                                                                                       \
+                if (_result != 0)                                                                                       \
+                        log_test_failed("Expected \"%s\" to be zero, but it is %"PRIiMAX".",                            \
+                                        #expr, (intmax_t) _result);                                                     \
         })
 #endif
 
@@ -266,13 +258,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 typeof(expr2) _expr2 = (expr2);                                                                         \
                 if (_expr1 < 0)                                                                                         \
                         log_test_failed("Expected \"%s\" to succeed, but got error: %s", #expr1, STRERROR(errno));      \
-                if (_expr1 != _expr2) {                                                                                 \
-                        char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                                   \
-                        char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                                   \
-                        xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                             \
-                        xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                             \
-                        log_test_failed("Expected \"%s == %s\", but %s != %s", #expr1, #expr2, _sexpr1, _sexpr2);       \
-                }                                                                                                       \
+                if (_expr1 != _expr2)                                                                                   \
+                        log_test_failed("Expected \"%s == %s\", but %"PRIiMAX" != %"PRIiMAX,                            \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                          \
         })
 #endif
 
@@ -396,14 +384,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
-                if (_expr1 != _expr2) {                                                                         \
-                        char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                           \
-                        char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
-                        xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
-                        xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_test_failed("Expected \"%s == %s\", but %s != %s",                                  \
-                                        #expr1, #expr2, _sexpr1, _sexpr2);                                      \
-                }                                                                                               \
+                if (_expr1 != _expr2)                                                                           \
+                        log_test_failed("Expected \"%s == %s\", but %"PRIiMAX" != %"PRIiMAX,                    \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                  \
         })
 #endif
 
@@ -414,14 +397,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
-                if (_expr1 < _expr2) {                                                                          \
-                        char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                           \
-                        char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
-                        xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
-                        xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_test_failed("Expected \"%s >= %s\", but %s < %s",                                   \
-                                        #expr1, #expr2, _sexpr1, _sexpr2);                                      \
-                }                                                                                               \
+                if (_expr1 < _expr2)                                                                            \
+                        log_test_failed("Expected \"%s >= %s\", but %"PRIiMAX" < %"PRIiMAX,                     \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                  \
         })
 #endif
 
@@ -432,14 +410,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
-                if (_expr1 > _expr2) {                                                                          \
-                        char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                           \
-                        char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
-                        xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
-                        xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_test_failed("Expected \"%s <= %s\", but %s > %s",                                   \
-                                        #expr1, #expr2, _sexpr1, _sexpr2);                                      \
-                }                                                                                               \
+                if (_expr1 > _expr2)                                                                            \
+                        log_test_failed("Expected \"%s <= %s\", but %"PRIiMAX" > %"PRIiMAX,                     \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                  \
         })
 #endif
 
@@ -450,14 +423,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
-                if (_expr1 == _expr2) {                                                                         \
-                        char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                           \
-                        char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
-                        xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
-                        xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_test_failed("Expected \"%s != %s\", but %s == %s",                                  \
-                                        #expr1, #expr2, _sexpr1, _sexpr2);                                      \
-                }                                                                                               \
+                if (_expr1 == _expr2)                                                                           \
+                        log_test_failed("Expected \"%s != %s\", but %"PRIiMAX" == %"PRIiMAX,                    \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                  \
         })
 #endif
 
@@ -468,14 +436,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
-                if (!(_expr1 > _expr2)) {                                                                       \
-                        char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                           \
-                        char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
-                        xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
-                        xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_test_failed("Expected \"%s > %s\", but %s <= %s",                                   \
-                                        #expr1, #expr2, _sexpr1, _sexpr2);                                      \
-                }                                                                                               \
+                if (!(_expr1 > _expr2))                                                                         \
+                        log_test_failed("Expected \"%s > %s\", but %"PRIiMAX" <= %"PRIiMAX,                     \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                  \
         })
 #endif
 
@@ -486,14 +449,9 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
                 typeof(expr2) _expr2 = (expr2);                                                                 \
-                if (!(_expr1 < _expr2)) {                                                                       \
-                        char _sexpr1[DECIMAL_STR_MAX(typeof(expr1))];                                           \
-                        char _sexpr2[DECIMAL_STR_MAX(typeof(expr2))];                                           \
-                        xsprintf(_sexpr1, DECIMAL_STR_FMT(_expr1), _expr1);                                     \
-                        xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
-                        log_test_failed("Expected \"%s < %s\", but %s >= %s",                                   \
-                                        #expr1, #expr2, _sexpr1, _sexpr2);                                      \
-                }                                                                                               \
+                if (!(_expr1 < _expr2))                                                                         \
+                        log_test_failed("Expected \"%s < %s\", but %"PRIiMAX" >= %"PRIiMAX,                     \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                  \
         })
 #endif
 
