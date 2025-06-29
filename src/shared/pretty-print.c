@@ -10,6 +10,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
@@ -183,27 +184,31 @@ int terminal_urlify_man(const char *page, const char *section, char **ret) {
         return terminal_urlify(url, text, ret);
 }
 
-static int cat_file(const char *filename, bool newline, CatFlags flags) {
+static int cat_file(const char *filename, bool *newline, CatFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *urlified = NULL, *section = NULL, *old_section = NULL;
         int r;
 
         assert(filename);
 
-        f = fopen(filename, "re");
-        if (!f)
-                return log_error_errno(errno, "Failed to open \"%s\": %m", filename);
+        if (newline) {
+                if (*newline)
+                        putc('\n', stdout);
+                *newline = true;
+        }
 
         r = terminal_urlify_path(filename, NULL, &urlified);
         if (r < 0)
                 return log_error_errno(r, "Failed to urlify path \"%s\": %m", filename);
 
-        printf("%s%s# %s%s\n",
-               newline ? "\n" : "",
+        printf("%s# %s%s\n",
                ansi_highlight_blue(),
                urlified,
                ansi_normal());
-        fflush(stdout);
+
+        f = fopen(filename, "re");
+        if (!f)
+                return log_error_errno(errno, "Failed to open \"%s\": %m", filename);
 
         for (bool continued = false;;) {
                 _cleanup_free_ char *line = NULL;
@@ -292,21 +297,16 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
 }
 
 int cat_files(const char *file, char **dropins, CatFlags flags) {
-        int r;
+        bool newline = false;
+        int ret = 0;
 
-        if (file) {
-                r = cat_file(file, /* newline= */ false, flags);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to cat %s: %m", file);
-        }
+        if (file)
+                ret = cat_file(file, &newline, flags);
 
-        STRV_FOREACH(path, dropins) {
-                r = cat_file(*path, /* newline= */ file || path != dropins, flags);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to cat %s: %m", *path);
-        }
+        STRV_FOREACH(path, dropins)
+                RET_GATHER(ret, cat_file(*path, &newline, flags));
 
-        return 0;
+        return ret;
 }
 
 void print_separator(void) {
