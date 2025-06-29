@@ -21,6 +21,8 @@ _kernel_install() {
     local comps
     local MACHINE_ID
     local cur=${COMP_WORDS[COMP_CWORD]}
+    local prev=${COMP_WORDS[COMP_CWORD-1]}
+    local bls_types="both 1 2"
 
     case $COMP_CWORD in
         1)
@@ -39,6 +41,18 @@ _kernel_install() {
             [[ "$cur" ]] || cur=/lib/modules/${COMP_WORDS[2]}/vmlinuz
             comps=$(compgen -f -- "$cur")
             compopt -o filenames
+            ;;
+    esac
+
+    if [[ "${COMP_WORDS[1]}" == "remove" ]] && [[ $cur = -* ]]; then
+        COMPREPLY=( $(compgen -W '--bls-type' -- "$cur") )
+        return 0
+    fi
+
+    case "$prev" in
+        --bls-type)
+            COMPREPLY=( $(compgen -W "$bls_types" -- "$cur") )
+            return 0
             ;;
     esac
 

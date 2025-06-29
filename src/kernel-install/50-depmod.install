@@ -33,6 +33,10 @@ case "$COMMAND" in
         exec depmod -a "$KERNEL_VERSION"
         ;;
     remove)
+        [ -f "/lib/modules/$KERNEL_VERSION/vmlinuz" ] && \
+        [ "$KERNEL_INSTALL_BLS_TYPE" -eq 2 ] && \
+            echo "BLS_TYPE=2, not removing modules.dep or associated files." && \
+            exit 0
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing /lib/modules/${KERNEL_VERSION}/modules.dep and associated files"
         exec rm -f \
