@@ -379,5 +379,5 @@ static inline uint32_t COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(Compression c) {
 
 static inline bool journal_file_writable(JournalFile *f) {
         assert(f);
-        return (f->open_flags & O_ACCMODE_STRICT) != O_RDONLY;
+        return (f->open_flags & O_ACCMODE) != O_RDONLY;
 }
