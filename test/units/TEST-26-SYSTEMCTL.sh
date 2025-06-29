@@ -320,6 +320,70 @@ systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
 systemctl reload-or-restart --marked
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
 
+# JSON output tests for systemctl show
+echo "Testing JSON output formats for systemctl show..."
+
+# Test basic JSON output (compact format)
+echo "Testing --output=json (compact format)..."
+JSON_OUTPUT=$(systemctl show --output=json)
+echo "$JSON_OUTPUT" | jq . >/dev/null || (echo "ERROR: Invalid JSON from --output=json" && exit 1)
+echo "$JSON_OUTPUT" | grep -q '^{.*}$' || (echo "ERROR: JSON not in compact format" && exit 1)
+echo "$JSON_OUTPUT" | grep -q '"Version":' || (echo "ERROR: Missing Version property in JSON" && exit 1)
+
+# Test pretty JSON output (formatted)
+echo "Testing --output=json-pretty (formatted)..."
+JSON_PRETTY_OUTPUT=$(systemctl show --output=json-pretty)
+echo "$JSON_PRETTY_OUTPUT" | jq . >/dev/null || (echo "ERROR: Invalid JSON from --output=json-pretty" && exit 1)
+echo "$JSON_PRETTY_OUTPUT" | grep -q $'{\n' || (echo "ERROR: JSON-pretty not properly formatted" && exit 1)
+echo "$JSON_PRETTY_OUTPUT" | grep -q '"Version":' || (echo "ERROR: Missing Version property in JSON-pretty" && exit 1)
+
+# Test JSON output with specific unit
+echo "Testing JSON output with specific unit..."
+UNIT_JSON_OUTPUT=$(systemctl show --output=json systemd-journald.service)
+echo "$UNIT_JSON_OUTPUT" | jq . >/dev/null || (echo "ERROR: Invalid JSON for unit output" && exit 1)
+echo "$UNIT_JSON_OUTPUT" | grep -q '"Type":' || (echo "ERROR: Missing Type property for unit JSON" && exit 1)
+echo "$UNIT_JSON_OUTPUT" | grep -q '"Id":"systemd-journald.service"' || (echo "ERROR: Missing correct Id in unit JSON" && exit 1)
+
+# Test JSON pretty output with specific unit
+echo "Testing JSON-pretty output with specific unit..."
+UNIT_JSON_PRETTY_OUTPUT=$(systemctl show --output=json-pretty systemd-journald.service)
+echo "$UNIT_JSON_PRETTY_OUTPUT" | jq . >/dev/null || (echo "ERROR: Invalid JSON-pretty for unit output" && exit 1)
+echo "$UNIT_JSON_PRETTY_OUTPUT" | grep -q $'{\n  "' || (echo "ERROR: Unit JSON-pretty not properly formatted" && exit 1)
+
+# Test JSON array handling (properties with multiple values)
+echo "Testing JSON array handling..."
+JSON_WITH_ARRAYS=$(systemctl show --output=json systemd-journald.service)
+# Check that arrays are properly formatted (should contain [ and ])
+echo "$JSON_WITH_ARRAYS" | grep -q '\[.*\]' || echo "WARNING: No arrays found in JSON output (this may be expected)"
+
+# Test that JSON output contains expected core properties
+echo "Testing core properties in JSON output..."
+MANAGER_JSON=$(systemctl show --output=json)
+echo "$MANAGER_JSON" | jq '.Version' >/dev/null || (echo "ERROR: Version property not accessible via jq" && exit 1)
+echo "$MANAGER_JSON" | jq '.SystemState' >/dev/null || (echo "ERROR: SystemState property not accessible via jq" && exit 1)
+
+# Test JSON vs regular output consistency (property count should be similar)
+echo "Testing JSON vs regular output consistency..."
+REGULAR_PROP_COUNT=$(systemctl show systemd-journald.service | wc -l)
+JSON_PROP_COUNT=$(systemctl show --output=json systemd-journald.service | jq 'keys | length')
+# Allow some variance but they should be roughly the same
+if [ "$JSON_PROP_COUNT" -lt $((REGULAR_PROP_COUNT - 10)) ]; then
+    echo "ERROR: JSON output has significantly fewer properties ($JSON_PROP_COUNT) than regular output ($REGULAR_PROP_COUNT)"
+    exit 1
+fi
+
+# Test that JSON output doesn't break with various units
+echo "Testing JSON output with various unit types..."
+for unit in systemd-journald.service systemd-journald.socket -.mount; do
+    if systemctl show "$unit" >/dev/null 2>&1; then
+        systemctl show --output=json "$unit" | jq . >/dev/null || (echo "ERROR: Invalid JSON for unit $unit" && exit 1)
+        systemctl show --output=json-pretty "$unit" | jq . >/dev/null || (echo "ERROR: Invalid JSON-pretty for unit $unit" && exit 1)
+        echo "JSON output validated for $unit"
+    fi
+done
+
+echo "All JSON output tests passed!"
+
 # --dry-run with destructive verbs
 # kexec is skipped intentionally, as it requires a bit more involved setup
 VERBS=(

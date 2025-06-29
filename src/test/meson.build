@@ -57,6 +57,7 @@ simple_tests += files(
         'test-bootspec.c',
         'test-build-path.c',
         'test-bus-util.c',
+        'test-bus-print-properties.c',
         'test-calendarspec.c',
         'test-cgroup-util.c',
         'test-cgroup.c',
