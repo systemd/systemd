@@ -76,7 +76,6 @@ assert_1_impl() {
     udevadm verify "$@" >"${out}" 2>"${err}"
     rc=$?
     set -e
-    assert_eq "$rc" 1
 
     if [ -f "${exp}" ]; then
         diff -u "${exp}" "${err}"
@@ -87,6 +86,7 @@ assert_1_impl() {
     elif [ -f "${rules}" ]; then
         diff -u "${workdir}/default_output_1_fail" "${out}"
     fi
+    assert_eq "$rc" 1
 }
 
 assert_1() {
@@ -130,9 +130,9 @@ assert_1 --root="${workdir}"
 cp "${workdir}/output_0_files" "${exo}"
 assert_0 "${rules_dir}"
 
-# Directory with an invalid loop.
+# Directory with a loop.
 ln -s . "${rules_dir}/loop.rules"
-assert_0 "${rules_dir}"
+assert_1 "${rules_dir}"
 rm "${rules_dir}/loop.rules"
 
 # Empty rules.
