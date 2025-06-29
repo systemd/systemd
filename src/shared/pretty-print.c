@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "color-util.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -184,12 +185,13 @@ int terminal_urlify_man(const char *page, const char *section, char **ret) {
         return terminal_urlify(url, text, ret);
 }
 
-static int cat_file(const char *filename, bool *newline, CatFlags flags) {
+static int cat_file(const char *original_path, const char *resolved_path, bool *newline, CatFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *urlified = NULL, *section = NULL, *old_section = NULL;
         int r;
 
-        assert(filename);
+        assert(original_path);
+        assert(resolved_path);
 
         if (newline) {
                 if (*newline)
@@ -197,25 +199,29 @@ static int cat_file(const char *filename, bool *newline, CatFlags flags) {
                 *newline = true;
         }
 
-        r = terminal_urlify_path(filename, NULL, &urlified);
-        if (r < 0)
-                return log_error_errno(r, "Failed to urlify path \"%s\": %m", filename);
+        bool resolved = !path_equal(original_path, resolved_path);
 
-        printf("%s# %s%s\n",
+        r = terminal_urlify_path(resolved_path, NULL, &urlified);
+        if (r < 0)
+                return log_error_errno(r, "Failed to urlify path \"%s\": %m", resolved_path);
+
+        printf("%s# %s%s%s%s\n",
                ansi_highlight_blue(),
+               resolved ? original_path : "",
+               resolved ? " -> " : "",
                urlified,
                ansi_normal());
 
-        f = fopen(filename, "re");
+        f = fopen(resolved_path, "re");
         if (!f)
-                return log_error_errno(errno, "Failed to open \"%s\": %m", filename);
+                return log_error_errno(errno, "Failed to open \"%s\": %m", resolved_path);
 
         for (bool continued = false;;) {
                 _cleanup_free_ char *line = NULL;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read \"%s\": %m", filename);
+                        return log_error_errno(r, "Failed to read \"%s\": %m", resolved_path);
                 if (r == 0)
                         break;
 
@@ -296,15 +302,34 @@ static int cat_file(const char *filename, bool *newline, CatFlags flags) {
         return 0;
 }
 
+int cat_files_full(const char *original_path, const char *resolved_path, ConfFileEntry **dropins, size_t n_dropins, CatFlags flags) {
+        bool newline = false;
+        int ret = 0;
+
+        assert(!!original_path == !!resolved_path);
+        assert(dropins || n_dropins == 0);
+
+        if (original_path)
+                ret = cat_file(original_path, resolved_path, &newline, flags);
+
+        FOREACH_ARRAY(i, dropins, n_dropins) {
+                ConfFileEntry *e = *i;
+
+                RET_GATHER(ret, cat_file(e->original_path, e->resolved_path, &newline, flags));
+        }
+
+        return ret;
+}
+
 int cat_files(const char *file, char **dropins, CatFlags flags) {
         bool newline = false;
         int ret = 0;
 
         if (file)
-                ret = cat_file(file, &newline, flags);
+                ret = cat_file(file, file, &newline, flags);
 
         STRV_FOREACH(path, dropins)
-                RET_GATHER(ret, cat_file(*path, &newline, flags));
+                RET_GATHER(ret, cat_file(*path, *path, &newline, flags));
 
         return ret;
 }
@@ -384,8 +409,8 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
 }
 
 int conf_files_cat(const char *root, const char *name, CatFlags flags) {
-        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
-        _cleanup_free_ char *path = NULL;
+        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_free_ char *original_path = NULL, *resolved_path = NULL;
         char **prefixes = NULL; /* explicit initialization to appease gcc */
         bool is_collection;
         const char *extension;
@@ -418,15 +443,23 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         /* First locate the main config file, if any */
         if (!is_collection) {
                 STRV_FOREACH(prefix, prefixes) {
-                        path = path_join(root, *prefix, name);
-                        if (!path)
+                        _cleanup_free_ char *p = path_join(root, *prefix, name);
+                        if (!p)
                                 return log_oom();
-                        if (access(path, F_OK) == 0)
-                                break;
-                        path = mfree(path);
+
+                        r = chase_and_access(p, root, /* chase_flags = */ 0, F_OK, &resolved_path);
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        log_debug_errno(r, "Failed to chase %s, ignoring: %m", p);
+                                continue;
+                        }
+
+                        path_simplify(p);
+                        original_path = TAKE_PTR(p);
+                        break;
                 }
 
-                if (!path)
+                if (!original_path)
                         printf("%s# Main configuration file %s not found%s\n",
                                ansi_highlight_magenta(),
                                name,
@@ -434,7 +467,10 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         }
 
         /* Then locate the drop-ins, if any */
-        r = conf_files_list_strv(&files, extension, root, 0, (const char* const*) dirs);
+        ConfFileEntry **dropins = NULL;
+        size_t n_dropins = 0;
+        CLEANUP_ARRAY(dropins, n_dropins, conf_file_entry_free_many);
+        r = conf_files_list_strv_full(extension, root, /* flags = */ 0, (const char* const*) dirs, &dropins, &n_dropins);
         if (r < 0)
                 return log_error_errno(r, "Failed to query file list: %m");
 
@@ -442,7 +478,7 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         if (is_collection)
                 flags |= CAT_FORMAT_HAS_SECTIONS;
 
-        return cat_files(path, files, flags);
+        return cat_files_full(original_path, resolved_path, dropins, n_dropins, flags);
 }
 
 int terminal_tint_color(double hue, char **ret) {
