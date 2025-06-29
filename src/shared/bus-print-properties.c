@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "bus-print-properties.h"
@@ -16,6 +17,9 @@
 #include "strv.h"
 #include "time-util.h"
 
+static bool json_start_printed = false;
+static bool json_first_property = true;
+
 int bus_print_property_value(const char *name, const char *expected_value, BusPrintPropertyFlags flags, const char *value) {
         assert(name);
 
@@ -25,10 +29,46 @@ int bus_print_property_value(const char *name, const char *expected_value, BusPr
         if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) && isempty(value))
                 return 0;
 
-        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
+        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON)) {
+                if (!json_start_printed) {
+                        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON_PRETTY))
+                                printf("{\n");
+                        else
+                                printf("{");
+                        json_start_printed = true;
+                        json_first_property = true;
+                }
+
+                if (!json_first_property) {
+                        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON_PRETTY))
+                                printf(",\n");
+                        else
+                                printf(",");
+                }
+
+                if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON_PRETTY))
+                        printf("  \"%s\": ", name);
+                else
+                        printf("\"%s\":", name);
+
+                if (value && !isempty(value)) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        int r = sd_json_variant_new_string(&v, value);
+                        if (r >= 0) {
+                                sd_json_variant_dump(v, 0, NULL, NULL);
+                        } else {
+                                printf("null");
+                        }
+                } else {
+                        printf("null");
+                }
+
+                json_first_property = false;
+        } else if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE)) {
                 puts(strempty(value));
-        else
+        } else {
                 printf("%s=%s\n", name, strempty(value));
+        }
 
         return 0;
 }
@@ -48,6 +88,17 @@ int bus_print_property_valuef(const char *name, const char *expected_value, BusP
                 return -ENOMEM;
 
         return bus_print_property_value(name, expected_value, flags, s);
+}
+
+void bus_print_property_json_finish(BusPrintPropertyFlags flags) {
+        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON) && json_start_printed) {
+                if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON_PRETTY))
+                        printf("\n}\n");
+                else
+                        printf("}\n");
+                json_start_printed = false;
+                json_first_property = true;
+        }
 }
 
 static int bus_print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
@@ -256,29 +307,80 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         if (r < 0)
                                 return r;
 
-                        while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &str)) > 0) {
-                                _cleanup_free_ char *e = NULL;
+                        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON)) {
+                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
 
-                                e = shell_maybe_quote(str, 0);
-                                if (!e)
-                                        return -ENOMEM;
+                                r = sd_json_variant_new_array(&array, NULL, 0);
+                                if (r < 0)
+                                        return r;
 
-                                if (first) {
-                                        if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
-                                                printf("%s=", name);
+                                while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &str)) > 0) {
+                                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                                        r = sd_json_variant_new_string(&v, str);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_json_variant_append_array(&array, v);
+                                        if (r < 0)
+                                                return r;
+
                                         first = false;
-                                } else
-                                        fputs(" ", stdout);
+                                }
+                                if (r < 0)
+                                        return r;
 
-                                fputs(e, stdout);
+                                if (!json_start_printed) {
+                                        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON_PRETTY))
+                                                printf("{\n");
+                                        else
+                                                printf("{");
+                                        json_start_printed = true;
+                                        json_first_property = true;
+                                }
+
+                                if (!json_first_property) {
+                                        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON_PRETTY))
+                                                printf(",\n");
+                                        else
+                                                printf(",");
+                                }
+
+                                if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON_PRETTY))
+                                        printf("  \"%s\": ", name);
+                                else
+                                        printf("\"%s\":", name);
+
+                                if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_JSON_PRETTY))
+                                        sd_json_variant_dump(array, SD_JSON_FORMAT_PRETTY, NULL, NULL);
+                                else
+                                        sd_json_variant_dump(array, 0, NULL, NULL);
+                                json_first_property = false;
+                        } else {
+                                while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &str)) > 0) {
+                                        _cleanup_free_ char *e = NULL;
+
+                                        e = shell_maybe_quote(str, 0);
+                                        if (!e)
+                                                return -ENOMEM;
+
+                                        if (first) {
+                                                if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
+                                                        printf("%s=", name);
+                                                first = false;
+                                        } else
+                                                fputs(" ", stdout);
+
+                                        fputs(e, stdout);
+                                }
+                                if (r < 0)
+                                        return r;
+
+                                if (first && FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) && !FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
+                                        printf("%s=", name);
+                                if (!first || FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY))
+                                        puts("");
                         }
-                        if (r < 0)
-                                return r;
-
-                        if (first && FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) && !FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
-                                printf("%s=", name);
-                        if (!first || FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY))
-                                puts("");
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
@@ -390,7 +492,7 @@ int bus_message_print_all_properties(
                                 return r;
                         if (r == 0) {
                                 if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) && !expected_value)
-                                        printf("%s=[unprintable]\n", name);
+                                        bus_print_property_value(name, expected_value, flags, "[unprintable]");
                                 /* skip what we didn't read */
                                 r = sd_bus_message_skip(m, contents);
                                 if (r < 0)
@@ -417,6 +519,7 @@ int bus_message_print_all_properties(
         if (r < 0)
                 return r;
 
+        bus_print_property_json_finish(flags);
         return 0;
 }
 
