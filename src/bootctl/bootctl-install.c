@@ -479,6 +479,12 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
                                 return log_oom();
                         if (faccessat(dirfd(d), s, F_OK, 0) >= 0)
                                 continue;
+                        if (!arg_root && is_efi_secure_boot()) {
+                                /* Installing a non-signed bootloader when secure boot is enabled means
+                                 * the system will stop booting. */
+                                log_debug("Skipping %s, as it is not signed and secure boot is enabled.", de->d_name);
+                                continue;
+                        }
                 }
 
                 k = copy_one_file(esp_path, de->d_name, force);
