@@ -222,9 +222,7 @@ static void start_parent_slices(Unit *unit) {
         slice = UNIT_GET_SLICE(unit);
         if (slice) {
                 start_parent_slices(slice);
-                int r = unit_start(slice, NULL);
-                if (r != -EALREADY)
-                        ASSERT_OK(r);
+                ASSERT_OK_OR(unit_start(slice, NULL), -EALREADY);
         }
 }
 
@@ -1471,7 +1469,6 @@ static int prepare_ns(const char *process_name) {
         ASSERT_OK(r);
         if (r == 0) {
                 _cleanup_free_ char *unit_dir = NULL, *build_dir = NULL, *build_dir_mount = NULL;
-                int ret;
 
                 const char *coverage = getenv("COVERAGE_BUILD_DIR");
                 if (!coverage)
@@ -1493,9 +1490,7 @@ static int prepare_ns(const char *process_name) {
                 ASSERT_OK(copy_directory_at(AT_FDCWD, unit_dir, AT_FDCWD, PRIVATE_UNIT_DIR, COPY_MERGE_EMPTY));
 
                 /* Mount tmpfs on the following directories to make not StateDirectory= or friends disturb the host. */
-                ret = get_build_exec_dir(&build_dir);
-                if (ret != -ENOEXEC)
-                        ASSERT_OK(ret);
+                ASSERT_OK_OR(get_build_exec_dir(&build_dir), -ENOEXEC);
 
                 if (build_dir) {
                         /* Account for a build directory being in one of the soon-to-be-tmpfs directories. If we
@@ -1511,11 +1506,11 @@ static int prepare_ns(const char *process_name) {
                         ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, NULL));
 
                 if (build_dir_mount) {
-                        ret = RET_NERRNO(access(build_dir, F_OK));
-                        if (ret != -ENOENT)
-                                ASSERT_OK(ret);
+                        int k;
 
-                        if (ret == -ENOENT) {
+                        ASSERT_OK_OR(k = RET_NERRNO(access(build_dir, F_OK)), -ENOENT);
+
+                        if (k == -ENOENT) {
                                 /* The build directory got overmounted by tmpfs, so let's use the "backup" bind mount to
                                  * bring it back. */
                                 ASSERT_OK(mkdir_p(build_dir, 0755));
