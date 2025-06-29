@@ -20,9 +20,34 @@
 #include "string-util.h"
 #include "strv.h"
 
+ConfFileEntry* conf_file_entry_free(ConfFileEntry *e) {
+        if (!e)
+                return NULL;
+
+        free(e->name);
+        free(e->result);
+        free(e->original_path);
+        free(e->resolved_path);
+
+        return mfree(e);
+}
+
+void conf_file_entry_free_many(ConfFileEntry **array, size_t n) {
+        FOREACH_ARRAY(i, array, n)
+                conf_file_entry_free(*i);
+
+        free(array);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                conf_file_entry_hash_ops,
+                char, string_hash_func, string_compare_func,
+                ConfFileEntry, conf_file_entry_free);
+
 static int files_add(
                 DIR *dir,
-                const char *dirpath,
+                const char *original_dirpath,
+                const char *resolved_dirpath,
                 int rfd,
                 const char *root, /* for logging, can be NULL */
                 Hashmap **files,
@@ -33,7 +58,8 @@ static int files_add(
         int r;
 
         assert(dir);
-        assert(dirpath);
+        assert(original_dirpath);
+        assert(resolved_dirpath);
         assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(files);
         assert(masked);
@@ -41,27 +67,31 @@ static int files_add(
         root = strempty(root);
 
         FOREACH_DIRENT(de, dir, return log_debug_errno(errno, "Failed to read directory '%s/%s': %m",
-                                                       root, skip_leading_slash(dirpath))) {
+                                                       root, skip_leading_slash(original_dirpath))) {
+
+                _cleanup_free_ char *original_path = path_join(original_dirpath, de->d_name);
+                if (!original_path)
+                        return log_oom_debug();
 
                 /* Does this match the suffix? */
-                if (suffix && !endswith(de->d_name, suffix))
+                if (suffix && !endswith(de->d_name, suffix)) {
+                        log_debug("Skipping file '%s/%s' with unexpected suffix.", root, skip_leading_slash(original_path));
                         continue;
+                }
 
                 /* Has this file already been found in an earlier directory? */
                 if (hashmap_contains(*files, de->d_name)) {
-                        log_debug("Skipping overridden file '%s/%s/%s'.",
-                                  root, skip_leading_slash(dirpath), de->d_name);
+                        log_debug("Skipping overridden file '%s/%s'.", root, skip_leading_slash(original_path));
                         continue;
                 }
 
                 /* Has this been masked in an earlier directory? */
                 if ((flags & CONF_FILES_FILTER_MASKED) != 0 && set_contains(*masked, de->d_name)) {
-                        log_debug("File '%s/%s/%s' is masked by previous entry.",
-                                  root, skip_leading_slash(dirpath), de->d_name);
+                        log_debug("File '%s/%s' is masked by previous entry.", root, skip_leading_slash(original_path));
                         continue;
                 }
 
-                _cleanup_free_ char *p = path_join(dirpath, de->d_name);
+                _cleanup_free_ char *p = path_join(resolved_dirpath, de->d_name);
                 if (!p)
                         return log_oom_debug();
 
@@ -77,7 +107,7 @@ static int files_add(
                         r = chaseat(rfd, p, CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &resolved_path, /* ret_fd = */ NULL);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to chase '%s/%s', ignoring: %m",
-                                                root, skip_leading_slash(p));
+                                                root, skip_leading_slash(original_path));
                                 continue;
                         }
                         if (r == 0 && FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK)) {
@@ -90,19 +120,19 @@ static int files_add(
                                                 return log_oom_debug();
 
                                         log_debug("File '%s/%s' is a mask (symlink to /dev/null).",
-                                                  root, skip_leading_slash(p));
+                                                  root, skip_leading_slash(original_path));
                                         continue;
                                 }
 
                                 /* If the flag is set, we need to have stat, hence, skip the entry. */
                                 log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to chase '%s/%s', ignoring: %m",
-                                                root, skip_leading_slash(p));
+                                                root, skip_leading_slash(original_path));
                                 continue;
                         }
 
                         if (need_stat && fstatat(rfd, resolved_path, &st, AT_SYMLINK_NOFOLLOW) < 0) {
                                 log_debug_errno(errno, "Failed to stat '%s/%s', ignoring: %m",
-                                                root, skip_leading_slash(p));
+                                                root, skip_leading_slash(original_path));
                                 continue;
                         }
 
@@ -110,7 +140,7 @@ static int files_add(
                         r = chase_and_statat(rfd, p, CHASE_AT_RESOLVE_IN_ROOT, &resolved_path, &st);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to chase and stat '%s/%s', ignoring: %m",
-                                                root, skip_leading_slash(p));
+                                                root, skip_leading_slash(original_path));
                                 continue;
                         }
                 }
@@ -122,7 +152,7 @@ static int files_add(
                         if (r < 0)
                                 return log_oom_debug();
 
-                        log_debug("File '%s/%s' is a mask (symlink to /dev/null).", root, skip_leading_slash(p));
+                        log_debug("File '%s/%s' is a mask (symlink to /dev/null).", root, skip_leading_slash(original_path));
                         continue;
                 }
 
@@ -132,19 +162,19 @@ static int files_add(
                         if (r < 0)
                                 return log_oom_debug();
 
-                        log_debug("File '%s/%s' is a mask (an empty file).", root, skip_leading_slash(p));
+                        log_debug("File '%s/%s' is a mask (an empty file).", root, skip_leading_slash(original_path));
                         continue;
                 }
 
                 /* Is this node a regular file? */
                 if (FLAGS_SET(flags, CONF_FILES_REGULAR) && !S_ISREG(st.st_mode)) {
-                        log_debug("Ignoring '%s/%s', as it is not a regular file.", root, skip_leading_slash(p));
+                        log_debug("Ignoring '%s/%s', as it is not a regular file.", root, skip_leading_slash(original_path));
                         continue;
                 }
 
                 /* Is this node a directory? */
                 if (FLAGS_SET(flags, CONF_FILES_DIRECTORY) && !S_ISDIR(st.st_mode)) {
-                        log_debug("Ignoring '%s/%s', as it is not a directory.", root, skip_leading_slash(p));
+                        log_debug("Ignoring '%s/%s', as it is not a directory.", root, skip_leading_slash(original_path));
                         continue;
                 }
 
@@ -153,78 +183,86 @@ static int files_add(
                  * here, as we care about whether the file is marked executable at all, and not whether it is
                  * executable for us, because if so, such errors are stuff we should log about. */
                 if (FLAGS_SET(flags, CONF_FILES_EXECUTABLE) && (st.st_mode & 0111) == 0) {
-                        log_debug("Ignoring '%s/%s', as it is not marked executable.", root, skip_leading_slash(p));
+                        log_debug("Ignoring '%s/%s', as it is not marked executable.", root, skip_leading_slash(original_path));
                         continue;
                 }
 
-                _cleanup_free_ char *n = strdup(de->d_name);
-                if (!n)
+                _cleanup_(conf_file_entry_freep) ConfFileEntry *e = new(ConfFileEntry, 1);
+                if (!e)
                         return log_oom_debug();
 
-                r = hashmap_ensure_put(files, &string_hash_ops_free_free, n, p);
+                *e = (ConfFileEntry) {
+                        .name = strdup(de->d_name),
+                        .result = TAKE_PTR(p),
+                        .original_path = TAKE_PTR(original_path),
+                        .resolved_path = TAKE_PTR(resolved_path),
+                };
+
+                if (!e->name)
+                        return log_oom_debug();
+
+                r = hashmap_ensure_put(files, &conf_file_entry_hash_ops, e->name, e);
                 if (r < 0) {
                         assert(r == -ENOMEM);
                         return log_oom_debug();
                 }
                 assert(r > 0);
 
-                TAKE_PTR(n);
-                TAKE_PTR(p);
+                TAKE_PTR(e);
         }
 
         return 0;
 }
 
 static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfFilesFlags flags, char ***ret) {
-        _cleanup_free_ char **sv = NULL;
-        _cleanup_strv_free_ char **files = NULL;
-        size_t n = 0;
+        _cleanup_strv_free_ char **results = NULL;
+        _cleanup_free_ ConfFileEntry **entries = NULL;
+        size_t n_entries = 0, n_results = 0;
         int r;
 
         assert(ret);
 
-        r = hashmap_dump_sorted(fh, (void***) &sv, /* ret_n = */ NULL);
+        /* The entries in the array given by hashmap_dump_sorted() are still owned by the hashmap.
+         * Hence, do not use conf_file_entry_free_many() for 'entries' */
+        r = hashmap_dump_sorted(fh, (void***) &entries, &n_entries);
         if (r < 0)
                 return log_oom_debug();
 
-        /* The entries in the array given by hashmap_dump_sorted() are still owned by the hashmap. */
-        STRV_FOREACH(s, sv) {
-                _cleanup_free_ char *p = NULL;
+        FOREACH_ARRAY(i, entries, n_entries) {
+                ConfFileEntry *e = *i;
 
-                if (FLAGS_SET(flags, CONF_FILES_BASENAME)) {
-                        r = path_extract_filename(*s, &p);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to extract filename from '%s': %m", *s);
-                } else if (root) {
-                        r = chaseat_prefix_root(*s, root, &p);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to prefix '%s' with root '%s': %m", *s, root);
-                }
+                if (FLAGS_SET(flags, CONF_FILES_BASENAME))
+                        r = strv_extend_with_size(&results, &n_results, e->name);
+                else if (root) {
+                        char *p;
 
-                if (p)
-                        r = strv_consume_with_size(&files, &n, TAKE_PTR(p));
-                else
-                        r = strv_extend_with_size(&files, &n, *s);
+                        r = chaseat_prefix_root(e->result, root, &p);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to prefix '%s' with root '%s': %m", e->result, root);
+
+                        r = strv_consume_with_size(&results, &n_results, TAKE_PTR(p));
+                } else
+                        r = strv_extend_with_size(&results, &n_results, e->result);
                 if (r < 0)
                         return log_oom_debug();
         }
 
-        *ret = TAKE_PTR(files);
+        *ret = TAKE_PTR(results);
         return 0;
 }
 
-static int insert_replacement(Hashmap **fh, char *filename_replacement, char *resolved_replacement, char **ret) {
-        _cleanup_free_ char *fname = ASSERT_PTR(filename_replacement), *path = ASSERT_PTR(resolved_replacement);
+static int insert_replacement(Hashmap **fh, ConfFileEntry *replacement, char **ret) {
+        _cleanup_(conf_file_entry_freep) ConfFileEntry *e = ASSERT_PTR(replacement);
         int r;
 
         assert(fh);
 
-        /* This consumes the input filename and path. */
+        /* This consumes the input ConfFileEntry. */
 
-        const char *existing = hashmap_get(*fh, fname);
+        ConfFileEntry *existing = hashmap_get(*fh, e->name);
         if (existing) {
-                log_debug("An entry with higher priority already exists ('%s' -> '%s'), ignoring the replacement: %s",
-                          fname, existing, path);
+                log_debug("An entry with higher priority '%s' -> '%s' already exists, ignoring the replacement: %s",
+                          existing->name, existing->result, e->original_path);
                 if (ret)
                         *ret = NULL;
                 return 0;
@@ -232,22 +270,20 @@ static int insert_replacement(Hashmap **fh, char *filename_replacement, char *re
 
         _cleanup_free_ char *copy = NULL;
         if (ret) {
-                copy = strdup(path);
+                copy = strdup(e->result);
                 if (!copy)
                         return log_oom_debug();
         }
 
-        r = hashmap_ensure_put(fh, &string_hash_ops_free_free, fname, path);
+        r = hashmap_ensure_put(fh, &conf_file_entry_hash_ops, e->name, e);
         if (r < 0) {
                 assert(r == -ENOMEM);
                 return log_oom_debug();
         }
         assert(r > 0);
 
-        log_debug("Inserted replacement: '%s' -> '%s'", fname, path);
-
-        TAKE_PTR(fname);
-        TAKE_PTR(path);
+        log_debug("Inserted replacement: '%s' -> '%s'", e->name, e->result);
+        TAKE_PTR(e);
 
         if (ret)
                 *ret = TAKE_PTR(copy);
@@ -271,24 +307,40 @@ static int conf_files_list_impl(
         assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(ret);
 
-        _cleanup_free_ char *filename_replacement = NULL, *resolved_dirpath_replacement = NULL, *resolved_replacement = NULL, *inserted = NULL;
+        _cleanup_(conf_file_entry_freep) ConfFileEntry *e = NULL;
+        _cleanup_free_ char *resolved_dirpath_replacement = NULL, *inserted = NULL;
         if (replacement) {
-                r = path_extract_filename(replacement, &filename_replacement);
+                e = new0(ConfFileEntry, 0);
+                if (!e)
+                        return log_oom_debug();
+
+                *e = (ConfFileEntry) {
+                        .original_path = strdup(replacement),
+                };
+
+                if (!e->original_path)
+                        return log_oom_debug();
+
+                r = path_extract_filename(replacement, &e->name);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to extract filename from '%s': %m", replacement);
 
                 _cleanup_free_ char *d = NULL;
                 r = path_extract_directory(replacement, &d);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to extract directory from '%s': %m", replacement);
 
                 r = chaseat(rfd, d, CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &resolved_dirpath_replacement, /* ret_fd = */ NULL);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to chase '%s/%s': %m", strempty(root), skip_leading_slash(d));
 
-                resolved_replacement = path_join(resolved_dirpath_replacement, filename_replacement);
-                if (!resolved_replacement)
+                e->result = path_join(resolved_dirpath_replacement, e->name);
+                if (!e->result)
                         return log_oom_debug();
+
+                r = chaseat(rfd, e->result, CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &e->resolved_path, /* ret_fd = */ NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to chase '%s/%s': %m", strempty(root), skip_leading_slash(e->original_path));
         }
 
         STRV_FOREACH(p, dirs) {
@@ -298,23 +350,23 @@ static int conf_files_list_impl(
                 r = chase_and_opendirat(rfd, *p, CHASE_AT_RESOLVE_IN_ROOT, &path, &dir);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                log_debug_errno(r, "Failed to chase and open directory '%s%s', ignoring: %m", strempty(root), *p);
+                                log_debug_errno(r, "Failed to chase and open directory '%s/%s', ignoring: %m", strempty(root), skip_leading_slash(*p));
                         continue;
                 }
 
-                if (resolved_replacement && path_equal(resolved_dirpath_replacement, path)) {
-                        r = insert_replacement(&fh, TAKE_PTR(filename_replacement), TAKE_PTR(resolved_replacement), ret_inserted ? &inserted : NULL);
+                if (e && path_equal(resolved_dirpath_replacement, path)) {
+                        r = insert_replacement(&fh, TAKE_PTR(e), ret_inserted ? &inserted : NULL);
                         if (r < 0)
                                 return r;
                 }
 
-                r = files_add(dir, path, rfd, root, &fh, &masked, suffix, flags);
+                r = files_add(dir, *p, path, rfd, root, &fh, &masked, suffix, flags);
                 if (r == -ENOMEM)
                         return r;
         }
 
-        if (resolved_replacement) {
-                r = insert_replacement(&fh, TAKE_PTR(filename_replacement), TAKE_PTR(resolved_replacement), ret_inserted ? &inserted : NULL);
+        if (e) {
+                r = insert_replacement(&fh, TAKE_PTR(e), ret_inserted ? &inserted : NULL);
                 if (r < 0)
                         return r;
         }
