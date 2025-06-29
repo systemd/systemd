@@ -394,7 +394,13 @@ int unit_show_processes(
         if (r < 0)
                 goto finish;
 
-        r = dump_extra_processes(cgroups, prefix, n_columns, flags);
+        if (!FLAGS_SET(flags, OUTPUT_HIDE_EXTRA)) {
+                r = dump_extra_processes(cgroups, prefix, n_columns, flags);
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = 0;
 
 finish:
         while ((cg = hashmap_first(cgroups)))

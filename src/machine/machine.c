@@ -134,13 +134,19 @@ Machine* machine_free(Machine *m) {
         sd_bus_message_unref(m->create_message);
 
         free(m->name);
-        free(m->scope_job);
+
         free(m->state_file);
         free(m->service);
         free(m->root_directory);
+
+        free(m->unit);
+        free(m->subgroup);
+        free(m->scope_job);
+
         free(m->netif);
         free(m->ssh_address);
         free(m->ssh_private_key_path);
+
         return mfree(m);
 }
 
@@ -156,7 +162,7 @@ int machine_save(Machine *m) {
                 return 0;
 
         _cleanup_(unlink_and_freep) char *sl = NULL; /* auto-unlink! */
-        if (m->unit) {
+        if (m->unit && !m->subgroup) {
                 sl = strjoin("/run/systemd/machines/unit:", m->unit);
                 if (!sl)
                         return log_oom();
@@ -177,8 +183,10 @@ int machine_save(Machine *m) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "NAME=%s\n",
-                m->name);
+                "NAME=%s\n"
+                "UID=" UID_FMT "\n",
+                m->name,
+                m->uid);
 
         /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
         env_file_fputs_assignment(f, "SCOPE=", m->unit);
@@ -244,7 +252,7 @@ int machine_save(Machine *m) {
 static void machine_unlink(Machine *m) {
         assert(m);
 
-        if (m->unit) {
+        if (m->unit && !m->subgroup) {
                 const char *sl = strjoina("/run/systemd/machines/unit:", m->unit);
                 (void) unlink(sl);
         }
@@ -255,7 +263,7 @@ static void machine_unlink(Machine *m) {
 
 int machine_load(Machine *m) {
         _cleanup_free_ char *name = NULL, *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *leader_pidfdid = NULL,
-                *class = NULL, *netif = NULL, *vsock_cid = NULL;
+                *class = NULL, *netif = NULL, *vsock_cid = NULL, *uid = NULL;
         int r;
 
         assert(m);
@@ -266,6 +274,7 @@ int machine_load(Machine *m) {
         r = parse_env_file(NULL, m->state_file,
                            "NAME",                 &name,
                            "SCOPE",                &m->unit,
+                           "SUBGROUP",             &m->subgroup,
                            "SCOPE_JOB",            &m->scope_job,
                            "SERVICE",              &m->service,
                            "ROOT",                 &m->root_directory,
@@ -278,7 +287,8 @@ int machine_load(Machine *m) {
                            "NETIF",                &netif,
                            "VSOCK_CID",            &vsock_cid,
                            "SSH_ADDRESS",          &m->ssh_address,
-                           "SSH_PRIVATE_KEY_PATH", &m->ssh_private_key_path);
+                           "SSH_PRIVATE_KEY_PATH", &m->ssh_private_key_path,
+                           "UID",                  &uid);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -362,6 +372,10 @@ int machine_load(Machine *m) {
                         log_warning_errno(r, "Failed to parse AF_VSOCK CID, ignoring: %s", vsock_cid);
         }
 
+        r = parse_uid(uid, &m->uid);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse owning UID, ignoring: %s", uid);
+
         return r;
 }
 
@@ -380,6 +394,7 @@ static int machine_start_scope(
         assert(machine);
         assert(pidref_is_set(&machine->leader));
         assert(!machine->unit);
+        assert(!machine->subgroup);
 
         escaped = unit_name_escape(machine->name);
         if (!escaped)
@@ -418,13 +433,27 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)",
-                                  "Delegate", "b", 1,
-                                  "CollectMode", "s", "inactive-or-failed",
-                                  "AddRef", "b", 1,
-                                  "TasksMax", "t", UINT64_C(16384));
+        r = sd_bus_message_append(
+                        m, "(sv)(sv)(sv)(sv)",
+                        "Delegate", "b", 1,
+                        "CollectMode", "s", "inactive-or-failed",
+                        "AddRef", "b", 1,
+                        "TasksMax", "t", UINT64_C(16384));
         if (r < 0)
                 return r;
+
+        if (machine->uid != 0) {
+                _cleanup_free_ char *u = NULL;
+
+                if (asprintf(&u, UID_FMT, machine->uid) < 0)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(
+                                m, "(sv)",
+                                "User", "s", u);
+                if (r < 0)
+                        return r;
+        }
 
         if (more_properties) {
                 r = sd_bus_message_copy(m, more_properties, true);
@@ -476,9 +505,11 @@ static int machine_ensure_scope(Machine *m, sd_bus_message *properties, sd_bus_e
 
         assert(m->unit);
 
-        r = hashmap_ensure_put(&m->manager->machines_by_unit, &string_hash_ops, m->unit, m);
-        if (r < 0)
-                return r;
+        if (!m->subgroup) {
+                r = hashmap_ensure_put(&m->manager->machines_by_unit, &string_hash_ops, m->unit, m);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -566,7 +597,7 @@ int machine_stop(Machine *m) {
         if (!IN_SET(m->class, MACHINE_CONTAINER, MACHINE_VM))
                 return -EOPNOTSUPP;
 
-        if (m->unit) {
+        if (m->unit && !m->subgroup) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *job = NULL;
 
@@ -637,7 +668,7 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
                         return false;
         }
 
-        if (m->unit) {
+        if (m->unit && !m->subgroup) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = manager_unit_is_active(m->manager, m->unit, &error);
@@ -683,14 +714,14 @@ int machine_kill(Machine *m, KillWhom whom, int signo) {
         if (!IN_SET(m->class, MACHINE_VM, MACHINE_CONTAINER))
                 return -EOPNOTSUPP;
 
-        if (!m->unit)
-                return -ESRCH;
-
         if (whom == KILL_LEADER) /* If we shall simply kill the leader, do so directly */
                 return pidref_kill(&m->leader, signo);
 
+        if (!m->unit)
+                return -ESRCH;
+
         /* Otherwise, make PID 1 do it for us, for the entire cgroup */
-        return manager_kill_unit(m->manager, m->unit, signo, NULL);
+        return manager_kill_unit(m->manager, m->unit, m->subgroup, signo, /* reterr_error= */ NULL);
 }
 
 int machine_openpt(Machine *m, int flags, char **ret_peer) {
@@ -1124,8 +1155,13 @@ void machine_release_unit(Machine *m) {
                 m->referenced = false;
         }
 
-        (void) hashmap_remove_value(m->manager->machines_by_unit, m->unit, m);
+        if (!m->subgroup)
+                (void) hashmap_remove_value(m->manager->machines_by_unit, m->unit, m);
+
         m->unit = mfree(m->unit);
+
+        /* Also free the subgroup, because it only makes sense in the context of the unit */
+        m->subgroup = mfree(m->subgroup);
 }
 
 int machine_get_uid_shift(Machine *m, uid_t *ret) {

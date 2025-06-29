@@ -477,12 +477,6 @@ Features:
   them. display them in regular output mode (via strip_tab_ansi()), but
   suppress them in json mode.
 
-* machined: when registering a machine, also take a relative cgroup path,
-  relative to the machine's unit. This is useful when registering unpriv
-  machines, as they might sit down the cgroup tree, below a cgroup delegation
-  boundary. Then, install an inotify watch on that cgroup to track when the
-  machine's local cgroup goes down.
-
 * resolved: report ttl in resolution replies if we know it. This data is useful
   for tools such as wireguard which want to periodically re-resolve DNS names,
   and might want to use the TTL has hint for that.
@@ -819,8 +813,6 @@ Features:
     PCRs.
 
 * vmspawn:
-  - run in scope unit when invoked from command line, and machined registration is off
-  - sd_notify support
   - --ephemeral support
   - --read-only support
   - automatically suspend/resume the VM if the host suspends. Use logind
@@ -2787,7 +2779,6 @@ Features:
     investigate whether creating the inner child with CLONE_PARENT isn't better.
   - Reduce the number of sockets that are currently in use and just rely on one
     or two sockets.
-  - Support running nspawn as an unprivileged user.
 
 * machined:
   - add an API so that libvirt-lxc can inform us about network interfaces being

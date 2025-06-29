@@ -831,6 +831,12 @@ static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_erro
         return method_generic_unit_operation(message, userdata, error, bus_unit_method_kill, 0);
 }
 
+static int method_kill_unit_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        /* We don't bother with GENERIC_UNIT_LOAD nor GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
+         * matter whether a unit is loaded for killing any processes possibly in the unit's cgroup. */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_kill_subgroup, 0);
+}
+
 static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Load the unit if necessary, in order to load it, and insist on the unit being loaded to be
          * cleaned */
@@ -3024,6 +3030,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", name, "s", whom, "i", signal),
                                 SD_BUS_NO_RESULT,
                                 method_kill_unit,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("KillUnitSubgroup",
+                                SD_BUS_ARGS("s", name, "s", whom, "s", subgroup, "i", signal),
+                                SD_BUS_NO_RESULT,
+                                method_kill_unit_subgroup,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("QueueSignalUnit",
                                 SD_BUS_ARGS("s", name, "s", whom, "i", signal, "i", value),

@@ -38,6 +38,8 @@ typedef struct Machine {
         char *name;
         sd_id128_t id;
 
+        uid_t uid;
+
         MachineClass class;
 
         char *state_file;
@@ -45,6 +47,7 @@ typedef struct Machine {
         char *root_directory;
 
         char *unit;
+        char *subgroup;
         char *scope_job;
 
         PidRef leader;
