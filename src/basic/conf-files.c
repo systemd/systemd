@@ -358,6 +358,37 @@ static int files_add(
         return 0;
 }
 
+static int dump_files(Hashmap *fh, const char *root, ConfFile ***ret_files, size_t *ret_n_files) {
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+        int r;
+
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        assert(ret_files);
+        assert(ret_n_files);
+
+        /* The entries in the array given by hashmap_dump_sorted() are still owned by the hashmap. */
+        r = hashmap_dump_sorted(fh, (void***) &files, &n_files);
+        if (r < 0)
+                return log_oom_debug();
+
+        /* Hence, we need to remove them from the hashmap. */
+        FOREACH_ARRAY(i, files, n_files)
+                assert_se(hashmap_remove(fh, (*i)->name) == *i);
+
+        if (root)
+                FOREACH_ARRAY(i, files, n_files) {
+                        r = conf_file_prefix_root(*i, root);
+                        if (r < 0)
+                                return r;
+                }
+
+        *ret_files = TAKE_PTR(files);
+        *ret_n_files = n_files;
+        return 0;
+}
+
 static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfFilesFlags flags, char ***ret) {
         _cleanup_strv_free_ char **results = NULL;
         _cleanup_free_ ConfFile **files = NULL;
@@ -511,6 +542,35 @@ int conf_files_list_strv(
         return copy_and_sort_files_from_hashmap(fh, empty_to_root(root_abs), flags, ret);
 }
 
+int conf_files_list_strv_full(
+                const char *suffix,
+                const char *root,
+                ConfFilesFlags flags,
+                const char * const *dirs,
+                ConfFile ***ret_files,
+                size_t *ret_n_files) {
+
+        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_free_ char *root_abs = NULL;
+        _cleanup_strv_free_ char **dirs_abs = NULL;
+        int r;
+
+        assert(ret_files);
+        assert(ret_n_files);
+
+        r = prepare_dirs(root, (char**) dirs, &rfd, &root_abs, &dirs_abs);
+        if (r < 0)
+                return r;
+
+        r = conf_files_list_impl(suffix, rfd, root_abs, flags, (const char * const *) dirs_abs,
+                                 /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
+        if (r < 0)
+                return r;
+
+        return dump_files(fh, empty_to_root(root_abs), ret_files, ret_n_files);
+}
+
 int conf_files_list_strv_at(
                 char ***ret,
                 const char *suffix,
@@ -535,12 +595,46 @@ int conf_files_list_strv_at(
         return copy_and_sort_files_from_hashmap(fh, /* root = */ NULL, flags, ret);
 }
 
+int conf_files_list_strv_at_full(
+                const char *suffix,
+                int rfd,
+                ConfFilesFlags flags,
+                const char * const *dirs,
+                ConfFile ***ret_files,
+                size_t *ret_n_files) {
+
+        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_free_ char *root = NULL;
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(ret_files);
+        assert(ret_n_files);
+
+        if (rfd >= 0 && DEBUG_LOGGING)
+                (void) fd_get_path(rfd, &root); /* for logging */
+
+        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
+        if (r < 0)
+                return r;
+
+        return dump_files(fh, /* root = */ NULL, ret_files, ret_n_files);
+}
+
 int conf_files_list(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dir) {
         return conf_files_list_strv(ret, suffix, root, flags, STRV_MAKE_CONST(dir));
 }
 
+int conf_files_list_full(const char *suffix, const char *root, ConfFilesFlags flags, const char *dir, ConfFile ***ret_files, size_t *ret_n_files) {
+        return conf_files_list_strv_full(suffix, root, flags, STRV_MAKE_CONST(dir), ret_files, ret_n_files);
+}
+
 int conf_files_list_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dir) {
         return conf_files_list_strv_at(ret, suffix, rfd, flags, STRV_MAKE_CONST(dir));
+}
+
+int conf_files_list_at_full(const char *suffix, int rfd, ConfFilesFlags flags, const char *dir, ConfFile ***ret_files, size_t *ret_n_files) {
+        return conf_files_list_strv_at_full(suffix, rfd, flags, STRV_MAKE_CONST(dir), ret_files, ret_n_files);
 }
 
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs) {
@@ -555,6 +649,19 @@ int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, Co
         return conf_files_list_strv(ret, suffix, root, flags, (const char**) d);
 }
 
+int conf_files_list_nulstr_full(const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs, ConfFile ***ret_files, size_t *ret_n_files) {
+        _cleanup_strv_free_ char **d = NULL;
+
+        assert(ret_files);
+        assert(ret_n_files);
+
+        d = strv_split_nulstr(dirs);
+        if (!d)
+                return -ENOMEM;
+
+        return conf_files_list_strv_full(suffix, root, flags, (const char**) d, ret_files, ret_n_files);
+}
+
 int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs) {
         _cleanup_strv_free_ char **d = NULL;
 
@@ -565,6 +672,19 @@ int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFile
                 return -ENOMEM;
 
         return conf_files_list_strv_at(ret, suffix, rfd, flags, (const char**) d);
+}
+
+int conf_files_list_nulstr_at_full(const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs, ConfFile ***ret_files, size_t *ret_n_files) {
+        _cleanup_strv_free_ char **d = NULL;
+
+        assert(ret_files);
+        assert(ret_n_files);
+
+        d = strv_split_nulstr(dirs);
+        if (!d)
+                return -ENOMEM;
+
+        return conf_files_list_strv_at_full(suffix, rfd, flags, (const char**) d, ret_files, ret_n_files);
 }
 
 int conf_files_list_with_replacement(
