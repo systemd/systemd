@@ -414,7 +414,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         log_struct(LOG_ERR,
                                    LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
-                                   LOG_ITEM("%s", strna(unit_ids)));
+                                   LOG_ITEM("%s", strempty(unit_ids)));
 
                 if (delete) {
                         const char *status;
@@ -427,7 +427,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    LOG_MESSAGE_ID(SD_MESSAGE_DELETING_JOB_BECAUSE_ORDERING_CYCLE_STR),
                                    LOG_ITEM("DELETED_UNIT=%s", delete->unit->id),
                                    LOG_ITEM("DELETED_TYPE=%s", job_type_to_string(delete->type)),
-                                   LOG_ITEM("%s", strna(unit_ids)));
+                                   LOG_ITEM("%s", strempty(unit_ids)));
 
                         if (log_get_show_color())
                                 status = ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL;
@@ -447,7 +447,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                            LOG_UNIT_MESSAGE(j->unit, "Unable to break cycle starting with %s/%s",
                                             j->unit->id, job_type_to_string(j->type)),
                            LOG_MESSAGE_ID(SD_MESSAGE_CANT_BREAK_ORDERING_CYCLE_STR),
-                           LOG_ITEM("%s", strna(unit_ids)));
+                           LOG_ITEM("%s", strempty(unit_ids)));
 
                 return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
                                          "Transaction order is cyclic. See system logs for details.");
