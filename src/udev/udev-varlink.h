@@ -3,5 +3,5 @@
 
 #include "udev-forward.h"
 
-int manager_start_varlink_server(Manager *manager);
+int manager_start_varlink_server(Manager *manager, int fd);
 int udev_varlink_connect(sd_varlink **ret, usec_t timeout);

@@ -1405,11 +1405,13 @@ static int manager_setup_event(Manager *manager) {
         return 0;
 }
 
-static int manager_listen_fds(Manager *manager) {
+static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
         _cleanup_strv_free_ char **names = NULL;
+        int varlink_fd = -EBADF;
         int r;
 
         assert(manager);
+        assert(ret_varlink_fd);
 
         int n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
         if (n < 0)
@@ -1418,9 +1420,10 @@ static int manager_listen_fds(Manager *manager) {
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
 
-                if (streq(names[i], "varlink"))
-                        r = 0; /* The fd will be handled by sd_varlink_server_listen_auto(). */
-                else if (streq(names[i], "systemd-udevd-control.socket"))
+                if (streq(names[i], "varlink")) {
+                        varlink_fd = fd;
+                        r = 0;
+                } else if (streq(names[i], "systemd-udevd-control.socket"))
                         r = manager_init_ctrl(manager, fd);
                 else if (streq(names[i], "systemd-udevd-kernel.socket"))
                         r = manager_init_device_monitor(manager, fd);
@@ -1437,10 +1440,13 @@ static int manager_listen_fds(Manager *manager) {
                         close_and_notify_warn(fd, names[i]);
         }
 
+        *ret_varlink_fd = varlink_fd;
+
         return 0;
 }
 
 int manager_main(Manager *manager) {
+        _cleanup_close_ int varlink_fd = -EBADF;
         int r;
 
         assert(manager);
@@ -1458,7 +1464,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_listen_fds(manager);
+        r = manager_listen_fds(manager, &varlink_fd);
         if (r < 0)
                 return r;
 
@@ -1466,7 +1472,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_start_varlink_server(manager);
+        r = manager_start_varlink_server(manager, TAKE_FD(varlink_fd));
         if (r < 0)
                 return r;
 

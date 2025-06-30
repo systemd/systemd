@@ -473,6 +473,11 @@ units = [
           'symlinks' : ['dbus-org.freedesktop.locale1.service'],
         },
         {
+          'file': 'systemd-logind-varlink.socket',
+          'conditions': ['ENABLE_LOGIND'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-logind.service.in',
           'conditions' : ['ENABLE_LOGIND'],
           'symlinks' : ['multi-user.target.wants/', 'dbus-org.freedesktop.login1.service'],
@@ -500,6 +505,10 @@ units = [
         { 'file' : 'systemd-network-generator.service.in' },
         {
           'file' : 'systemd-networkd-persistent-storage.service',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
+          'file' : 'systemd-networkd-varlink.socket',
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
