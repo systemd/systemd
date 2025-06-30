@@ -1,0 +1,32 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Container %i
+Documentation=man:systemd-nspawn(1)
+PartOf=machines.target
+Before=machines.target
+
+[Service]
+ExecStart=systemd-nspawn --quiet --keep-unit --register=yes --boot --network-veth -U --settings=override --machine=%i
+ExecStopPost=systemd-nspawn --cleanup --machine=%i
+KillMode=mixed
+Type=notify
+RestartForceExitStatus=133
+SuccessExitStatus=133
+Slice=machine.slice
+Delegate=yes
+DelegateSubgroup=supervisor
+CoredumpReceive=yes
+TasksMax=16384
+TimeoutSec=2min
+{{SERVICE_WATCHDOG}}
+
+[Install]
+WantedBy=machines.target
