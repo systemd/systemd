@@ -12,4 +12,4 @@ int parse_device_action(const char *str, sd_device_action_t *ret);
 int parse_resolve_name_timing(const char *str, ResolveNameTiming *ret);
 int parse_key_value_argument(const char *str, bool require_value, char **key, char **value);
 int udev_ping(usec_t timeout, bool ignore_connection_failure);
-int search_rules_files(char * const *a, const char *root, char ***ret);
+int search_rules_files(char * const *a, const char *root, ConfFile ***ret_files, size_t *ret_n_files);
