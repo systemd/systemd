@@ -369,8 +369,8 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
         /* Have we seen this before? */
         if (j->generation == generation) {
-                Job *k, *delete = NULL;
                 _cleanup_free_ char **array = NULL, *unit_ids = NULL;
+                Job *delete = NULL;
 
                 /* If the marker is NULL we have been here already and decided the job was loop-free from
                  * here. Hence shortcut things and return right-away. */
@@ -380,7 +380,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 /* So, the marker is not NULL and we already have been here. We have a cycle. Let's try to
                  * break it. We go backwards in our path and try to find a suitable job to remove. We use the
                  * marker to find our way back, since smart how we are we stored our way back in there. */
-                for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
+                for (Job *k = from; k; k = (k->generation == generation && k->marker != k) ? k->marker : NULL) {
 
                         /* For logging below */
                         if (strv_push_pair(&array, k->unit->id, (char*) job_type_to_string(k->type)) < 0)
@@ -403,7 +403,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 if (m > 0) {
                         (void) strextendf(&cycle_path_text, " on %s/%s", array[0], array[1]);
                         if (m > 2)
-                                (void) strextendf(&cycle_path_text, "; has dependency on %s/%s", array[2], array[3]);
+                                (void) strextendf(&cycle_path_text, ": %s/%s", array[2], array[3]);
                 }
 
                 STRV_FOREACH_PAIR(unit_id, job_type, strv_skip(array, 4))
