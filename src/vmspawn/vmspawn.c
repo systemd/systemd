@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/poll.h>
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
@@ -38,6 +39,8 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "machine-credential.h"
 #include "main-func.h"
@@ -45,6 +48,7 @@
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
+#include "nulstr-util.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -52,6 +56,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -99,6 +104,8 @@ static PagerFlags arg_pager_flags = 0;
 static char *arg_directory = NULL;
 static char *arg_image = NULL;
 static char *arg_machine = NULL;
+static char *arg_slice = NULL;
+static char **arg_property = NULL;
 static char *arg_cpus = NULL;
 static uint64_t arg_ram = UINT64_C(2) * U64_GB;
 static int arg_kvm = -1;
@@ -117,7 +124,7 @@ static SettingsMask arg_settings_mask = 0;
 static char *arg_firmware = NULL;
 static char *arg_forward_journal = NULL;
 static bool arg_privileged = false;
-static bool arg_register = false;
+static bool arg_register = true;
 static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
 static char **arg_kernel_cmdline_extra = NULL;
@@ -131,10 +138,13 @@ static char **arg_smbios11 = NULL;
 static uint64_t arg_grow_image = 0;
 static char *arg_tpm_state_path = NULL;
 static TpmStateMode arg_tpm_state_mode = TPM_STATE_AUTO;
+static bool arg_ask_password = true;
+static bool arg_notify_ready = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_slice, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cpus, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
@@ -148,6 +158,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_smbios11, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm_state_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -165,6 +176,7 @@ static int help(void) {
                "     --version             Print version string\n"
                "  -q --quiet               Do not show status information\n"
                "     --no-pager            Do not pipe output into a pager\n"
+               "     --no-ask-password     Do not prompt for password\n"
                "\n%3$sImage:%4$s\n"
                "  -D --directory=PATH      Root directory for the VM\n"
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
@@ -185,13 +197,18 @@ static int help(void) {
                "     --firmware=PATH|list  Select firmware definition file (or list available)\n"
                "     --discard-disk=BOOL   Control processing of discard requests\n"
                "  -G --grow-image=BYTES    Grow image file to specified size in bytes\n"
+               "\n%3$sExecution:%4$s\n"
                "  -s --smbios11=STRING     Pass an arbitrary SMBIOS Type #11 string to the VM\n"
+               "     --notify-ready=BOOL   Wait for ready notification from the VM\n"
                "\n%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME        Set the machine name for the VM\n"
                "     --uuid=UUID           Set a specific machine UUID for the VM\n"
                "\n%3$sProperties:%4$s\n"
-               "     --register=BOOLEAN    Register VM with systemd-machined\n"
-               "     --keep-unit           Don't let systemd-machined allocate scope unit for us\n"
+               "  -S --slice=SLICE         Place the VM in the specified slice\n"
+               "     --property=NAME=VALUE Set scope unit property\n"
+               "     --register=BOOLEAN    Register VM as machine\n"
+               "     --keep-unit           Do not register a scope for the machine, reuse\n"
+               "                           the service unit vmspawn is running in\n"
                "\n%3$sUser Namespacing:%4$s\n"
                "     --private-users=UIDBASE[:NUIDS]\n"
                "                           Configure the UID/GID range to map into the\n"
@@ -273,6 +290,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CONSOLE,
                 ARG_BACKGROUND,
                 ARG_TPM_STATE,
+                ARG_NO_ASK_PASSWORD,
+                ARG_PROPERTY,
+                ARG_NOTIFY_READY,
         };
 
         static const struct option options[] = {
@@ -283,6 +303,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image",             required_argument, NULL, 'i'                   },
                 { "directory",         required_argument, NULL, 'D'                   },
                 { "machine",           required_argument, NULL, 'M'                   },
+                { "slice",             required_argument, NULL, 'S'                   },
                 { "cpus",              required_argument, NULL, ARG_CPUS              },
                 { "qemu-smp",          required_argument, NULL, ARG_CPUS              }, /* Compat alias */
                 { "ram",               required_argument, NULL, ARG_RAM               },
@@ -318,6 +339,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "smbios11",          required_argument, NULL, 's'                   },
                 { "grow-image",        required_argument, NULL, 'G'                   },
                 { "tpm-state",         required_argument, NULL, ARG_TPM_STATE         },
+                { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD   },
+                { "property",          required_argument, NULL, ARG_PROPERTY          },
+                { "notify-ready",      required_argument, NULL, ARG_NOTIFY_READY      },
                 {}
         };
 
@@ -327,7 +351,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hD:i:M:nqs:G:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:i:M:nqs:G:S:", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
@@ -633,6 +657,34 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_tpm_state_path = mfree(arg_tpm_state_path);
                         break;
 
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
+                case 'S': {
+                        _cleanup_free_ char *mangled = NULL;
+
+                        r = unit_name_mangle_with_suffix(optarg, /* operation= */ NULL, UNIT_NAME_MANGLE_WARN, ".slice", &mangled);
+                        if (r < 0)
+                                return log_oom();
+
+                        free_and_replace(arg_slice, mangled);
+                        break;
+                }
+
+                case ARG_PROPERTY:
+                        if (strv_extend(&arg_property, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
+                case ARG_NOTIFY_READY:
+                        r = parse_boolean_argument("--notify-ready=", optarg, &arg_notify_ready);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -715,21 +767,27 @@ static int read_vsock_notify(NotifyConnectionData *d, int fd) {
                 log_debug("Received notification message with tags: %s", strnull(j));
         }
 
+        const char *status = strv_find_startswith(tags, "STATUS=");
+        if (status)
+                (void) sd_notifyf(/* unset_environment= */ false, "STATUS=VM running: %s", status);
+
         if (strv_contains(tags, "READY=1")) {
-                r = sd_notify(false, "READY=1");
+                r = sd_notify(/* unset_environment= */ false, "READY=1");
                 if (r < 0)
                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+
+                if (!status)
+                        (void) sd_notifyf(/* unset_environment= */ false, "STATUS=VM running.");
         }
 
-        const char *p = strv_find_startswith(tags, "STATUS=");
-        if (p)
-                (void) sd_notifyf(false, "STATUS=VM running: %s", p);
-
-        p = strv_find_startswith(tags, "EXIT_STATUS=");
+        const char *p = strv_find_startswith(tags, "EXIT_STATUS=");
         if (p) {
-                r = safe_atoi(p, d->exit_status);
+                uint8_t k = 0;
+                r = safe_atou8(p, &k);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse exit status from %s, ignoring: %m", p);
+                else
+                        *d->exit_status = k;
         }
 
         return 1; /* done */
@@ -1531,28 +1589,260 @@ static int grow_image(const char *path, uint64_t size) {
         return 1;
 }
 
+static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        assert(m);
+
+        log_info("VM termination requested. Exiting.");
+        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), 0);
+
+        return 0;
+}
+
+static int datagram_read_cmdline_and_exec(int _fd /* always taking possession, even on error */) {
+        _cleanup_close_ int fd = TAKE_FD(_fd);
+        int r;
+
+        assert(fd >= 0);
+
+        /* The first datagram contains the cmdline */
+        r = fd_wait_for_event(fd, POLLIN, USEC_INFINITY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for command line: %m");
+
+        ssize_t n = next_datagram_size_fd(fd);
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine datagram size: %m");
+        n += 1;
+
+        _cleanup_free_ char *p = malloc(n);
+        if (!p)
+                return log_oom();
+
+        ssize_t m = recv(fd, p, n, /* flags= */ 0);
+        if (m < 0)
+                return log_error_errno(m, "Failed to read datagram: %m");
+        if (m >= n)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected message size.");
+        _cleanup_strv_free_ char **a = strv_parse_nulstr(p, m);
+        if (!a)
+                return log_oom();
+
+        if (strv_isempty(a))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Invalid command line.");
+
+        /* The second datagram contains an array of all fds, and the fds along with it */
+        r = fd_wait_for_event(fd, POLLIN, USEC_INFINITY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for command line: %m");
+
+        n = next_datagram_size_fd(fd);
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine datagram size: %m");
+        n += 1; /* extra byte to validate that the size we determined here was correct */
+
+        _cleanup_free_ int *f = malloc(n);
+        if (!p)
+                return log_oom();
+
+        struct iovec iov = {
+                .iov_base = f,
+                .iov_len = n,
+        };
+
+        int *fds = NULL;
+        size_t n_fds = 0;
+        CLEANUP_ARRAY(fds, n_fds, close_many_and_free);
+
+        m = receive_many_fds_iov(
+                        fd,
+                        &iov, /* iovlen= */ 1,
+                        &fds,
+                        &n_fds,
+                        /* flags= */ MSG_TRUNC);
+        if (m < 0)
+                return log_error_errno(m, "Failed to read datagram: %m");
+        if (m >= n || (size_t) m != n_fds * sizeof(int))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected message size.");
+
+        fd = safe_close(fd);
+
+        /* At this point the fds[] contains the file descriptors we got, and f[] contains the numbers we want
+         * for them. Let's rearrange things. */
+
+        /* 1. Determine largest number we want */
+        int max_fd = 2;
+        for (size_t k = 0; k < n_fds; k++)
+                max_fd = MAX(max_fd, f[k]);
+
+        /* 2. Move all fds we got above that */
+        for (size_t k = 0; k < n_fds; k++) {
+                if (fds[k] > max_fd)
+                        continue;
+
+                _cleanup_close_ int copy = fcntl(fds[k], F_DUPFD_CLOEXEC, max_fd+1);
+                if (copy < 0)
+                        return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
+
+                safe_close(fds[k]);
+                fds[k] = TAKE_FD(copy);
+
+                assert(fds[k] > max_fd);
+        }
+
+        log_close();
+
+        r = close_all_fds(fds, n_fds);
+        if (r < 0)
+                return log_error_errno(r, "Failed to close remaining file descriptors: %m");
+
+        /* 3. Move into place (this also disables O_CLOEXEC) */
+        for (size_t k = 0; k < n_fds; k++) {
+                if (dup2(fds[k], f[k]) < 0)
+                        return log_error_errno(r, "Failed to mvoe file descriptor: %m");
+
+                safe_close(fds[k]);
+                fds[k] = f[k];
+        }
+
+        execv(a[0], a);
+        return log_error_errno(errno, "Failed to execve %s: %m", a[0]);
+}
+
+_noreturn_ static void child(int cmdline_fd) {
+        assert(cmdline_fd >= 0);
+
+        /* set TERM and LANG if they are missing */
+        if (setenv("TERM", "vt220", 0) < 0) {
+                log_oom();
+                goto fail;
+        }
+
+        if (setenv("LANG", "C.UTF-8", 0) < 0) {
+                log_oom();
+                goto fail;
+        }
+
+        /* Now wait for the command line from the parent, and then execute it */
+
+        (void) datagram_read_cmdline_and_exec(TAKE_FD(cmdline_fd));
+
+fail:
+        _exit(EXIT_FAILURE);
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL, *kernel = NULL;
+        _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
         size_t n_pass_fds = 0;
-        const char *accel, *shm;
+        const char *accel;
         int r;
 
-        if (arg_privileged)
-                r = sd_bus_default_system(&bus);
-        else
-                r = sd_bus_default_user(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to systemd bus: %m");
+        polkit_agent_open();
 
-        r = start_transient_scope(bus, arg_machine, /* allow_pidfd= */ true, &trans_scope);
+        /* Registration always happens on the system bus */
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
+        if (arg_register || arg_privileged) {
+                r = sd_bus_default_system(&system_bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open system bus: %m");
+
+                r = sd_bus_set_close_on_exit(system_bus, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
+
+                (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
+        }
+
+        /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
+        if (arg_privileged)
+                runtime_bus = sd_bus_ref(system_bus);
+        else {
+                r = sd_bus_default_user(&user_bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open system bus: %m");
+
+                r = sd_bus_set_close_on_exit(user_bus, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
+
+                runtime_bus = sd_bus_ref(user_bus);
+        }
+
+        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
+
+        _cleanup_close_pair_ int cmdline_socket[2] = EBADF_PAIR;
+        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, cmdline_socket) < 0)
+                return log_error_errno(errno, "Failed to allocate command line socket pair: %m");
+
+        /* Fork off child early on, as we need to assign it to a scope unit, which we can generate
+         * dependencies towards for swtpm, virtiofsd and so on. It's just going to hang until we fully
+         * prepared a command line */
+        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
+                        "(qemu)",
+                        /* stdio_fds= */ NULL,
+                        cmdline_socket + 0, 1,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
+                        &child_pidref);
         if (r < 0)
                 return r;
+        if (r == 0) {
+                cmdline_socket[1] = -EBADF; /* closed due to FORK_CLOEXEC_ALL_FDS */
+
+                child(cmdline_socket[0]);
+                assert_not_reached();
+        }
+
+        cmdline_socket[0] = safe_close(cmdline_socket[0]);
+
+        if (!arg_keep_unit) {
+                /* When a new scope is created for this container, then we'll be registered as its controller, in which
+                 * case PID 1 will send us a friendly RequestStop signal, when it is asked to terminate the
+                 * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
+
+                r = sd_bus_match_signal_async(
+                                runtime_bus,
+                                /* ret_slot= */ NULL,
+                                "org.freedesktop.systemd1",
+                                /* path= */ NULL,
+                                "org.freedesktop.systemd1.Scope",
+                                "RequestStop",
+                                on_request_stop,
+                                /* install_callback= */ NULL,
+                                /* userdata= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to request RequestStop match: %m");
+        }
+
+        _cleanup_free_ char *unit = NULL;
+        bool scope_allocated = false;
+        if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
+                r = allocate_scope(
+                                runtime_bus,
+                                arg_machine,
+                                &child_pidref,
+                                arg_slice,
+                                arg_property,
+                                /* allow_pidfd= */ true,
+                                &unit);
+                if (r < 0)
+                        return r;
+
+                scope_allocated = true;
+        } else {
+                if (arg_privileged)
+                        r = cg_pid_get_unit(0, &unit);
+                else
+                        r = cg_pid_get_user_unit(0, &unit);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get our own unit: %m");
+        }
 
         bool use_kvm = arg_kvm > 0;
         if (arg_kvm < 0) {
@@ -1574,7 +1864,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_warning("Couldn't find OVMF firmware blob with Secure Boot support, "
                             "falling back to OVMF firmware blobs without Secure Boot support.");
 
-        shm = arg_directory || arg_runtime_mounts.n_mounts != 0 ? ",memory-backend=mem" : "";
+        _cleanup_free_ char *machine = NULL;
+        const char *shm = arg_directory || arg_runtime_mounts.n_mounts != 0 ? ",memory-backend=mem" : "";
         if (ARCHITECTURE_SUPPORTS_SMM)
                 machine = strjoin("type=" QEMU_MACHINE_TYPE ",smm=", on_off(ovmf_config->supports_sb), shm);
         else
@@ -1986,7 +2277,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_directory) {
                 _cleanup_free_ char *listen_address = NULL;
-                r = start_virtiofsd(bus, trans_scope, arg_directory, /* uidmap= */ true, runtime_dir, &listen_address);
+                r = start_virtiofsd(
+                                runtime_bus,
+                                unit,
+                                arg_directory,
+                                /* uidmap= */ true,
+                                runtime_dir,
+                                &listen_address);
                 if (r < 0)
                         return r;
 
@@ -2053,7 +2350,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         FOREACH_ARRAY(mount, arg_runtime_mounts.mounts, arg_runtime_mounts.n_mounts) {
                 _cleanup_free_ char *listen_address = NULL;
-                r = start_virtiofsd(bus, trans_scope, mount->source, /* uidmap= */ false, runtime_dir, &listen_address);
+                r = start_virtiofsd(
+                                runtime_bus,
+                                unit,
+                                mount->source,
+                                /* uidmap= */ false,
+                                runtime_dir,
+                                &listen_address);
                 if (r < 0)
                         return r;
 
@@ -2144,7 +2447,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         _cleanup_free_ char *tpm_socket_address = NULL;
         if (swtpm) {
-                r = start_tpm(bus, trans_scope, swtpm, runtime_dir, &tpm_socket_address);
+                r = start_tpm(runtime_bus,
+                              unit,
+                              swtpm,
+                              runtime_dir,
+                              &tpm_socket_address);
                 if (r < 0) {
                         /* only bail if the user asked for a tpm */
                         if (arg_tpm > 0)
@@ -2210,7 +2517,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
-                r = start_systemd_journal_remote(bus, trans_scope, child_cid, sd_journal_remote, &listen_address);
+                r = start_systemd_journal_remote(
+                                runtime_bus,
+                                unit,
+                                child_cid,
+                                sd_journal_remote,
+                                &listen_address);
                 if (r < 0)
                         return r;
 
@@ -2227,7 +2539,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _cleanup_free_ char *scope_prefix = NULL, *privkey_path = NULL, *pubkey_path = NULL;
                 const char *key_type = arg_ssh_key_type ?: "ed25519";
 
-                r = unit_name_to_prefix(trans_scope, &scope_prefix);
+                r = unit_name_to_prefix(unit, &scope_prefix);
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
@@ -2258,7 +2570,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to load credential %s: %m", cred_path);
 
-                r = unit_name_to_prefix(trans_scope, &scope_prefix);
+                r = unit_name_to_prefix(unit, &scope_prefix);
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
@@ -2322,25 +2634,68 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
+        bool registered = false;
         if (arg_register) {
                 char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
-
                 xsprintf(vm_address, "vsock/%u", child_cid);
                 r = register_machine(
-                                bus,
+                                system_bus,
                                 arg_machine,
                                 arg_uuid,
                                 "systemd-vmspawn",
+                                &child_pidref,
                                 arg_directory,
                                 child_cid,
                                 child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                 ssh_private_key_path,
-                                arg_keep_unit);
+                                arg_keep_unit || !arg_privileged);
                 if (r < 0)
                         return r;
+
+                registered = true;
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
+        _cleanup_free_ char *nulstr = NULL;
+        size_t nulstr_size = 0;
+        if (strv_make_nulstr(cmdline, &nulstr, &nulstr_size) < 0)
+                return log_oom();
+
+        /* First datagram: the command line to execute */
+        ssize_t n = send(cmdline_socket[1], nulstr, nulstr_size, /* flags= */ 0);
+        if (n < 0)
+                return log_error_errno(errno, "Failed to send command line: %m");
+
+        /* Second datagram: the file descriptor array and the fds inside it */
+        n = send_many_fds_iov(
+                        cmdline_socket[1],
+                        pass_fds, n_pass_fds, /* both as payload … */
+                        &IOVEC_MAKE(pass_fds, n_pass_fds * sizeof(int)), /* … and as auxiliary fds */
+                        /* iovlen= */ 1,
+                        /* flags= */ 0);
+        if (n < 0)
+                return log_error_errno(n, "Failed to send file descriptors to child: %m");
+
+        /* We submitted the command line now, qemu is running now */
+        cmdline_socket[1] = safe_close(cmdline_socket[1]);
+
+        /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
+        child_vsock_fd = safe_close(child_vsock_fd);
+        tap_fd = safe_close(tap_fd);
+
+        /* Report that the VM is now set up */
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=VM started.\n"
+                          "X_VMSPAWN_LEADER_PID=" PID_FMT, child_pidref.pid);
+        if (!arg_notify_ready) {
+                r = sd_notify(/* unset_environment= */ false, "READY=1\n");
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+        }
+
+        /* All operations that might need Polkit authorizations (i.e. machine registration, netif
+         * acquisition, …) are complete now, get rid of the agent again, so that we retain exclusive control
+         * of the TTY from now on. */
+        polkit_agent_close();
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -2350,37 +2705,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         (void) sd_event_set_watchdog(event, true);
 
-        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
-
-        r = pidref_safe_fork_full(
-                        qemu_binary,
-                        /* stdio_fds= */ NULL,
-                        pass_fds, n_pass_fds,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
-                        &child_pidref);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                /* set TERM and LANG if they are missing */
-                if (setenv("TERM", "vt220", 0) < 0) {
-                        log_oom();
-                        goto fail;
-                }
-
-                if (setenv("LANG", "C.UTF-8", 0) < 0) {
-                        log_oom();
-                        goto fail;
-                }
-
-                execv(qemu_binary, cmdline);
-                log_error_errno(errno, "Failed to execve %s: %m", qemu_binary);
-        fail:
-                _exit(EXIT_FAILURE);
+        if (system_bus) {
+                r = sd_bus_attach_event(system_bus, event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach system bus to event loop: %m");
         }
 
-        /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
-        child_vsock_fd = safe_close(child_vsock_fd);
-        tap_fd = safe_close(tap_fd);
+        if (user_bus) {
+                r = sd_bus_attach_event(user_bus, event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach user bus to event loop: %m");
+        }
 
         int exit_status = INT_MAX;
         if (use_vsock) {
@@ -2447,8 +2782,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        if (arg_register)
-                (void) unregister_machine(bus, arg_machine);
+        /* Kill if it is not dead yet anyway */
+        if (scope_allocated)
+                terminate_scope(runtime_bus, arg_machine);
+
+        if (registered)
+                (void) unregister_machine(system_bus, arg_machine);
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
@@ -2526,11 +2865,6 @@ static int verify_arguments(void) {
         if (!strv_isempty(arg_initrds) && !arg_linux)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --initrd= cannot be used without --linux=.");
 
-        if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0)
-                /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
-                 * The latter is not technically a user session, but we don't need to labour the point. */
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--keep-unit --register=yes may not be used when invoked from a user session.");
-
         return 0;
 }
 
@@ -2541,9 +2875,6 @@ static int run(int argc, char *argv[]) {
         log_setup();
 
         arg_privileged = getuid() == 0;
-
-        /* don't attempt to register as a machine when running as a user */
-        arg_register = arg_privileged;
 
         r = parse_environment();
         if (r < 0)

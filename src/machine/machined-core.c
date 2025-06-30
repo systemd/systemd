@@ -22,28 +22,41 @@
 #include "user-util.h"
 
 int manager_get_machine_by_pidref(Manager *m, const PidRef *pidref, Machine **ret) {
-        Machine *mm;
-        int r;
+        _cleanup_(pidref_done) PidRef current = PIDREF_NULL;
+        Machine *mm = NULL;
 
         assert(m);
         assert(pidref_is_set(pidref));
         assert(ret);
 
-        mm = hashmap_get(m->machines_by_leader, pidref);
-        if (!mm) {
-                _cleanup_free_ char *unit = NULL;
+        for (;;) {
+                /* First, compare by leader */
+                mm = hashmap_get(m->machines_by_leader, pidref);
+                if (mm)
+                        break;
 
-                r = cg_pidref_get_unit(pidref, &unit);
-                if (r >= 0)
+                /* The look for the unit */
+                _cleanup_free_ char *unit = NULL;
+                if (cg_pidref_get_unit(pidref, &unit) >= 0) {
                         mm = hashmap_get(m->machines_by_unit, unit);
-        }
-        if (!mm) {
-                *ret = NULL;
-                return 0;
+                        if (mm)
+                                break;
+                }
+
+                /* Maybe this process is in per-user unit? If so, let's go up the process tree, and check
+                 * that, we should eventually hit PID 1 of the container tree, which we should be able to
+                 * recognize. */
+                _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+                if (pidref_get_ppid_as_pidref(pidref, &parent) < 0)
+                        break;
+
+                pidref_done(&current);
+                current = TAKE_PIDREF(parent);
+                pidref = &current;
         }
 
         *ret = mm;
-        return 1;
+        return !!mm;
 }
 
 int manager_add_machine(Manager *m, const char *name, Machine **ret) {

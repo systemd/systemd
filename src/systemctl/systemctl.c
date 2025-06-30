@@ -16,6 +16,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "static-destruct.h"
 #include "string-table.h"
@@ -88,6 +89,7 @@ bool arg_mkdir = false;
 bool arg_marked = false;
 const char *arg_drop_in = NULL;
 ImagePolicy *arg_image_policy = NULL;
+char *arg_kill_subgroup = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
@@ -103,6 +105,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_kill_subgroup, freep);
 
 static int systemctl_help(void) {
         _cleanup_free_ char *link = NULL;
@@ -253,9 +256,11 @@ static int systemctl_help(void) {
                "                         Whether to check inhibitors before shutting down,\n"
                "                         sleeping, or hibernating\n"
                "  -i                     Shortcut for --check-inhibitors=no\n"
+               "  -s --signal=SIGNAL     Which signal to send\n"
                "     --kill-whom=WHOM    Whom to send signal to\n"
                "     --kill-value=INT    Signal value to enqueue\n"
-               "  -s --signal=SIGNAL     Which signal to send\n"
+               "     --kill-subgroup=PATH\n"
+               "                         Send signal to sub-control-group only\n"
                "     --what=RESOURCES    Which types of resources to remove\n"
                "     --now               Start or stop unit after enabling or disabling it\n"
                "     --dry-run           Only print what would be done\n"
@@ -438,6 +443,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_DROP_IN,
                 ARG_WHEN,
                 ARG_STDIN,
+                ARG_KILL_SUBGROUP,
         };
 
         static const struct option options[] = {
@@ -507,6 +513,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
                 { "when",                required_argument, NULL, ARG_WHEN                },
                 { "stdin",               no_argument,       NULL, ARG_STDIN               },
+                { "kill-subgroup",       required_argument, NULL, ARG_KILL_SUBGROUP       },
                 {}
         };
 
@@ -1020,6 +1027,23 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case ARG_STDIN:
                         arg_stdin = true;
                         break;
+
+                case ARG_KILL_SUBGROUP: {
+                        if (empty_or_root(optarg)) {
+                                arg_kill_subgroup = mfree(arg_kill_subgroup);
+                                break;
+                        }
+
+                        if (!path_is_safe(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Control group sub-path '%s' is not valid: %m", optarg);
+
+                        _cleanup_free_ char *p = NULL;
+                        if (path_simplify_alloc(optarg, &p) < 0)
+                                return log_oom();
+
+                        free_and_replace(arg_kill_subgroup, p);
+                        break;
+                }
 
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
