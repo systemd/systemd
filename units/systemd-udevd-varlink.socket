@@ -20,3 +20,4 @@ ListenStream=/run/udev/io.systemd.Udev
 FileDescriptorName=varlink
 SocketMode=0600
 RemoveOnStop=yes
+DeferTrigger=yes

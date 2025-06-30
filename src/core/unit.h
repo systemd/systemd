@@ -346,6 +346,9 @@ typedef struct Unit {
         /* Queue of units that should be checked if they can release resources now */
         LIST_FIELDS(Unit, release_resources_queue);
 
+        /* Queue of units that should be informed when other units stop */
+        LIST_FIELDS(Unit, stop_notify_queue);
+
         /* PIDs we keep an eye on. Note that a unit might have many more, but these are the ones we care
          * enough about to process SIGCHLD for */
         Set *pids; /* → PidRef* */
@@ -446,6 +449,7 @@ typedef struct Unit {
         bool in_start_when_upheld_queue:1;
         bool in_stop_when_bound_queue:1;
         bool in_release_resources_queue:1;
+        bool in_stop_notify_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -670,6 +674,9 @@ typedef struct UnitVTable {
          * state or gains/loses a job */
         void (*trigger_notify)(Unit *u, Unit *trigger);
 
+        /* Invoked when some other units stop */
+        bool (*stop_notify)(Unit *u);
+
         /* Called whenever CLOCK_REALTIME made a jump */
         void (*time_change)(Unit *u);
 
@@ -847,6 +854,8 @@ void unit_submit_to_stop_when_unneeded_queue(Unit *u);
 void unit_submit_to_start_when_upheld_queue(Unit *u);
 void unit_submit_to_stop_when_bound_queue(Unit *u);
 void unit_submit_to_release_resources_queue(Unit *u);
+void unit_add_to_stop_notify_queue(Unit *u);
+void unit_remove_from_stop_notify_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
