@@ -498,7 +498,7 @@ static int print_uid_shift(sd_bus *bus, const char *name) {
         if (shift == 0) /* Don't show trivial mappings */
                 return 0;
 
-        printf("       UID Shift: %" PRIu32 "\n", shift);
+        printf("\tID Shift: %" PRIu32 "\n", shift);
         return 0;
 }
 
