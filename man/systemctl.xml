@@ -2491,11 +2491,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           one is then considered the main process of the unit (if it can be determined). This is different
           for service units of other types, where the process forked off by the manager for
           <varname>ExecStart=</varname> is always the main process itself. A service unit consists of zero or
-          one main process, zero or one control process plus any number of additional processes. Not all unit
-          types manage processes of these types however. For example, for mount units, control processes are
-          defined (which are the invocations of <filename>&MOUNT_PATH;</filename> and
-          <filename>&UMOUNT_PATH;</filename>), but no main process is defined. If omitted, defaults to
-          <option>all</option>.</para>
+          one main process, zero or one control process plus any number of additional processes part of the
+          unit's control group. Not all unit types manage processes of these types however. For example, for
+          mount units, control processes are defined (which are the invocations of
+          <filename>&MOUNT_PATH;</filename> and <filename>&UMOUNT_PATH;</filename>), but no main process is
+          defined. If omitted, defaults to <option>all</option>, except if <option>--kill-subgroup=</option>
+          is used in which case defaults to <option>cgroup</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
@@ -2520,6 +2521,28 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         affect main and control processes but no other processes.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-subgroup=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Takes a control group sub-path to send signals to, for use with the
+        <command>kill</command> command. By default the chosen signal is delivered to all processes of the
+        unit's cgroups (as well as the main/control processes (if outside) – subject to
+        <option>--kill-whom=</option>). But with this option a subgroup can be selelected instead. This
+        functionality is only available if <literal>cgroup</literal> or <literal>cgroup-fail</literal> are
+        used with <option>--kill-whom=</option>, and in fact the former is the default if
+        <option>--kill-subgroup=</option> is used.</para>
+
+        <para>The specified path may, but doesn't have to be prefixed with a slash, and its absence or
+        presence has no effect, the path is either way taken relative to the unit's main control group
+        path.</para>
+
+        <para>This functionality is only available on units where control group delegation is enabled (see
+        <varname>Delegate=</varname> in
+        <member><citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="signal" />
