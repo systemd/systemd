@@ -373,17 +373,15 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 STRV_FOREACH_PAIR(unit_id, job_type, array)
                         (void) strextendf_with_separator(&unit_ids, "\n", "%s%s", unit_log_field(j->unit), *unit_id);
 
-                size_t m = strv_length(array);
-
                 _cleanup_free_ char *cycle_path_text = strdup("Found ordering cycle");
-                if (m > 0) {
-                        (void) strextendf(&cycle_path_text, " on %s/%s", array[0], array[1]);
-                        if (m > 2)
-                                (void) strextendf(&cycle_path_text, ": %s/%s", array[2], array[3]);
-                }
+                if (!strv_isempty(array)) {
+                        (void) strextendf(&cycle_path_text, ": %s/%s", array[0], array[1]);
 
-                STRV_FOREACH_PAIR(unit_id, job_type, strv_skip(array, 4))
-                        (void) strextendf(&cycle_path_text, ", %s/%s", *unit_id, *job_type);
+                        STRV_FOREACH_PAIR(unit_id, job_type, strv_skip(array, 2))
+                                (void) strextendf(&cycle_path_text, " after %s/%s", *unit_id, *job_type);
+
+                        (void) strextendf(&cycle_path_text, " - after %s", array[0]);
+                }
 
                 /* logging for j not k here to provide a consistent narrative */
                 if (cycle_path_text)
