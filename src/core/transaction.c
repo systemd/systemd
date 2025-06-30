@@ -325,32 +325,6 @@ static bool job_matters_to_anchor(Job *job) {
         return false;
 }
 
-static char* merge_unit_ids(const char* unit_log_field, char * const* pairs) {
-        _cleanup_free_ char *ans = NULL;
-        size_t size = 0;
-
-        assert(unit_log_field);
-
-        STRV_FOREACH_PAIR(unit_id, job_type, pairs) {
-                size_t next;
-
-                if (size > 0)
-                        ans[size - 1] = '\n';
-
-                next = strlen(unit_log_field) + strlen(*unit_id);
-                if (!GREEDY_REALLOC(ans, size + next + 1))
-                        return NULL;
-
-                sprintf(ans + size, "%s%s", unit_log_field, *unit_id);
-                size += next + 1;
-        }
-
-        if (!ans)
-                return strdup("");
-
-        return TAKE_PTR(ans);
-}
-
 static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsigned generation, sd_bus_error *e) {
 
         static const UnitDependencyAtom directions[] = {
@@ -369,7 +343,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
         /* Have we seen this before? */
         if (j->generation == generation) {
-                _cleanup_free_ char **array = NULL, *unit_ids = NULL;
+                _cleanup_free_ char **array = NULL;
                 Job *delete = NULL;
 
                 /* If the marker is NULL we have been here already and decided the job was loop-free from
@@ -395,7 +369,9 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                 break;
                 }
 
-                unit_ids = merge_unit_ids(unit_log_field(j->unit), array); /* ignore error */
+                _cleanup_free_ char *unit_ids = NULL;
+                STRV_FOREACH_PAIR(unit_id, job_type, array)
+                        (void) strextendf_with_separator(&unit_ids, "\n", "%s%s", unit_log_field(j->unit), *unit_id);
 
                 size_t m = strv_length(array);
 
