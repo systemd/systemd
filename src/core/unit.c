@@ -4107,7 +4107,7 @@ int unit_kill(
                                                         "Failed to send signal SIG%s to auxiliary processes on client request: %m",
                                                         signal_to_string(signo)));
                         }
-                        killed = killed || r >= 0;
+                        killed = killed || r > 0;
                 }
         }
 
