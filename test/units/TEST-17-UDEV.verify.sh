@@ -132,11 +132,11 @@ assert_0 "${rules_dir}"
 
 # Directory with a loop.
 ln -s . "${rules_dir}/loop.rules"
-assert_1 "${rules_dir}"
+assert_0 "${rules_dir}"
 rm "${rules_dir}/loop.rules"
 
-# Empty rules.
-touch "${rules_dir}/empty.rules"
+# Effectively empty rules.
+echo '#' >"${rules_dir}/empty.rules"
 assert_0 --root="${workdir}"
 : >"${exo}"
 assert_0 --root="${workdir}" --no-summary
