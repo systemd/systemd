@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2025-06-22 12:13+0000\n"
+"PO-Revision-Date: 2025-06-30 10:36+0000\n"
 "Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
 "main/el/>\n"
@@ -353,14 +353,12 @@ msgid "Get hardware serial number"
 msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+msgstr "Απαιτείται πιστοποίηση για τη λήψη του σειριακού αριθμού του υλικού."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Ορισμός ζώνης ώρας συστήματος"
+msgstr "Λήψη περιγραφής συστήματος"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 #, fuzzy
