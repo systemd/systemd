@@ -384,7 +384,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--mutable=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable></option></term>
+        <term><option>--mutable=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable>|<replaceable>ephemeral</replaceable>|<replaceable>ephemeral-import</replaceable></option></term>
         <listitem><para>Set mutable mode.</para>
 
         <variablelist>
