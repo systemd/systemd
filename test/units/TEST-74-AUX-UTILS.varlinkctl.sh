@@ -66,6 +66,21 @@ if [[ -x /usr/lib/systemd/systemd-pcrextend ]]; then
     varlinkctl introspect /usr/lib/systemd/systemd-pcrextend
 fi
 
+# Test various varlink socket units.
+systemctl stop \
+    systemd-networkd.service \
+    systemd-logind.service \
+    systemd-udevd.service \
+    systemd-hostnamed.service \
+    systemd-machined.service
+varlinkctl introspect /run/systemd/netif/io.systemd.Network
+varlinkctl introspect /run/systemd/io.systemd.Login
+varlinkctl introspect /run/systemd/io.systemd.Hostname
+varlinkctl introspect /run/systemd/machine/io.systemd.Machine
+if ! systemd-detect-virt -qc; then
+    varlinkctl introspect /run/udev/io.systemd.Udev
+fi
+
 # SSH transport
 SSHBINDIR="$(mktemp -d)"
 
