@@ -97,10 +97,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
-        if (FLAGS_SET(flags, CHASE_NONEXISTENT))
-                assert(!ret_fd);
-
         if (FLAGS_SET(flags, CHASE_STEP))
                 assert(!ret_fd);
 
@@ -522,11 +518,13 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         }
 
         if (ret_fd) {
-                /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a
-                 * proper fd by opening /proc/self/fd/xyz. */
-
-                assert(fd >= 0);
-                *ret_fd = TAKE_FD(fd);
+                if (exists) {
+                        /* Return the O_PATH fd we currently are looking to the caller. It can translate it
+                         * to a proper fd by opening /proc/self/fd/xyz. */
+                        assert(fd >= 0);
+                        *ret_fd = TAKE_FD(fd);
+                } else
+                        *ret_fd = -EBADF;
         }
 
         if (FLAGS_SET(flags, CHASE_STEP))
