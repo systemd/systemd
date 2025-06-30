@@ -10,6 +10,14 @@ units = [
         { 'file' : 'exit.target' },
         { 'file' : 'graphical-session-pre.target' },
         { 'file' : 'graphical-session.target' },
+        {
+          'file' : 'machine.slice',
+          'conditions' : ['ENABLE_MACHINED'],
+        },
+        {
+          'file' : 'machines.target',
+          'conditions' : ['ENABLE_MACHINED'],
+        },
         { 'file' : 'paths.target' },
         { 'file' : 'printer.target' },
         { 'file' : 'session.slice' },
@@ -26,6 +34,14 @@ units = [
         { 'file' : 'systemd-tmpfiles-clean.service' },
         { 'file' : 'systemd-tmpfiles-clean.timer' },
         { 'file' : 'systemd-tmpfiles-setup.service' },
+        {
+          'file' : 'systemd-nspawn@.service.in',
+          'conditions' : ['ENABLE_NSPAWN'],
+        },
+        {
+          'file' : 'systemd-vmspawn@.service.in',
+          'conditions' : ['ENABLE_VMSPAWN'],
+        },
         { 'file' : 'timers.target' },
         {
           'file' : 'xdg-desktop-autostart.target',
@@ -34,7 +50,17 @@ units = [
 ]
 
 foreach unit : units
-        file = unit.get('file')
+        source = unit.get('file')
+
+        if source.endswith('.in')
+                needs_jinja = true
+                name = source.substring(0, -3)
+                assert(name + '.in' == source)
+        else
+                needs_jinja = false
+                name = source
+        endif
+        source = files(source)
 
         install = true
         foreach cond : unit.get('conditions', [])
@@ -44,20 +70,30 @@ foreach unit : units
                 endif
         endforeach
 
-        if install
-                install_data(file,
+        if needs_jinja
+                t = custom_target(
+                        name,
+                        input : source,
+                        output : name,
+                        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+                        install : install,
+                        install_dir : userunitdir)
+        elif install
+                install_data(source,
                              install_dir : userunitdir)
+        endif
 
+        if install
                 foreach target : unit.get('symlinks', [])
                         if target.endswith('/')
                                 # '/' is only allowed at the end of the target
                                 assert(target.replace('/', '') + '/' == target)
-                                install_symlink(file,
-                                                pointing_to : '..' / file,
+                                install_symlink(name,
+                                                pointing_to : '..' / name,
                                                 install_dir : userunitdir / target)
                         else
                                 install_symlink(target,
-                                                pointing_to : file,
+                                                pointing_to : name,
                                                 install_dir : userunitdir)
                         endif
                 endforeach
