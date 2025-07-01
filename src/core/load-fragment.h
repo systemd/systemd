@@ -101,6 +101,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_smack_process_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_families);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_preserve_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_directories);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_quota);
 CONFIG_PARSER_PROTOTYPE(config_parse_set_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_load_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_import_credential);
