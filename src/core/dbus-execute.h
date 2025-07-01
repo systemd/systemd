@@ -24,6 +24,7 @@
         SD_BUS_PROPERTY(name, "a(sasasttttuii)", bus_property_get_exec_ex_command_list, offset, flags)
 
 extern const sd_bus_vtable bus_exec_vtable[];
+extern const sd_bus_vtable bus_unit_exec_vtable[];
 
 int bus_property_get_exec_output(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *ret_error);
 int bus_property_get_exec_command(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *ret_error);
