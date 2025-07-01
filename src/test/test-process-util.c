@@ -86,9 +86,7 @@ static void test_pid_get_comm_one(pid_t pid) {
 
         ASSERT_TRUE(pid_is_kernel_thread(pid) == 0 || pid != 1);
 
-        r = get_process_exe(pid, &f);
-        if (r != -EACCES)
-                ASSERT_OK(r);
+        ASSERT_OK_OR(get_process_exe(pid, &f), -EACCES);
         log_info("PID"PID_FMT" exe: '%s'", pid, strna(f));
 
         ASSERT_OK_ZERO(pid_get_uid(pid, &u));
@@ -97,9 +95,7 @@ static void test_pid_get_comm_one(pid_t pid) {
         ASSERT_OK_ZERO(get_process_gid(pid, &g));
         log_info("PID"PID_FMT" GID: "GID_FMT, pid, g);
 
-        r = get_process_environ(pid, &env);
-        if (r != -EACCES)
-                ASSERT_OK(r);
+        ASSERT_OK_OR(get_process_environ(pid, &env), -EACCES);
         log_info("PID"PID_FMT" strlen(environ): %zi", pid, env ? (ssize_t)strlen(env) : (ssize_t)-errno);
 
         if (!detect_container() && pid == 1)
@@ -166,9 +162,7 @@ TEST(pid_get_cmdline) {
 
         for (;;) {
                 pid_t pid;
-
-                r = proc_dir_read(d, &pid);
-                ASSERT_OK(r);
+                ASSERT_OK(r = proc_dir_read(d, &pid));
 
                 if (r == 0) /* EOF */
                         break;

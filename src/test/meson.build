@@ -184,6 +184,7 @@ simple_tests += files(
         'test-strxcpyx.c',
         'test-sysctl-util.c',
         'test-terminal-util.c',
+        'test-tests.c',
         'test-tmpfile-util.c',
         'test-udev-util.c',
         'test-uid-classification.c',
