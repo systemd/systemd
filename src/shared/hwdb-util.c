@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -574,7 +575,7 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         _cleanup_(trie_freep) struct trie *trie = NULL;
         _cleanup_strv_free_ char **files = NULL;
         uint16_t file_priority = 1;
-        int r = 0, err;
+        int r, ret = 0;
 
         /* The argument 'compat' controls the format version of database. If false, then hwdb.bin will be
          * created with additional information such that priority, line number, and filename of database
@@ -601,9 +602,9 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 
         trie->nodes_count++;
 
-        err = conf_files_list_strv(&files, ".hwdb", root, 0, conf_file_dirs);
-        if (err < 0)
-                return log_error_errno(err, "Failed to enumerate hwdb files: %m");
+        r = conf_files_list_strv(&files, ".hwdb", root, 0, conf_file_dirs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate hwdb files: %m");
 
         if (strv_isempty(files)) {
                 if (unlink(hwdb_bin) < 0) {
@@ -619,9 +620,7 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 
         STRV_FOREACH(f, files) {
                 log_debug("Reading file \"%s\"", *f);
-                err = import_file(trie, *f, file_priority++, compat);
-                if (err < 0 && strict)
-                        r = err;
+                RET_GATHER(ret, import_file(trie, *f, file_priority++, compat));
         }
 
         strbuf_complete(trie->strings);
@@ -641,15 +640,15 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
                   trie->strings->dedup_len, trie->strings->dedup_count);
 
         (void) mkdir_parents_label(hwdb_bin, 0755);
-        err = trie_store(trie, hwdb_bin, compat);
-        if (err < 0)
-                return log_error_errno(err, "Failed to write database %s: %m", hwdb_bin);
+        r = trie_store(trie, hwdb_bin, compat);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write database %s: %m", hwdb_bin);
 
-        err = label_fix(hwdb_bin, 0);
-        if (err < 0)
-                return err;
+        r = label_fix(hwdb_bin, 0);
+        if (r < 0)
+                return r;
 
-        return r;
+        return strict ? ret : 0;
 }
 
 int hwdb_query(const char *modalias, const char *root) {
