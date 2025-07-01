@@ -1645,46 +1645,34 @@ static void udev_check_rule_line(UdevRuleLine *line) {
         udev_check_conflicts_duplicates(line);
 }
 
-int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_checks, UdevRuleFile **ret) {
+int udev_rules_parse_file(UdevRules *rules, const ConfFile *c, bool extra_checks, UdevRuleFile **ret) {
         _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
         _cleanup_free_ char *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        struct stat st;
         int r;
 
         assert(rules);
-        assert(filename);
+        assert(c);
+        assert(c->fd >= 0);
+        assert(c->original_path);
 
-        f = fopen(filename, "re");
+        f = fopen(FORMAT_PROC_FD_PATH(c->fd), "re");
         if (!f) {
                 if (extra_checks)
                         return -errno;
 
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_warning_errno(errno, "Failed to open %s, ignoring: %m", filename);
+                return log_warning_errno(errno, "Failed to open %s, ignoring: %m", c->original_path);
         }
 
-        if (fstat(fileno(f), &st) < 0)
-                return log_warning_errno(errno, "Failed to stat %s, ignoring: %m", filename);
-
-        if (null_or_empty(&st)) {
-                log_debug("Skipping empty file: %s", filename);
-                if (ret)
-                        *ret = NULL;
-                return 0;
-        }
-
-        r = hashmap_put_stats_by_path(&rules->stats_by_path, filename, &st);
+        r = hashmap_put_stats_by_path(&rules->stats_by_path, c->original_path, &c->st);
         if (r < 0)
-                return log_warning_errno(r, "Failed to save stat for %s, ignoring: %m", filename);
+                return log_warning_errno(r, "Failed to save stat for %s, ignoring: %m", c->original_path);
 
-        (void) fd_warn_permissions(filename, fileno(f));
+        (void) stat_warn_permissions(c->original_path, &c->st);
 
-        log_debug("Reading rules file: %s", filename);
+        log_debug("Reading rules file: %s", c->original_path);
 
-        name = strdup(filename);
+        name = strdup(c->original_path);
         if (!name)
                 return log_oom();
 
@@ -1775,7 +1763,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
                 *ret = rule_file;
 
         TAKE_PTR(rule_file);
-        return 1;
+        return 0;
 }
 
 unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file) {
@@ -1800,7 +1788,7 @@ UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
 
 int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing, char * const *extra) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_strv_free_ char **files = NULL, **directories = NULL;
+        _cleanup_strv_free_ char **directories = NULL;
         int r;
 
         rules = udev_rules_new(resolve_name_timing);
@@ -1817,14 +1805,22 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         if (r < 0)
                 return r;
 
-        r = conf_files_list_strv(&files, ".rules", NULL, 0, (const char* const*) directories);
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        r = conf_files_list_strv_full(".rules", /* root = */ NULL, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
+                                      (const char* const*) directories, &files, &n_files);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate rules files: %m");
 
-        STRV_FOREACH(f, files) {
-                r = udev_rules_parse_file(rules, *f, /* extra_checks = */ false, NULL);
+        FOREACH_ARRAY(i, files, n_files) {
+                ConfFile *c = *i;
+
+                r = udev_rules_parse_file(rules, c, /* extra_checks = */ false, /* ret = */ NULL);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to read rules file %s, ignoring: %m", *f);
+                        log_debug_errno(r, "Failed to read rules file '%s', ignoring: %m", c->original_path);
         }
 
         *ret_rules = TAKE_PTR(rules);
