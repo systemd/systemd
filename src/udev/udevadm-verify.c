@@ -108,7 +108,7 @@ static int verify_rules_file(UdevRules *rules, const ConfFile *c) {
         assert(rules);
         assert(c);
 
-        r = udev_rules_parse_file(rules, c->resolved_path, /* extra_checks = */ true, &file);
+        r = udev_rules_parse_file(rules, c->fd, c->original_path, /* extra_checks = */ true, &file);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse rules file %s: %m", c->original_path);
         if (r == 0) /* empty file. */
