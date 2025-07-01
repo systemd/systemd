@@ -3082,11 +3082,9 @@ static int make_tmp_prefix(const char *prefix) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        /* Don't do anything unless we know the dir is actually missing */
-        r = access(prefix, F_OK);
-        if (r >= 0)
-                return 0;
-        if (errno != ENOENT)
+        /* Attempt to create the directory directly, handling errors gracefully */
+        r = mkdir_parents(prefix, 0755);
+        if (r < 0 && errno != EEXIST)
                 return -errno;
 
         WITH_UMASK(000)
