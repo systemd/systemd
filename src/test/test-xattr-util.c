@@ -24,32 +24,32 @@ TEST(getxattr_at_malloc) {
         int r;
 
         fd = mkdtemp_open("/var/tmp/test-xattrtestXXXXXX", O_RDONLY|O_NOCTTY, &t);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         x = strjoina(t, "/test");
-        assert_se(touch(x) >= 0);
+        ASSERT_OK(touch(x));
 
         r = setxattr(x, "user.foo", "bar", 3, 0);
         if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
                 return (void) log_tests_skipped_errno(errno, "no xattrs supported on /var/tmp");
-        assert_se(r >= 0);
+        ASSERT_OK_ERRNO(r);
 
         ASSERT_OK(getxattr_at_malloc(fd, "test", "user.foo", 0, &value, /* ret_size= */ NULL));
-        assert_se(memcmp(value, "bar", 3) == 0);
+        ASSERT_EQ(memcmp(value, "bar", 3), 0);
         value = mfree(value);
 
         ASSERT_OK(getxattr_at_malloc(AT_FDCWD, x, "user.foo", 0, &value, /* ret_size= */ NULL));
-        assert_se(memcmp(value, "bar", 3) == 0);
+        ASSERT_EQ(memcmp(value, "bar", 3), 0);
         value = mfree(value);
 
         safe_close(fd);
         fd = open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
-        assert_se(fd >= 0);
+        ASSERT_OK_ERRNO(fd);
         r = getxattr_at_malloc(fd, "usr", "user.idontexist", 0, &value, /* ret_size= */ NULL);
-        assert_se(ERRNO_IS_NEG_XATTR_ABSENT(r));
+        ASSERT_TRUE(ERRNO_IS_NEG_XATTR_ABSENT(r));
 
         safe_close(fd);
         fd = open(x, O_PATH|O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK_ERRNO(fd);
         ASSERT_OK(getxattr_at_malloc(fd, NULL, "user.foo", 0, &value, /* ret_size= */ NULL));
         ASSERT_STREQ(value, "bar");
         value = mfree(value);
@@ -70,7 +70,7 @@ TEST(getcrtime) {
         int r;
 
         fd = mkdtemp_open("/var/tmp/test-xattrtestXXXXXX", 0, &t);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         r = fd_getcrtime(fd, &usec);
         if (r < 0)
@@ -82,8 +82,8 @@ TEST(getcrtime) {
 
         r = fd_setcrtime(fd, 1519126446UL * USEC_PER_SEC);
         if (!IN_SET(r, -EOPNOTSUPP, -ENOTTY)) {
-                assert_se(fd_getcrtime(fd, &usec) >= 0);
-                assert_se(k < 1519126446UL * USEC_PER_SEC ||
+                ASSERT_OK((fd_getcrtime(fd, &usec)));
+                ASSERT_TRUE(k < 1519126446UL * USEC_PER_SEC ||
                           usec == 1519126446UL * USEC_PER_SEC);
         }
 }
@@ -135,9 +135,9 @@ TEST(xsetxattr) {
         int r;
 
         dfd = mkdtemp_open("/var/tmp/test-xattrtestXXXXXX", O_PATH, &t);
-        assert_se(dfd >= 0);
+        ASSERT_OK(dfd);
         x = strjoina(t, "/test");
-        assert_se(touch(x) >= 0);
+        ASSERT_OK(touch(x));
 
         /* by full path */
         r = xsetxattr(AT_FDCWD, x, 0, "user.foo", "fullpath");
