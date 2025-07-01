@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -9,7 +10,6 @@
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "missing_sched.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
