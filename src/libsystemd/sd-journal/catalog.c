@@ -263,7 +263,7 @@ static int catalog_entry_lang(
         return strdup_to(ret, t);
 }
 
-int catalog_import_file(OrderedHashmap **h, const char *path) {
+int catalog_import_file(OrderedHashmap **h, int fd, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
         size_t payload_size = 0;
@@ -274,9 +274,10 @@ int catalog_import_file(OrderedHashmap **h, const char *path) {
         int r;
 
         assert(h);
+        assert(fd >= 0);
         assert(path);
 
-        f = fopen(path, "re");
+        f = fopen(FORMAT_PROC_FD_PATH(fd), "re");
         if (!f)
                 return log_error_errno(errno, "Failed to open file %s: %m", path);
 
@@ -449,17 +450,23 @@ int catalog_update(const char *database, const char *root, const char* const *di
         if (!dirs)
                 dirs = catalog_file_dirs;
 
-        _cleanup_strv_free_ char **files = NULL;
-        r = conf_files_list_strv(&files, ".catalog", root, 0, dirs);
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        r = conf_files_list_strv_full(".catalog", root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to get catalog files: %m");
 
         _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
-        STRV_FOREACH(f, files) {
-                log_debug("Reading file '%s'", *f);
-                r = catalog_import_file(&h, *f);
+        FOREACH_ARRAY(i, files, n_files) {
+                ConfFile *c = *i;
+
+                log_debug("Reading file: '%s' -> '%s'", c->original_path, c->resolved_path);
+                r = catalog_import_file(&h, c->fd, c->original_path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to import file '%s': %m", *f);
+                        return log_error_errno(r, "Failed to import file '%s': %m", c->original_path);
         }
 
         if (ordered_hashmap_isempty(h)) {
