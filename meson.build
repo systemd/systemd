@@ -398,6 +398,7 @@ possible_common_cc_flags = [
         '-Werror=override-init',
         '-Werror=pointer-sign',
         '-Werror=return-type',
+        '-Werror=sequence-point',
         '-Werror=shift-count-overflow',
         '-Werror=shift-overflow=2',
         '-Werror=strict-flex-arrays',
