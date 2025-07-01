@@ -1660,8 +1660,11 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
                 if (extra_checks)
                         return -errno;
 
-                if (errno == ENOENT)
+                if (errno == ENOENT) {
+                        if (ret)
+                                *ret = NULL;
                         return 0;
+                }
 
                 return log_warning_errno(errno, "Failed to open %s, ignoring: %m", filename);
         }
