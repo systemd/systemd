@@ -31,7 +31,7 @@ static OrderedHashmap* test_import(const char* contents, ssize_t size, int code)
         assert_se(fd >= 0);
         assert_se(write(fd, contents, size) == size);
 
-        assert_se(catalog_import_file(&h, name) == code);
+        assert_se(catalog_import_file(&h, fd, name) == code);
 
         return h;
 }
