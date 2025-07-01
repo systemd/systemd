@@ -395,11 +395,15 @@ static int bus_append_parse_device_allow(sd_bus_message *m, const char *field, c
         if (isempty(eq))
                 r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 0);
         else {
+                _cleanup_free_ char *_path = NULL;
                 const char *path = eq, *rwm = NULL, *e;
 
                 e = strchr(eq, ' ');
                 if (e) {
-                        path = strndupa_safe(eq, e - eq);
+                        path = _path = strndup(eq, e - eq);
+                        if (!path)
+                                return log_oom();
+
                         rwm = e + 1;
                 }
 
@@ -426,8 +430,10 @@ static int bus_try_append_parse_cgroup_io_limit(sd_bus_message *m, const char *f
                                                "Failed to parse %s value %s.",
                                                field, eq);
 
-                const char *path = strndupa_safe(eq, e - eq);
                 const char *bandwidth = e + 1;
+                _cleanup_free_ char *path = strndup(eq, e - eq);
+                if (!path)
+                        return log_oom();
 
                 uint64_t bytes;
                 if (streq(bandwidth, "infinity"))
@@ -458,8 +464,10 @@ static int bus_append_parse_io_device_weight(sd_bus_message *m, const char *fiel
                                                "Failed to parse %s value %s.",
                                                field, eq);
 
-                const char *path = strndupa_safe(eq, e - eq);
                 const char *weight = e + 1;
+                _cleanup_free_ char *path = strndup(eq, e - eq);
+                if (!path)
+                        return log_oom();
 
                 uint64_t u;
                 r = safe_atou64(weight, &u);
@@ -487,8 +495,10 @@ static int bus_append_parse_io_device_latency(sd_bus_message *m, const char *fie
                                                "Failed to parse %s value %s.",
                                                field, eq);
 
-                const char *path = strndupa_safe(eq, e - eq);
                 const char *target = e + 1;
+                _cleanup_free_ char *path = strndup(eq, e - eq);
+                if (!path)
+                        return log_oom();
 
                 usec_t usec;
                 r = parse_sec(target, &usec);
@@ -2820,7 +2830,8 @@ static const BusProperty** unit_type_properties[_UNIT_TYPE_MAX] = {
 };
 
 int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const char *assignment) {
-        const char *eq, *field;
+        _cleanup_free_ char *field = NULL;
+        const char *eq;
         int r;
 
         assert(m);
@@ -2832,7 +2843,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Not an assignment: %s", assignment);
 
-        field = strndupa_safe(assignment, eq - assignment);
+
+        field = strndup(assignment, eq - assignment);
+        if (!field)
+                return log_oom();
         eq++;
 
         for (const BusProperty** tables = ASSERT_PTR(unit_type_properties[t]); *tables; tables++)
