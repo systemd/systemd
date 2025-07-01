@@ -458,7 +458,7 @@ static int insert_data(struct trie *trie, char **match_list, char *line, const c
         return 0;
 }
 
-static int import_file(struct trie *trie, const char *filename, uint16_t file_priority, bool compat) {
+static int import_file(struct trie *trie, int fd, const char *filename, uint16_t file_priority, bool compat) {
         enum {
                 HW_NONE,
                 HW_MATCH,
@@ -469,7 +469,11 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
         uint32_t line_number = 0;
         int r;
 
-        f = fopen(filename, "re");
+        assert(trie);
+        assert(fd >= 0);
+        assert(filename);
+
+        f = fopen(FORMAT_PROC_FD_PATH(fd), "re");
         if (!f)
                 return -errno;
 
@@ -573,7 +577,6 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
 int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool compat) {
         _cleanup_free_ char *hwdb_bin = NULL;
         _cleanup_(trie_freep) struct trie *trie = NULL;
-        _cleanup_strv_free_ char **files = NULL;
         uint16_t file_priority = 1;
         int r, ret = 0;
 
@@ -602,11 +605,16 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 
         trie->nodes_count++;
 
-        r = conf_files_list_strv(&files, ".hwdb", root, 0, conf_file_dirs);
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        r = conf_files_list_strv_full(".hwdb", root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, conf_file_dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate hwdb files: %m");
 
-        if (strv_isempty(files)) {
+        if (n_files == 0) {
                 if (unlink(hwdb_bin) < 0) {
                         if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to remove compiled hwdb database %s: %m", hwdb_bin);
@@ -618,9 +626,11 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
                 return 0;
         }
 
-        STRV_FOREACH(f, files) {
-                log_debug("Reading file \"%s\"", *f);
-                RET_GATHER(ret, import_file(trie, *f, file_priority++, compat));
+        FOREACH_ARRAY(i, files, n_files) {
+                ConfFile *c = *i;
+
+                log_debug("Reading file \"%s\" -> \"%s\"", c->original_path, c->resolved_path);
+                RET_GATHER(ret, import_file(trie, c->fd, c->original_path, file_priority++, compat));
         }
 
         strbuf_complete(trie->strings);
