@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "2000", STRV_MAKE("ipv6:2001-2002"), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:6666", "6667"), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("6667", "6668", ""), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "7777", STRV_MAKE_EMPTY, STRV_MAKE_EMPTY) >= 0);
+        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "7777", STRV_EMPTY, STRV_EMPTY) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("any"), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("ipv6:tcp:8888-8889"), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "10000", STRV_MAKE("ipv6:udp:9999-10000"), STRV_MAKE("any")) >= 0);
