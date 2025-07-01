@@ -654,7 +654,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         dns_server_unlink_on_reload(m->fallback_dns_servers);
         m->dns_extra_stub_listeners = ordered_set_free(m->dns_extra_stub_listeners);
         manager_dns_stub_stop(m);
-        dnssd_service_clear_on_reload(m->dnssd_services);
+        dnssd_registered_service_clear_on_reload(m->dnssd_registered_services);
         m->unicast_scope = dns_scope_free(m->unicast_scope);
         m->delegates = hashmap_free(m->delegates);
         dns_trust_anchor_flush(&m->trust_anchor);
@@ -829,6 +829,8 @@ int manager_start(Manager *m) {
 
 Manager* manager_free(Manager *m) {
         Link *l;
+        DnssdRegisteredService *s;
+        DnsServiceBrowser *sb;
 
         if (!m)
                 return NULL;
@@ -899,13 +901,16 @@ Manager* manager_free(Manager *m) {
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
-        DnssdService *s;
-        while ((s = hashmap_first(m->dnssd_services)))
-               dnssd_service_free(s);
-        hashmap_free(m->dnssd_services);
+        while ((s = hashmap_first(m->dnssd_registered_services)))
+               dnssd_registered_service_free(s);
+        hashmap_free(m->dnssd_registered_services);
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
+
+        while ((sb = hashmap_first(m->dns_service_browsers)))
+                dns_service_browser_free(sb);
+        hashmap_free(m->dns_service_browsers);
 
         return mfree(m);
 }
@@ -1412,7 +1417,7 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
 
 void manager_refresh_rrs(Manager *m) {
         Link *l;
-        DnssdService *s;
+        DnssdRegisteredService *s;
 
         assert(m);
 
@@ -1425,7 +1430,7 @@ void manager_refresh_rrs(Manager *m) {
                 link_add_rrs(l, true);
 
         if (m->mdns_support == RESOLVE_SUPPORT_YES)
-                HASHMAP_FOREACH(s, m->dnssd_services)
+                HASHMAP_FOREACH(s, m->dnssd_registered_services)
                         if (dnssd_update_rrs(s) < 0)
                                 log_warning("Failed to refresh DNS-SD service '%s'", s->id);
 
@@ -1541,29 +1546,28 @@ bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p) {
         return t->sent && dns_packet_equal(t->sent, p);
 }
 
-DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
+DnsScope* manager_find_scope_from_protocol(Manager *m, int ifindex, DnsProtocol protocol, int family) {
         Link *l;
 
         assert(m);
-        assert(p);
 
-        l = hashmap_get(m->links, INT_TO_PTR(p->ifindex));
+        l = hashmap_get(m->links, INT_TO_PTR(ifindex));
         if (!l)
                 return NULL;
 
-        switch (p->protocol) {
+        switch (protocol) {
         case DNS_PROTOCOL_LLMNR:
-                if (p->family == AF_INET)
+                if (family == AF_INET)
                         return l->llmnr_ipv4_scope;
-                else if (p->family == AF_INET6)
+                else if (family == AF_INET6)
                         return l->llmnr_ipv6_scope;
 
                 break;
 
         case DNS_PROTOCOL_MDNS:
-                if (p->family == AF_INET)
+                if (family == AF_INET)
                         return l->mdns_ipv4_scope;
-                else if (p->family == AF_INET6)
+                else if (family == AF_INET6)
                         return l->mdns_ipv6_scope;
 
                 break;
@@ -1796,6 +1800,9 @@ void manager_flush_caches(Manager *m, int log_level) {
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_cache_flush(&scope->cache);
 
+        dns_browse_services_purge(m, AF_UNSPEC); /* Clear records of DNS service browse subscriber, since caches are flushed */
+        dns_browse_services_restart(m);
+
         log_full(log_level, "Flushed all caches.");
 }
 
@@ -1863,13 +1870,13 @@ void manager_cleanup_saved_user(Manager *m) {
 }
 
 bool manager_next_dnssd_names(Manager *m) {
-        DnssdService *s;
+        DnssdRegisteredService *s;
         bool tried = false;
         int r;
 
         assert(m);
 
-        HASHMAP_FOREACH(s, m->dnssd_services) {
+        HASHMAP_FOREACH(s, m->dnssd_registered_services) {
                 _cleanup_free_ char * new_name = NULL;
 
                 if (!s->withdrawn)
