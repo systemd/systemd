@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "conf-files.h"
 #include "errno-util.h"
 #include "log.h"
 #include "parse-argument.h"
@@ -100,13 +101,16 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int verify_rules_file(UdevRules *rules, const char *fname) {
+static int verify_rules_file(UdevRules *rules, const ConfFile *c) {
         UdevRuleFile *file;
         int r;
 
-        r = udev_rules_parse_file(rules, fname, /* extra_checks = */ true, &file);
+        assert(rules);
+        assert(c);
+
+        r = udev_rules_parse_file(rules, c->fd, c->original_path, /* extra_checks = */ true, &file);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse rules file %s: %m", fname);
+                return log_error_errno(r, "Failed to parse rules file %s: %m", c->original_path);
         if (r == 0) /* empty file. */
                 return 0;
 
@@ -114,23 +118,24 @@ static int verify_rules_file(UdevRules *rules, const char *fname) {
         unsigned mask = (1U << LOG_ERR) | (1U << LOG_WARNING);
         if (issues & mask)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: udev rules check failed.", fname);
+                                       "%s: udev rules check failed.", c->original_path);
 
         if (arg_style && (issues & (1U << LOG_NOTICE)))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: udev rules have style issues.", fname);
+                                         "%s: udev rules have style issues.", c->original_path);
 
         return 0;
 }
 
-static int verify_rules(UdevRules *rules, char **files) {
+static int verify_rules(UdevRules *rules, ConfFile * const *files, size_t n_files) {
         size_t fail_count = 0, success_count = 0;
         int r, ret = 0;
 
         assert(rules);
+        assert(files || n_files == 0);
 
-        STRV_FOREACH(fp, files) {
-                r = verify_rules_file(rules, *fp);
+        FOREACH_ARRAY(i, files, n_files) {
+                r = verify_rules_file(rules, *i);
                 if (r < 0)
                         ++fail_count;
                 else
@@ -165,10 +170,14 @@ int verify_main(int argc, char *argv[], void *userdata) {
         if (!rules)
                 return -ENOMEM;
 
-        _cleanup_strv_free_ char **files = NULL;
-        r = search_rules_files(strv_skip(argv, optind), arg_root, &files);
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        r = search_rules_files(strv_skip(argv, optind), arg_root, &files, &n_files);
         if (r < 0)
                 return r;
 
-        return verify_rules(rules, files);
+        return verify_rules(rules, files, n_files);
 }

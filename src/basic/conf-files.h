@@ -13,12 +13,35 @@ typedef enum ConfFilesFlags {
         CONF_FILES_FILTER_MASKED            = CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_FILTER_MASKED_BY_EMPTY,
 } ConfFilesFlags;
 
+typedef struct ConfFile {
+        char *name;          /* name of a file found in config directories */
+        char *result;        /* resolved config directory with the original file name found in the directory */
+        char *original_path; /* original config directory with the original file name found in the directory */
+        char *resolved_path; /* fully resolved path, where the filename part of the path may be different from the original name */
+        int fd;              /* O_PATH fd to resolved_path, -EBADF if the resolved_path does not exist */
+} ConfFile;
+
+ConfFile* conf_file_free(ConfFile *c);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ConfFile*, conf_file_free);
+void conf_file_free_many(ConfFile **array, size_t n);
+
+int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile **ret);
+int conf_file_new(const char *path, const char *root, ChaseFlags chase_flags, ConfFile **ret);
+
 int conf_files_list(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dir);
 int conf_files_list_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dir);
 int conf_files_list_strv(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char* const* dirs);
 int conf_files_list_strv_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char * const *dirs);
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs);
 int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs);
+
+int conf_files_list_full(const char *suffix, const char *root, ConfFilesFlags flags, const char *dir, ConfFile ***ret_files, size_t *ret_n_files);
+int conf_files_list_at_full(const char *suffix, int rfd, ConfFilesFlags flags, const char *dir, ConfFile ***ret_files, size_t *ret_n_files);
+int conf_files_list_strv_full(const char *suffix, const char *root, ConfFilesFlags flags, const char * const *dirs, ConfFile ***ret_files, size_t *ret_n_files);
+int conf_files_list_strv_at_full(const char *suffix, int rfd, ConfFilesFlags flags, const char * const *dirs, ConfFile ***ret_files, size_t *ret_n_files);
+int conf_files_list_nulstr_full(const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs, ConfFile ***ret_files, size_t *ret_n_files);
+int conf_files_list_nulstr_at_full(const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs, ConfFile ***ret_files, size_t *ret_n_files);
+
 int conf_files_list_with_replacement(
                 const char *root,
                 char **config_dirs,

@@ -19,7 +19,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(fd >= 0);
         assert_se(write(fd, data, size) == (ssize_t) size);
 
-        (void) catalog_import_file(&h, name);
+        (void) catalog_import_file(&h, fd, name);
 
         return 0;
 }
