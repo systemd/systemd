@@ -1079,7 +1079,7 @@ TEST(fdopen_independent) {
         zero(buf);
         assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
         ASSERT_STREQ(buf, TEST_TEXT);
-        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE_STRICT) == O_RDONLY);
+        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDONLY);
         assert_se(FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
         f = safe_fclose(f);
 
@@ -1087,7 +1087,7 @@ TEST(fdopen_independent) {
         zero(buf);
         assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
         ASSERT_STREQ(buf, TEST_TEXT);
-        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE_STRICT) == O_RDONLY);
+        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDONLY);
         assert_se(!FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
         f = safe_fclose(f);
 
@@ -1095,7 +1095,7 @@ TEST(fdopen_independent) {
         zero(buf);
         assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
         ASSERT_STREQ(buf, TEST_TEXT);
-        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE_STRICT) == O_RDWR);
+        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDWR);
         assert_se(FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
         f = safe_fclose(f);
 }
