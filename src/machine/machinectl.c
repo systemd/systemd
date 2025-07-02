@@ -512,17 +512,47 @@ typedef struct MachineStatusInfo {
         const char *subgroup;
         const char *root_directory;
         pid_t leader;
+        uint64_t leader_pidfdid;
+        pid_t supervisor;
+        uint64_t supervisor_pidfdid;
         struct dual_timestamp timestamp;
         int *netif;
         size_t n_netif;
         uid_t uid;
 } MachineStatusInfo;
 
-static void machine_status_info_clear(MachineStatusInfo *info) {
-        if (info) {
-                free(info->netif);
-                zero(*info);
+static void machine_status_info_done(MachineStatusInfo *info) {
+        if (!info)
+                return;
+
+        free(info->netif);
+        zero(*info);
+}
+
+static void print_process_info(const char *field, pid_t pid, uint64_t pidfdid) {
+        int r;
+
+        assert(field);
+
+        if (pid <= 0)
+                return;
+
+        printf("%s: " PID_FMT, field, pid);
+
+        _cleanup_(pidref_done) PidRef pr = PIDREF_NULL;
+        r = pidref_set_pid_and_pidfd_id(&pr, pid, pidfdid);
+        if (r < 0)
+                log_debug_errno(r, "Failed to acquire reference to process, ignoring: %m");
+        else {
+                _cleanup_free_ char *t = NULL;
+                r = pidref_get_comm(&pr, &t);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to acquire name of process, ignoring: %m");
+                else
+                        printf(" (%s)", t);
         }
+
+        putchar('\n');
 }
 
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
@@ -547,17 +577,8 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         else if (!isempty(s2))
                 printf("\t   Since: %s\n", s2);
 
-        if (i->leader > 0) {
-                _cleanup_free_ char *t = NULL;
-
-                printf("\t  Leader: %u", (unsigned) i->leader);
-
-                (void) pid_get_comm(i->leader, &t);
-                if (t)
-                        printf(" (%s)", t);
-
-                putchar('\n');
-        }
+        print_process_info("\t  Leader", i->leader, i->leader_pidfdid);
+        print_process_info("\t Superv.", i->supervisor, i->supervisor_pidfdid);
 
         if (i->service) {
                 printf("\t Service: %s", i->service);
@@ -663,6 +684,9 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                 { "Subgroup",           "s",  NULL,          offsetof(MachineStatusInfo, subgroup)            },
                 { "RootDirectory",      "s",  NULL,          offsetof(MachineStatusInfo, root_directory)      },
                 { "Leader",             "u",  NULL,          offsetof(MachineStatusInfo, leader)              },
+                { "LeaderPIDFDId",      "t",  NULL,          offsetof(MachineStatusInfo, leader_pidfdid)      },
+                { "Supervisor",         "u",  NULL,          offsetof(MachineStatusInfo, supervisor)          },
+                { "SupervisorPIDFDId",  "t",  NULL,          offsetof(MachineStatusInfo, supervisor_pidfdid)  },
                 { "Timestamp",          "t",  NULL,          offsetof(MachineStatusInfo, timestamp.realtime)  },
                 { "TimestampMonotonic", "t",  NULL,          offsetof(MachineStatusInfo, timestamp.monotonic) },
                 { "Id",                 "ay", bus_map_id128, offsetof(MachineStatusInfo, id)                  },
@@ -673,7 +697,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(machine_status_info_clear) MachineStatusInfo info = {};
+        _cleanup_(machine_status_info_done) MachineStatusInfo info = {};
         int r;
 
         assert(verb);
