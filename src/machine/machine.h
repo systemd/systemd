@@ -27,6 +27,7 @@ typedef enum MachineClass {
 
 typedef enum KillWhom {
         KILL_LEADER,
+        KILL_SUPERVISOR,
         KILL_ALL,
         _KILL_WHOM_MAX,
         _KILL_WHOM_INVALID = -EINVAL,
@@ -50,8 +51,16 @@ typedef struct Machine {
         char *subgroup;
         char *scope_job;
 
-        PidRef leader;
-        sd_event_source *leader_pidfd_event_source;
+        /* Leader: the top-level process that encapsulates the machine itself. For containers that's PID 1,
+         * for VMs that's qemu or whatever process wraps the actual VM code. This process defines the runtime
+         * lifecycle of the machine. In case of containers we can use this reference to enter namespaces,
+         * send signals and so on.
+         *
+         * Supervisor: the process that supervises the machine, if there is any and if that process is
+         * responsible for a single machine. Sending SIGTERM to this process should (non-cooperatively)
+         * terminate the machine. */
+        PidRef leader, supervisor;
+        sd_event_source *leader_pidfd_event_source, *supervisor_pidfd_event_source;
 
         dual_timestamp timestamp;
 
