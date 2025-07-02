@@ -4990,9 +4990,9 @@ static int verb_is_supported(int argc, char *argv[], void *userdata) {
                         printf("%spartial%s\n", ansi_yellow(), ansi_normal());
         }
 
-        assert_cc(TPM2_SUPPORT_API_PCRLOCK <= 255); /* make sure this is safe to use as process exit status */
+        assert_cc((TPM2_SUPPORT_API|TPM2_SUPPORT_API_PCRLOCK) <= 255); /* make sure this is safe to use as process exit status */
 
-        return ~s & TPM2_SUPPORT_API_PCRLOCK;
+        return ~s & (TPM2_SUPPORT_API|TPM2_SUPPORT_API_PCRLOCK);
 }
 
 static int help(int argc, char *argv[], void *userdata) {
