@@ -19,7 +19,7 @@ static int devnode_acl(int fd, uid_t uid) {
         assert(fd >= 0);
 
         _cleanup_(acl_freep) acl_t acl = NULL;
-        acl = acl_get_fd(fd);
+        acl = acl_get_file(FORMAT_PROC_FD_PATH(fd), ACL_TYPE_ACCESS);
         if (!acl)
                 return -errno;
 
@@ -99,7 +99,7 @@ static int devnode_acl(int fd, uid_t uid) {
         if (acl_calc_mask(&acl) < 0)
                 return -errno;
 
-        if (acl_set_fd(fd, acl) < 0)
+        if (acl_set_file(FORMAT_PROC_FD_PATH(fd), ACL_TYPE_ACCESS, acl) < 0)
                 return -errno;
 
         return 0;
@@ -120,7 +120,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         if (!logind_running())
                 return 0;
 
-        _cleanup_close_ int fd = sd_device_open(dev, O_CLOEXEC|O_RDWR);
+        _cleanup_close_ int fd = sd_device_open(dev, O_CLOEXEC|O_PATH);
         if (fd < 0)
                 return log_device_error_errno(dev, fd, "Failed to open device node: %m");
 
