@@ -7,8 +7,8 @@ _udevadm_info(){
         '(-)'{-h,--help}'[Print help]' \
         '(-)'{-V,--version}'[Print version of the program]' \
         '--query=[Query the database for specified type of device data. It needs the --path or --name to identify the specified device.]:type:(name symlink path property all)' \
-        '--path=[The devpath of the device to query.]:sys files:_files -P /sys/ -W /sys' \
-        '--name=[The name of the device node or a symlink to query]:device files:_files -P /dev/ -W /dev' \
+        '--path=[The devpath of the device to query.]:sys files:_files -W /sys' \
+        '--name=[The name of the device node or a symlink to query]:device files:_files -W /dev' \
         '--root[Print absolute paths in name or symlink query.]' \
         '--attribute-walk[Print all sysfs properties of the specified device that can be used in udev rules to match the specified device]' \
         '--export[Print output as key/value pairs.]' \
@@ -96,7 +96,7 @@ _udevadm_test(){
         '(-D --extra-rules-dir=)'{-D,--extra-rules-dir=}'[Also load rules from the directory.]' \
         '(-v --verbose)'{-v,--verbose}'[Show verbose logs.]' \
         '--json=[Generate JSON output]:MODE:(pretty short off)' \
-        '*::devpath:_files -P /sys/ -W /sys'
+        '*::devpath:_files -W /sys'
 }
 
 (( $+functions[_udevadm_test-builtin] )) ||
@@ -111,7 +111,7 @@ _udevadm_test-builtin(){
         _arguments \
             '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
             '(- *)--help[Print help text]' \
-            '*::syspath:_files -P /sys -W /sys'
+            '*::syspath:_files -W /sys'
     else
         _arguments \
             '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
@@ -151,7 +151,7 @@ _udevadm_wait(){
         '--initialized=[Wait for devices being initialized by systemd-udevd.]:boolean:(yes no)' \
         '--removed[Wait for devices being removed.]' \
         '--settle[Also wait for udev queue being empty.]' \
-        '*::devpath:_files -P /dev/ -W /dev'
+        '*::devpath:_files -W /dev'
 }
 
 (( $+functions[_udevadm_lock] )) ||
