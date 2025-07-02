@@ -2623,7 +2623,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "KeepAliveIntervalSec",
                               "DeferAcceptSec",
                               "TriggerLimitIntervalSec",
-                              "PollLimitIntervalSec"))
+                              "PollLimitIntervalSec",
+                              "DeferTriggerMaxSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
         if (STR_IN_SET(field, "ReceiveBuffer",
@@ -2646,7 +2647,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "FileDescriptorName",
                               "SocketUser",
                               "SocketGroup",
-                              "Timestamping"))
+                              "Timestamping",
+                              "DeferTrigger"))
                 return bus_append_string(m, field, eq);
 
         if (streq(field, "Symlinks"))

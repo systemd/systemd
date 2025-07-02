@@ -21,6 +21,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, socket_result, SocketRe
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 static BUS_DEFINE_PROPERTY_GET(property_get_fdname, "s", Socket, socket_fdname);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_timestamping, socket_timestamping, SocketTimestamping);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_defer_trigger, socket_defer_trigger, SocketDeferTrigger);
 
 static int property_get_listen(
                 sd_bus *bus,
@@ -115,6 +116,8 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("TriggerLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, trigger_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PollLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, poll_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PollLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, poll_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DeferTrigger", "s", property_get_defer_trigger, offsetof(Socket, defer_trigger), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DeferTriggerMaxUSec", "t", bus_property_get_usec, offsetof(Socket, defer_trigger_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("PassFileDescriptorsToExec", "b", bus_property_get_bool, offsetof(Socket, pass_fds_to_exec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -148,6 +151,7 @@ static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(ifname, ifname_valid);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(ip_tos, "i", int32_t, int, "%" PRIi32, ip_tos_to_string_alloc);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(socket_protocol, "i", int32_t, int, "%" PRIi32, socket_protocol_to_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_timestamping, SocketTimestamping, socket_timestamping_from_string_harder);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_defer_trigger, SocketDeferTrigger, socket_defer_trigger_from_string);
 
 static int bus_socket_set_transient_property(
                 Socket *s,
@@ -273,6 +277,12 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "PollLimitIntervalUSec"))
                 return bus_set_transient_usec(u, name, &s->poll_limit.interval, message, flags, error);
+
+        if (streq(name, "DeferTrigger"))
+                return bus_set_transient_socket_defer_trigger(u, name, &s->defer_trigger, message, flags, error);
+
+        if (streq(name, "DeferTriggerMaxUSec"))
+                return bus_set_transient_usec_fix_0(u, name, &s->defer_trigger_max_usec, message, flags, error);
 
         if (streq(name, "SmackLabel"))
                 return bus_set_transient_string(u, name, &s->smack, message, flags, error);
