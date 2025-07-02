@@ -1306,7 +1306,7 @@ CHANGES WITH 258 in spe:
           field to all coredumps indicating the "dumpable" per-process flag (as
           settable via PR_SET_DUMPABLE) at the moment the coredump took
           place. It will also add a new journal field COREDUMP_BY_PIDFD= that
-          indicates wether the coredump was acquired via a stable pidfd to the
+          indicates whether the coredump was acquired via a stable pidfd to the
           process.
 
         * systemd-sysext (and portable services with sysexts applied) will now
