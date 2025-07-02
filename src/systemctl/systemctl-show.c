@@ -2544,7 +2544,7 @@ int verb_show(int argc, char *argv[], void *userdata) {
                 if (!arg_states && !arg_types) {
                         if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
                                 /* systemctl show --all → show properties of the manager */
-                                if (OUTPUT_MODE_IS_JSON(arg_output))
+                                if (OUTPUT_MODE_IS_JSON(arg_output) && arg_transport == BUS_TRANSPORT_LOCAL)
                                         return show_manager_varlink_json();
                                 else
                                         return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
