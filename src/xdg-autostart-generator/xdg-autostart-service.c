@@ -11,6 +11,7 @@
 #include "generator.h"
 #include "glyph-util.h"
 #include "log.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "specifier.h"
@@ -40,6 +41,8 @@ XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
         free(s->kde_autostart_condition);
 
         free(s->gnome_autostart_phase);
+
+        free(s->extra_unit_settings);
 
         return mfree(s);
 }
@@ -303,6 +306,72 @@ static int xdg_config_item_table_lookup(
         return config_item_table_lookup(table, section, lvalue, ret_func, ret_ltype, ret_data, userdata);
 }
 
+static int xdg_copy_systemd_service_sections(XdgAutostartService *service) {
+        int r;
+
+        _cleanup_fclose_ FILE *f = fopen(service->path, "re");
+        if (!f)
+                return log_error_errno(errno, "Failed to open configuration file '%s': %m", service->path);
+
+        _cleanup_free_ char *extra = NULL;
+        unsigned line = 0;
+        bool copy = false;
+        for (;;) {
+                _cleanup_free_ char *buf = NULL;
+                char *l;
+
+                r = read_line(f, LONG_LINE_MAX, &buf);
+                if (r == 0)
+                        break;
+                if (r == -ENOBUFS)
+                        return log_error_errno(r, "%s:%u: Line too long", service->path, line);
+                if (r < 0)
+                        return log_error_errno(r, "%s:%u: Error while reading configuration file: %m", service->path, line);
+
+                line++;
+
+                l = skip_leading_chars(buf, WHITESPACE);
+
+                if (l[0] != '[') {
+                        if (copy && !strextend(&extra, buf, "\n"))
+                                return log_oom();
+
+                        continue;
+                }
+
+                _cleanup_free_ char *n = NULL;
+                size_t k;
+
+                k = strlen(l);
+                assert(k > 0);
+
+                if (l[k-1] != ']')
+                        return log_syntax(NULL, LOG_ERR, service->path, line, SYNTHETIC_ERRNO(EBADMSG), "Invalid section header '%s'", l);
+
+                n = strndup(l+1, k-2);
+                if (!n)
+                        return log_oom();
+
+                if (!string_is_safe(n))
+                        return log_syntax(NULL, LOG_ERR, service->path, line, SYNTHETIC_ERRNO(EBADMSG), "Bad characters in section header '%s'", l);
+
+                const char *without_extension = startswith(n, "X-systemd ");
+                if (!without_extension || !nulstr_contains("Unit\0Service\0", without_extension)) {
+                        copy = false;
+                        continue;
+                }
+
+                if (!strextend(&extra, "\n[", without_extension, "]\n"))
+                        return log_oom();
+
+                copy = true;
+        }
+
+        service->extra_unit_settings = TAKE_PTR(extra);
+
+        return 0;
+}
+
 XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
         _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service = NULL;
         int r;
@@ -358,6 +427,10 @@ XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
                 log_warning_errno(r, "Failed to parse %s, ignoring it", service->path);
                 service->hidden = true;
         }
+
+        r = xdg_copy_systemd_service_sections(service);
+        if (r < 0)
+                return NULL;
 
         return TAKE_PTR(service);
 }
@@ -683,6 +756,9 @@ int xdg_autostart_service_generate_unit(
                                                      service->kde_autostart_condition);
         if (r < 0)
                 return r;
+
+        if (service->extra_unit_settings)
+                fputs(service->extra_unit_settings, f);
 
         r = fflush_and_check(f);
         if (r < 0)

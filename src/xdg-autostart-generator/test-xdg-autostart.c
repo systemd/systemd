@@ -63,6 +63,11 @@ static const char* const xdg_desktop_file[] = {
          "Hidden=\t true\n"),
         ("[Desktop Entry]\n"
          "Hidden=\t True\n"),
+
+        ("[Desktop Entry]\n"
+         "Exec=/bin/sleep 100\n"
+         "[X-systemd Service]\n"
+         "RootDirectory=/a/b/c\n"),
 };
 
 static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
@@ -92,6 +97,9 @@ static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
         case 2:
         case 3:
                 ASSERT_TRUE(service->hidden);
+                break;
+        case 4:
+                ASSERT_STREQ(service->extra_unit_settings, "\n[Service]\nRootDirectory=/a/b/c\n");
                 break;
         }
 }
