@@ -972,15 +972,14 @@ static const char *skip_slices(const char *p) {
         }
 }
 
-int cg_path_get_unit(const char *path, char **ret) {
-        _cleanup_free_ char *unit = NULL;
-        const char *e;
+int cg_path_get_unit_full(const char *path, char **ret_unit, char **ret_subgroup) {
         int r;
 
         assert(path);
 
-        e = skip_slices(path);
+        const char *e = skip_slices(path);
 
+        _cleanup_free_ char *unit = NULL;
         r = cg_path_decode_unit(e, &unit);
         if (r < 0)
                 return r;
@@ -989,8 +988,27 @@ int cg_path_get_unit(const char *path, char **ret) {
         if (endswith(unit, ".slice"))
                 return -ENXIO;
 
-        if (ret)
-                *ret = TAKE_PTR(unit);
+        if (ret_subgroup) {
+                _cleanup_free_ char *subgroup = NULL;
+                e += strcspn(e, "/");
+                e += strspn(e, "/");
+
+                if (isempty(e))
+                        subgroup = NULL;
+                else {
+                        subgroup = strdup(e);
+                        if (!subgroup)
+                                return -ENOMEM;
+                }
+
+                path_simplify(subgroup);
+
+                *ret_subgroup = TAKE_PTR(subgroup);
+        }
+
+        if (ret_unit)
+                *ret_unit = TAKE_PTR(unit);
+
         return 0;
 }
 
@@ -1016,31 +1034,27 @@ int cg_path_get_unit_path(const char *path, char **ret) {
         return 0;
 }
 
-int cg_pid_get_unit(pid_t pid, char **ret_unit) {
-        _cleanup_free_ char *cgroup = NULL;
+int cg_pid_get_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
         int r;
 
-        assert(ret_unit);
-
+        _cleanup_free_ char *cgroup = NULL;
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
                 return r;
 
-        return cg_path_get_unit(cgroup, ret_unit);
+        return cg_path_get_unit_full(cgroup, ret_unit, ret_subgroup);
 }
 
-int cg_pidref_get_unit(const PidRef *pidref, char **ret) {
-        _cleanup_free_ char *unit = NULL;
+int cg_pidref_get_unit_full(const PidRef *pidref, char **ret_unit, char **ret_subgroup) {
         int r;
-
-        assert(ret);
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
         if (pidref_is_remote(pidref))
                 return -EREMOTE;
 
-        r = cg_pid_get_unit(pidref->pid, &unit);
+        _cleanup_free_ char *unit = NULL, *subgroup = NULL;
+        r = cg_pid_get_unit_full(pidref->pid, &unit, &subgroup);
         if (r < 0)
                 return r;
 
@@ -1048,7 +1062,10 @@ int cg_pidref_get_unit(const PidRef *pidref, char **ret) {
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(unit);
+        if (ret_unit)
+                *ret_unit = TAKE_PTR(unit);
+        if (ret_subgroup)
+                *ret_subgroup = TAKE_PTR(subgroup);
         return 0;
 }
 

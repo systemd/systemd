@@ -1268,20 +1268,20 @@ testcase_unpriv() {
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 
-    systemd-run \
+    run0 --pipe -u testuser systemd-run \
+        --user \
         --pipe \
-        --uid=testuser \
         --property=Delegate=yes \
         -- \
         systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" echo hello >"$tmpdir/stdout.txt"
     echo hello | cmp "$tmpdir/stdout.txt" -
 
     # Make sure per-user search path logic works
-    systemd-run --pipe --uid=testuser mkdir -p /home/testuser/.local/state/machines
-    systemd-run --pipe --uid=testuser ln -s "$tmpdir/$name.raw" /home/testuser/.local/state/machines/"x$name.raw"
-    systemd-run \
+    run0 -u testuser --pipe mkdir -p /home/testuser/.local/state/machines
+    run0 -u testuser --pipe ln -s "$tmpdir/$name.raw" /home/testuser/.local/state/machines/"x$name.raw"
+    run0 --pipe -u testuser systemd-run \
+        --user \
         --pipe \
-        --uid=testuser \
         --property=Delegate=yes \
         -- \
         systemd-nspawn --pipe --private-network --register=no --keep-unit --machine="x$name" echo hello >"$tmpdir/stdout.txt"
@@ -1348,9 +1348,9 @@ testcase_unpriv_fuse() {
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 
-    [[ "$(systemd-run \
+    [[ "$(run0 -u testuser --pipe systemd-run \
+              --user \
               --pipe \
-              --uid=testuser \
               --property=Delegate=yes \
               --setenv=SYSTEMD_LOG_LEVEL \
               --setenv=SYSTEMD_LOG_TARGET \
