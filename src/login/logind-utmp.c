@@ -43,7 +43,7 @@ int manager_read_utmp(Manager *m) {
                 if (!pid_is_valid(u->ut_pid))
                         continue;
 
-                t = strndup(u->ut_line, sizeof(u->ut_line));
+                t = memdup_suffix0(u->ut_line, sizeof(u->ut_line));
                 if (!t)
                         return log_oom();
 
@@ -57,6 +57,9 @@ int manager_read_utmp(Manager *m) {
                         continue;
 
                 if (manager_get_session_by_pidref(m, &PIDREF_MAKE_FROM_PID(u->ut_pid), &s) <= 0)
+                        continue;
+
+                if (s->type != SESSION_TTY)
                         continue;
 
                 if (s->tty_validity == TTY_FROM_UTMP && !streq_ptr(s->tty, t)) {
