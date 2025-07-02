@@ -31,6 +31,9 @@ systemdsystemunitdir=${systemd_system_unit_dir}
 systemd_system_preset_dir=${prefix}/lib/systemd/system-preset
 systemdsystempresetdir=${systemd_system_preset_dir}
 
+systemd_initrd_preset_dir=${prefix}/lib/systemd/initrd-preset
+systemdinitrdpresetdir=${systemd_initrd_preset_dir}
+
 systemd_user_unit_dir=${prefix}/lib/systemd/user
 systemduserunitdir=${systemd_user_unit_dir}
 
