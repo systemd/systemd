@@ -342,6 +342,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>For details about many of these properties, see the documentation of the D-Bus interface
             backing these properties, see
             <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+            <para>When JSON output is requested for manager properties (using <option>--output=json</option>
+            without specifying units), <command>systemctl</command> will use the varlink interface
+            <literal>io.systemd.Manager.Describe</literal> when available, which provides server-side JSON
+            generation for improved performance. If the varlink socket is not available, it falls back to
+            the traditional D-Bus method.</para>
           </listitem>
         </varlistentry>
 
