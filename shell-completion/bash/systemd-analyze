@@ -81,6 +81,7 @@ _systemd_analyze() {
         [ARCHITECTURES]='architectures'
         [FDSTORE]='fdstore'
         [CAPABILITY]='capability'
+        [UNIT_SHELL]='unit-shell'
     )
 
     local CONFIGS='locale.conf systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -224,6 +225,13 @@ _systemd_analyze() {
     elif __contains_word "$verb" ${VERBS[CAPABILITY]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --no-pager --json=off --json=pretty --json=short -m --mask'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[UNIT_SHELL]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version'
+        else
+            comps=$( __get_services $mode )
         fi
     fi
 
