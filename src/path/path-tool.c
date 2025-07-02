@@ -75,6 +75,7 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SYSTEMD_USER_UNIT]                           = "systemd-user-unit",
         [SD_PATH_SYSTEMD_USER_PRESET]                         = "systemd-user-preset",
         [SD_PATH_SYSTEMD_USER_CONF]                           = "systemd-user-conf",
+        [SD_PATH_SYSTEMD_INITRD_PRESET]                       = "systemd-initrd-preset",
 
         [SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT]                  = "systemd-search-system-unit",
         [SD_PATH_SYSTEMD_SEARCH_USER_UNIT]                    = "systemd-search-user-unit",
