@@ -147,7 +147,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: systemd/mkosi@0d1143150835b21c1bfe64428df5f45b558280b1
+      - uses: bluca/mkosi@ppc_s390
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
@@ -271,7 +271,7 @@ jobs:
             --print-errorlogs \
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
-            "${MAX_LINES[@]}"
+            "${MAX_LINES[@]}" TEST-70-TPM2
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v4

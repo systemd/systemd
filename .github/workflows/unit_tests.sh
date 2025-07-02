@@ -47,6 +47,13 @@ if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "x86_64" ]; then
     ADDITIONAL_DEPS+=(systemd-boot-efi)
 fi
 
+ip a
+id
+whoami
+ls -l /dev/
+mount
+env
+
 # (Re)set the current oom-{score-}adj. For some reason root on GH actions is able to _decrease_
 # its oom-score even after dropping all capabilities (including CAP_SYS_RESOURCE), until the
 # score is explicitly changed after sudo. No idea what's going on, but it breaks
