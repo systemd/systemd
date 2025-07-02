@@ -1137,9 +1137,9 @@ testcase_unpriv() {
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 
-    systemd-run \
+    run0 --pipe -u testuser systemd-run \
+        --user \
         --pipe \
-        --uid=testuser \
         --property=Delegate=yes \
         -- \
         systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" echo hello >"$tmpdir/stdout.txt"
@@ -1206,9 +1206,9 @@ testcase_unpriv_fuse() {
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 
-    [[ "$(systemd-run \
+    [[ "$(run0 -u testuser --pipe systemd-run \
+              --user \
               --pipe \
-              --uid=testuser \
               --property=Delegate=yes \
               --setenv=SYSTEMD_LOG_LEVEL \
               --setenv=SYSTEMD_LOG_TARGET \
