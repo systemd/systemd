@@ -1,0 +1,38 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# Settings for systemd units distributed with systemd itself, specific to initrds.
+
+enable systemd-journald-audit.socket
+enable systemd-network-generator.service
+enable systemd-networkd.service
+enable systemd-networkd-wait-online.service
+enable systemd-pstore.service
+enable systemd-resolved.service
+enable systemd-tpm2-clear.service
+
+disable console-getty.service
+disable debug-shell.service
+
+disable exit.target
+disable halt.target
+disable kexec.target
+disable poweroff.target
+enable reboot.target
+disable rescue.target
+
+disable proc-sys-fs-binfmt_misc.mount
+
+disable syslog.socket
+
+disable systemd-boot-check-no-failures.service
+disable systemd-journal-gatewayd.*
+disable systemd-journal-remote.*
+disable systemd-journal-upload.*
+disable systemd-time-wait-sync.service
