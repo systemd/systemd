@@ -512,6 +512,10 @@ node /org/freedesktop/machine1/machine/rawhide {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t LeaderPIDFDId = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u Supervisor = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t SupervisorPIDFDId = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Class = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootDirectory = '...';
@@ -608,6 +612,10 @@ node /org/freedesktop/machine1/machine/rawhide {
 
     <variablelist class="dbus-property" generated="True" extra-ref="LeaderPIDFDId"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="Supervisor"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SupervisorPIDFDId"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Class"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootDirectory"/>
@@ -655,9 +663,18 @@ node /org/freedesktop/machine1/machine/rawhide {
 
       <para><varname>Unit</varname> is the systemd scope or service unit name for the machine.</para>
 
-      <para><varname>Leader</varname> is the PID of the leader process of the machine.</para>
+      <para><varname>Leader</varname> is the PID of the leader process of the machine. (The leader process is the
+      top-level process of the payload of the machine, i.e. for containers PID 1 inside the container, and
+      for VMs the process encapsulating the VM. It's lifetime defines the lifetime of the machine.)</para>
 
       <para><varname>LeaderPIDFDId</varname> encodes the Linux pidfd inode ID of the leader process of the
+      machine.</para>
+
+      <para><varname>Supervisor</varname> is the PID of the supervisor process of the machine. (The
+      supervisor process is the process that manages the machine, if there's a separate one for it. A
+      supervisor process is not always defined, and does not define the machine's lifetime.)</para>
+
+      <para><varname>SupervisorPIDFDId</varname> encodes the Linux pidfd inode ID of the supervisor process of the
       machine.</para>
 
       <para><varname>Class</varname> is the class of the machine and is either the string "vm" (for real VMs
@@ -732,8 +749,9 @@ $ gdbus introspect --system \
       <function>CopyToWithFlags()</function> were added in version 252.</para>
       <para><function>GetSSHInfo()</function>, <varname>VSockCID</varname>, <varname>SSHAddress</varname>
       and <varname>SSHPrivateKeyPath</varname> were added in version 256.</para>
-      <para><varname>LeaderPIDFDId</varname>, <varname>Subgroup</varname> and <varname>UID</varname> were
-      added in version 258.</para>
+      <para><varname>LeaderPIDFDId</varname>, <varname>Supervisor</varname>,
+      <varname>SupervisorPIDFDId</varname>, <varname>Subgroup</varname> and <varname>UID</varname> were added
+      in version 258.</para>
     </refsect2>
   </refsect1>
 
