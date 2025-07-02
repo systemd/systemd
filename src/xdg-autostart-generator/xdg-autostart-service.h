@@ -23,6 +23,8 @@ typedef struct XdgAutostartService {
 
         bool hidden;
         bool systemd_skip;
+
+        char *extra_unit_settings;
 } XdgAutostartService;
 
 XdgAutostartService * xdg_autostart_service_free(XdgAutostartService *s);

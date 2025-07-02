@@ -90,6 +90,11 @@
       </tgroup>
     </table>
 
+    <para>Additionally, the generator will look for sections named <literal>[X-systemd Unit]</literal> and
+    <literal>[X-systemd Service]</literal> and copy the contents of those sections verbatim to the generated
+    unit file (without the <literal>X-systemd</literal> section prefix). This can be used to carry extra
+    systemd unit settings for applications in XDG desktop files</para>.
+
     <para><filename>systemd-xdg-autostart-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
