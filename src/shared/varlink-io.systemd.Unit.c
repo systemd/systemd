@@ -516,6 +516,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
+static SD_VARLINK_DEFINE_ERROR(TooManyParameters);
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
@@ -566,4 +567,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("CGroup runtime of a unit"),
                 &vl_type_CGroupRuntime,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
-                &vl_error_NoSuchUnit);
+                &vl_error_NoSuchUnit,
+                SD_VARLINK_SYMBOL_COMMENT("Too many parameters passed"),
+                &vl_error_TooManyParameters);
