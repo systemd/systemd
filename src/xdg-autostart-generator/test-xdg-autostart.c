@@ -12,8 +12,8 @@
 TEST(translate_name) {
         _cleanup_free_ char *t = NULL;
 
-        assert_se(t = xdg_autostart_service_translate_name("a-b.blub.desktop"));
-        assert_se(streq(t, "app-a\\x2db.blub@autostart.service"));
+        ASSERT_NOT_NULL(t = xdg_autostart_service_translate_name("a-b.blub.desktop"));
+        ASSERT_STREQ(t, "app-a\\x2db.blub@autostart.service");
 }
 
 static void test_xdg_format_exec_start_one(const char *exec, const char *expected) {
@@ -21,14 +21,14 @@ static void test_xdg_format_exec_start_one(const char *exec, const char *expecte
 
         xdg_autostart_format_exec_start(exec, &out);
         log_info("In: '%s', out: '%s', expected: '%s'", exec, out, expected);
-        assert_se(streq(out, expected));
+        ASSERT_STREQ(out, expected);
 }
 
 TEST(xdg_format_exec_start) {
         _cleanup_free_ char *home = NULL;
         _cleanup_free_ char *expected1 = NULL, *expected2 = NULL;
 
-        assert_se(get_home_dir(&home) >= 0);
+        ASSERT_OK(get_home_dir(&home));
 
         test_xdg_format_exec_start_one("/bin/sleep 100", "/bin/sleep 100");
 
@@ -63,6 +63,11 @@ static const char* const xdg_desktop_file[] = {
          "Hidden=\t true\n"),
         ("[Desktop Entry]\n"
          "Hidden=\t True\n"),
+
+        ("[Desktop Entry]\n"
+         "Exec=/bin/sleep 100\n"
+         "[X-systemd Service]\n"
+         "RootDirectory=/a/b/c\n"),
 };
 
 static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
@@ -72,26 +77,29 @@ static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
 
         log_info("== %s[%u] ==", __func__, i);
 
-        assert_se(fmkostemp_safe(name, "r+", &f) == 0);
-        assert_se(fwrite(s, strlen(s), 1, f) == 1);
+        ASSERT_OK(fmkostemp_safe(name, "r+", &f));
+        ASSERT_OK_ERRNO(fputs(s, f));
         rewind(f);
 
-        assert_se(service = xdg_autostart_service_parse_desktop(name));
+        ASSERT_NOT_NULL(service = xdg_autostart_service_parse_desktop(name));
 
         switch (i) {
         case 0:
-                assert_se(streq(service->exec_string, "/bin/sleep 100"));
-                assert_se(strv_equal(service->only_show_in, STRV_MAKE("A", "B")));
-                assert_se(strv_equal(service->not_show_in, STRV_MAKE("C", "D\\;", "E")));
-                assert_se(!service->hidden);
+                ASSERT_STREQ(service->exec_string, "/bin/sleep 100");
+                ASSERT_TRUE(strv_equal(service->only_show_in, STRV_MAKE("A", "B")));
+                ASSERT_TRUE(strv_equal(service->not_show_in, STRV_MAKE("C", "D\\;", "E")));
+                ASSERT_FALSE(service->hidden);
                 break;
         case 1:
                 /* The second entry is not permissible and will be ignored (and error logged). */
-                assert_se(streq(service->exec_string, "a"));
+                ASSERT_STREQ(service->exec_string, "a");
                 break;
         case 2:
         case 3:
-                assert_se(service->hidden);
+                ASSERT_TRUE(service->hidden);
+                break;
+        case 4:
+                ASSERT_STREQ(service->extra_unit_settings, "\n[Service]\nRootDirectory=/a/b/c\n");
                 break;
         }
 }
