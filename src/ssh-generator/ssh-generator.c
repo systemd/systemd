@@ -135,6 +135,7 @@ static int write_socket_unit(
                 const char *unit,
                 const char *listen_stream,
                 const char *comment,
+                const char *extra,
                 bool with_ssh_access_target_dependency) {
 
         int r;
@@ -172,6 +173,9 @@ static int write_socket_unit(
                 "PollLimitIntervalSec=30s\n"
                 "PollLimitBurst=50\n",
                 listen_stream);
+
+        if (extra)
+                fputs(extra, f);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -246,6 +250,8 @@ static int add_vsock_socket(
                         "sshd-vsock.socket",
                         "vsock::22",
                         "AF_VSOCK",
+                        "ExecStartPost=/usr/lib/systemd/systemd-ssh-issue --make-vsock\n"
+                        "ExecStopPre=/usr/lib/systemd/systemd-ssh-issue --rm-vsock\n",
                         /* with_ssh_access_target_dependency= */ true);
         if (r < 0)
                 return r;
@@ -281,6 +287,7 @@ static int add_local_unix_socket(
                         "sshd-unix-local.socket",
                         "/run/ssh-unix-local/socket",
                         "AF_UNIX Local",
+                        /* extra= */ NULL,
                         /* with_ssh_access_target_dependency= */ false);
         if (r < 0)
                 return r;
@@ -337,6 +344,7 @@ static int add_export_unix_socket(
                         "sshd-unix-export.socket",
                         "/run/host/unix-export/ssh",
                         "AF_UNIX Export",
+                        /* extra= */ NULL,
                         /* with_ssh_access_target_dependency= */ true);
         if (r < 0)
                 return r;
@@ -388,6 +396,7 @@ static int add_extra_sockets(
                                 socket ?: "sshd-extra.socket",
                                 *i,
                                 *i,
+                                /* extra= */ NULL,
                                 /* with_ssh_access_target_dependency= */ true);
                 if (r < 0)
                         return r;
