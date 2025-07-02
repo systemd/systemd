@@ -182,6 +182,10 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "non-existent.service"}')
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": -1}}' )
 
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"cgroup": "/init.scope"}'
+invocation_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | .runtime.InvocationID' | grep -v null | tail -n 1)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"invocationID\": \"$invocation_id\"}"
+
 # test io.systemd.Manager in user manager
 testuser_uid=$(id -u testuser)
 systemd-run --wait --pipe --user --machine testuser@ \
