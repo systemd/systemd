@@ -384,6 +384,10 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r != 0)
                 return r;
 
+        /* ensure that only one of the input parameters can be used */
+        if ((!!p.name + !!pidref_is_set(&p.pidref) + !!p.cgroup + !sd_id128_is_null(p.invocation_id)) > 1)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TOO_MANY_PARAMETERS, NULL);
+
         if (p.name) {
                 Unit *unit = manager_get_unit(manager, p.name);
                 if (!unit)
