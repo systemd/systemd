@@ -43,7 +43,7 @@ int manager_read_utmp(Manager *m) {
                 if (!pid_is_valid(u->ut_pid))
                         continue;
 
-                t = strndup(u->ut_line, sizeof(u->ut_line));
+                t = memdup_suffix0(u->ut_line, sizeof(u->ut_line));
                 if (!t)
                         return log_oom();
 
