@@ -29,7 +29,7 @@ _journalctl_none() {
     _commands=( ${(f)"$(_call_program commands "$service $_sys_service_mgr -F _EXE" 2>/dev/null)"} )
     _jrnl_none='yes'
     _alternative : \
-        'files:/dev files:_files -W /dev -P /dev/' \
+        'files:/dev files:_files -W /dev ' \
         'commands:commands:compadd -a _commands' \
         'fields:fields:_journalctl_fields'
 }
