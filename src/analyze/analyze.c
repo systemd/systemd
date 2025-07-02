@@ -45,6 +45,7 @@
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
+#include "analyze-unit-shell.h"
 #include "analyze-verify.h"
 #include "build.h"
 #include "bus-error.h"
@@ -215,6 +216,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]         Analyze security of unit\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
+               "  unit-shell SERVICE [Command]\n"
+               "                             Run command on the namespace of the service\n"
                "\n%3$sExecutable Analysis:%4$s\n"
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
                "\n%3$sTPM Operations:%4$s\n"
@@ -357,13 +360,67 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int r, c;
+        bool reorder = false;
+        int r, c, unit_shell = -1;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hqH:M:U:m", options, NULL)) >= 0)
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+; at the beginning). */
+        optind = 0;
+
+        for (;;) {
+                static const char option_string[] = "-hqH:M:U:m";
+
+                c = getopt_long(argc, argv, option_string + reorder, options, NULL);
+                if (c < 0)
+                        break;
+
                 switch (c) {
+
+                case 1: /* getopt_long() returns 1 if "-" was the first character of the option string, and a
+                         * non-option argument was discovered. */
+
+                        assert(!reorder);
+
+                        /* We generally are fine with the fact that getopt_long() reorders the command line, and looks
+                         * for switches after the main verb. However, for "unit-shell" we really don't want that, since we
+                         * want that switches specified after the service name are passed to the program to execute,
+                         * and not processed by us. To make this possible, we'll first invoke getopt_long() with
+                         * reordering disabled (i.e. with the "-" prefix in the option string), looking for the first
+                         * non-option parameter. If it's the verb "unit-shell" we remember its position and continue
+                         * processing options. In this case, as soon as we hit the next non-option argument we found
+                         * the service name, and stop further processing. If the first non-option argument is any other
+                         * verb than "unit-shell" we switch to normal reordering mode and continue processing arguments
+                         * normally. */
+
+                        if (unit_shell >= 0) {
+                                optind--; /* don't processs this argument, go one step back */
+                                goto done;
+                        }
+                        if (streq(optarg, "unit-shell"))
+                                /* Remember the position of the "unit_shell" verb, and continue processing normally. */
+                                unit_shell = optind - 1;
+                        else {
+                                int saved_optind;
+
+                                /* Ok, this is some other verb. In this case, turn on reordering again,and continue
+                                 * processing normally. */
+                                reorder = true;
+
+                                /* We changed the option string. getopt_long() only looks at it again if we invoke it
+                                 * at least once with a reset option index. Hence, let's reset the option index here,
+                                 * then invoke getopt_long() again (ignoring what it has to say, after all we most
+                                 * likely already processed it), and the bump the option index so that we read the
+                                 * intended argument again. */
+                                saved_optind = optind;
+                                optind = 0;
+                                (void) getopt_long(argc, argv, option_string + reorder, options, NULL);
+                                optind = saved_optind - 1; /* go one step back, process this argument again */
+                        }
+
+                        break;
 
                 case 'h':
                         return help(0, NULL, NULL);
@@ -576,6 +633,22 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+        }
+
+done:
+        if (unit_shell >= 0) {
+                char *t;
+
+                /* We found the "unit-shell" verb while processing the argument list. Since we turned off reordering of the
+                 * argument list initially let's readjust it now, and move the "unit-shell" verb to the back. */
+
+                optind -= 1; /* place the option index where the "unit-shell" verb will be placed */
+
+                t = argv[unit_shell];
+                for (int i = unit_shell; i < optind; i++)
+                        argv[i] = argv[i+1];
+                argv[optind] = t;
+        }
 
         if (arg_offline && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -658,6 +731,7 @@ static int run(int argc, char *argv[]) {
                 { "cat-config",        2,        VERB_ANY, 0,            verb_cat_config        },
                 { "unit-files",        VERB_ANY, VERB_ANY, 0,            verb_unit_files        },
                 { "unit-paths",        1,        1,        0,            verb_unit_paths        },
+                { "unit-shell",        2,        VERB_ANY, 0,            verb_unit_shell        },
                 { "exit-status",       VERB_ANY, VERB_ANY, 0,            verb_exit_status       },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            verb_syscall_filters   },
                 { "capability",        VERB_ANY, VERB_ANY, 0,            verb_capabilities      },
