@@ -38,6 +38,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(leader,                  SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The leader PID as ProcessId structure. If both the leader and leaderProcessId parameters are specified they must reference the same process. Typically one would only specify one or the other however. It's generally recommended to specify leaderProcessId as it references a process in a robust way without risk of identifier recycling."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(leaderProcessId, ProcessId,         SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The supervisor PID as simple positive integer."),
+                SD_VARLINK_DEFINE_INPUT(supervisor,              SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The supervisor PID as ProcessId structure. If both the supervisor and supervisorProcessId parameters are specified they must reference the same process. Typically only one or the other would be specified. It's generally recommended to specify supervisorProcessId as it references a process in a robust way without risk of identifier recycling."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(supervisorProcessId, ProcessId,         SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(rootDirectory,           SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(ifIndices,               SD_VARLINK_INT,    SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(vSockCid,                SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
@@ -58,7 +62,7 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_METHOD(
                 Kill,
                 VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
-                SD_VARLINK_FIELD_COMMENT("Identifier that specifies what precisely to send the signal to (either 'leader' or 'all')."),
+                SD_VARLINK_FIELD_COMMENT("Identifier that specifies what precisely to send the signal to (either 'leader', 'supervisor', or 'all')."),
                 SD_VARLINK_DEFINE_INPUT(whom, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Numeric UNIX signal integer."),
                 SD_VARLINK_DEFINE_INPUT(signal, SD_VARLINK_INT, 0));
@@ -79,6 +83,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT(class, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Leader process PID of this machine"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(leader, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Supervisor process PID of this machine"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(supervisor, ProcessId, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Root directory of this machine, if known, relative to host file system"),
                 SD_VARLINK_DEFINE_OUTPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The service manager unit this machine resides in"),

@@ -595,12 +595,10 @@
       <varlistentry>
         <term><option>--kill-whom=</option></term>
 
-        <listitem><para>When used with <command>kill</command>, choose
-        which processes to kill. Must be one of
-        <option>leader</option>, or <option>all</option> to select
-        whether to kill only the leader process of the machine or all
-        processes of the machine. If omitted, defaults to
-        <option>all</option>.</para>
+        <listitem><para>When used with <command>kill</command>, choose which processes to kill. Must be one
+        of <option>leader</option>, <option>supervisor</option>, or <option>all</option> to select whether to
+        kill only the leader process of the machine, the supervisor process of the machine, or all processes
+        of the machine. If omitted, defaults to <option>all</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
