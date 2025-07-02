@@ -1353,7 +1353,7 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
                 return log_error_errno(r, "Failed to write JSON record to /etc/userdb/%s: %m", fn);
 
         if (symlinkat(fn, userdb_dir_fd, link) < 0)
-                return log_error_errno(errno, "Failed to create symlink from %s to %s", link, fn);
+                return log_error_errno(errno, "Failed to create symlink from %s to %s: %m", link, fn);
 
         log_info("Installed /etc/userdb/%s from credential.", fn);
 
@@ -1384,7 +1384,7 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
                 }
 
                 if (symlinkat(fn, userdb_dir_fd, link) < 0)
-                        return log_error_errno(errno, "Failed to create symlink from %s to %s", link, fn);
+                        return log_error_errno(errno, "Failed to create symlink from %s to %s: %m", link, fn);
 
                 log_info("Installed /etc/userdb/%s from credential.", fn);
         }
