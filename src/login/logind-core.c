@@ -376,15 +376,36 @@ int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret) 
         if (!pidref_is_set(pid))
                 return -EINVAL;
 
+        r = manager_get_session_by_leader(m, pid, ret);
+        if (r != 0)
+                return r;
+
+        r = cg_pidref_get_unit(pid, &unit);
+        if (r < 0)
+                return r;
+
+        s = hashmap_get(m->session_units, unit);
+
+        if (ret)
+                *ret = s;
+
+        return !!s;
+}
+
+int manager_get_session_by_leader(Manager *m, const PidRef *pid, Session **ret) {
+        Session *s;
+        int r;
+
+        assert(m);
+
+        if (!pidref_is_set(pid))
+                return -EINVAL;
+
         s = hashmap_get(m->sessions_by_leader, pid);
         if (s) {
                 r = pidref_verify(pid);
                 if (r < 0)
                         return r;
-        } else {
-                r = cg_pidref_get_unit(pid, &unit);
-                if (r >= 0)
-                        s = hashmap_get(m->session_units, unit);
         }
 
         if (ret)
