@@ -13,8 +13,6 @@
 #include "sysctl-util.h"
 #include "tests.h"
 
-static bool support_rta_via = false;
-
 static void print_local_addresses(const struct local_address *a, size_t n) {
         FOREACH_ARRAY(i, a, n)
                 log_debug("%s ifindex=%i scope=%u priority=%"PRIu32" weight=%"PRIu32" address=%s",
@@ -136,7 +134,7 @@ static void check_local_gateways(sd_netlink *rtnl, int ifindex, int request_ifin
                                             .family = AF_INET6,
                                             .address = u,
                                     }),
-                  family == AF_UNSPEC && support_rta_via);
+                  family == AF_UNSPEC);
 
         ASSERT_OK(in_addr_from_string(AF_INET6, "2001:db8:1:123::1", &u));
         ASSERT_EQ(has_local_address(a, n,
@@ -176,7 +174,7 @@ static void check_local_outbounds(sd_netlink *rtnl, int ifindex, int request_ifi
                                             .family = AF_INET6,
                                             .address = u,
                                     }),
-                  family == AF_UNSPEC && support_rta_via);
+                  family == AF_UNSPEC);
 
         ASSERT_OK(in_addr_from_string(AF_INET6, ipv6_expected, &u));
         ASSERT_EQ(has_local_address(a, n,
@@ -282,12 +280,7 @@ TEST(local_addresses_with_dummy) {
                                                          .address = u,
                                                  }, sizeof(RouteVia)));
         ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
-        r = sd_netlink_call(rtnl, message, 0, NULL);
-        if (r == -EINVAL)
-                log_debug_errno(r, "RTA_VIA is not supported, ignoring: %m");
-        else
-                ASSERT_OK(r);
-        support_rta_via = r >= 0;
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
         /* Add an IPv6 default gateway */
