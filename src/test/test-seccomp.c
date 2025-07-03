@@ -21,7 +21,6 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "memory-util.h"
-#include "missing_syscall.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "process-util.h"

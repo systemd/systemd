@@ -840,7 +840,7 @@ static int copy_fs_verity(int fdf, int *fdt) {
         /* Okay. We're doing this now. We need to re-open fdt as read-only because
          * we can't enable fs-verity while writable file descriptors are outstanding. */
         _cleanup_close_ int reopened_fd = -EBADF;
-        r = fd_reopen_condition(*fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_ACCMODE_STRICT|O_PATH, &reopened_fd);
+        r = fd_reopen_condition(*fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_ACCMODE|O_PATH, &reopened_fd);
         if (r < 0)
                 return r;
         if (reopened_fd >= 0)
