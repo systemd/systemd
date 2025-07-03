@@ -3284,16 +3284,22 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
 }
 
 static int presets_find_config(RuntimeScope scope, const char *root_dir, char ***files) {
+        static const char* const initrd_dirs[] = { CONF_PATHS("systemd/initrd-preset"), NULL };
         static const char* const system_dirs[] = { CONF_PATHS("systemd/system-preset"), NULL };
         static const char* const user_dirs[] = { CONF_PATHS("systemd/user-preset"), NULL };
         const char* const* dirs;
+        int r;
 
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
 
-        if (scope == RUNTIME_SCOPE_SYSTEM)
-                dirs = system_dirs;
-        else if (IN_SET(scope, RUNTIME_SCOPE_GLOBAL, RUNTIME_SCOPE_USER))
+        if (scope == RUNTIME_SCOPE_SYSTEM) {
+                r = chase_and_access("/etc/initrd-release", root_dir, CHASE_PREFIX_ROOT, F_OK, /* ret_path= */ NULL);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                dirs = r >= 0 ? initrd_dirs : system_dirs;
+        } else if (IN_SET(scope, RUNTIME_SCOPE_GLOBAL, RUNTIME_SCOPE_USER))
                 dirs = user_dirs;
         else
                 assert_not_reached();

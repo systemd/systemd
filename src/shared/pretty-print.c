@@ -372,7 +372,7 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
         } else if (path_equal(n, "systemd/relabel-extra.d")) {
                 coll = run = true;
                 ext = ".relabel";
-        } else if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
+        } else if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset", "systemd/initrd-preset")) {
                 coll = true;
                 ext = ".preset";
         }
