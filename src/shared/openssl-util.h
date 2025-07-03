@@ -38,7 +38,9 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #  include <openssl/opensslv.h>
 #  include <openssl/pkcs7.h>
 #  include <openssl/ssl.h>
-#  include <openssl/ui.h>
+#  ifndef OPENSSL_NO_UI_CONSOLE
+#    include <openssl/ui.h>
+#  endif
 #  include <openssl/x509v3.h>
 #  ifndef OPENSSL_VERSION_MAJOR
 /* OPENSSL_VERSION_MAJOR macro was added in OpenSSL 3. Thus, if it doesn't exist,  we must be before OpenSSL 3. */
