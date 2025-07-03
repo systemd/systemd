@@ -136,16 +136,23 @@ static int files_add(
                         continue;
                 }
 
-                /* Is this node a regular file? */
-                if (FLAGS_SET(flags, CONF_FILES_REGULAR) && !S_ISREG(st.st_mode)) {
-                        log_debug("Ignoring '%s/%s', as it is not a regular file.", root, skip_leading_slash(p));
-                        continue;
-                }
+                if (FLAGS_SET(flags, CONF_FILES_REGULAR|CONF_FILES_DIRECTORY)) {
+                        if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
+                                log_debug("Ignoring '%s/%s', as it is neither a regular file or directory.", root, skip_leading_slash(p));
+                                continue;
+                        }
+                } else {
+                        /* Is this node a regular file? */
+                        if (FLAGS_SET(flags, CONF_FILES_REGULAR) && !S_ISREG(st.st_mode)) {
+                                log_debug("Ignoring '%s/%s', as it is not a regular file.", root, skip_leading_slash(p));
+                                continue;
+                        }
 
-                /* Is this node a directory? */
-                if (FLAGS_SET(flags, CONF_FILES_DIRECTORY) && !S_ISDIR(st.st_mode)) {
-                        log_debug("Ignoring '%s/%s', as it is not a directory.", root, skip_leading_slash(p));
-                        continue;
+                        /* Is this node a directory? */
+                        if (FLAGS_SET(flags, CONF_FILES_DIRECTORY) && !S_ISDIR(st.st_mode)) {
+                                log_debug("Ignoring '%s/%s', as it is not a directory.", root, skip_leading_slash(p));
+                                continue;
+                        }
                 }
 
                 /* Does this node have the executable bit set?
