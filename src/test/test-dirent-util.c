@@ -13,7 +13,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-TEST (test_dirent_ensure_type) {
+TEST(test_dirent_ensure_type) {
         int r, dir_fd;
         static struct dirent de = {
                 .d_type = DT_UNKNOWN,
@@ -35,7 +35,7 @@ TEST (test_dirent_ensure_type) {
         assert_se(de.d_type == DT_DIR);
 }
 
-TEST (test_dirent_is_file) {
+TEST(test_dirent_is_file) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         const char *name, *dotfile, *name_alias, *bakfile, *tilda;
         const struct dirent *de_reg, *de_lnk, *de_dot, *de_bak, *de_tilda;
@@ -111,7 +111,7 @@ TEST (test_dirent_is_file) {
         closedir(dir);
 }
 
-TEST (test_dirent_is_file_with_suffix) {
+TEST(test_dirent_is_file_with_suffix) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         const char *name, *dotfile, *name_alias, *dotdot, *chr;
         const struct dirent *de_reg, *de_lnk, *de_dot, *de_dotdot, *de_chr;
