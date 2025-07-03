@@ -7,7 +7,7 @@
 #include "escape.h"
 #include "event-util.h"
 #include "exit-status.h"
-#include "fork-journal.h"
+#include "fork-notify.h"
 #include "log.h"
 #include "notify-recv.h"
 #include "parse-util.h"
@@ -27,13 +27,13 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
 
         if (si->si_code == CLD_EXITED) {
                 if (si->si_status == EXIT_SUCCESS)
-                        log_debug("journalctl " PID_FMT " exited successfully.", si->si_pid);
+                        log_debug("Child process " PID_FMT " exited successfully.", si->si_pid);
                 else
-                        log_debug("journalctl " PID_FMT " died with a failure exit status %i, ignoring.", si->si_pid, si->si_status);
+                        log_debug("Child process " PID_FMT " died with a failure exit status %i, ignoring.", si->si_pid, si->si_status);
         } else if (si->si_code == CLD_KILLED)
-                log_debug("journalctl " PID_FMT " was killed by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
+                log_debug("Child process " PID_FMT " was killed by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
         else if (si->si_code == CLD_DUMPED)
-                log_debug("journalctl " PID_FMT " dumped core by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
+                log_debug("Child process " PID_FMT " dumped core by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
         else
                 log_debug("Got unexpected exit code %i via SIGCHLD, ignoring.", si->si_code);
 
@@ -87,18 +87,14 @@ static int on_child_notify(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref) {
+int fork_notify(char * const *argv, PidRef *ret_pidref) {
         int r;
 
-        assert(scope >= 0);
-        assert(scope < _RUNTIME_SCOPE_MAX);
+        assert(!strv_isempty(argv));
         assert(ret_pidref);
 
         if (!is_main_thread())
                 return -EPERM;
-
-        if (strv_isempty(units))
-                return 0;
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         r = sd_event_new(&event);
@@ -123,22 +119,6 @@ int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref) {
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **argv = strv_new(
-                        "journalctl",
-                        "-q",
-                        "--follow",
-                        "--no-pager",
-                        "--lines=1",
-                        "--synchronize-on-exit=yes");
-        if (!argv)
-                return log_oom_debug();
-
-        STRV_FOREACH(u, units)
-                if (strv_extendf(&argv,
-                                 scope == RUNTIME_SCOPE_SYSTEM ? "--unit=%s" : "--user-unit=%s",
-                                 *u) < 0)
-                        return log_oom_debug();
-
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *l = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
                 log_debug("Invoking '%s' as child.", strnull(l));
@@ -147,7 +127,7 @@ int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref) {
         BLOCK_SIGNALS(SIGCHLD);
 
         r = pidref_safe_fork_full(
-                        "(journalctl)",
+                        "(fork-notify)",
                         (const int[3]) { -EBADF, STDOUT_FILENO, STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
@@ -164,7 +144,7 @@ int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref) {
                 }
 
                 r = invoke_callout_binary(argv[0], argv);
-                log_debug_errno(r, "Failed to invoke journalctl: %m");
+                log_debug_errno(r, "Failed to invoke %s: %m", argv[0]);
                 _exit(EXIT_EXEC);
         }
 
@@ -177,7 +157,7 @@ int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(child_event_source, "fork-journal-child");
+        (void) sd_event_source_set_description(child_event_source, "fork-notify-child");
 
         r = sd_event_loop(event);
         if (r < 0)
@@ -189,16 +169,66 @@ int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref) {
         return 0;
 }
 
-void journal_terminate(PidRef *pidref) {
+static void fork_notify_terminate_internal(PidRef *pidref) {
         int r;
 
         if (!pidref_is_set(pidref))
                 return;
 
         r = pidref_kill(pidref, SIGTERM);
-        if (r < 0)
-                log_debug_errno(r, "Failed to send SIGTERM to journalctl child " PID_FMT ", ignoring: %m", pidref->pid);
+        if (r != -ESRCH) {
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send SIGTERM to child " PID_FMT ", ignoring: %m", pidref->pid);
 
-        (void) pidref_wait_for_terminate_and_check("journalctl", pidref, /* flags= */ 0);
+                (void) pidref_wait_for_terminate_and_check(/* name= */ NULL, pidref, /* flags= */ 0);
+        }
+}
+
+void fork_notify_terminate(PidRef *pidref) {
+        fork_notify_terminate_internal(pidref);
         pidref_done(pidref);
+}
+
+void fork_notify_terminate_many(sd_event_source **array, size_t n) {
+        int r;
+
+        FOREACH_ARRAY(s, array, n) {
+                PidRef child;
+
+                r = event_source_get_child_pidref(*s, &child);
+                if (r >= 0)
+                        fork_notify_terminate_internal(&child);
+                else
+                        log_debug_errno(r, "Could not get pidref for event source: %m");
+
+                sd_event_source_unref(*s);
+        }
+
+        free(array);
+}
+
+int journal_fork(RuntimeScope scope, char * const* units, PidRef *ret_pidref) {
+        assert(scope >= 0);
+        assert(scope < _RUNTIME_SCOPE_MAX);
+
+        if (strv_isempty(units))
+                return 0;
+
+        _cleanup_strv_free_ char **argv = strv_new(
+                        "journalctl",
+                        "-q",
+                        "--follow",
+                        "--no-pager",
+                        "--lines=1",
+                        "--synchronize-on-exit=yes");
+        if (!argv)
+                return log_oom_debug();
+
+        STRV_FOREACH(u, units)
+                if (strv_extendf(&argv,
+                                 scope == RUNTIME_SCOPE_SYSTEM ? "--unit=%s" : "--user-unit=%s",
+                                 *u) < 0)
+                        return log_oom_debug();
+
+        return fork_notify(argv, ret_pidref);
 }
