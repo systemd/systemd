@@ -494,17 +494,14 @@ static int run(int argc, char **argv) {
         if (n == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No sockets to listen on specified or passed in.");
 
-        /* Notify the caller that all sockets are open now. We only do this in --accept mode however,
-         * since otherwise our process will be replaced and it's better to leave the readiness notify
-         * to the actual payload. */
-        _unused_ _cleanup_(notify_on_cleanup) const char *notify = NULL;
         if (arg_accept) {
                 r = install_chld_handler();
                 if (r < 0)
                         return r;
-
-                notify = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
         }
+
+        /* Notify the caller that all sockets are open now. */
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         for (;;) {
                 struct epoll_event event;
