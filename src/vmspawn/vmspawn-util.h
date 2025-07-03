@@ -28,6 +28,12 @@
 #endif
 
 #if defined(__x86_64__) || defined(__i386__)
+#  define ARCHITECTURE_SUPPORTS_HPET 1
+#else
+#  define ARCHITECTURE_SUPPORTS_HPET 0
+#endif
+
+#if defined(__x86_64__) || defined(__i386__)
 #  define QEMU_MACHINE_TYPE "q35"
 #elif defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch64)
 #  define QEMU_MACHINE_TYPE "virt"
