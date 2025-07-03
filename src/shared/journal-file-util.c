@@ -9,6 +9,7 @@
 #include "chattr-util.h"
 #include "copy.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "log.h"
