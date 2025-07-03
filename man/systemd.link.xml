@@ -413,7 +413,7 @@
         <term><varname>UnsetProperty=</varname></term>
         <listitem>
           <para>Unset specified udev properties. This takes space separated list of
-          property names. Example: <programlisting>ImportProperty=HOGE BAR</programlisting>
+          property names. Example: <programlisting>UnsetProperty=HOGE BAR</programlisting>
           This option supports simple specifier expansion, see the Specifiers section below.
           This option can be specified multiple times. If an empty string is assigned, then the all previous
           assignments are cleared.</para>
