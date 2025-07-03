@@ -2355,11 +2355,29 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
 
+        /* qemu turns on O_NONBLOCK for stdin, stdout and stderr. Because a forked process only receives
+         * dupped file descriptors of stdin/stdout/stderr, this also affects the calling processes when they
+         * try to read/write to stdin/stdout/stderr, so let's give qemu proper reopened copies of
+         * stdin/stdout/stderr to avoid it from messing with our own or our callers stdio. */
+
+        int stdio_fds[3];
+        stdio_fds[STDIN_FILENO] = r = fd_reopen(STDIN_FILENO, O_RDONLY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reopen stdin file descriptor: %m");
+
+        stdio_fds[STDOUT_FILENO] = r = fd_reopen(STDOUT_FILENO, O_WRONLY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reopen stdout file descriptor: %m");
+
+        stdio_fds[STDERR_FILENO] = r = fd_reopen(STDERR_FILENO, O_WRONLY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reopen stderr file descriptor: %m");
+
         r = pidref_safe_fork_full(
                         qemu_binary,
-                        /* stdio_fds= */ NULL,
+                        stdio_fds,
                         pass_fds, n_pass_fds,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &child_pidref);
         if (r < 0)
                 return r;
