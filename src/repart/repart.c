@@ -414,6 +414,7 @@ typedef struct Partition {
         EncryptMode encrypt;
         Tpm2PCRValue *tpm2_hash_pcr_values;
         size_t tpm2_n_hash_pcr_values;
+        char *tpm2_device;
         VerityMode verity;
         char *verity_match_key;
         MinimizeMode minimize;
@@ -2599,6 +2600,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
                 { "Partition", "Tpm2Pcrs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
+                { "Partition", "Tpm2Device",               config_parse_string,            0,                                  &p->tpm2_device              },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
@@ -4889,7 +4891,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Must provide all PCR values when using TPM2 device key.");
                 } else {
-                        r = tpm2_context_new_or_warn(arg_tpm2_device, &tpm2_context);
+                        char *tpm2_device = p->tpm2_device ? p->tpm2_device : arg_tpm2_device;
+
+                        r = tpm2_context_new_or_warn(tpm2_device, &tpm2_context);
                         if (r < 0)
                                 return r;
 
