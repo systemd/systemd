@@ -25,6 +25,7 @@
 #include <sys/ioctl.h>
 
 #include "build.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -73,8 +74,13 @@ static int run(int argc, char** argv) {
                 return r;
 
         mtd_fd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (mtd_fd < 0)
-                return log_error_errno(errno, "Failed to open: %m");
+        if (mtd_fd < 0) {
+                bool ignore = ERRNO_IS_DEVICE_ABSENT(errno);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to open device node '%s'%s: %m",
+                               argv[1], ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
+        }
 
         if (ioctl(mtd_fd, MEMGETINFO, &mtd_info) < 0)
                 return log_error_errno(errno, "MEMGETINFO ioctl failed: %m");

@@ -121,8 +121,13 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                 return 0;
 
         _cleanup_close_ int fd = sd_device_open(dev, O_CLOEXEC|O_PATH);
-        if (fd < 0)
-                return log_device_error_errno(dev, fd, "Failed to open device node: %m");
+        if (fd < 0) {
+                bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+                log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
+                                      "Failed to open device node%s: %m",
+                                      ignore ? ", ignoring" : "");
+                return ignore ? 0 : fd;
+        }
 
         const char *seat;
         r = device_get_seat(dev, &seat);
