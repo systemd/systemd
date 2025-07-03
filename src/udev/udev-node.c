@@ -735,7 +735,7 @@ int static_node_apply_permissions(
 
         node_fd = open(devnode, O_PATH|O_CLOEXEC);
         if (node_fd < 0) {
-                if (errno != ENOENT)
+                if (!ERRNO_IS_DEVICE_ABSENT(errno))
                         return log_error_errno(errno, "Failed to open %s: %m", devnode);
                 return 0;
         }
