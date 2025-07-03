@@ -5507,6 +5507,20 @@ static int run_container(
                         return log_error_errno(r, "Failed to request RequestStop match: %m");
         }
 
+        if (arg_keep_unit) {
+                /* If we are not supposed to allocate a unit, then let's move the process now, so that we can
+                 * register things while being in the right cgroup location already. Otherwise, let's move
+                 * the process later, once we have unit and hence cgroup. */
+                r = create_subcgroup(
+                                pid,
+                                arg_keep_unit,
+                                arg_uid_shift,
+                                userns_fd,
+                                arg_userns_mode);
+                if (r < 0)
+                        return r;
+        }
+
         bool scope_allocated = false;
         if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
                 AllocateScopeFlags flags = ALLOCATE_SCOPE_ALLOW_PIDFD;
@@ -5555,14 +5569,16 @@ static int run_container(
         if (arg_keep_unit && (arg_slice || arg_property))
                 log_notice("Machine and scope registration turned off, --slice= and --property= settings will have no effect.");
 
-        r = create_subcgroup(
-                        pid,
-                        arg_keep_unit,
-                        arg_uid_shift,
-                        userns_fd,
-                        arg_userns_mode);
-        if (r < 0)
-                return r;
+        if (!arg_keep_unit) {
+                r = create_subcgroup(
+                                pid,
+                                arg_keep_unit,
+                                arg_uid_shift,
+                                userns_fd,
+                                arg_userns_mode);
+                if (r < 0)
+                        return r;
+        }
 
         /* Notify the child that the parent is ready with all its setup (including cgroup-ification), and
          * that the child can now hand over control to the code to run inside the container. */
