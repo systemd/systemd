@@ -170,7 +170,7 @@ static int access_init(sd_bus_error *error) {
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_access_check_internal(
+int mac_selinux_access_check_bus_internal(
                 sd_bus_message *message,
                 const Unit *unit,
                 const char *permission,
@@ -268,7 +268,7 @@ int mac_selinux_access_check_internal(
 
 #else /* HAVE_SELINUX */
 
-int mac_selinux_access_check_internal(
+int mac_selinux_access_check_bus_internal(
                 sd_bus_message *message,
                 const Unit *unit,
                 const char *permission,
