@@ -66,7 +66,7 @@ int cpuset_build_json(sd_json_variant **ret, const char *name, void *userdata) {
 
         r = cpu_set_to_dbus(cpuset, &array, &allocated);
         if (r < 0)
-                return log_debug_errno(r, "Failed to call cpu_set_to_dbus(): %m");
+                return log_debug_errno(r, "Failed to serialize cpu set to dbus: %m");
 
         if (allocated == 0)
                 goto empty;
