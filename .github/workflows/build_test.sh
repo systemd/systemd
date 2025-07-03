@@ -43,7 +43,6 @@ PACKAGES=(
     libqrencode-dev
     libssl-dev
     libtss2-dev
-    libxen-dev
     libxkbcommon-dev
     libxtables-dev
     libzstd-dev
@@ -68,6 +67,10 @@ COMPILER="${COMPILER:?}"
 COMPILER_VERSION="${COMPILER_VERSION:?}"
 LINKER="${LINKER:?}"
 RELEASE="$(lsb_release -cs)"
+
+if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "x86_64" ]; then
+    PACKAGES+=(libxen-dev)
+fi
 
 # Note: As we use postfixed clang/gcc binaries, we need to override $AR
 #       as well, otherwise meson falls back to ar from binutils which
@@ -109,7 +112,11 @@ elif [[ "$COMPILER" == gcc ]]; then
         sudo add-apt-repository -y --no-update ppa:ubuntu-toolchain-r/test
     fi
 
-    PACKAGES+=("gcc-$COMPILER_VERSION" "gcc-$COMPILER_VERSION-multilib")
+    PACKAGES+=("gcc-$COMPILER_VERSION")
+    if [ "$(uname -m)" = "x86_64" ]; then
+        # Only needed for ia32 EFI builds
+        PACKAGES+=("gcc-$COMPILER_VERSION-multilib")
+    fi
 else
     fatal "Unknown compiler: $COMPILER"
 fi
