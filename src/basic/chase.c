@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/magic.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -370,8 +371,16 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         continue;
                 }
 
-                /* Otherwise let's see what this is. */
-                child = r = RET_NERRNO(openat(fd, first, O_CLOEXEC|O_NOFOLLOW|O_PATH));
+                /* Otherwise let's pin it by file descriptor, via O_PATH. Sounds pretty obvious to do this,
+                 * right? You just do open() with O_PATH, and there you go. But uh, it's not that
+                 * easy. open() via O_PATH does not trigger automounts, but we usually want that (except if
+                 * CHASE_NO_AUTOFS is used). But thankfully there's a way out: the newer open_tree() call,
+                 * when specified without OPEN_TREE_CLONE actually is fully equivalent to open() with O_PATH
+                 * – except for one thing: it triggers automounts. */
+                if (FLAGS_SET(flags, CHASE_NO_AUTOFS))
+                        child = r = RET_NERRNO(openat(fd, first, O_CLOEXEC|O_NOFOLLOW|O_PATH));
+                else
+                        child = r = RET_NERRNO(open_tree(fd, first, AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLOEXEC));
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
