@@ -1331,6 +1331,12 @@ libopenssl = dependency('openssl',
                         version : '>= 1.1.0',
                         required : get_option('openssl'))
 conf.set10('HAVE_OPENSSL', libopenssl.found())
+if libopenssl.found()
+        have = cc.has_header('openssl/ui.h') and cc.has_function('UI_OpenSSL', prefix : '''#include <openssl/ui.h>''', dependencies : libopenssl)
+else
+        have = false
+endif
+conf.set10('HAVE_OPENSSL_UI', have)
 
 libp11kit = dependency('p11-kit-1',
                        version : '>= 0.23.3',

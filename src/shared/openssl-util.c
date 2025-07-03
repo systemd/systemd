@@ -24,7 +24,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
 REENABLE_WARNING;
 #  endif
 
+#if HAVE_OPENSSL_UI
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UI_METHOD*, UI_destroy_method, NULL);
+#endif
 
 /* For each error in the OpenSSL thread error queue, log the provided message and the OpenSSL error
  * string. If there are no errors in the OpenSSL thread queue, this logs the message with "No OpenSSL
@@ -1467,6 +1469,7 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
 #endif
 }
 
+#if HAVE_OPENSSL_UI
 static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
         int r;
 
@@ -1502,6 +1505,7 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
                 return (UI_method_get_reader(UI_OpenSSL()))(ui, uis);
         }
 }
+#endif
 
 static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) {
         _cleanup_(erase_and_freep) char *rawkey = NULL;
@@ -1539,6 +1543,7 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
 static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret) {
         assert(ret);
 
+#if HAVE_OPENSSL_UI
         _cleanup_(UI_destroy_methodp) UI_METHOD *method = UI_create_method("systemd-ask-password");
         if (!method)
                 return log_openssl_errors("Failed to initialize openssl user interface");
@@ -1562,6 +1567,9 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
 
         *ret = TAKE_PTR(ui);
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int load_x509_certificate_from_file(const char *path, X509 **ret) {
@@ -1640,7 +1648,7 @@ static int load_x509_certificate_from_provider(const char *provider, const char 
 #endif
 
 OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
-#if HAVE_OPENSSL
+#if HAVE_OPENSSL_UI
         if (!ui)
                 return NULL;
 
