@@ -868,6 +868,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Tpm2Device=</varname></term>
+        <term><varname>Tpm2Pcrs=</varname></term>
+
+        <listitem><para>Configures the TPM2 device and list of PCRs to use for LUKS2 volumes configured with
+        the <varname>Encrypt=tpm2</varname> option. These options take the same parameters as the identically
+        named options to
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and have the same effect on partitions where TPM2 enrollment is requested.
+        Configuring this option will override the <varname>--tpm2-pcrs=</varname> and <varname>--tpm2-device=</varname> options.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Compression=</varname></term>
 
         <listitem><para>Specifies the compression algorithm to use for the filesystem configured with
