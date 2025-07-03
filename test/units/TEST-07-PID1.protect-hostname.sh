@@ -22,7 +22,7 @@ testcase_yes() {
     (! systemd-run --wait -p ProtectHostname=yes hostname foo)
 
     # ProtectHostname=yes can optionally take a hostname.
-    systemd-run --wait -p ProtectHostnameEx=yes:hoge \
+    systemd-run --wait -p ProtectHostname=yes:hoge \
         -P bash -xec '
             test "$(hostname)" = "hoge"
             (! hostname foo)
@@ -50,10 +50,18 @@ EOF
 
     systemd-run --wait -p ProtectHostname=yes -p PrivateMounts=yes \
         findmnt --mountpoint /proc/sys/kernel/hostname
+
+    # Check that ProtectHostnameEx=… also works.
+    systemd-run --wait -p ProtectHostnameEx=yes:hoge \
+        -P bash -xec '
+            test "$(hostname)" = "hoge"
+            (! hostname foo)
+            test "$(hostname)" = "hoge"
+        '
 }
 
 testcase_private() {
-    systemd-run --wait -p ProtectHostnameEx=private \
+    systemd-run --wait -p ProtectHostname=private \
         -P bash -xec '
             hostname foo
             test "$(hostname)" = "foo"
@@ -64,7 +72,7 @@ testcase_private() {
     test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
 
     # ProtectHostname=private can optionally take a hostname.
-    systemd-run --wait -p ProtectHostnameEx=private:hoge \
+    systemd-run --wait -p ProtectHostname=private:hoge \
         -P bash -xec '
             test "$(hostname)" = "hoge"
             hostname foo
@@ -91,7 +99,7 @@ EOF
     test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
 
     # Verify /proc/sys/kernel/hostname is not bind mounted from host read-only.
-    (! systemd-run --wait -p ProtectHostnameEx=private -p PrivateMounts=yes \
+    (! systemd-run --wait -p ProtectHostname=private -p PrivateMounts=yes \
         findmnt --mountpoint /proc/sys/kernel/hostname)
 }
 
