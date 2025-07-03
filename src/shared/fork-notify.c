@@ -169,7 +169,7 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
         return 0;
 }
 
-void fork_notify_terminate(PidRef *pidref) {
+static void fork_notify_terminate_internal(PidRef *pidref) {
         int r;
 
         if (!pidref_is_set(pidref))
@@ -177,10 +177,34 @@ void fork_notify_terminate(PidRef *pidref) {
 
         r = pidref_kill(pidref, SIGTERM);
         if (r < 0 && r != -ESRCH)
-                log_debug_errno(r, "Failed to send SIGTERM to journalctl child " PID_FMT ", ignoring: %m", pidref->pid);
+                log_debug_errno(r, "Failed to send SIGTERM to child " PID_FMT ", ignoring: %m", pidref->pid);
 
         (void) pidref_wait_for_terminate_and_check(/* name= */ NULL, pidref, /* flags= */ 0);
+}
+
+void fork_notify_terminate(PidRef *pidref) {
+        fork_notify_terminate_internal(pidref);
         pidref_done(pidref);
+}
+
+void fork_notify_terminate_many(sd_event_source **array, size_t n) {
+        int r;
+
+        assert(array || n == 0);
+
+        FOREACH_ARRAY(s, array, n) {
+                PidRef child;
+
+                r = event_source_get_child_pidref(*s, &child);
+                if (r >= 0)
+                        fork_notify_terminate_internal(&child);
+                else
+                        log_debug_errno(r, "Could not get pidref for event source: %m");
+
+                sd_event_source_unref(*s);
+        }
+
+        free(array);
 }
 
 int journal_fork(RuntimeScope scope, char * const* units, PidRef *ret_pidref) {
