@@ -56,7 +56,7 @@ int manager_read_utmp(Manager *m) {
                 if (isempty(t))
                         continue;
 
-                if (manager_get_session_by_pidref(m, &PIDREF_MAKE_FROM_PID(u->ut_pid), &s) <= 0)
+                if (manager_get_session_by_leader(m, &PIDREF_MAKE_FROM_PID(u->ut_pid), &s) <= 0)
                         continue;
 
                 if (s->type != SESSION_TTY)
