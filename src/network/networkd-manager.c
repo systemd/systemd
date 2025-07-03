@@ -205,12 +205,13 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
-static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
+static int manager_listen_fds(Manager *m, int *ret_rtnl_fd, int *ret_varlink_fd) {
         _cleanup_strv_free_ char **names = NULL;
-        int n, rtnl_fd = -EBADF;
+        int n, rtnl_fd = -EBADF, varlink_fd = -EBADF;
 
         assert(m);
         assert(ret_rtnl_fd);
+        assert(ret_varlink_fd);
 
         n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
         if (n < 0)
@@ -221,11 +222,16 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
 
                 if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
                         if (rtnl_fd >= 0) {
-                                log_debug("Received multiple netlink socket, ignoring.");
+                                log_debug("Received multiple netlink sockets, ignoring.");
                                 goto unused;
                         }
 
                         rtnl_fd = fd;
+                        continue;
+                }
+
+                if (streq(names[i], "varlink")) {
+                        varlink_fd = fd;
                         continue;
                 }
 
@@ -243,6 +249,8 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
         }
 
         *ret_rtnl_fd = rtnl_fd;
+        *ret_varlink_fd = varlink_fd;
+
         return 0;
 }
 
@@ -513,7 +521,7 @@ static int manager_set_keep_configuration(Manager *m) {
 }
 
 int manager_setup(Manager *m) {
-        _cleanup_close_ int rtnl_fd = -EBADF;
+        _cleanup_close_ int rtnl_fd = -EBADF, varlink_fd = -EBADF;
         int r;
 
         assert(m);
@@ -537,7 +545,7 @@ int manager_setup(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = manager_listen_fds(m, &rtnl_fd);
+        r = manager_listen_fds(m, &rtnl_fd, &varlink_fd);
         if (r < 0)
                 return r;
 
@@ -552,7 +560,7 @@ int manager_setup(Manager *m) {
         if (m->test_mode)
                 return 0;
 
-        r = manager_connect_varlink(m);
+        r = manager_connect_varlink(m, TAKE_FD(varlink_fd));
         if (r < 0)
                 return r;
 

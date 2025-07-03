@@ -259,8 +259,9 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
-int manager_connect_varlink(Manager *m) {
+int manager_connect_varlink(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _unused_ _cleanup_close_ int fd_close = fd;
         int r;
 
         assert(m);
@@ -297,9 +298,14 @@ int manager_connect_varlink(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
-        r = sd_varlink_server_listen_address(s, "/run/systemd/netif/io.systemd.Network", 0666);
+        if (fd < 0)
+                r = sd_varlink_server_listen_address(s, "/run/systemd/netif/io.systemd.Network", /* mode= */ 0666);
+        else
+                r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
+
+        TAKE_FD(fd_close);
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -313,5 +319,4 @@ void manager_varlink_done(Manager *m) {
         assert(m);
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
-        (void) unlink("/run/systemd/netif/io.systemd.Network");
 }
