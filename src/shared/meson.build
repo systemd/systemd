@@ -69,6 +69,7 @@ shared_sources = files(
         'elf-util.c',
         'enable-mempool.c',
         'ethtool-util.c',
+        'exec-directory-util.c',
         'exec-util.c',
         'exit-status.c',
         'extension-util.c',

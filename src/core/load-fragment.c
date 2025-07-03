@@ -4602,6 +4602,48 @@ int config_parse_exec_directories(
         }
 }
 
+int config_parse_exec_quota(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        QuotaLimit *quota_limit = ASSERT_PTR(data);
+        uint64_t quota_absolute = UINT64_MAX;
+        uint32_t quota_scale = UINT32_MAX;
+        int r;
+
+        if (isempty(rvalue) || streq(rvalue, "off")) {
+                quota_limit->quota_enforce = false;
+                quota_limit->quota_absolute = UINT64_MAX;
+                quota_limit->quota_scale = UINT32_MAX;
+                return 0;
+        }
+
+        r = parse_permyriad(rvalue);
+        if (r < 0) {
+                r = parse_size(rvalue, 1024, &quota_absolute);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse disk quota value, ignoring: %s", rvalue);
+                        return 0;
+                }
+        } else
+                /* Normalize to 2^32-1 == 100% */
+                quota_scale = UINT32_SCALE_FROM_PERMYRIAD(r);
+
+        quota_limit->quota_absolute = quota_absolute;
+        quota_limit->quota_scale = quota_scale;
+        quota_limit->quota_enforce = true;
+
+        return 0;
+}
+
 int config_parse_set_credential(
                 const char *unit,
                 const char *filename,
