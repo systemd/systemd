@@ -29,6 +29,16 @@
                 <annotate key="org.freedesktop.policykit.exec.path">{{LIBEXECDIR}}/systemd-reply-password</annotate>
         </action>
 
+        <action id="org.freedesktop.systemd1.manage-owned-transient-units">
+                <description gettext-domain="systemd">Manage owned transient units</description>
+                <message gettext-domain="systemd">Authentication is required to manage owned transient units.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
         <action id="org.freedesktop.systemd1.manage-units">
                 <description gettext-domain="systemd">Manage system services or other units</description>
                 <message gettext-domain="systemd">Authentication is required to manage system services or other units.</message>
@@ -37,6 +47,7 @@
                         <allow_inactive>auth_admin</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.systemd1.manage-owned-transient-units</annotate>
         </action>
 
         <action id="org.freedesktop.systemd1.manage-unit-files">
