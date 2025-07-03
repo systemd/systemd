@@ -1123,18 +1123,11 @@ static int start_tpm(
         return 0;
 }
 
-static int start_systemd_journal_remote(
-                sd_bus *bus,
-                const char *scope,
-                unsigned port,
-                const char *sd_journal_remote,
-                char **ret_listen_address) {
-
+static int start_systemd_journal_remote(sd_bus *bus, const char *scope, unsigned port, char **ret_listen_address) {
         int r;
 
         assert(bus);
         assert(scope);
-        assert(sd_journal_remote);
 
         _cleanup_free_ char *scope_prefix = NULL;
         r = unit_name_to_prefix(scope, &scope_prefix);
@@ -1151,6 +1144,18 @@ static int start_systemd_journal_remote(
 
         if (asprintf(&ssp.listen_address, "vsock:2:%u", port) < 0)
                 return log_oom();
+
+        _cleanup_free_ char *sd_journal_remote = NULL;
+        r = find_executable_full(
+                        "systemd-journal-remote",
+                        /* root = */ NULL,
+                        STRV_MAKE(LIBEXECDIR),
+                        /* use_path_envvar = */ true, /* systemd-journal-remote should be installed in
+                                                        * LIBEXECDIR, but for supporting fancy setups. */
+                        &sd_journal_remote,
+                        /* ret_fd = */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
         ssp.exec_start = strv_new(
                         sd_journal_remote,
@@ -2197,20 +2202,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_forward_journal) {
-                _cleanup_free_ char *sd_journal_remote = NULL, *listen_address = NULL, *cred = NULL;
+                _cleanup_free_ char *listen_address = NULL, *cred = NULL;
 
-                r = find_executable_full(
-                                "systemd-journal-remote",
-                                /* root = */ NULL,
-                                STRV_MAKE(LIBEXECDIR),
-                                /* use_path_envvar = */ true, /* systemd-journal-remote should be installed in
-                                                               * LIBEXECDIR, but for supporting fancy setups. */
-                                &sd_journal_remote,
-                                /* ret_fd = */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
-
-                r = start_systemd_journal_remote(bus, trans_scope, child_cid, sd_journal_remote, &listen_address);
+                r = start_systemd_journal_remote(bus, trans_scope, child_cid, &listen_address);
                 if (r < 0)
                         return r;
 
