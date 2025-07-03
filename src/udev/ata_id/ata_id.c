@@ -16,6 +16,7 @@
 
 #include "build.h"
 #include "device-nodes.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -411,8 +412,13 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         fd = open(ASSERT_PTR(arg_device), O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return log_error_errno(errno, "Cannot open %s: %m", arg_device);
+        if (fd < 0) {
+                bool ignore = ERRNO_IS_DEVICE_ABSENT(errno);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to open device node '%s'%s: %m",
+                               arg_device, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
+        }
 
         if (disk_identify(fd, identify.byte, &peripheral_device_type) >= 0) {
                 /*

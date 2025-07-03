@@ -735,9 +735,11 @@ int static_node_apply_permissions(
 
         node_fd = open(devnode, O_PATH|O_CLOEXEC);
         if (node_fd < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open %s: %m", devnode);
-                return 0;
+                bool ignore = ERRNO_IS_DEVICE_ABSENT(errno);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to open device node '%s'%s: %m",
+                               devnode, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
         }
 
         if (fstat(node_fd, &stats) < 0)
