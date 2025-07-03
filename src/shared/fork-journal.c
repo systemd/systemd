@@ -196,7 +196,7 @@ void journal_terminate(PidRef *pidref) {
                 return;
 
         r = pidref_kill(pidref, SIGTERM);
-        if (r < 0)
+        if (r < 0 && r != -ESRCH)
                 log_debug_errno(r, "Failed to send SIGTERM to journalctl child " PID_FMT ", ignoring: %m", pidref->pid);
 
         (void) pidref_wait_for_terminate_and_check("journalctl", pidref, /* flags= */ 0);
