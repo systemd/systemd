@@ -16,7 +16,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_fcntl.h"
 #include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
@@ -971,7 +970,7 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
          *             and since we refuse O_PATH it should be safe.
          *
          * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
-         *                  See comment in missing_fcntl.h for more details about this.
+         *                  See comment in src/basic/include/fcntl.h for more details about this.
          *
          * If 'extra_flags' is specified as non-zero the included flags are also allowed.
          */

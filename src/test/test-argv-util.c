@@ -8,7 +8,6 @@
 #endif
 
 #include "argv-util.h"
-#include "missing_sched.h"
 #include "process-util.h"
 #include "tests.h"
 #include "virt.h"

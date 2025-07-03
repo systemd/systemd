@@ -25,7 +25,6 @@
 #include "json-util.h"
 #include "memstream-util.h"
 #include "missing_network.h"
-#include "missing_socket.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "random-util.h"
