@@ -77,6 +77,34 @@ static int log_prohibited_symlink(int fd, ChaseFlags flags) {
                                  strna(n1));
 }
 
+static int openat_opath_with_automount(int dir_fd, const char *path, bool automount) {
+        static bool can_open_tree = true;
+        int r;
+
+        /* Pin an inode via O_PATH semantics. Sounds pretty obvious to do this, right? You just do open()
+         * with O_PATH, and there you go. But uh, it's not that easy. open() via O_PATH does not trigger
+         * automounts, but we usually want that (except if CHASE_NO_AUTOFS is used). But thankfully there's
+         * a way out: the newer open_tree() call, when specified without OPEN_TREE_CLONE actually is fully
+         * equivalent to open() with O_PATH – except for one thing: it triggers automounts.
+         *
+         * As it turns out some sandboxes prohibit open_tree(), and return EPERM or ENOSYS if we call it.
+         * But since autofs does not work inside of mount namespace anyway, let's simply handle this
+         * as gracefully as we can, and fall back to classic openat() if we see EPERM/ENOSYS. */
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
+        if (automount && can_open_tree) {
+                r = RET_NERRNO(open_tree(dir_fd, path, AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLOEXEC));
+                if (r >= 0 || (r != -EPERM && !ERRNO_IS_NEG_NOT_SUPPORTED(r)))
+                        return r;
+
+                can_open_tree = false;
+        }
+
+        return RET_NERRNO(openat(dir_fd, path, O_PATH|O_NOFOLLOW|O_CLOEXEC));
+}
+
 static int chaseat_needs_absolute(int dir_fd, const char *path) {
         if (dir_fd < 0)
                 return path_is_absolute(path);
@@ -371,22 +399,8 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         continue;
                 }
 
-                /* Otherwise let's pin it by file descriptor, via O_PATH. Sounds pretty obvious to do this,
-                 * right? You just do open() with O_PATH, and there you go. But uh, it's not that
-                 * easy. open() via O_PATH does not trigger automounts, but we usually want that (except if
-                 * CHASE_NO_AUTOFS is used). But thankfully there's a way out: the newer open_tree() call,
-                 * when specified without OPEN_TREE_CLONE actually is fully equivalent to open() with O_PATH
-                 * – except for one thing: it triggers automounts.
-                 *
-                 * As it turns out some sandboxes prohibit open_tree(), and return EPERM or ENOSYS if we call
-                 * it. But since autofs does not work inside of mount namespace anyway, let's simply handle
-                 * this as gracefully as we can, and fall back to classic openat() if we see EPERM/ENOSYS. */
-                if (FLAGS_SET(flags, CHASE_NO_AUTOFS))
-                        r = -EPERM;
-                else
-                        child = r = RET_NERRNO(open_tree(fd, first, AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLOEXEC));
-                if (r == -EPERM || ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        child = r = RET_NERRNO(openat(fd, first, O_CLOEXEC|O_NOFOLLOW|O_PATH));
+                /* Otherwise let's pin it by file descriptor, via O_PATH. */
+                child = r = openat_opath_with_automount(fd, first, /* automount = */ !FLAGS_SET(flags, CHASE_NO_AUTOFS));
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
@@ -417,6 +431,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 return r;
                 }
 
+                /* ... and then check what it actually is. */
                 if (fstat(child, &st_child) < 0)
                         return -errno;
 
