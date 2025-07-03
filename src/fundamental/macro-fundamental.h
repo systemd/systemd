@@ -472,7 +472,7 @@ assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
 #define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
 
 /* In GCC 14 (C23) we can force enums to have the right types, and not solely rely on language extensions anymore */
-#if __GNUC__ >= 14 || __STDC_VERSION__ >= 202311L
+#if (__GNUC__ >= 14 || __STDC_VERSION__ >= 202311L) && !defined(__EDG__)
 #  define ENUM_TYPE_S64(id) id : int64_t
 #else
 #  define ENUM_TYPE_S64(id) id
