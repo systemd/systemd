@@ -411,6 +411,8 @@ typedef struct Partition {
         OrderedHashmap *subvolumes;
         char *default_subvolume;
         EncryptMode encrypt;
+        Tpm2PCRValue *tpm2_hash_pcr_values;
+        size_t tpm2_n_hash_pcr_values;
         VerityMode verity;
         char *verity_match_key;
         MinimizeMode minimize;
@@ -2457,6 +2459,37 @@ static int config_parse_encrypted_volume(
         return 0;
 }
 
+static int config_parse_tpm2_pcrs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *partition = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Clear existing PCR values if empty */
+                partition->tpm2_hash_pcr_values = mfree(partition->tpm2_hash_pcr_values);
+                partition->tpm2_n_hash_pcr_values = 0;
+                return 0;
+        }
+
+        r = tpm2_parse_pcr_argument_append(rvalue, &partition->tpm2_hash_pcr_values, &partition->tpm2_n_hash_pcr_values);
+        if (r < 0)
+                return 0;
+
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF);
 
@@ -2562,6 +2595,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
@@ -4805,8 +4839,10 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 ssize_t base64_encoded_size;
                 int keyslot;
                 TPM2Flags flags = 0;
+                Tpm2PCRValue *pcr_values = p->tpm2_n_hash_pcr_values > 0 ? p->tpm2_hash_pcr_values : arg_tpm2_hash_pcr_values;
+                size_t n_pcr_values = p->tpm2_n_hash_pcr_values > 0 ? p->tpm2_n_hash_pcr_values : arg_tpm2_n_hash_pcr_values;
 
-                if (arg_tpm2_n_hash_pcr_values == 0 &&
+                if (n_pcr_values == 0 &&
                     arg_tpm2_public_key_pcr_mask == 0 &&
                     !arg_tpm2_pcrlock)
                         log_notice("Notice: encrypting future partition %" PRIu64 ", locking against TPM2 with an empty policy, i.e. without any state or access restrictions.\n"
@@ -4846,7 +4882,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         if (r < 0)
                                 return r;
 
-                        if (!tpm2_pcr_values_has_all_values(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values))
+                        if (!tpm2_pcr_values_has_all_values(pcr_values, n_pcr_values))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Must provide all PCR values when using TPM2 device key.");
                 } else {
@@ -4854,8 +4890,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         if (r < 0)
                                 return r;
 
-                        if (!tpm2_pcr_values_has_all_values(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values)) {
-                                r = tpm2_pcr_read_missing_values(tpm2_context, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values);
+                        if (!tpm2_pcr_values_has_all_values(pcr_values, n_pcr_values)) {
+                                r = tpm2_pcr_read_missing_values(tpm2_context, pcr_values, n_pcr_values);
                                 if (r < 0)
                                         return log_error_errno(r, "Could not read pcr values: %m");
                         }
@@ -4863,17 +4899,17 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 uint16_t hash_pcr_bank = 0;
                 uint32_t hash_pcr_mask = 0;
-                if (arg_tpm2_n_hash_pcr_values > 0) {
+                if (n_pcr_values > 0) {
                         size_t hash_count;
-                        r = tpm2_pcr_values_hash_count(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, &hash_count);
+                        r = tpm2_pcr_values_hash_count(pcr_values, n_pcr_values, &hash_count);
                         if (r < 0)
                                 return log_error_errno(r, "Could not get hash count: %m");
 
                         if (hash_count > 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR banks selected.");
 
-                        hash_pcr_bank = arg_tpm2_hash_pcr_values[0].hash;
-                        r = tpm2_pcr_values_to_mask(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
+                        hash_pcr_bank = pcr_values[0].hash;
+                        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, hash_pcr_bank, &hash_pcr_mask);
                         if (r < 0)
                                 return log_error_errno(r, "Could not get hash mask: %m");
                 }
@@ -4886,8 +4922,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 /* If both PCR public key unlock and pcrlock unlock is selected, then shard the encryption key. */
                 r = tpm2_calculate_sealing_policy(
-                                arg_tpm2_hash_pcr_values,
-                                arg_tpm2_n_hash_pcr_values,
+                                pcr_values,
+                                n_pcr_values,
                                 iovec_is_set(&pubkey) ? &public : NULL,
                                 /* use_pin= */ false,
                                 arg_tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
@@ -4897,8 +4933,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 if (arg_tpm2_pcrlock && iovec_is_set(&pubkey)) {
                         r = tpm2_calculate_sealing_policy(
-                                        arg_tpm2_hash_pcr_values,
-                                        arg_tpm2_n_hash_pcr_values,
+                                        pcr_values,
+                                        n_pcr_values,
                                         /* public= */ NULL,      /* Turn this one off for the 2nd shard */
                                         /* use_pin= */ false,
                                         &pcrlock_policy,         /* But turn this one on */
