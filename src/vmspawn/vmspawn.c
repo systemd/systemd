@@ -1418,10 +1418,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                             "falling back to OVMF firmware blobs without Secure Boot support.");
 
         shm = arg_directory || arg_runtime_mounts.n_mounts != 0 ? ",memory-backend=mem" : "";
+        const char *hpet = ARCHITECTURE_SUPPORTS_HPET ? ",hpet=off" : "";
         if (ARCHITECTURE_SUPPORTS_SMM)
-                machine = strjoin("type=" QEMU_MACHINE_TYPE ",smm=", on_off(ovmf_config->supports_sb), shm);
+                machine = strjoin("type=" QEMU_MACHINE_TYPE ",smm=", on_off(ovmf_config->supports_sb), shm, hpet);
         else
-                machine = strjoin("type=" QEMU_MACHINE_TYPE, shm);
+                machine = strjoin("type=" QEMU_MACHINE_TYPE, shm, hpet);
         if (!machine)
                 return log_oom();
 
