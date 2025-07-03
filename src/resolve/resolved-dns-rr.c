@@ -1104,19 +1104,27 @@ const char* dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
                 break;
 
-        case DNS_TYPE_SSHFP:
+        case DNS_TYPE_SSHFP: {
+                _cleanup_free_ char *alg = NULL, *key_type = NULL;
+
                 t = hexmem(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size);
                 if (!t)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %u %s",
-                             k,
-                             rr->sshfp.algorithm,
-                             rr->sshfp.fptype,
-                             t);
+                r = sshfp_algorithm_to_string_alloc(rr->sshfp.algorithm, &alg);
+                if (r < 0)
+                        return NULL;
+
+                r = sshfp_key_type_to_string_alloc(rr->sshfp.fptype, &key_type);
+                if (r < 0)
+                        return NULL;
+
+                r = asprintf(&s, "%s "SSHFP_ALGORITHM_FMT" "SSHFP_KEY_TYPE_FMT" %s",
+                             k, alg, key_type, t);
                 if (r < 0)
                         return NULL;
                 break;
+        }
 
         case DNS_TYPE_DNSKEY: {
                 _cleanup_free_ char *alg = NULL;
@@ -2517,3 +2525,18 @@ static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
         [DNSSEC_DIGEST_SHA384]          = "SHA-384",
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_digest, int, 255);
+
+static const char* const sshfp_algorithm_table[_SSHFP_ALGORITHM_MAX_DEFINED] = {
+        [SSHFP_ALGORITHM_RSA]     = "RSA",     /* RFC 4255 */
+        [SSHFP_ALGORITHM_DSA]     = "DSA",     /* RFC 4255 */
+        [SSHFP_ALGORITHM_ECDSA]   = "ECDSA",   /* RFC 6594 */
+        [SSHFP_ALGORITHM_ED25519] = "Ed25519", /* RFC 7479 */
+        [SSHFP_ALGORITHM_ED448]   = "Ed448",   /* RFC 8709 */
+};
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_algorithm, int, 255);
+
+static const char* const sshfp_key_type_table[_SSHFP_KEY_TYPE_MAX_DEFINED] = {
+        [SSHFP_KEY_TYPE_SHA1]     = "SHA-1",     /* RFC 4255 */
+        [SSHFP_KEY_TYPE_SHA256]   = "SHA-256",   /* RFC 4255 */
+};
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_key_type, int, 255);
