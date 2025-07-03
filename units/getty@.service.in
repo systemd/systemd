@@ -34,7 +34,7 @@ Before=rescue.service
 ConditionPathExists=/dev/tty0
 
 [Service]
-ExecStart=-/sbin/agetty --noreset --noclear - ${TERM}
+ExecStart=-/sbin/agetty --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d - ${TERM}
 Type=idle
 Restart=always
 RestartSec=0
