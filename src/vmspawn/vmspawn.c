@@ -1576,9 +1576,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         shm = arg_directory || arg_runtime_mounts.n_mounts != 0 ? ",memory-backend=mem" : "";
         if (ARCHITECTURE_SUPPORTS_SMM)
-                machine = strjoin("type=" QEMU_MACHINE_TYPE ",smm=", on_off(ovmf_config->supports_sb), shm);
+                machine = strjoin("type=" QEMU_MACHINE_TYPE ",smm=", on_off(ovmf_config->supports_sb), shm, ",hpet=off");
         else
-                machine = strjoin("type=" QEMU_MACHINE_TYPE, shm);
+                machine = strjoin("type=" QEMU_MACHINE_TYPE, shm, ",hpet=off");
         if (!machine)
                 return log_oom();
 
