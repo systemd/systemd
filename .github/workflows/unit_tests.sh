@@ -129,6 +129,12 @@ for phase in "${PHASES[@]}"; do
             # Never remove halt_on_error from UBSAN_OPTIONS. See https://github.com/systemd/systemd/commit/2614d83aa06592aedb.
             export UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
 
+            multiplier=3
+            if [ "$(uname -m)" != "aarch64" ] && [ "$(uname -m)" != "x86_64" ]; then
+                # s390x/ppc64le are very slow under sanitizers, test-journal-verify times out
+                multiplier=10
+            fi
+
             # FIXME
             # For some strange reason the GH Actions VM stops responding after
             # executing first ~150 tests, _unless_ there's something producing
@@ -138,7 +144,7 @@ for phase in "${PHASES[@]}"; do
             # during debugging, wonderful), so let's at least keep a workaround
             # here to make the builds stable for the time being.
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
-            meson test --timeout-multiplier=3 -C build --print-errorlogs
+            meson test --timeout-multiplier=$multiplier -C build --print-errorlogs
             ;;
         CLEANUP)
             info "Cleanup phase"

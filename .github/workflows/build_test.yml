@@ -36,6 +36,8 @@ jobs:
             runner: [ ubuntu-24.04-ppc64le ]
           - env: { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "mold"  }
             runner: [ ubuntu-24.04-arm ]
+          - env: { COMPILER: "clang", COMPILER_VERSION: "18", LINKER: "lld"  }
+            runner: [ ubuntu-24.04-s390x ]
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
