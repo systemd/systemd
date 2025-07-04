@@ -201,10 +201,8 @@ TEST(real_pressure) {
         pid_t pid;
 
         r = sd_bus_open_system(&bus);
-        if (r < 0) {
-                log_notice_errno(r, "Can't connect to system bus, skipping test: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "can't connect to system bus");
 
         assert_se(bus_wait_for_jobs_new(bus, &w) >= 0);
 
@@ -218,10 +216,8 @@ TEST(real_pressure) {
         assert_se(sd_bus_message_append(m, "a(sa(sv))", 0) >= 0);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_notice_errno(r, "Can't issue transient unit call, skipping test: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "can't issue transient unit call");
 
         assert_se(sd_bus_message_read(reply, "o", &object) >= 0);
 
@@ -250,10 +246,8 @@ TEST(real_pressure) {
         };
 
         r = sd_event_add_memory_pressure(e, &es, real_pressure_callback, &context);
-        if (r < 0) {
-                log_notice_errno(r, "Can't allocate memory pressure fd, skipping test: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "can't allocate memory pressure fd");
 
         assert_se(sd_event_source_set_description(es, "real pressure event source") >= 0);
         assert_se(sd_event_source_set_memory_pressure_type(es, "some") == 0);
@@ -272,10 +266,8 @@ TEST(real_pressure) {
         assert_se(sd_bus_get_property_trivial(bus, "org.freedesktop.systemd1", uo, "org.freedesktop.systemd1.Scope", "MemoryCurrent", &error, 't', &mcurrent) >= 0);
 
         printf("current: %" PRIu64 "\n", mcurrent);
-        if (mcurrent == UINT64_MAX) {
-                log_notice_errno(r, "Memory accounting not available, skipping test: %m");
-                return;
-        }
+        if (mcurrent == UINT64_MAX)
+                return (void) log_tests_skipped_errno(r, "memory accounting not available");
 
         m = sd_bus_message_unref(m);
 
