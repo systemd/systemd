@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
@@ -7,7 +8,9 @@
 #include "dbus-mount.h"
 #include "dbus-util.h"
 #include "fstab-util.h"
+#include "locale-util.h"
 #include "mount.h"
+#include "selinux-access.h"
 #include "string-util.h"
 #include "unit.h"
 
@@ -31,6 +34,9 @@ static int property_get_where(
 
         return sd_bus_message_append_basic(reply, 's', escaped);
 }
+
+static BUS_DEFINE_PROPERTY_GET(property_get_type, "s", Mount, mount_get_fstype);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResult);
 
 static int property_get_what(
                 sd_bus *bus,
@@ -76,8 +82,72 @@ static int property_get_options(
         return sd_bus_message_append_basic(reply, 's', escaped);
 }
 
-static BUS_DEFINE_PROPERTY_GET(property_get_type, "s", Mount, mount_get_fstype);
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResult);
+static int bus_mount_method_remount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Mount *m = ASSERT_PTR(userdata);
+        Unit *u = UNIT(m);
+        int r;
+
+        assert(message);
+
+        if (u->load_state != UNIT_LOADED)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit '%s' not loaded", u->id);
+
+        if (u->job || m->remount_context)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_BUSY,
+                                         "Mount '%s' has a job pending or is already being remounted, refusing remount request",
+                                         m->where);
+
+        if (m->state != MOUNT_MOUNTED)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_INACTIVE,
+                                         "Cannot remount inactive mount '%s'", m->where);
+
+        r = mac_selinux_unit_access_check(u, message, "start", error);
+        if (r < 0)
+                return r;
+
+        const char *opts;
+        uint64_t flags;
+
+        r = sd_bus_message_read(message, "st", &opts, &flags);
+        if (r < 0)
+                return r;
+
+        if ((flags & ~REMOUNT_OPTIONS_APPEND) != 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
+
+        r = bus_verify_manage_units_async_full(u, "remount",
+                                               N_("Authentication is required to remount '$(unit)'."),
+                                               message,
+                                               error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        _cleanup_(remount_context_freep) RemountContext *ctx = new(RemountContext, 1);
+        if (!ctx)
+                return -ENOMEM;
+
+        *ctx = (RemountContext) {
+                .request = sd_bus_message_ref(message),
+                .options = strdup(opts),
+                .flags = flags,
+        };
+        if (!ctx->options)
+                return -ENOMEM;
+
+        /* The update of parameters_fragment is deferred to mount_reload_finish(), i.e. after the reload job
+         * finishes, in an atomic fashion. */
+        m->remount_context = TAKE_PTR(ctx);
+
+        r = manager_add_job(u->manager, JOB_RELOAD, u, JOB_REPLACE, error, /* ret = */ NULL);
+        if (r < 0) {
+                m->remount_context = remount_context_free(m->remount_context);
+                return r;
+        }
+
+        return 1;
+}
 
 const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_VTABLE_START(0),
@@ -101,6 +171,12 @@ const sd_bus_vtable bus_mount_vtable[] = {
         BUS_EXEC_COMMAND_VTABLE("ExecMount", offsetof(Mount, exec_command[MOUNT_EXEC_MOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_VTABLE("ExecUnmount", offsetof(Mount, exec_command[MOUNT_EXEC_UNMOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_VTABLE("ExecRemount", offsetof(Mount, exec_command[MOUNT_EXEC_REMOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+
+        SD_BUS_METHOD_WITH_ARGS("Remount",
+                                SD_BUS_ARGS("s", options, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                bus_mount_method_remount,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
