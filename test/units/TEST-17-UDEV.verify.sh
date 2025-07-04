@@ -315,8 +315,10 @@ if ! getent passwd 12345 >/dev/null; then
     test_syntax_error 'OWNER="12345"' "Unknown user '12345', ignoring."
 fi
 # regular user
-test_syntax_error 'OWNER="testuser"' "User 'testuser' is not a system user, ignoring."
-test_syntax_error "OWNER=\"$(id -u testuser)\"" "User '$(id -u testuser)' is not a system user, ignoring."
+if getent passwd testuser >/dev/null; then
+    test_syntax_error 'OWNER="testuser"' "User 'testuser' is not a system user, ignoring."
+    test_syntax_error "OWNER=\"$(id -u testuser)\"" "User '$(id -u testuser)' is not a system user, ignoring."
+fi
 test_syntax_error 'GROUP{a}="b"' 'Invalid attribute for GROUP.'
 test_syntax_error 'GROUP-="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP!="b"' 'Invalid operator for GROUP.'
@@ -345,8 +347,10 @@ if ! getent group 12345 >/dev/null; then
     test_syntax_error 'GROUP="12345"' "Unknown group '12345', ignoring."
 fi
 # regular group
-test_syntax_error 'GROUP="testuser"' "Group 'testuser' is not a system group, ignoring."
-test_syntax_error "GROUP=\"$(id -g testuser)\"" "Group '$(id -g testuser)' is not a system group, ignoring."
+if getent group testuser >/dev/null; then
+    test_syntax_error 'GROUP="testuser"' "Group 'testuser' is not a system group, ignoring."
+    test_syntax_error "GROUP=\"$(id -g testuser)\"" "Group '$(id -g testuser)' is not a system group, ignoring."
+fi
 test_syntax_error 'MODE{a}="b"' 'Invalid attribute for MODE.'
 test_syntax_error 'MODE-="b"' 'Invalid operator for MODE.'
 test_syntax_error 'MODE!="b"' 'Invalid operator for MODE.'
