@@ -51,7 +51,7 @@ case "$COMMAND" in
     remove)
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing ${LOADER_ENTRY%.conf}*.conf"
-        exec rm -f \
+        rm -f \
             "$LOADER_ENTRY" \
             "${LOADER_ENTRY%.conf}"*".conf"
         ;;
@@ -228,4 +228,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "Error: could not create loader entry '$LOADER_ENTRY'." >&2
     exit 1
 }
+
+printf "+ kernel-install plugin '%s' completed successfully\n" "$0"
+
 exit 0
