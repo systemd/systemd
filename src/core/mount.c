@@ -1351,7 +1351,7 @@ static void mount_enter_remounting(Mount *m) {
         assert(m);
 
         if (m->remount_context) {
-                assert(m->remount_context.options);
+                assert(m->remount_context->options);
 
                 p = ASSERT_PTR(get_mount_parameters(m));
 
