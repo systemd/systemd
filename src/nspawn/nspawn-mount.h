@@ -38,6 +38,7 @@ typedef struct CustomMount {
         bool read_only;
         char *source; /* for overlayfs this is the upper directory */
         char *destination;
+        uid_t destination_uid;
         char *options;
         char *work_dir;
         char **lower;
