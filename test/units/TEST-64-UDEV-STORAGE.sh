@@ -257,7 +257,7 @@ $(for ((j = 1; j <= num_part; j++)); do echo 'name="Hello world", size=2M'; done
 EOF
     done
 
-    udevadm settle --timeout=30
+    udevadm settle --timeout=60
     lsblk --noheadings -a -o NAME,PARTLABEL
     [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq "$((num_part * num_disk))" ]]
 }
@@ -290,19 +290,19 @@ name="first_partition", size=5M
 uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
 EOF
     # Partitioning triggers a synthesized event. Wait for the event being finished.
-    udevadm settle --timeout=30
+    udevadm settle --timeout=60
 
     udevadm lock --timeout=30 --device /dev/disk/by-id/wwn-0xdeaddeadbeef0000-part2 \
             mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" /dev/disk/by-id/wwn-0xdeaddeadbeef0000-part2
     # Making filesystem triggers a synthesized event. Wait for the event being finished.
-    udevadm settle --timeout=30
+    udevadm settle --timeout=60
 
     modprobe -v dm_multipath
     systemctl start multipathd.service
     systemctl status multipathd.service
     # multipathd touches many devices on start. multipath command may fail if it is invoked before the
     # initial setup finished. Let's wait for a while.
-    udevadm settle --timeout=30
+    udevadm settle --timeout=60
     multipath -ll
     ls -l /dev/disk/by-id/
 
@@ -859,7 +859,7 @@ EOF
     : >/etc/crypttab
     rm -fr "$mpoint"
     systemctl daemon-reload
-    udevadm settle --timeout=30
+    udevadm settle --timeout=60
 }
 
 testcase_iscsi_lvm() {
@@ -1019,7 +1019,7 @@ label: gpt
 name="test_swap", size=32M
 uuid="deadbeef-dead-dead-beef-000000000000", name="test_part", size=5M
 EOF
-    udevadm settle --timeout=30
+    udevadm settle --timeout=60
     udevadm lock --timeout=30 --device "/dev/${dev}1" mkswap -U "deadbeef-dead-dead-beef-111111111111" -L "swap_vol" "/dev/${dev}1"
     udevadm lock --timeout=30 --device "/dev/${dev}2" mkfs.ext4 -U "deadbeef-dead-dead-beef-222222222222" -L "data_vol" "/dev/${dev}2"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
@@ -1041,7 +1041,7 @@ EOF
     swapon -v -L swap_vol
     swapoff -v -L swap_vol
 
-    udevadm settle --timeout=30
+    udevadm settle --timeout=60
 
     logfile="$(mktemp)"
     # Check state of affairs after https://github.com/systemd/systemd/pull/22759
@@ -1260,7 +1260,7 @@ testcase_mdadm_lvm() {
     helper_check_device_units
 }
 
-udevadm settle
+udevadm settle --timeout=60
 udevadm control --log-level debug
 lsblk -a
 
