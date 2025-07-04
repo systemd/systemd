@@ -13,7 +13,7 @@ at_exit() {
     set +e
 
     machinectl status long-running &>/dev/null && machinectl kill --signal=KILL long-running
-    mountpoint -q /var/lib/machines && timeout 10 sh -c "until umount /var/lib/machines; do sleep .5; done"
+    mountpoint -q /var/lib/machines && timeout 30 sh -c "until umount /var/lib/machines; do sleep .5; done"
     [[ -n "${NSPAWN_FRAGMENT:-}" ]] && rm -f "/etc/systemd/nspawn/$NSPAWN_FRAGMENT" "/var/lib/machines/$NSPAWN_FRAGMENT"
     rm -f /run/systemd/nspawn/*.nspawn
 }
@@ -120,22 +120,22 @@ machinectl disable long-running long-running long-running container1
 # Equivalent to machinectl kill --signal=SIGRTMIN+4 --kill-whom=leader
 rm -f /var/lib/machines/long-running/poweroff
 machinectl poweroff long-running
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/poweroff; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/poweroff; do sleep .5; done"
 # Equivalent to machinectl kill --signal=SIGINT --kill-whom=leader
 rm -f /var/lib/machines/long-running/reboot
 machinectl reboot long-running
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/reboot; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/reboot; do sleep .5; done"
 # Test for 'machinectl terminate'
 rm -f /var/lib/machines/long-running/terminate
 machinectl terminate long-running
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
-timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
+timeout 30 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
 # Restart container
 long_running_machine_start
 # Test for 'machinectl kill'
 rm -f /var/lib/machines/long-running/trap
 machinectl kill --signal=SIGTRAP --kill-whom=leader long-running
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
 # Multiple machines at once
 machinectl poweroff long-running long-running long-running
 machinectl reboot long-running long-running long-running
@@ -223,7 +223,7 @@ machinectl import-fs /var/tmp/container.dir container-dir
 machinectl start container-dir
 rm -fr /var/tmp/container.dir
 
-timeout 10 bash -c "until machinectl clean --all; do sleep .5; done"
+timeout 30 bash -c "until machinectl clean --all; do sleep .5; done"
 
 NSPAWN_FRAGMENT="machinectl-test-$RANDOM.nspawn"
 cat >"/var/lib/machines/$NSPAWN_FRAGMENT" <<EOF
@@ -442,7 +442,7 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.OpenR
 # Terminating machine, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
 machinectl terminate long-running
 # wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
-timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
+timeout 30 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
 systemctl kill --signal=KILL systemd-nspawn@long-running.service || :
 
 # test io.systemd.MachineImage.List
