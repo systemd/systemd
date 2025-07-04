@@ -375,10 +375,10 @@ static int bus_append_parse_cpu_quota(sd_bus_message *m, const char *field, cons
                 x = USEC_INFINITY;
         else {
                 r = parse_permyriad_unbounded(eq);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "%s value too small.", field);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "%s value too small.", field);
                 x = r * USEC_PER_SEC / 10000U;
         }
 
@@ -864,12 +864,12 @@ static int bus_append_parse_ip_address_filter(sd_bus_message *m, const char *fie
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&eq, &word, NULL, 0);
-                        if (r == 0)
-                                break;
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s: %s", field, eq);
+                        if (r == 0)
+                                break;
 
                         r = in_addr_prefix_from_string_auto(word, &family, &prefix, &prefixlen);
                         if (r < 0)
@@ -1434,12 +1434,12 @@ static int bus_append_filter_list(sd_bus_message *m, const char *field, const ch
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r == 0)
-                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
                         return log_error_errno(r, "Invalid syntax: %s", eq);
+                if (r == 0)
+                        break;
 
                 r = sd_bus_message_append_basic(m, 's', word);
                 if (r < 0)
@@ -2127,12 +2127,12 @@ static int bus_append_exit_status(sd_bus_message *m, const char *field, const ch
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r == 0)
-                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
                         return log_error_errno(r, "Invalid syntax in %s: %s", field, eq);
+                if (r == 0)
+                        break;
 
                 /* We need to call exit_status_from_string() first, because we want
                  * to parse numbers as exit statuses, not signals. */
