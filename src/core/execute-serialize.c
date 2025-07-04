@@ -1978,7 +1978,11 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-context-protect-hostname", c->protect_hostname);
+        r = serialize_item(f, "exec-context-protect-hostname", protect_hostname_to_string(c->protect_hostname));
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-context-private-hostname", c->private_hostname);
         if (r < 0)
                 return r;
 
@@ -2470,6 +2474,12 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
+        if (c->delegate_namespaces != NAMESPACE_FLAGS_INITIAL) {
+                r = serialize_item_format(f, "exec-context-delegate-namespaces", "%lu", c->delegate_namespaces);
+                if (r < 0)
+                        return r;
+        }
+
 #if HAVE_LIBBPF
         if (exec_context_restrict_filesystems_set(c)) {
                 char *fs;
@@ -2881,10 +2891,13 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (c->keyring_mode < 0)
                                 return -EINVAL;
                 } else if ((val = startswith(l, "exec-context-protect-hostname="))) {
-                        r = parse_boolean(val);
+                        c->protect_hostname = protect_hostname_from_string(val);
+                        if (c->protect_hostname < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-context-private-hostname="))) {
+                        r = free_and_strdup(&c->private_hostname, val);
                         if (r < 0)
                                 return r;
-                        c->protect_hostname = r;
                 } else if ((val = startswith(l, "exec-context-protect-proc="))) {
                         c->protect_proc = protect_proc_from_string(val);
                         if (c->protect_proc < 0)
@@ -3527,6 +3540,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 #endif
                 } else if ((val = startswith(l, "exec-context-restrict-namespaces="))) {
                         r = safe_atolu(val, &c->restrict_namespaces);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-delegate-namespaces="))) {
+                        r = safe_atolu(val, &c->delegate_namespaces);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-restrict-filesystems="))) {

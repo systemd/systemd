@@ -40,6 +40,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "hostname-setup.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
@@ -648,6 +649,7 @@ static int setup_confirm_stdio(
         _cleanup_close_ int fd = -EBADF, saved_stdin = -EBADF, saved_stdout = -EBADF;
         int r;
 
+        assert(context);
         assert(ret_saved_stdin);
         assert(ret_saved_stdout);
 
@@ -1017,8 +1019,10 @@ static int enforce_user(
                 const ExecContext *context,
                 uid_t uid,
                 uint64_t capability_ambient_set) {
-        assert(context);
+
         int r;
+
+        assert(context);
 
         if (!uid_is_valid(uid))
                 return 0;
@@ -1338,12 +1342,14 @@ static bool context_has_syscall_logs(const ExecContext *c) {
 }
 
 static bool context_has_seccomp(const ExecContext *c) {
+        assert(c);
+
         /* We need NNP if we have any form of seccomp and are unprivileged */
         return c->lock_personality ||
                 c->memory_deny_write_execute ||
                 c->private_devices ||
                 c->protect_clock ||
-                c->protect_hostname ||
+                c->protect_hostname == PROTECT_HOSTNAME_YES ||
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
                 c->protect_kernel_logs ||
@@ -1372,7 +1378,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
 
 static bool seccomp_allows_drop_privileges(const ExecContext *c) {
         void *id, *val;
-        bool has_capget = false, has_capset = false, has_prctl = false;
+        bool have_capget = false, have_capset = false, have_prctl = false;
 
         assert(c);
 
@@ -1386,20 +1392,23 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
                 name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
 
                 if (streq(name, "capget"))
-                        has_capget = true;
+                        have_capget = true;
                 else if (streq(name, "capset"))
-                        has_capset = true;
+                        have_capset = true;
                 else if (streq(name, "prctl"))
-                        has_prctl = true;
+                        have_prctl = true;
         }
 
         if (c->syscall_allow_list)
-                return has_capget && has_capset && has_prctl;
+                return have_capget && have_capset && have_prctl;
         else
-                return !(has_capget || has_capset || has_prctl);
+                return !(have_capget || have_capset || have_prctl);
 }
 
-static bool skip_seccomp_unavailable(const ExecContext *c, const ExecParameters *p, const char* msg) {
+static bool skip_seccomp_unavailable(const ExecContext *c, const ExecParameters *p, const char *msg) {
+        assert(c);
+        assert(p);
+        assert(msg);
 
         if (is_seccomp_available())
                 return false;
@@ -1700,43 +1709,48 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
 #endif
 
 static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p, int *ret_exit_status) {
+        int r;
+
         assert(c);
         assert(p);
+        assert(ret_exit_status);
 
-        if (!c->protect_hostname)
+        if (c->protect_hostname == PROTECT_HOSTNAME_NO)
                 return 0;
 
         if (ns_type_supported(NAMESPACE_UTS)) {
                 if (unshare(CLONE_NEWUTS) < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno)) {
                                 *ret_exit_status = EXIT_NAMESPACE;
-                                return log_exec_error_errno(c,
-                                                            p,
-                                                            errno,
-                                                            "Failed to set up UTS namespacing: %m");
+                                return log_exec_error_errno(c, p, errno, "Failed to set up UTS namespacing: %m");
                         }
 
-                        log_exec_warning(c,
-                                         p,
-                                         "ProtectHostname=yes is configured, but UTS namespace setup is "
-                                         "prohibited (container manager?), ignoring namespace setup.");
+                        log_exec_warning(c, p,
+                                         "ProtectHostname=%s is configured, but UTS namespace setup is prohibited (container manager?), ignoring namespace setup.",
+                                         protect_hostname_to_string(c->protect_hostname));
+
+                } else if (c->private_hostname) {
+                        r = sethostname_idempotent(c->private_hostname);
+                        if (r < 0) {
+                                *ret_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(c, p, r, "Failed to set private hostname '%s': %m", c->private_hostname);
+                        }
                 }
         } else
-                log_exec_warning(c,
-                                 p,
-                                 "ProtectHostname=yes is configured, but the kernel does not "
-                                 "support UTS namespaces, ignoring namespace setup.");
+                log_exec_warning(c, p,
+                                 "ProtectHostname=%s is configured, but the kernel does not support UTS namespaces, ignoring namespace setup.",
+                                 protect_hostname_to_string(c->protect_hostname));
 
 #if HAVE_SECCOMP
-        int r;
+        if (c->protect_hostname == PROTECT_HOSTNAME_YES) {
+                if (skip_seccomp_unavailable(c, p, "ProtectHostname="))
+                        return 0;
 
-        if (skip_seccomp_unavailable(c, p, "ProtectHostname="))
-                return 0;
-
-        r = seccomp_protect_hostname();
-        if (r < 0) {
-                *ret_exit_status = EXIT_SECCOMP;
-                return log_exec_error_errno(c, p, r, "Failed to apply hostname restrictions: %m");
+                r = seccomp_protect_hostname();
+                if (r < 0) {
+                        *ret_exit_status = EXIT_SECCOMP;
+                        return log_exec_error_errno(c, p, r, "Failed to apply hostname restrictions: %m");
+                }
         }
 #endif
 
@@ -1805,6 +1819,7 @@ static int build_environment(
 
         assert(c);
         assert(p);
+        assert(cgroup_context);
         assert(ret);
 
 #define N_ENV_VARS 19
@@ -2025,7 +2040,7 @@ static int build_environment(
 
                 our_env[n_env++] = x;
 
-                if (cgroup_context && !path_equal(memory_pressure_path, "/dev/null")) {
+                if (!path_equal(memory_pressure_path, "/dev/null")) {
                         _cleanup_free_ char *b = NULL, *e = NULL;
 
                         if (asprintf(&b, "%s " USEC_FMT " " USEC_FMT,
@@ -2058,6 +2073,9 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         _cleanup_strv_free_ char **pass_env = NULL;
         size_t n_env = 0;
 
+        assert(c);
+        assert(ret);
+
         STRV_FOREACH(i, c->pass_environment) {
                 _cleanup_free_ char *x = NULL;
                 char *v;
@@ -2077,11 +2095,10 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         }
 
         *ret = TAKE_PTR(pass_env);
-
         return 0;
 }
 
-static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
+static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
@@ -2107,6 +2124,29 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 uid_map = strdup("0 0 65536\n");
                 if (!uid_map)
                         return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                /* Map all UID/GID from original to new user namespace. We can't use `0 0 UINT32_MAX` because
+                 * this is the same UID/GID map as the init user namespace and systemd's running_in_userns()
+                 * checks whether its in a user namespace by comparing uid_map/gid_map to `0 0 UINT32_MAX`.
+                 * Thus, we still map all UIDs/GIDs but do it using two extents to differentiate the new user
+                 * namespace from the init namespace:
+                 *   0 0 1
+                 *   1 1 UINT32_MAX - 1
+                 *
+                 * systemd will remove the heuristic in running_in_userns() and use namespace inodes in version 258
+                 * (PR #35382). But some users may be running a container image with older systemd < 258 so we keep
+                 * this uid_map/gid_map hack until version 259 for version N-1 compatibility.
+                 *
+                 * TODO: Switch to `0 0 UINT32_MAX` in systemd v259.
+                 *
+                 * Note the kernel defines the UID range between 0 and UINT32_MAX so we map all UIDs even though
+                 * the UID range beyond INT32_MAX (e.g. i.e. the range above the signed 32-bit range) is
+                 * icky. For example, setfsuid() returns the old UID as signed integer. But units can decide to
+                 * use these UIDs/GIDs so we need to map them. */
+                r = asprintf(&uid_map, "0 0 1\n"
+                                       "1 1 " UID_FMT "\n", (uid_t) (UINT32_MAX - 1));
+                if (r < 0)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETUID. */
         } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
                 r = asprintf(&uid_map,
@@ -2126,6 +2166,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (private_users == PRIVATE_USERS_IDENTITY) {
                 gid_map = strdup("0 0 65536\n");
                 if (!gid_map)
+                        return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                r = asprintf(&gid_map, "0 0 1\n"
+                                       "1 1 " GID_FMT "\n", (gid_t) (UINT32_MAX - 1));
+                if (r < 0)
                         return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETGID. */
         } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
@@ -2172,7 +2217,8 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
                         report_errno_and_exit(errno_pipe[1], -errno);
 
-                /* Disable the setgroups() system call in the child user namespace, for good. */
+                /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
+                 * and using the system service manager. */
                 a = procfs_file_alloca(ppid, "setgroups");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
@@ -2183,8 +2229,9 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
-                        if (write(fd, "deny\n", 5) < 0) {
-                                r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
+                        const char *setgroups = allow_setgroups ? "allow\n" : "deny\n";
+                        if (write(fd, setgroups, strlen(setgroups)) < 0) {
+                                r = log_debug_errno(errno, "Failed to write '%s' to %s: %m", setgroups, a);
                                 report_errno_and_exit(errno_pipe[1], r);
                         }
 
@@ -2252,7 +2299,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         return 1;
 }
 
-static int can_mount_proc(const ExecContext *c, ExecParameters *p) {
+static int can_mount_proc(const ExecContext *c, const ExecParameters *p) {
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         ssize_t n;
@@ -2754,11 +2801,12 @@ fail:
 
 #if ENABLE_SMACK
 static int setup_smack(
-                const ExecParameters *params,
                 const ExecContext *context,
+                const ExecParameters *params,
                 int executable_fd) {
         int r;
 
+        assert(context);
         assert(params);
         assert(executable_fd >= 0);
 
@@ -3026,13 +3074,14 @@ static int setup_ephemeral(
         int r;
 
         assert(context);
+        assert(runtime);
         assert(root_image);
         assert(root_directory);
 
         if (!*root_image && !*root_directory)
                 return 0;
 
-        if (!runtime || !runtime->ephemeral_copy)
+        if (!runtime->ephemeral_copy)
                 return 0;
 
         assert(runtime->ephemeral_storage_socket[0] >= 0);
@@ -3244,6 +3293,8 @@ static int apply_mount_namespace(
         int r;
 
         assert(context);
+        assert(params);
+        assert(runtime);
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
@@ -3291,7 +3342,7 @@ static int apply_mount_namespace(
                  * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
                  * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
 
-                if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared) {
+                if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->shared->tmp_dir;
                         else if (runtime->shared->tmp_dir)
@@ -3421,7 +3472,10 @@ static int apply_mount_namespace(
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
-                .protect_hostname = needs_sandboxing && context->protect_hostname,
+                /* Only mount /proc/sys/kernel/hostname and domainname read-only if ProtectHostname=yes. Otherwise, ProtectHostname=no
+                 * allows changing hostname for the host and ProtectHostname=private allows changing the hostname in the unit's UTS
+                 * namespace. */
+                .protect_hostname = needs_sandboxing && context->protect_hostname == PROTECT_HOSTNAME_YES,
 
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
@@ -3481,6 +3535,8 @@ static int apply_working_directory(
         int r;
 
         assert(context);
+        assert(params);
+        assert(runtime);
 
         if (context->working_directory_home) {
                 if (!home)
@@ -3496,7 +3552,7 @@ static int apply_working_directory(
                 _cleanup_close_ int dfd = -EBADF;
 
                 r = chase(wd,
-                          (runtime ? runtime->ephemeral_copy : NULL) ?: context->root_directory,
+                          runtime->ephemeral_copy ?: context->root_directory,
                           CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT,
                           /* ret_path= */ NULL,
                           &dfd);
@@ -3514,11 +3570,13 @@ static int apply_root_directory(
                 int *exit_status) {
 
         assert(context);
+        assert(params);
+        assert(runtime);
         assert(exit_status);
 
         if (params->flags & EXEC_APPLY_CHROOT)
                 if (!needs_mount_ns && context->root_directory)
-                        if (chroot((runtime ? runtime->ephemeral_copy : NULL) ?: context->root_directory) < 0) {
+                        if (chroot(runtime->ephemeral_copy ?: context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
                                 return -errno;
                         }
@@ -3529,7 +3587,8 @@ static int apply_root_directory(
 static int setup_keyring(
                 const ExecContext *context,
                 const ExecParameters *p,
-                uid_t uid, gid_t gid) {
+                uid_t uid,
+                gid_t gid) {
 
         key_serial_t keyring;
         int r = 0;
@@ -3686,12 +3745,14 @@ static int close_remaining_fds(
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
                 int socket_fd,
-                const int *fds, size_t n_fds) {
+                const int *fds,
+                size_t n_fds) {
 
         size_t n_dont_close = 0;
         int dont_close[n_fds + 17];
 
         assert(params);
+        assert(runtime);
 
         if (params->stdin_fd >= 0)
                 dont_close[n_dont_close++] = params->stdin_fd;
@@ -3707,15 +3768,14 @@ static int close_remaining_fds(
                 n_dont_close += n_fds;
         }
 
-        if (runtime)
-                append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
+        append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
 
-        if (runtime && runtime->shared) {
+        if (runtime->shared) {
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
         }
 
-        if (runtime && runtime->dynamic_creds) {
+        if (runtime->dynamic_creds) {
                 if (runtime->dynamic_creds->user)
                         append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->user->storage_socket);
                 if (runtime->dynamic_creds->group)
@@ -4024,18 +4084,9 @@ static void log_command_line(
                         LOG_EXEC_INVOCATION_ID(params));
 }
 
-static bool exec_context_need_unprivileged_private_users(
-                const ExecContext *context,
-                const ExecParameters *params) {
-
+static bool exec_context_needs_cap_sys_admin(const ExecContext *context, const ExecParameters *params) {
         assert(context);
         assert(params);
-
-        /* These options require PrivateUsers= when used in user units, as we need to be in a user namespace
-         * to have permission to enable them when not running as root. If we have effective CAP_SYS_ADMIN
-         * (system manager) then we have privileges and don't need this. */
-        if (params->runtime_scope != RUNTIME_SCOPE_USER)
-                return false;
 
         return context->private_users != PRIVATE_USERS_NO ||
                context->private_tmp != PRIVATE_TMP_NO ||
@@ -4059,12 +4110,211 @@ static bool exec_context_need_unprivileged_private_users(
                context->protect_kernel_logs ||
                exec_needs_cgroup_mount(context, params) ||
                context->protect_clock ||
-               context->protect_hostname ||
+               context->protect_hostname != PROTECT_HOSTNAME_NO ||
                !strv_isempty(context->read_write_paths) ||
                !strv_isempty(context->read_only_paths) ||
                !strv_isempty(context->inaccessible_paths) ||
                !strv_isempty(context->exec_paths) ||
-               !strv_isempty(context->no_exec_paths);
+               !strv_isempty(context->no_exec_paths) ||
+               context->delegate_namespaces != NAMESPACE_FLAGS_INITIAL;
+}
+
+static PrivateUsers exec_context_get_effective_private_users(
+                const ExecContext *context,
+                const ExecParameters *params) {
+
+        assert(context);
+        assert(params);
+
+        if (context->private_users != PRIVATE_USERS_NO)
+                return context->private_users;
+
+        /* If any namespace is delegated with DelegateNamespaces=, always set up a user namespace. */
+        if (context->delegate_namespaces != NAMESPACE_FLAGS_INITIAL)
+                return PRIVATE_USERS_SELF;
+
+        return PRIVATE_USERS_NO;
+}
+
+static bool exec_namespace_is_delegated(
+                const ExecContext *context,
+                const ExecParameters *params,
+                bool have_cap_sys_admin,
+                unsigned long namespace) {
+
+        assert(context);
+        assert(params);
+        assert(namespace != CLONE_NEWUSER);
+
+        /* If we need unprivileged private users, we've already unshared a user namespace by the time we call
+         * setup_delegated_namespaces() for the first time so let's make sure we do all other namespace
+         * unsharing in the first call to setup_delegated_namespaces() by returning false here. */
+        if (!have_cap_sys_admin && exec_context_needs_cap_sys_admin(context, params))
+                return false;
+
+        if (context->delegate_namespaces == NAMESPACE_FLAGS_INITIAL)
+                return params->runtime_scope == RUNTIME_SCOPE_USER;
+
+        return FLAGS_SET(context->delegate_namespaces, namespace);
+}
+
+static int setup_delegated_namespaces(
+                const ExecContext *context,
+                ExecParameters *params,
+                ExecRuntime *runtime,
+                bool delegate,
+                const char *memory_pressure_path,
+                uid_t uid,
+                uid_t gid,
+                const ExecCommand *command,
+                bool needs_sandboxing,
+                bool have_cap_sys_admin,
+                int *reterr_exit_status) {
+
+        int r;
+
+        /* This function is called twice, once before unsharing the user namespace, and once after unsharing
+         * the user namespace. When called before unsharing the user namespace, "delegate" is set to "false".
+         * When called after unsharing the user namespace, "delegate" is set to "true". The net effect is
+         * that all namespaces that should not be delegated are unshared when this function is called the
+         * first time and all namespaces that should be delegated are unshared when this function is called
+         * the second time. */
+
+        assert(context);
+        assert(params);
+        assert(runtime);
+        assert(reterr_exit_status);
+
+        if (exec_needs_network_namespace(context) &&
+            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWNET) == delegate &&
+            runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+
+                /* Try to enable network namespacing if network namespacing is available and we have
+                 * CAP_NET_ADMIN in the current user namespace (either the system manager one or the unit's
+                 * own user namespace). We need CAP_NET_ADMIN to be able to configure the loopback device in
+                 * the new network namespace. And if we don't have that, then we could only create a network
+                 * namespace without the ability to set up "lo". Hence gracefully skip things then. */
+                if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
+                        r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_exec_notice_errno(context, params, r,
+                                                      "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
+                        else if (r < 0) {
+                                *reterr_exit_status = EXIT_NETWORK;
+                                return log_exec_error_errno(context, params, r, "Failed to set up network namespacing: %m");
+                        } else
+                                log_exec_debug(context, params, "Set up %snetwork namespace", delegate ? "delegated " : "");
+                } else if (context->network_namespace_path) {
+                        *reterr_exit_status = EXIT_NETWORK;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                    "NetworkNamespacePath= is not supported, refusing.");
+                } else
+                        log_exec_notice(context, params, "PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
+        }
+
+        if (exec_needs_ipc_namespace(context) &&
+            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWIPC) == delegate &&
+            runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+
+                if (ns_type_supported(NAMESPACE_IPC)) {
+                        r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_exec_warning_errno(context, params, r,
+                                                       "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
+                        else if (r < 0) {
+                                *reterr_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to set up IPC namespacing: %m");
+                        } else
+                                log_exec_debug(context, params, "Set up %sIPC namespace", delegate ? "delegated " : "");
+                } else if (context->ipc_namespace_path) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                    "IPCNamespacePath= is not supported, refusing.");
+                } else
+                        log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
+        }
+
+        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params) &&
+            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWCGROUP) == delegate) {
+                if (unshare(CLONE_NEWCGROUP) < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, errno, "Failed to set up cgroup namespacing: %m");
+                }
+
+                log_exec_debug(context, params, "Set up %scgroup namespace", delegate ? "delegated " : "");
+        }
+
+        /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
+         * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
+        if (needs_sandboxing && exec_needs_pid_namespace(context) &&
+            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWPID) == delegate) {
+                if (params->pidref_transport_fd < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ENOTCONN), "PidRef socket is not set up: %m");
+                }
+
+                /* If we had CAP_SYS_ADMIN prior to joining the user namespace, then we are privileged and don't need
+                 * to check if we can mount /proc/.
+                 *
+                 * We need to check prior to entering the user namespace because if we're running unprivileged or in a
+                 * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
+                 * once we unshare a mount namespace. */
+                if (!have_cap_sys_admin || delegate) {
+                        r = can_mount_proc(context, params);
+                        if (r < 0) {
+                                *reterr_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to detect if /proc/ can be remounted: %m");
+                        }
+                        if (r == 0) {
+                                *reterr_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EPERM),
+                                                            "PrivatePIDs=yes is configured, but /proc/ cannot be re-mounted due to lack of privileges, refusing.");
+                        }
+                }
+
+                r = setup_private_pids(context, params);
+                if (r < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
+                }
+
+                log_exec_debug(context, params, "Set up %spid namespace", delegate ? "delegated " : "");
+        }
+
+        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
+
+        if (exec_needs_mount_namespace(context, params, runtime) &&
+            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWNS) == delegate) {
+                _cleanup_free_ char *error_path = NULL;
+
+                r = apply_mount_namespace(command->flags,
+                                          context,
+                                          params,
+                                          runtime,
+                                          memory_pressure_path,
+                                          needs_sandboxing,
+                                          &error_path,
+                                          uid,
+                                          gid);
+                if (r < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
+                                                    error_path ? ": " : "", strempty(error_path));
+                }
+
+                log_exec_debug(context, params, "Set up %smount namespace", delegate ? "delegated " : "");
+        }
+
+        if (needs_sandboxing &&
+            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWUTS) == delegate) {
+                r = apply_protect_hostname(context, params, reterr_exit_status);
+                if (r < 0)
+                        return r;
+
+                log_exec_debug(context, params, "Set up %sUTS namespace", delegate ? "delegated " : "");
+        }
+
+        return 0;
 }
 
 static bool exec_context_shall_confirm_spawn(const ExecContext *context) {
@@ -4253,13 +4503,13 @@ int exec_invoke(
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
-        bool userns_set_up = false;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
                 needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
                 needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
-                needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
-        bool keep_seccomp_privileges = false;
-        bool has_cap_sys_admin = false;
+                needs_ambient_hack,     /* Do we need to apply the ambient capabilities hack? */
+                have_cap_sys_admin,
+                userns_set_up = false,
+                keep_seccomp_privileges = false;
 #if HAVE_SELINUX
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         bool use_selinux = false;
@@ -4289,6 +4539,8 @@ int exec_invoke(
         assert(command);
         assert(context);
         assert(params);
+        assert(runtime);
+        assert(cgroup_context);
         assert(exit_status);
 
         /* This should be mostly redundant, as the log level is also passed as an argument of the executor,
@@ -4447,7 +4699,7 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, errno, "Failed to update environment: %m");
         }
 
-        if (context->dynamic_user && runtime && runtime->dynamic_creds) {
+        if (context->dynamic_user && runtime->dynamic_creds) {
                 _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
@@ -4576,7 +4828,7 @@ int exec_invoke(
                 }
         }
 
-        if (context->network_namespace_path && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+        if (context->network_namespace_path && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
                 r = open_shareable_ns_path(runtime->shared->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
                 if (r < 0) {
                         *exit_status = EXIT_NETWORK;
@@ -4584,7 +4836,7 @@ int exec_invoke(
                 }
         }
 
-        if (context->ipc_namespace_path && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+        if (context->ipc_namespace_path && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
                 r = open_shareable_ns_path(runtime->shared->ipcns_storage_socket, context->ipc_namespace_path, CLONE_NEWIPC);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
@@ -4727,6 +4979,19 @@ int exec_invoke(
                 }
         }
 
+        if (context->memory_ksm >= 0)
+                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                log_exec_debug_errno(context,
+                                                     params,
+                                                     errno,
+                                                     "KSM support not available, ignoring.");
+                        else {
+                                *exit_status = EXIT_KSM;
+                                return log_exec_error_errno(context, params, errno, "Failed to set KSM: %m");
+                        }
+                }
+
 #if ENABLE_UTMP
         if (context->utmp_id) {
                 _cleanup_free_ char *username_alloc = NULL;
@@ -4792,7 +5057,7 @@ int exec_invoke(
                         }
                 }
 
-                if (cgroup_context && cg_unified() > 0 && is_pressure_supported() > 0) {
+                if (cg_unified() > 0 && is_pressure_supported() > 0) {
                         if (cgroup_context_want_memory_pressure(cgroup_context)) {
                                 r = cg_get_path("memory", params->cgroup_path, "memory.pressure", &memory_pressure_path);
                                 if (r < 0) {
@@ -4919,7 +5184,7 @@ int exec_invoke(
         uint64_t capability_ambient_set = context->capability_ambient_set;
 
         /* Check CAP_SYS_ADMIN before we enter user namespace to see if we can mount /proc even though its masked. */
-        has_cap_sys_admin = have_effective_cap(CAP_SYS_ADMIN) > 0;
+        have_cap_sys_admin = have_effective_cap(CAP_SYS_ADMIN) > 0;
 
         if (needs_sandboxing) {
                 /* MAC enablement checks need to be done before a new mount ns is created, as they rely on
@@ -4982,15 +5247,17 @@ int exec_invoke(
                 }
         }
 
-        if (needs_sandboxing && exec_context_need_unprivileged_private_users(context, params)) {
+        if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
-                PrivateUsers pu = context->private_users;
+                PrivateUsers pu = exec_context_get_effective_private_users(context, params);
                 if (pu == PRIVATE_USERS_NO)
                         pu = PRIVATE_USERS_SELF;
 
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid);
+                /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
+                 * unprivileged user namespaces. */
+                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid, /* allow_setgroups= */ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
                 if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
@@ -5002,129 +5269,25 @@ int exec_invoke(
                 else {
                         assert(r > 0);
                         userns_set_up = true;
+                        log_debug("Set up unprivileged user namespace");
                 }
         }
 
-        if (exec_needs_network_namespace(context) && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
-
-                /* Try to enable network namespacing if network namespacing is available and we have
-                 * CAP_NET_ADMIN. We need CAP_NET_ADMIN to be able to configure the loopback device in the
-                 * new network namespace. And if we don't have that, then we could only create a network
-                 * namespace without the ability to set up "lo". Hence gracefully skip things then. */
-                if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
-                        r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_exec_notice_errno(context, params, r,
-                                                      "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
-                        else if (r < 0) {
-                                *exit_status = EXIT_NETWORK;
-                                return log_exec_error_errno(context, params, r, "Failed to set up network namespacing: %m");
-                        }
-                } else if (context->network_namespace_path) {
-                        *exit_status = EXIT_NETWORK;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                    "NetworkNamespacePath= is not supported, refusing.");
-                } else
-                        log_exec_notice(context, params, "PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
-        }
-
-        if (exec_needs_ipc_namespace(context) && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
-
-                if (ns_type_supported(NAMESPACE_IPC)) {
-                        r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_exec_warning_errno(context, params, r,
-                                                       "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
-                        else if (r < 0) {
-                                *exit_status = EXIT_NAMESPACE;
-                                return log_exec_error_errno(context, params, r, "Failed to set up IPC namespacing: %m");
-                        }
-                } else if (context->ipc_namespace_path) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                    "IPCNamespacePath= is not supported, refusing.");
-                } else
-                        log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
-        }
-
-        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params)) {
-                if (unshare(CLONE_NEWCGROUP) < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, errno, "Failed to set up cgroup namespacing: %m");
-                }
-        }
-
-        /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
-         * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
-        if (needs_sandboxing && exec_needs_pid_namespace(context)) {
-                if (params->pidref_transport_fd < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ENOTCONN), "PidRef socket is not set up: %m");
-                }
-
-                /* If we had CAP_SYS_ADMIN prior to joining the user namespace, then we are privileged and don't need
-                 * to check if we can mount /proc/.
-                 *
-                 * We need to check prior to entering the user namespace because if we're running unprivileged or in a
-                 * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
-                 * once we unshare a mount namespace. */
-                r = has_cap_sys_admin ? 1 : can_mount_proc(context, params);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to detect if /proc/ can be remounted: %m");
-                }
-                if (r == 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EPERM),
-                                                    "PrivatePIDs=yes is configured, but /proc/ cannot be re-mounted due to lack of privileges, refusing.");
-                }
-
-                r = setup_private_pids(context, params);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
-                }
-        }
-
-        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
-
-        if (needs_mount_namespace) {
-                _cleanup_free_ char *error_path = NULL;
-
-                r = apply_mount_namespace(command->flags,
-                                          context,
-                                          params,
-                                          runtime,
-                                          memory_pressure_path,
-                                          needs_sandboxing,
-                                          &error_path,
-                                          uid,
-                                          gid);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
-                                                    error_path ? ": " : "", strempty(error_path));
-                }
-        }
-
-        if (needs_sandboxing) {
-                r = apply_protect_hostname(context, params, exit_status);
-                if (r < 0)
-                        return r;
-        }
-
-        if (context->memory_ksm >= 0)
-                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(errno))
-                                log_exec_debug_errno(context,
-                                                     params,
-                                                     errno,
-                                                     "KSM support not available, ignoring.");
-                        else {
-                                *exit_status = EXIT_KSM;
-                                return log_exec_error_errno(context, params, errno, "Failed to set KSM: %m");
-                        }
-                }
+        /* Call setup_delegated_namespaces() the first time to unshare all non-delegated namespaces. */
+        r = setup_delegated_namespaces(
+                        context,
+                        params,
+                        runtime,
+                        /* delegate= */ false,
+                        memory_pressure_path,
+                        uid,
+                        gid,
+                        command,
+                        needs_sandboxing,
+                        have_cap_sys_admin,
+                        exit_status);
+        if (r < 0)
+                return r;
 
         /* Drop groups as early as possible.
          * This needs to be done after PrivateDevices=yes setup as device nodes should be owned by the host's root.
@@ -5159,12 +5322,33 @@ int exec_invoke(
          * different user namespace). */
 
         if (needs_sandboxing && !userns_set_up) {
-                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid);
+                PrivateUsers pu = exec_context_get_effective_private_users(context, params);
+
+                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid,
+                                        /* allow_setgroups= */ pu == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");
                 }
+
+                log_debug("Set up privileged user namespace");
         }
+
+        /* Call setup_delegated_namespaces() the second time to unshare all delegated namespaces. */
+        r = setup_delegated_namespaces(
+                        context,
+                        params,
+                        runtime,
+                        /* delegate= */ true,
+                        memory_pressure_path,
+                        uid,
+                        gid,
+                        command,
+                        needs_sandboxing,
+                        have_cap_sys_admin,
+                        exit_status);
+        if (r < 0)
+                return r;
 
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */
@@ -5264,7 +5448,7 @@ int exec_invoke(
                 /* LSM Smack needs the capability CAP_MAC_ADMIN to change the current execution security context of the
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
                 if (use_smack) {
-                        r = setup_smack(params, context, executable_fd);
+                        r = setup_smack(context, params, executable_fd);
                         if (r < 0 && !context->smack_process_label_ignore) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return log_exec_error_errno(context, params, r, "Failed to set SMACK process label: %m");

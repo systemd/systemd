@@ -336,7 +336,8 @@ struct ExecContext {
         ProtectSystem protect_system;
         ProtectHome protect_home;
         PrivatePIDs private_pids;
-        bool protect_hostname;
+        ProtectHostname protect_hostname;
+        char *private_hostname;
 
         bool dynamic_user;
         bool remove_ipc;
@@ -349,6 +350,7 @@ struct ExecContext {
         unsigned long personality;
 
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
+        unsigned long delegate_namespaces; /* The CLONE_NEWxyz flags delegated to the unit's processes */
 
         Set *restrict_filesystems;
         bool restrict_filesystems_allow_list:1;

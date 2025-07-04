@@ -3339,6 +3339,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DelegateNamespaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictFileSystems = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
@@ -3358,6 +3360,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s ProcSubset = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3940,6 +3944,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RestrictNamespaces is not documented!-->
 
+    <!--property DelegateNamespaces is not documented!-->
+
     <!--property RestrictFileSystems is not documented!-->
 
     <!--property BindPaths is not documented!-->
@@ -3957,8 +3963,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
-
-    <!--property ProtectHostname is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -4662,6 +4666,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateNamespaces"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
@@ -4681,6 +4687,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ProcSubset"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -4880,6 +4888,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       unit file setting <varname>PrivatePIDs=</varname> listed in
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Note <varname>PrivatePIDs</varname> is a string type to allow adding more values in the future.</para>
+
+      <para><varname>ProtectHostnameEx</varname> implement the destination parameter of the
+      unit file setting <varname>ProtectHostname=</varname> listed in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Unlike boolean <varname>ProtectHostname</varname>, <varname>ProtectHostnameEx</varname> is a pair of
+      strings, the first one is a boolean string or special value <literal>private</literal>, and the second
+      one is an optional private hostname that will be set in a new UTS namespace for the unit.</para>
     </refsect2>
   </refsect1>
 
@@ -5525,6 +5540,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DelegateNamespaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictFileSystems = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
@@ -5544,6 +5561,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s ProcSubset = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6138,6 +6157,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property RestrictNamespaces is not documented!-->
 
+    <!--property DelegateNamespaces is not documented!-->
+
     <!--property RestrictFileSystems is not documented!-->
 
     <!--property BindPaths is not documented!-->
@@ -6155,8 +6176,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
-
-    <!--property ProtectHostname is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -6832,6 +6851,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateNamespaces"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
@@ -6851,6 +6872,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ProcSubset"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -7532,6 +7555,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DelegateNamespaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictFileSystems = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
@@ -7551,6 +7576,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s ProcSubset = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8071,6 +8098,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property RestrictNamespaces is not documented!-->
 
+    <!--property DelegateNamespaces is not documented!-->
+
     <!--property RestrictFileSystems is not documented!-->
 
     <!--property BindPaths is not documented!-->
@@ -8088,8 +8117,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
-
-    <!--property ProtectHostname is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -8677,6 +8704,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateNamespaces"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
@@ -8696,6 +8725,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ProcSubset"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -9506,6 +9537,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DelegateNamespaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictFileSystems = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
@@ -9525,6 +9558,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly s ProcSubset = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -10031,6 +10066,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property RestrictNamespaces is not documented!-->
 
+    <!--property DelegateNamespaces is not documented!-->
+
     <!--property RestrictFileSystems is not documented!-->
 
     <!--property BindPaths is not documented!-->
@@ -10048,8 +10085,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
-
-    <!--property ProtectHostname is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -10623,6 +10658,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateNamespaces"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
@@ -10642,6 +10679,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ProcSubset"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -12304,8 +12343,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>BindLogSockets</varname>,
       <varname>ProtectControlGroupsEx</varname>,
-      <varname>PrivateUsersEx</varname>, and
-      <varname>PrivatePIDs</varname> were added in version 257.</para>
+      <varname>PrivateUsersEx</varname>,
+      <varname>PrivatePIDs</varname>,
+      <varname>DelegateNamespaces</varname>, and
+      <varname>ProtectHostnameEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12347,8 +12388,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>BindLogSockets</varname>,
       <varname>PrivateUsersEx</varname>,
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
-      <varname>ProtectControlGroupsEx</varname>, and
-      <varname>PrivatePIDs</varname> were added in version 257.</para>
+      <varname>ProtectControlGroupsEx</varname>,
+      <varname>PrivatePIDs</varname>,
+      <varname>DelegateNamespaces</varname>, and
+      <varname>ProtectHostnameEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12387,8 +12430,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>BindLogSockets</varname>,
       <varname>PrivateUsersEx</varname>,
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
-      <varname>ProtectControlGroupsEx</varname>, and
-      <varname>PrivatePIDs</varname> were added in version 257.</para>
+      <varname>ProtectControlGroupsEx</varname>,
+      <varname>PrivatePIDs</varname>,
+      <varname>DelegateNamespaces</varname>, and
+      <varname>ProtectHostnameEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12427,8 +12472,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>BindLogSockets</varname>,
       <varname>PrivateUsersEx</varname>,
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
-      <varname>ProtectControlGroupsEx</varname>, and
-      <varname>PrivatePIDs</varname> were added in version 257.</para>
+      <varname>ProtectControlGroupsEx</varname>,
+      <varname>PrivatePIDs</varname>,
+      <varname>DelegateNamespaces</varname>, and
+      <varname>ProtectHostnameEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
