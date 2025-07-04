@@ -148,6 +148,8 @@ typedef enum RemountIdmapping {
         _REMOUNT_IDMAPPING_INVALID = -EINVAL,
 } RemountIdmapping;
 
+int open_tree_attr_fallback(int dir_fd, const char *path, unsigned int flags, struct mount_attr *attr, size_t size);
+
 int make_userns(uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
 int remount_idmap_fd(char **p, int userns_fd, uint64_t extra_mount_attr_set);
 int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);

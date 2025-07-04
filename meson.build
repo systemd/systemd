@@ -607,6 +607,7 @@ foreach ident : [
         ['pivot_root',        '''#include <sys/syscall.h>'''],  # no known header declares pivot_root
         ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
+        ['open_tree_attr',    '''#include <sys/mount.h>'''],    # no known header declares open_tree_attr
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
