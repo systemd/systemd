@@ -2485,7 +2485,7 @@ static int setup_credentials(const char *root) {
                 if (fchmod(fd, world_readable ? 0444 : 0400) < 0)
                         return log_error_errno(errno, "Failed to adjust access mode of %s: %m", j);
 
-                if (arg_userns_mode != USER_NAMESPACE_NO)
+                if (in_child_chown())
                         if (fchown(fd, arg_uid_shift, arg_uid_shift) < 0)
                                 return log_error_errno(errno, "Failed to adjust ownership of %s: %m", j);
         }
