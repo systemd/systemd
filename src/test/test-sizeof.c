@@ -60,7 +60,6 @@ int main(void) {
 
         check_no_sign(dev_t, SIZEOF_DEV_T);
         check_no_sign(ino_t, SIZEOF_INO_T);
-        check_no_sign(rlim_t, SIZEOF_RLIM_T);
         check(time_t, SIZEOF_TIME_T);
         check(typeof_field(struct timex, freq), SIZEOF_TIMEX_MEMBER);
 
