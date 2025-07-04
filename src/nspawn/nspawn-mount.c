@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -814,8 +815,39 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         if (m->rm_rf_tmpdir && chown(m->source, uid_shift, uid_shift) < 0)
                 return log_error_errno(errno, "Failed to chown %s: %m", m->source);
 
+        bool unmount = false;
+        if (idmapping != REMOUNT_IDMAPPING_NONE) {
+                /* UID/GIDs of idmapped mounts are always resolved in the caller's user namespace. In other
+                 * words, they're not nested. If we're doing an idmapped mount from a bind mount that's
+                 * already idmapped itself, the old idmap is replaced with the new one. This means that the
+                 * source uid which we put in the idmap userns has to be the uid of mount source in the
+                 * caller's userns *without* any mount idmapping in place. To get that uid, we clone the
+                 * mount source tree and clear any existing idmapping and temporarily mount that tree over
+                 * the mount source before we stat the mount source to figure out the source uid. */
+                _cleanup_close_ int fd_clone = open_tree_attr_fallback(
+                                AT_FDCWD,
+                                m->source,
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC,
+                                &(struct mount_attr) {
+                                        .attr_clr = MOUNT_ATTR_IDMAP,
+                                });
+                if (fd_clone >= 0) {
+                        if (move_mount(fd_clone, "", AT_FDCWD, m->source, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                                return log_error_errno(errno, "Failed to mount %s without idmapping: %m", m->source);
+
+                        unmount = true;
+                } else if (!ERRNO_IS_NEG_NOT_SUPPORTED(fd_clone))
+                        return log_error_errno(errno, "Failed to clone %s without idmapping: %m", m->source);
+
+                /* We can only clear idmapped mounts with open_tree_attr(), but there might not be one in
+                 * the first place, so we keep going if we get a not supported error. */
+        }
+
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
+
+        if (unmount && umount(m->source) < 0)
+                return log_error_errno(errno, "Failed to unmount %s without idmapping: %m", m->source);
 
         r = chase(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where, NULL);
         if (r < 0)
