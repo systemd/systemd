@@ -1441,6 +1441,23 @@ int make_userns(uid_t uid_shift,
         return TAKE_FD(userns_fd);
 }
 
+int open_tree_attr_fallback(int dir_fd, const char *path, unsigned int flags, struct mount_attr *attr, size_t size) {
+        _cleanup_close_ int fd = open_tree_attr(dir_fd, path, flags, attr, size);
+        if (fd >= 0)
+                return TAKE_FD(fd);
+        if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                return log_debug_errno(errno, "Failed to open tree and set mount attributes: %m");
+
+        fd = open_tree(dir_fd, path, flags);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open tree: %m");
+
+        if (mount_setattr(fd, "", AT_EMPTY_PATH | (flags & AT_RECURSIVE ? AT_RECURSIVE : 0), attr, size) < 0)
+                return log_debug_errno(errno, "Failed to change mount attributes: %m");
+
+        return TAKE_FD(fd);
+}
+
 int remount_idmap_fd(
                 char **paths,
                 int userns_fd,
@@ -1469,22 +1486,19 @@ int remount_idmap_fd(
         CLEANUP_ARRAY(mount_fds, n_mounts_fds, close_many_and_free);
 
         for (size_t i = 0; i < n; i++) {
-                int mntfd;
-
-                /* Clone the mount point */
-                mntfd = mount_fds[n_mounts_fds] = open_tree(-EBADF, paths[i], OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
-                if (mount_fds[n_mounts_fds] < 0)
-                        return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", paths[i]);
-
-                n_mounts_fds++;
-
-                /* Set the user namespace mapping attribute on the cloned mount point */
-                if (mount_setattr(mntfd, "", AT_EMPTY_PATH,
-                                  &(struct mount_attr) {
+                /* Clone the mount point and et the user namespace mapping attribute on the cloned mount point. */
+                mount_fds[n_mounts_fds] = open_tree_attr_fallback(
+                                /* dir_fd= */ -EBADF,
+                                paths[i],
+                                OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC,
+                                &(struct mount_attr) {
                                           .attr_set = MOUNT_ATTR_IDMAP | extra_mount_attr_set,
                                           .userns_fd = userns_fd,
-                                  }, sizeof(struct mount_attr)) < 0)
-                        return log_debug_errno(errno, "Failed to change bind mount attributes for clone of '%s': %m", paths[i]);
+                                }, sizeof(struct mount_attr));
+                if (mount_fds[n_mounts_fds] < 0)
+                        return mount_fds[n_mounts_fds];
+
+                n_mounts_fds++;
         }
 
         for (size_t i = n; i > 0; i--) { /* Unmount the paths right-to-left */
