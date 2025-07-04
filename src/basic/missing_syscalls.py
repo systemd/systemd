@@ -13,6 +13,7 @@ SYSCALLS = [
     'quotactl_fd',   # defined in glibc header since glibc-2.35
     'removexattrat',
     'setxattrat',
+    'open_tree_attr',
 ]
 
 def dictify(f):
