@@ -13,9 +13,6 @@
 #include "unit.h"
 #include "varlink-cgroup.h"
 
-#define JSON_BUILD_PAIR_CONDITION_UNSIGNED(condition, name, value) \
-        SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_UNSIGNED(value))
-
 static int cpu_set_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         _cleanup_free_ uint8_t *array = NULL;
         CPUSet *cpuset = ASSERT_PTR(userdata);
