@@ -155,8 +155,8 @@ udevadm test-builtin uaccess /dev/null
 # systemd-hwdb update is extremely slow when combined with sanitizers and run
 # in a VM without acceleration, so let's just skip the one particular test
 # if we detect this combination
-if ! [[ -v ASAN_OPTIONS && "$(systemd-detect-virt -v)" == "qemu" ]]; then
-    modprobe scsi_debug
+# scsi_debug is not available in all architectures/kernels combinations
+if ! [[ -v ASAN_OPTIONS && "$(systemd-detect-virt -v)" == "qemu" ]] && modprobe scsi_debug; then
     scsidev=$(readlink -f /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/[0-9]*)
     mkdir -p /etc/udev/hwdb.d
     cat >/etc/udev/hwdb.d/99-test.hwdb <<EOF

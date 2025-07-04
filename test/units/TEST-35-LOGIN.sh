@@ -298,7 +298,7 @@ teardown_session() (
 
     rm -f /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
     udevadm control --reload
-    rmmod scsi_debug
+    rmmod scsi_debug || true
 
     return 0
 )
@@ -446,7 +446,11 @@ EOF
 
     # coldplug: logind started with existing device
     systemctl stop systemd-logind.service
-    modprobe scsi_debug
+    if ! modprobe scsi_debug; then
+        echo "scsi_debug module not available, skipping test ${FUNCNAME[0]}."
+        systemctl start systemd-logind.service
+        return
+    fi
     timeout 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
     dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null)
     if [[ ! -b "$dev" ]]; then
