@@ -66,6 +66,11 @@ if [[ -x /usr/lib/systemd/systemd-pcrextend ]]; then
     varlinkctl introspect /usr/lib/systemd/systemd-pcrextend
 fi
 
+# Test various varlink socket units to make sure that we can still connect to the varlink sockets even if the
+# services are currently stopped (or restarting).
+systemctl stop systemd-networkd.service
+varlinkctl introspect /run/systemd/netif/io.systemd.Network
+
 # SSH transport
 SSHBINDIR="$(mktemp -d)"
 
