@@ -13,6 +13,7 @@ SYSCALLS = [
     'quotactl_fd',   # defined in glibc header since glibc-2.35
     'removexattrat',
     'setxattrat',
+    'open_tree_attr',
 ]
 
 def dictify(f):
@@ -96,7 +97,7 @@ DEF_TEMPLATE_C = '''\
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_{syscall} && __NR_{syscall} >= 0
 #    if defined systemd_NR_{syscall}
-assert_cc(__NR_{syscall} == systemd_NR_{syscall});
+_Static_assert(__NR_{syscall} == systemd_NR_{syscall}, "");
 #    endif
 #  else
 #    if defined __NR_{syscall}

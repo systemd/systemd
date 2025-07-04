@@ -36,6 +36,7 @@ struct in_addr;
 struct in6_addr;
 struct inotify_event;
 struct iovec;
+struct mount_attr;
 struct msghdr;
 struct passwd;
 struct pollfd;
