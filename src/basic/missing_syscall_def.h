@@ -517,3 +517,71 @@ _Static_assert(__NR_setxattrat == systemd_NR_setxattrat, "");
 #    endif
 #  endif
 #endif
+
+#ifndef __IGNORE_open_tree_attr
+#  if defined(__aarch64__)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(__alpha__)
+#    define systemd_NR_open_tree_attr 577
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(__arm__)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(__i386__)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(__ia64__)
+#    define systemd_NR_open_tree_attr -1
+#  elif defined(__loongarch_lp64)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(__m68k__)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_open_tree_attr 4467
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_open_tree_attr 6467
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_open_tree_attr 5467
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(__powerpc__)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_open_tree_attr 467
+#    elif __riscv_xlen == 64
+#      define systemd_NR_open_tree_attr 467
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
+#  elif defined(__s390__)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(__sparc__)
+#    define systemd_NR_open_tree_attr 467
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_open_tree_attr (467 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_open_tree_attr 467
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "open_tree_attr() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_open_tree_attr && __NR_open_tree_attr >= 0
+#    if defined systemd_NR_open_tree_attr
+_Static_assert(__NR_open_tree_attr == systemd_NR_open_tree_attr, "");
+#    endif
+#  else
+#    if defined __NR_open_tree_attr
+#      undef __NR_open_tree_attr
+#    endif
+#    if defined systemd_NR_open_tree_attr && systemd_NR_open_tree_attr >= 0
+#      define __NR_open_tree_attr systemd_NR_open_tree_attr
+#    endif
+#  endif
+#endif
