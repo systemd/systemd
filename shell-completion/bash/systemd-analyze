@@ -81,7 +81,11 @@ _systemd_analyze() {
         [ARCHITECTURES]='architectures'
         [FDSTORE]='fdstore'
         [CAPABILITY]='capability'
+<<<<<<< HEAD
         [TRANSIENT_SETTINGS]='transient-settings'
+=======
+        [UNIT_SHELL]='unit-shell'
+>>>>>>> fbc3d81908 (systemd-analyze: added the verb unit-shell to spawn and attach shell)
     )
 
     local CONFIGS='locale.conf systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -232,6 +236,13 @@ _systemd_analyze() {
             comps='--help --version --no-pager'
         else
             comps="$(systemctl --no-legend --no-pager -t help)"
+        fi
+
+    elif __contains_word "$verb" ${VERBS[UNIT_SHELL]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version'
+        else
+            comps=$( __get_services $mode )
         fi
     fi
 
