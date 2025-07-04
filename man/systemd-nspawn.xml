@@ -888,7 +888,7 @@
         correction of the numeric UID/GID values, according to the UID/GID shift applied.</para>
 
         <para>Note that for fully unprivileged operation in <literal>managed</literal> mode, any directory
-        image should be ownd by the foreign UID range.</para>
+        image should be owned by the foreign UID range.</para>
 
         <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
