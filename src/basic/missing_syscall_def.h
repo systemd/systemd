@@ -6,8 +6,6 @@
  */
 #pragma once
 
-#include "forward.h"
-
 /* Note: if this code looks strange, this is because it is derived from the same
  * template as the per-syscall blocks below. */
 #  if defined(__aarch64__)
@@ -100,7 +98,7 @@
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_close_range && __NR_close_range >= 0
 #    if defined systemd_NR_close_range
-assert_cc(__NR_close_range == systemd_NR_close_range);
+_Static_assert(__NR_close_range == systemd_NR_close_range, "");
 #    endif
 #  else
 #    if defined __NR_close_range
@@ -168,7 +166,7 @@ assert_cc(__NR_close_range == systemd_NR_close_range);
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_fchmodat2 && __NR_fchmodat2 >= 0
 #    if defined systemd_NR_fchmodat2
-assert_cc(__NR_fchmodat2 == systemd_NR_fchmodat2);
+_Static_assert(__NR_fchmodat2 == systemd_NR_fchmodat2, "");
 #    endif
 #  else
 #    if defined __NR_fchmodat2
@@ -236,7 +234,7 @@ assert_cc(__NR_fchmodat2 == systemd_NR_fchmodat2);
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_mount_setattr && __NR_mount_setattr >= 0
 #    if defined systemd_NR_mount_setattr
-assert_cc(__NR_mount_setattr == systemd_NR_mount_setattr);
+_Static_assert(__NR_mount_setattr == systemd_NR_mount_setattr, "");
 #    endif
 #  else
 #    if defined __NR_mount_setattr
@@ -304,7 +302,7 @@ assert_cc(__NR_mount_setattr == systemd_NR_mount_setattr);
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_openat2 && __NR_openat2 >= 0
 #    if defined systemd_NR_openat2
-assert_cc(__NR_openat2 == systemd_NR_openat2);
+_Static_assert(__NR_openat2 == systemd_NR_openat2, "");
 #    endif
 #  else
 #    if defined __NR_openat2
@@ -372,7 +370,7 @@ assert_cc(__NR_openat2 == systemd_NR_openat2);
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_quotactl_fd && __NR_quotactl_fd >= 0
 #    if defined systemd_NR_quotactl_fd
-assert_cc(__NR_quotactl_fd == systemd_NR_quotactl_fd);
+_Static_assert(__NR_quotactl_fd == systemd_NR_quotactl_fd, "");
 #    endif
 #  else
 #    if defined __NR_quotactl_fd
@@ -440,7 +438,7 @@ assert_cc(__NR_quotactl_fd == systemd_NR_quotactl_fd);
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_removexattrat && __NR_removexattrat >= 0
 #    if defined systemd_NR_removexattrat
-assert_cc(__NR_removexattrat == systemd_NR_removexattrat);
+_Static_assert(__NR_removexattrat == systemd_NR_removexattrat, "");
 #    endif
 #  else
 #    if defined __NR_removexattrat
@@ -508,7 +506,7 @@ assert_cc(__NR_removexattrat == systemd_NR_removexattrat);
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_setxattrat && __NR_setxattrat >= 0
 #    if defined systemd_NR_setxattrat
-assert_cc(__NR_setxattrat == systemd_NR_setxattrat);
+_Static_assert(__NR_setxattrat == systemd_NR_setxattrat, "");
 #    endif
 #  else
 #    if defined __NR_setxattrat
