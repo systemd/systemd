@@ -1223,15 +1223,10 @@ static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, con
 }
 
 static int bus_append_log_filter_patterns(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
-        r = sd_bus_message_append(m, "(sv)", "LogFilterPatterns", "a(bs)", 1,
-                                  eq[0] != '~',
-                                  eq[0] != '~' ? eq : eq + 1);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return 1;
+        return bus_append_trivial_array(m, field, eq,
+                                        "a(bs)",
+                                        eq[0] != '~',
+                                        eq[0] != '~' ? eq : eq + 1);
 }
 
 static int bus_append_standard_inputs(sd_bus_message *m, const char *field, const char *eq) {
