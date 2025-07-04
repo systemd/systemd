@@ -561,9 +561,9 @@ static int bus_append_socket_filter(sd_bus_message *m, const char *field, const 
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **cmdline = NULL, **ex_opts = NULL;
-        _cleanup_free_ char *_path = NULL, *upgraded_name = NULL;
+        _cleanup_free_ char *_path = NULL;
         ExecCommandFlags flags = 0;
-        bool is_ex_prop = endswith(field, "Ex");
+        bool ex_prop = false;
         int r;
 
         do {
@@ -638,18 +638,16 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 }
         } while (!done);
 
-        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_VIA_SHELL))) {
-                /* Upgrade the ExecXYZ= property to ExecXYZEx= for convenience */
-                is_ex_prop = true;
-
-                upgraded_name = strjoin(field, "Ex");
-                if (!upgraded_name)
-                        return log_oom();
-                field = upgraded_name;
-        }
-
-        if (is_ex_prop)
+        if (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_VIA_SHELL)) {
+                /* We need to use ExecXYZEx=. */
+                if (!endswith(field, "Ex"))
+                        field = strjoina(field, "Ex");
+                ex_prop = true;
                 assert_se(exec_command_flags_to_strv(flags, &ex_opts) >= 0);
+        } else {
+                if (endswith(field, "Ex"))
+                        field = strndupa(field, strlen(field) - 2);
+        }
 
         const char *path = NULL;
         if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL))
@@ -683,16 +681,16 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(m, 'v', is_ex_prop ? "a(sasas)" : "a(sasb)");
+        r = sd_bus_message_open_container(m, 'v', ex_prop ? "a(sasas)" : "a(sasb)");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(m, 'a', is_ex_prop ? "(sasas)" : "(sasb)");
+        r = sd_bus_message_open_container(m, 'a', ex_prop ? "(sasas)" : "(sasb)");
         if (r < 0)
                 return bus_log_create_error(r);
 
         if (!strv_isempty(cmdline)) {
-                r = sd_bus_message_open_container(m, 'r', is_ex_prop ? "sasas" : "sasb");
+                r = sd_bus_message_open_container(m, 'r', ex_prop ? "sasas" : "sasb");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -704,8 +702,8 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = is_ex_prop ? sd_bus_message_append_strv(m, ex_opts) :
-                                 sd_bus_message_append(m, "b", FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
+                r = ex_prop ? sd_bus_message_append_strv(m, ex_opts) :
+                              sd_bus_message_append(m, "b", FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2581,19 +2579,19 @@ static const BusProperty service_properties[] = {
         { "FileDescriptorStoreMax",                bus_append_safe_atou                          },
         { "RestartSteps",                          bus_append_safe_atou                          },
         { "ExecCondition",                         bus_append_exec_command                       },
+        { "ExecConditionEx",                       bus_append_exec_command                       }, /* compat */
         { "ExecStartPre",                          bus_append_exec_command                       },
+        { "ExecStartPreEx",                        bus_append_exec_command                       }, /* compat */
         { "ExecStart",                             bus_append_exec_command                       },
+        { "ExecStartEx",                           bus_append_exec_command                       }, /* compat */
         { "ExecStartPost",                         bus_append_exec_command                       },
-        { "ExecConditionEx",                       bus_append_exec_command                       },
-        { "ExecStartPreEx",                        bus_append_exec_command                       },
-        { "ExecStartEx",                           bus_append_exec_command                       },
-        { "ExecStartPostEx",                       bus_append_exec_command                       },
+        { "ExecStartPostEx",                       bus_append_exec_command                       }, /* compat */
         { "ExecReload",                            bus_append_exec_command                       },
+        { "ExecReloadEx",                          bus_append_exec_command                       }, /* compat */
         { "ExecStop",                              bus_append_exec_command                       },
+        { "ExecStopEx",                            bus_append_exec_command                       }, /* compat */
         { "ExecStopPost",                          bus_append_exec_command                       },
-        { "ExecReloadEx",                          bus_append_exec_command                       },
-        { "ExecStopEx",                            bus_append_exec_command                       },
-        { "ExecStopPostEx",                        bus_append_exec_command                       },
+        { "ExecStopPostEx",                        bus_append_exec_command                       }, /* compat */
         { "RestartPreventExitStatus",              bus_append_exit_status                        },
         { "RestartForceExitStatus",                bus_append_exit_status                        },
         { "SuccessExitStatus",                     bus_append_exit_status                        },
