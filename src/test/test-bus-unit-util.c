@@ -142,6 +142,7 @@ TEST(cgroup_properties) {
                         "CPUQuota=200%",
                         "CPUQuotaPeriodSec=100ms",
                         "CPUQuotaPeriodSec=1s",
+                        "-ERANGE CPUQuota=0%",
 
                         "DeviceAllow=/dev/null rw",
                         "DeviceAllow=/dev/zero r",
@@ -382,6 +383,7 @@ TEST(execute_properties) {
                         "CPUSchedulingPriority=50",
                         "CPUSchedulingPriority=1",
                         "CPUSchedulingPriority=99",
+                        "-ERANGE CPUSchedulingPriority=2147483648",
 
                         "OOMScoreAdjust=100",
                         "OOMScoreAdjust=-100",
@@ -579,8 +581,8 @@ TEST(kill_properties) {
 
                         "KillSignal=1",
                         "KillSignal=64",  /* _NSIG == 64 */
-                        "-EINVAL KillSignal=0",
-                        "-EINVAL KillSignal=65",
+                        "-ERANGE KillSignal=0",
+                        "-ERANGE KillSignal=65",
                         "RestartKillSignal=TERM",
                         "RestartKillSignal=SIGTERM",
                         "FinalKillSignal=WINCH",
@@ -591,7 +593,7 @@ TEST(kill_properties) {
                         "ReloadSignal=RTMAX",
                         "ReloadSignal=RTMAX-0",
                         "ReloadSignal=RTMAX-5",
-                        "-EINVAL ReloadSignal=RTMAX-100"
+                        "-ERANGE ReloadSignal=RTMAX-100"
         );
 
         test_transient_settings_one(UNIT_SCOPE, lines);
