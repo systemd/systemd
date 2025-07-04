@@ -128,14 +128,14 @@ jobs:
         run: |
           truncate --size=100G btrfs.raw
           mkfs.btrfs btrfs.raw
-          sudo mkdir /mnt/mkosi
+          sudo mkdir -p /mnt/mkosi
           LOOP="$(sudo losetup --find --show --direct-io=on btrfs.raw)"
-          rm btrfs.raw
+          rm -f btrfs.raw
           sudo mount "$LOOP" /mnt/mkosi --options compress=zstd:1,user_subvol_rm_allowed,noatime,discard=async,space_cache=v2
           sudo chown "$(id -u):$(id -g)" /mnt/mkosi
-          mkdir /mnt/mkosi/tmp
+          mkdir -p /mnt/mkosi/tmp
           echo "TMPDIR=/mnt/mkosi/tmp" >>"$GITHUB_ENV"
-          ln -s /mnt/mkosi/build build
+          ln -sf /mnt/mkosi/build build
 
       - name: Configure
         run: |
