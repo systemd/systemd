@@ -120,3 +120,13 @@ static inline int missing_mount_setattr(int dfd, const char *path, unsigned flag
 }
 #  define mount_setattr missing_mount_setattr
 #endif
+
+#if HAVE_OPEN_TREE_ATTR
+extern int open_tree_attr(int __dfd, const char *__filename, unsigned int __flags, struct mount_attr *__uattr, size_t __usize) __THROW;
+#else
+static inline int missing_open_tree_attr(int dfd, const char *filename, unsigned int flags, struct mount_attr *attr, size_t size) {
+        return syscall(__NR_open_tree_attr, dfd, filename, flags, attr, size);
+}
+
+#  define open_tree_attr missing_open_tree_attr
+#endif
