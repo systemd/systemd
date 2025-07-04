@@ -561,8 +561,8 @@ static int bus_append_socket_filter(sd_bus_message *m, const char *field, const 
 
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
-        _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
-        _cleanup_free_ char *path = NULL, *upgraded_name = NULL;
+        _cleanup_strv_free_ char **cmdline = NULL, **ex_opts = NULL;
+        _cleanup_free_ char *_path = NULL, *upgraded_name = NULL;
         ExecCommandFlags flags = 0;
         bool is_ex_prop = endswith(field, "Ex");
         int r;
@@ -655,27 +655,26 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         return log_error_errno(r, "Failed to convert ExecCommandFlags to strv: %m");
         }
 
-        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
-                path = strdup(_PATH_BSHELL);
-                if (!path)
-                        return log_oom();
-
-        } else if (explicit_path) {
-                r = extract_first_word(&eq, &path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
+        const char *path = NULL;
+        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL))
+                path = _PATH_BSHELL;
+        else if (explicit_path) {
+                r = extract_first_word(&eq, &_path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse path: %m");
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No executable path specified, refusing.");
                 if (isempty(eq))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got empty command line, refusing.");
+                path = _path;
         }
 
-        r = strv_split_full(&l, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
+        r = strv_split_full(&cmdline, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse command line: %m");
 
         if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
-                r = strv_prepend(&l, explicit_path ? "-sh" : "sh");
+                r = strv_prepend(&cmdline, explicit_path ? "-sh" : "sh");
                 if (r < 0)
                         return log_oom();
         }
@@ -696,21 +695,21 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (!strv_isempty(l)) {
-
+        if (!strv_isempty(cmdline)) {
                 r = sd_bus_message_open_container(m, 'r', is_ex_prop ? "sasas" : "sasb");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", path ?: l[0]);
+                r = sd_bus_message_append(m, "s", path ?: cmdline[0]);
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_strv(m, l);
+                r = sd_bus_message_append_strv(m, cmdline);
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = is_ex_prop ? sd_bus_message_append_strv(m, ex_opts) : sd_bus_message_append(m, "b", FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
+                r = is_ex_prop ? sd_bus_message_append_strv(m, ex_opts) :
+                                 sd_bus_message_append(m, "b", FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
                 if (r < 0)
                         return bus_log_create_error(r);
 
