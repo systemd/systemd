@@ -19,12 +19,11 @@ ADDITIONAL_DEPS=(
     libxkbcommon-dev
     libzstd-dev
     python3-libevdev
-    python3-pefile
+    python3-pip
     python3-pyelftools
     python3-pyparsing
     python3-pytest
     rpm
-    systemd-boot-efi
     zstd
 )
 
@@ -42,6 +41,11 @@ function run_meson() {
 set -ex
 
 MESON_ARGS=()
+
+if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "x86_64" ]; then
+    ADDITIONAL_DEPS+=(python3-pefile)
+    ADDITIONAL_DEPS+=(systemd-boot-efi)
+fi
 
 # (Re)set the current oom-{score-}adj. For some reason root on GH actions is able to _decrease_
 # its oom-score even after dropping all capabilities (including CAP_SYS_RESOURCE), until the
