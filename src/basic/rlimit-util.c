@@ -131,11 +131,6 @@ static int rlimit_parse_sec(const char *val, rlim_t *ret) {
         assert(val);
         assert(ret);
 
-        if (streq(val, "infinity")) {
-                *ret = RLIM_INFINITY;
-                return 0;
-        }
-
         r = parse_sec(val, &t);
         if (r < 0)
                 return r;
@@ -158,11 +153,6 @@ static int rlimit_parse_usec(const char *val, rlim_t *ret) {
 
         assert(val);
         assert(ret);
-
-        if (streq(val, "infinity")) {
-                *ret = RLIM_INFINITY;
-                return 0;
-        }
 
         r = parse_time(val, &t, 1);
         if (r < 0)
