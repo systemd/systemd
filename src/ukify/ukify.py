@@ -463,7 +463,7 @@ class SignTool:
         raise NotImplementedError()
 
     @staticmethod
-    def verify(opts: UkifyConfig) -> bool:
+    def verify(input_f: Path, opts: UkifyConfig) -> bool:
         raise NotImplementedError()
 
     @staticmethod
@@ -499,11 +499,11 @@ class PeSign(SignTool):
         subprocess.check_call(cmd)
 
     @staticmethod
-    def verify(opts: UkifyConfig) -> bool:
-        assert opts.linux is not None
+    def verify(input_f: Path, opts: UkifyConfig) -> bool:
+        assert input_f is not None
 
         tool = find_tool('pesign', opts=opts)
-        cmd = [tool, '-i', opts.linux, '-S']
+        cmd = [tool, '-i', input_f, '-S']
 
         print('+', shell_join(cmd), file=sys.stderr)
         info = subprocess.check_output(cmd, text=True)
@@ -531,11 +531,11 @@ class SbSign(SignTool):
         subprocess.check_call(cmd)
 
     @staticmethod
-    def verify(opts: UkifyConfig) -> bool:
-        assert opts.linux is not None
+    def verify(input_f: Path, opts: UkifyConfig) -> bool:
+        assert input_f is not None
 
         tool = find_tool('sbverify', opts=opts)
-        cmd = [tool, '--list', opts.linux]
+        cmd = [tool, '--list', input_f]
 
         print('+', shell_join(cmd), file=sys.stderr)
         info = subprocess.check_output(cmd, text=True)
@@ -583,7 +583,7 @@ class SystemdSbSign(SignTool):
         subprocess.check_call(cmd)
 
     @staticmethod
-    def verify(opts: UkifyConfig) -> bool:
+    def verify(input_f: Path, opts: UkifyConfig) -> bool:
         raise NotImplementedError('systemd-sbsign cannot yet verify if existing PE binaries are signed')
 
 
@@ -1131,7 +1131,7 @@ def make_uki(opts: UkifyConfig) -> None:
 
         if sign_kernel is None:
             # figure out if we should sign the kernel
-            sign_kernel = signtool.verify(opts)
+            sign_kernel = signtool.verify(linux, opts)
 
         if sign_kernel:
             linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
