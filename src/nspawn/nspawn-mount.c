@@ -25,6 +25,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 
 CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
         CustomMount *ret;
@@ -41,7 +42,8 @@ CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
         (*n)++;
 
         *ret = (CustomMount) {
-                .type = t
+                .type = t,
+                .destination_uid = UID_INVALID,
         };
 
         return ret;
@@ -849,7 +851,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                 if (stat(where, &dest_st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", where);
 
-                dest_uid = dest_st.st_uid;
+                dest_uid = uid_is_valid(m->destination_uid) ? uid_shift + m->destination_uid : dest_st.st_uid;
 
                 if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -880,7 +882,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                 if (chown(where, uid_shift, uid_shift) < 0)
                         return log_error_errno(errno, "Failed to chown %s: %m", where);
 
-                dest_uid = uid_shift;
+                dest_uid = uid_shift + (uid_is_valid(m->destination_uid) ? m->destination_uid : 0);
         }
 
         if (move_mount(fd_clone, "", AT_FDCWD, where, MOVE_MOUNT_F_EMPTY_PATH) < 0)

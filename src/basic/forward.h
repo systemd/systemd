@@ -291,6 +291,8 @@ typedef struct ImagePolicy ImagePolicy;
 typedef struct InstallInfo InstallInfo;
 typedef struct LookupPaths LookupPaths;
 typedef struct LoopDevice LoopDevice;
+typedef struct MachineBindUserContext MachineBindUserContext;
+typedef struct MachineCredentialContext MachineCredentialContext;
 typedef struct MountOptions MountOptions;
 typedef struct OpenFile OpenFile;
 typedef struct Pkcs11EncryptedKey Pkcs11EncryptedKey;
