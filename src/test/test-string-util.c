@@ -496,7 +496,7 @@ TEST(foreach_word_quoted) {
               true);
 
         check("test\\",
-              STRV_MAKE_EMPTY,
+              STRV_EMPTY,
               true);
 }
 
