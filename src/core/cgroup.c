@@ -1827,7 +1827,7 @@ static CGroupMask unit_get_disable_mask(Unit *u) {
         return c->disable_controllers;
 }
 
-CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
+static CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
         CGroupMask mask;
         Unit *slice;
 
