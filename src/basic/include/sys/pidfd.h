@@ -2,11 +2,22 @@
 #pragma once
 
 #include <linux/types.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 
 /* since glibc-2.36 */
 #if HAVE_PIDFD_OPEN
 #include_next <sys/pidfd.h>
+#endif
+
+/* since glibc-2.36 */
+#if !HAVE_PIDFD_OPEN
+int pidfd_open(pid_t pid, unsigned flags);
+#endif
+
+/* since glibc-2.36 */
+#if !HAVE_PIDFD_SEND_SIGNAL
+int pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags);
 #endif
 
 /* since glibc-2.41 */

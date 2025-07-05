@@ -16,7 +16,6 @@
 #include "label.h"
 #include "lock-util.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"

@@ -8,7 +8,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "sparse-endian.h"
