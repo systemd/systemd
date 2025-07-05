@@ -16,7 +16,7 @@ typedef struct CGroupTasksMax {
 
 #define CGROUP_TASKS_MAX_UNSET ((const CGroupTasksMax) { .value = UINT64_MAX, .scale = 0 })
 
-static inline bool cgroup_tasks_max_isset(const CGroupTasksMax *tasks_max) {
+static inline bool CGROUP_TASKS_MAX_IS_SET(const CGroupTasksMax *tasks_max) {
         return tasks_max->value != UINT64_MAX || tasks_max->scale != 0;
 }
 

@@ -1590,7 +1590,7 @@ static void cgroup_context_apply(
                          * which is desirable so that there's an official way to release control of the sysctl from
                          * systemd: set the limit to unbounded and reload. */
 
-                        if (cgroup_tasks_max_isset(&c->tasks_max)) {
+                        if (CGROUP_TASKS_MAX_IS_SET(&c->tasks_max)) {
                                 u->manager->sysctl_pid_max_changed = true;
                                 r = procfs_tasks_set_limit(cgroup_tasks_max_resolve(&c->tasks_max));
                         } else if (u->manager->sysctl_pid_max_changed)
@@ -1605,7 +1605,7 @@ static void cgroup_context_apply(
                 /* The attribute itself is not available on the host root cgroup, and in the container case we want to
                  * leave it for the container manager. */
                 if (!is_local_root) {
-                        if (cgroup_tasks_max_isset(&c->tasks_max)) {
+                        if (CGROUP_TASKS_MAX_IS_SET(&c->tasks_max)) {
                                 char buf[DECIMAL_STR_MAX(uint64_t) + 1];
 
                                 xsprintf(buf, "%" PRIu64 "\n", cgroup_tasks_max_resolve(&c->tasks_max));
@@ -1725,7 +1725,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
                 mask |= CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
 
         if (c->tasks_accounting ||
-            cgroup_tasks_max_isset(&c->tasks_max))
+            CGROUP_TASKS_MAX_IS_SET(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
 
         return mask;
