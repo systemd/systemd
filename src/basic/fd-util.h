@@ -50,6 +50,11 @@
  * around the problems with musl's definition. */
 #define O_ACCMODE_STRICT (O_RDONLY|O_WRONLY|O_RDWR)
 
+/* The default and maximum value of /proc/sys/fs/nr_open. See kernel's fs/file.c. */
+#define NR_OPEN_DEFAULT ((unsigned) (1024 * 1024))
+#define NR_OPEN_MINIMUM ((unsigned) (sizeof(long) * 8))
+#define NR_OPEN_MAXIMUM ((unsigned) (CONST_MIN((size_t) INT_MAX, SIZE_MAX / sizeof(uintptr_t)) & (sizeof(long) * 8 - 1)))
+
 int close_nointr(int fd);
 int safe_close(int fd);
 void safe_close_pair(int p[static 2]);
@@ -148,7 +153,7 @@ static inline int fd_verify_safe_flags(int fd) {
         return fd_verify_safe_flags_full(fd, 0);
 }
 
-int read_nr_open(void);
+unsigned read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
 int path_is_root_at(int dir_fd, const char *path);
