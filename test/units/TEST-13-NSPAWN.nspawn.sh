@@ -1126,7 +1126,10 @@ testcase_check_os_release() {
     base="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.check_os_release_base.XXX)"
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.check_os_release.XXX)"
     create_dummy_container "$base"
-    cp -d "$base"/{bin,sbin,lib,lib64} "$root/"
+    cp -d "$base"/{bin,sbin,lib} "$root/"
+    if [ -d "$base"/lib64 ]; then
+        cp -d "$base"/lib64 "$root/"
+    fi
     common_opts=(
         --boot
         --register=no
