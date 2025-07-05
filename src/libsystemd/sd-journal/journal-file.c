@@ -4694,8 +4694,9 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
         return false;
 }
 
-bool journal_file_writable(JournalFile *f) {
+bool journal_file_writable(const JournalFile *f) {
         assert(f);
+
         return (f->open_flags & O_ACCMODE_STRICT) != O_RDONLY;
 }
 

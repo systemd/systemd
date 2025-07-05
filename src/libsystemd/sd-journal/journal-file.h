@@ -378,4 +378,4 @@ static inline uint32_t COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(Compression c) {
         }
 }
 
-bool journal_file_writable(JournalFile *f);
+bool journal_file_writable(const JournalFile *f) _pure_;
