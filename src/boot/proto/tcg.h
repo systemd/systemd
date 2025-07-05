@@ -79,7 +79,9 @@ struct EFI_TCG2_PROTOCOL {
                         uint64_t DataToHashLen,
                         EFI_TCG2_EVENT *EfiTcgEvent);
         void *SubmitCommand;
-        void *GetActivePcrBanks;
+        EFI_STATUS (EFIAPI *GetActivePcrBanks)(
+                        EFI_TCG2_PROTOCOL *This,
+                        uint32_t *ActivePcrBanks);
         void *SetActivePcrBanks;
         void *GetResultOfSetActivePcrBanks;
 };
