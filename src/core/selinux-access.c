@@ -164,13 +164,41 @@ static int access_init(sd_bus_error *error) {
         return 1;
 }
 
+static int get_our_contexts(const Unit *unit, const char **ret_acon, const char **ret_tclass, char **ret_fcon) {
+        _cleanup_freecon_ char *fcon = NULL;
+        int r;
+
+        assert(unit);
+        assert(ret_acon);
+        assert(ret_tclass);
+        assert(ret_fcon);
+
+        if (unit && unit->access_selinux_context) {
+                /* Nice! The unit comes with a SELinux context read from the unit file */
+                *ret_acon = unit->access_selinux_context;
+                *ret_tclass = "service";
+                *ret_fcon = NULL;
+                return 0;
+        }
+
+        /* If no unit context is known, use our own */
+        r = mac_selinux_get_our_label(&fcon);
+        if (r < 0)
+                return r;
+
+        *ret_acon = fcon;
+        *ret_tclass = "system";
+        *ret_fcon = TAKE_PTR(fcon);
+        return 0;
+}
+
 /*
    This function communicates with the kernel to check whether or not it should
    allow the access.
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_access_check_internal(
+int mac_selinux_access_check_bus_internal(
                 sd_bus_message *message,
                 const Unit *unit,
                 const char *permission,
@@ -216,30 +244,19 @@ int mac_selinux_access_check_internal(
         if (r < 0)
                 return r;
 
-        if (unit && unit->access_selinux_context) {
-                /* Nice! The unit comes with a SELinux context read from the unit file */
-                acon = unit->access_selinux_context;
-                tclass = "service";
-        } else {
-                /* If no unit context is known, use our own */
-                if (getcon_raw(&fcon) < 0) {
-                        log_warning_errno(errno, "SELinux getcon_raw() failed%s (perm=%s): %m",
-                                          enforce ? "" : ", ignoring",
-                                          permission);
-                        if (!enforce)
-                                return 0;
+        r = get_our_contexts(unit, &acon, &tclass, &fcon);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to retrieves SELinux context of current process (getcon_raw()) (perm=%s)%s: %m",
+                                permission,
+                                enforce ? "" : ", ignoring");
 
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %m");
-                }
-                if (!fcon) {
-                        if (!enforce)
-                                return 0;
+                if (!enforce)
+                        return 0;
 
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "We appear not to have any SELinux context: %m");
-                }
+                if (r == -EOPNOTSUPP)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "We appear not to have any SELinux context or SELinux is not supported: %m");
 
-                acon = fcon;
-                tclass = "system";
+                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %m");
         }
 
         (void) sd_bus_creds_get_cmdline(creds, &cmdline);
@@ -268,7 +285,7 @@ int mac_selinux_access_check_internal(
 
 #else /* HAVE_SELINUX */
 
-int mac_selinux_access_check_internal(
+int mac_selinux_access_check_bus_internal(
                 sd_bus_message *message,
                 const Unit *unit,
                 const char *permission,

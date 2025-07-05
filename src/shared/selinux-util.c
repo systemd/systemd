@@ -471,6 +471,32 @@ int mac_selinux_get_our_label(char **ret_label) {
 #endif
 }
 
+int mac_selinux_get_peer_label(int socket_fd, char **ret_label) {
+        assert(socket_fd >= 0);
+        assert(ret_label);
+
+#if HAVE_SELINUX
+        int r;
+
+        r = selinux_init(/* force= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        _cleanup_freecon_ char *con = NULL;
+        if (getpeercon_raw(socket_fd, &con) < 0)
+                return -errno;
+        if (!con)
+                return -EOPNOTSUPP;
+
+        *ret_label = TAKE_PTR(con);
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label) {
 #if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *fcon = NULL;

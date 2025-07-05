@@ -53,7 +53,7 @@ static void test_cleanup(void) {
 }
 
 static void test_misc(const char* fname) {
-        _cleanup_freecon_ char *label = NULL, *label2 = NULL, *label3 = NULL;
+        _cleanup_freecon_ char *label = NULL, *label2 = NULL, *label3 = NULL, *label4 = NULL;
         int r;
         _cleanup_close_ int fd = -EBADF;
 
@@ -73,6 +73,10 @@ static void test_misc(const char* fname) {
         r = mac_selinux_get_child_mls_label(fd, fname, label2, &label3);
         log_info_errno(r, "mac_selinux_get_child_mls_label → %d, \"%s\" (%m)",
                        r, strnull(label3));
+
+        r = mac_selinux_get_peer_label(fd, &label4);
+        log_info_errno(r, "mac_selinux_get_peer_label → %d, \"%s\" (%m)",
+                       r, strnull(label4));
 }
 
 static void test_create_file_prepare(const char* fname) {
