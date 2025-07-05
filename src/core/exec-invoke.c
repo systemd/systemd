@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/ioprio.h>
 #include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
@@ -52,7 +51,8 @@
 #include "journal-send.h"
 #include "manager.h"
 #include "memfd-util.h"
-#include "missing_syscall.h"
+#include "missing_ioprio.h"
+#include "missing_keyctl.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "namespace-util.h"
