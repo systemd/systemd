@@ -445,8 +445,7 @@ static bool device_nodes_restricted(
         if (c->private_devices)
                 return true;
 
-        if (cgroup_context->device_policy != CGROUP_DEVICE_POLICY_AUTO ||
-            cgroup_context->device_allow)
+        if (cgroup_context_has_device_policy(cgroup_context))
                 return true;
 
         return false;
