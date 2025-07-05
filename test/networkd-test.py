@@ -64,10 +64,11 @@ def setUpModule():
     # Ensure we don't mess with an existing networkd config
     for u in [
         'systemd-networkd.socket',
-        'systemd-networkd',
+        'systemd-networkd-varlink.socket',
+        'systemd-networkd.service',
         'systemd-resolved-varlink.socket',
         'systemd-resolved-monitor.socket',
-        'systemd-resolved',
+        'systemd-resolved.service',
     ]:
         if subprocess.call(['systemctl', 'is-active', '--quiet', u]) == 0:
             subprocess.call(['systemctl', 'stop', u])
