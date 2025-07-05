@@ -1115,6 +1115,7 @@ systemd-analyze transient-settings mount | grep CPUQuotaPeriodSec
 (! systemd-analyze transient-settings service | grep CPUAccounting )
 (! systemd-analyze transient-settings service | grep ConditionKernelVersion )
 (! systemd-analyze transient-settings service | grep AssertKernelVersion )
+(! systemd-analyze transient-settings service socket timer path slice scope mount automount | grep -E 'Ex$' )
 
 systemd-analyze log-level info
 
