@@ -1527,7 +1527,7 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->device_policy = p;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_DEVICES);
+                        unit_invalidate_cgroup(u, CGROUP_MASK_BPF_DEVICES);
                         unit_write_settingf(u, flags, name, "DevicePolicy=%s", policy);
                 }
 
@@ -1579,7 +1579,7 @@ int bus_cgroup_set_property(
                                 while (c->device_allow)
                                         cgroup_context_free_device_allow(c, c->device_allow);
 
-                        unit_invalidate_cgroup(u, CGROUP_MASK_DEVICES);
+                        unit_invalidate_cgroup(u, CGROUP_MASK_BPF_DEVICES);
 
                         f = memstream_init(&m);
                         if (!f)
