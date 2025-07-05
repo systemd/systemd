@@ -64,10 +64,11 @@ def setUpModule():
     # Ensure we don't mess with an existing networkd config
     for u in [
         'systemd-networkd.socket',
-        'systemd-networkd',
+        'systemd-networkd-varlink.socket',
+        'systemd-networkd.service',
         'systemd-resolved-varlink.socket',
         'systemd-resolved-monitor.socket',
-        'systemd-resolved',
+        'systemd-resolved.service',
     ]:
         if subprocess.call(['systemctl', 'is-active', '--quiet', u]) == 0:
             subprocess.call(['systemctl', 'stop', u])
@@ -224,9 +225,10 @@ class BridgeTest(NetworkdTestingUtilities, unittest.TestCase):
             subprocess.call(['ip', 'a', 'show', 'dev', 'port2'])
             print('---- networkctl status ----')
             sys.stdout.flush()
-            rc = subprocess.call(['networkctl', '-n', '0', 'status', 'mybridge', 'port1', 'port2'])
-            if rc != 0:
-                print(f"'networkctl status' exited with an unexpected code {rc}")
+            ret = subprocess.run(['networkctl', '-n', '0', 'status', 'mybridge', 'port1', 'port2'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            print(ret.stdout)
+            if ret.returncode != 0:
+                print(f"'networkctl status' exited with an unexpected code {ret.returncode}")
             print('---- journal ----')
             subprocess.check_output(['journalctl', '--sync'])
             sys.stdout.flush()
@@ -501,9 +503,10 @@ DHCP={dhcp_mode}
             subprocess.call(['ip', 'a', 'show', 'dev', self.iface])
             print('---- networkctl status {} ----'.format(self.iface))
             sys.stdout.flush()
-            rc = subprocess.call(['networkctl', '-n', '0', 'status', self.iface])
-            if rc != 0:
-                print("'networkctl status' exited with an unexpected code {}".format(rc))
+            ret = subprocess.run(['networkctl', '-n', '0', 'status', self.iface], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            print(ret.stdout)
+            if ret.returncode != 0:
+                print(f'"networkctl status" exited with an unexpected code {ret.returncode}')
             self.show_journal('systemd-networkd.service')
             self.print_server_log()
             raise
