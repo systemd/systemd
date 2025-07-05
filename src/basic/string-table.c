@@ -42,6 +42,7 @@ int string_table_lookup_to_string_fallback(const char * const *table, size_t len
 
         if (i < 0 || i > (ssize_t) max)
                 return -ERANGE;
+
         if (i < (ssize_t) len && table[i]) {
                 s = strdup(table[i]);
                 if (!s)
@@ -54,14 +55,14 @@ int string_table_lookup_to_string_fallback(const char * const *table, size_t len
 }
 
 ssize_t string_table_lookup_from_string_fallback(const char * const *table, size_t len, const char *s, size_t max) {
-        unsigned u = 0;
-
         if (!s)
                 return -EINVAL;
 
         ssize_t i = string_table_lookup_from_string(table, len, s);
         if (i >= 0)
                 return i;
+
+        unsigned u;
         if (safe_atou(s, &u) < 0)
                 return -EINVAL;
         if (u > max)

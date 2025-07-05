@@ -933,28 +933,19 @@ int cg_path_decode_unit(const char *cgroup, char **ret_unit) {
 }
 
 static bool valid_slice_name(const char *p, size_t n) {
-
-        if (!p)
-                return false;
+        assert(p || n == 0);
 
         if (n < STRLEN("x.slice"))
                 return false;
 
-        if (memcmp(p + n - 6, ".slice", 6) == 0) {
-                char buf[n+1], *c;
+        char *c = strndupa_safe(p, n);
+        if (!endswith(c, ".slice"))
+                return false;
 
-                memcpy(buf, p, n);
-                buf[n] = 0;
-
-                c = cg_unescape(buf);
-
-                return unit_name_is_valid(c, UNIT_NAME_PLAIN);
-        }
-
-        return false;
+        return unit_name_is_valid(cg_unescape(c), UNIT_NAME_PLAIN);
 }
 
-static const char *skip_slices(const char *p) {
+static const char* skip_slices(const char *p) {
         assert(p);
 
         /* Skips over all slice assignments */
@@ -1005,7 +996,7 @@ int cg_path_get_unit_path(const char *path, char **ret) {
         if (!path_copy)
                 return -ENOMEM;
 
-        unit_name = (char *)skip_slices(path_copy);
+        unit_name = (char*) skip_slices(path_copy);
         unit_name[strcspn(unit_name, "/")] = 0;
 
         if (!unit_name_is_valid(cg_unescape(unit_name), UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
@@ -1052,11 +1043,10 @@ int cg_pidref_get_unit(const PidRef *pidref, char **ret) {
         return 0;
 }
 
-/**
- * Skip session-*.scope, but require it to be there.
- */
-static const char *skip_session(const char *p) {
+static const char* skip_session(const char *p) {
         size_t n;
+
+        /* Skip session-*.scope, but require it to be there. */
 
         if (isempty(p))
                 return NULL;
@@ -1067,33 +1057,28 @@ static const char *skip_session(const char *p) {
         if (n < STRLEN("session-x.scope"))
                 return NULL;
 
-        if (memcmp(p, "session-", 8) == 0 && memcmp(p + n - 6, ".scope", 6) == 0) {
-                char buf[n - 8 - 6 + 1];
+        const char *s = startswith(p, "session-");
+        if (!s)
+                return NULL;
 
-                memcpy(buf, p + 8, n - 8 - 6);
-                buf[n - 8 - 6] = 0;
+        /* Note that session scopes never need unescaping, since they cannot conflict with the kernel's
+         * own names, hence we don't need to call cg_unescape() here. */
+        char *f = strndupa_safe(s, p + n - s),
+             *e = endswith(f, ".scope");
+        if (!e)
+                return NULL;
+        *e = '\0';
 
-                /* Note that session scopes never need unescaping,
-                 * since they cannot conflict with the kernel's own
-                 * names, hence we don't need to call cg_unescape()
-                 * here. */
+        if (!session_id_valid(f))
+                return NULL;
 
-                if (!session_id_valid(buf))
-                        return NULL;
-
-                p += n;
-                p += strspn(p, "/");
-                return p;
-        }
-
-        return NULL;
+        return skip_leading_slash(p + n);
 }
 
-/**
- * Skip user@*.service or capsule@*.service, but require either of them to be there.
- */
-static const char *skip_user_manager(const char *p) {
+static const char* skip_user_manager(const char *p) {
         size_t n;
+
+        /* Skip user@*.service or capsule@*.service, but require either of them to be there. */
 
         if (isempty(p))
                 return NULL;
@@ -1119,26 +1104,14 @@ static const char *skip_user_manager(const char *p) {
         /* Note that user manager services never need unescaping, since they cannot conflict with the
          * kernel's own names, hence we don't need to call cg_unescape() here.  Prudently check validity of
          * instance names, they should be always valid as we validate them upon unit start. */
-        if (startswith(unit_name, "user@")) {
-                if (parse_uid(i, NULL) < 0)
-                        return NULL;
+        if (!(startswith(unit_name, "user@") && parse_uid(i, NULL) >= 0) &&
+            !(startswith(unit_name, "capsule@") && capsule_name_is_valid(i) > 0))
+                return NULL;
 
-                p += n;
-                p += strspn(p, "/");
-                return p;
-        } else if (startswith(unit_name, "capsule@")) {
-                if (capsule_name_is_valid(i) <= 0)
-                        return NULL;
-
-                p += n;
-                p += strspn(p, "/");
-                return p;
-        }
-
-        return NULL;
+        return skip_leading_slash(p + n);
 }
 
-static const char *skip_user_prefix(const char *path) {
+static const char* skip_user_prefix(const char *path) {
         const char *e, *t;
 
         assert(path);
