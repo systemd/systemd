@@ -2871,8 +2871,10 @@ void bus_dump_transient_settings(UnitType t) {
                 for (const BusProperty *item = *tables; item->convert; item++) {
                         assert(item->name || item->dump);
 
-                        /* Do not print deprecated names */
+                        /* Do not print deprecated names. All "Ex" variants are deprected. */
                         if (item->convert == warn_deprecated)
+                                continue;
+                        if (item->name && endswith(item->name, "Ex"))
                                 continue;
 
                         if (item->name)
