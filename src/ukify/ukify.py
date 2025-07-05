@@ -289,7 +289,7 @@ class UkifyConfig:
 class Uname:
     # This class is here purely as a namespace for the functions
 
-    VERSION_PATTERN = r'(?P<version>[a-z0-9._-]+) \([^ )]+\) (?:#.*)'
+    VERSION_PATTERN = r'(?P<version>[a-z0-9._+-]+) \([^ )]+\) (?:#.*)'
 
     NOTES_PATTERN = r'^\s+Linux\s+0x[0-9a-f]+\s+OPEN\n\s+description data: (?P<version>[0-9a-f ]+)\s*$'
 
