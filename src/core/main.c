@@ -1275,38 +1275,20 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 
 #if BUMP_PROC_SYS_FS_NR_OPEN
-        int v = INT_MAX;
+        /* The kernel enforces maximum and minimum values on the fs.nr_open, but they are not directly
+         * exposed, but hardcoded in fs/file.c. Hopefully, these values will not be changed, but not sure.
+         * Let's first try the hardcoded maximum value, and if it does not work, try the half of it. */
 
-        /* Argh! The kernel enforces maximum and minimum values on the fs.nr_open, but we don't really know
-         * what they are. The expression by which the maximum is determined is dependent on the architecture,
-         * and is something we don't really want to copy to userspace, as it is dependent on implementation
-         * details of the kernel. Since the kernel doesn't expose the maximum value to us, we can only try
-         * and hope. Hence, let's start with INT_MAX, and then keep halving the value until we find one that
-         * works. Ugly? Yes, absolutely, but kernel APIs are kernel APIs, so what do can we do... 🤯 */
-
-        for (;;) {
-                int k;
-
-                v &= ~(__SIZEOF_POINTER__ - 1); /* Round down to next multiple of the pointer size */
-                if (v < 1024) {
-                        log_warning("Can't bump fs.nr_open, value too small.");
-                        break;
-                }
-
-                k = read_nr_open();
-                if (k < 0) {
-                        log_error_errno(k, "Failed to read fs.nr_open: %m");
-                        break;
-                }
+        for (unsigned v = NR_OPEN_MAXIMUM; v >= NR_OPEN_MINIMUM; v /= 2) {
+                unsigned k = read_nr_open();
                 if (k >= v) { /* Already larger */
                         log_debug("Skipping bump, value is already larger.");
                         break;
                 }
 
-                r = sysctl_writef("fs/nr_open", "%i", v);
+                r = sysctl_writef("fs/nr_open", "%u", v);
                 if (r == -EINVAL) {
-                        log_debug("Couldn't write fs.nr_open as %i, halving it.", v);
-                        v /= 2;
+                        log_debug("Couldn't write fs.nr_open as %u, halving it.", v);
                         continue;
                 }
                 if (r < 0) {
@@ -1314,7 +1296,7 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                log_debug("Successfully bumped fs.nr_open to %i", v);
+                log_debug("Successfully bumped fs.nr_open to %u", v);
                 break;
         }
 #endif
@@ -1322,10 +1304,10 @@ static void bump_file_max_and_nr_open(void) {
 
 static int bump_rlimit_nofile(const struct rlimit *saved_rlimit) {
         struct rlimit new_rlimit;
-        int r, nr;
+        int r;
 
         /* Get the underlying absolute limit the kernel enforces */
-        nr = read_nr_open();
+        unsigned nr = read_nr_open();
 
         /* Calculate the new limits to use for us. Never lower from what we inherited. */
         new_rlimit = (struct rlimit) {
@@ -2690,14 +2672,8 @@ static void fallback_rlimit_nofile(const struct rlimit *saved_rlimit_nofile) {
          * (and thus use poll()/epoll instead of select(), the way everybody should) can
          * explicitly opt into high fds by bumping their soft limit beyond 1024, to the hard limit
          * we pass. */
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                int nr;
-
-                /* Get the underlying absolute limit the kernel enforces */
-                nr = read_nr_open();
-
-                rl->rlim_max = MIN((rlim_t) nr, MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
-        }
+        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                rl->rlim_max = MIN((rlim_t) read_nr_open(), MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
 
         /* If for some reason we were invoked with a soft limit above 1024 (which should never
          * happen!, but who knows what we get passed in from pam_limit when invoked as --user
