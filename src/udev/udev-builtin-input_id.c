@@ -11,13 +11,13 @@
 
 #include "device-util.h"
 #include "fd-util.h"
+#include "macro-fundamental.h"
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
 
 /* we must use this kernel-compatible implementation */
-#define BITS_PER_LONG (sizeof(unsigned long) * 8)
 #define NBITS(x) ((((x)-1)/BITS_PER_LONG)+1)
 #define OFF(x)  ((x)%BITS_PER_LONG)
 #define BIT(x)  (1UL<<OFF(x))
