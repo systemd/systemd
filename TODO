@@ -120,7 +120,7 @@ Deprecations and removals:
 
 * Once
   https://github.com/util-linux/util-linux/commit/508fb0e7ac103b68531a59db2a4473897853ab52
-  has hit the prominent distributions, revert --issue-file= hack in units/*getty*sevice.in
+  has hit the prominent distributions, revert --issue-file= hack in units/*getty*service.in
 
 Features:
 
