@@ -76,6 +76,17 @@ static int warn_deprecated(_unused_ sd_bus_message *m, const char *field, const 
         return 1;
 }
 
+static int parse_log_error(int error, const char *field, const char *eq) {
+        if (error == -ENOMEM)
+                return log_oom();
+        if (error != 0)  /* Allow SYNTHETIC_ERRNO to be used, i.e. positive values. */
+                return log_error_errno(error, "Failed to parse %s= value '%s': %m", field, eq);
+
+        /* We don't log the error value for cases where we have a general "syntax error". */
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Invalid syntax for %s= value: '%s'", field, eq);
+}
+
 #define DEFINE_BUS_APPEND_PARSE_PTR(bus_type, cast_type, type, parse_func) \
         static int bus_append_##parse_func(                             \
                         sd_bus_message *m,                              \
@@ -86,7 +97,7 @@ static int warn_deprecated(_unused_ sd_bus_message *m, const char *field, const 
                                                                         \
                 r = parse_func(eq, &val);                               \
                 if (r < 0)                                              \
-                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq); \
+                        return parse_log_error(r, field, eq);           \
                                                                         \
                 r = sd_bus_message_append(m, "(sv)", field,             \
                                           bus_type, (cast_type) val);   \
@@ -105,7 +116,7 @@ static int warn_deprecated(_unused_ sd_bus_message *m, const char *field, const 
                                                                         \
                 r = parse_func(eq);                                     \
                 if (r < 0)                                              \
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s: %s", field, eq);                                 \
+                        return parse_log_error(r, field, eq);           \
                                                                         \
                 r = sd_bus_message_append(m, "(sv)", field,             \
                                           bus_type, (int32_t) r);       \
@@ -175,10 +186,8 @@ static int bus_append_strv_full(sd_bus_message *m, const char *field, const char
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, /* separators= */ NULL, flags);
-                if (r == -ENOMEM)
-                        return log_oom();
                 if (r < 0)
-                        return log_error_errno(r, "Invalid syntax: %s", eq);
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
 
@@ -248,7 +257,7 @@ static int bus_append_parse_sec_rename(sd_bus_message *m, const char *field, con
 
         r = parse_sec(eq, &t);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+                return parse_log_error(r, field, eq);
 
         l = strlen(field);
         n = newa(char, l + 2);
@@ -272,7 +281,7 @@ static int bus_append_parse_size(sd_bus_message *m, const char *field, const cha
 
         r = parse_size(eq, /* base= */ 1024, &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+                return parse_log_error(r, field, eq);
 
         r = sd_bus_message_append(m, "(sv)", field, "t", v);
         if (r < 0)
@@ -286,7 +295,7 @@ static int bus_append_parse_permyriad(sd_bus_message *m, const char *field, cons
 
         r = parse_permyriad(eq);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+                return parse_log_error(r, field, eq);
 
         /* Pass around scaled to 2^32-1 == 100% */
         r = sd_bus_message_append(m, "(sv)", field, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
@@ -304,7 +313,7 @@ static int bus_append_parse_cpu_set(sd_bus_message *m, const char *field, const 
 
         r = parse_cpu_set(eq, &cpuset);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
+                return parse_log_error(r, field, eq);
 
         r = cpu_set_to_dbus(&cpuset, &array, &allocated);
         if (r < 0)
@@ -375,10 +384,10 @@ static int bus_append_parse_cpu_quota(sd_bus_message *m, const char *field, cons
                 x = USEC_INFINITY;
         else {
                 r = parse_permyriad_unbounded(eq);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "%s value too small.", field);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+                        return parse_log_error(r, field, eq);
+                if (r == 0)
+                        return parse_log_error(SYNTHETIC_ERRNO(ERANGE), field, eq);
                 x = r * USEC_PER_SEC / 10000U;
         }
 
@@ -426,9 +435,7 @@ static int bus_try_append_parse_cgroup_io_limit(sd_bus_message *m, const char *f
         else {
                 const char *e = strchr(eq, ' ');
                 if (!e)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to parse %s value %s.",
-                                               field, eq);
+                        return parse_log_error(0, field, eq);
 
                 const char *bandwidth = e + 1;
                 _cleanup_free_ char *path = strndup(eq, e - eq);
@@ -441,7 +448,7 @@ static int bus_try_append_parse_cgroup_io_limit(sd_bus_message *m, const char *f
                 else {
                         r = parse_size(bandwidth, 1000, &bytes);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse byte value %s: %m", bandwidth);
+                                return parse_log_error(r, field, eq);
                 }
 
                 r = sd_bus_message_append(m, "(sv)", field, "a(st)", 1, path, bytes);
@@ -460,9 +467,7 @@ static int bus_append_parse_io_device_weight(sd_bus_message *m, const char *fiel
         else {
                 const char *e = strchr(eq, ' ');
                 if (!e)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to parse %s value %s.",
-                                               field, eq);
+                        return parse_log_error(0, field, eq);
 
                 const char *weight = e + 1;
                 _cleanup_free_ char *path = strndup(eq, e - eq);
@@ -472,7 +477,7 @@ static int bus_append_parse_io_device_weight(sd_bus_message *m, const char *fiel
                 uint64_t u;
                 r = safe_atou64(weight, &u);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, weight);
+                        return parse_log_error(r, field, weight);
 
                 r = sd_bus_message_append(m, "(sv)", field, "a(st)", 1, path, u);
         }
@@ -491,9 +496,7 @@ static int bus_append_parse_io_device_latency(sd_bus_message *m, const char *fie
         else {
                 const char *e = strchr(eq, ' ');
                 if (!e)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to parse %s value %s.",
-                                               field, eq);
+                        return parse_log_error(0, field, eq);
 
                 const char *target = e + 1;
                 _cleanup_free_ char *path = strndup(eq, e - eq);
@@ -503,7 +506,7 @@ static int bus_append_parse_io_device_latency(sd_bus_message *m, const char *fie
                 usec_t usec;
                 r = parse_sec(target, &usec);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s value %s: %m", field, target);
+                        return parse_log_error(r, field, target);
 
                 r = sd_bus_message_append(m, "(sv)", field_usec, "a(st)", 1, path, usec);
         }
@@ -522,10 +525,8 @@ static int bus_append_bpf_program(sd_bus_message *m, const char *field, const ch
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&eq, &word, ":", 0);
-                if (r == -ENOMEM)
-                        return log_oom();
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s: %m", field);
+                        return parse_log_error(r, field, eq);
 
                 r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, word, eq);
         }
@@ -545,10 +546,8 @@ static int bus_append_socket_filter(sd_bus_message *m, const char *field, const 
                 uint16_t nr_ports, port_min;
 
                 r = parse_socket_bind_item(eq, &family, &ip_protocol, &nr_ports, &port_min);
-                if (r == -ENOMEM)
-                        return log_oom();
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s", field);
+                        return parse_log_error(r, field, eq);
 
                 r = sd_bus_message_append(
                                 m, "(sv)", field, "a(iiqq)", 1, family, ip_protocol, nr_ports, port_min);
@@ -561,10 +560,10 @@ static int bus_append_socket_filter(sd_bus_message *m, const char *field, const 
 
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
-        _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
-        _cleanup_free_ char *path = NULL, *upgraded_name = NULL;
+        _cleanup_strv_free_ char **cmdline = NULL, **ex_opts = NULL;
+        _cleanup_free_ char *_path = NULL;
         ExecCommandFlags flags = 0;
-        bool is_ex_prop = endswith(field, "Ex");
+        bool ex_prop = false;
         int r;
 
         do {
@@ -639,43 +638,37 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 }
         } while (!done);
 
-        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_VIA_SHELL))) {
-                /* Upgrade the ExecXYZ= property to ExecXYZEx= for convenience */
-                is_ex_prop = true;
-
-                upgraded_name = strjoin(field, "Ex");
-                if (!upgraded_name)
-                        return log_oom();
-                field = upgraded_name;
+        if (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_VIA_SHELL)) {
+                /* We need to use ExecXYZEx=. */
+                if (!endswith(field, "Ex"))
+                        field = strjoina(field, "Ex");
+                ex_prop = true;
+                assert_se(exec_command_flags_to_strv(flags, &ex_opts) >= 0);
+        } else {
+                if (endswith(field, "Ex"))
+                        field = strndupa(field, strlen(field) - 2);
         }
 
-        if (is_ex_prop) {
-                r = exec_command_flags_to_strv(flags, &ex_opts);
+        const char *path = NULL;
+        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL))
+                path = _PATH_BSHELL;
+        else if (explicit_path) {
+                r = extract_first_word(&eq, &_path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to convert ExecCommandFlags to strv: %m");
-        }
-
-        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
-                path = strdup(_PATH_BSHELL);
-                if (!path)
-                        return log_oom();
-
-        } else if (explicit_path) {
-                r = extract_first_word(&eq, &path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse path: %m");
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No executable path specified, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No executable path specified for %s=, refusing.", field);
                 if (isempty(eq))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got empty command line, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got empty command line for %s=, refusing.", field);
+                path = _path;
         }
 
-        r = strv_split_full(&l, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
+        r = strv_split_full(&cmdline, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse command line: %m");
+                return parse_log_error(r, field, eq);
 
         if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
-                r = strv_prepend(&l, explicit_path ? "-sh" : "sh");
+                r = strv_prepend(&cmdline, explicit_path ? "-sh" : "sh");
                 if (r < 0)
                         return log_oom();
         }
@@ -688,29 +681,29 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(m, 'v', is_ex_prop ? "a(sasas)" : "a(sasb)");
+        r = sd_bus_message_open_container(m, 'v', ex_prop ? "a(sasas)" : "a(sasb)");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(m, 'a', is_ex_prop ? "(sasas)" : "(sasb)");
+        r = sd_bus_message_open_container(m, 'a', ex_prop ? "(sasas)" : "(sasb)");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (!strv_isempty(l)) {
-
-                r = sd_bus_message_open_container(m, 'r', is_ex_prop ? "sasas" : "sasb");
+        if (!strv_isempty(cmdline)) {
+                r = sd_bus_message_open_container(m, 'r', ex_prop ? "sasas" : "sasb");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", path ?: l[0]);
+                r = sd_bus_message_append(m, "s", path ?: cmdline[0]);
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_strv(m, l);
+                r = sd_bus_message_append_strv(m, cmdline);
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = is_ex_prop ? sd_bus_message_append_strv(m, ex_opts) : sd_bus_message_append(m, "b", FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
+                r = ex_prop ? sd_bus_message_append_strv(m, ex_opts) :
+                              sd_bus_message_append(m, "b", FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -742,7 +735,7 @@ static int bus_append_open_file(sd_bus_message *m, const char *field, const char
 
         r = open_file_parse(eq, &of);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse OpenFile= setting: %m");
+                return parse_log_error(r, field, eq);
 
         r = sd_bus_message_append(m, "(sv)", field, "a(sst)", (size_t) 1, of->path, of->fdname, of->flags);
         if (r < 0)
@@ -864,16 +857,14 @@ static int bus_append_parse_ip_address_filter(sd_bus_message *m, const char *fie
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&eq, &word, NULL, 0);
+                        if (r < 0)
+                                return parse_log_error(r, field, eq);
                         if (r == 0)
                                 break;
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s: %s", field, eq);
 
                         r = in_addr_prefix_from_string_auto(word, &family, &prefix, &prefixlen);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse IP address prefix: %s", word);
+                                return log_error_errno(r, "Failed to parse IP address prefix '%s': %m", word);
 
                         r = bus_append_ip_address_access(m, family, &prefix, prefixlen);
                         if (r < 0)
@@ -948,34 +939,38 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
                 int source, nfproto;
 
                 r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
-                if (r == -ENOMEM)
-                        return log_oom();
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s: %m", field);
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
                 if (isempty(tuple))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
+                        return parse_log_error(0, field, eq);
 
                 q = tuple;
                 r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &nfproto_str, &table, &set);
-                if (r == -ENOMEM)
-                        return log_oom();
                 if (r != 4 || !isempty(q))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
+                        return parse_log_error(0, field, tuple);
 
                 assert(source_str);
                 assert(nfproto_str);
                 assert(table);
                 assert(set);
 
-                source = nft_set_source_from_string(source_str);
+                source = r = nft_set_source_from_string(source_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse nft set source '%s': %m", source_str);
                 if (!IN_SET(source, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Bad nft set source value '%s'.",
+                                               nft_set_source_to_string(source));
 
-                nfproto = nfproto_from_string(nfproto_str);
-                if (nfproto < 0 || !nft_identifier_valid(table) || !nft_identifier_valid(set))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
+                nfproto = r = nfproto_from_string(nfproto_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse nft protocol '%s': %m", nfproto_str);
+
+                if (!nft_identifier_valid(table))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Bad nft identifier name '%s'.", table);
+                if (!nft_identifier_valid(set))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Bad nft identifier name '%s'.", set);
 
                 r = sd_bus_message_append(m, "(iiss)", source, nfproto, table, set);
                 if (r < 0)
@@ -1025,12 +1020,8 @@ static int bus_append_set_credential(sd_bus_message *m, const char *field, const
                 const char *p = eq;
 
                 r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
-                if (r == 0 || !p)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s=.", field);
+                if (r <= 0 || !p)
+                        return parse_log_error(r < 0 ? r : 0, field, eq);
 
                 r = sd_bus_message_open_container(m, 'a', "(say)");
                 if (r < 0)
@@ -1050,7 +1041,7 @@ static int bus_append_set_credential(sd_bus_message *m, const char *field, const
 
                         r = unbase64mem(p, &decoded, &decoded_size);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to base64 decode encrypted credential: %m");
+                                return log_error_errno(r, "Failed to decode base64-encrypted data for %s=: %m", field);
 
                         r = sd_bus_message_append_array(m, 'y', decoded, decoded_size);
                 } else {
@@ -1059,7 +1050,7 @@ static int bus_append_set_credential(sd_bus_message *m, const char *field, const
 
                         l = cunescape(p, UNESCAPE_ACCEPT_NUL, &unescaped);
                         if (l < 0)
-                                return log_error_errno(l, "Failed to unescape %s= value: %s", field, p);
+                                return log_error_errno(l, "Failed to unescape value for %s=: %s", field, p);
 
                         r = sd_bus_message_append_array(m, 'y', unescaped, l);
                 }
@@ -1108,12 +1099,8 @@ static int bus_append_load_credential(sd_bus_message *m, const char *field, cons
                 const char *p = eq;
 
                 r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s=.", field);
+                if (r <= 0)
+                        return parse_log_error(r, field, eq);
 
                 if (isempty(p)) /* If only one field is specified, then this means "inherit from above" */
                         p = eq;
@@ -1144,12 +1131,8 @@ static int bus_append_import_credential(sd_bus_message *m, const char *field, co
                 const char *p = eq;
 
                 r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s=.", field);
+                if (r <= 0)
+                        return parse_log_error(r, field, eq);
 
                 if (!p)
                         r = sd_bus_message_append(m, "(sv)", "ImportCredential", "as", 1, eq);
@@ -1223,15 +1206,10 @@ static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, con
 }
 
 static int bus_append_log_filter_patterns(sd_bus_message *m, const char *field, const char *eq) {
-        int r;
-
-        r = sd_bus_message_append(m, "(sv)", "LogFilterPatterns", "a(bs)", 1,
-                                  eq[0] != '~',
-                                  eq[0] != '~' ? eq : eq + 1);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return 1;
+        return bus_append_trivial_array(m, field, eq,
+                                        "a(bs)",
+                                        eq[0] != '~',
+                                        eq[0] != '~' ? eq : eq + 1);
 }
 
 static int bus_append_standard_inputs(sd_bus_message *m, const char *field, const char *eq) {
@@ -1264,7 +1242,7 @@ static int bus_append_standard_input_text(sd_bus_message *m, const char *field, 
 
         l = cunescape(eq, 0, &unescaped);
         if (l < 0)
-                return log_error_errno(l, "Failed to unescape text '%s': %m", eq);
+                return log_error_errno(l, "Failed to unescape value for %s=: %s", field, eq);
 
         if (!strextend(&unescaped, "\n"))
                 return log_oom();
@@ -1282,7 +1260,7 @@ static int bus_append_standard_input_data(sd_bus_message *m, const char *field, 
 
         r = unbase64mem(eq, &decoded, &sz);
         if (r < 0)
-                return log_error_errno(r, "Failed to decode base64 data '%s': %m", eq);
+                return log_error_errno(r, "Failed to decode base64-encrypted data for %s=: %m", field);
 
         return bus_append_byte_array(m, field, decoded, sz);
 }
@@ -1296,12 +1274,12 @@ static int bus_try_append_resource_limit(sd_bus_message *m, const char *field, c
 
         int rl = rlimit_from_string(suffix);
         if (rl < 0)
-                return log_error_errno(rl, "Unknown setting '%s'.", field);
+                return 0;  /* We let the generic error machinery handle this. */
 
         struct rlimit l;
         r = rlimit_parse(rl, eq, &l);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse resource limit: %s", eq);
+                return parse_log_error(r, field, eq);
 
         r = sd_bus_message_append(m, "(sv)", field, "t", (uint64_t) l.rlim_max);
         if (r < 0)
@@ -1349,7 +1327,7 @@ static int bus_append_capabilities(sd_bus_message *m, const char *field, const c
 
         r = capability_set_from_string(p, &sum);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse %s value %s: %m", field, eq);
+                return parse_log_error(r, field, eq);
 
         sum = invert ? ~sum : sum;
 
@@ -1386,7 +1364,7 @@ static int bus_append_numa_mask(sd_bus_message *m, const char *field, const char
         } else {
                 r = parse_cpu_set(eq, &nodes);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
+                        return parse_log_error(r, field, eq);
         }
 
         r = cpu_set_to_dbus(&nodes, &array, &allocated);
@@ -1434,12 +1412,10 @@ static int bus_append_filter_list(sd_bus_message *m, const char *field, const ch
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0)
-                        return log_error_errno(r, "Invalid syntax: %s", eq);
 
                 r = sd_bus_message_append_basic(m, 's', word);
                 if (r < 0)
@@ -1487,7 +1463,7 @@ static int bus_append_namespace_list(sd_bus_message *m, const char *field, const
 
                 r = namespace_flags_from_string(eq, &flags);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s value %s.", field, eq);
+                        return parse_log_error(r, field, eq);
         }
 
         if (invert)
@@ -1528,7 +1504,7 @@ static int bus_append_bind_paths(sd_bus_message *m, const char *field, const cha
 
                 r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse argument: %m");
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
 
@@ -1541,7 +1517,7 @@ static int bus_append_bind_paths(sd_bus_message *m, const char *field, const cha
                 if (p && p[-1] == ':') {
                         r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse argument: %m");
+                                return parse_log_error(r, field, p);
                         if (r == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Missing argument after ':': %s", eq);
@@ -1553,7 +1529,7 @@ static int bus_append_bind_paths(sd_bus_message *m, const char *field, const cha
 
                                 r = extract_first_word(&p, &options, NULL, EXTRACT_UNQUOTE);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse argument: %m");
+                                        return parse_log_error(r, field, p);
 
                                 if (isempty(options) || streq(options, "rbind"))
                                         flags = MS_REC;
@@ -1612,17 +1588,14 @@ static int bus_append_temporary_file_system(sd_bus_message *m, const char *field
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse argument: %m");
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
 
                 w = word;
                 r = extract_first_word(&w, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse argument: %m");
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to parse argument: %s", p);
+                if (r <= 0)
+                        return parse_log_error(r, field, eq);
 
                 r = sd_bus_message_append(m, "(ss)", path, w);
                 if (r < 0)
@@ -1656,9 +1629,9 @@ static int bus_append_root_hash(sd_bus_message *m, const char *field, const char
         /* We have a roothash to decode, eg: RootHash=012345789abcdef */
         r = unhexmem(eq, &roothash_decoded, &roothash_decoded_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to decode RootHash= '%s': %m", eq);
+                return log_error_errno(r, "Failed to decode base64-encrypted data for %s=: %m", field);
         if (roothash_decoded_size < sizeof(sd_id128_t))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "RootHash= '%s' is too short.", eq);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s value '%s' is too short.", field, eq);
 
         return bus_append_byte_array(m, field, roothash_decoded, roothash_decoded_size);
 }
@@ -1675,13 +1648,13 @@ static int bus_append_root_hash_signature(sd_bus_message *m, const char *field, 
 
         if (!(value = startswith(eq, "base64:")))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to decode %s=%s: neither a path nor starts with 'base64:'.",
+                                       "Failed to decode %s value '%s': neither a path nor starts with 'base64:'.",
                                        field, eq);
 
         /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
         r = unbase64mem(value, &roothash_sig_decoded, &roothash_sig_decoded_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to decode %s=%s: %m", field, eq);
+                return log_error_errno(r, "Failed to decode base64-encrypted data for %s=: %m", field);
 
         return bus_append_byte_array(m, field, roothash_sig_decoded, roothash_sig_decoded_size);
 }
@@ -1709,7 +1682,7 @@ static int bus_append_root_image_options(sd_bus_message *m, const char *field, c
 
         r = strv_split_colon_pairs(&l, p);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse argument: %m");
+                return parse_log_error(r, field, eq);
 
         STRV_FOREACH_PAIR(first, second, l) {
                 r = sd_bus_message_append(m, "(ss)",
@@ -1761,14 +1734,14 @@ static int bus_append_mount_images(sd_bus_message *m, const char *field, const c
 
                 r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s property: %s", field, eq);
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
 
                 q = tuple;
                 r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s property: %s", field, eq);
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         continue;
 
@@ -1780,7 +1753,7 @@ static int bus_append_mount_images(sd_bus_message *m, const char *field, const c
 
                 if (isempty(second))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Missing argument after ':' for %s: %s", field, eq);
+                                               "Missing argument after ':' for %s=: '%s'", field, eq);
 
                 r = sd_bus_message_open_container(m, 'r', "ssba(ss)");
                 if (r < 0)
@@ -1799,7 +1772,7 @@ static int bus_append_mount_images(sd_bus_message *m, const char *field, const c
 
                         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s property: %s", field, eq);
+                                return parse_log_error(r, field, eq);
                         if (r == 0)
                                 break;
                         /* Single set of options, applying to the root partition/single filesystem */
@@ -1867,14 +1840,14 @@ static int bus_append_extension_images(sd_bus_message *m, const char *field, con
 
                 r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s property: %s", field, eq);
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
 
                 q = tuple;
                 r = extract_first_word(&q, &source, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s property: %s", field, eq);
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         continue;
 
@@ -1901,7 +1874,7 @@ static int bus_append_extension_images(sd_bus_message *m, const char *field, con
 
                         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s property: %s", field, eq);
+                                return parse_log_error(r, field, eq);
                         if (r == 0)
                                 break;
                         /* Single set of options, applying to the root partition/single filesystem */
@@ -1956,14 +1929,14 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
 
                 r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse argument: %m");
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
 
                 const char *t = tuple;
                 r = extract_many_words(&t, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &source, &dest, &flags);
                 if (r <= 0)
-                        return log_error_errno(r ?: SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %m");
+                        return parse_log_error(r, field, eq);
 
                 path_simplify(source);
 
@@ -1979,7 +1952,7 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                 } else {
                         ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
                         if (exec_directory_flags < 0 || (exec_directory_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
-                                return log_error_errno(r, "Failed to parse flags: %s", flags);
+                                return log_error_errno(r, "Failed to parse flags for %s=: '%s'", field, flags);
 
                         if (!isempty(dest)) {
                                 path_simplify(dest);
@@ -2097,7 +2070,7 @@ static int bus_append_protect_hostname(sd_bus_message *m, const char *field, con
                 const char *colon = strchr(eq, ':');
                 if (colon) {
                         if (isempty(colon + 1))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %s=%s", field, eq);
+                                return parse_log_error(0, field, eq);
 
                         _cleanup_free_ char *p = strndup(eq, colon - eq);
                         if (!p)
@@ -2106,6 +2079,28 @@ static int bus_append_protect_hostname(sd_bus_message *m, const char *field, con
                         r = sd_bus_message_append(m, "(sv)", "ProtectHostnameEx", "(ss)", p, colon + 1);
                 } else
                         r = sd_bus_message_append(m, "(sv)", "ProtectHostnameEx", "(ss)", eq, NULL);
+        }
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
+static int bus_append_boolean_or_string(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        r = parse_boolean(eq);
+        if (r >= 0) {
+                if (endswith(field, "Ex"))
+                        field = strndupa(field, strlen(field) - 2);
+
+                r = sd_bus_message_append(m, "(sv)", field, "b", r);
+        } else {
+                if (!endswith(field, "Ex"))
+                        field = strjoina(field, "Ex");
+
+                /* We allow any string through and let the server perform the verification. */
+                r = sd_bus_message_append(m, "(sv)", field, "s", eq);
         }
         if (r < 0)
                 return bus_log_create_error(r);
@@ -2127,12 +2122,10 @@ static int bus_append_exit_status(sd_bus_message *m, const char *field, const ch
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0)
-                        return log_error_errno(r, "Invalid syntax in %s: %s", field, eq);
 
                 /* We need to call exit_status_from_string() first, because we want
                  * to parse numbers as exit statuses, not signals. */
@@ -2154,8 +2147,7 @@ static int bus_append_exit_status(sd_bus_message *m, const char *field, const ch
 
                 } else
                         /* original r from exit_status_to_string() */
-                        return log_error_errno(r, "Invalid status or signal %s in %s: %m",
-                                               word, field);
+                        return parse_log_error(r, field, word);
         }
 
         r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
@@ -2207,7 +2199,7 @@ static int bus_append_action_exit_status(sd_bus_message *m, const char *field, c
 
                 r = safe_atou8(eq, &u);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s=%s", field, eq);
+                        return parse_log_error(r, field, eq);
 
                 r = sd_bus_message_append(m, "(sv)", field, "i", (int) u);
         }
@@ -2233,7 +2225,7 @@ static int bus_append_timers_monotonic(sd_bus_message *m, const char *field, con
                 usec_t t;
                 r = parse_sec(eq, &t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+                        return parse_log_error(r, field, eq);
 
                 r = sd_bus_message_append(m, "(sv)", "TimersMonotonic", "a(st)", 1, field, t);
         }
@@ -2391,9 +2383,6 @@ static const BusProperty execute_properties[] = {
         { "SyslogIdentifier",                      bus_append_string                             },
         { "ProtectSystem",                         bus_append_string                             },
         { "ProtectHome",                           bus_append_string                             },
-        { "PrivateTmpEx",                          bus_append_string                             },
-        { "PrivateUsersEx",                        bus_append_string                             },
-        { "ProtectControlGroupsEx",                bus_append_string                             },
         { "SELinuxContext",                        bus_append_string                             },
         { "RootImage",                             bus_append_string                             },
         { "RootVerity",                            bus_append_string                             },
@@ -2413,10 +2402,8 @@ static const BusProperty execute_properties[] = {
         { "TTYVHangup",                            bus_append_parse_boolean                      },
         { "TTYReset",                              bus_append_parse_boolean                      },
         { "TTYVTDisallocate",                      bus_append_parse_boolean                      },
-        { "PrivateTmp",                            bus_append_parse_boolean                      },
         { "PrivateDevices",                        bus_append_parse_boolean                      },
         { "PrivateNetwork",                        bus_append_parse_boolean                      },
-        { "PrivateUsers",                          bus_append_parse_boolean                      },
         { "PrivateMounts",                         bus_append_parse_boolean                      },
         { "PrivateIPC",                            bus_append_parse_boolean                      },
         { "NoNewPrivileges",                       bus_append_parse_boolean                      },
@@ -2429,7 +2416,6 @@ static const BusProperty execute_properties[] = {
         { "ProtectKernelModules",                  bus_append_parse_boolean                      },
         { "ProtectKernelLogs",                     bus_append_parse_boolean                      },
         { "ProtectClock",                          bus_append_parse_boolean                      },
-        { "ProtectControlGroups",                  bus_append_parse_boolean                      },
         { "MountAPIVFS",                           bus_append_parse_boolean                      },
         { "BindLogSockets",                        bus_append_parse_boolean                      },
         { "CPUSchedulingResetOnFork",              bus_append_parse_boolean                      },
@@ -2484,7 +2470,7 @@ static const BusProperty execute_properties[] = {
         { "LoadCredential",                        bus_append_load_credential                    },
         { "LoadCredentialEncrypted",               bus_append_load_credential                    },
         { "ImportCredential",                      bus_append_import_credential                  },
-        { "ImportCredentialEx",                    bus_append_import_credential                  },
+        { "ImportCredentialEx",                    bus_append_import_credential                  }, /* compat */
         { "LogExtraFields",                        bus_append_log_extra_fields                   },
         { "LogFilterPatterns",                     bus_append_log_filter_patterns                },
         { "StandardInput",                         bus_append_standard_inputs                    },
@@ -2519,7 +2505,13 @@ static const BusProperty execute_properties[] = {
         { "CacheDirectory",                        bus_append_directory                          },
         { "LogsDirectory",                         bus_append_directory                          },
         { "ProtectHostname",                       bus_append_protect_hostname                   },
-        { "ProtectHostnameEx",                     bus_append_protect_hostname                   },
+        { "ProtectHostnameEx",                     bus_append_protect_hostname                   }, /* compat */
+        { "PrivateTmp",                            bus_append_boolean_or_string                  },
+        { "PrivateTmpEx",                          bus_append_boolean_or_string                  }, /* compat */
+        { "ProtectControlGroups",                  bus_append_boolean_or_string                  },
+        { "ProtectControlGroupsEx",                bus_append_boolean_or_string                  }, /* compat */
+        { "PrivateUsers",                          bus_append_boolean_or_string                  },
+        { "PrivateUsersEx",                        bus_append_boolean_or_string                  }, /* compat */
 
         { NULL, bus_try_append_resource_limit,     dump_resource_limits                          },
         {}
@@ -2609,19 +2601,19 @@ static const BusProperty service_properties[] = {
         { "FileDescriptorStoreMax",                bus_append_safe_atou                          },
         { "RestartSteps",                          bus_append_safe_atou                          },
         { "ExecCondition",                         bus_append_exec_command                       },
+        { "ExecConditionEx",                       bus_append_exec_command                       }, /* compat */
         { "ExecStartPre",                          bus_append_exec_command                       },
+        { "ExecStartPreEx",                        bus_append_exec_command                       }, /* compat */
         { "ExecStart",                             bus_append_exec_command                       },
+        { "ExecStartEx",                           bus_append_exec_command                       }, /* compat */
         { "ExecStartPost",                         bus_append_exec_command                       },
-        { "ExecConditionEx",                       bus_append_exec_command                       },
-        { "ExecStartPreEx",                        bus_append_exec_command                       },
-        { "ExecStartEx",                           bus_append_exec_command                       },
-        { "ExecStartPostEx",                       bus_append_exec_command                       },
+        { "ExecStartPostEx",                       bus_append_exec_command                       }, /* compat */
         { "ExecReload",                            bus_append_exec_command                       },
+        { "ExecReloadEx",                          bus_append_exec_command                       }, /* compat */
         { "ExecStop",                              bus_append_exec_command                       },
+        { "ExecStopEx",                            bus_append_exec_command                       }, /* compat */
         { "ExecStopPost",                          bus_append_exec_command                       },
-        { "ExecReloadEx",                          bus_append_exec_command                       },
-        { "ExecStopEx",                            bus_append_exec_command                       },
-        { "ExecStopPostEx",                        bus_append_exec_command                       },
+        { "ExecStopPostEx",                        bus_append_exec_command                       }, /* compat */
         { "RestartPreventExitStatus",              bus_append_exit_status                        },
         { "RestartForceExitStatus",                bus_append_exit_status                        },
         { "SuccessExitStatus",                     bus_append_exit_status                        },
@@ -2886,8 +2878,10 @@ void bus_dump_transient_settings(UnitType t) {
                 for (const BusProperty *item = *tables; item->convert; item++) {
                         assert(item->name || item->dump);
 
-                        /* Do not print deprecated names */
+                        /* Do not print deprecated names. All "Ex" variants are deprected. */
                         if (item->convert == warn_deprecated)
+                                continue;
+                        if (item->name && endswith(item->name, "Ex"))
                                 continue;
 
                         if (item->name)
