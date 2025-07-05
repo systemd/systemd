@@ -1714,14 +1714,14 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
                 mask |= CGROUP_MASK_CPUSET;
 
         if (cgroup_context_has_io_config(c))
-                mask |= CGROUP_MASK_IO | CGROUP_MASK_BLKIO;
+                mask |= CGROUP_MASK_IO;
 
         if (c->memory_accounting ||
             unit_has_memory_config(u))
                 mask |= CGROUP_MASK_MEMORY;
 
         if (cgroup_context_has_device_policy(c))
-                mask |= CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
+                mask |= CGROUP_MASK_BPF_DEVICES;
 
         if (c->tasks_accounting ||
             CGROUP_TASKS_MAX_IS_SET(&c->tasks_max))
@@ -4034,7 +4034,7 @@ void manager_invalidate_startup_units(Manager *m) {
         assert(m);
 
         SET_FOREACH(u, m->startup_units)
-                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO|CGROUP_MASK_CPUSET);
+                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_CPUSET);
 }
 
 static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
