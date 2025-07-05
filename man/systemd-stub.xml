@@ -545,6 +545,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderTpm2ActivePcrBanks</varname></term>
+
+        <listitem><para>Hexadecimal string representation of a bitmask with values defined by the TCG EFI
+        Protocol Specification for TPM 2.0 as EFI_TCG2_BOOT_HASH_ALG_*. If no TPM2 support or no active
+        banks were detected, will be set to <constant>0</constant>. Set by the boot loader. Use
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to view this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderImageIdentifier</varname></term>
 
         <listitem><para>The file system path to the EFI executable of the boot loader for the current boot,
