@@ -90,6 +90,19 @@ bool manager_owns_host_root_cgroup(Manager *m) {
         return empty_or_root(m->cgroup_root);
 }
 
+bool unit_has_host_root_cgroup(const Unit *u) {
+        assert(u);
+        assert(u->manager);
+
+        /* Returns whether this unit manages the root cgroup. This will return true if this unit is the root slice and
+         * the manager manages the root cgroup. */
+
+        if (!manager_owns_host_root_cgroup(u->manager))
+                return false;
+
+        return unit_has_name(u, SPECIAL_ROOT_SLICE);
+}
+
 bool unit_has_startup_cgroup_constraints(Unit *u) {
         assert(u);
 
@@ -110,19 +123,6 @@ bool unit_has_startup_cgroup_constraints(Unit *u) {
                c->startup_memory_swap_max_set||
                c->startup_memory_zswap_max_set ||
                c->startup_memory_low_set;
-}
-
-bool unit_has_host_root_cgroup(const Unit *u) {
-        assert(u);
-        assert(u->manager);
-
-        /* Returns whether this unit manages the root cgroup. This will return true if this unit is the root slice and
-         * the manager manages the root cgroup. */
-
-        if (!manager_owns_host_root_cgroup(u->manager))
-                return false;
-
-        return unit_has_name(u, SPECIAL_ROOT_SLICE);
 }
 
 static int set_attribute_and_warn(Unit *u, const char *controller, const char *attribute, const char *value) {
