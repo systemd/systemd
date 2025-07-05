@@ -10,7 +10,7 @@
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "bus-wait-for-units.h"
-#include "fork-journal.h"
+#include "fork-notify.h"
 #include "pidref.h"
 #include "runtime-scope.h"
 #include "special.h"
@@ -390,7 +390,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to allocate unit watch context: %m");
         }
 
-        _cleanup_(journal_terminate) PidRef journal_pid = PIDREF_NULL;
+        _cleanup_(fork_notify_terminate) PidRef journal_pid = PIDREF_NULL;
         if (arg_marked)
                 ret = enqueue_marked_jobs(bus, w);
         else {
