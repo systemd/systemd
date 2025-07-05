@@ -1253,16 +1253,13 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
 }
 
 static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
-        int r, nr_open;
+        int r;
 
         assert(p);
         assert(f);
         assert(fds);
 
-        nr_open = read_nr_open();
-        if (nr_open < 3)
-                nr_open = HIGH_RLIMIT_NOFILE;
-        assert(nr_open > 0); /* For compilers/static analyzers */
+        unsigned nr_open = MAX(read_nr_open(), NR_OPEN_MINIMUM);
 
         for (;;) {
                 _cleanup_free_ char *l = NULL;
@@ -1290,7 +1287,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
 
-                        if (p->n_socket_fds > (size_t) nr_open)
+                        if (p->n_socket_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
                 } else if ((val = startswith(l, "exec-parameters-n-storage-fds="))) {
                         if (p->fds)
@@ -1300,7 +1297,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
 
-                        if (p->n_storage_fds > (size_t) nr_open)
+                        if (p->n_storage_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
                 } else if ((val = startswith(l, "exec-parameters-n-extra-fds="))) {
                         if (p->fds)
@@ -1310,7 +1307,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
 
-                        if (p->n_extra_fds > (size_t) nr_open)
+                        if (p->n_extra_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
                 } else if ((val = startswith(l, "exec-parameters-fds="))) {
                         if (p->n_socket_fds + p->n_storage_fds + p->n_extra_fds == 0)
@@ -1318,7 +1315,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                                 SYNTHETIC_ERRNO(EINVAL),
                                                 "Got exec-parameters-fds= without "
                                                 "prior exec-parameters-n-socket-fds= or exec-parameters-n-storage-fds= or exec-parameters-n-extra-fds=");
-                        if (p->n_socket_fds + p->n_storage_fds + p->n_extra_fds > (size_t) nr_open)
+                        if (p->n_socket_fds + p->n_storage_fds + p->n_extra_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
 
                         if (p->fds)

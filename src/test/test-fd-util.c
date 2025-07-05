@@ -228,7 +228,7 @@ TEST(rearrange_stdio) {
 }
 
 TEST(read_nr_open) {
-        log_info("nr-open: %i", read_nr_open());
+        log_info("nr-open: %u", read_nr_open());
 }
 
 static size_t validate_fds(
