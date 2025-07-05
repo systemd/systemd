@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "parse-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -516,6 +517,27 @@ int efi_get_boot_options(uint16_t **ret_options) {
 #endif
 }
 
+#if ENABLE_EFI
+static int loader_has_tpm2(void) {
+        _cleanup_free_ char *active_pcr_banks = NULL;
+        uint32_t active_pcr_banks_value;
+        int r;
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderTpm2ActivePcrBanks"), &active_pcr_banks);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read LoaderTpm2ActivePcrBanks variable: %m");
+                return r;
+        }
+
+        r = safe_atou32_full(active_pcr_banks, 16, &active_pcr_banks_value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse LoaderTpm2ActivePcrBanks variable: %m");
+
+        return active_pcr_banks_value != 0;
+}
+#endif
+
 bool efi_has_tpm2(void) {
 #if ENABLE_EFI
         static int cache = -1;
@@ -530,9 +552,17 @@ bool efi_has_tpm2(void) {
         if (!is_efi_boot())
                 return (cache = false);
 
+        /* Secondly, check if the loader told us, as that is the most accurate source of information
+         * regarding the firmware's setup */
+        r = loader_has_tpm2();
+        if (r >= 0)
+                return (cache = r);
+
         /* Then, check if the ACPI table "TPM2" exists, which is the TPM2 event log table, see:
          * https://trustedcomputinggroup.org/wp-content/uploads/TCG_ACPIGeneralSpecification_v1.20_r8.pdf
-         * This table exists whenever the firmware knows ACPI and is hooked up to TPM2. */
+         * This table exists whenever the firmware knows ACPI and is hooked up to TPM2.
+         * Note that in some cases, for example with EDK2 2025.2 with the default arm64 config, this ACPI
+         * table is present even if TPM2 support is not enabled in the firmware. */
         if (access("/sys/firmware/acpi/tables/TPM2", F_OK) >= 0)
                 return (cache = true);
         if (errno != ENOENT)

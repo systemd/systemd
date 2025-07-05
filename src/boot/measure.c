@@ -183,6 +183,24 @@ bool tpm_present(void) {
         return tcg2_interface_check();
 }
 
+uint32_t tpm_get_active_pcr_banks(void) {
+        uint32_t active_pcr_banks = 0;
+        EFI_TCG2_PROTOCOL *tpm2;
+        EFI_STATUS err;
+
+        tpm2 = tcg2_interface_check();
+        if (!tpm2)
+                return 0;
+
+        err = tpm2->GetActivePcrBanks(tpm2, &active_pcr_banks);
+        if (err != EFI_SUCCESS) {
+                log_warning_status(err, "Failed to get TPM2 active PCR banks, assuming none: %m");
+                return 0;
+        }
+
+        return active_pcr_banks;
+}
+
 static EFI_STATUS tcg2_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
         EFI_TCG2_PROTOCOL *tpm2;
         EFI_STATUS err = EFI_SUCCESS;
