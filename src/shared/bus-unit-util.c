@@ -2086,6 +2086,28 @@ static int bus_append_protect_hostname(sd_bus_message *m, const char *field, con
         return 1;
 }
 
+static int bus_append_boolean_or_string(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        r = parse_boolean(eq);
+        if (r >= 0) {
+                if (endswith(field, "Ex"))
+                        field = strndupa(field, strlen(field) - 2);
+
+                r = sd_bus_message_append(m, "(sv)", field, "b", r);
+        } else {
+                if (!endswith(field, "Ex"))
+                        field = strjoina(field, "Ex");
+
+                /* We allow any string through and let the server perform the verification. */
+                r = sd_bus_message_append(m, "(sv)", field, "s", eq);
+        }
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_paths(sd_bus_message *m, const char *field, const char *eq) {
         return bus_append_trivial_array(m, "Paths", eq,
                                         "a(ss)", field, eq);
@@ -2361,9 +2383,6 @@ static const BusProperty execute_properties[] = {
         { "SyslogIdentifier",                      bus_append_string                             },
         { "ProtectSystem",                         bus_append_string                             },
         { "ProtectHome",                           bus_append_string                             },
-        { "PrivateTmpEx",                          bus_append_string                             },
-        { "PrivateUsersEx",                        bus_append_string                             },
-        { "ProtectControlGroupsEx",                bus_append_string                             },
         { "SELinuxContext",                        bus_append_string                             },
         { "RootImage",                             bus_append_string                             },
         { "RootVerity",                            bus_append_string                             },
@@ -2383,10 +2402,8 @@ static const BusProperty execute_properties[] = {
         { "TTYVHangup",                            bus_append_parse_boolean                      },
         { "TTYReset",                              bus_append_parse_boolean                      },
         { "TTYVTDisallocate",                      bus_append_parse_boolean                      },
-        { "PrivateTmp",                            bus_append_parse_boolean                      },
         { "PrivateDevices",                        bus_append_parse_boolean                      },
         { "PrivateNetwork",                        bus_append_parse_boolean                      },
-        { "PrivateUsers",                          bus_append_parse_boolean                      },
         { "PrivateMounts",                         bus_append_parse_boolean                      },
         { "PrivateIPC",                            bus_append_parse_boolean                      },
         { "NoNewPrivileges",                       bus_append_parse_boolean                      },
@@ -2399,7 +2416,6 @@ static const BusProperty execute_properties[] = {
         { "ProtectKernelModules",                  bus_append_parse_boolean                      },
         { "ProtectKernelLogs",                     bus_append_parse_boolean                      },
         { "ProtectClock",                          bus_append_parse_boolean                      },
-        { "ProtectControlGroups",                  bus_append_parse_boolean                      },
         { "MountAPIVFS",                           bus_append_parse_boolean                      },
         { "BindLogSockets",                        bus_append_parse_boolean                      },
         { "CPUSchedulingResetOnFork",              bus_append_parse_boolean                      },
@@ -2454,7 +2470,7 @@ static const BusProperty execute_properties[] = {
         { "LoadCredential",                        bus_append_load_credential                    },
         { "LoadCredentialEncrypted",               bus_append_load_credential                    },
         { "ImportCredential",                      bus_append_import_credential                  },
-        { "ImportCredentialEx",                    bus_append_import_credential                  },
+        { "ImportCredentialEx",                    bus_append_import_credential                  }, /* compat */
         { "LogExtraFields",                        bus_append_log_extra_fields                   },
         { "LogFilterPatterns",                     bus_append_log_filter_patterns                },
         { "StandardInput",                         bus_append_standard_inputs                    },
@@ -2489,7 +2505,13 @@ static const BusProperty execute_properties[] = {
         { "CacheDirectory",                        bus_append_directory                          },
         { "LogsDirectory",                         bus_append_directory                          },
         { "ProtectHostname",                       bus_append_protect_hostname                   },
-        { "ProtectHostnameEx",                     bus_append_protect_hostname                   },
+        { "ProtectHostnameEx",                     bus_append_protect_hostname                   }, /* compat */
+        { "PrivateTmp",                            bus_append_boolean_or_string                  },
+        { "PrivateTmpEx",                          bus_append_boolean_or_string                  }, /* compat */
+        { "ProtectControlGroups",                  bus_append_boolean_or_string                  },
+        { "ProtectControlGroupsEx",                bus_append_boolean_or_string                  }, /* compat */
+        { "PrivateUsers",                          bus_append_boolean_or_string                  },
+        { "PrivateUsersEx",                        bus_append_boolean_or_string                  }, /* compat */
 
         { NULL, bus_try_append_resource_limit,     dump_resource_limits                          },
         {}
