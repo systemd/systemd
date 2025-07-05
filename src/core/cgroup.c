@@ -1188,7 +1188,6 @@ static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state) {
 }
 
 static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t io_weight) {
-        static bool warned = false;
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
         const char *p;
         uint64_t bfq_weight;
@@ -1213,18 +1212,7 @@ static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t i
                 xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
         r = cg_set_attribute(controller, crt->cgroup_path, p, buf);
-
-        /* FIXME: drop this when kernels prior
-         * 795fe54c2a82 ("bfq: Add per-device weight") v5.4
-         * are not interesting anymore. Old kernels will fail with EINVAL, while new kernels won't return
-         * EINVAL on properly formatted input by us. Treat EINVAL accordingly. */
-        if (r == -EINVAL && major(dev) > 0) {
-               if (!warned) {
-                        log_unit_warning(u, "Kernel version does not accept per-device setting in %s.", p);
-                        warned = true;
-               }
-               r = -EOPNOTSUPP; /* mask as unconfigured device */
-        } else if (r >= 0 && io_weight != bfq_weight)
+        if (r >= 0 && io_weight != bfq_weight)
                 log_unit_debug(u, "%s=%" PRIu64 " scaled to %s=%" PRIu64,
                                major(dev) > 0 ? "IODeviceWeight" : "IOWeight",
                                io_weight, p, bfq_weight);
