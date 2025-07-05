@@ -93,6 +93,7 @@ typedef struct BootConfig {
 
 const char* boot_entry_type_to_string(BootEntryType) _const_;
 const char* boot_entry_type_json_to_string(BootEntryType) _const_;
+BootEntryType boot_entry_type_json_from_string(const char *s) _pure_;
 
 const char* boot_entry_source_to_string(BootEntrySource) _const_;
 const char* boot_entry_source_json_to_string(BootEntrySource) _const_;
