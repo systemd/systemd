@@ -99,7 +99,17 @@
                         <allow_inactive>auth_admin</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
-                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.shell org.freedesktop.login1.login</annotate>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.shell org.freedesktop.login1.login org.freedesktop.machine1.register-machine</annotate>
+        </action>
+
+        <action id="org.freedesktop.machine1.register-machine">
+                <description gettext-domain="systemd">Register a local virtual machine or container</description>
+                <message gettext-domain="systemd">Authentication is required to register a local virtual machine or container.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
         </action>
 
         <action id="org.freedesktop.machine1.manage-images">

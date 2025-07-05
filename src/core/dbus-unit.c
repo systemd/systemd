@@ -572,7 +572,60 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_kill(u, whom, signo, code, value, error);
+        r = unit_kill(u, whom, /* subgroup= */ NULL, signo, code, value, error);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_unit_method_kill_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Unit *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = mac_selinux_unit_access_check(u, message, "stop", error);
+        if (r < 0)
+                return r;
+
+        const char *swhom, *subgroup;
+        int32_t signo;
+        r = sd_bus_message_read(message, "ssi", &swhom, &subgroup, &signo);
+        if (r < 0)
+                return r;
+
+        KillWhom whom;
+        if (isempty(swhom))
+                whom = KILL_CGROUP;
+        else {
+                whom = kill_whom_from_string(swhom);
+                if (whom < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid whom argument: %s", swhom);
+        }
+
+        if (isempty(subgroup))
+                subgroup = NULL;
+        else if (!path_is_normalized(subgroup))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified cgroup sub-path is not valid.");
+        else if (!IN_SET(whom, KILL_CGROUP, KILL_CGROUP_FAIL))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Subgroup can only be specified in combination with 'cgroup' or 'cgroup-fail'.");
+
+        if (!SIGNAL_VALID(signo))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "kill",
+                        N_("Authentication is required to send a UNIX signal to the processes of subgroup of '$(unit)'."),
+                        message,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = unit_kill(u, whom, subgroup, signo, SI_USER, /* value= */ 0, error);
         if (r < 0)
                 return r;
 
@@ -985,6 +1038,11 @@ const sd_bus_vtable bus_unit_vtable[] = {
                                 SD_BUS_ARGS("s", whom, "i", signal),
                                 SD_BUS_NO_RESULT,
                                 bus_unit_method_kill,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("KillSubgroup",
+                                SD_BUS_ARGS("s", subgroup, "i", signal),
+                                SD_BUS_NO_RESULT,
+                                bus_unit_method_kill_subgroup,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("QueueSignal",
                                 SD_BUS_ARGS("s", whom, "i", signal, "i", value),

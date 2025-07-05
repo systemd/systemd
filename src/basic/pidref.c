@@ -118,6 +118,31 @@ int pidref_set_pid(PidRef *pidref, pid_t pid) {
         return 0;
 }
 
+int pidref_set_pid_and_pidfd_id(
+                PidRef *pidref,
+                pid_t pid,
+                uint64_t pidfd_id) {
+
+        int r;
+
+        assert(pidref);
+
+        _cleanup_(pidref_done) PidRef n = PIDREF_NULL;
+        r = pidref_set_pid(&n, pid);
+        if (r < 0)
+                return r;
+
+        if (pidfd_id > 0) {
+                pidref_acquire_pidfd_id(&n);
+
+                if (n.fd_id != pidfd_id)
+                        return -ESRCH;
+        }
+
+        *pidref = TAKE_PIDREF(n);
+        return 0;
+}
+
 int pidref_set_pidstr(PidRef *pidref, const char *pid) {
         pid_t nr;
         int r;

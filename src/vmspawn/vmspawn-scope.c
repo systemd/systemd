@@ -12,11 +12,40 @@
 #include "pidref.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "special.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit-name.h"
+#include "unit-def.h"
 #include "vmspawn-scope.h"
 
-int start_transient_scope(sd_bus *bus, const char *machine_name, bool allow_pidfd, char **ret_scope) {
+static int append_controller_property(sd_bus *bus, sd_bus_message *m) {
+        const char *unique;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        r = sd_bus_get_unique_name(bus, &unique);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unique name: %m");
+
+        r = sd_bus_message_append(m, "(sv)", "Controller", "s", unique);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 0;
+}
+
+int allocate_scope(
+                sd_bus *bus,
+                const char *machine_name,
+                const PidRef *pid,
+                const char *slice,
+                char **properties,
+                bool allow_pidfd,
+                char **ret_scope) {
+
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
@@ -33,8 +62,9 @@ int start_transient_scope(sd_bus *bus, const char *machine_name, bool allow_pidf
         if (r < 0)
                 return log_error_errno(r, "Could not watch job: %m");
 
-        if (asprintf(&scope, "machine-%"PRIu64"-%s.scope", random_u64(), machine_name) < 0)
-                return log_oom();
+        r = unit_name_mangle_with_suffix(machine_name, "as machine name", /* flags= */ 0, ".scope", &scope);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle scope name: %m");
 
         description = strjoin("Virtual Machine ", machine_name);
         if (!description)
@@ -53,21 +83,25 @@ int start_transient_scope(sd_bus *bus, const char *machine_name, bool allow_pidf
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)",
+        r = bus_append_scope_pidref(m, pid, allow_pidfd);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)",
                                   "Description", "s",  description,
+                                  "CollectMode", "s",  "inactive-or-failed",
                                   "AddRef",      "b",  1,
-                                  "CollectMode", "s",  "inactive-or-failed");
+                                  "Slice",       "s", isempty(slice) ? SPECIAL_MACHINE_SLICE : slice);
         if (r < 0)
                 return bus_log_create_error(r);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        r = pidref_set_self(&pidref);
+        r = append_controller_property(bus, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate PID reference: %m");
+                return r;
 
-        r = bus_append_scope_pidref(m, &pidref, allow_pidfd);
+        r = bus_append_unit_property_assignment_many(m, UNIT_SCOPE, properties);
         if (r < 0)
-                return bus_log_create_error(r);
+                return r;
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
@@ -87,7 +121,14 @@ int start_transient_scope(sd_bus *bus, const char *machine_name, bool allow_pidf
                  * doesn't support PIDFDs yet, let's try without. */
                 if (allow_pidfd &&
                     sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
-                        return start_transient_scope(bus, machine_name, false, ret_scope);
+                        return allocate_scope(
+                                        bus,
+                                        machine_name,
+                                        pid,
+                                        slice,
+                                        properties,
+                                        /* allow_pidfd= */ false,
+                                        ret_scope);
 
                 return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, r));
         }
@@ -96,12 +137,56 @@ int start_transient_scope(sd_bus *bus, const char *machine_name, bool allow_pidf
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, /* quiet */ false, NULL);
+        r = bus_wait_for_jobs_one(
+                        w,
+                        object,
+                        BUS_WAIT_JOBS_LOG_ERROR,
+                        /* extra_args= */ NULL);
         if (r < 0)
                 return r;
 
         if (ret_scope)
                 *ret_scope = TAKE_PTR(scope);
+
+        return 0;
+}
+
+int terminate_scope(
+                sd_bus *bus,
+                const char *machine_name) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *scope = NULL;
+        int r;
+
+        r = unit_name_mangle_with_suffix(machine_name, "to terminate", /* flags= */ 0, ".scope", &scope);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle scope name: %m");
+
+        r = bus_call_method(bus, bus_systemd_mgr, "AbandonScope", &error, /* ret_reply= */ NULL, "s", scope);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to abandon scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
+
+        r = bus_call_method(
+                        bus,
+                        bus_systemd_mgr,
+                        "KillUnit",
+                        &error,
+                        NULL,
+                        "ssi",
+                        scope,
+                        "all",
+                        (int32_t) SIGKILL);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to SIGKILL scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
+
+        r = bus_call_method(bus, bus_systemd_mgr, "UnrefUnit", &error, /* ret_reply= */ NULL, "s", scope);
+        if (r < 0)
+                log_debug_errno(r, "Failed to drop reference to scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
 
         return 0;
 }

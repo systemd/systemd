@@ -46,8 +46,8 @@ static int machine_name(const char *name, sd_json_variant *variant, sd_json_disp
         return 0;
 }
 
-static int machine_leader(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        PidRef *leader = ASSERT_PTR(userdata);
+static int machine_pidref(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        PidRef *pidref = ASSERT_PTR(userdata);
         _cleanup_(pidref_done) PidRef temp = PIDREF_NULL;
         int r;
 
@@ -56,14 +56,14 @@ static int machine_leader(const char *name, sd_json_variant *variant, sd_json_di
                 return r;
 
         if (temp.pid == 1) /* refuse PID 1 */
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid leader PID.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid PID.", strna(name));
 
         /* When both leader and leaderProcessId are specified, they must be consistent with each other. */
-        if (pidref_is_set(leader) && !pidref_equal(leader, &temp))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' conflicts with already dispatched leader PID.", strna(name));
+        if (pidref_is_set(pidref) && !pidref_equal(pidref, &temp))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' conflicts with already dispatched PID.", strna(name));
 
-        pidref_done(leader);
-        *leader = TAKE_PIDREF(temp);
+        pidref_done(pidref);
+        *pidref = TAKE_PIDREF(temp);
 
         return 0;
 }
@@ -128,18 +128,20 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",              SD_JSON_VARIANT_STRING,        machine_name,             offsetof(Machine, name),                 SD_JSON_MANDATORY },
-                { "id",                SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(Machine, id),                   0                 },
-                { "service",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, service),              0                 },
-                { "class",             SD_JSON_VARIANT_STRING,        dispatch_machine_class,   offsetof(Machine, class),                SD_JSON_MANDATORY },
-                { "leader",            _SD_JSON_VARIANT_TYPE_INVALID, machine_leader,           offsetof(Machine, leader),               SD_JSON_STRICT    },
-                { "leaderProcessId",   SD_JSON_VARIANT_OBJECT,        machine_leader,           offsetof(Machine, leader),               SD_JSON_STRICT    },
-                { "rootDirectory",     SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       0                 },
-                { "ifIndices",         SD_JSON_VARIANT_ARRAY,         machine_ifindices,        0,                                       0                 },
-                { "vSockCid",          _SD_JSON_VARIANT_TYPE_INVALID, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
-                { "sshAddress",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
-                { "sshPrivateKeyPath", SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, ssh_private_key_path), 0                 },
-                { "allocateUnit",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(Machine, allocate_unit),        0                 },
+                { "name",                SD_JSON_VARIANT_STRING,        machine_name,             offsetof(Machine, name),                 SD_JSON_MANDATORY },
+                { "id",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(Machine, id),                   0                 },
+                { "service",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, service),              0                 },
+                { "class",               SD_JSON_VARIANT_STRING,        dispatch_machine_class,   offsetof(Machine, class),                SD_JSON_MANDATORY },
+                { "leader",              _SD_JSON_VARIANT_TYPE_INVALID, machine_pidref,           offsetof(Machine, leader),               SD_JSON_STRICT    },
+                { "leaderProcessId",     SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, leader),               SD_JSON_STRICT    },
+                { "supervisor",          _SD_JSON_VARIANT_TYPE_INVALID, machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
+                { "supervisorProcessId", SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
+                { "rootDirectory",       SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       0                 },
+                { "ifIndices",           SD_JSON_VARIANT_ARRAY,         machine_ifindices,        0,                                       0                 },
+                { "vSockCid",            _SD_JSON_VARIANT_TYPE_INVALID, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
+                { "sshAddress",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
+                { "sshPrivateKeyPath",   SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, ssh_private_key_path), 0                 },
+                { "allocateUnit",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(Machine, allocate_unit),        0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -155,7 +157,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         r = varlink_verify_polkit_async(
                         link,
                         manager->bus,
-                        "org.freedesktop.machine1.create-machine",
+                        machine->allocate_unit ? "org.freedesktop.machine1.create-machine" : "org.freedesktop.machine1.register-machine",
                         (const char**) STRV_MAKE("name", machine->name,
                                                  "class", machine_class_to_string(machine->class)),
                         &manager->polkit_registry);
@@ -168,6 +170,22 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                         return r;
         }
 
+        if (!pidref_is_set(&machine->supervisor)) {
+                _cleanup_(pidref_done) PidRef client_pidref = PIDREF_NULL;
+
+                r = varlink_get_peer_pidref(link, &client_pidref);
+                if (r < 0)
+                        return r;
+
+                /* If the client process is not the leader, then make it the supervisor */
+                if (!pidref_equal(&client_pidref, &machine->leader))
+                        machine->supervisor = TAKE_PIDREF(client_pidref);
+        }
+
+        r = sd_varlink_get_peer_uid(link, &machine->uid);
+        if (r < 0)
+                return r;
+
         r = machine_link(manager, machine);
         if (r == -EEXIST)
                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_EXISTS, NULL);
@@ -175,7 +193,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 return r;
 
         if (!machine->allocate_unit) {
-                r = cg_pidref_get_unit(&machine->leader, &machine->unit);
+                r = cg_pidref_get_unit_full(&machine->leader, &machine->unit, &machine->subgroup);
                 if (r < 0)
                         return r;
         }
@@ -278,12 +296,14 @@ int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters,
         Manager *manager = ASSERT_PTR(machine->manager);
         int r;
 
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         manager->bus,
                         "org.freedesktop.machine1.manage-machines",
                         (const char**) STRV_MAKE("name", machine->name,
                                                  "verb", "unregister"),
+                        machine->uid,
+                        /* flags= */ 0,
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -300,12 +320,14 @@ int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, 
         Manager *manager = ASSERT_PTR(machine->manager);
         int r;
 
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         manager->bus,
                         "org.freedesktop.machine1.manage-machines",
                         (const char**) STRV_MAKE("name", machine->name,
                                                  "verb", "terminate"),
+                        machine->uid,
+                        /* flags= */ 0,
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -368,12 +390,14 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                         return sd_varlink_error_invalid_parameter_name(link, "whom");
         }
 
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         manager->bus,
                         "org.freedesktop.machine1.manage-machines",
                         (const char**) STRV_MAKE("name", machine->name,
                                                  "verb", "kill"),
+                        machine->uid,
+                        /* flags= */ 0,
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -510,11 +534,13 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         polkit_details = machine_open_polkit_details(p.mode, machine->name, user, path, command_line);
-        r = varlink_verify_polkit_async(
+        r = varlink_verify_polkit_async_full(
                         link,
                         manager->bus,
                         machine_open_polkit_action(p.mode, machine->class),
                         (const char**) polkit_details,
+                        machine->uid,
+                        /* flags= */ 0,
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -788,6 +814,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (machine->class != MACHINE_CONTAINER)
                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
 
+        /* NB: For now not opened up to owner of machine without auth */
         r = varlink_verify_polkit_async(
                         link,
                         manager->bus,
@@ -899,6 +926,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         if (machine->class != MACHINE_CONTAINER)
                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
 
+        /* NB: For now not opened up to owner of machine without auth */
         r = varlink_verify_polkit_async(
                         link,
                         manager->bus,
@@ -928,6 +956,7 @@ int vl_method_open_root_directory_internal(sd_varlink *link, sd_json_variant *pa
         Manager *manager = ASSERT_PTR(machine->manager);
         int r;
 
+        /* NB: For now not opened up to owner of machine without auth */
         r = varlink_verify_polkit_async(
                         link,
                         manager->bus,

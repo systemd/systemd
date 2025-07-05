@@ -303,6 +303,23 @@
 
           <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--notify-ready=</option></term>
+
+          <listitem><para>Configures support for notifications from the VM's init process.
+          <option>--notify-ready=</option> takes a boolean. If false <command>systemd-vmpawn</command>
+          notifies the calling service manager with a <literal>READY=1</literal> message when the VM is
+          created. If true it waits for a <literal>READY=1</literal> message from the init process in the VM
+          before sending its own to the service manager. For more details about notifications see
+          <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+          <para>Defaults to true. (Note that this is unlike the option of the same name to
+          <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          that defaults to false.)</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
@@ -343,6 +360,30 @@
       <title>Property Options</title>
 
       <variablelist>
+        <varlistentry>
+          <term><option>-S</option></term>
+          <term><option>--slice=</option></term>
+
+          <listitem><para>Make the VM part of the specified slice, instead of the default
+          <filename>machine.slice</filename>. This applies only if the machine is run in its own scope unit,
+          i.e. if <option>--keep-unit</option> is not used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--property=</option></term>
+
+          <listitem><para>Set a unit property on the scope unit to register for the machine. This applies
+          only if the machine is run in its own scope unit, i.e. if <option>--keep-unit</option> is not
+          used. Takes unit property assignments in the same format as <command>systemctl
+          set-property</command>. This is useful to set memory limits and similar for the VM.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><option>--register=</option></term>
 
@@ -532,6 +573,7 @@
         <xi:include href="standard-options.xml" xpointer="no-pager" />
         <xi:include href="standard-options.xml" xpointer="help" />
         <xi:include href="standard-options.xml" xpointer="version" />
+        <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       </variablelist>
     </refsect2>
   </refsect1>
