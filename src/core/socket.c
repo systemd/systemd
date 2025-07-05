@@ -2496,7 +2496,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                                          * BUS_ERROR_TRANSACTION_JOBS_CONFLICTING or BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
                                          * since those are errors in a single transaction, which are most likely
                                          * caused by dependency issues in the unit configuration.
-                                         * Deferring activation probabaly won't help. */
+                                         * Deferring activation probably won't help. */
                                         return socket_enter_deferred(s);
                         } else
                                 r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
