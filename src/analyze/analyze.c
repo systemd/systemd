@@ -422,7 +422,7 @@ static int parse_argv(int argc, char *argv[]) {
                          * normally. */
 
                         if (unit_shell >= 0) {
-                                optind--; /* don't processs this argument, go one step back */
+                                optind--; /* don't process this argument, go one step back */
                                 goto done;
                         }
                         if (streq(optarg, "unit-shell"))
