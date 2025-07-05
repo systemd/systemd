@@ -1163,7 +1163,7 @@ LEGEND: M → sys_vendor (LENOVO) ┄ F → product_family (ThinkPad X1 Carbon G
       <varname>LogRateLimitIntervalUSec</varname>.
       </para>
 
-      <para>This verb is intended primarily for programatic generation of shell completions.</para>
+      <para>This verb is intended primarily for programmatic generation of shell completions.</para>
 
       <xi:include href="version-info.xml" xpointer="v258"/>
     </refsect2>
