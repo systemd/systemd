@@ -527,6 +527,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderFirmwareTpm2</varname></term>
+
+        <listitem><para>Boolean, true if the firmware has TPM2 support enabled. Set by the boot loader. Use
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to view this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderImageIdentifier</varname></term>
 
         <listitem><para>The file system path to the EFI executable of the boot loader for the current boot,

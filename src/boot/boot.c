@@ -2849,6 +2849,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_REPORT_URL |
                 EFI_LOADER_FEATURE_TYPE1_UKI |
                 EFI_LOADER_FEATURE_TYPE1_UKI_URL |
+                EFI_LOADER_FEATURE_REPORT_TPM2 |
                 0;
 
         assert(loaded_image);

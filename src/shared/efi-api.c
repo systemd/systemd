@@ -516,6 +516,28 @@ int efi_get_boot_options(uint16_t **ret_options) {
 #endif
 }
 
+#if ENABLE_EFI
+static int loader_has_tmp2(void) {
+        _cleanup_free_ uint8_t *has_tpm2 = NULL;
+        size_t size;
+        int r;
+
+        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderFirmwareTpm2"), NULL, (void **)&has_tpm2, &size);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read LoaderFirmwareTpm2 variable: %m");
+                return r;
+        }
+
+        if (size != sizeof(uint8_t))
+                return log_debug_errno(SYNTHETIC_ERRNO(-EINVAL), "Unexpected size of LoaderFirmwareTpm2 variable: %zu", size);
+
+        assert(has_tpm2);
+
+        return *has_tpm2 != 0;
+}
+#endif
+
 bool efi_has_tpm2(void) {
 #if ENABLE_EFI
         static int cache = -1;
@@ -530,9 +552,17 @@ bool efi_has_tpm2(void) {
         if (!is_efi_boot())
                 return (cache = false);
 
+        /* Secondly, check if the loader told us, as that is the most accurate source of information
+         * regarding the firmware's setup */
+        r = loader_has_tmp2();
+        if (r >= 0)
+                return (cache = r);
+
         /* Then, check if the ACPI table "TPM2" exists, which is the TPM2 event log table, see:
          * https://trustedcomputinggroup.org/wp-content/uploads/TCG_ACPIGeneralSpecification_v1.20_r8.pdf
-         * This table exists whenever the firmware knows ACPI and is hooked up to TPM2. */
+         * This table exists whenever the firmware knows ACPI and is hooked up to TPM2.
+         * Note that in some cases, for example with EDK2 2025.2 with the default arm64 config, this ACPI
+         * table is present even if TPM2 support is not enabled in the firmware. */
         if (access("/sys/firmware/acpi/tables/TPM2", F_OK) >= 0)
                 return (cache = true);
         if (errno != ENOENT)
