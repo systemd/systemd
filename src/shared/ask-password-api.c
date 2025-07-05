@@ -241,14 +241,14 @@ static int ask_password_keyring(const AskPasswordRequest *req, AskPasswordFlags 
                 return -EUNATCH;
 
         r = lookup_key(req->keyring, &serial);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EPERM)
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || IN_SET(r, -EPERM, -ENOKEY))
                 /* When retrieving, the distinction between "kernel or container manager don't support or
                  * allow this" and "no matching key known" doesn't matter. Note that we propagate EACCESS
                  * here (even if EPERM not) since that is used if the keyring is available, but we lack
                  * access to the key. */
                 return -ENOKEY;
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to look up key %s in keyring: %m", req->keyring);
 
         _cleanup_strv_free_erase_ char **l = NULL;
         r = retrieve_key(serial, &l);
