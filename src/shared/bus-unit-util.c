@@ -961,13 +961,21 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
                 assert(table);
                 assert(set);
 
-                source = nft_set_source_from_string(source_str);
+                source = r = nft_set_source_from_string(source_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse NFT set source '%s': %m", source_str);
                 if (!IN_SET(source, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Bad NFT set source value '%s'.",
+                                               nft_set_source_to_string(source));
 
-                nfproto = nfproto_from_string(nfproto_str);
-                if (nfproto < 0 || !nft_identifier_valid(table) || !nft_identifier_valid(set))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s.", field);
+                nfproto = r = nfproto_from_string(nfproto_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse nft protocol '%s': %m", nfproto_str);
+
+                if (!nft_identifier_valid(table))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Bad NFT identifier name '%s'.", table);
+                if (!nft_identifier_valid(set))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Bad NFT identifier name '%s'.", set);
 
                 r = sd_bus_message_append(m, "(iiss)", source, nfproto, table, set);
                 if (r < 0)
