@@ -2473,8 +2473,7 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
                         continue;
 
                 /* We must disable those below us first in order to release the controller. */
-                if (m->type == UNIT_SLICE)
-                        (void) unit_realize_cgroup_now_disable(m, state);
+                (void) unit_realize_cgroup_now_disable(m, state);
 
                 target_mask = unit_get_target_mask(m);
                 enable_mask = unit_get_enable_mask(m);
