@@ -413,6 +413,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_REPORT_URL,              "Loader reports network boot URL"       },
                         { EFI_LOADER_FEATURE_TYPE1_UKI,               "Support Type #1 uki field"             },
                         { EFI_LOADER_FEATURE_TYPE1_UKI_URL,           "Support Type #1 uki-url field"         },
+                        { EFI_LOADER_FEATURE_REPORT_TPM2,             "Loader reports TPM2 firmware support"  },
                 };
                 static const struct {
                         uint64_t flag;

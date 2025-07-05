@@ -3,6 +3,7 @@
 #include "device-path-util.h"
 #include "efi-efivars.h"
 #include "export-vars.h"
+#include "measure.h"
 #include "part-discovery.h"
 #include "url-discovery.h"
 #include "util.h"
@@ -50,5 +51,11 @@ void export_common_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 _cleanup_free_ char16_t *s = NULL;
                 s = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
                 efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareType", s, 0);
+        }
+
+        /* ditto for LoaderFirmwareTpm2 */
+        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareTpm2", NULL, NULL) != EFI_SUCCESS) {
+                uint8_t has_tpm2 = tpm_present();
+                efivar_set_raw(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareTpm2", &has_tpm2, sizeof(has_tpm2), 0);
         }
 }
