@@ -1720,8 +1720,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
             unit_has_memory_config(u))
                 mask |= CGROUP_MASK_MEMORY;
 
-        if (c->device_allow ||
-            c->device_policy != CGROUP_DEVICE_POLICY_AUTO)
+        if (cgroup_context_has_device_policy(c))
                 mask |= CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
 
         if (c->tasks_accounting ||

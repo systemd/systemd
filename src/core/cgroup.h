@@ -359,6 +359,13 @@ static inline bool cgroup_context_want_memory_pressure(const CGroupContext *c) {
                 (c->memory_pressure_watch == CGROUP_PRESSURE_WATCH_AUTO && c->memory_accounting);
 }
 
+static inline bool cgroup_context_has_device_policy(const CGroupContext *c) {
+        assert(c);
+
+        return c->device_policy != CGROUP_DEVICE_POLICY_AUTO ||
+                c->device_allow;
+}
+
 int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
