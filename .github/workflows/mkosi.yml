@@ -82,6 +82,26 @@ jobs:
             cflags: "-Og"
             relabel: no
             vm: 0
+            no_qemu: 0
+            no_kvm: 1
+          - distro: debian
+            release: testing
+            runner: ubuntu-24.04-ppc64le
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
+            no_qemu: 1
+            no_kvm: 1
+          - distro: debian
+            release: testing
+            runner: ubuntu-24.04-s390x
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
             no_qemu: 1
             no_kvm: 1
           - distro: ubuntu
@@ -147,7 +167,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: systemd/mkosi@0d1143150835b21c1bfe64428df5f45b558280b1
+      - uses: bluca/mkosi@ppc_s390
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
@@ -160,19 +180,24 @@ jobs:
 
       - name: Btrfs
         run: |
-          truncate --size=100G btrfs.raw
-          mkfs.btrfs btrfs.raw
-          sudo mkdir -p /mnt/mkosi
-          LOOP="$(sudo losetup --find --show --direct-io=on btrfs.raw)"
-          rm -f btrfs.raw
-          sudo mount "$LOOP" /mnt/mkosi --options compress=zstd:1,user_subvol_rm_allowed,noatime,discard=async,space_cache=v2
-          sudo chown "$(id -u):$(id -g)" /mnt/mkosi
-          mkdir -p /mnt/mkosi/tmp
-          echo "TMPDIR=/mnt/mkosi/tmp" >>"$GITHUB_ENV"
-          ln -sf /mnt/mkosi/build build
+          if [ -e /dev/loop-control ]; then
+            truncate --size=100G btrfs.raw
+            mkfs.btrfs btrfs.raw
+            sudo mkdir -p /mnt/mkosi
+            LOOP="$(sudo losetup --find --show --direct-io=on btrfs.raw)"
+            rm -f btrfs.raw
+            sudo mount "$LOOP" /mnt/mkosi --options compress=zstd:1,user_subvol_rm_allowed,noatime,discard=async,space_cache=v2
+            sudo chown "$(id -u):$(id -g)" /mnt/mkosi
+            mkdir -p /mnt/mkosi/tmp
+            echo "TMPDIR=/mnt/mkosi/tmp" >>"$GITHUB_ENV"
+            ln -sf /mnt/mkosi/build build
+          fi
 
       - name: Configure
         run: |
+          if [ -e /dev/loop-control ]; then
+            subvolumes="UseSubvolumes=yes"
+          fi
           tee mkosi/mkosi.local.conf <<EOF
           [Distribution]
           Distribution=${{ matrix.distro }}
@@ -183,7 +208,7 @@ jobs:
           Format=disk
 
           [Build]
-          UseSubvolumes=yes
+          ${subvolumes:-}
           ToolsTreeDistribution=${{ matrix.distro }}
           ToolsTreeRelease=${{ matrix.release }}
           WithTests=yes
@@ -249,6 +274,10 @@ jobs:
               MAX_LINES=()
           fi
 
+          sudo aa-teardown >/dev/null 2>&1 || true
+          sudo sysctl -we kernel.apparmor_restrict_unprivileged_unconfined=0
+          sudo sysctl -we kernel.apparmor_restrict_unprivileged_userns=0
+
           if [ "${{ matrix.no_kvm }}" = 1 ] && [ "${{ matrix.no_qemu }}" = 0 ]; then
               timeout_multiplier=4
           fi
@@ -271,7 +300,7 @@ jobs:
             --print-errorlogs \
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
-            "${MAX_LINES[@]}"
+            "${MAX_LINES[@]}" TEST-70-TPM2
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v4
