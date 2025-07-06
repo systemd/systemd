@@ -48,7 +48,7 @@ static int tasks_max_build_json(sd_json_variant **ret, const char *name, void *u
         assert(ret);
         assert(name);
 
-        if (!cgroup_tasks_max_isset(tasks_max)) {
+        if (!CGROUP_TASKS_MAX_IS_SET(tasks_max)) {
                 *ret = NULL;
                 return 0;
         }
