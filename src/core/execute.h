@@ -190,7 +190,7 @@ typedef struct ExecContext {
         bool oom_score_adjust_set:1;
         bool coredump_filter_set:1;
         bool nice_set:1;
-        bool ioprio_set:1;
+        bool ioprio_is_set:1;
         bool cpu_sched_set:1;
 
         /* This is not exposed to the user but available internally. We need it to make sure that whenever we

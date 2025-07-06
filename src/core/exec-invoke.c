@@ -5137,7 +5137,7 @@ int exec_invoke(
                 }
         }
 
-        if (context->ioprio_set)
+        if (context->ioprio_is_set)
                 if (ioprio_set(IOPRIO_WHO_PROCESS, 0, context->ioprio) < 0) {
                         *exit_status = EXIT_IOPRIO;
                         return log_error_errno(errno, "Failed to set up IO scheduling priority: %m");

@@ -1245,7 +1245,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                                 prefix, rlimit_to_string(i), c->rlimit[i]->rlim_cur);
                 }
 
-        if (c->ioprio_set) {
+        if (c->ioprio_is_set) {
                 _cleanup_free_ char *class_str = NULL;
 
                 r = ioprio_class_to_string_alloc(ioprio_prio_class(c->ioprio), &class_str);
@@ -1607,7 +1607,7 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
 
         assert(c);
 
-        if (c->ioprio_set)
+        if (c->ioprio_is_set)
                 return c->ioprio;
 
         p = ioprio_get(IOPRIO_WHO_PROCESS, 0);

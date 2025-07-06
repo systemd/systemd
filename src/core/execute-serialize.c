@@ -1894,7 +1894,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
-        if (c->ioprio_set) {
+        if (c->ioprio_is_set) {
                 r = serialize_item_format(f, "exec-context-ioprio", "%d", c->ioprio);
                 if (r < 0)
                         return r;
@@ -2859,7 +2859,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = safe_atoi(val, &c->ioprio);
                         if (r < 0)
                                 return r;
-                        c->ioprio_set = true;
+                        c->ioprio_is_set = true;
                 } else if ((val = startswith(l, "exec-context-cpu-scheduling-policy="))) {
                         c->cpu_sched_policy = sched_policy_from_string(val);
                         if (c->cpu_sched_policy < 0)
