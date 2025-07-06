@@ -15,7 +15,7 @@
 generate_audit_type_list = find_program('generate-audit_type-list.sh')
 audit_type_list_txt = custom_target(
         output : 'audit_type-list.txt',
-        command : [generate_audit_type_list, cpp, missing_audit_h],
+        command : [generate_audit_type_list, cpp, files('../../include/linux/audit.h')],
         capture : true)
 
 audit_type_to_name = custom_target(

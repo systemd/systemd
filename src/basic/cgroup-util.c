@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/fs.h>
+#include <linux/magic.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/xattr.h>
@@ -18,8 +20,6 @@
 #include "fs-util.h"
 #include "log.h"
 #include "login-util.h"
-#include "missing_fs.h"
-#include "missing_magic.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
