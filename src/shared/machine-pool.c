@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
+
 #include "sd-bus.h"
 
 #include "btrfs-util.h"
 #include "label-util.h"
 #include "log.h"
 #include "machine-pool.h"
-#include "missing_magic.h"
 #include "stat-util.h"
 
 static int check_btrfs(void) {
