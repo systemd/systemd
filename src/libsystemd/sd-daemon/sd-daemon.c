@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <mqueue.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -18,7 +19,6 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
-#include "missing_magic.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"

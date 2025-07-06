@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/ioprio.h>       /* IWYU pragma: export */
+#include <sys/ioprio.h>         /* IWYU pragma: export */
 
 #include "forward.h"
 
