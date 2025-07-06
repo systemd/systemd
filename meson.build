@@ -2016,16 +2016,25 @@ dbus_programs = []
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
 
+system_includes = [
+        include_directories(
+                # gcc(1) says
+                # "Directories specified with -isystem options are scanned in left-to-right order",
+                # and meson puts the directories in the reversed order. Hence, a directory with a lower
+                # priority must be listed earlier.
+                'src/include/uapi',
+                'src/include/override',
+                is_system : true,
+        ),
+]
+
 basic_includes = [
         include_directories(
                 'src/basic',
                 'src/fundamental',
                 'src/systemd',
         ),
-        include_directories(
-                'src/basic/include',
-                is_system : true,
-        ),
+        system_includes,
         version_include,
 ]
 
