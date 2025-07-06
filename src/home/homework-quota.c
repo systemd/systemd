@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
+
 #include "btrfs-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -7,7 +9,6 @@
 #include "homework-quota.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_magic.h"
 #include "quota-util.h"
 #include "stat-util.h"
 #include "user-record.h"

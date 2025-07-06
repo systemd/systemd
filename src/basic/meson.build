@@ -119,8 +119,6 @@ basic_sources = files(
 
 sources += basic_sources
 
-missing_audit_h = files('missing_audit.h')
-
 generated_gperf_headers = []
 foreach item : [
         # name,    source,         struct name,  prefix,    headers
@@ -173,17 +171,13 @@ basic_sources += generated_gperf_headers
 
 ############################################################
 
-filesystem_includes = files(
-        '../include/uapi/linux/magic.h',
-        'missing_magic.h',
-)
-
 check_filesystems = find_program('check-filesystems.sh')
 r = run_command(
         [
                 'env', '--chdir', meson.project_build_root(),
-                check_filesystems, cpp, files('filesystems-gperf.gperf')
-        ] + filesystem_includes,
+                check_filesystems, cpp, files('filesystems-gperf.gperf'),
+                system_include_args,
+        ],
         check: false,
 )
 if r.returncode() != 0
