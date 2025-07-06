@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <malloc.h>
 #include <stdlib.h>
 #include <sys/timerfd.h>
@@ -24,7 +25,6 @@
 #include "log.h"
 #include "logarithm.h"
 #include "memory-util.h"
-#include "missing_magic.h"
 #include "origin-id.h"
 #include "path-util.h"
 #include "pidfd-util.h"

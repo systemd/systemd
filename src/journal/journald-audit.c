@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/audit.h>
+
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -13,7 +15,6 @@
 #include "journald-manager.h"
 #include "log.h"
 #include "log-ratelimit.h"
-#include "missing_audit.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
