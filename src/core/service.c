@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/audit.h>
 #include <math.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -31,7 +32,6 @@
 #include "image-policy.h"
 #include "log.h"
 #include "manager.h"
-#include "missing_audit.h"
 #include "mount-util.h"
 #include "namespace.h"
 #include "open-file.h"

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <unistd.h>
 
 #include "cgroup-setup.h"
@@ -10,7 +11,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_magic.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
