@@ -38,7 +38,7 @@ man_page_depends += custom_entities_ent
 generate_bpf_delegate_configs = find_program('../src/basic/generate-bpf-delegate-configs.py')
 
 bpf_delegate_xml = custom_target(
-        input : files('../src/basic/include/linux/bpf.h'),
+        input : files('../src/include/uapi/linux/bpf.h'),
         output : 'bpf-delegate.xml',
         command : [generate_bpf_delegate_configs,
                    'doc',
