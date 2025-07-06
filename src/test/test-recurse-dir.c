@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ftw.h>
+#include <linux/magic.h>
 
 #include "fd-util.h"
 #include "log.h"
-#include "missing_magic.h"
 #include "recurse-dir.h"
 #include "stat-util.h"
 #include "strv.h"
