@@ -3,9 +3,11 @@
 
 #include_next <sys/random.h>
 
+#include <assert.h>
+
 /* Defined since glibc-2.32. */
 #ifndef GRND_INSECURE
 #  define GRND_INSECURE 0x0004
 #else
-_Static_assert(GRND_INSECURE == 0x0004, "");
+static_assert(GRND_INSECURE == 0x0004, "");
 #endif

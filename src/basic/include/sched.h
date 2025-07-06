@@ -8,19 +8,21 @@
 
 #include_next <sched.h>
 
+#include <assert.h>
+
 /* 769071ac9f20b6a447410c7eaa55d1a5233ef40c (5.8),
  * defined in sched.h since glibc-2.36. */
 #ifndef CLONE_NEWTIME
 #  define CLONE_NEWTIME 0x00000080
 #else
-_Static_assert(CLONE_NEWTIME == 0x00000080, "");
+static_assert(CLONE_NEWTIME == 0x00000080, "");
 #endif
 
 /* Not exposed yet. Defined at include/linux/sched.h */
 #ifndef PF_KTHREAD
 #  define PF_KTHREAD 0x00200000
 #else
-_Static_assert(PF_KTHREAD == 0x00200000, "");
+static_assert(PF_KTHREAD == 0x00200000, "");
 #endif
 
 /* The maximum thread/process name length including trailing NUL byte. This mimics the kernel definition of
@@ -31,5 +33,5 @@ _Static_assert(PF_KTHREAD == 0x00200000, "");
 #ifndef TASK_COMM_LEN
 #  define TASK_COMM_LEN 16
 #else
-_Static_assert(TASK_COMM_LEN == 16, "");
+static_assert(TASK_COMM_LEN == 16, "");
 #endif

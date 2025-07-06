@@ -3,9 +3,11 @@
 
 #include_next <sys/wait.h>
 
+#include <assert.h>
+
 /* since glibc-2.36 */
 #ifndef P_PIDFD
 #  define P_PIDFD 3
 #else
-_Static_assert(P_PIDFD == 3, "");
+static_assert(P_PIDFD == 3, "");
 #endif
