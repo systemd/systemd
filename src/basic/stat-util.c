@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/magic.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
 
@@ -13,7 +14,6 @@
 #include "fs-util.h"
 #include "hash-funcs.h"
 #include "log.h"
-#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "siphash24.h"

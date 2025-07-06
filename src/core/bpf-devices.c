@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <linux/bpf.h>
 #include <linux/bpf_insn.h>
 #include <sys/stat.h>
 
@@ -12,7 +13,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "missing_bpf.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"

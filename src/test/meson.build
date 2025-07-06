@@ -287,7 +287,10 @@ executables += [
                 # only static linking apart from libdl, to make sure that the
                 # module is linked to all libraries that it uses.
                 'sources' : files('test-dlopen.c'),
-                'link_with' : libbasic_static,
+                'link_with' : [
+                        libc_wrapper_static,
+                        libbasic_static,
+                ],
                 'dependencies' : libdl,
                 'install' : false,
                 'type' : 'manual',
@@ -424,7 +427,10 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-sizeof.c'),
-                'link_with' : libbasic_static,
+                'link_with' : [
+                        libc_wrapper_static,
+                        libbasic_static,
+                ],
         },
         test_template + {
                 'sources' : files('test-time-util.c'),
@@ -586,6 +592,7 @@ executables += [
         test_template + {
                 'sources' : files('../libsystemd/sd-device/test-sd-device-thread.c'),
                 'link_with' : [
+                        libc_wrapper_static,
                         libbasic_static,
                         libsystemd,
                 ],
@@ -594,6 +601,7 @@ executables += [
         test_template + {
                 'sources' : files('../libudev/test-udev-device-thread.c'),
                 'link_with' : [
+                        libc_wrapper_static,
                         libbasic_static,
                         libudev,
                 ],
