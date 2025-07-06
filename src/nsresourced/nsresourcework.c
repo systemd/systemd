@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <linux/if_tun.h>
+#include <linux/magic.h>
 #include <linux/nsfs.h>
 #include <linux/veth.h>
 #include <net/if.h>
@@ -30,7 +31,6 @@
 #include "io-util.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "netlink-util.h"
