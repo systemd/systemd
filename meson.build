@@ -2022,7 +2022,8 @@ basic_includes = [
                 'src/systemd',
         ),
         include_directories(
-                'src/basic/include',
+                'src/include',
+                'src/uapi',
                 is_system : true,
         ),
         version_include,
