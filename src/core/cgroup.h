@@ -14,9 +14,9 @@ typedef struct CGroupTasksMax {
         uint64_t scale;
 } CGroupTasksMax;
 
-#define CGROUP_TASKS_MAX_UNSET ((CGroupTasksMax) { .value = UINT64_MAX, .scale = 0 })
+#define CGROUP_TASKS_MAX_UNSET ((const CGroupTasksMax) { .value = UINT64_MAX, .scale = 0 })
 
-static inline bool cgroup_tasks_max_isset(const CGroupTasksMax *tasks_max) {
+static inline bool CGROUP_TASKS_MAX_IS_SET(const CGroupTasksMax *tasks_max) {
         return tasks_max->value != UINT64_MAX || tasks_max->scale != 0;
 }
 
@@ -339,8 +339,8 @@ uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
 usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period);
 
 void cgroup_context_init(CGroupContext *c);
-int cgroup_context_copy(CGroupContext *dst, const CGroupContext *src);
 void cgroup_context_done(CGroupContext *c);
+
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix);
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f);
 void cgroup_context_dump_socket_bind_items(const CGroupSocketBindItem *items, FILE *f);
@@ -359,6 +359,13 @@ static inline bool cgroup_context_want_memory_pressure(const CGroupContext *c) {
                 (c->memory_pressure_watch == CGROUP_PRESSURE_WATCH_AUTO && c->memory_accounting);
 }
 
+static inline bool cgroup_context_has_device_policy(const CGroupContext *c) {
+        assert(c);
+
+        return c->device_policy != CGROUP_DEVICE_POLICY_AUTO ||
+                c->device_allow;
+}
+
 int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
@@ -369,7 +376,6 @@ CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
 CGroupMask unit_get_members_mask(Unit *u);
 CGroupMask unit_get_siblings_mask(Unit *u);
-CGroupMask unit_get_ancestor_disable_mask(Unit *u);
 
 CGroupMask unit_get_target_mask(Unit *u);
 CGroupMask unit_get_enable_mask(Unit *u);
@@ -430,8 +436,8 @@ bool unit_has_host_root_cgroup(const Unit *u);
 
 bool unit_has_startup_cgroup_constraints(Unit *u);
 
-void unit_invalidate_cgroup(Unit *u, CGroupMask m);
-void unit_invalidate_cgroup_bpf(Unit *u);
+bool unit_invalidate_cgroup(Unit *u, CGroupMask m);
+void unit_invalidate_cgroup_bpf_firewall(Unit *u);
 
 void manager_invalidate_startup_units(Manager *m);
 
