@@ -14,9 +14,9 @@
 
 generate_audit_type_list = files('generate-audit_type-list.sh')
 audit_type_list_txt = custom_target(
-        input : [generate_audit_type_list, missing_audit_h],
+        input : [generate_audit_type_list, audit_sources],
         output : 'audit_type-list.txt',
-        command : [env, 'bash', generate_audit_type_list, cpp, missing_audit_h, system_include_args],
+        command : [env, 'bash', generate_audit_type_list, cpp, system_include_args],
         capture : true)
 
 audit_type_to_name = custom_target(

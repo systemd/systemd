@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/bpf.h>
+#include <linux/magic.h>
 
 #include "alloc-util.h"
 #include "bpf-foreign.h"
@@ -8,7 +9,6 @@
 #include "cgroup.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
-#include "missing_magic.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "unit.h"

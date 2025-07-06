@@ -6,10 +6,7 @@ set -o pipefail
 CC="${1:?}"
 shift
 
-HEADER="${1:?}"
-shift
-
-$CC -dM -include "$HEADER" "$@" - </dev/null | \
+$CC -dM -include linux/audit.h "$@" - </dev/null | \
      grep -vE 'AUDIT_.*(FIRST|LAST)_' | \
      sed -r -n 's/^#define\s+AUDIT_(\w+)\s+([0-9]{4})\s*$$/\1\t\2/p' | \
      sort -k2
