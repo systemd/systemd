@@ -122,6 +122,10 @@ Deprecations and removals:
   https://github.com/util-linux/util-linux/commit/508fb0e7ac103b68531a59db2a4473897853ab52
   has hit the prominent distributions, revert --issue-file= hack in units/*getty*service.in
 
+* Once kernel baseline is 5.7, obsolete DefaultMemoryMin/Low= and DefaultStartupMemoryLow=
+  since we can systemmatically enable memory_recursiveprot on cgroupfs and have those
+  enforced by the kernel
+
 Features:
 
 * replace bootctl's PE version check to actually use APIs from pe-binary.[ch]
