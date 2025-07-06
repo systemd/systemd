@@ -1450,7 +1450,7 @@ int config_parse_exec_io_class(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->ioprio_set = false;
+                c->ioprio_is_set = false;
                 c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
                 return 0;
         }
@@ -1462,7 +1462,7 @@ int config_parse_exec_io_class(
         }
 
         c->ioprio = ioprio_normalize(ioprio_prio_value(x, ioprio_prio_data(c->ioprio)));
-        c->ioprio_set = true;
+        c->ioprio_is_set = true;
 
         return 0;
 }
@@ -1487,7 +1487,7 @@ int config_parse_exec_io_priority(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->ioprio_set = false;
+                c->ioprio_is_set = false;
                 c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
                 return 0;
         }
@@ -1499,7 +1499,7 @@ int config_parse_exec_io_priority(
         }
 
         c->ioprio = ioprio_normalize(ioprio_prio_value(ioprio_prio_class(c->ioprio), i));
-        c->ioprio_set = true;
+        c->ioprio_is_set = true;
 
         return 0;
 }
