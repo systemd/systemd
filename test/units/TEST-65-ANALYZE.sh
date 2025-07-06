@@ -1115,6 +1115,7 @@ systemd-analyze transient-settings mount | grep CPUQuotaPeriodSec
 (! systemd-analyze transient-settings service | grep CPUAccounting )
 (! systemd-analyze transient-settings service | grep ConditionKernelVersion )
 (! systemd-analyze transient-settings service | grep AssertKernelVersion )
+(! systemd-analyze transient-settings service socket timer path slice scope mount automount | grep -E 'Ex$' )
 
 # check systemd-analyze unit-shell with a namespaced unit
 UNIT_NAME="test-unit-shell.service"
