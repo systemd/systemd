@@ -3,16 +3,18 @@
 
 #include_next <sys/mman.h>
 
+#include <assert.h>
+
 /* since glibc-2.38 */
 #ifndef MFD_NOEXEC_SEAL
 #  define MFD_NOEXEC_SEAL 0x0008U
 #else
-_Static_assert(MFD_NOEXEC_SEAL == 0x0008U, "");
+static_assert(MFD_NOEXEC_SEAL == 0x0008U, "");
 #endif
 
 /* since glibc-2.38 */
 #ifndef MFD_EXEC
 #  define MFD_EXEC 0x0010U
 #else
-_Static_assert(MFD_EXEC == 0x0010U, "");
+static_assert(MFD_EXEC == 0x0010U, "");
 #endif
