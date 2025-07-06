@@ -125,19 +125,21 @@ bool unit_has_startup_cgroup_constraints(Unit *u) {
                c->startup_memory_low_set;
 }
 
-static int set_attribute_and_warn(Unit *u, const char *controller, const char *attribute, const char *value) {
+static int set_attribute_and_warn(Unit *u, const char *attribute, const char *value) {
         int r;
 
         assert(u);
+        assert(attribute);
+        assert(value);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt || !crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        r = cg_set_attribute(controller, crt->cgroup_path, attribute, value);
+        r = cg_set_attribute(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, attribute, value);
         if (r < 0)
                 log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%.*s': %m",
-                                    strna(attribute), empty_to_root(crt->cgroup_path), (int) strcspn(value, NEWLINE), value);
+                                    attribute, empty_to_root(crt->cgroup_path), (int) strcspn(value, NEWLINE), value);
 
         return r;
 }
@@ -1121,7 +1123,7 @@ static void cgroup_apply_cpu_weight(Unit *u, uint64_t weight) {
         if (weight == CGROUP_WEIGHT_IDLE)
                 return;
         xsprintf(buf, "%" PRIu64 "\n", weight);
-        (void) set_attribute_and_warn(u, "cpu", "cpu.weight", buf);
+        (void) set_attribute_and_warn(u, "cpu.weight", buf);
 }
 
 static void cgroup_apply_cpu_idle(Unit *u, uint64_t weight) {
@@ -1154,7 +1156,7 @@ static void cgroup_apply_cpu_quota(Unit *u, usec_t quota, usec_t period) {
                          MAX(quota * period / USEC_PER_SEC, USEC_PER_MSEC), period);
         else
                 xsprintf(buf, "max " USEC_FMT "\n", period);
-        (void) set_attribute_and_warn(u, "cpu", "cpu.max", buf);
+        (void) set_attribute_and_warn(u, "cpu.max", buf);
 }
 
 static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
@@ -1166,7 +1168,7 @@ static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
                 return;
         }
 
-        (void) set_attribute_and_warn(u, "cpuset", name, buf);
+        (void) set_attribute_and_warn(u, name, buf);
 }
 
 static bool cgroup_context_has_io_config(CGroupContext *c) {
@@ -1187,9 +1189,8 @@ static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state) {
         return CGROUP_WEIGHT_DEFAULT;
 }
 
-static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t io_weight) {
+static int set_bfq_weight(Unit *u, dev_t dev, uint64_t io_weight) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
-        const char *p;
         uint64_t bfq_weight;
         int r;
 
@@ -1202,7 +1203,6 @@ static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t i
         /* FIXME: drop this function when distro kernels properly support BFQ through "io.weight"
          * See also: https://github.com/systemd/systemd/pull/13335 and
          * https://github.com/torvalds/linux/commit/65752aef0a407e1ef17ec78a7fc31ba4e0b360f9. */
-        p = strjoina(controller, ".bfq.weight");
         /* Adjust to kernel range is 1..1000, the default is 100. */
         bfq_weight = BFQ_WEIGHT(io_weight);
 
@@ -1211,11 +1211,11 @@ static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t i
         else
                 xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
-        r = cg_set_attribute(controller, crt->cgroup_path, p, buf);
+        r = cg_set_attribute(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "io.bfq.weight", buf);
         if (r >= 0 && io_weight != bfq_weight)
-                log_unit_debug(u, "%s=%" PRIu64 " scaled to %s=%" PRIu64,
+                log_unit_debug(u, "%s=%" PRIu64 " scaled to io.bfq.weight=%" PRIu64,
                                major(dev) > 0 ? "IODeviceWeight" : "IOWeight",
-                               io_weight, p, bfq_weight);
+                               io_weight, bfq_weight);
         return r;
 }
 
@@ -1233,7 +1233,7 @@ static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_
         if (lookup_block_device(dev_path, &dev) < 0)
                 return;
 
-        r1 = set_bfq_weight(u, "io", dev, io_weight);
+        r1 = set_bfq_weight(u, dev, io_weight);
 
         xsprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), io_weight);
         r2 = cg_set_attribute("io", crt->cgroup_path, "io.weight", buf);
@@ -1261,7 +1261,7 @@ static void cgroup_apply_io_device_latency(Unit *u, const char *dev_path, usec_t
         else
                 xsprintf(buf, DEVNUM_FORMAT_STR " target=max\n", DEVNUM_FORMAT_VAL(dev));
 
-        (void) set_attribute_and_warn(u, "io", "io.latency", buf);
+        (void) set_attribute_and_warn(u, "io.latency", buf);
 }
 
 static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t *limits) {
@@ -1281,7 +1281,7 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
         xsprintf(buf, DEVNUM_FORMAT_STR " rbps=%s wbps=%s riops=%s wiops=%s\n", DEVNUM_FORMAT_VAL(dev),
                  limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
                  limit_bufs[CGROUP_IO_RIOPS_MAX], limit_bufs[CGROUP_IO_WIOPS_MAX]);
-        (void) set_attribute_and_warn(u, "io", "io.max", buf);
+        (void) set_attribute_and_warn(u, "io.max", buf);
 }
 
 static bool unit_has_memory_config(Unit *u) {
@@ -1305,7 +1305,7 @@ static void cgroup_apply_memory_limit(Unit *u, const char *file, uint64_t v) {
         if (v != CGROUP_LIMIT_MAX)
                 xsprintf(buf, "%" PRIu64 "\n", v);
 
-        (void) set_attribute_and_warn(u, "memory", file, buf);
+        (void) set_attribute_and_warn(u, file, buf);
 }
 
 static void cgroup_apply_firewall(Unit *u) {
@@ -1450,10 +1450,10 @@ static void set_io_weight(Unit *u, uint64_t weight) {
 
         assert(u);
 
-        (void) set_bfq_weight(u, "io", makedev(0, 0), weight);
+        (void) set_bfq_weight(u, makedev(0, 0), weight);
 
         xsprintf(buf, "default %" PRIu64 "\n", weight);
-        (void) set_attribute_and_warn(u, "io", "io.weight", buf);
+        (void) set_attribute_and_warn(u, "io.weight", buf);
 }
 
 static void cgroup_apply_bpf_foreign_program(Unit *u) {
@@ -1558,8 +1558,8 @@ static void cgroup_context_apply(
                 cgroup_apply_memory_limit(u, "memory.swap.max", swap_max);
                 cgroup_apply_memory_limit(u, "memory.zswap.max", zswap_max);
 
-                (void) set_attribute_and_warn(u, "memory", "memory.oom.group", one_zero(c->memory_oom_group));
-                (void) set_attribute_and_warn(u, "memory", "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
+                (void) set_attribute_and_warn(u, "memory.oom.group", one_zero(c->memory_oom_group));
+                (void) set_attribute_and_warn(u, "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
         }
 
         if (apply_mask & CGROUP_MASK_PIDS) {
@@ -1597,9 +1597,9 @@ static void cgroup_context_apply(
                                 char buf[DECIMAL_STR_MAX(uint64_t) + 1];
 
                                 xsprintf(buf, "%" PRIu64 "\n", cgroup_tasks_max_resolve(&c->tasks_max));
-                                (void) set_attribute_and_warn(u, "pids", "pids.max", buf);
+                                (void) set_attribute_and_warn(u, "pids.max", buf);
                         } else
-                                (void) set_attribute_and_warn(u, "pids", "pids.max", "max\n");
+                                (void) set_attribute_and_warn(u, "pids.max", "max\n");
                 }
         }
 
