@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <sys/vfs.h>
 
 #include "binfmt-util.h"
@@ -8,7 +9,6 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_magic.h"
 #include "stat-util.h"
 
 int binfmt_mounted_and_writable(void) {
