@@ -127,19 +127,19 @@ basic_sources += missing_syscall_def_h
 generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         output : 'af-list.txt',
-        command : [generate_af_list, cpp, files('include/sys/socket.h')],
+        command : [generate_af_list, cpp, files('../include/override/sys/socket.h')],
         capture : true)
 
 generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, files('include/linux/if_arp.h')],
+        command : [generate_arphrd_list, cpp, files('../include/uapi/linux/if_arp.h')],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')
 cap_list_txt = custom_target(
         output : 'cap-list.txt',
-        command : [generate_cap_list, cpp, files('include/linux/capability.h')],
+        command : [generate_cap_list, cpp, files('../include/uapi/linux/capability.h')],
         capture : true)
 
 generate_errno_list = find_program('generate-errno-list.sh')
@@ -234,7 +234,7 @@ run_target(
 ############################################################
 
 filesystem_includes = files(
-        'include/linux/magic.h',
+        '../include/uapi/linux/magic.h',
         'missing_magic.h',
 )
 

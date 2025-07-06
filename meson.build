@@ -2015,16 +2015,22 @@ dbus_programs = []
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
 
+system_includes = [
+        include_directories(
+                # Lower layer must be first, to make include_next work.
+                'src/include/uapi',
+                'src/include/override',
+                is_system : true,
+        ),
+]
+
 basic_includes = [
         include_directories(
                 'src/basic',
                 'src/fundamental',
                 'src/systemd',
         ),
-        include_directories(
-                'src/basic/include',
-                is_system : true,
-        ),
+        system_includes,
         version_include,
 ]
 
