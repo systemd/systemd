@@ -57,7 +57,7 @@
 #include "bpf/restrict_fs/restrict-fs-skel.h"
 #endif
 
-#define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
+#define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC (100 * USEC_PER_MSEC)
 
 /* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
  * problems we downgrade to LOG_DEBUG. This is supposed to be nice to container managers and kernels which want to mask
@@ -90,6 +90,19 @@ bool manager_owns_host_root_cgroup(Manager *m) {
         return empty_or_root(m->cgroup_root);
 }
 
+bool unit_has_host_root_cgroup(const Unit *u) {
+        assert(u);
+        assert(u->manager);
+
+        /* Returns whether this unit manages the root cgroup. This will return true if this unit is the root slice and
+         * the manager manages the root cgroup. */
+
+        if (!manager_owns_host_root_cgroup(u->manager))
+                return false;
+
+        return unit_has_name(u, SPECIAL_ROOT_SLICE);
+}
+
 bool unit_has_startup_cgroup_constraints(Unit *u) {
         assert(u);
 
@@ -112,32 +125,21 @@ bool unit_has_startup_cgroup_constraints(Unit *u) {
                c->startup_memory_low_set;
 }
 
-bool unit_has_host_root_cgroup(const Unit *u) {
-        assert(u);
-        assert(u->manager);
-
-        /* Returns whether this unit manages the root cgroup. This will return true if this unit is the root slice and
-         * the manager manages the root cgroup. */
-
-        if (!manager_owns_host_root_cgroup(u->manager))
-                return false;
-
-        return unit_has_name(u, SPECIAL_ROOT_SLICE);
-}
-
-static int set_attribute_and_warn(Unit *u, const char *controller, const char *attribute, const char *value) {
+static int set_attribute_and_warn(Unit *u, const char *attribute, const char *value) {
         int r;
 
         assert(u);
+        assert(attribute);
+        assert(value);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt || !crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        r = cg_set_attribute(controller, crt->cgroup_path, attribute, value);
+        r = cg_set_attribute(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, attribute, value);
         if (r < 0)
                 log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%.*s': %m",
-                                    strna(attribute), empty_to_root(crt->cgroup_path), (int) strcspn(value, NEWLINE), value);
+                                    attribute, empty_to_root(crt->cgroup_path), (int) strcspn(value, NEWLINE), value);
 
         return r;
 }
@@ -1121,7 +1123,7 @@ static void cgroup_apply_cpu_weight(Unit *u, uint64_t weight) {
         if (weight == CGROUP_WEIGHT_IDLE)
                 return;
         xsprintf(buf, "%" PRIu64 "\n", weight);
-        (void) set_attribute_and_warn(u, "cpu", "cpu.weight", buf);
+        (void) set_attribute_and_warn(u, "cpu.weight", buf);
 }
 
 static void cgroup_apply_cpu_idle(Unit *u, uint64_t weight) {
@@ -1154,7 +1156,7 @@ static void cgroup_apply_cpu_quota(Unit *u, usec_t quota, usec_t period) {
                          MAX(quota * period / USEC_PER_SEC, USEC_PER_MSEC), period);
         else
                 xsprintf(buf, "max " USEC_FMT "\n", period);
-        (void) set_attribute_and_warn(u, "cpu", "cpu.max", buf);
+        (void) set_attribute_and_warn(u, "cpu.max", buf);
 }
 
 static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
@@ -1166,7 +1168,7 @@ static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
                 return;
         }
 
-        (void) set_attribute_and_warn(u, "cpuset", name, buf);
+        (void) set_attribute_and_warn(u, name, buf);
 }
 
 static bool cgroup_context_has_io_config(CGroupContext *c) {
@@ -1187,10 +1189,8 @@ static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state) {
         return CGROUP_WEIGHT_DEFAULT;
 }
 
-static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t io_weight) {
-        static bool warned = false;
+static int set_bfq_weight(Unit *u, dev_t dev, uint64_t io_weight) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
-        const char *p;
         uint64_t bfq_weight;
         int r;
 
@@ -1203,7 +1203,6 @@ static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t i
         /* FIXME: drop this function when distro kernels properly support BFQ through "io.weight"
          * See also: https://github.com/systemd/systemd/pull/13335 and
          * https://github.com/torvalds/linux/commit/65752aef0a407e1ef17ec78a7fc31ba4e0b360f9. */
-        p = strjoina(controller, ".bfq.weight");
         /* Adjust to kernel range is 1..1000, the default is 100. */
         bfq_weight = BFQ_WEIGHT(io_weight);
 
@@ -1212,19 +1211,8 @@ static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t i
         else
                 xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
-        r = cg_set_attribute(controller, crt->cgroup_path, p, buf);
-
-        /* FIXME: drop this when kernels prior
-         * 795fe54c2a82 ("bfq: Add per-device weight") v5.4
-         * are not interesting anymore. Old kernels will fail with EINVAL, while new kernels won't return
-         * EINVAL on properly formatted input by us. Treat EINVAL accordingly. */
-        if (r == -EINVAL && major(dev) > 0) {
-               if (!warned) {
-                        log_unit_warning(u, "Kernel version does not accept per-device setting in %s.", p);
-                        warned = true;
-               }
-               r = -EOPNOTSUPP; /* mask as unconfigured device */
-        } else if (r >= 0 && io_weight != bfq_weight)
+        r = cg_set_attribute(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "io.bfq.weight", buf);
+        if (r >= 0 && io_weight != bfq_weight)
                 log_unit_debug(u, "%s=%" PRIu64 " scaled to %s=%" PRIu64,
                                major(dev) > 0 ? "IODeviceWeight" : "IOWeight",
                                io_weight, p, bfq_weight);
@@ -1245,7 +1233,7 @@ static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_
         if (lookup_block_device(dev_path, &dev) < 0)
                 return;
 
-        r1 = set_bfq_weight(u, "io", dev, io_weight);
+        r1 = set_bfq_weight(u, dev, io_weight);
 
         xsprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), io_weight);
         r2 = cg_set_attribute("io", crt->cgroup_path, "io.weight", buf);
@@ -1273,7 +1261,7 @@ static void cgroup_apply_io_device_latency(Unit *u, const char *dev_path, usec_t
         else
                 xsprintf(buf, DEVNUM_FORMAT_STR " target=max\n", DEVNUM_FORMAT_VAL(dev));
 
-        (void) set_attribute_and_warn(u, "io", "io.latency", buf);
+        (void) set_attribute_and_warn(u, "io.latency", buf);
 }
 
 static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t *limits) {
@@ -1293,7 +1281,7 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
         xsprintf(buf, DEVNUM_FORMAT_STR " rbps=%s wbps=%s riops=%s wiops=%s\n", DEVNUM_FORMAT_VAL(dev),
                  limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
                  limit_bufs[CGROUP_IO_RIOPS_MAX], limit_bufs[CGROUP_IO_WIOPS_MAX]);
-        (void) set_attribute_and_warn(u, "io", "io.max", buf);
+        (void) set_attribute_and_warn(u, "io.max", buf);
 }
 
 static bool unit_has_memory_config(Unit *u) {
@@ -1317,7 +1305,7 @@ static void cgroup_apply_memory_limit(Unit *u, const char *file, uint64_t v) {
         if (v != CGROUP_LIMIT_MAX)
                 xsprintf(buf, "%" PRIu64 "\n", v);
 
-        (void) set_attribute_and_warn(u, "memory", file, buf);
+        (void) set_attribute_and_warn(u, file, buf);
 }
 
 static void cgroup_apply_firewall(Unit *u) {
@@ -1462,10 +1450,10 @@ static void set_io_weight(Unit *u, uint64_t weight) {
 
         assert(u);
 
-        (void) set_bfq_weight(u, "io", makedev(0, 0), weight);
+        (void) set_bfq_weight(u, makedev(0, 0), weight);
 
         xsprintf(buf, "default %" PRIu64 "\n", weight);
-        (void) set_attribute_and_warn(u, "io", "io.weight", buf);
+        (void) set_attribute_and_warn(u, "io.weight", buf);
 }
 
 static void cgroup_apply_bpf_foreign_program(Unit *u) {
@@ -1570,8 +1558,8 @@ static void cgroup_context_apply(
                 cgroup_apply_memory_limit(u, "memory.swap.max", swap_max);
                 cgroup_apply_memory_limit(u, "memory.zswap.max", zswap_max);
 
-                (void) set_attribute_and_warn(u, "memory", "memory.oom.group", one_zero(c->memory_oom_group));
-                (void) set_attribute_and_warn(u, "memory", "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
+                (void) set_attribute_and_warn(u, "memory.oom.group", one_zero(c->memory_oom_group));
+                (void) set_attribute_and_warn(u, "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
         }
 
         if (apply_mask & CGROUP_MASK_PIDS) {
@@ -1590,7 +1578,7 @@ static void cgroup_context_apply(
                          * which is desirable so that there's an official way to release control of the sysctl from
                          * systemd: set the limit to unbounded and reload. */
 
-                        if (cgroup_tasks_max_isset(&c->tasks_max)) {
+                        if (CGROUP_TASKS_MAX_IS_SET(&c->tasks_max)) {
                                 u->manager->sysctl_pid_max_changed = true;
                                 r = procfs_tasks_set_limit(cgroup_tasks_max_resolve(&c->tasks_max));
                         } else if (u->manager->sysctl_pid_max_changed)
@@ -1605,13 +1593,13 @@ static void cgroup_context_apply(
                 /* The attribute itself is not available on the host root cgroup, and in the container case we want to
                  * leave it for the container manager. */
                 if (!is_local_root) {
-                        if (cgroup_tasks_max_isset(&c->tasks_max)) {
+                        if (CGROUP_TASKS_MAX_IS_SET(&c->tasks_max)) {
                                 char buf[DECIMAL_STR_MAX(uint64_t) + 1];
 
                                 xsprintf(buf, "%" PRIu64 "\n", cgroup_tasks_max_resolve(&c->tasks_max));
-                                (void) set_attribute_and_warn(u, "pids", "pids.max", buf);
+                                (void) set_attribute_and_warn(u, "pids.max", buf);
                         } else
-                                (void) set_attribute_and_warn(u, "pids", "pids.max", "max\n");
+                                (void) set_attribute_and_warn(u, "pids.max", "max\n");
                 }
         }
 
@@ -1714,18 +1702,17 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
                 mask |= CGROUP_MASK_CPUSET;
 
         if (cgroup_context_has_io_config(c))
-                mask |= CGROUP_MASK_IO | CGROUP_MASK_BLKIO;
+                mask |= CGROUP_MASK_IO;
 
         if (c->memory_accounting ||
             unit_has_memory_config(u))
                 mask |= CGROUP_MASK_MEMORY;
 
-        if (c->device_allow ||
-            c->device_policy != CGROUP_DEVICE_POLICY_AUTO)
-                mask |= CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
+        if (cgroup_context_has_device_policy(c))
+                mask |= CGROUP_MASK_BPF_DEVICES;
 
         if (c->tasks_accounting ||
-            cgroup_tasks_max_isset(&c->tasks_max))
+            CGROUP_TASKS_MAX_IS_SET(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
 
         return mask;
@@ -1840,7 +1827,7 @@ static CGroupMask unit_get_disable_mask(Unit *u) {
         return c->disable_controllers;
 }
 
-CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
+static CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
         CGroupMask mask;
         Unit *slice;
 
@@ -2486,8 +2473,7 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
                         continue;
 
                 /* We must disable those below us first in order to release the controller. */
-                if (m->type == UNIT_SLICE)
-                        (void) unit_realize_cgroup_now_disable(m, state);
+                (void) unit_realize_cgroup_now_disable(m, state);
 
                 target_mask = unit_get_target_mask(m);
                 enable_mask = unit_get_enable_mask(m);
@@ -3954,38 +3940,30 @@ int unit_reset_accounting(Unit *u) {
         return r;
 }
 
-void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
+bool unit_invalidate_cgroup(Unit *u, CGroupMask m) {
         assert(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
-                return;
+                return false;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt)
-                return;
+                return false;
 
         if (FLAGS_SET(crt->cgroup_invalidated_mask, m)) /* NOP? */
-                return;
+                return false;
 
         crt->cgroup_invalidated_mask |= m;
         unit_add_to_cgroup_realize_queue(u);
+
+        return true;
 }
 
-void unit_invalidate_cgroup_bpf(Unit *u) {
+void unit_invalidate_cgroup_bpf_firewall(Unit *u) {
         assert(u);
 
-        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+        if (!unit_invalidate_cgroup(u, CGROUP_MASK_BPF_FIREWALL))
                 return;
-
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt)
-                return;
-
-        if (crt->cgroup_invalidated_mask & CGROUP_MASK_BPF_FIREWALL) /* NOP? */
-                return;
-
-        crt->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
-        unit_add_to_cgroup_realize_queue(u);
 
         /* If we are a slice unit, we also need to put compile a new BPF program for all our children, as the IP access
          * list of our children includes our own. */
@@ -3993,7 +3971,7 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
                 Unit *member;
 
                 UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_SLICE_OF)
-                        unit_invalidate_cgroup_bpf(member);
+                        unit_invalidate_cgroup_bpf_firewall(member);
         }
 }
 
@@ -4033,7 +4011,7 @@ void manager_invalidate_startup_units(Manager *m) {
         assert(m);
 
         SET_FOREACH(u, m->startup_units)
-                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO|CGROUP_MASK_CPUSET);
+                unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_CPUSET);
 }
 
 static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {

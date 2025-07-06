@@ -4425,7 +4425,7 @@ int unit_patch_contexts(Unit *u) {
                         cc->device_policy = CGROUP_DEVICE_POLICY_CLOSED;
 
                 /* Only add these if needed, as they imply that everything else is blocked. */
-                if (cc->device_policy != CGROUP_DEVICE_POLICY_AUTO || cc->device_allow) {
+                if (cgroup_context_has_device_policy(cc)) {
                         if (ec->root_image || ec->mount_images) {
 
                                 /* When RootImage= or MountImages= is specified, the following devices are touched. */
