@@ -7,7 +7,10 @@ udev_storage_test_template = {
 }
 
 qemu = find_program('qemu-system-@0@'.format(host_machine.cpu_family()), 'qemu-kvm', dirs : ['/usr/libexec'], native : true, required : false)
-if qemu.found()
+if qemu.found() and host_machine.cpu_family() == 'aarch64'
+        # qemu-system-aarch64 errors out if no machine is specified
+        devices = run_command(qemu, '-device', 'help', '-machine', 'virt', check : true).stdout().strip()
+elif qemu.found()
         devices = run_command(qemu, '-device', 'help', check : true).stdout().strip()
 else
         devices = ''
