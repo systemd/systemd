@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/ioprio.h>
 #include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
 #include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
+#include <sys/ioprio.h>
+#include <sys/keyctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <unistd.h>
@@ -52,7 +53,6 @@
 #include "journal-send.h"
 #include "manager.h"
 #include "memfd-util.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "namespace-util.h"
@@ -5137,7 +5137,7 @@ int exec_invoke(
                 }
         }
 
-        if (context->ioprio_set)
+        if (context->ioprio_is_set)
                 if (ioprio_set(IOPRIO_WHO_PROCESS, 0, context->ioprio) < 0) {
                         *exit_status = EXIT_IOPRIO;
                         return log_error_errno(errno, "Failed to set up IO scheduling priority: %m");

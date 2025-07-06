@@ -3028,7 +3028,7 @@ int bus_exec_context_set_transient_property(
                                 return r;
 
                         c->ioprio = ioprio_normalize(ioprio_prio_value(q, ioprio_prio_data(c->ioprio)));
-                        c->ioprio_set = true;
+                        c->ioprio_is_set = true;
 
                         unit_write_settingf(u, flags, name, "IOSchedulingClass=%s", s);
                 }
@@ -3047,7 +3047,7 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->ioprio = ioprio_normalize(ioprio_prio_value(ioprio_prio_class(c->ioprio), p));
-                        c->ioprio_set = true;
+                        c->ioprio_is_set = true;
 
                         unit_write_settingf(u, flags, name, "IOSchedulingPriority=%i", p);
                 }

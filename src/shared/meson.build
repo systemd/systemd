@@ -296,7 +296,7 @@ shared_sources += [target1, target2]
 
 fname = 'ethtool-link-mode.inc'
 ethtool_link_mode_inc = custom_target(
-        input : ['ethtool-link-mode.py', '../basic/include/linux/ethtool.h'],
+        input : ['ethtool-link-mode.py', '../uapi/linux/ethtool.h'],
         output : fname,
         command : [python, '@INPUT0@', '--header', cpp, '@INPUT1@'],
         capture : true)
@@ -307,7 +307,7 @@ sources += shared_sources
 
 fname = 'ethtool-link-mode.xml'
 ethtool_link_mode_xml = custom_target(
-        input : ['ethtool-link-mode.py', '../basic/include/linux/ethtool.h'],
+        input : ['ethtool-link-mode.py', '../uapi/linux/ethtool.h'],
         output : fname,
         command : [python, '@INPUT0@', '--xml', cpp, '@INPUT1@'],
         capture : true)
@@ -358,7 +358,8 @@ libshared = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_depends : libshared_sym_path,
-        link_whole : [libshared_static,
+        link_whole : [libc_wrapper_static,
+                      libshared_static,
                       libbasic_static,
                       libsystemd_static],
         dependencies : [libshared_deps,

@@ -9,28 +9,89 @@
 #include "string-util.h"
 #include "strv.h"
 
-DEFINE_TRIVIAL_DESTRUCTOR(closedir_wrapper, void, closedir);
+static bool safe_glob_verify(const char *p, const char *prefix) {
+        if (isempty(p))
+                return false; /* should not happen, but for safey. */
 
-int safe_glob_full(const char *path, int flags, opendir_t opendir_func, char ***ret) {
+        if (prefix) {
+                /* Skip the prefix, as we allow dots in prefix.
+                 * Note, glob() does not normalize paths, hence do not use path_startswith(). */
+                p = startswith(p, prefix);
+                if (!p)
+                        return false; /* should not happen, but for safety. */
+        }
+
+        for (;;) {
+                p += strspn(p, "/");
+                if (*p == '\0')
+                        return true;
+                if (*p == '.') {
+                        p++;
+                        if (IN_SET(*p, '/', '\0'))
+                                return false; /* refuse dot */
+                        if (*p == '.') {
+                                p++;
+                                if (IN_SET(*p, '/', '\0'))
+                                        return false; /* refuse dot dot */
+                        }
+                }
+
+                p += strcspn(p, "/");
+                if (*p == '\0')
+                        return true;
+        }
+}
+
+#if HAVE_GLOB_ALTDIRFUNC
+DEFINE_TRIVIAL_DESTRUCTOR(closedir_wrapper, void, closedir);
+#endif
+
+int safe_glob_internal(const char *path, int flags, bool use_gnu_extension, opendir_t opendir_func, char ***ret) {
         _cleanup_(globfree) glob_t g = {
+#if HAVE_GLOB_ALTDIRFUNC
                 .gl_closedir = closedir_wrapper,
                 .gl_readdir = (struct dirent* (*)(void *)) readdir_no_dot,
                 .gl_opendir = (void* (*)(const char *)) (opendir_func ?: opendir),
                 .gl_lstat = lstat,
                 .gl_stat = stat,
+#endif
         };
         int r;
 
         assert(path);
 
+        // TODO: expand braces if GLOB_BRACE is specified but not supported.
+
+#if !HAVE_GLOB_ALTDIRFUNC
+        use_gnu_extension = false;
+#endif
+
+        SET_FLAG(flags, GLOB_ALTDIRFUNC, use_gnu_extension);
+
         errno = 0;
-        r = glob(path, flags | GLOB_ALTDIRFUNC, NULL, &g);
+        r = glob(path, flags, NULL, &g);
         if (r == GLOB_NOMATCH)
                 return -ENOENT;
         if (r == GLOB_NOSPACE)
                 return -ENOMEM;
         if (r != 0)
                 return errno_or_else(EIO);
+
+        if (!FLAGS_SET(flags, GLOB_ALTDIRFUNC)) {
+                _cleanup_free_ char *prefix = NULL;
+                r = glob_non_glob_prefix(path, &prefix);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                for (char **p = g.gl_pathv, **q = p; p && *p; p++)
+                        if (safe_glob_verify(*p, prefix))
+                                *q++ = TAKE_PTR(*p);
+                        else {
+                                *p = mfree(*p);
+                                assert(g.gl_pathc > 0);
+                                g.gl_pathc--;
+                        }
+        }
 
         if (strv_isempty(g.gl_pathv))
                 return -ENOENT;
