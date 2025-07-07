@@ -2059,6 +2059,31 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
         return 1;
 }
 
+static int bus_append_quota_directory(sd_bus_message *m, const char *field, const char *eq) {
+        uint64_t quota_absolute = UINT64_MAX;
+        uint32_t quota_scale = UINT32_MAX;
+        int quota_enforce = false;
+        int r;
+
+        if (!isempty(eq) && !streq(eq, "off")) {
+                r = parse_permyriad(eq);
+                if (r < 0) {
+                        r = parse_size(eq, 1024, &quota_absolute);
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %s=%s", field, eq);
+                } else
+                        quota_scale = UINT32_SCALE_FROM_PERMYRIAD(r);
+
+                quota_enforce = true;
+        }
+
+        r = sd_bus_message_append(m, "(sv)", field, "(tus)", quota_absolute, quota_scale, yes_no(quota_enforce));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_protect_hostname(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -2514,6 +2539,12 @@ static const BusProperty execute_properties[] = {
         { "ProtectControlGroupsEx",                bus_append_boolean_or_ex_string               }, /* compat */
         { "PrivateUsers",                          bus_append_boolean_or_ex_string               },
         { "PrivateUsersEx",                        bus_append_boolean_or_ex_string               }, /* compat */
+        { "StateDirectoryQuota",                   bus_append_quota_directory                    },
+        { "CacheDirectoryQuota",                   bus_append_quota_directory                    },
+        { "LogsDirectoryQuota",                    bus_append_quota_directory                    },
+        { "StateDirectoryAccounting",              bus_append_parse_boolean                      },
+        { "CacheDirectoryAccounting",              bus_append_parse_boolean                      },
+        { "LogsDirectoryAccounting",               bus_append_parse_boolean                      },
 
         { NULL, bus_try_append_resource_limit,     dump_resource_limits                          },
         {}

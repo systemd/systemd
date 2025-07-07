@@ -16,3 +16,6 @@ static inline int QCMD_FIXED(uint32_t cmd, uint32_t type) {
 }
 
 int quotactl_fd_with_fallback(int fd, int cmd, int id, void *addr);
+int quota_query_proj_id(int fd, uint32_t proj_id, struct dqblk *ret_req);
+int quota_proj_id_set_recursive(int fd, uint32_t proj_id, bool verify_exclusive);
+bool quota_dqblk_is_populated(const struct dqblk *dqblk);
