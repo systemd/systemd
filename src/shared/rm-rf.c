@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/magic.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -10,7 +11,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"

@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <linux/kd.h>
+#include <linux/magic.h>
 #include <linux/tiocl.h>
 #include <linux/vt.h>
 #include <poll.h>
@@ -27,7 +28,6 @@
 #include "inotify-util.h"
 #include "io-util.h"
 #include "log.h"
-#include "missing_magic.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"

@@ -2,11 +2,11 @@
 #pragma once
 
 #include <linux/fscrypt.h>
+#include <sys/keyctl.h>
 
 #include "sd-id128.h"
 
 #include "homework-forward.h"
-#include "missing_keyctl.h"
 #include "user-record-util.h"
 
 typedef struct HomeSetup {
