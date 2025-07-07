@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/timex.h>
 
 #define __STDC_WANT_IEC_60559_TYPES_EXT__
 #include <float.h>
