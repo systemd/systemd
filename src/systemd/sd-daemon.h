@@ -189,9 +189,9 @@ int sd_is_mq(int fd, const char *path);
                   that describes the daemon state. This is free-form
                   and can be used for various purposes: general state
                   feedback, fsck-like programs could pass completion
-                  percentages and failing programs could pass a human
-                  readable error message. Example: "STATUS=Completed
-                  66% of file system check..."
+                  percentages and failing programs could pass a
+                  human-readable error message. Example:
+                  "STATUS=Completed 66% of file system check..."
 
      NOTIFYACCESS=...
                   Reset the access to the service status notification socket.
