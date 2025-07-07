@@ -1373,7 +1373,7 @@ static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_i
         if (!boot_entry)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to discover any boot entries.");
 
-        log_debug("Discovered boot entry %s (%s)", boot_entry->id, boot_entry_type_to_string(boot_entry->type));
+        log_debug("Discovered boot entry %s (%s)", boot_entry->id, boot_entry_type_description_to_string(boot_entry->type));
 
         _cleanup_free_ char *linux_kernel = NULL;
         _cleanup_strv_free_ char **initrds = NULL;

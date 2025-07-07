@@ -32,14 +32,14 @@
 #include "strv.h"
 #include "uki.h"
 
-static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
+static const char* const boot_entry_type_description_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",
         [BOOT_ENTRY_UNIFIED]     = "Boot Loader Specification Type #2 (.efi)",
         [BOOT_ENTRY_LOADER]      = "Reported by Boot Loader",
         [BOOT_ENTRY_LOADER_AUTO] = "Automatic",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type, BootEntryType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_description, BootEntryType);
 
 static const char* const boot_entry_type_json_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_CONF]        = "type1",
@@ -1823,7 +1823,7 @@ int show_boot_entry(
         assert(e);
 
         printf("         type: %s\n",
-               boot_entry_type_to_string(e->type));
+               boot_entry_type_description_to_string(e->type));
 
         printf("        title: %s%s%s",
                ansi_highlight(), boot_entry_title(e), ansi_normal());
