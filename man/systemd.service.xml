@@ -1695,7 +1695,7 @@ WantedBy=multi-user.target</programlisting>
       just starts one process in the background:</para>
 
       <programlisting>[Unit]
-Description=Some simple daemon
+Description=My Simple Daemon
 
 [Service]
 Type=forking
@@ -1721,7 +1721,7 @@ WantedBy=multi-user.target</programlisting>
       The following example shows a typical DBus service:</para>
 
       <programlisting>[Unit]
-Description=Simple DBus service
+Description=Simple DBus Service
 
 [Service]
 Type=dbus
@@ -1760,7 +1760,7 @@ SystemdService=simple-dbus-service.service</programlisting>
       daemon would look like this:</para>
 
       <programlisting>[Unit]
-Description=Simple notifying service
+Description=Simple Notifying Service
 
 [Service]
 Type=notify-reload
