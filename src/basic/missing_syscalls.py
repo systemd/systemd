@@ -9,6 +9,7 @@ SYSCALLS = [
     'close_range',   # defined in glibc header since glibc-2.33
     'fchmodat2',     # defined in glibc header since glibc-2.39
     'mount_setattr', # defined in glibc header since glibc-2.34
+    'open_tree_attr',
     'openat2',       # defined in glibc header since glibc-2.32
     'quotactl_fd',   # defined in glibc header since glibc-2.35
     'removexattrat',
@@ -96,7 +97,7 @@ DEF_TEMPLATE_C = '''\
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_{syscall} && __NR_{syscall} >= 0
 #    if defined systemd_NR_{syscall}
-assert_cc(__NR_{syscall} == systemd_NR_{syscall});
+_Static_assert(__NR_{syscall} == systemd_NR_{syscall}, "");
 #    endif
 #  else
 #    if defined __NR_{syscall}
