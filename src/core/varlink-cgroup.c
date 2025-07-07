@@ -4,7 +4,6 @@
 
 #include "bpf-program.h"
 #include "cgroup.h"
-#include "cpu-set-util.h"
 #include "json-util.h"
 #include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
@@ -12,32 +11,7 @@
 #include "set.h"
 #include "unit.h"
 #include "varlink-cgroup.h"
-
-static int cpu_set_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_free_ uint8_t *array = NULL;
-        CPUSet *cpuset = ASSERT_PTR(userdata);
-        size_t allocated;
-        int r;
-
-        assert(ret);
-        assert(name);
-
-        if (!cpuset->set)
-                goto empty;
-
-        r = cpu_set_to_dbus(cpuset, &array, &allocated);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to call cpu_set_to_dbus(): %m");
-
-        if (allocated == 0)
-                goto empty;
-
-        return sd_json_variant_new_array_bytes(ret, array, allocated);
-
-empty:
-        *ret = NULL;
-        return 0;
-}
+#include "varlink-common.h"
 
 static int tasks_max_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         CGroupTasksMax *tasks_max = ASSERT_PTR(userdata);
@@ -280,8 +254,8 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("StartupCPUWeight", c->startup_cpu_weight, CGROUP_WEIGHT_INVALID),
                         JSON_BUILD_PAIR_FINITE_USEC("CPUQuotaPerSecUSec", c->cpu_quota_per_sec_usec),
                         JSON_BUILD_PAIR_FINITE_USEC("CPUQuotaPeriodUSec", c->cpu_quota_period_usec),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("AllowedCPUs", cpu_set_build_json, &c->cpuset_cpus),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("StartupAllowedCPUs", cpu_set_build_json, &c->startup_cpuset_cpus),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("AllowedCPUs", cpuset_build_json, &c->cpuset_cpus),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("StartupAllowedCPUs", cpuset_build_json, &c->startup_cpuset_cpus),
 
                         /* Memory Accounting and Control */
                         SD_JSON_BUILD_PAIR_BOOLEAN("MemoryAccounting", c->memory_accounting),
@@ -300,8 +274,8 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("MemoryZSwapMax", c->memory_zswap_max, CGROUP_LIMIT_MAX),
                         JSON_BUILD_PAIR_CONDITION_UNSIGNED(c->startup_memory_zswap_max_set, "StartupMemoryZSwapMax", c->startup_memory_zswap_max),
                         SD_JSON_BUILD_PAIR_BOOLEAN("MemoryZSwapWriteback", c->memory_zswap_writeback),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("AllowedMemoryNodes", cpu_set_build_json, &c->cpuset_mems),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("StartupAllowedMemoryNodes", cpu_set_build_json, &c->startup_cpuset_mems),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("AllowedMemoryNodes", cpuset_build_json, &c->cpuset_mems),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("StartupAllowedMemoryNodes", cpuset_build_json, &c->startup_cpuset_mems),
 
                         /* Process Accounting and Control */
                         SD_JSON_BUILD_PAIR_BOOLEAN("TasksAccounting", c->tasks_accounting),
@@ -475,7 +449,7 @@ static int effective_cpuset_build_json(sd_json_variant **ret, const char *name, 
         if (r < 0)
                 return log_debug_errno(r, "Failed to get cpu set '%s': %m", cpuset_name);
 
-        return cpu_set_build_json(ret, name, &cpus);
+        return cpuset_build_json(ret, name, &cpus);
 }
 
 static inline int effective_cpus_build_json(sd_json_variant **ret, const char *name, void *userdata) {

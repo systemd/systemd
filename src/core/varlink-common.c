@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "cpu-set-util.h"
 #include "json-util.h"
 #include "rlimit-util.h"
 #include "varlink-common.h"
@@ -49,5 +50,30 @@ int rlimit_table_build_json(sd_json_variant **ret, const char *name, void *userd
                         return r;
         }
 
+        return 0;
+}
+
+int cpuset_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_free_ uint8_t *array = NULL;
+        CPUSet *cpuset = ASSERT_PTR(userdata);
+        size_t allocated;
+        int r;
+
+        assert(ret);
+
+        if (!cpuset->set)
+                goto empty;
+
+        r = cpu_set_to_dbus(cpuset, &array, &allocated);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to call cpu_set_to_dbus(): %m");
+
+        if (allocated == 0)
+                goto empty;
+
+        return sd_json_variant_new_array_bytes(ret, array, allocated);
+
+empty:
+        *ret = NULL;
         return 0;
 }
