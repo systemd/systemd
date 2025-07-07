@@ -31,6 +31,8 @@ typedef enum KillWhom {
         KILL_MAIN_FAIL,
         KILL_CONTROL_FAIL,
         KILL_ALL_FAIL,
+        KILL_CGROUP,
+        KILL_CGROUP_FAIL,
         _KILL_WHOM_MAX,
         _KILL_WHOM_INVALID = -EINVAL,
 } KillWhom;
