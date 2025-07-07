@@ -38,7 +38,9 @@ enum {
         INITRD_CREDENTIAL = _INITRD_DYNAMIC_FIRST,
         INITRD_GLOBAL_CREDENTIAL,
         INITRD_SYSEXT,
+        INITRD_GLOBAL_SYSEXT,
         INITRD_CONFEXT,
+        INITRD_GLOBAL_CONFEXT,
         INITRD_PCRSIG,
         INITRD_PCRPKEY,
         INITRD_OSREL,
@@ -870,6 +872,19 @@ static void generate_sidecar_initrds(
                 combine_measured_flag(sysext_measured, m);
 
         if (pack_cpio(loaded_image,
+                      u"\\loader\\extensions",
+                      u".sysext.raw",
+                      /* exclude_suffix= */ NULL,
+                      ".extra/global_sysext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
+                      u"Global system extension initrd",
+                      initrds + INITRD_GLOBAL_SYSEXT,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(sysext_measured, m);
+
+        if (pack_cpio(loaded_image,
                       /* dropin_dir= */ NULL,
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
@@ -879,6 +894,19 @@ static void generate_sidecar_initrds(
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Configuration extension initrd",
                       initrds + INITRD_CONFEXT,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(confext_measured, m);
+
+        if (pack_cpio(loaded_image,
+                      u"\\loader\\extensions",
+                      u".confext.raw",
+                      /* exclude_suffix= */ NULL,
+                      ".extra/global_confext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      u"Global configuration extension initrd",
+                      initrds + INITRD_GLOBAL_CONFEXT,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(confext_measured, m);
 }
