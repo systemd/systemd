@@ -455,7 +455,7 @@
           produces the OS. This field is optional.</para>
 
           <para>This name is intended to be exposed in "About this system" UIs or software update UIs when
-          needed to distinguish the OS vendor from the OS itself. It is intended to be human readable.</para>
+          needed to distinguish the OS vendor from the OS itself. It is intended to be human-readable.</para>
 
           <para>Examples: <literal>VENDOR_NAME="Fedora Project"</literal> for Fedora Linux,
           <literal>VENDOR_NAME="Canonical"</literal> for Ubuntu.</para>
