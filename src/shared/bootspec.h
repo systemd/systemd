@@ -5,10 +5,10 @@
 #include "forward.h"
 
 typedef enum BootEntryType {
-        BOOT_ENTRY_CONF,        /* Boot Loader Specification Type #1 entries: *.conf files */
-        BOOT_ENTRY_UNIFIED,     /* Boot Loader Specification Type #2 entries: *.efi files */
-        BOOT_ENTRY_LOADER,      /* Additional entries augmented from LoaderEntries EFI variable (regular entries) */
-        BOOT_ENTRY_LOADER_AUTO, /* Additional entries augmented from LoaderEntries EFI variable (special "automatic" entries) */
+        BOOT_ENTRY_TYPE1,     /* Boot Loader Specification Type #1 entries: *.conf files */
+        BOOT_ENTRY_TYPE2,     /* Boot Loader Specification Type #2 entries: *.efi files (UKIs) */
+        BOOT_ENTRY_LOADER,    /* Additional entries augmented from LoaderEntries EFI variable (regular entries) */
+        BOOT_ENTRY_AUTO,      /* Additional entries augmented from LoaderEntries EFI variable (special "automatic" entries) */
         _BOOT_ENTRY_TYPE_MAX,
         _BOOT_ENTRY_TYPE_INVALID = -EINVAL,
 } BootEntryType;
@@ -91,11 +91,11 @@ typedef struct BootConfig {
                 .selected_entry = -1, \
         }
 
+const char* boot_entry_type_description_to_string(BootEntryType) _const_;
 const char* boot_entry_type_to_string(BootEntryType) _const_;
-const char* boot_entry_type_json_to_string(BootEntryType) _const_;
 
+const char* boot_entry_source_description_to_string(BootEntrySource) _const_;
 const char* boot_entry_source_to_string(BootEntrySource) _const_;
-const char* boot_entry_source_json_to_string(BootEntrySource) _const_;
 
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
 
