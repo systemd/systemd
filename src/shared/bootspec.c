@@ -50,12 +50,12 @@ static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type, BootEntryType);
 
-static const char* const boot_entry_source_table[_BOOT_ENTRY_SOURCE_MAX] = {
+static const char* const boot_entry_source_description_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "EFI System Partition",
         [BOOT_ENTRY_XBOOTLDR] = "Extended Boot Loader Partition",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_description, BootEntrySource);
 
 static const char* const boot_entry_source_json_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "esp",
@@ -1872,7 +1872,7 @@ int show_boot_entry(
 
                 printf("       source: %s (on the %s)\n",
                        link ?: text ?: e->path,
-                       boot_entry_source_to_string(e->source));
+                       boot_entry_source_description_to_string(e->source));
         }
         if (e->tries_left != UINT_MAX) {
                 printf("        tries: %u left", e->tries_left);
