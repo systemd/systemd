@@ -743,8 +743,8 @@ node /org/freedesktop/login1 {
       <literal>handle-suspend-key</literal>, <literal>handle-hibernate-key</literal>,
       <literal>handle-lid-switch</literal>, separated by colons, for inhibiting poweroff/reboot,
       suspend/hibernate, the automatic idle logic, or hardware key handling. <varname>who</varname> should be
-      a short human readable string identifying the application taking the lock. <varname>why</varname>
-      should be a short human readable string identifying the reason why the lock is taken. Finally,
+      a short human-readable string identifying the application taking the lock. <varname>why</varname>
+      should be a short human-readable string identifying the reason why the lock is taken. Finally,
       <varname>mode</varname> is either <literal>block</literal> or <literal>delay</literal> which encodes
       whether the inhibit shall be consider mandatory or whether it should just delay the operation to a
       certain maximum time, while the <literal>block-weak</literal> and variants will create an inhibitor

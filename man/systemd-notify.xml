@@ -161,7 +161,7 @@
       <varlistentry>
         <term><option>--status=</option></term>
 
-        <listitem><para>Send a free-form human readable status string for the daemon to the service
+        <listitem><para>Send a free-form human-readable status string for the daemon to the service
         manager. This option takes the status string as argument. This is equivalent to
         <command>systemd-notify STATUS=…</command>. For details about the semantics of this option see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This

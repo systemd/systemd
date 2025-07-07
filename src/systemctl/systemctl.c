@@ -271,7 +271,7 @@ static int systemctl_help(void) {
                "                         For kill, wait until service stopped\n"
                "     --no-block          Do not wait until operation finished\n"
                "     --no-wall           Don't send wall message before halt/power-off/reboot\n"
-               "     --message=MESSAGE   Specify human readable reason for system shutdown\n"
+               "     --message=MESSAGE   Specify human-readable reason for system shutdown\n"
                "     --no-reload         Don't reload daemon after en-/dis-abling unit files\n"
                "     --legend=BOOL       Enable/disable the legend (column headers and hints)\n"
                "     --no-pager          Do not pipe output into a pager\n"

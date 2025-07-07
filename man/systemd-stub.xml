@@ -374,7 +374,7 @@
     similar format as <literal>.osrel</literal> (i.e. an environment-variable-assignment-block-like list of
     newline separated strings). Currently two fields are defined: <literal>ID=</literal> is supposed to carry
     a short identifying string that identifies the profile
-    (e.g. <literal>ID=factory-reset</literal>). <literal>TITLE=</literal> should contain a human readable
+    (e.g. <literal>ID=factory-reset</literal>). <literal>TITLE=</literal> should contain a human-readable
     string that may appear in the boot menu entry for this profile (e.g. <literal>TITLE='Factory Reset this
     Device'</literal>).</para>
   </refsect1>

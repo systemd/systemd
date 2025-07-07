@@ -100,9 +100,9 @@ typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
-        char16_t *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
+        char16_t *title;      /* The raw (human-readable) title string of the entry (not necessarily unique) */
         char16_t *sort_key;   /* The string to use as primary sort key, usually ID= from os-release, possibly suffixed */
-        char16_t *version;    /* The raw (human readable) version string of the entry */
+        char16_t *version;    /* The raw (human-readable) version string of the entry */
         char16_t *machine_id;
         EFI_HANDLE *device;
         LoaderType type;
