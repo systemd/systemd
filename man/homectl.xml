@@ -138,7 +138,7 @@
         <literal>short</literal> or <literal>off</literal>. If <literal>pretty</literal> human-friendly
         whitespace and newlines are inserted in the output to make the JSON data more readable. If
         <literal>short</literal> all superfluous whitespace is suppressed. If <literal>off</literal> (the
-        default) the user information is not shown in JSON format but in a friendly human readable formatting
+        default) the user information is not shown in JSON format but in a friendly human-readable formatting
         instead. The <option>-j</option> option picks <literal>pretty</literal> when run interactively and
         <literal>short</literal> otherwise.</para>
 
