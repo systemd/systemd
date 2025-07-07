@@ -16,6 +16,7 @@ libc_wrapper_sources = files(
         'xattr.c',
 )
 
+subdir('musl')
 subdir('oss-fuzz')
 
 sources += libc_wrapper_sources

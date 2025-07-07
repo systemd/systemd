@@ -72,7 +72,10 @@ conf.set10('SD_BOOT', false)
 
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
-summary({'build mode' : get_option('mode')})
+summary({
+        'libc'       : get_option('libc'),
+        'build mode' : get_option('mode'),
+})
 
 #####################################################################
 
@@ -1998,7 +2001,14 @@ dbus_programs = []
 boot_stubs = []
 
 # This is similar to system_includes below, but for passing custom_target().
-system_include_args = [
+system_include_args = []
+if get_option('libc') == 'musl'
+        system_include_args += [
+                '-isystem', meson.project_build_root()  / 'src/include/musl',
+                '-isystem', meson.project_source_root() / 'src/include/musl',
+        ]
+endif
+system_include_args += [
         '-isystem', meson.project_build_root()  / 'src/include/override',
         '-isystem', meson.project_source_root() / 'src/include/override',
         '-isystem', meson.project_build_root()  / 'src/include/uapi',
@@ -2016,6 +2026,9 @@ system_includes = [
                 is_system : true,
         ),
 ]
+if get_option('libc') == 'musl'
+        system_includes += include_directories('src/include/musl', is_system : true)
+endif
 
 if get_option('oss-fuzz')
         # oss-fuzz still uses Ubuntu 20.04, which uses glibc-2.31.
