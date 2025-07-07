@@ -34,7 +34,7 @@
 
 static const char* const boot_entry_type_description_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",
-        [BOOT_ENTRY_UNIFIED]     = "Boot Loader Specification Type #2 (.efi)",
+        [BOOT_ENTRY_UNIFIED]     = "Boot Loader Specification Type #2 (UKI, .efi)",
         [BOOT_ENTRY_LOADER]      = "Reported by Boot Loader",
         [BOOT_ENTRY_LOADER_AUTO] = "Automatic",
 };
