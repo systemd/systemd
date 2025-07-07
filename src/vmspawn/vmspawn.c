@@ -1350,7 +1350,7 @@ static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_i
 
         const BootEntry *boot_entry = boot_config_default_entry(&config);
 
-        if (boot_entry && !IN_SET(boot_entry->type, BOOT_ENTRY_UNIFIED, BOOT_ENTRY_CONF))
+        if (boot_entry && !IN_SET(boot_entry->type, BOOT_ENTRY_TYPE1, BOOT_ENTRY_TYPE2))
                 boot_entry = NULL;
 
         /* If we cannot determine a default entry search for UKIs (Type #2 EFI Unified Kernel Images)
@@ -1358,14 +1358,14 @@ static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_i
          * https://uapi-group.org/specifications/specs/boot_loader_specification */
         if (!boot_entry)
                 FOREACH_ARRAY(entry, config.entries, config.n_entries)
-                        if (entry->type == BOOT_ENTRY_UNIFIED) {
+                        if (entry->type == BOOT_ENTRY_TYPE2) { /* UKI */
                                 boot_entry = entry;
                                 break;
                         }
 
         if (!boot_entry)
                 FOREACH_ARRAY(entry, config.entries, config.n_entries)
-                        if (entry->type == BOOT_ENTRY_CONF) {
+                        if (entry->type == BOOT_ENTRY_TYPE1) { /* .conf */
                                 boot_entry = entry;
                                 break;
                         }
@@ -1377,11 +1377,11 @@ static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_i
 
         _cleanup_free_ char *linux_kernel = NULL;
         _cleanup_strv_free_ char **initrds = NULL;
-        if (boot_entry->type == BOOT_ENTRY_UNIFIED) {
+        if (boot_entry->type == BOOT_ENTRY_TYPE2) { /* UKI */
                 linux_kernel = path_join(boot_entry->root, boot_entry->kernel);
                 if (!linux_kernel)
                         return log_oom();
-        } else if (boot_entry->type == BOOT_ENTRY_CONF) {
+        } else if (boot_entry->type == BOOT_ENTRY_TYPE1) { /* .conf */
                 linux_kernel = path_join(boot_entry->root, boot_entry->kernel);
                 if (!linux_kernel)
                         return log_oom();

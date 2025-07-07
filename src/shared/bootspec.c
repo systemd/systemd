@@ -33,22 +33,22 @@
 #include "uki.h"
 
 static const char* const boot_entry_type_description_table[_BOOT_ENTRY_TYPE_MAX] = {
-        [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",
-        [BOOT_ENTRY_UNIFIED]     = "Boot Loader Specification Type #2 (UKI, .efi)",
-        [BOOT_ENTRY_LOADER]      = "Reported by Boot Loader",
-        [BOOT_ENTRY_LOADER_AUTO] = "Automatic",
+        [BOOT_ENTRY_TYPE1]  = "Boot Loader Specification Type #1 (.conf)",
+        [BOOT_ENTRY_TYPE2]  = "Boot Loader Specification Type #2 (UKI, .efi)",
+        [BOOT_ENTRY_LOADER] = "Reported by Boot Loader",
+        [BOOT_ENTRY_AUTO]   = "Automatic",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_description, BootEntryType);
 
-static const char* const boot_entry_type_json_table[_BOOT_ENTRY_TYPE_MAX] = {
-        [BOOT_ENTRY_CONF]        = "type1",
-        [BOOT_ENTRY_UNIFIED]     = "type2",
-        [BOOT_ENTRY_LOADER]      = "loader",
-        [BOOT_ENTRY_LOADER_AUTO] = "auto",
+static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
+        [BOOT_ENTRY_TYPE1]  = "type1",
+        [BOOT_ENTRY_TYPE2]  = "type2",
+        [BOOT_ENTRY_LOADER] = "loader",
+        [BOOT_ENTRY_AUTO]   = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_json, BootEntryType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type, BootEntryType);
 
 static const char* const boot_entry_source_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "EFI System Partition",
@@ -319,7 +319,7 @@ static int boot_entry_load_type1(
                 const char *fname,
                 BootEntry *ret) {
 
-        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_CONF, source);
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_TYPE1, source);
         char *c;
         int r;
 
@@ -759,7 +759,7 @@ static int boot_entry_load_unified(
         if (r < 0)
                 return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
 
-        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_UNIFIED, source);
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_TYPE2, source);
 
         r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
         if (r < 0)
@@ -1620,7 +1620,7 @@ int boot_config_augment_from_loader(
                         return log_oom();
 
                 config->entries[config->n_entries++] = (BootEntry) {
-                        .type = startswith(*i, "auto-") ? BOOT_ENTRY_LOADER_AUTO : BOOT_ENTRY_LOADER,
+                        .type = startswith(*i, "auto-") ? BOOT_ENTRY_AUTO : BOOT_ENTRY_LOADER,
                         .id = TAKE_PTR(c),
                         .title = TAKE_PTR(t),
                         .path = TAKE_PTR(p),
@@ -1840,7 +1840,7 @@ int show_boot_entry(
                 if (e->type == BOOT_ENTRY_LOADER)
                         printf(" %s(reported/absent)%s",
                                ansi_highlight_red(), ansi_normal());
-                else if (!e->reported_by_loader && e->type != BOOT_ENTRY_LOADER_AUTO)
+                else if (!e->reported_by_loader && e->type != BOOT_ENTRY_AUTO)
                         printf(" %s(not reported/new)%s",
                                ansi_highlight_green(), ansi_normal());
         }
@@ -1867,7 +1867,7 @@ int show_boot_entry(
 
                 /* Let's urlify the link to make it easy to view in an editor, but only if it is a text
                  * file. Unified images are binary ELFs, and EFI variables are not pure text either. */
-                if (e->type == BOOT_ENTRY_CONF)
+                if (e->type == BOOT_ENTRY_TYPE1)
                         (void) terminal_urlify_path(e->path, text, &link);
 
                 printf("       source: %s (on the %s)\n",
@@ -1942,7 +1942,7 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
 
         r = sd_json_variant_merge_objectbo(
                         &v,
-                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(boot_entry_type_json_to_string(e->type))),
+                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(boot_entry_type_to_string(e->type))),
                         SD_JSON_BUILD_PAIR("source", SD_JSON_BUILD_STRING(boot_entry_source_json_to_string(e->source))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->id, "id", SD_JSON_BUILD_STRING(e->id)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->path, "path", SD_JSON_BUILD_STRING(e->path)),
