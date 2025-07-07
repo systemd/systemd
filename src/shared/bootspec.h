@@ -95,7 +95,7 @@ const char* boot_entry_type_description_to_string(BootEntryType) _const_;
 const char* boot_entry_type_to_string(BootEntryType) _const_;
 
 const char* boot_entry_source_description_to_string(BootEntrySource) _const_;
-const char* boot_entry_source_json_to_string(BootEntrySource) _const_;
+const char* boot_entry_source_to_string(BootEntrySource) _const_;
 
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
 

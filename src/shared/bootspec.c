@@ -57,12 +57,12 @@ static const char* const boot_entry_source_description_table[_BOOT_ENTRY_SOURCE_
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_description, BootEntrySource);
 
-static const char* const boot_entry_source_json_table[_BOOT_ENTRY_SOURCE_MAX] = {
+static const char* const boot_entry_source_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "esp",
         [BOOT_ENTRY_XBOOTLDR] = "xbootldr",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_json, BootEntrySource);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource);
 
 static void boot_entry_addons_done(BootEntryAddons *addons) {
         assert(addons);
@@ -1943,7 +1943,7 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
         r = sd_json_variant_merge_objectbo(
                         &v,
                         SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(boot_entry_type_to_string(e->type))),
-                        SD_JSON_BUILD_PAIR("source", SD_JSON_BUILD_STRING(boot_entry_source_json_to_string(e->source))),
+                        SD_JSON_BUILD_PAIR("source", SD_JSON_BUILD_STRING(boot_entry_source_to_string(e->source))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->id, "id", SD_JSON_BUILD_STRING(e->id)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->path, "path", SD_JSON_BUILD_STRING(e->path)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->root, "root", SD_JSON_BUILD_STRING(e->root)),
