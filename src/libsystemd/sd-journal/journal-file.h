@@ -2,6 +2,7 @@
 #pragma once
 
 #include <fcntl.h>
+#include <sys/stat.h>
 
 #include "compress.h"
 #include "forward.h"
