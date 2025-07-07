@@ -52,7 +52,7 @@
         matching specified characteristics. If no command is
         specified, this is the implied default.</para>
 
-        <para>The output is designed to be human readable and contains a table with the following
+        <para>The output is designed to be human-readable and contains a table with the following
         columns:</para>
         <variablelist>
           <varlistentry>

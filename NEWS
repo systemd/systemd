@@ -871,7 +871,7 @@ CHANGES WITH 258 in spe:
         * userdbctl gained a new switch --from-file=. If used the tool will not
           look up a user or group record from the system's user database but
           instead read it from the specified JSON file, and then present it in
-          the usual, human readable fashion.
+          the usual, human-readable fashion.
 
         * systemd-homed gained D-Bus API calls for listing, adding, removing and
           showing use record signing keys.
@@ -8016,7 +8016,7 @@ CHANGES WITH 248:
 
         * systemd-hostnamed now exports the "HardwareVendor" and
           "HardwareModel" D-Bus properties, which are supposed to contain a
-          pair of cleaned up, human readable strings describing the system's
+          pair of cleaned up, human-readable strings describing the system's
           vendor and model. It's typically sourced from the firmware's DMI
           tables, but may be augmented from a new hwdb database. hostnamectl
           shows this in the status output.
@@ -15502,7 +15502,7 @@ CHANGES WITH 220:
           journal-nocow.conf tmpfiles file.
 
         * systemd-journald will now translate audit message types to
-          human readable identifiers when writing them to the
+          human-readable identifiers when writing them to the
           journal. This should improve readability of audit messages.
 
         * The LUKS logic gained support for the offset= and skip=

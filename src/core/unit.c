@@ -2393,7 +2393,7 @@ static int unit_log_resources(Unit *u) {
                 return log_oom();
 
         /* Invoked whenever a unit enters failed or dead state. Logs information about consumed resources if resource
-         * accounting was enabled for a unit. It does this in two ways: a friendly human readable string with reduced
+         * accounting was enabled for a unit. It does this in two ways: a friendly human-readable string with reduced
          * information and the complete data in structured fields. */
 
         (void) unit_get_cpu_usage(u, &cpu_nsec);

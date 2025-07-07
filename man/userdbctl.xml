@@ -61,7 +61,7 @@
         <literal>friendly</literal>, <literal>table</literal> or <literal>json</literal>. If
         <literal>classic</literal>, an output very close to the format of <filename>/etc/passwd</filename> or
         <filename>/etc/group</filename> is generated. If <literal>friendly</literal>, a more comprehensive and
-        user friendly, human readable output is generated. If <literal>table</literal>, a minimal, tabular
+        user friendly, human-readable output is generated. If <literal>table</literal>, a minimal, tabular
         output is generated. If <literal>json</literal>, a JSON formatted output is generated. Defaults to
         <literal>friendly</literal> if a user/group is specified on the command line,
         <literal>table</literal> otherwise.</para>

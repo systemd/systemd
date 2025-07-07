@@ -597,7 +597,7 @@
     <variablelist class='unit-directives'>
       <varlistentry>
         <term><varname>Description=</varname></term>
-        <listitem><para>A short human readable title of the unit. This may be used by
+        <listitem><para>A short human-readable title of the unit. This may be used by
         <command>systemd</command> (and other UIs) as a user-visible label for the unit, so this string
         should identify the unit rather than describe it, despite the name. This string also should not just
         repeat the unit name. <literal>Apache2 Web Server</literal> is a good example. Bad examples are
