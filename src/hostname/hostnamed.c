@@ -863,8 +863,8 @@ static int context_write_data_machine_info(Context *c) {
                 [PROP_ICON_NAME] = "ICON_NAME",
                 [PROP_CHASSIS] = "CHASSIS",
                 [PROP_DEPLOYMENT] = "DEPLOYMENT",
-                [PROP_LOCATION] = "LOCATION",
                 [PROP_ANSI_COLOR] = "ANSI_COLOR",
+                [PROP_LOCATION] = "LOCATION",
         };
         _cleanup_strv_free_ char **l = NULL;
         int r;
@@ -879,7 +879,7 @@ static int context_write_data_machine_info(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        for (HostProperty p = PROP_PRETTY_HOSTNAME; p <= PROP_ANSI_COLOR; p++) {
+        for (HostProperty p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
                 assert(name[p]);
 
                 r = strv_env_assign(&l, name[p], empty_to_null(c->data[p]));

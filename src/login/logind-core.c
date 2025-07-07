@@ -412,28 +412,6 @@ int manager_get_session_by_leader(Manager *m, const PidRef *pid, Session **ret) 
         return !!s;
 }
 
-int manager_get_session_by_leader(Manager *m, const PidRef *pid, Session **ret) {
-        Session *s;
-        int r;
-
-        assert(m);
-
-        if (!pidref_is_set(pid))
-                return -EINVAL;
-
-        s = hashmap_get(m->sessions_by_leader, pid);
-        if (s) {
-                r = pidref_verify(pid);
-                if (r < 0)
-                        return r;
-        }
-
-        if (ret)
-                *ret = s;
-
-        return !!s;
-}
-
 int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
         _cleanup_free_ char *unit = NULL;
         User *u = NULL;
