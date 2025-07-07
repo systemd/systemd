@@ -23,6 +23,7 @@ executables += [
                 'sources' : systemd_shutdown_sources + systemd_shutdown_extract_sources,
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
+                        libc_wrapper_static,
                         libbasic_static,
                         libshared_static,
                         libsystemd_static,

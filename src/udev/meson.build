@@ -63,7 +63,7 @@ endif
 
 generate_keyboard_keys_list = find_program('generate-keyboard-keys-list.sh')
 keyboard_keys_list_txt = custom_target(
-        input : files('../basic/include/linux/input.h'),
+        input : files('../include/uapi/linux/input.h'),
         output : 'keyboard-keys-list.txt',
         command : [generate_keyboard_keys_list, cpp, '@INPUT@'],
         capture : true)
