@@ -72,7 +72,10 @@ conf.set10('SD_BOOT', false)
 
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
-summary({'build mode' : get_option('mode')})
+summary({
+        'libc'       : get_option('libc'),
+        'build mode' : get_option('mode'),
+})
 
 #####################################################################
 
@@ -2060,6 +2063,15 @@ system_includes = [
                 is_system : true,
         ),
 ]
+
+if get_option('libc') == 'musl'
+        system_include_args = [
+                '-isystem', meson.project_build_root()  / 'src/include/musl',
+                '-isystem', meson.project_source_root() / 'src/include/musl',
+        ] + system_include_args
+
+        system_includes += include_directories('src/include/musl', is_system : true)
+endif
 
 basic_includes = [
         include_directories(
