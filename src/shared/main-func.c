@@ -32,25 +32,6 @@ void main_finalize(int r, int exit_status) {
         mac_selinux_finish();
 }
 
-int raise_or_exit_status(int ret) {
-        if (ret < 0)
-                return EXIT_FAILURE;
-        if (ret == 0)
-                return EXIT_SUCCESS;
-        if (!SIGNAL_VALID(ret))
-                return EXIT_FAILURE;
-
-#if HAVE_VALGRIND_VALGRIND_H
-        /* If raise() below succeeds, the destructor cleanup_pools() in hashmap.c will never called. */
-        if (RUNNING_ON_VALGRIND)
-                hashmap_trim_pools();
-#endif
-
-        (void) raise(ret);
-        /* exit with failure if raise() does not immediately abort the program. */
-        return EXIT_FAILURE;
-}
-
 int exit_failure_if_negative(int result) {
         return result < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
