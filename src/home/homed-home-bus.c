@@ -442,7 +442,7 @@ int bus_home_update_record(
                 return r;
 
         if ((flags & ~SD_HOMED_UPDATE_FLAGS_ALL) != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
 
         if (blobs) {
                 const char *failed = NULL;
