@@ -27,10 +27,10 @@ static void test_chase_extract_filename_one(const char *path, const char *root, 
 
         log_debug("/* %s(path=%s, root=%s) */", __func__, path, strnull(root));
 
-        assert_se(chase(path, root, CHASE_EXTRACT_FILENAME, &ret1, NULL) > 0);
+        ASSERT_OK_POSITIVE(chase(path, root, CHASE_EXTRACT_FILENAME, &ret1, NULL));
         ASSERT_STREQ(ret1, expected);
 
-        assert_se(chase(path, root, 0, &ret2, NULL) > 0);
+        ASSERT_OK_POSITIVE(chase(path, root, 0, &ret2, NULL));
         ASSERT_OK(chase_extract_filename(ret2, root, &fname));
         ASSERT_STREQ(fname, expected);
 }
@@ -47,7 +47,7 @@ TEST(chase) {
         assert_se(mkdtemp(temp));
 
         top = strjoina(temp, "/top");
-        ASSERT_OK(mkdir(top, 0700));
+        ASSERT_OK_ERRNO(mkdir(top, 0700));
 
         p = strjoina(top, "/dot");
         if (symlink(".", p) < 0) {
@@ -57,81 +57,72 @@ TEST(chase) {
         };
 
         p = strjoina(top, "/dotdot");
-        ASSERT_OK(symlink("..", p));
+        ASSERT_OK_ERRNO(symlink("..", p));
 
         p = strjoina(top, "/dotdota");
-        ASSERT_OK(symlink("../a", p));
+        ASSERT_OK_ERRNO(symlink("../a", p));
 
         p = strjoina(temp, "/a");
-        ASSERT_OK(symlink("b", p));
+        ASSERT_OK_ERRNO(symlink("b", p));
 
         p = strjoina(temp, "/b");
-        ASSERT_OK(symlink("/usr", p));
+        ASSERT_OK_ERRNO(symlink("/usr", p));
 
         p = strjoina(temp, "/start");
-        ASSERT_OK(symlink("top/dot/dotdota", p));
+        ASSERT_OK_ERRNO(symlink("top/dot/dotdota", p));
 
         /* Paths that use symlinks underneath the "root" */
 
-        r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, "/usr"));
+        ASSERT_OK_POSITIVE(chase(p, NULL, 0, &result, NULL));
+        ASSERT_STREQ(result, "/usr");
         result = mfree(result);
 
-        r = chase(p, "/.//../../../", 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, "/usr"));
+        ASSERT_OK_POSITIVE(chase(p, "/.//../../../", 0, &result, NULL));
+        ASSERT_STREQ(result, "/usr");
         result = mfree(result);
 
         pslash = strjoina(p, "/");
-        r = chase(pslash, NULL, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, "/usr/"));
+        ASSERT_OK_POSITIVE(chase(pslash, NULL, 0, &result, NULL));
+        ASSERT_STREQ(result, "/usr/");
         result = mfree(result);
 
         r = chase(p, temp, 0, &result, NULL);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(r, ENOENT);
 
         r = chase(pslash, temp, 0, &result, NULL);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(r, ENOENT);
 
         q = strjoina(temp, "/usr");
 
-        r = chase(p, temp, CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == 0);
-        assert_se(path_equal(result, q));
+        ASSERT_OK_ZERO(chase(p, temp, CHASE_NONEXISTENT, &result, NULL));
+        ASSERT_STREQ(result, q);
         result = mfree(result);
 
         qslash = strjoina(q, "/");
 
-        r = chase(pslash, temp, CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == 0);
-        assert_se(path_equal(result, qslash));
+        ASSERT_OK_ZERO(chase(pslash, temp, CHASE_NONEXISTENT, &result, NULL));
+        ASSERT_STREQ(result, qslash);
         result = mfree(result);
 
-        ASSERT_OK(mkdir(q, 0700));
+        ASSERT_OK_ERRNO(mkdir(q, 0700));
 
-        r = chase(p, temp, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, q));
+        ASSERT_OK_POSITIVE(chase(p, temp, 0, &result, NULL));
+        ASSERT_STREQ(result, q);
         result = mfree(result);
 
-        r = chase(pslash, temp, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, qslash));
+        ASSERT_OK_POSITIVE(chase(pslash, temp, 0, &result, NULL));
+        ASSERT_STREQ(result, qslash);
         result = mfree(result);
 
         p = strjoina(temp, "/slash");
-        assert_se(symlink("/", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("/", p));
 
-        r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, "/"));
+        ASSERT_OK_POSITIVE(chase(p, NULL, 0, &result, NULL));
+        ASSERT_STREQ(result, "/");
         result = mfree(result);
 
-        r = chase(p, temp, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, temp));
+        ASSERT_OK_POSITIVE(chase(p, temp, 0, &result, NULL));
+        ASSERT_STREQ(result, temp);
         result = mfree(result);
 
         /* Tests for CHASE_EXTRACT_FILENAME and chase_extract_filename() */
@@ -150,99 +141,89 @@ TEST(chase) {
         /* Paths that would "escape" outside of the "root" */
 
         p = strjoina(temp, "/6dots");
-        ASSERT_OK(symlink("../../..", p));
+        ASSERT_OK_ERRNO(symlink("../../..", p));
 
-        r = chase(p, temp, 0, &result, NULL);
-        assert_se(r > 0 && path_equal(result, temp));
+        ASSERT_OK_POSITIVE(chase(p, temp, 0, &result, NULL));
+        ASSERT_STREQ(result, temp);
         result = mfree(result);
 
         p = strjoina(temp, "/6dotsusr");
-        ASSERT_OK(symlink("../../../usr", p));
+        ASSERT_OK_ERRNO(symlink("../../../usr", p));
 
-        r = chase(p, temp, 0, &result, NULL);
-        assert_se(r > 0 && path_equal(result, q));
+        ASSERT_OK_POSITIVE(chase(p, temp, 0, &result, NULL));
+        ASSERT_STREQ(result, q);
         result = mfree(result);
 
         p = strjoina(temp, "/top/8dotsusr");
-        ASSERT_OK(symlink("../../../../usr", p));
+        ASSERT_OK_ERRNO(symlink("../../../../usr", p));
 
-        r = chase(p, temp, 0, &result, NULL);
-        assert_se(r > 0 && path_equal(result, q));
+        ASSERT_OK_POSITIVE(chase(p, temp, 0, &result, NULL));
+        ASSERT_STREQ(result, q);
         result = mfree(result);
 
         /* Paths that contain repeated slashes */
 
         p = strjoina(temp, "/slashslash");
-        ASSERT_OK(symlink("///usr///", p));
+        ASSERT_OK_ERRNO(symlink("///usr///", p));
 
-        r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, "/usr"));
+        ASSERT_OK_POSITIVE(chase(p, NULL, 0, &result, NULL));
         ASSERT_STREQ(result, "/usr"); /* we guarantee that we drop redundant slashes */
         result = mfree(result);
 
-        r = chase(p, temp, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, q));
+        ASSERT_OK_POSITIVE(chase(p, temp, 0, &result, NULL));
+        ASSERT_STREQ(result, q);
         result = mfree(result);
 
         /* Paths underneath the "root" with different UIDs while using CHASE_SAFE */
 
         if (geteuid() == 0 && !userns_has_single_user()) {
                 p = strjoina(temp, "/user");
-                ASSERT_OK(mkdir(p, 0755));
+                ASSERT_OK_ERRNO(mkdir(p, 0755));
                 ASSERT_OK(chown(p, UID_NOBODY, GID_NOBODY));
 
                 q = strjoina(temp, "/user/root");
-                ASSERT_OK(mkdir(q, 0755));
+                ASSERT_OK_ERRNO(mkdir(q, 0755));
 
                 p = strjoina(q, "/link");
-                ASSERT_OK(symlink("/", p));
+                ASSERT_OK_ERRNO(symlink("/", p));
 
                 /* Fail when user-owned directories contain root-owned subdirectories. */
                 r = chase(p, temp, CHASE_SAFE, &result, NULL);
-                assert_se(r == -ENOLINK);
+                ASSERT_ERROR(r, ENOLINK);
                 result = mfree(result);
 
                 /* Allow this when the user-owned directories are all in the "root". */
-                r = chase(p, q, CHASE_SAFE, &result, NULL);
-                assert_se(r > 0);
+                ASSERT_OK_POSITIVE(chase(p, q, CHASE_SAFE, &result, NULL));
                 result = mfree(result);
         }
 
         /* Paths using . */
 
-        r = chase("/etc/./.././", NULL, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(result, "/"));
+        ASSERT_OK_POSITIVE(chase("/etc/./.././", NULL, 0, &result, NULL));
+        ASSERT_STREQ(result, "/");
         result = mfree(result);
 
-        r = chase("/etc/./.././", "/etc", 0, &result, NULL);
-        assert_se(r > 0 && path_equal(result, "/etc"));
-        result = mfree(result);
-
-        r = chase("/../.././//../../etc", NULL, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(chase("/etc/./.././", "/etc", 0, &result, NULL));
         ASSERT_STREQ(result, "/etc");
         result = mfree(result);
 
-        r = chase("/../.././//../../test-chase.fsldajfl", NULL, CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == 0);
-        ASSERT_STREQ(result, "/test-chase.fsldajfl");
-        result = mfree(result);
-
-        r = chase("/../.././//../../etc", "/", CHASE_PREFIX_ROOT, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(chase("/../.././//../../etc", NULL, 0, &result, NULL));
         ASSERT_STREQ(result, "/etc");
         result = mfree(result);
 
-        r = chase("/../.././//../../test-chase.fsldajfl", "/", CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(chase("/../.././//../../test-chase.fsldajfl", NULL, CHASE_NONEXISTENT, &result, NULL));
         ASSERT_STREQ(result, "/test-chase.fsldajfl");
         result = mfree(result);
 
-        r = chase("/.path/with/dot", temp, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &result, NULL);
-        ASSERT_OK(r);
+        ASSERT_OK_POSITIVE(chase("/../.././//../../etc", "/", CHASE_PREFIX_ROOT, &result, NULL));
+        ASSERT_STREQ(result, "/etc");
+        result = mfree(result);
+
+        ASSERT_OK_ZERO(chase("/../.././//../../test-chase.fsldajfl", "/", CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &result, NULL));
+        ASSERT_STREQ(result, "/test-chase.fsldajfl");
+        result = mfree(result);
+
+        ASSERT_OK(chase("/.path/with/dot", temp, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &result, NULL));
         q = strjoina(temp, "/.path/with/dot");
         ASSERT_STREQ(result, q);
         result = mfree(result);
@@ -254,76 +235,74 @@ TEST(chase) {
         /* Path that loops back to self */
 
         p = strjoina(temp, "/recursive-symlink");
-        ASSERT_OK(symlink("recursive-symlink", p));
+        ASSERT_OK_ERRNO(symlink("recursive-symlink", p));
         r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r == -ELOOP);
+        ASSERT_ERROR(r, ELOOP);
 
         /* Path which doesn't exist */
 
         p = strjoina(temp, "/idontexist");
         r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(r, ENOENT);
 
-        r = chase(p, NULL, CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == 0);
-        assert_se(path_equal(result, p));
+        ASSERT_OK_ZERO(chase(p, NULL, CHASE_NONEXISTENT, &result, NULL));
+        ASSERT_STREQ(result, p);
         result = mfree(result);
 
         p = strjoina(temp, "/idontexist/meneither");
         r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(r, ENOENT);
 
-        r = chase(p, NULL, CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == 0);
-        assert_se(path_equal(result, p));
+        ASSERT_OK_ZERO(chase(p, NULL, CHASE_NONEXISTENT, &result, NULL));
+        ASSERT_STREQ(result, p);
         result = mfree(result);
 
         /* Relative paths */
 
         ASSERT_OK(safe_getcwd(&pwd));
 
-        ASSERT_OK(chdir(temp));
+        ASSERT_OK_ERRNO(chdir(temp));
 
         p = "this/is/a/relative/path";
-        r = chase(p, NULL, CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == 0);
+
+        ASSERT_OK_ZERO(chase(p, NULL, CHASE_NONEXISTENT, &result, NULL));
 
         p = strjoina(temp, "/", p);
-        assert_se(path_equal(result, p));
+        ASSERT_STREQ(result, p);
         result = mfree(result);
 
         p = "this/is/a/relative/path";
-        r = chase(p, temp, CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == 0);
+
+        ASSERT_OK_ZERO(chase(p, temp, CHASE_NONEXISTENT, &result, NULL));
 
         p = strjoina(temp, "/", p);
-        assert_se(path_equal(result, p));
+        ASSERT_STREQ(result, p);
         result = mfree(result);
 
-        assert_se(chdir(pwd) >= 0);
+        ASSERT_OK_ERRNO(chdir(pwd));
 
         /* Path which doesn't exist, but contains weird stuff */
 
         p = strjoina(temp, "/idontexist/..");
         r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(r, ENOENT);
 
         r = chase(p, NULL, CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(r, ENOENT);
 
         p = strjoina(temp, "/target");
         q = strjoina(temp, "/top");
-        assert_se(symlink(q, p) >= 0);
+        ASSERT_OK_ERRNO(symlink(q, p));
         p = strjoina(temp, "/target/idontexist");
         r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(r, ENOENT);
 
         if (geteuid() == 0 && !userns_has_single_user()) {
                 p = strjoina(temp, "/priv1");
-                ASSERT_OK(mkdir(p, 0755));
+                ASSERT_OK_ERRNO(mkdir(p, 0755));
 
                 q = strjoina(p, "/priv2");
-                ASSERT_OK(mkdir(q, 0755));
+                ASSERT_OK_ERRNO(mkdir(q, 0755));
 
                 ASSERT_OK(chase(q, NULL, CHASE_SAFE, NULL, NULL));
 
@@ -333,19 +312,19 @@ TEST(chase) {
                 ASSERT_OK(chown(p, UID_NOBODY, GID_NOBODY));
                 ASSERT_OK(chase(q, NULL, CHASE_SAFE, NULL, NULL));
 
-                assert_se(chown(q, 0, 0) >= 0);
-                assert_se(chase(q, NULL, CHASE_SAFE, NULL, NULL) == -ENOLINK);
+                ASSERT_OK(chown(q, 0, 0));
+                ASSERT_ERROR(chase(q, NULL, CHASE_SAFE, NULL, NULL), ENOLINK);
 
                 ASSERT_OK(rmdir(q));
-                ASSERT_OK(symlink("/etc/passwd", q));
-                assert_se(chase(q, NULL, CHASE_SAFE, NULL, NULL) == -ENOLINK);
+                ASSERT_OK_ERRNO(symlink("/etc/passwd", q));
+                ASSERT_ERROR(chase(q, NULL, CHASE_SAFE, NULL, NULL), ENOLINK);
 
-                assert_se(chown(p, 0, 0) >= 0);
+                ASSERT_OK(chown(p, 0, 0));
                 ASSERT_OK(chase(q, NULL, CHASE_SAFE, NULL, NULL));
         }
 
         p = strjoina(temp, "/machine-id-test");
-        ASSERT_OK(symlink("/usr/../etc/./machine-id", p));
+        ASSERT_OK_ERRNO(symlink("/usr/../etc/./machine-id", p));
 
         r = chase(p, NULL, 0, NULL, &pfd);
         if (r != -ENOENT && sd_id128_get_machine(NULL) >= 0) {
@@ -363,10 +342,10 @@ TEST(chase) {
                 assert_se(sd_id128_equal(a, b));
         }
 
-        assert_se(lstat(p, &st) >= 0);
-        r = chase_and_unlink(p, NULL, 0, 0, &result);
-        assert_se(r == 0);
-        assert_se(path_equal(result, p));
+        ASSERT_OK(lstat(p, &st));
+
+        ASSERT_OK_ZERO(chase_and_unlink(p, NULL, 0, 0, &result));
+        ASSERT_STREQ(result, p);
         result = mfree(result);
         assert_se(lstat(p, &st) == -1 && errno == ENOENT);
 
@@ -374,11 +353,10 @@ TEST(chase) {
 
         p = strjoina(temp, "/target");
         q = strjoina(temp, "/symlink");
-        assert_se(symlink(p, q) >= 0);
-        r = chase(q, NULL, CHASE_NOFOLLOW, &result, &pfd);
-        ASSERT_OK(r);
+        ASSERT_OK_ERRNO(symlink(p, q));
+        ASSERT_OK(chase(q, NULL, CHASE_NOFOLLOW, &result, &pfd));
         ASSERT_OK(pfd);
-        assert_se(path_equal(result, q));
+        ASSERT_STREQ(result, q);
         ASSERT_OK(fstat(pfd, &st));
         assert_se(S_ISLNK(st.st_mode));
         result = mfree(result);
@@ -386,13 +364,12 @@ TEST(chase) {
 
         /* s1 -> s2 -> nonexistent */
         q = strjoina(temp, "/s1");
-        ASSERT_OK(symlink("s2", q));
+        ASSERT_OK_ERRNO(symlink("s2", q));
         p = strjoina(temp, "/s2");
-        ASSERT_OK(symlink("nonexistent", p));
-        r = chase(q, NULL, CHASE_NOFOLLOW, &result, &pfd);
-        ASSERT_OK(r);
+        ASSERT_OK_ERRNO(symlink("nonexistent", p));
+        ASSERT_OK(chase(q, NULL, CHASE_NOFOLLOW, &result, &pfd));
         ASSERT_OK(pfd);
-        assert_se(path_equal(result, q));
+        ASSERT_STREQ(result, q);
         ASSERT_OK(fstat(pfd, &st));
         assert_se(S_ISLNK(st.st_mode));
         result = mfree(result);
@@ -401,66 +378,59 @@ TEST(chase) {
         /* Test CHASE_STEP */
 
         p = strjoina(temp, "/start");
-        r = chase(p, NULL, CHASE_STEP, &result, NULL);
-        assert_se(r == 0);
+
+        ASSERT_OK_ZERO(chase(p, NULL, CHASE_STEP, &result, NULL));
         p = strjoina(temp, "/top/dot/dotdota");
         ASSERT_STREQ(p, result);
         result = mfree(result);
 
-        r = chase(p, NULL, CHASE_STEP, &result, NULL);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(chase(p, NULL, CHASE_STEP, &result, NULL));
         p = strjoina(temp, "/top/dotdota");
         ASSERT_STREQ(p, result);
         result = mfree(result);
 
-        r = chase(p, NULL, CHASE_STEP, &result, NULL);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(chase(p, NULL, CHASE_STEP, &result, NULL));
         p = strjoina(temp, "/top/../a");
         ASSERT_STREQ(p, result);
         result = mfree(result);
 
-        r = chase(p, NULL, CHASE_STEP, &result, NULL);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(chase(p, NULL, CHASE_STEP, &result, NULL));
         p = strjoina(temp, "/a");
         ASSERT_STREQ(p, result);
         result = mfree(result);
 
-        r = chase(p, NULL, CHASE_STEP, &result, NULL);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(chase(p, NULL, CHASE_STEP, &result, NULL));
         p = strjoina(temp, "/b");
         ASSERT_STREQ(p, result);
         result = mfree(result);
 
-        r = chase(p, NULL, CHASE_STEP, &result, NULL);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(chase(p, NULL, CHASE_STEP, &result, NULL));
         ASSERT_STREQ("/usr", result);
         result = mfree(result);
 
-        r = chase("/usr", NULL, CHASE_STEP, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(chase("/usr", NULL, CHASE_STEP, &result, NULL));
         ASSERT_STREQ("/usr", result);
         result = mfree(result);
 
         /* Make sure that symlinks in the "root" path are not resolved, but those below are */
         p = strjoina("/etc/..", temp, "/self");
-        assert_se(symlink(".", p) >= 0);
+        ASSERT_OK_ERRNO(symlink(".", p));
         q = strjoina(p, "/top/dot/dotdota");
-        r = chase(q, p, 0, &result, NULL);
-        assert_se(r > 0);
-        assert_se(path_equal(path_startswith(result, p), "usr"));
+        ASSERT_OK_POSITIVE(chase(q, p, 0, &result, NULL));
+        ASSERT_STREQ(path_startswith(result, p), "usr");
         result = mfree(result);
 
         /* Test CHASE_PROHIBIT_SYMLINKS */
 
-        assert_se(chase("top/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
-        assert_se(chase("top/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
-        assert_se(chase("top/dotdot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
-        assert_se(chase("top/dotdot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
-        assert_se(chase("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
-        assert_se(chase("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
+        ASSERT_ERROR(chase("top/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL), EREMCHG);
+        ASSERT_ERROR(chase("top/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL), EREMCHG);
+        ASSERT_ERROR(chase("top/dotdot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL), EREMCHG);
+        ASSERT_ERROR(chase("top/dotdot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL), EREMCHG);
+        ASSERT_ERROR(chase("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL), EREMCHG);
+        ASSERT_ERROR(chase("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL), EREMCHG);
 
  cleanup:
-        ASSERT_OK(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL));
+        ASSERT_OK_ERRNO(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL));
 }
 
 TEST(chaseat) {
@@ -510,8 +480,8 @@ TEST(chaseat) {
         ASSERT_STREQ(result, "/usr");
         result = mfree(result);
 
-        assert_se(chaseat(tfd, "abc", CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL) == -ENOENT);
-        assert_se(chaseat(tfd, "/abc", CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL) == -ENOENT);
+        ASSERT_ERROR(chaseat(tfd, "abc", CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL), ENOENT);
+        ASSERT_ERROR(chaseat(tfd, "/abc", CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL), ENOENT);
 
         ASSERT_OK(chaseat(tfd, "abc", CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &result, NULL));
         ASSERT_STREQ(result, "usr");
@@ -536,7 +506,7 @@ TEST(chaseat) {
 
         /* Valid directory file descriptor without CHASE_AT_RESOLVE_IN_ROOT should resolve symlinks against
          * host's root. */
-        assert_se(chaseat(tfd, "/qed", 0, NULL, NULL) == -ENOENT);
+        ASSERT_ERROR(chaseat(tfd, "/qed", 0, NULL, NULL), ENOENT);
 
         /* Test CHASE_PARENT */
 
@@ -578,17 +548,17 @@ TEST(chaseat) {
 
         ASSERT_OK(chaseat(tfd, "m/k/d/i/r", CHASE_MKDIR_0755|CHASE_NONEXISTENT, &result, NULL));
         ASSERT_OK(faccessat(tfd, "m/k/d/i", F_OK, 0));
-        assert_se(RET_NERRNO(faccessat(tfd, "m/k/d/i/r", F_OK, 0)) == -ENOENT);
+        ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "m/k/d/i/r", F_OK, 0)), ENOENT);
         ASSERT_STREQ(result, "m/k/d/i/r");
         result = mfree(result);
 
         ASSERT_OK(chaseat(tfd, "m/../q", CHASE_MKDIR_0755|CHASE_NONEXISTENT, &result, NULL));
         ASSERT_OK(faccessat(tfd, "m", F_OK, 0));
-        assert_se(RET_NERRNO(faccessat(tfd, "q", F_OK, 0)) == -ENOENT);
+        ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "q", F_OK, 0)), ENOENT);
         ASSERT_STREQ(result, "q");
         result = mfree(result);
 
-        assert_se(chaseat(tfd, "i/../p", CHASE_MKDIR_0755|CHASE_NONEXISTENT, NULL, NULL) == -ENOENT);
+        ASSERT_ERROR(chaseat(tfd, "i/../p", CHASE_MKDIR_0755|CHASE_NONEXISTENT, NULL, NULL), ENOENT);
 
         /* Test CHASE_EXTRACT_FILENAME */
 
@@ -658,7 +628,7 @@ TEST(chaseat) {
         /* Test chase_and_fopenat_unlocked() */
 
         ASSERT_OK(chase_and_fopenat_unlocked(tfd, "o/p/e/n/f/i/l/e", 0, "re", &result, &f));
-        assert_se(fread(&(char[1]) {}, 1, 1, f) == 0);
+        ASSERT_OK_ZERO(fread(&(char[1]) {}, 1, 1, f));
         assert_se(feof(f));
         f = safe_fclose(f);
         ASSERT_STREQ(result, "o/p/e/n/f/i/l/e");
@@ -727,7 +697,7 @@ TEST(chaseat_prefix_root) {
 
         ret = mfree(ret);
 
-        assert_se(chaseat_prefix_root("./hoge/aaa/../././b", "a/b//./c///", &ret) >= 0);
+        ASSERT_OK(chaseat_prefix_root("./hoge/aaa/../././b", "a/b//./c///", &ret));
         assert_se(expected = path_join(cwd, "a/b/c/hoge/aaa/../././b"));
         ASSERT_STREQ(ret, expected);
 }
@@ -737,9 +707,9 @@ TEST(trailing_dot_dot) {
         _cleanup_close_ int fd = -EBADF;
 
         ASSERT_OK(chase("/usr/..", NULL, CHASE_PARENT, &path, &fd));
-        assert_se(path_equal(path, "/"));
+        ASSERT_STREQ(path, "/");
         ASSERT_OK(fd_get_path(fd, &fdpath));
-        assert_se(path_equal(fdpath, "/"));
+        ASSERT_STREQ(fdpath, "/");
 
         path = mfree(path);
         fdpath = mfree(fdpath);
@@ -748,15 +718,15 @@ TEST(trailing_dot_dot) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         ASSERT_OK(mkdtemp_malloc(NULL, &t));
         _cleanup_free_ char *sub = ASSERT_PTR(path_join(t, "a/b/c/d"));
-        ASSERT_OK(mkdir_p(sub, 0700));
+        ASSERT_OK_ERRNO(mkdir_p(sub, 0700));
         _cleanup_free_ char *suffixed = ASSERT_PTR(path_join(sub, ".."));
         ASSERT_OK(chase(suffixed, NULL, CHASE_PARENT, &path, &fd));
         _cleanup_free_ char *expected1 = ASSERT_PTR(path_join(t, "a/b/c"));
         _cleanup_free_ char *expected2 = ASSERT_PTR(path_join(t, "a/b"));
 
-        assert_se(path_equal(path, expected1));
+        ASSERT_STREQ(path, expected1);
         ASSERT_OK(fd_get_path(fd, &fdpath));
-        assert_se(path_equal(fdpath, expected2));
+        ASSERT_STREQ(fdpath, expected2);
 }
 
 TEST(use_chase_as_mkdir_p) {
