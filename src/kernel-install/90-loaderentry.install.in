@@ -49,6 +49,11 @@ LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
 
 case "$COMMAND" in
     remove)
+        if [ -f "/lib/modules/$KERNEL_VERSION/vmlinuz" ] && [ "$KERNEL_INSTALL_BOOT_ENTRY_TYPE" = "type2" ]; then
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "BOOT_ENTRY_TYPE=type2, not removing loader entries."
+            exit 0
+        fi
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing ${LOADER_ENTRY%.conf}*.conf"
         exec rm -f \
