@@ -14,6 +14,7 @@ AssertPathExists=/etc/initrd-release
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
 After=initrd-root-fs.target initrd-fs.target initrd.target
+Conflicts=emergency.target
 
 [Service]
 Type=oneshot
