@@ -175,6 +175,8 @@ typedef struct UnitDefaults {
         CGroupTasksMax tasks_max;
         usec_t timer_accuracy_usec;
 
+        bool restrict_suid_sgid;
+
         OOMPolicy oom_policy;
         int oom_score_adjust;
         bool oom_score_adjust_set;
