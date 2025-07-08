@@ -83,6 +83,7 @@ int user_kill(User *u, int signo);
 int user_check_linger_file(const User *u);
 void user_elect_display(User *u);
 void user_update_last_session_timer(User *u);
+void user_flush_job(User *u);
 
 const char* user_state_to_string(UserState s) _const_;
 UserState user_state_from_string(const char *s) _pure_;
