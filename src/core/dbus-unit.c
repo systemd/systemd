@@ -1619,7 +1619,7 @@ int bus_unit_method_remove_subgroup(sd_bus_message *message, void *userdata, sd_
 
         /* Allow this only if the client is privileged, is us, or is the user of the unit itself. */
         if (sender_uid != 0 && sender_uid != getuid() && sender_uid != u->ref_uid)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Client is not permitted to alter cgroup.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Client is not permitted to alter cgroup.");
 
         r = unit_remove_subcgroup(u, path);
         if (r < 0)
