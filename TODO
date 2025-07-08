@@ -128,6 +128,15 @@ Deprecations and removals:
 
 Features:
 
+* Add ELF section to make systemd main binary recognizable cleanly, the same
+  way as we make sd-boot recognizable via PE section.
+
+* Add knob to cryptsetup, to trigger automatic reboot on failure to unlock
+  disk. Enable this by default for rootfs, also in gpt-auto-generator
+
+* Add RebootUptimeMinSec= knob to PID 1, that makes systemd-shutdown sleep
+  until the specified uptime has passed, to lengthen tight boot loops.
+
 * replace bootctl's PE version check to actually use APIs from pe-binary.[ch]
   to find binary version.
 
