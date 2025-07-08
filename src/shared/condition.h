@@ -58,12 +58,13 @@ typedef enum ConditionResult {
 } ConditionResult;
 
 typedef struct Condition {
+        /* Use bitfields for ConditionType and ConditionResult to keep the whole struct in 32 bytes. */
         ConditionType type:8;
 
-        bool trigger:1;
-        bool negate:1;
+        bool trigger;
+        bool negate;
 
-        ConditionResult result:6;
+        ConditionResult result:8;
 
         char *parameter;
 

@@ -9,6 +9,19 @@
 #include "strv.h"
 #include "tests.h"
 
+TEST(xsprintf) {
+        char buf[5];
+
+        xsprintf(buf, "asdf");
+        xsprintf(buf, "%4s", "a");
+        xsprintf(buf, "%-4s", "a");
+        xsprintf(buf, "%04d", 1);
+
+        ASSERT_SIGNAL(xsprintf(buf, "asdfe"), SIGABRT);
+        ASSERT_SIGNAL(xsprintf(buf, "asdfefghdhdhdhdhd"), SIGABRT);
+        ASSERT_SIGNAL(xsprintf(buf, "%5s", "a"), SIGABRT);
+}
+
 TEST(string_erase) {
         char *x;
         x = strdupa_safe("");

@@ -15,7 +15,6 @@
 #include "cgroup-show.h"
 #include "cpu-set-util.h"
 #include "errno-util.h"
-#include "exec-directory-util.h"
 #include "exec-util.h"
 #include "exit-status.h"
 #include "extract-word.h"

@@ -484,6 +484,7 @@ possible_link_flags = [
         '-Wl,--fatal-warnings',
         '-Wl,-z,now',
         '-Wl,-z,relro',
+        '-Wl,--gc-sections',
 ]
 
 if get_option('b_sanitize') == 'none'
@@ -502,15 +503,6 @@ possible_cc_flags = [
         '-fstrict-flex-arrays=1',
         '-fvisibility=hidden',
 ]
-
-if get_option('buildtype') != 'debug'
-        possible_cc_flags += [
-                '-ffunction-sections',
-                '-fdata-sections',
-        ]
-
-        possible_link_flags += '-Wl,--gc-sections'
-endif
 
 if get_option('mode') == 'developer'
         possible_cc_flags += '-fno-omit-frame-pointer'
