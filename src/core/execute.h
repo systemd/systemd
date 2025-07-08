@@ -7,7 +7,6 @@
 #include "cgroup-util.h"
 #include "core-forward.h"
 #include "cpu-set-util.h"
-#include "exec-directory-util.h"
 #include "exec-util.h"
 #include "list.h"
 #include "log-context.h"

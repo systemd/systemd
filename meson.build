@@ -503,14 +503,7 @@ possible_cc_flags = [
         '-fvisibility=hidden',
 ]
 
-if get_option('buildtype') != 'debug'
-        possible_cc_flags += [
-                '-ffunction-sections',
-                '-fdata-sections',
-        ]
-
-        possible_link_flags += '-Wl,--gc-sections'
-endif
+possible_link_flags += '-Wl,--gc-sections'
 
 if get_option('mode') == 'developer'
         possible_cc_flags += '-fno-omit-frame-pointer'
