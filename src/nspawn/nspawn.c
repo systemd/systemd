@@ -1332,11 +1332,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NOTIFY_READY:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--notify-ready=", optarg, &arg_notify_ready);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "%s is not a valid notify mode. Valid modes are: yes, no, and ready.", optarg);
-                        arg_notify_ready = r;
+                                return r;
+
                         arg_settings_mask |= SETTING_NOTIFY_READY;
                         break;
 
@@ -5483,13 +5482,13 @@ static int run_container(
 
                 r = sd_bus_match_signal_async(
                                 bus,
-                                NULL,
+                                /* ret= */ NULL,
                                 "org.freedesktop.systemd1",
-                                NULL,
+                                /* path= */ NULL,
                                 "org.freedesktop.systemd1.Scope",
                                 "RequestStop",
                                 on_request_stop,
-                                NULL,
+                                /* install_callback= */ NULL,
                                 pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to request RequestStop match: %m");
