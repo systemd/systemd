@@ -4041,6 +4041,7 @@ static int unit_kill_one(
 int unit_kill(
                 Unit *u,
                 KillWhom whom,
+                const char *subgroup,
                 int signo,
                 int code,
                 int value,
@@ -4060,11 +4061,19 @@ int unit_kill(
         assert(SIGNAL_VALID(signo));
         assert(IN_SET(code, SI_USER, SI_QUEUE));
 
+        if (subgroup) {
+                if (!IN_SET(whom, KILL_CGROUP, KILL_CGROUP_FAIL))
+                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Killing by subgroup is only supported for 'cgroup' or 'cgroup-kill' modes.");
+
+                if (!unit_cgroup_delegate(u))
+                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Killing by subgroup is only available for units with control group delegation enabled.");
+        }
+
         main_pid = unit_main_pid(u);
         control_pid = unit_control_pid(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u) && !main_pid && !control_pid)
-                return sd_bus_error_setf(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit type does not support process killing.");
+                return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit type does not support process killing.");
 
         if (IN_SET(whom, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (!main_pid)
@@ -4095,54 +4104,66 @@ int unit_kill(
         /* Note: if we shall enqueue rather than kill we won't do this via the cgroup mechanism, since it
          * doesn't really make much sense (and given that enqueued values are a relatively expensive
          * resource, and we shouldn't allow us to be subjects for such allocation sprees) */
-        if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
+        if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL, KILL_CGROUP, KILL_CGROUP_FAIL) && code == SI_USER) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
                 if (crt && crt->cgroup_path) {
                         _cleanup_set_free_ Set *pid_set = NULL;
+                        _cleanup_free_ char *joined = NULL;
+                        const char *p;
+
+                        if (empty_or_root(subgroup))
+                                p = crt->cgroup_path;
+                        else {
+                                joined = path_join(crt->cgroup_path, subgroup);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                p = joined;
+                        }
 
                         if (signo == SIGKILL) {
-                                r = cg_kill_kernel_sigkill(crt->cgroup_path);
+                                r = cg_kill_kernel_sigkill(p);
                                 if (r >= 0) {
                                         killed = true;
-                                        log_unit_info(u, "Killed unit cgroup with SIGKILL on client request.");
+                                        log_unit_info(u, "Killed unit cgroup '%s' with SIGKILL on client request.", p);
                                         goto finish;
                                 }
                                 if (r != -EOPNOTSUPP) {
                                         if (ret >= 0)
                                                 sd_bus_error_set_errnof(ret_error, r,
                                                                         "Failed to kill unit cgroup: %m");
-                                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to kill unit cgroup: %m"));
+                                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to kill unit cgroup '%s': %m", p));
                                         goto finish;
                                 }
                                 /* Fall back to manual enumeration */
-                        } else {
-                                /* Exclude the main/control pids from being killed via the cgroup if
-                                 * not SIGKILL */
+                        } else if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL)) {
+                                /* Exclude the main/control pids from being killed via the cgroup if not
+                                 * SIGKILL */
                                 r = unit_pid_set(u, &pid_set);
                                 if (r < 0)
                                         return log_oom();
                         }
 
-                        r = cg_kill_recursive(crt->cgroup_path, signo, 0, pid_set, kill_common_log, u);
+                        r = cg_kill_recursive(p, signo, /* flags= */ 0, pid_set, kill_common_log, u);
                         if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT)) {
                                 if (ret >= 0)
                                         sd_bus_error_set_errnof(
                                                         ret_error, r,
-                                                        "Failed to send signal SIG%s to auxiliary processes: %m",
-                                                        signal_to_string(signo));
+                                                        "Failed to send signal SIG%s to processes in unit cgroup '%s': %m",
+                                                        signal_to_string(signo), p);
 
                                 RET_GATHER(ret, log_unit_warning_errno(
                                                         u, r,
-                                                        "Failed to send signal SIG%s to auxiliary processes on client request: %m",
-                                                        signal_to_string(signo)));
+                                                        "Failed to send signal SIG%s to processes in unit cgroup '%s' on client request: %m",
+                                                        signal_to_string(signo), p));
                         }
-                        killed = killed || r >= 0;
+                        killed = killed || r > 0;
                 }
         }
 
 finish:
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
-        if (ret >= 0 && !killed && IN_SET(whom, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
+        if (ret >= 0 && !killed && IN_SET(whom, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL, KILL_CGROUP_FAIL))
                 return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
 
         return ret;
