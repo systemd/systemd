@@ -3,15 +3,13 @@
 set -eu
 set -o pipefail
 
-cpp="${1:?}"
+CC="${1:?}"
 shift
 
-includes=()
-for i in "$@"; do
-    includes+=(-include "$i")
-done
+HEADER="${1:?}"
+shift
 
-$cpp -dM "${includes[@]}" - </dev/null | \
+$CC -dM -include "$HEADER" "$@" - </dev/null | \
      grep -vE 'AUDIT_.*(FIRST|LAST)_' | \
      sed -r -n 's/^#define\s+AUDIT_(\w+)\s+([0-9]{4})\s*$$/\1\t\2/p' | \
      sort -k2

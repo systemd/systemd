@@ -124,39 +124,26 @@ missing_audit_h = files('missing_audit.h')
 missing_syscall_def_h = files('missing_syscall_def.h')
 basic_sources += missing_syscall_def_h
 
-generate_af_list = find_program('generate-af-list.sh')
-af_list_txt = custom_target(
-        output : 'af-list.txt',
-        command : [generate_af_list, cpp, files('../include/override/sys/socket.h')],
-        capture : true)
-
-generate_arphrd_list = find_program('generate-arphrd-list.sh')
-arphrd_list_txt = custom_target(
-        output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, files('../include/uapi/linux/if_arp.h')],
-        capture : true)
-
-generate_cap_list = find_program('generate-cap-list.sh')
-cap_list_txt = custom_target(
-        output : 'cap-list.txt',
-        command : [generate_cap_list, cpp, files('../include/uapi/linux/capability.h')],
-        capture : true)
-
-generate_errno_list = find_program('generate-errno-list.sh')
-errno_list_txt = custom_target(
-        output : 'errno-list.txt',
-        command : [generate_errno_list, cpp],
-        capture : true)
-
 generated_gperf_headers = []
-foreach item : [['af',     af_list_txt,     'af',         '',        ['<sys/socket.h>']],
-                ['arphrd', arphrd_list_txt, 'arphrd',     'ARPHRD_', []],
-                ['cap',    cap_list_txt,    'capability', '',        []],
-                ['errno',  errno_list_txt,  'errno',      '',        []]]
+foreach item : [
+        # name,    source,         struct name,  prefix,    headers
+        ['af',     af_sources,     'af',         '',        ['<sys/socket.h>'],       ],
+        ['arphrd', arphrd_sources, 'arphrd',     'ARPHRD_', ['<linux/if_arp.h>'],     ],
+        ['cap',    cap_sources,    'capability', '',        ['<linux/capability.h>'], ],
+        ['errno',  [],             'errno',      '',        ['<errno.h>'],            ],
+]
+
+        fname = '@0@-list.txt'.format(item[0])
+        generate_list = files('generate-@0@-list.sh'.format(item[0]))
+        list_txt = custom_target(
+                input : [generate_list, item[1]],
+                output : fname,
+                command : [env, 'bash', generate_list, cpp, system_include_args],
+                capture : true)
 
         fname = '@0@-from-name.gperf'.format(item[0])
         gperf_file = custom_target(
-                input : item[1],
+                input : list_txt,
                 output : fname,
                 command : [generate_gperfs, item[2], item[3], '@INPUT@'] + item[4],
                 capture : true)
@@ -176,7 +163,7 @@ foreach item : [['af',     af_list_txt,     'af',         '',        ['<sys/sock
         fname = '@0@-to-name.inc'.format(item[0])
         awkscript = '@0@-to-name.awk'.format(item[0])
         target2 = custom_target(
-                input : [awkscript, item[1]],
+                input : [awkscript, list_txt],
                 output : fname,
                 command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
                 capture : true)
