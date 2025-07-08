@@ -201,6 +201,9 @@ static void unit_init(Unit *u) {
                          * still tune this value through their own unit file */
                         (void) get_process_umask(0, &ec->umask);
                 }
+
+                if (u->manager->defaults.restrict_suid_sgid)
+                        ec->restrict_suid_sgid = true;
         }
 
         kc = unit_get_kill_context(u);
