@@ -21,6 +21,15 @@ _kernel_install() {
     local comps
     local MACHINE_ID
     local cur=${COMP_WORDS[COMP_CWORD]}
+    local prev=${COMP_WORDS[COMP_CWORD-1]}
+    local entry_types="type1 type2 all"
+
+    case "$prev" in
+        --entry-type)
+            COMPREPLY=( $(compgen -W "$entry_types" -- "$cur") )
+            return 0
+            ;;
+    esac
 
     case $COMP_CWORD in
         1)
@@ -41,6 +50,11 @@ _kernel_install() {
             compopt -o filenames
             ;;
     esac
+
+    if [[ "${COMP_WORDS[1]}" == "remove" ]] && [[ $cur == -* ]]; then
+        COMPREPLY=( $(compgen -W '--entry-type' -- "$cur") )
+        return 0
+    fi
 
     COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
     return 0
