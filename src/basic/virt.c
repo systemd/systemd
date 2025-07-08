@@ -294,6 +294,11 @@ static Virtualization detect_vm_dmi(void) {
               }
         }
 
+        /* The DMI vendor tables in /sys/class/dmi/id don't help us distinguish between GCE
+         * virtual machines and bare-metal instances, so we need to look at hypervisor. */
+        if (r == VIRTUALIZATION_GOOGLE && detect_vm_cpuid() != VIRTUALIZATION_KVM)
+                r = VIRTUALIZATION_NONE;
+
         /* If we haven't identified a VM, but the firmware indicates that there is one, indicate as much. We
          * have no further information about what it is. */
         if (r == VIRTUALIZATION_NONE && detect_vm_smbios() == SMBIOS_VM_BIT_SET)
