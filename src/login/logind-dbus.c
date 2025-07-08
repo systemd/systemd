@@ -128,10 +128,10 @@ static int get_sender_session(
                 session = hashmap_get(m->sessions, name);
 
         if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SESSION_FOR_PID,
-                                         consult_display ?
-                                         "Caller does not belong to any known session and doesn't own any suitable session." :
-                                         "Caller does not belong to any known session.");
+                return sd_bus_error_set(error, BUS_ERROR_NO_SESSION_FOR_PID,
+                                        consult_display ?
+                                        "Caller does not belong to any known session and doesn't own any suitable session." :
+                                        "Caller does not belong to any known session.");
 
         *ret = session;
         return 0;
@@ -183,8 +183,8 @@ static int get_sender_user(Manager *m, sd_bus_message *message, sd_bus_error *er
                 user = hashmap_get(m->users, UID_TO_PTR(uid));
 
         if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID,
-                                         "Caller does not belong to any logged in or lingering user");
+                return sd_bus_error_set(error, BUS_ERROR_NO_USER_FOR_PID,
+                                        "Caller does not belong to any logged in or lingering user");
 
         *ret = user;
         return 0;
@@ -1183,31 +1183,31 @@ static int manager_create_session_by_bus(
                 if (vtnr == 0)
                         vtnr = (uint32_t) v;
                 else if (vtnr != (uint32_t) v)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Specified TTY and VT number do not match");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "Specified TTY and VT number do not match");
 
         } else if (tty_is_console(tty)) {
 
                 if (!seat)
                         seat = m->seat0;
                 else if (seat != m->seat0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Console TTY specified but seat is not seat0");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "Console TTY specified but seat is not seat0");
 
                 if (vtnr != 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Console TTY specified but VT number is not 0");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "Console TTY specified but VT number is not 0");
         }
 
         if (seat) {
                 if (seat_has_vts(seat)) {
                         if (!vtnr_is_valid(vtnr))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                         "VT number out of range");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                        "VT number out of range");
                 } else {
                         if (vtnr != 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                         "Seat has no VTs but VT number not 0");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                        "Seat has no VTs but VT number not 0");
                 }
         }
 
@@ -1229,7 +1229,7 @@ static int manager_create_session_by_bus(
                         remote_host,
                         &session);
         if (r == -EBUSY)
-                return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already running in a session or user slice");
+                return sd_bus_error_set(error, BUS_ERROR_SESSION_BUSY, "Already running in a session or user slice");
         if (r == -EADDRNOTAVAIL)
                 return sd_bus_error_set(error, BUS_ERROR_SESSION_BUSY, "Virtual terminal already occupied by a session");
         if (r == -EUSERS)
@@ -2240,8 +2240,8 @@ static int verify_shutdown_creds(
                 if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS) &&
                     (offending->mode != INHIBIT_BLOCK_WEAK ||
                      (uid == 0 && FLAGS_SET(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS))))
-                        return sd_bus_error_setf(error, BUS_ERROR_BLOCKED_BY_INHIBITOR_LOCK,
-                                                 "Operation denied due to active block inhibitor");
+                        return sd_bus_error_set(error, BUS_ERROR_BLOCKED_BY_INHIBITOR_LOCK,
+                                                "Operation denied due to active block inhibitor");
 
                 /* We want to always ask here, even for root, to only allow bypassing if explicitly allowed
                  * by polkit, unless a weak blocker is used, in which case it will be authorized. */
@@ -3136,8 +3136,8 @@ static int method_set_reboot_parameter(
         if (r < 0)
                 return r;
         if (r > 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Reboot parameter not supported in containers, refusing.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Reboot parameter not supported in containers, refusing.");
 
         r = bus_verify_polkit_async(
                         message,
@@ -3801,16 +3801,16 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
 
         /* Delay is only supported for shutdown/sleep */
         if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Delay inhibitors only supported for shutdown and sleep");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Delay inhibitors only supported for shutdown and sleep");
 
         /* Don't allow taking delay locks while we are already
          * executing the operation. We shouldn't create the impression
          * that the lock was successful if the machine is about to go
          * down/suspend any moment. */
         if (m->delayed_action && m->delayed_action->inhibit_what & w)
-                return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS,
-                                         "The operation inhibition has been requested for is already running");
+                return sd_bus_error_set(error, BUS_ERROR_OPERATION_IN_PROGRESS,
+                                        "The operation inhibition has been requested for is already running");
 
         BIT_FOREACH(i, w) {
                 const InhibitWhat v = 1U << i;

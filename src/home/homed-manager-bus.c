@@ -549,7 +549,7 @@ static int method_adopt_home(
         if (!path_is_absolute(image_path) || !path_is_safe(image_path))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path is not absolute or not valid: %s", image_path);
         if (flags != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags field must be zero.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags field must be zero.");
 
         r = bus_verify_polkit_async(
                         message,
@@ -598,7 +598,7 @@ static int method_create_home(sd_bus_message *message, void *userdata, sd_bus_er
                 if (r < 0)
                         return r;
                 if ((flags & ~SD_HOMED_CREATE_FLAGS_ALL) != 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
         }
 
         r = bus_verify_polkit_async(
@@ -963,11 +963,11 @@ static int method_add_signing_key(sd_bus_message *message, void *userdata, sd_bu
                 return r;
 
         if (flags != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags parameter must be zero.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags parameter must be zero.");
         if (!valid_public_key_name(fn))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name not valid: %s", fn);
         if (streq(fn, "local.public"))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Refusing to write local public key.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Refusing to write local public key.");
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         r = openssl_pubkey_from_pem(pem, /* pem_size= */ SIZE_MAX, &pkey);
@@ -1040,13 +1040,13 @@ static int method_remove_signing_key(sd_bus_message *message, void *userdata, sd
                 return r;
 
         if (flags != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags parameter must be zero.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags parameter must be zero.");
 
         if (!valid_public_key_name(fn))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name not valid: %s", fn);
 
         if (streq(fn, "local.public"))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Refusing to remove local key.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Refusing to remove local key.");
 
         if (!hashmap_contains(m->public_keys, fn))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name does not exist: %s", fn);
