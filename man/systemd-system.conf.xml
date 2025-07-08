@@ -550,6 +550,17 @@
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultRestrictSUIDSGID=</varname></term>
+
+        <listitem><para>Takes a boolean argument. This is used as a default for units
+        which lack an explicit definition for <varname>RestrictSUIDSGID=</varname>.
+        See <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
