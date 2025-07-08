@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/magic.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -20,7 +21,6 @@
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "import-util.h"
-#include "missing_magic.h"
 #include "process-util.h"
 #include "sort-util.h"
 #include "stat-util.h"

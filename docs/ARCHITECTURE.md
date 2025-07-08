@@ -20,6 +20,9 @@ There are many, and more are constantly added, so we will not enumerate them all
 
 The code that is shared between components is split into a few directories, each with a different purpose:
 
+- 'src/include/uapi/' contains copy of kernel headers we use.
+  'src/include/override/' contains wrappers for libc and kernel headers, to provide several missing symbols.
+
 - `src/basic/` and `src/fundamental/` — those directories contain code primitives that are used by all other code.
   `src/fundamental/` is stricter, because it used for EFI and user-space code, while `src/basic/` is only used for user-space code.
   The code in `src/fundamental/` cannot depend on any other code in the tree, and `src/basic/` can depend only on itself and `src/fundamental/`.
@@ -42,6 +45,12 @@ Shared code that is used by multiple components that do not link to `libsystemd-
 Any code that is used only for EFI goes under `src/boot/efi/`, and `src/fundamental/` if is shared with non-EFI components.
 
 To summarize:
+
+`src/include/uapi/`
+- copy of kernel headers
+
+`src/include/override`
+- wrappers for libc and kernel headers
 
 `src/fundamental/`
 - may be used by all code in the tree
