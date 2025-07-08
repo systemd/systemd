@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_GCRYPT
-
 #include <sys/syslog.h>
 
 #include "gcrypt-util.h"
+
+#if HAVE_GCRYPT
 
 static void *gcrypt_dl = NULL;
 
@@ -83,8 +83,10 @@ static int dlopen_gcrypt(void) {
                         DLSYM_ARG(gcry_randomize),
                         DLSYM_ARG(gcry_strerror));
 }
+#endif
 
 int initialize_libgcrypt(bool secmem) {
+#if HAVE_GCRYPT
         int r;
 
         r = dlopen_gcrypt();
@@ -105,5 +107,7 @@ int initialize_libgcrypt(bool secmem) {
         sym_gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 
         return 0;
-}
+#else
+        return -EOPNOTSUPP;
 #endif
+}
