@@ -1204,11 +1204,13 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                 if (fstat(fileno(f), &st) < 0)
                         return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file '%s': %m", s->pid_file);
 
-                if (st.st_uid != 0)
+                if (st.st_uid != getuid())
                         return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EPERM),
-                                                    "New main PID "PID_FMT" from PID file does not belong to service, and PID file is not owned by root. Refusing.", pidref.pid);
+                                                    "New main PID "PID_FMT" from PID file does not belong to service, and PID file is owned by "UID_FMT" (must be owned by "UID_FMT"). Refusing.",
+                                                    pidref.pid, st.st_uid, getuid());
 
-                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, accepting anyway since PID file is owned by root.", pidref.pid);
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, accepting anyway since PID file is owned by "UID_FMT".",
+                               pidref.pid, st.st_uid);
         }
 
         if (s->main_pid_known) {
