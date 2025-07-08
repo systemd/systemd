@@ -3,6 +3,9 @@
 set -eu
 set -o pipefail
 
-${1:?} -dM -include "${2:?}" - </dev/null | \
+CC=${1:?}
+shift
+
+$CC -dM -include linux/capability.h "$@" - </dev/null | \
        awk '/^#define[ \t]+CAP_[A-Z_]+[ \t]+/ { print $2; }' | \
        grep -v CAP_LAST_CAP
