@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <unistd.h>
@@ -35,8 +36,6 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "missing_magic.h"
-#include "missing_syscall.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "recovery-key.h"
