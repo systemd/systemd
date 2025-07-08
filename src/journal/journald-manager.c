@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/audit.h>
 #include <linux/sockios.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -50,7 +51,6 @@
 #include "log.h"
 #include "log-ratelimit.h"
 #include "memory-util.h"
-#include "missing_audit.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
