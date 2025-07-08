@@ -133,6 +133,15 @@ EFI_STATUS linux_exec(
                                 kernel,
                                 initrd);
 
+        /* On previous systemd-stub, we used to call LoadImage, even though we were overriding security arch
+         * protocols. But that was enough for shim to believe that we correctly verified the payload.  That
+         * means that some distro (like Fedora Cloud UKI) managed to boot shim directly to an UKI without
+         * building shim with DISABLE_EBS_PROTECTION=n, even though it should have not worked.  So to older
+         * shim and make them think we are a bootloader that verified the kernel, we just need to verify an
+         * empty buffer. It will fail. But shim will be happy.
+         */
+        shim_mark_as_participating();
+
         err = pe_kernel_check_no_relocation(kernel->iov_base);
         if (err != EFI_SUCCESS)
                 return err;
