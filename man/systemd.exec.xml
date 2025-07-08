@@ -2626,7 +2626,11 @@ RestrictNamespaces=~cgroup net</programlisting>
         programs that actually require them. Note that this restricts marking of any type of file system
         object with these bits, including both regular files and directories (where the SGID is a different
         meaning than for files, see documentation). This option is implied if <varname>DynamicUser=</varname>
-        is enabled. Defaults to off.</para>
+        is enabled.</para>
+
+        <para>In other cases, this setting defaults to the value set with <varname>DefaultRestrictSUIDSGID=</varname> in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which
+        defaults to off.</para>
 
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
