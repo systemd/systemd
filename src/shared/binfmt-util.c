@@ -25,7 +25,13 @@ int binfmt_mounted(void) {
         if (r <= 0)
                 return r;
 
-        return access_fd(fd, W_OK) >= 0;
+        r = access_fd(fd, W_OK);
+        if (r == -EACCES)
+                return false;
+        if (r < 0)
+                return r;
+
+        return true;
 }
 
 int disable_binfmt(void) {
