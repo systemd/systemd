@@ -8,7 +8,6 @@
 #include "chattr-util.h"
 #include "device-util.h"
 #include "errno-util.h"
-#include "missing_syscall.h"
 #include "quota-util.h"
 
 int quotactl_fd_with_fallback(int fd, int cmd, int id, void *addr) {

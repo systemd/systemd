@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/btrfs.h>
+#include <linux/fs.h>
 #include <linux/magic.h>
+#include <linux/xfs.h>
 #include <sys/ioctl.h>
 #include <sys/vfs.h>
 
-#include "missing_fs.h"
-#include "missing_magic.h"
-#include "missing_xfs.h"
 #include "resize-fs.h"
 #include "stat-util.h"
 #include "stdio-util.h"
