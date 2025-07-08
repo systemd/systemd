@@ -361,6 +361,17 @@ static const char* const job_mode_table[_JOB_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
 
+/* This table maps ExecDirectoryType to the setting it is configured with in the unit */
+static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
+        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectory",
+        [EXEC_DIRECTORY_STATE]         = "StateDirectory",
+        [EXEC_DIRECTORY_CACHE]         = "CacheDirectory",
+        [EXEC_DIRECTORY_LOGS]          = "LogsDirectory",
+        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectory",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
+
 Glyph unit_active_state_to_glyph(UnitActiveState state) {
         static const Glyph map[_UNIT_ACTIVE_STATE_MAX] = {
                 [UNIT_ACTIVE]       = GLYPH_BLACK_CIRCLE,

@@ -296,6 +296,16 @@ typedef enum JobMode {
         _JOB_MODE_INVALID = -EINVAL,
 } JobMode;
 
+typedef enum ExecDirectoryType {
+        EXEC_DIRECTORY_RUNTIME,
+        EXEC_DIRECTORY_STATE,
+        EXEC_DIRECTORY_CACHE,
+        EXEC_DIRECTORY_LOGS,
+        EXEC_DIRECTORY_CONFIGURATION,
+        _EXEC_DIRECTORY_TYPE_MAX,
+        _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
+} ExecDirectoryType;
+
 char* unit_dbus_path_from_name(const char *name);
 int unit_name_from_dbus_path(const char *path, char **name);
 
@@ -360,5 +370,8 @@ NotifyAccess notify_access_from_string(const char *s) _pure_;
 
 const char* job_mode_to_string(JobMode t) _const_;
 JobMode job_mode_from_string(const char *s) _pure_;
+
+const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
+ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
 
 Glyph unit_active_state_to_glyph(UnitActiveState state);

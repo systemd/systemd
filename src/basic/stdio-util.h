@@ -19,7 +19,7 @@ static inline char* snprintf_ok(char *buf, size_t len, const char *format, ...) 
 }
 
 #define xsprintf(buf, fmt, ...) \
-        assert_message_se(snprintf_ok(buf, ELEMENTSOF(buf), fmt, ##__VA_ARGS__), "xsprintf: " #buf "[] must be big enough")
+        assert_message_se(snprintf_ok(buf, ELEMENTSOF(buf), fmt, ##__VA_ARGS__), "xsprintf: buffer too small")
 
 #define VA_FORMAT_ADVANCE(format, ap)                                   \
 do {                                                                    \
