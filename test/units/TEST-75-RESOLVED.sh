@@ -53,7 +53,6 @@ enable_ipv6() {
 
 monitor_check_rr() (
     set +x
-    set +o pipefail
     local since="${1:?}"
     local match="${2:?}"
 

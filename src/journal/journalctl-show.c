@@ -371,7 +371,7 @@ static int on_synchronize_reply(
 static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         Context *c = ASSERT_PTR(userdata);
-        int r;
+        int r = 0;
 
         assert(s);
         assert(si);
@@ -381,7 +381,7 @@ static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void
                 goto finish;
 
         if (c->synchronize_varlink) /* Already pending? Then exit immediately, so that user can cancel the sync */
-                return sd_event_exit(c->event, EXIT_SUCCESS);
+                goto finish;
 
         r = varlink_connect_journal(&vl);
         if (r < 0) {
@@ -417,7 +417,7 @@ static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void
         return 0;
 
 finish:
-        return sd_event_exit(c->event, si->ssi_signo);
+        return sd_event_exit(c->event, r);
 }
 
 static int setup_event(Context *c, int fd) {
@@ -436,12 +436,12 @@ static int setup_event(Context *c, int fd) {
         (void) sd_event_add_signal(e, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_signal, c);
         (void) sd_event_add_signal(e, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_signal, c);
 
-        r = sd_event_add_io(e, NULL, fd, EPOLLIN, &on_journal_event, c);
+        r = sd_event_add_io(e, /* ret = */ NULL, fd, EPOLLIN, &on_journal_event, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to add io event source for journal: %m");
 
         /* Also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that, i.e. when it is closed. */
-        r = sd_event_add_io(e, NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, NULL, INT_TO_PTR(-ECANCELED));
+        r = sd_event_add_io(e, /* ret = */ NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, /* callback = */ NULL, /* userdata = */ NULL);
         if (r == -EPERM)
                 /* Installing an epoll watch on a regular file doesn't work and fails with EPERM. Which is
                  * totally OK, handle it gracefully. epoll_ctl() documents EPERM as the error returned when
@@ -544,8 +544,6 @@ int action_show(char **matches) {
         }
 
         if (arg_follow) {
-                int sig;
-
                 assert(poll_fd >= 0);
 
                 r = setup_event(&c, poll_fd);
@@ -555,14 +553,12 @@ int action_show(char **matches) {
                 r = sd_event_loop(c.event);
                 if (r < 0)
                         return r;
-                sig = r;
 
                 r = update_cursor(c.journal);
                 if (r < 0)
                         return r;
 
-                /* re-send the original signal. */
-                return sig;
+                return 0;
         }
 
         (void) sd_notify(/* unset_environment= */ false, "READY=1");

@@ -305,13 +305,11 @@ testcase_mount_ratelimit() {
 
     # Figure out if we have entered the rate limit state.
     # If the infra is slow we might not enter the rate limit state; in that case skip the exit check.
-    set +o pipefail
     journalctl --sync
     if timeout 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) entered rate limit'; then
         journalctl --sync
         timeout 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) left rate limit'
     fi
-    set -o pipefail
 
     # Verify that the mount units are always cleaned up at the end.
     # Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
