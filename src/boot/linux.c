@@ -211,6 +211,29 @@ EFI_STATUS linux_exec(
 
         log_wait();
 
+        /*
+         * Before cab9c7b5a42effa8a45611fc6b8556138c869b5f, systemd-stub called LoadImage, and overrode the
+         * security arch protocols to implement a custom check that checked that the image is our internal
+         * payload. This check was enough, because that payload was part of the image from which the stub was
+         * extracted, so it had been verified previously. Below, we're about to execute the internal
+         * payload. We will mark shim as participating by doing a stub verification call. The call fails but
+         * is enough for shim to set the participation flag in its internal state. Effectively, we are
+         * trusting the same thing, because while previously we called a verification function, we overrode
+         * it to accept our internal payload, and now we just execute that same payload directly.
+         *
+         * Shim code supports building with DISABLE_EBS_PROTECTION=y:
+         * > On systems where a second stage bootloader is not used, and the Linux Kernel is embedded in the
+         * > same EFI image as shim and booted directly from shim, shim's ExitBootServices() hook can cause
+         * > problems as the kernel never calls the shim's verification protocol. In this case calling the
+         * > shim verification protocol is unnecessary and redundant as shim has already verified the kernel
+         * > when shim loaded the kernel as the second stage loader.
+         *
+         * This also describes our case. We want to boot an already-verified kernel and need to disable the
+         * check in ExitBootServices.
+         */
+        if (secure_boot_enabled())
+                shim_mark_as_participating();
+
         if (entry_point > 0) {
                 EFI_IMAGE_ENTRY_POINT entry =
                         (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *) loaded_image->ImageBase + entry_point);
