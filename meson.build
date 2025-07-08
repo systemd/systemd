@@ -561,6 +561,9 @@ conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 # compilation result tests
 
 conf.set('_GNU_SOURCE', 1)
+# glibc always defines _LARGEFILE64_SOURCE when _GNU_SOURCE is set, but musl does not do that,
+# and it is necessary for making getdents64() and struct dirent64 exist.
+conf.set('_LARGEFILE64_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
@@ -578,6 +581,10 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
+        ['mallinfo',          '''#include <malloc.h>''', 'musl'],
+        ['malloc_info',       '''#include <malloc.h>''', 'musl'],
+        ['malloc_trim',       '''#include <malloc.h>''', 'musl'],
+        ['renameat2',         '''#include <stdio.h>''',  'musl'],
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
@@ -588,7 +595,6 @@ foreach ident : [
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsopen',            '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['fspick',            '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
@@ -599,18 +605,24 @@ foreach ident : [
         ['ioprio_get',        '''#include <sched.h>'''],        # no known header declares ioprio_get
         ['ioprio_set',        '''#include <sched.h>'''],        # no known header declares ioprio_set
         ['rt_tgsigqueueinfo', '''#include <signal.h>'''],       # no known header declares rt_tgsigqueueinfo
+        ['open_tree_attr',    '''#include <sys/mount.h>'''],    # no known header declares open_tree_attr
         ['quotactl_fd',       '''#include <sys/quota.h>'''],    # no known header declares quotactl_fd
         ['fchmodat2',         '''#include <sys/stat.h>'''],     # no known header declares fchmodat2
         ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
         ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
         ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
-        ['pivot_root',        '''#include <sys/syscall.h>'''],  # no known header declares pivot_root
+        ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
+        ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
         ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
-        ['open_tree_attr',    '''#include <sys/mount.h>'''],    # no known header declares open_tree_attr
+        ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
 
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        if ident.length() <= 2 or get_option('libc') == ident[2]
+                have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        else
+                have = true
+        endif
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
@@ -694,15 +706,24 @@ conf.set('GPERF_LEN_TYPE', gperf_len_type,
 if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
-foreach header : ['crypt.h',
-                  'sys/sdt.h',
-                  'threads.h',
-                  'valgrind/memcheck.h',
-                  'valgrind/valgrind.h',
-                 ]
 
-        conf.set10('HAVE_' + header.underscorify().to_upper(),
-                   cc.has_header(header))
+foreach tuple : [
+        ['crypt.h'],
+        ['gshadow.h', 'musl'],
+        ['nss.h',     'musl'],
+        ['printf.h',  'musl'],
+        ['sys/sdt.h'],
+        ['threads.h'],
+        ['valgrind/memcheck.h'],
+        ['valgrind/valgrind.h'],
+]
+
+        if tuple.length() <= 1 or get_option('libc') == tuple[1]
+                have = cc.has_header(tuple[0])
+        else
+                have = true
+        endif
+        conf.set10('HAVE_' + tuple[0].underscorify().to_upper(), have)
 endforeach
 
 #####################################################################
@@ -1600,11 +1621,9 @@ foreach term : ['analyze',
                 'efi',
                 'environment-d',
                 'firstboot',
-                'gshadow',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
-                'idn',
                 'ima',
                 'ipe',
                 'initrd',
@@ -1616,8 +1635,6 @@ foreach term : ['analyze',
                 'mountfsd',
                 'networkd',
                 'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
                 'oomd',
                 'portabled',
                 'pstore',
@@ -1643,15 +1660,51 @@ endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
+have = get_option('idn')
+if have and get_option('libc') == 'musl'
+        # musl does not have NI_IDN. Let's check if it is defined, and gracefully disable the support if not.
+        if meson.version().version_compare('>=1.3.0')
+                have_ni_idn = cc.has_define('NI_IDN', prefix : '''#include <netdb.h>''', args : '-D_GNU_SOURCE')
+        else
+                have_ni_idn = cc.has_header_symbol('netdb.h', 'NI_IDN', args : '-D_GNU_SOURCE')
+        endif
+        if not have_ni_idn
+                warning('IDN support is requested but NI_IDN is not defined, disabling it.')
+                have = false
+        endif
+endif
+conf.set10('ENABLE_IDN', have)
+
+have = get_option('gshadow')
+if have and conf.get('HAVE_GSHADOW_H') == 0
+        warning('support for shadow group is requested but gshadow.h does not exist, disabling it.')
+        have = false
+endif
+conf.set10('ENABLE_GSHADOW', have)
+
+have_nss_h = conf.get('HAVE_NSS_H') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
         if want.allowed()
-                have = get_option(tuple[1])
+                have = get_option(tuple[1]) and have_nss_h
                 if want.enabled() and not have
+                        if not have_nss_h
+                                error('@0@ is requested but nss.h does not exist'.format(tuple[0]))
+                        endif
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
         else
+                have = false
+        endif
+        name = 'ENABLE_' + tuple[0].underscorify().to_upper()
+        conf.set10(name, have)
+endforeach
+foreach tuple : [['nss-myhostname'],
+                 ['nss-systemd']]
+        have = get_option(tuple[0])
+        if have and not have_nss_h
+                warning('@0@ is requested but nss.h does not exist, disabling it.'.format(tuple[0]))
                 have = false
         endif
         name = 'ENABLE_' + tuple[0].underscorify().to_upper()
@@ -2016,16 +2069,33 @@ dbus_programs = []
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
 
+# This is similar to system_includes below, but for passing custom_target().
+system_include_args = [
+        '-isystem', meson.project_build_root()  / 'src/include/override',
+        '-isystem', meson.project_source_root() / 'src/include/override',
+        '-isystem', meson.project_build_root()  / 'src/include/uapi',
+        '-isystem', meson.project_source_root() / 'src/include/uapi',
+]
+
+system_includes = [
+        include_directories(
+                # gcc(1) says
+                # "Directories specified with -isystem options are scanned in left-to-right order",
+                # and meson puts the directories in the reversed order. Hence, a directory with a lower
+                # priority must be listed earlier.
+                'src/include/uapi',
+                'src/include/override',
+                is_system : true,
+        ),
+]
+
 basic_includes = [
         include_directories(
                 'src/basic',
                 'src/fundamental',
                 'src/systemd',
         ),
-        include_directories(
-                'src/basic/include',
-                is_system : true,
-        ),
+        system_includes,
         version_include,
 ]
 
@@ -2047,6 +2117,8 @@ includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
+subdir('src/include')
+subdir('src/libc')
 subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
@@ -2062,7 +2134,8 @@ libsystemd = shared_library(
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic_static],
+        link_with : [libc_wrapper_static,
+                     libbasic_static],
         link_whole : [libsystemd_static],
         dependencies : [librt,
                         threads,
@@ -2075,6 +2148,7 @@ libsystemd = shared_library(
 if static_libsystemd != 'false'
         install_libsystemd_static = static_library(
                 'systemd',
+                libc_wrapper_sources,
                 libsystemd_sources,
                 basic_sources,
                 fundamental_sources,
@@ -2120,6 +2194,7 @@ libudev = shared_library(
 if static_libudev != 'false'
         install_libudev_static = static_library(
                 'udev',
+                libc_wrapper_sources,
                 basic_sources,
                 fundamental_sources,
                 shared_sources,
@@ -2224,6 +2299,7 @@ nss_template = {
         # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned
         'link_args' : ['-z', 'nodelete'],
         'link_with' : [
+                libc_wrapper_static,
                 libsystemd_static,
                 libshared_static,
                 libbasic_static,
