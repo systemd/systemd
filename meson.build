@@ -2016,6 +2016,14 @@ dbus_programs = []
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
 
+# This is similar to system_includes below, but for passing custom_target().
+system_include_args = [
+        '-isystem', meson.project_build_root()  / 'src/include/override',
+        '-isystem', meson.project_source_root() / 'src/include/override',
+        '-isystem', meson.project_build_root()  / 'src/include/uapi',
+        '-isystem', meson.project_source_root() / 'src/include/uapi',
+]
+
 system_includes = [
         include_directories(
                 # gcc(1) says
@@ -2056,6 +2064,7 @@ includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
+subdir('src/include')
 subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
