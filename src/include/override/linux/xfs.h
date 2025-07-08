@@ -23,10 +23,10 @@ typedef struct xfs_fsop_geom {
         uint64_t rtblocks;
         uint64_t rtextents;
         uint64_t logstart;
-        unsigned char uuid[16];
+        uint8_t  uuid[16];
         uint32_t sunit;
         uint32_t swidth;
-        int32_t version;
+        int32_t  version;
         uint32_t flags;
         uint32_t logsectsize;
         uint32_t rtsectsize;
