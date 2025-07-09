@@ -191,6 +191,8 @@ static void unit_init(Unit *u) {
                         ec->oom_score_adjust_set = true;
                 }
 
+                ec->restrict_suid_sgid = u->manager->defaults.restrict_suid_sgid;
+
                 if (MANAGER_IS_SYSTEM(u->manager))
                         ec->keyring_mode = EXEC_KEYRING_SHARED;
                 else {

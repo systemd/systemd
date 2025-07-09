@@ -773,6 +773,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_defaults.start_limit.interval}, /* obsolete alias */
                 { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_defaults.start_limit.interval},
                 { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0,                        &arg_defaults.start_limit.burst   },
+                { "Manager", "DefaultRestrictSUIDSGID",      config_parse_bool,                  0,                        &arg_defaults.restrict_suid_sgid  },
                 { "Manager", "DefaultEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_default_environment          },
                 { "Manager", "ManagerEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_manager_environment          },
                 { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU,               arg_defaults.rlimit               },
