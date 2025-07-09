@@ -52,6 +52,7 @@ check_sd() {
         fail=1
     fi
 
+    ls -lh /run/systemd/transient/upgrade_timer_test.{service,timer} || true
     systemctl status upgrade_timer_test.{service,timer}
     timer1_new=$(systemctl show -P TimersCalendar upgrade_timer_test.timer)
     timer2_new=$(systemctl show -P NextElapseUSecRealtime upgrade_timer_test.timer)
@@ -76,6 +77,8 @@ after_2h=$((now + 3600 * 2))
 systemd-run --on-calendar="@$after_2h" -u upgrade_timer_test date
 timer1=$(systemctl show -P TimersCalendar upgrade_timer_test.timer)
 timer2=$(systemctl show -P NextElapseUSecRealtime upgrade_timer_test.timer)
+
+ls -lh /run/systemd/transient/upgrade_timer_test.{service,timer} || true
 
 dnf downgrade -y --allowerasing --disablerepo '*' "$pkgdir"/distro/*.rpm
 
