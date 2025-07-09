@@ -63,7 +63,7 @@ _systemd_analyze() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
                              --man=no --generators=yes -q --quiet'
-        [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root'
+        [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root --debugger'
     )
 
     local -A VERBS=(
@@ -83,6 +83,7 @@ _systemd_analyze() {
         [CAPABILITY]='capability'
         [TRANSIENT_SETTINGS]='transient-settings'
         [UNIT_SHELL]='unit-shell'
+        [UNIT_GDB]='unit-gdb'
     )
 
     local CONFIGS='locale.conf systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -238,6 +239,13 @@ _systemd_analyze() {
     elif __contains_word "$verb" ${VERBS[UNIT_SHELL]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version'
+        else
+            comps=$( __get_services $mode )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[UNIT_GDB]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --debugger --root'
         else
             comps=$( __get_services $mode )
         fi
