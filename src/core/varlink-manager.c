@@ -39,11 +39,41 @@ static int manager_environment_build_json(sd_json_variant **ret, const char *nam
         return sd_json_variant_new_array_strv(ret, l);
 }
 
+static int log_level_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int log_max_level = log_get_max_level();
+        int r;
+
+        assert(ret);
+
+        for (LogTarget log_target = 0; log_target < _LOG_TARGET_SINGLE_MAX; log_target++) {
+                _cleanup_free_ char *log_level_string = NULL;
+
+                int target_max_level = log_get_target_max_level(log_target);
+                const char *log_target_string = log_target_to_string(log_target);
+
+                int log_level = MIN(log_max_level, target_max_level);
+                r = log_level_to_string_alloc(log_level, &log_level_string);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_set_field_string(&v, log_target_string, log_level_string);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 static int manager_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
         return sd_json_buildo(
                         ASSERT_PTR(ret),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ShowStatus", manager_get_show_status_on(m)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LogLevel", log_level_build_json, m),
+                        SD_JSON_BUILD_PAIR_STRING("LogTarget", log_target_to_string(log_get_target())),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Environment", manager_environment_build_json, m),
                         SD_JSON_BUILD_PAIR_STRING("DefaultStandardOutput", exec_output_to_string(m->defaults.std_output)),
                         SD_JSON_BUILD_PAIR_STRING("DefaultStandardError", exec_output_to_string(m->defaults.std_error)),
@@ -74,33 +104,6 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         SD_JSON_BUILD_PAIR_INTEGER("DefaultOOMScoreAdjust", m->defaults.oom_score_adjust),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRestrictSUIDSGID", m->defaults.restrict_suid_sgid),
                         SD_JSON_BUILD_PAIR_STRING("CtrlAltDelBurstAction", emergency_action_to_string(m->cad_burst_action)));
-}
-
-static int log_level_build_runtime_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        int log_max_level = log_get_max_level();
-        int r;
-
-        assert(ret);
-
-        for (LogTarget log_target = 0; log_target < _LOG_TARGET_SINGLE_MAX; log_target++) {
-                _cleanup_free_ char *log_level_string = NULL;
-
-                int target_max_level = log_get_target_max_level(log_target);
-                const char *log_target_string = log_target_to_string(log_target);
-
-                int log_level = MIN(log_max_level, target_max_level);
-                r = log_level_to_string_alloc(log_level, &log_level_string);
-                if (r < 0)
-                        return r;
-
-                r = sd_json_variant_set_field_string(&v, log_target_string, log_level_string);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = TAKE_PTR(v);
-        return 0;
 }
 
 static int manager_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -141,9 +144,6 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InitRDGeneratorsFinishTimestamp", &m->timestamps[MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH]),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InitRDUnitsLoadStartTimestamp", &m->timestamps[MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START]),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InitRDUnitsLoadFinishTimestamp", &m->timestamps[MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH]),
-                SD_JSON_BUILD_PAIR_BOOLEAN("ShowStatus", manager_get_show_status_on(m)),
-                JSON_BUILD_PAIR_CALLBACK_NON_NULL("LogLevel", log_level_build_runtime_json, m),
-                SD_JSON_BUILD_PAIR_STRING("LogTarget", log_target_to_string(log_get_target())),
                 SD_JSON_BUILD_PAIR_UNSIGNED("NNames", hashmap_size(m->units)),
                 SD_JSON_BUILD_PAIR_UNSIGNED("NFailedUnits", set_size(m->failed_units)),
                 SD_JSON_BUILD_PAIR_UNSIGNED("NJobs", hashmap_size(m->jobs)),
