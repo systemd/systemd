@@ -162,13 +162,16 @@ void manager_gc(Manager *m, bool drop_not_started) {
 
                 /* First, if we are not closing yet, initiate stopping */
                 if (machine_may_gc(machine, drop_not_started) &&
-                    machine_get_state(machine) != MACHINE_CLOSING)
+                    machine_get_state(machine) != MACHINE_CLOSING) {
+                        log_debug("Stopping machine '%s' due to GC.", machine->name);
                         machine_stop(machine);
+                }
 
                 /* Now, the stop probably made this referenced
                  * again, but if it didn't, then it's time to let it
                  * go entirely. */
                 if (machine_may_gc(machine, drop_not_started)) {
+                        log_debug("Finalizing machine '%s' due to GC.", machine->name);
                         machine_finalize(machine);
                         machine_free(machine);
                 }

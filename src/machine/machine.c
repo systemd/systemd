@@ -33,6 +33,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
 #include "stdio-util.h"
@@ -680,6 +681,8 @@ int machine_stop(Machine *m) {
 
         assert(m);
 
+        log_debug("Stopping machine '%s'.", m->name);
+
         if (!IN_SET(m->class, MACHINE_CONTAINER, MACHINE_VM))
                 return -EOPNOTSUPP;
 
@@ -812,6 +815,8 @@ MachineState machine_get_state(Machine *s) {
 
 int machine_kill(Machine *m, KillWhom whom, int signo) {
         assert(m);
+
+        log_debug("Killing machine '%s' (%s) with signal %s.", m->name, kill_whom_to_string(whom), signal_to_string(signo));
 
         if (!IN_SET(m->class, MACHINE_VM, MACHINE_CONTAINER))
                 return -EOPNOTSUPP;
