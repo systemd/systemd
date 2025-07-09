@@ -594,6 +594,7 @@ org.freedesktop.systemd1.Manager.DefaultLimitSTACKSoft
 org.freedesktop.systemd1.Manager.DefaultMemoryAccounting
 org.freedesktop.systemd1.Manager.DefaultOOMPolicy
 org.freedesktop.systemd1.Manager.DefaultOOMScoreAdjust
+org.freedesktop.systemd1.Manager.DefaultRestrictSUIDSGID
 org.freedesktop.systemd1.Manager.DefaultRestartUSec
 org.freedesktop.systemd1.Manager.DefaultStandardError
 org.freedesktop.systemd1.Manager.DefaultStandardOutput
