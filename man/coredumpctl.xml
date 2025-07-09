@@ -251,7 +251,7 @@
         <listitem><para>Use the given debugger for the <command>debug</command>
         command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
         <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        will be used. </para>
+        will be used.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
