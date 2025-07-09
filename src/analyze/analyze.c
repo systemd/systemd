@@ -43,6 +43,7 @@
 #include "analyze-timespan.h"
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
+#include "analyze-unit-gdb-attach.h"
 #include "analyze-unit-paths.h"
 #include "analyze-unit-shell.h"
 #include "analyze-verify.h"
@@ -79,6 +80,7 @@ usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
 CatFlags arg_cat_flags = 0;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+const char *arg_debugger = NULL;
 const char *arg_host = NULL;
 RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = _RECURSIVE_ERRORS_INVALID;
@@ -242,6 +244,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]         Analyze security of unit\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
+               "  unit-gdb-attach SERVICE    Attach a debugger to the given running service\n"
                "  unit-shell SERVICE [Command]\n"
                "                             Run command on the namespace of the service\n"
                "\n%3$sExecutable Analysis:%4$s\n"
@@ -296,6 +299,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
                "  -m --mask                  Parse parameter as numeric capability mask\n"
                "     --drm-device=PATH       Use this DRM device sysfs path to get EDID\n"
+               "     --debugger=DEBUGGER     Use the given debugger\n"
 
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -344,6 +348,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SCALE_FACTOR_SVG,
                 ARG_DETAILED_SVG,
                 ARG_DRM_DEVICE_PATH,
+                ARG_DEBUGGER,
         };
 
         static const struct option options[] = {
@@ -383,6 +388,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "scale-svg",        required_argument, NULL, ARG_SCALE_FACTOR_SVG },
                 { "detailed",         no_argument,       NULL, ARG_DETAILED_SVG     },
                 { "drm-device",       required_argument, NULL, ARG_DRM_DEVICE_PATH  },
+                { "debugger",         required_argument, NULL, ARG_DEBUGGER         },
                 {}
         };
 
@@ -653,6 +659,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_DEBUGGER:
+                        arg_debugger = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -700,10 +710,10 @@ done:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --security-policy= is only supported for security.");
 
-        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf")) &&
+        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf", "unit-gdb-attach")) &&
            (!(streq_ptr(argv[optind], "security") && arg_offline)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Options --root= and --image= are only supported for cat-config, verify, condition and security when used with --offline= right now.");
+                                       "Options --root= and --image= are only supported for cat-config, verify, condition, unit-gdb-attach and security when used with --offline= right now.");
 
         /* Having both an image and a root is not supported by the code */
         if (arg_root && arg_image)
@@ -756,6 +766,7 @@ static int run(int argc, char *argv[]) {
                 { "dump",               VERB_ANY, VERB_ANY, 0,  verb_dump               },
                 { "cat-config",         2,        VERB_ANY, 0,  verb_cat_config         },
                 { "unit-files",         VERB_ANY, VERB_ANY, 0,  verb_unit_files         },
+                { "unit-gdb-attach",    2,        VERB_ANY, 0,  verb_unit_gdb_attach    },
                 { "unit-paths",         1,        1,        0,  verb_unit_paths         },
                 { "unit-shell",         2,        VERB_ANY, 0,  verb_unit_shell         },
                 { "exit-status",        VERB_ANY, VERB_ANY, 0,  verb_exit_status        },
