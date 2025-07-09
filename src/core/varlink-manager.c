@@ -44,7 +44,7 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
 
         return sd_json_buildo(
                         ASSERT_PTR(ret),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", m->transient_environment),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Environment", manager_environment_build_json, m),
                         SD_JSON_BUILD_PAIR_STRING("DefaultStandardOutput", exec_output_to_string(m->defaults.std_output)),
                         SD_JSON_BUILD_PAIR_STRING("DefaultStandardError", exec_output_to_string(m->defaults.std_error)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("ServiceWatchdogs", m->service_watchdogs),
@@ -143,7 +143,6 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 SD_JSON_BUILD_PAIR_UNSIGNED("NInstalledJobs", m->n_installed_jobs),
                 SD_JSON_BUILD_PAIR_UNSIGNED("NFailedJobs", m->n_failed_jobs),
                 SD_JSON_BUILD_PAIR_REAL("Progress", manager_get_progress(m)),
-                JSON_BUILD_PAIR_CALLBACK_NON_NULL("Environment", manager_environment_build_json, m),
                 JSON_BUILD_PAIR_STRING_NON_EMPTY("WatchdogDevice", watchdog_get_device()),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("WatchdogLastPingTimestamp", watchdog_get_last_ping_as_dual_timestamp(&watchdog_last_ping)),
                 JSON_BUILD_PAIR_STRING_NON_EMPTY("ControlGroup", m->cgroup_root),
