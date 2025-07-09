@@ -116,6 +116,8 @@ jobs:
           # used in integration-test-wrapper.py to construct the `gh` command line to download the journals
           # of failed tests.
           sudo --preserve-env mkosi sandbox -- \
+            env \
+            TEST_RUNNER=ubuntu-24.04 \
             meson test \
             -C build \
             --no-rebuild \
