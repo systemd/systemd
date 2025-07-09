@@ -39,6 +39,7 @@
 #include "common-signal.h"
 #include "copy.h"
 #include "cpu-set-util.h"
+#include "daemon-util.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
 #include "discover-image.h"
@@ -2955,13 +2956,18 @@ static int wait_for_container(PidRef *pid, ContainerStatus *container) {
 
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         PidRef *pid = ASSERT_PTR(userdata);
+        assert(si);
 
         if (pidref_is_set(pid))
                 if (pidref_kill(pid, arg_kill_signal) >= 0) {
-                        log_info("Trying to halt container. Send SIGTERM again to trigger immediate termination.");
+                        log_info("Trying to halt container by sending %s to container PID 1. Send SIGTERM again to trigger immediate termination.",
+                                 signal_to_string(si->ssi_signo));
                         sd_event_source_set_userdata(s, NULL);
+                        sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
                         return 0;
                 }
+
+        log_debug("Got %s, exiting.", signal_to_string(si->ssi_signo));
 
         sd_event_exit(sd_event_source_get_event(s), 0);
         return 0;
