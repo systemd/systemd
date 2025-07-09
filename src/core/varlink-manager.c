@@ -69,6 +69,10 @@ static int log_level_build_json(sd_json_variant **ret, const char *name, void *u
 static int manager_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
+        /* The main principle behind context/runtime split is the following:
+         * If it make sense to place a property into a config/unit file it belongs to Context.
+         * Otherwise it's a 'Runtime'. */
+
         return sd_json_buildo(
                         ASSERT_PTR(ret),
                         SD_JSON_BUILD_PAIR_BOOLEAN("ShowStatus", manager_get_show_status_on(m)),
