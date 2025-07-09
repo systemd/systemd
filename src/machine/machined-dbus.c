@@ -442,6 +442,19 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
                 goto fail;
         }
 
+        if (!empty_or_root(m->subgroup)) {
+                /* If this is not a top-level cgroup, then we need the cgroup path to be able to watch when
+                 * it empties */
+
+                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &m->leader, &m->cgroup);
+                if (r < 0) {
+                        r = sd_bus_error_set_errnof(error, r,
+                                                    "Failed to determine cgroup of process "PID_FMT" : %m",
+                                                    m->leader.pid);
+                        goto fail;
+                }
+        }
+
         r = machine_start(m, NULL, error);
         if (r < 0)
                 goto fail;
