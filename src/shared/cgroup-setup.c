@@ -664,6 +664,8 @@ int cg_migrate(
                         if (r < 0)
                                 return RET_GATHER(ret, r);
                 }
+                if (r == -ENODEV)
+                        continue;
                 if (r < 0)
                         return RET_GATHER(ret, r);
         } while (!done);
