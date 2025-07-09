@@ -310,6 +310,44 @@ CHANGES WITH 258 in spe:
           SO_PASSPIDFD socket option for AF_UNIX socket. There's also a new
           setting AcceptFileDescriptors= that controls the new SO_PASSRIGHTS.
 
+        * A new job type "lenient" has been added, that is similar to the
+          existing "fail" job mode, and which will fail the submitted
+          transaction immediately if it would stop any currently running unit.
+
+        * .socket units gained a new pair of settings DeferTrigger= and
+          DeferTriggerMaxSec= which modify triggering behaviour of the
+          socket. When used this will cause the triggered unit to be enqueued
+          with the new "lenient" job mode, and if the submission of the
+          transaction fails it is later retried to be submitted (up to a
+          configurable timeout), whenever a unit is stopped.
+
+        * The "preset" logic has been extended so that there are now three
+          preset directories: one that declares the default enablement state
+          for per-system services run on the host, one for per-user services,
+          and – now new – one for per-system services that are run in the
+          initrd. This reflects the fact that in many cases services that shall
+          be enabled by default on the host should not be enabled by default in
+          the initrd, or vice versa. Note that while the regular per-system
+          preset policy defaults to enabled, the one for the initrd defaults to
+          disabled.
+
+        * There are now new per-service settings
+          StateDirectoryQuota=/StateDirectoryAccounting=,
+          CacheDirectoryQuota=/CacheDirectoryAccounting=,
+          LogsDirectoryQuota=/LogsDirectoryAccounting= which allow doing
+          per-unit quota of the indicated per-unit directories. This is
+          implemented via project quota, as supported by xfs and ext4. This
+          does not support btrfs, currently. If quota accounting is enabled
+          this information is shown in the usual "systemct status" output.
+
+        * The service manager gained a new KillUnitSubgroup() syscall which may
+          be used to send a signal to a sub-control group of the unit's control
+          group. systemctl kill gained a new --kill-subgroup= switch to make
+          this available from the shell.
+
+        * A new PrivateBPF= switch has been added for unit files, which may be
+          used to mount a private bpffs instance for the unit's processes.
+
         systemd-journald & journal-remote:
 
         * journalctl's --setup-keys command now supports JSON output.
@@ -604,6 +642,10 @@ CHANGES WITH 258 in spe:
           allows routing requests to specific domains to specific
           servers. Delegate zones can be configured via drop-ins below
           /etc/systemd/dns-delegate.d/*.dns-delegate.
+
+        * "resolvectl query -t sshfp" will now decode the returned RR
+          information, and show the cryptographic algorithms by name instead of
+          number.
 
         systemd-hostnamed:
 
@@ -1161,6 +1203,15 @@ CHANGES WITH 258 in spe:
           Hardware IDs" (CHIDs) of the local system. This is useful for
           preparing CHID-to-DeviceTree mappings when building UKIs.
 
+        * systemd-analyze gained a new "transient-settings" verb, which shows
+          all unit settings one can configure dynamically via the "-p" switch
+          when invoking transient units.
+
+        * systemd-analyze gained a new "unit-shell" verb that invokes an
+          interactive shell inside the processes namespaces of the main process
+          of a specified unit. This is useful for debugging unit sandboxes, and
+          getting an idea how things look like from the "inside" of a service.
+
         * The "package note" specification ELF binaries has been extended to
           cover PE binaries (i.e. UEFI binaries), too.
 
@@ -1324,6 +1375,17 @@ CHANGES WITH 258 in spe:
         * systemd-socket-activate gained a new --now switch which ensures the
           specified binary is immediately invoked, and not delayed until a
           connection comes in.
+
+        * systemd-ssh-generator will now generate the AF_VSOCK ssh listener
+          .socket unit, so that a tiny new helper "systemd-ssh-issue" is
+          invoked when the socket is bound, that generates a drop-in file
+          /run/issue.d/50-ssh-vsock.issue that is shown by "login" and other
+          subsystems at login time. The file reports the AF_VSOCK CID of the
+          system, along with very brief information how to connect to the
+          system via ssh-over-AF_VSOCK. Or in other words: if the system is
+          booted up in an AF_VSOCK capable VM the console login screen shown
+          once boot-up is complete will tell you how to connect to the system
+          via SSH, if that's available.
 
         — <place>, <date>
 
