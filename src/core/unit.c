@@ -4065,10 +4065,12 @@ int unit_kill(
 
         if (subgroup) {
                 if (!IN_SET(whom, KILL_CGROUP, KILL_CGROUP_FAIL))
-                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Killing by subgroup is only supported for 'cgroup' or 'cgroup-kill' modes.");
+                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                                "Killing by subgroup is only supported for 'cgroup' or 'cgroup-kill' modes.");
 
                 if (!unit_cgroup_delegate(u))
-                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Killing by subgroup is only available for units with control group delegation enabled.");
+                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                                "Killing by subgroup is only available for units with control group delegation enabled.");
         }
 
         main_pid = unit_main_pid(u);

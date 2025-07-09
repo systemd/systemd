@@ -1339,11 +1339,11 @@ node /org/freedesktop/systemd1 {
       matching process was found (otherwise it will return successfully, executing no operation).</para>
 
       <para><function>KillUnitSubgroup()</function> is just like <function>KillUnit()</function> but takes an
-      additional path argument that selects a sub-control-group of the unit's control group. Only processes
+      additional path argument that selects a sub-control group of the unit's control group. Only processes
       in that subgroup are killed. The path my be specified with our without leading <literal>/</literal>, in
       both cases it is taken relatively to the unit's control group. If the subgroup path is specified as an
       empty string or as <literal>/</literal> it has the same effect as <function>KillUnit()</function>. If
-      it is specified as anything else the <literal>who</literal> parameter must be set to either
+      it is specified as anything else the <literal>whom</literal> parameter must be set to either
       <literal>cgroup</literal> or <literal>cgroup-fail</literal>.</para>
 
       <para><function>QueueSignalUnit()</function> is similar to <function>KillUnit()</function> but may be
