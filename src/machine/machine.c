@@ -137,6 +137,8 @@ Machine* machine_free(Machine *m) {
 
         sd_bus_message_unref(m->create_message);
 
+        m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
+
         free(m->name);
 
         free(m->state_file);
@@ -146,6 +148,7 @@ Machine* machine_free(Machine *m) {
         free(m->unit);
         free(m->subgroup);
         free(m->scope_job);
+        free(m->cgroup);
 
         free(m->netif);
         free(m->ssh_address);
@@ -584,6 +587,43 @@ static int machine_watch_pidfd(Machine *m, PidRef *pidref, sd_event_source **sou
         return 0;
 }
 
+static int machine_dispatch_cgroup_empty(sd_event_source *s, const struct inotify_event *event, void *userdata) {
+        Machine *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m->cgroup);
+
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if cgroup '%s' is empty: %m", m->cgroup);
+
+        if (r > 0)
+                machine_add_to_gc_queue(m);
+
+        return 0;
+}
+
+static int machine_watch_cgroup(Machine *m) {
+        int r;
+
+        assert(m);
+        assert(!m->cgroup_empty_event_source);
+
+        if (!m->cgroup)
+                return 0;
+
+        _cleanup_free_ char *p = NULL;
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup, "cgroup.events", &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get cgroup path for cgroup '%s': %m", m->cgroup);
+
+        r = sd_event_add_inotify(m->manager->event, &m->cgroup_empty_event_source, p, IN_MODIFY, machine_dispatch_cgroup_empty, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch %p events: %m", p);
+
+        return 0;
+}
+
 int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         int r;
 
@@ -604,6 +644,10 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         r = machine_watch_pidfd(m, &m->supervisor, &m->supervisor_pidfd_event_source, machine_dispatch_supervisor_pidfd);
+        if (r < 0)
+                return r;
+
+        r = machine_watch_cgroup(m);
         if (r < 0)
                 return r;
 
@@ -726,6 +770,14 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
                         log_debug_errno(r, "Failed to determine whether unit '%s' is active, assuming it is: %s", m->unit, bus_error_message(&error, r));
                 if (r != 0)
                         return false;
+        }
+
+        if (m->cgroup) {
+                r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+                if (IN_SET(r, 0, -ENOENT))
+                        return true;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine if cgroup '%s' is empty, ignoring: %m", m->cgroup);
         }
 
         return true;
