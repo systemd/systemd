@@ -50,6 +50,7 @@ typedef struct Machine {
         char *unit;
         char *subgroup;
         char *scope_job;
+        char *cgroup;
 
         /* Leader: the top-level process that encapsulates the machine itself. For containers that's PID 1,
          * for VMs that's qemu or whatever process wraps the actual VM code. This process defines the runtime
@@ -63,6 +64,8 @@ typedef struct Machine {
         sd_event_source *leader_pidfd_event_source, *supervisor_pidfd_event_source;
 
         dual_timestamp timestamp;
+
+        sd_event_source *cgroup_empty_event_source;
 
         bool in_gc_queue:1;
         bool started:1;
