@@ -175,7 +175,7 @@ int recurse_dir(
 
                 r = func(RECURSE_DIR_ENTER,
                          path,
-                         -1, /* we have no parent fd */
+                         -EBADF, /* we have no parent fd */
                          dir_fd,
                          NULL, /* we have no dirent */
                          statx_mask != 0 ? &root_sx : NULL,
@@ -229,9 +229,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
-                                                 -1,
+                                                 /* inode_fd = */ -EBADF,
                                                  de->entries[i],
-                                                 NULL,
+                                                 /* sx = */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -273,9 +273,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
-                                                 -1,
+                                                 /* inode_fd = */ -EBADF,
                                                  de->entries[i],
-                                                 NULL,
+                                                 /* sx = */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -321,9 +321,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
-                                                 -1,
+                                                 /* inode_fd = */ -EBADF,
                                                  de->entries[i],
-                                                 NULL,
+                                                 /* sx = */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -351,9 +351,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + EISDIR,
                                                  p,
                                                  dir_fd,
-                                                 -1,
+                                                 /* inode_fd = */ -EBADF,
                                                  de->entries[i],
-                                                 NULL,
+                                                 /* sx = */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -476,9 +476,9 @@ int recurse_dir(
 
                 r = func(RECURSE_DIR_LEAVE,
                          path,
-                         -1,
+                         -EBADF, /* we have no parent fd */
                          dir_fd,
-                         NULL,
+                         NULL, /* we have no dirent */
                          statx_mask != 0 ? &root_sx : NULL,
                          userdata);
                 if (!IN_SET(r, RECURSE_DIR_LEAVE_DIRECTORY, RECURSE_DIR_SKIP_ENTRY, RECURSE_DIR_CONTINUE))
