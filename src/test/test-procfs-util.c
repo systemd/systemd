@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
                 log_info("Reducing limit by one to %"PRIu64"…", limit-1);
 
                 r = procfs_tasks_set_limit(limit-1);
-                if (IN_SET(r, -ENOENT, -EROFS) || ERRNO_IS_PRIVILEGE(r))
+                if (r == -ENOENT || ERRNO_IS_NEG_FS_CANNOT_WRITE(r))
                         return log_tests_skipped_errno(r, "can't set tasks limit");
                 assert_se(r >= 0);
 

@@ -321,7 +321,7 @@ static int add_export_unix_socket(
                         log_debug("Container manager does not provide /run/host/unix-export/ mount, not binding AF_UNIX socket there.");
                         return 0;
                 }
-                if (errno == EROFS || ERRNO_IS_PRIVILEGE(errno)) {
+                if (ERRNO_IS_FS_CANNOT_WRITE(errno)) {
                         log_debug("Container manager does not provide write access to /run/host/unix-export/, not binding AF_UNIX socket there.");
                         return 0;
                 }
