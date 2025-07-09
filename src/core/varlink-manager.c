@@ -41,19 +41,9 @@ static int manager_environment_build_json(sd_json_variant **ret, const char *nam
 
 static int manager_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **taints = NULL;
-
-        taints = taint_strv();
-        if (!taints)
-                return -ENOMEM;
 
         return sd_json_buildo(
                         ASSERT_PTR(ret),
-                        SD_JSON_BUILD_PAIR_STRING("Version", GIT_VERSION),
-                        SD_JSON_BUILD_PAIR_STRING("Architecture", architecture_to_string(uname_architecture())),
-                        SD_JSON_BUILD_PAIR_STRING("Features", systemd_features),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Taints", taints),
-                        SD_JSON_BUILD_PAIR_STRV("UnitPath", m->lookup_paths.search_path),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", m->transient_environment),
                         SD_JSON_BUILD_PAIR_STRING("DefaultStandardOutput", exec_output_to_string(m->defaults.std_output)),
                         SD_JSON_BUILD_PAIR_STRING("DefaultStandardError", exec_output_to_string(m->defaults.std_error)),
@@ -110,9 +100,19 @@ static int log_level_build_runtime_json(sd_json_variant **ret, const char *name,
 static int manager_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         dual_timestamp watchdog_last_ping;
+        _cleanup_strv_free_ char **taints = NULL;
+
+        taints = taint_strv();
+        if (!taints)
+                return -ENOMEM;
 
         return sd_json_buildo(
                 ASSERT_PTR(ret),
+                SD_JSON_BUILD_PAIR_STRING("Version", GIT_VERSION),
+                SD_JSON_BUILD_PAIR_STRING("Architecture", architecture_to_string(uname_architecture())),
+                SD_JSON_BUILD_PAIR_STRING("Features", systemd_features),
+                JSON_BUILD_PAIR_STRV_NON_EMPTY("Taints", taints),
+                SD_JSON_BUILD_PAIR_STRV("UnitPath", m->lookup_paths.search_path),
                 SD_JSON_BUILD_PAIR_STRING("Virtualization", virtualization_to_string(detect_virtualization())),
                 SD_JSON_BUILD_PAIR_STRING("ConfidentialVirtualization", confidential_virtualization_to_string(detect_confidential_virtualization())),
                 JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfirmSpawn", manager_get_confirm_spawn(m)),

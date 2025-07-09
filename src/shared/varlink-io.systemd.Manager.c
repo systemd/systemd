@@ -20,16 +20,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ManagerContext,
-                SD_VARLINK_FIELD_COMMENT("The version string of the running systemd instance"),
-                SD_VARLINK_DEFINE_FIELD(Version, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("A short ID string describing the architecture the systemd instance is running on"),
-                SD_VARLINK_DEFINE_FIELD(Architecture, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("The features that have been enabled and disabled for this build"),
-                SD_VARLINK_DEFINE_FIELD(Features, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("An array of strings describing the taints applied to the running system"),
-                SD_VARLINK_DEFINE_FIELD(Taints, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The unit search path"),
-                SD_VARLINK_DEFINE_FIELD(UnitPath, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd-system.conf.html#ManagerEnvironment="),
                 SD_VARLINK_DEFINE_FIELD(Environment, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultStandardOutput="),
@@ -81,6 +71,16 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ManagerRuntime,
+                SD_VARLINK_FIELD_COMMENT("The version string of the running systemd instance"),
+                SD_VARLINK_DEFINE_FIELD(Version, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("A short ID string describing the architecture the systemd instance is running on"),
+                SD_VARLINK_DEFINE_FIELD(Architecture, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The features that have been enabled and disabled for this build"),
+                SD_VARLINK_DEFINE_FIELD(Features, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("An array of strings describing the taints applied to the running system"),
+                SD_VARLINK_DEFINE_FIELD(Taints, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The unit search path"),
+                SD_VARLINK_DEFINE_FIELD(UnitPath, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("A short ID string describing the virtualization technology the system runs in"),
                 SD_VARLINK_DEFINE_FIELD(Virtualization, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("A short ID string describing the confidential virtualization technology the system runs in"),
