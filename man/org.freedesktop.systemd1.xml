@@ -112,6 +112,10 @@ node /org/freedesktop/systemd1 {
       KillUnit(in  s name,
                in  s whom,
                in  i signal);
+      KillUnitSubgroup(in  s name,
+                       in  s whom,
+                       in  s subgroup,
+                       in  i signal);
       QueueSignalUnit(in  s name,
                       in  s whom,
                       in  i signal,
@@ -831,6 +835,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="KillUnit()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="KillUnitSubgroup()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="QueueSignalUnit()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CleanUnit()"/>
@@ -1315,12 +1321,24 @@ node /org/freedesktop/systemd1 {
       <para><function>KillUnit()</function> may be used to kill (i.e. send a signal to) all processes of a
       unit. It takes the unit <varname>name</varname>, an enum <varname>who</varname> and a UNIX
       <varname>signal</varname> number to send. The <varname>who</varname> enum is one of
-      <literal>main</literal>, <literal>control</literal> or <literal>all</literal>. If
-      <literal>main</literal>, only the main process of the unit is killed. If <literal>control</literal>, only
-      the control process of the unit is killed. If <literal>all</literal>, all processes are killed. A
+      <literal>main</literal>, <literal>control</literal>, <literal>cgroup</literal> or
+      <literal>all</literal>. If <literal>main</literal>, only the main process of the unit is killed. If
+      <literal>control</literal>, only the control process of the unit is killed. If
+      <literal>cgroup</literal> is specified only the processes in the control group of the unit are killed,
+      which might or might not include the main and control processes too. If <literal>all</literal>, all
+      processes are killed, i.e. the main process, the control process and those in the control group. A
       <literal>control</literal> process is for example a process that is configured via
       <varname>ExecStop=</varname> and is spawned in parallel to the main daemon process in order to shut it
-      down.</para>
+      down. The value may be suffixed by <literal>-fail</literal> in which case the operation will fail of no
+      matching process was found (otherwise it will return successfully, executing no operation).</para>
+
+      <para><function>KillUnitSubgroup()</function> is just like <function>KillUnit()</function> but takes an
+      additional path argument that selects a sub-control-group of the unit's control group. Only processes
+      in that subgroup are killed. The path my be specified with our without leading <literal>/</literal>, in
+      both cases it is taken relatively to the unit's control group. If the subgroup path is specified as an
+      empty string or as <literal>/</literal> it has the same effect as <function>KillUnit()</function>. If
+      it is specified as anything else the <literal>who</literal> parameter must be set to either
+      <literal>cgroup</literal> or <literal>cgroup-fail</literal>.</para>
 
       <para><function>QueueSignalUnit()</function> is similar to <function>KillUnit()</function> but may be
       used to enqueue a POSIX Realtime Signal (i.e. <constant>SIGRTMIN+…</constant> and
@@ -1370,7 +1388,7 @@ node /org/freedesktop/systemd1 {
       <itemizedlist>
         <listitem><para>The primary unit name as string</para></listitem>
 
-        <listitem><para>The human readable description string</para></listitem>
+        <listitem><para>The human-readable description string</para></listitem>
 
         <listitem><para>The load state (i.e. whether the unit file has been loaded
         successfully)</para></listitem>
@@ -1886,8 +1904,8 @@ node /org/freedesktop/systemd1 {
       <para>Read access is generally granted to all clients. Additionally, for unprivileged clients, some
       operations are allowed through the polkit privilege system. Operations which modify unit state
       (<function>StartUnit()</function>, <function>StopUnit()</function>, <function>KillUnit()</function>,
-      <function>QueueSignalUnit()</function>, <function>RestartUnit()</function> and similar,
-      <function>SetProperty()</function>) require
+      <function>KillUnitSubgroup()</function>, <function>QueueSignalUnit()</function>,
+      <function>RestartUnit()</function> and similar, <function>SetProperty()</function>) require
       <interfacename>org.freedesktop.systemd1.manage-units</interfacename>. Operations which modify unit file
       enablement state (<function>EnableUnitFiles()</function>, <function>DisableUnitFiles()</function>,
       <function>EnableUnitFilesWithFlags()</function>, <function>DisableUnitFilesWithFlags()</function>,
@@ -1936,6 +1954,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
                  out a(uosos) affected_jobs);
       Kill(in  s whom,
            in  i signal);
+      KillSubgroup(in  s subgroup,
+                   in  i signal);
       QueueSignal(in  s whom,
                   in  i signal,
                   in  i value);
@@ -2259,6 +2279,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Kill()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="KillSubgroup()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="QueueSignal()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResetFailed()"/>
@@ -2487,13 +2509,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><function>Start()</function>, <function>Stop()</function>, <function>Reload()</function>,
       <function>Restart()</function>, <function>TryRestart()</function>,
       <function>ReloadOrRestart()</function>, <function>ReloadOrTryRestart()</function>,
-      <function>Kill()</function>, <function>QueueSignal()</function>, <function>ResetFailed()</function>,
-      and <function>SetProperties()</function> implement the same operation as the respective methods on the
-      <interfacename>Manager</interfacename> object (see above). However, these methods operate on the unit
-      object and hence do not take a unit name parameter. Invoking the methods directly on the Manager object
-      has the advantage of not requiring a <function>GetUnit()</function> call to get the unit object for a
-      specific unit name. Calling the methods on the Manager object is hence a round trip
-      optimization.</para>
+      <function>Kill()</function>, <function>KillSubgroup()</function>, <function>QueueSignal()</function>,
+      <function>ResetFailed()</function>, and <function>SetProperties()</function> implement the same
+      operation as the respective methods on the <interfacename>Manager</interfacename> object (see
+      above). However, these methods operate on the unit object and hence do not take a unit name
+      parameter. Invoking the methods directly on the Manager object has the advantage of not requiring a
+      <function>GetUnit()</function> call to get the unit object for a specific unit name. Calling the
+      methods on the Manager object is hence a round trip optimization.</para>
     </refsect2>
 
     <refsect2>
@@ -2518,7 +2540,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       the dependencies and their inverse dependencies (where this applies) as configured in the unit file or
       determined automatically.</para>
 
-      <para><varname>Description</varname> contains the human readable description string for the
+      <para><varname>Description</varname> contains the human-readable description string for the
       unit.</para>
 
       <para><varname>SourcePath</varname> contains the path to a configuration file this unit is
@@ -2638,7 +2660,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>LoadError</varname> contains a pair of strings. If the unit failed to load (as encoded
       in <varname>LoadState</varname>, see above), then this will include a D-Bus error pair consisting of
-      the error ID and an explanatory human readable string of what happened. If it loaded successfully, this
+      the error ID and an explanatory human-readable string of what happened. If it loaded successfully, this
       will be a pair of empty strings.</para>
 
       <para><varname>Transient</varname> contains a boolean that indicates whether the unit was created as a
@@ -3288,17 +3310,29 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b StateDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) StateDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as StateDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) CacheDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u CacheDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CacheDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) CacheDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as CacheDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) LogsDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u LogsDirectoryMode = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b LogsDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) LogsDirectoryQuota = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3340,6 +3374,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateBPF = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateCommands = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateMaps = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegatePrograms = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateAttachments = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -3351,6 +3395,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s MountImagePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) StateDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) CacheDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) LogsDirectoryQuotaUsage = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3885,9 +3935,21 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property StateDirectoryMode is not documented!-->
 
+    <!--property StateDirectoryAccounting is not documented!-->
+
+    <!--property StateDirectoryQuota is not documented!-->
+
     <!--property CacheDirectoryMode is not documented!-->
 
+    <!--property CacheDirectoryAccounting is not documented!-->
+
+    <!--property CacheDirectoryQuota is not documented!-->
+
     <!--property LogsDirectoryMode is not documented!-->
+
+    <!--property LogsDirectoryAccounting is not documented!-->
+
+    <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
 
@@ -3923,6 +3985,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property ProcSubset is not documented!-->
 
+    <!--property PrivateBPF is not documented!-->
+
+    <!--property BPFDelegateCommands is not documented!-->
+
+    <!--property BPFDelegateMaps is not documented!-->
+
+    <!--property BPFDelegatePrograms is not documented!-->
+
+    <!--property BPFDelegateAttachments is not documented!-->
+
     <!--property MemoryKSM is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
@@ -3934,6 +4006,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property MountImagePolicy is not documented!-->
 
     <!--property ExtensionImagePolicy is not documented!-->
+
+    <!--property StateDirectoryQuotaUsage is not documented!-->
+
+    <!--property CacheDirectoryQuotaUsage is not documented!-->
+
+    <!--property LogsDirectoryQuotaUsage is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -4579,17 +4657,29 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
 
@@ -4631,6 +4721,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateCommands"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateMaps"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegatePrograms"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
@@ -4642,6 +4742,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuotaUsage"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -4962,6 +5068,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly t PollLimitIntervalUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u PollLimitBurst = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s DeferTrigger = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DeferTriggerMaxUSec = ...;
       readonly u UID = ...;
       readonly u GID = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5439,17 +5549,29 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b StateDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) StateDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as StateDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) CacheDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u CacheDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CacheDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) CacheDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as CacheDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) LogsDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u LogsDirectoryMode = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b LogsDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) LogsDirectoryQuota = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5491,6 +5613,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateBPF = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateCommands = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateMaps = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegatePrograms = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateAttachments = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -5502,6 +5634,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s MountImagePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) StateDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) CacheDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) LogsDirectoryQuotaUsage = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5625,6 +5763,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property TriggerLimitIntervalUSec is not documented!-->
 
     <!--property TriggerLimitBurst is not documented!-->
+
+    <!--property DeferTrigger is not documented!-->
+
+    <!--property DeferTriggerMaxUSec is not documented!-->
 
     <!--property UID is not documented!-->
 
@@ -6052,9 +6194,21 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property StateDirectoryMode is not documented!-->
 
+    <!--property StateDirectoryAccounting is not documented!-->
+
+    <!--property StateDirectoryQuota is not documented!-->
+
     <!--property CacheDirectoryMode is not documented!-->
 
+    <!--property CacheDirectoryAccounting is not documented!-->
+
+    <!--property CacheDirectoryQuota is not documented!-->
+
     <!--property LogsDirectoryMode is not documented!-->
+
+    <!--property LogsDirectoryAccounting is not documented!-->
+
+    <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
 
@@ -6090,6 +6244,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property ProcSubset is not documented!-->
 
+    <!--property PrivateBPF is not documented!-->
+
+    <!--property BPFDelegateCommands is not documented!-->
+
+    <!--property BPFDelegateMaps is not documented!-->
+
+    <!--property BPFDelegatePrograms is not documented!-->
+
+    <!--property BPFDelegateAttachments is not documented!-->
+
     <!--property MemoryKSM is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
@@ -6101,6 +6265,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property MountImagePolicy is not documented!-->
 
     <!--property ExtensionImagePolicy is not documented!-->
+
+    <!--property StateDirectoryQuotaUsage is not documented!-->
+
+    <!--property CacheDirectoryQuotaUsage is not documented!-->
+
+    <!--property LogsDirectoryQuotaUsage is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -6243,6 +6413,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="PollLimitIntervalUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PollLimitBurst"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeferTrigger"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeferTriggerMaxUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
 
@@ -6722,17 +6896,29 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
 
@@ -6774,6 +6960,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateCommands"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateMaps"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegatePrograms"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
@@ -6785,6 +6981,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuotaUsage"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -7410,17 +7612,29 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b StateDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) StateDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as StateDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) CacheDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u CacheDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CacheDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) CacheDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as CacheDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) LogsDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u LogsDirectoryMode = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b LogsDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) LogsDirectoryQuota = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7462,6 +7676,16 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateBPF = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateCommands = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateMaps = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegatePrograms = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateAttachments = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -7473,6 +7697,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s MountImagePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) StateDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) CacheDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) LogsDirectoryQuotaUsage = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7949,9 +8179,21 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property StateDirectoryMode is not documented!-->
 
+    <!--property StateDirectoryAccounting is not documented!-->
+
+    <!--property StateDirectoryQuota is not documented!-->
+
     <!--property CacheDirectoryMode is not documented!-->
 
+    <!--property CacheDirectoryAccounting is not documented!-->
+
+    <!--property CacheDirectoryQuota is not documented!-->
+
     <!--property LogsDirectoryMode is not documented!-->
+
+    <!--property LogsDirectoryAccounting is not documented!-->
+
+    <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
 
@@ -7987,6 +8229,16 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property ProcSubset is not documented!-->
 
+    <!--property PrivateBPF is not documented!-->
+
+    <!--property BPFDelegateCommands is not documented!-->
+
+    <!--property BPFDelegateMaps is not documented!-->
+
+    <!--property BPFDelegatePrograms is not documented!-->
+
+    <!--property BPFDelegateAttachments is not documented!-->
+
     <!--property MemoryKSM is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
@@ -7998,6 +8250,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property MountImagePolicy is not documented!-->
 
     <!--property ExtensionImagePolicy is not documented!-->
+
+    <!--property StateDirectoryQuotaUsage is not documented!-->
+
+    <!--property CacheDirectoryQuotaUsage is not documented!-->
+
+    <!--property LogsDirectoryQuotaUsage is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -8531,17 +8789,29 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
 
@@ -8583,6 +8853,16 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateCommands"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateMaps"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegatePrograms"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
@@ -8594,6 +8874,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuotaUsage"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -9352,17 +9638,29 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b StateDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) StateDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as StateDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) CacheDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u CacheDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CacheDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) CacheDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as CacheDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) LogsDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u LogsDirectoryMode = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b LogsDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tus) LogsDirectoryQuota = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9404,6 +9702,16 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateBPF = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateCommands = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateMaps = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegatePrograms = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s BPFDelegateAttachments = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -9415,6 +9723,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly s MountImagePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) StateDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) CacheDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) LogsDirectoryQuotaUsage = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9873,9 +10187,21 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property StateDirectoryMode is not documented!-->
 
+    <!--property StateDirectoryAccounting is not documented!-->
+
+    <!--property StateDirectoryQuota is not documented!-->
+
     <!--property CacheDirectoryMode is not documented!-->
 
+    <!--property CacheDirectoryAccounting is not documented!-->
+
+    <!--property CacheDirectoryQuota is not documented!-->
+
     <!--property LogsDirectoryMode is not documented!-->
+
+    <!--property LogsDirectoryAccounting is not documented!-->
+
+    <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
 
@@ -9911,6 +10237,16 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property ProcSubset is not documented!-->
 
+    <!--property PrivateBPF is not documented!-->
+
+    <!--property BPFDelegateCommands is not documented!-->
+
+    <!--property BPFDelegateMaps is not documented!-->
+
+    <!--property BPFDelegatePrograms is not documented!-->
+
+    <!--property BPFDelegateAttachments is not documented!-->
+
     <!--property MemoryKSM is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
@@ -9922,6 +10258,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property MountImagePolicy is not documented!-->
 
     <!--property ExtensionImagePolicy is not documented!-->
+
+    <!--property StateDirectoryQuotaUsage is not documented!-->
+
+    <!--property CacheDirectoryQuotaUsage is not documented!-->
+
+    <!--property LogsDirectoryQuotaUsage is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -10437,17 +10779,29 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
 
@@ -10489,6 +10843,16 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateCommands"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateMaps"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegatePrograms"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
@@ -10500,6 +10864,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuotaUsage"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -11996,7 +12366,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>ShutdownStartTimestamp</varname>,
       <varname>ShutdownStartTimestampMonotonic</varname>, and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
-      <para><function>RemoveSubgroupFromUnit()</function> was added in version 258.</para>
+      <para><function>RemoveSubgroupFromUnit()</function>, and
+      <function>KillUnitSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -12064,8 +12435,23 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PrivateUsersEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
-      <varname>DelegateNamespaces</varname>, and
-      <function>RemoveSubGroup()</function> were added in version 258.</para>
+      <varname>DelegateNamespaces</varname>,
+      <varname>PrivateBPF</varname>,
+      <varname>BPFDelegateCommands</varname>,
+      <varname>BPFDelegateMaps</varname>,
+      <varname>BPFDelegatePrograms</varname>,
+      <varname>BPFDelegateAttachments</varname>,
+      <function>RemoveSubGroup()</function>,
+      <varname>StateDirectoryQuota</varname>,
+      <varname>StateDirectoryQuotaUsage</varname>,
+      <varname>StateDirectoryAccounting</varname>,
+      <varname>CacheDirectoryQuota</varname>,
+      <varname>CacheDirectoryQuotaUsage</varname>,
+      <varname>CacheDirectoryAccounting</varname>,
+      <varname>LogsDirectoryQuota</varname>,
+      <varname>LogsDirectoryQuotaUsage</varname>,
+      <varname>LogsDirectoryAccounting</varname>, and
+      <function>KillSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12112,8 +12498,25 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>ProtectHostnameEx</varname>,
       <varname>PassPIDFD</varname>,
       <varname>AcceptFileDescriptors</varname>,
-      <varname>DelegateNamespaces</varname>, and
-      <function>RemoveSubgroup()</function> were added in version 258.</para>
+      <varname>DelegateNamespaces</varname>,
+      <varname>PrivateBPF</varname>,
+      <varname>BPFDelegateCommands</varname>,
+      <varname>BPFDelegateMaps</varname>,
+      <varname>BPFDelegatePrograms</varname>,
+      <varname>BPFDelegateAttachments</varname>,
+      <function>RemoveSubgroup()</function>,
+      <varname>DeferTrigger</varname>,
+      <varname>DeferTriggerMaxUSec</varname>,
+      <varname>StateDirectoryQuota</varname>,
+      <varname>StateDirectoryQuotaUsage</varname>,
+      <varname>StateDirectoryAccounting</varname>,
+      <varname>CacheDirectoryQuota</varname>,
+      <varname>CacheDirectoryQuotaUsage</varname>,
+      <varname>CacheDirectoryAccounting</varname>,
+      <varname>LogsDirectoryQuota</varname>,
+      <varname>LogsDirectoryQuotaUsage</varname>,
+      <varname>LogsDirectoryAccounting</varname>, and
+      <function>KillSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12156,9 +12559,24 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
       <varname>DelegateNamespaces</varname>,
+      <varname>PrivateBPF</varname>,
+      <varname>BPFDelegateCommands</varname>,
+      <varname>BPFDelegateMaps</varname>,
+      <varname>BPFDelegatePrograms</varname>,
+      <varname>BPFDelegateAttachments</varname>,
       <function>RemoveSubgroup()</function>,
-      <varname>ReloadResult</varname>, and
-      <varname>CleanResult</varname> were added in version 258.</para>
+      <varname>ReloadResult</varname>,
+      <varname>CleanResult</varname>,
+      <varname>StateDirectoryQuota</varname>,
+      <varname>StateDirectoryQuotaUsage</varname>,
+      <varname>StateDirectoryAccounting</varname>,
+      <varname>CacheDirectoryQuota</varname>,
+      <varname>CacheDirectoryQuotaUsage</varname>,
+      <varname>CacheDirectoryAccounting</varname>,
+      <varname>LogsDirectoryQuota</varname>,
+      <varname>LogsDirectoryQuotaUsage</varname>,
+      <varname>LogsDirectoryAccounting</varname>, and
+      <function>KillSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12200,8 +12618,23 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
-      <varname>DelegateNamespaces</varname>, and
-      <function>RemoveSubgroup()</function> were added in version 258.</para>
+      <varname>DelegateNamespaces</varname>,
+      <varname>PrivateBPF</varname>,
+      <varname>BPFDelegateCommands</varname>,
+      <varname>BPFDelegateMaps</varname>,
+      <varname>BPFDelegatePrograms</varname>,
+      <varname>BPFDelegateAttachments</varname>,
+      <function>RemoveSubgroup()</function>,
+      <varname>StateDirectoryQuota</varname>,
+      <varname>StateDirectoryQuotaUsage</varname>,
+      <varname>StateDirectoryAccounting</varname>,
+      <varname>CacheDirectoryQuota</varname>,
+      <varname>CacheDirectoryQuotaUsage</varname>,
+      <varname>CacheDirectoryAccounting</varname>,
+      <varname>LogsDirectoryQuota</varname>,
+      <varname>LogsDirectoryQuotaUsage</varname>,
+      <varname>LogsDirectoryAccounting</varname>, and
+      <function>KillSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12229,8 +12662,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> was added in version 257.</para>
       <para><varname>ConcurrencyHardMax</varname>,
       <varname>ConcurrencySoftMax</varname>,
-      <varname>NCurrentlyActive</varname> and
-      <function>RemoveSubgroup()</function> were added in version 258.</para>
+      <varname>NCurrentlyActive</varname>,
+      <function>RemoveSubgroup()</function>, and
+      <function>KillSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12257,7 +12691,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
       <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> was added in version 257.</para>
-      <para><function>RemoveSubgroup()</function> was added in version 258.</para>
+      <para><function>RemoveSubgroup()</function> and
+      <function>KillSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>

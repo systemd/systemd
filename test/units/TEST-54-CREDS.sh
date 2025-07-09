@@ -334,7 +334,7 @@ systemd-run -p "ImportCredential=test.creds.*" \
             test ! -e '${CREDENTIALS_DIRECTORY}/test.creds.hoge:invalid'
 
 # Check if credentials with invalid names are not imported (with renaming).
-systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
+systemd-run -p "ImportCredential=test.creds.*:renamed.creds." \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -352,8 +352,8 @@ systemd-run -p "ImportCredential=test.creds.*" \
                 '${CREDENTIALS_DIRECTORY}/test.creds.third' >/tmp/ts54-concat
 cmp /tmp/ts54-concat <(echo -n abc)
 
-# Check that ImportCredentialEx= works without renaming.
-systemd-run -p "ImportCredentialEx=test.creds.*" \
+# Check that ImportCredential= works without renaming.
+systemd-run -p "ImportCredential=test.creds.*" \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -364,7 +364,7 @@ systemd-run -p "ImportCredentialEx=test.creds.*" \
 cmp /tmp/ts54-concat <(echo -n abc)
 
 # Check that renaming with globs works as expected.
-systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
+systemd-run -p "ImportCredential=test.creds.*:renamed.creds." \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -375,7 +375,7 @@ systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
 cmp /tmp/ts54-concat <(echo -n abc)
 
 # Check that renaming without globs works as expected.
-systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
+systemd-run -p "ImportCredential=test.creds.first:renamed.creds.first" \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -384,8 +384,8 @@ systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
 cmp /tmp/ts54-concat <(echo -n a)
 
 # Test that multiple renames are processed in the correct order.
-systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
-            -p "ImportCredentialEx=test.creds.second:renamed.creds.first" \
+systemd-run -p "ImportCredential=test.creds.first:renamed.creds.first" \
+            -p "ImportCredential=test.creds.second:renamed.creds.first" \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -394,6 +394,7 @@ systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
 cmp /tmp/ts54-concat <(echo -n a)
 
 # Test that a credential can be imported multiple times with different names.
+# We use the deprecated name ImportCredentialEx= on purpose to check that it works.
 systemd-run -p "ImportCredentialEx=test.creds.first" \
             -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
             -p "ImportCredentialEx=test.creds.first:renamed.creds.second" \

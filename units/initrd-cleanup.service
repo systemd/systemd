@@ -14,8 +14,8 @@ AssertPathExists=/etc/initrd-release
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
 After=initrd-root-fs.target initrd-fs.target initrd.target
+Conflicts=emergency.target
 
 [Service]
 Type=oneshot
 ExecStart=systemctl --no-block isolate initrd-switch-root.target
-ExecStart=systemctl --no-block --job-mode=replace-irreversibly start initrd-switch-root.service

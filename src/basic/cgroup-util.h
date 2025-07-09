@@ -97,6 +97,7 @@ extern const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX];
 
 const char* cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
 CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
+void cgroup_io_limits_list(void);
 
 /* Special values for the io.bfq.weight attribute */
 #define CGROUP_BFQ_WEIGHT_INVALID UINT64_MAX
@@ -225,7 +226,7 @@ int cg_pid_get_user_slice(pid_t pid, char **ret_slice);
 
 int cg_path_decode_unit(const char *cgroup, char **ret_unit);
 
-bool cg_needs_escape(const char *p);
+bool cg_needs_escape(const char *p) _pure_;
 int cg_escape(const char *p, char **ret);
 char* cg_unescape(const char *p) _pure_;
 

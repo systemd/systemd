@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -508,12 +509,14 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         if (rmdir(full) < 0)
                 return log_error_errno(errno, "Failed to remove %s: %m", full);
 
-        /* Create mountpoint for cgroups. Otherwise we are not allowed since we remount /sys/ read-only. */
-        _cleanup_free_ char *x = path_join(top, "/fs/cgroup");
-        if (!x)
-                return log_oom();
+        /* Create mountpoints. Otherwise we are not allowed since we remount /sys/ read-only. */
+        FOREACH_STRING(p, "/fs/cgroup", "/fs/bpf") {
+                _cleanup_free_ char *x = path_join(top, p);
+                if (!x)
+                        return log_oom();
 
-        (void) mkdir_p(x, 0755);
+                (void) mkdir_p(x, 0755);
+        }
 
         return mount_nofollow_verbose(LOG_ERR, NULL, top, NULL,
                                       MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
@@ -814,7 +817,28 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         if (m->rm_rf_tmpdir && chown(m->source, uid_shift, uid_shift) < 0)
                 return log_error_errno(errno, "Failed to chown %s: %m", m->source);
 
-        if (stat(m->source, &source_st) < 0)
+        /* UID/GIDs of idmapped mounts are always resolved in the caller's user namespace. In other
+         * words, they're not nested. If we're doing an idmapped mount from a bind mount that's
+         * already idmapped itself, the old idmap is replaced with the new one. This means that the
+         * source uid which we put in the idmap userns has to be the uid of mount source in the
+         * caller's userns *without* any mount idmapping in place. To get that uid, we clone the
+         * mount source tree and clear any existing idmapping and temporarily mount that tree over
+         * the mount source before we stat the mount source to figure out the source uid. */
+        _cleanup_close_ int fd_clone = open_tree_attr_fallback(
+                        AT_FDCWD,
+                        m->source,
+                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC,
+                        &(struct mount_attr) {
+                                .attr_clr = MOUNT_ATTR_IDMAP,
+                        });
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd_clone))
+                /* We can only clear idmapped mounts with open_tree_attr(), but there might not be one in
+                 * the first place, so we keep going if we get a not supported error. */
+                fd_clone = open_tree(AT_FDCWD, m->source, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC);
+        if (fd_clone < 0)
+                return log_error_errno(errno, "Failed to clone %s: %m", m->source);
+
+        if (fstat(fd_clone, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
 
         r = chase(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where, NULL);
@@ -859,9 +883,10 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                 dest_uid = uid_shift;
         }
 
-        r = mount_nofollow_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
-        if (r < 0)
-                return r;
+        if (move_mount(fd_clone, "", AT_FDCWD, where, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                return log_error_errno(errno, "Failed to mount %s to %s: %m", m->source, where);
+
+        fd_clone = safe_close(fd_clone);
 
         if (m->read_only) {
                 r = bind_remount_recursive(where, MS_RDONLY, MS_RDONLY, NULL);

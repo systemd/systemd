@@ -44,10 +44,8 @@ TEST(cg_create) {
         int r;
 
         r = cg_unified_cached(false);
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT)) {
-                log_tests_skipped("cgroupfs is not mounted");
-                return;
-        }
+        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
+                return (void) log_tests_skipped("cgroupfs is not mounted");
         ASSERT_OK(r);
 
         _cleanup_free_ char *here = NULL;
@@ -122,14 +120,10 @@ TEST(id) {
         int r;
 
         r = cg_all_unified();
-        if (r == 0) {
-                log_tests_skipped("skipping cgroupid test, not running in unified mode");
-                return;
-        }
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT)) {
-                log_tests_skipped("cgroupfs is not mounted");
-                return;
-        }
+        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
+                return (void) log_tests_skipped("cgroupfs is not mounted");
+        if (r == 0)
+                return (void) log_tests_skipped("skipping cgroupid test, not running in unified mode");
         ASSERT_OK_POSITIVE(r);
 
         fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");

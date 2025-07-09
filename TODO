@@ -118,7 +118,24 @@ Deprecations and removals:
 
 * Consider removing root=gpt-auto, and push people to use root=dissect instead.
 
+* Once
+  https://github.com/util-linux/util-linux/commit/508fb0e7ac103b68531a59db2a4473897853ab52
+  has hit the prominent distributions, revert --issue-file= hack in units/*getty*service.in
+
+* Once kernel baseline is 5.7, obsolete DefaultMemoryMin/Low= and DefaultStartupMemoryLow=
+  since we can systematically enable memory_recursiveprot on cgroupfs and have those
+  enforced by the kernel
+
 Features:
+
+* Add ELF section to make systemd main binary recognizable cleanly, the same
+  way as we make sd-boot recognizable via PE section.
+
+* Add knob to cryptsetup, to trigger automatic reboot on failure to unlock
+  disk. Enable this by default for rootfs, also in gpt-auto-generator
+
+* Add RebootUptimeMinSec= knob to PID 1, that makes systemd-shutdown sleep
+  until the specified uptime has passed, to lengthen tight boot loops.
 
 * replace bootctl's PE version check to actually use APIs from pe-binary.[ch]
   to find binary version.
@@ -157,8 +174,6 @@ Features:
   symlinks to confext images to enable for the unit.
 
 * nspawn: map foreign UID range through 1:1
-
-* replace most calls to sd_bus_send() by sd_bus_message_send()
 
 * replace all uses of fopen_temporary() by fopen_tmpfile_linkable() +
   flink_tmpfile() and then get rid of fopen_temporary(). Benefit: use O_TMPFILE
@@ -349,13 +364,6 @@ Features:
 * also parse out primary GPT disk label uuid from gpt partition device path at
   boot and pass it as efi var to OS.
 
-* maybe rework invocation of stub's inner PE payload: since we already parse PE
-  anyway, maybe jump directly into the image, after finding the linux UEFI
-  entrypoint. After all we invest quite some effort to disable
-  validation/measurement of the inner image, i.e. we want nothing from UEFI's
-  own image loading code paths. Given that everything's statically linked
-  anyway on UEFI it should be easy to just jump into the already loaded image.
-
 * storagetm: maybe also serve the specified disk via HTTP? we have glue for
   microhttpd anyway already. Idea would also be serve currently booted UKI as
   separate HTTP resource, so that EFI http boot on another system could
@@ -425,10 +433,6 @@ Features:
 * Allocate UIDs/GIDs automatically in userdbctl load-credentials if none are
   included in the user/group record credentials
 
-* the ordering cycle log messages in transaction_verify_order_one() should
-  really be recognizable via a message id and come with an explanatory catalog
-  message
-
 * introduce new ANSI sequence for communicating log level and structured error
   metadata to terminals.
 
@@ -451,10 +455,6 @@ Features:
   per-user managed.
 
 * resolved: make resolved process DNR DHCP info
-
-* Teach systemd-ssh-generator to generated an /run/issue.d/ drop-in telling
-  users how to connect to the system via the AF_VSOCK, as per:
-  https://github.com/systemd/systemd/issues/35071#issuecomment-2462803142
 
 * maybe introduce an OSC sequence that signals when we ask for a password, so
   that terminal emulators can maybe connect a password manager or so, and
@@ -718,12 +718,6 @@ Features:
   a program is invoked, and its output captured, with correct EOF handling and
   exit code propagation
 
-* new systemd-analyze "join" verb or so, for debugging services. Would be
-  nsenter on steroids, i.e invoke a shell or command line in an environment as
-  close as we can make it for the MainPID of a service. Should be built around
-  pidfd, so that we can reasonably robustly do this. Would only cover the
-  execution environment like namespaces, but not the privilege settings.
-
 * Introduce a CGroupRef structure, inspired by PidRef. Should contain cgroup
   path, cgroup id, and cgroup fd. Use it to continuously pin all v2 cgroups via
   a cgroup_ref field in the CGroupRuntime structure. Eventually switch things
@@ -831,8 +825,6 @@ Features:
   - implement hotkeys ^]^]r and ^]^]p like nspawn
 
 * systemd-pcrmachine should probably also measure the SMBIOS system UUID.
-
-* sd-boot: allow synthesizing additional type1 entries via SMBIOS vendor strings
 
 * storagetm:
   - add USB mass storage device logic, so that all local disks are also exposed
@@ -1154,9 +1146,6 @@ Features:
   possibly get a lot of access to resources it really shouldn't be getting
   access to due to the userns + nfs semantics of the user. Alternatively: use
   the seccomp log action, and allow it.
-
-* maybe: systemd-loop-generator that sets up loopback devices if requested via kernel
-  cmdline. use case: include encrypted/verity root fs in UKI.
 
 * systemd-gpt-auto-generator: add kernel cmdline option to override block
   device to dissect. also support dissecting a regular file. useccase: include
@@ -1820,8 +1809,6 @@ Features:
 * add growvol and makevol options for /etc/crypttab, similar to
   x-systemd.growfs and x-systemd-makefs.
 
-* userdb: allow uid/gid range checks
-
 * userdb: allow existence checks
 
 * pid1: activation by journal search expression
@@ -2013,14 +2000,6 @@ Features:
 * beef up pam_systemd to take unit file settings such as cgroups properties as
   parameters
 
-* maybe hook up xfs/ext4 quotactl() with services? i.e. automatically manage
-  the quota of the user indicated in User= via unit file settings, like the
-  other resource management concepts. Would mix nicely with DynamicUser=1. Or
-  alternatively, do this with projids, so that we can also cover services
-  running as root. Quota should probably cover all the special dirs such as
-  StateDirectory=, LogsDirectory=, CacheDirectory=, as well as RootDirectory= if it
-  is set, plus the whole disk space any image configured with RootImage=.
-
 * In DynamicUser= mode: before selecting a UID, use disk quota APIs on relevant
   disks to see if the UID is already in use.
 
@@ -2045,9 +2024,6 @@ Features:
   execve() and turn off watchdog support. Then, use that to implement
   "systemd-gdb" for attaching to the start-up of any system service in its
   natural habitat.
-
-* gpt-auto logic: support encrypted swap, add kernel cmdline option to force
-  it, and honour a gpt bit about it, plus maybe a configuration file
 
 * add a percentage syntax for TimeoutStopSec=, e.g. TimeoutStopSec=150%, and
   then use that for the setting used in user@.service. It should be understood
@@ -2185,7 +2161,6 @@ Features:
 * add bus api to query unit file's X fields.
 
 * gpt-auto-generator:
-  - Define new partition type for encrypted swap? Support probed LUKS for encrypted swap?
   - Make /home automount rather than mount?
 
 * add generator that pulls in systemd-network from containers when

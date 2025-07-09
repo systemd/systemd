@@ -57,6 +57,30 @@ enum {
         _NSEC3_ALGORITHM_MAX_DEFINED
 };
 
+/* SSHFP algorithm identifiers, see
+ * https://www.iana.org/assignments/dns-sshfp-rr-parameters/dns-sshfp-rr-parameters.xhtml */
+enum {
+        SSHFP_ALGORITHM_RSA     = 1,   /* RFC 4255 */
+        SSHFP_ALGORITHM_DSA     = 2,   /* RFC 4255 */
+        SSHFP_ALGORITHM_ECDSA   = 3,   /* RFC 6594 */
+        SSHFP_ALGORITHM_ED25519 = 4,   /* RFC 7479 */
+        /* unassigned */
+        SSHFP_ALGORITHM_ED448   = 6,   /* RFC 8709 */
+        _SSHFP_ALGORITHM_MAX_DEFINED
+};
+/* A helper to align printed output */
+#define SSHFP_ALGORITHM_FMT "%-7s"
+
+/* SSHFP key-type identifiers, see
+ * https://www.iana.org/assignments/dns-sshfp-rr-parameters/dns-sshfp-rr-parameters.xhtml */
+enum {
+        SSHFP_KEY_TYPE_SHA1     = 1,   /* RFC 4255 */
+        SSHFP_KEY_TYPE_SHA256   = 2,   /* RFC 4255 */
+        _SSHFP_KEY_TYPE_MAX_DEFINED
+};
+/* A helper to align printed output */
+#define SSHFP_KEY_TYPE_FMT "%-7s"
+
 typedef struct DnsResourceKey {
         unsigned n_ref; /* (unsigned -1) for const keys, see below */
         uint16_t class, type;
@@ -412,3 +436,9 @@ int dnssec_algorithm_from_string(const char *s) _pure_;
 
 int dnssec_digest_to_string_alloc(int i, char **ret);
 int dnssec_digest_from_string(const char *s) _pure_;
+
+int sshfp_algorithm_to_string_alloc(int i, char **ret);
+int sshfp_algorithm_from_string(const char *s) _pure_;
+
+int sshfp_key_type_to_string_alloc(int i, char **ret);
+int sshfp_key_type_from_string(const char *s) _pure_;

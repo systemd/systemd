@@ -27,3 +27,4 @@ ReceiveBuffer=8M
 Service=systemd-journald.service
 SocketMode=0666
 Timestamping=us
+DeferTrigger=yes

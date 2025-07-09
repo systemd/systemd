@@ -127,7 +127,7 @@ basic_sources += missing_syscall_def_h
 generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         output : 'af-list.txt',
-        command : [generate_af_list, cpp, files('missing_socket.h')],
+        command : [generate_af_list, cpp, files('include/sys/socket.h')],
         capture : true)
 
 generate_arphrd_list = find_program('generate-arphrd-list.sh')
@@ -273,8 +273,17 @@ filesystem_switch_case_inc = custom_target(
                    '@INPUT@'],
         capture : true)
 
-generated_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
-basic_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
+generate_bpf_delegate_configs = find_program('generate-bpf-delegate-configs.py')
+bpf_delegate_configs_inc = custom_target(
+        input : files('include/linux/bpf.h'),
+        output : 'bpf-delegate-configs.inc',
+        command : [generate_bpf_delegate_configs,
+                   'code',
+                   '@INPUT@'],
+        capture : true)
+
+generated_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h, bpf_delegate_configs_inc]
+basic_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h, bpf_delegate_configs_inc]
 
 libbasic_static = static_library(
         'basic',

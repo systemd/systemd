@@ -1946,15 +1946,6 @@ static int event_log_map_components(EventLog *el) {
                 unsigned n_matching = 0, n_empty = 0;
                 EventLogComponent *c = *cc;
 
-                if (arg_location_end && strcmp(c->id, arg_location_end) > 0) {
-                        n_skipped++;
-
-                        if (!strextend_with_separator(&skipped_ids, ", ", c->id))
-                                return log_oom();
-
-                        continue;
-                }
-
                 assert(c->n_variants > 0);
 
                 FOREACH_ARRAY(ii, c->variants, c->n_variants) {
@@ -1978,20 +1969,33 @@ static int event_log_map_components(EventLog *el) {
                 }
 
                 if (n_matching + n_empty == 0) {
+                        bool skip = true;
 
                         if (arg_location_start && strcmp(c->id, arg_location_start) >= 0)
                                 log_info("Didn't find component '%s' in event log, assuming system hasn't reached it yet.", c->id);
-                        else {
+                        else if (arg_location_end && strcmp(c->id, arg_location_end) > 0) {
+                                log_info("Didn't find component '%s' in event log, but irrelevant for location window, ignoring.", c->id);
+                        } else {
                                 log_notice("Couldn't find component '%s' in event log.", c->id);
                                 el->n_missing_components++;
                                 el->missing_component_pcrs |= event_log_component_pcrs(c);
+
+                                skip = false;
                         }
+
+                        if (skip) {
+                                n_skipped++;
+
+                                if (!strextend_with_separator(&skipped_ids, ", ", c->id))
+                                        return log_oom();
+                        }
+
                 } else if (n_matching > 1)
                         log_debug("Found %u possible variants of component '%s' in event log (%s). Proceeding.", n_matching, c->id, matching_ids);
         }
 
         if (n_skipped > 0)
-                log_notice("Skipped %u components after location '%s' (%s).", n_skipped, arg_location_end, skipped_ids);
+                log_notice("Skipped %u components (%s).", n_skipped, skipped_ids);
         if (el->n_missing_components > 0)
                 log_notice("Unable to recognize %zu components in event log.", el->n_missing_components);
 
@@ -4990,9 +4994,9 @@ static int verb_is_supported(int argc, char *argv[], void *userdata) {
                         printf("%spartial%s\n", ansi_yellow(), ansi_normal());
         }
 
-        assert_cc(TPM2_SUPPORT_API_PCRLOCK <= 255); /* make sure this is safe to use as process exit status */
+        assert_cc((TPM2_SUPPORT_API|TPM2_SUPPORT_API_PCRLOCK) <= 255); /* make sure this is safe to use as process exit status */
 
-        return ~s & TPM2_SUPPORT_API_PCRLOCK;
+        return ~s & (TPM2_SUPPORT_API|TPM2_SUPPORT_API_PCRLOCK);
 }
 
 static int help(int argc, char *argv[], void *userdata) {

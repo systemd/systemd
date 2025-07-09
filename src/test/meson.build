@@ -12,7 +12,9 @@ generated_sources += test_hashmap_ordered_c
 
 path = run_command(sh, '-c', 'echo "$PATH"', check: true).stdout().strip()
 test_env = environment()
-test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
+if conf.get('ENABLE_LOCALED') == 1
+        test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
+endif
 test_env.set('PATH', meson.project_build_root() + ':' + path)
 test_env.set('PROJECT_BUILD_ROOT', meson.project_build_root())
 test_env.set('SYSTEMD_SLOW_TESTS', want_slow_tests ? '1' : '0')
@@ -56,6 +58,7 @@ simple_tests += files(
         'test-blockdev-util.c',
         'test-bootspec.c',
         'test-build-path.c',
+        'test-bus-unit-util.c',
         'test-bus-util.c',
         'test-calendarspec.c',
         'test-cgroup-util.c',
@@ -184,6 +187,7 @@ simple_tests += files(
         'test-strxcpyx.c',
         'test-sysctl-util.c',
         'test-terminal-util.c',
+        'test-tests.c',
         'test-tmpfile-util.c',
         'test-udev-util.c',
         'test-uid-classification.c',
@@ -481,6 +485,12 @@ executables += [
         core_test_template + {
                 'sources' : files('test-bpf-restrict-fs.c'),
                 'dependencies' : common_test_dependencies,
+        },
+        core_test_template + {
+                'sources' : files('test-bpf-token.c'),
+                'dependencies' : common_test_dependencies + libbpf,
+                'conditions' : ['BPF_FRAMEWORK'],
+                'type' : 'manual',
         },
         core_test_template + {
                 'sources' : files('test-cgroup-cpu.c'),

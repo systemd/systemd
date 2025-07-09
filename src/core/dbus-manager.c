@@ -831,6 +831,12 @@ static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_erro
         return method_generic_unit_operation(message, userdata, error, bus_unit_method_kill, 0);
 }
 
+static int method_kill_unit_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        /* We don't bother with GENERIC_UNIT_LOAD nor GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
+         * matter whether a unit is loaded for killing any processes possibly in the unit's cgroup. */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_kill_subgroup, 0);
+}
+
 static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Load the unit if necessary, in order to load it, and insist on the unit being loaded to be
          * cleaned */
@@ -989,7 +995,7 @@ static int transient_unit_from_message(
         t = unit_name_to_type(name);
         if (t < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid unit name or type.");
+                                         "Invalid unit name or type: %s", name);
 
         if (!unit_vtable[t]->can_transient)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
@@ -1542,9 +1548,9 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
                 log_warning("Reloading request rejected due to rate limit.");
-                return sd_bus_error_setf(error,
-                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
-                                         "Reload() request rejected due to rate limit.");
+                return sd_bus_error_set(error,
+                                        SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Reload() request rejected due to rate limit.");
         }
 
         /* Instead of sending the reply back right away, we just
@@ -1584,9 +1590,9 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
                 log_warning("Reexecution request rejected due to rate limit.");
-                return sd_bus_error_setf(error,
-                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
-                                         "Reexecute() request rejected due to rate limit.");
+                return sd_bus_error_set(error,
+                                        SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Reexecute() request rejected due to rate limit.");
         }
 
         /* We don't send a reply back here, the client should
@@ -1883,8 +1889,8 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
                 return r;
 
         if (!strv_env_name_or_assignment_is_valid(minus))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid environment variable names or assignments");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Invalid environment variable names or assignments");
 
         r = bus_verify_set_environment_async(m, message, error);
         if (r < 0)
@@ -1919,11 +1925,11 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
                 return r;
 
         if (!strv_env_name_or_assignment_is_valid(minus))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid environment variable names or assignments");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Invalid environment variable names or assignments");
         if (!strv_env_is_valid(plus))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid environment assignments");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Invalid environment assignments");
 
         r = bus_verify_set_environment_async(m, message, error);
         if (r < 0)
@@ -1971,8 +1977,8 @@ static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *use
                 return r;
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Dynamic users are only supported in the system instance.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Dynamic users are only supported in the system instance.");
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "User name invalid: %s", name);
@@ -2001,8 +2007,8 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
                 return r;
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Dynamic users are only supported in the system instance.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Dynamic users are only supported in the system instance.");
         if (!uid_is_valid(uid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "User ID invalid: " UID_FMT, uid);
@@ -2028,8 +2034,8 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Dynamic users are only supported in the system instance.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Dynamic users are only supported in the system instance.");
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -2046,8 +2052,8 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
                 if (r == -EAGAIN) /* not realized yet? */
                         continue;
                 if (r < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED,
-                                                 "Failed to look up a dynamic user.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED,
+                                                "Failed to look up a dynamic user.");
 
                 r = sd_bus_message_append(reply, "(us)", uid, d->name);
                 if (r < 0)
@@ -2229,7 +2235,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
 
         r = unit_file_get_default(m->runtime_scope, NULL, &default_target);
         if (r == -ERFKILL)
-                sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_MASKED, "Default target unit file is masked.");
         if (r < 0)
                 return r;
 
@@ -3024,6 +3030,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", name, "s", whom, "i", signal),
                                 SD_BUS_NO_RESULT,
                                 method_kill_unit,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("KillUnitSubgroup",
+                                SD_BUS_ARGS("s", name, "s", whom, "s", subgroup, "i", signal),
+                                SD_BUS_NO_RESULT,
+                                method_kill_unit_subgroup,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("QueueSignalUnit",
                                 SD_BUS_ARGS("s", name, "s", whom, "i", signal, "i", value),

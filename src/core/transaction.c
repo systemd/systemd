@@ -325,32 +325,6 @@ static bool job_matters_to_anchor(Job *job) {
         return false;
 }
 
-static char* merge_unit_ids(const char* unit_log_field, char * const* pairs) {
-        _cleanup_free_ char *ans = NULL;
-        size_t size = 0;
-
-        assert(unit_log_field);
-
-        STRV_FOREACH_PAIR(unit_id, job_type, pairs) {
-                size_t next;
-
-                if (size > 0)
-                        ans[size - 1] = '\n';
-
-                next = strlen(unit_log_field) + strlen(*unit_id);
-                if (!GREEDY_REALLOC(ans, size + next + 1))
-                        return NULL;
-
-                sprintf(ans + size, "%s%s", unit_log_field, *unit_id);
-                size += next + 1;
-        }
-
-        if (!ans)
-                return strdup("");
-
-        return TAKE_PTR(ans);
-}
-
 static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsigned generation, sd_bus_error *e) {
 
         static const UnitDependencyAtom directions[] = {
@@ -369,8 +343,8 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
         /* Have we seen this before? */
         if (j->generation == generation) {
-                Job *k, *delete = NULL;
-                _cleanup_free_ char **array = NULL, *unit_ids = NULL;
+                _cleanup_free_ char **array = NULL;
+                Job *delete = NULL;
 
                 /* If the marker is NULL we have been here already and decided the job was loop-free from
                  * here. Hence shortcut things and return right-away. */
@@ -380,7 +354,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 /* So, the marker is not NULL and we already have been here. We have a cycle. Let's try to
                  * break it. We go backwards in our path and try to find a suitable job to remove. We use the
                  * marker to find our way back, since smart how we are we stored our way back in there. */
-                for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
+                for (Job *k = from; k; k = (k->generation == generation && k->marker != k) ? k->marker : NULL) {
 
                         /* For logging below */
                         if (strv_push_pair(&array, k->unit->id, (char*) job_type_to_string(k->type)) < 0)
@@ -395,26 +369,26 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                 break;
                 }
 
-                unit_ids = merge_unit_ids(unit_log_field(j->unit), array); /* ignore error */
-
-                size_t m = strv_length(array);
+                _cleanup_free_ char *unit_ids = NULL;
+                STRV_FOREACH_PAIR(unit_id, job_type, array)
+                        (void) strextendf_with_separator(&unit_ids, "\n", "%s%s", unit_log_field(j->unit), *unit_id);
 
                 _cleanup_free_ char *cycle_path_text = strdup("Found ordering cycle");
-                if (m > 0) {
-                        (void) strextendf(&cycle_path_text, " on %s/%s", array[0], array[1]);
-                        if (m > 2)
-                                (void) strextendf(&cycle_path_text, "; has dependency on %s/%s", array[2], array[3]);
-                }
+                if (!strv_isempty(array)) {
+                        (void) strextendf(&cycle_path_text, ": %s/%s", array[0], array[1]);
 
-                STRV_FOREACH_PAIR(unit_id, job_type, strv_skip(array, 4))
-                        (void) strextendf(&cycle_path_text, ", %s/%s", *unit_id, *job_type);
+                        STRV_FOREACH_PAIR(unit_id, job_type, strv_skip(array, 2))
+                                (void) strextendf(&cycle_path_text, " after %s/%s", *unit_id, *job_type);
+
+                        (void) strextendf(&cycle_path_text, " - after %s", array[0]);
+                }
 
                 /* logging for j not k here to provide a consistent narrative */
                 if (cycle_path_text)
                         log_struct(LOG_ERR,
                                    LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
-                                   LOG_ITEM("%s", strna(unit_ids)));
+                                   LOG_ITEM("%s", strempty(unit_ids)));
 
                 if (delete) {
                         const char *status;
@@ -427,7 +401,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    LOG_MESSAGE_ID(SD_MESSAGE_DELETING_JOB_BECAUSE_ORDERING_CYCLE_STR),
                                    LOG_ITEM("DELETED_UNIT=%s", delete->unit->id),
                                    LOG_ITEM("DELETED_TYPE=%s", job_type_to_string(delete->type)),
-                                   LOG_ITEM("%s", strna(unit_ids)));
+                                   LOG_ITEM("%s", strempty(unit_ids)));
 
                         if (log_get_show_color())
                                 status = ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL;
@@ -447,7 +421,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                            LOG_UNIT_MESSAGE(j->unit, "Unable to break cycle starting with %s/%s",
                                             j->unit->id, job_type_to_string(j->type)),
                            LOG_MESSAGE_ID(SD_MESSAGE_CANT_BREAK_ORDERING_CYCLE_STR),
-                           LOG_ITEM("%s", strna(unit_ids)));
+                           LOG_ITEM("%s", strempty(unit_ids)));
 
                 return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
                                          "Transaction order is cyclic. See system logs for details.");
@@ -565,7 +539,7 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_erro
                 assert(!j->transaction_prev);
                 assert(!j->transaction_next);
 
-                if (j->unit->job && (mode == JOB_FAIL || j->unit->job->irreversible) &&
+                if (j->unit->job && (IN_SET(mode, JOB_FAIL, JOB_LENIENT) || j->unit->job->irreversible) &&
                     job_type_is_conflicting(j->unit->job->type, j->type))
                         return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE,
                                                  "Transaction for %s/%s is destructive (%s has '%s' job queued, but '%s' is included in transaction).",
@@ -576,7 +550,7 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_erro
         return 0;
 }
 
-static void transaction_minimize_impact(Transaction *tr) {
+static int transaction_minimize_impact(Transaction *tr, JobMode mode, sd_bus_error *e) {
         Job *head;
 
         assert(tr);
@@ -584,13 +558,16 @@ static void transaction_minimize_impact(Transaction *tr) {
         /* Drops all unnecessary jobs that reverse already active jobs
          * or that stop a running service. */
 
+        if (!IN_SET(mode, JOB_FAIL, JOB_LENIENT))
+                return 0;
+
 rescan:
         HASHMAP_FOREACH(head, tr->jobs) {
                 LIST_FOREACH(transaction, j, head) {
                         bool stops_running_service, changes_existing_job;
 
                         /* If it matters, we shouldn't drop it */
-                        if (j->matters_to_anchor)
+                        if (j->matters_to_anchor && mode != JOB_LENIENT)
                                 continue;
 
                         /* Would this stop a running service?
@@ -606,6 +583,13 @@ rescan:
 
                         if (!stops_running_service && !changes_existing_job)
                                 continue;
+
+                        if (j->matters_to_anchor) {
+                                assert(mode == JOB_LENIENT);
+                                return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE,
+                                                         "%s/%s would stop a running unit or change existing job, bailing",
+                                                         j->unit->id, job_type_to_string(j->type));
+                        }
 
                         if (stops_running_service)
                                 log_unit_debug(j->unit,
@@ -626,6 +610,8 @@ rescan:
                         goto rescan;
                 }
         }
+
+        return 0;
 }
 
 static int transaction_apply(
@@ -734,11 +720,12 @@ int transaction_activate(
         /* First step: figure out which jobs matter */
         transaction_find_jobs_that_matter_to_anchor(tr->anchor_job, generation++);
 
-        /* Second step: Try not to stop any running services if
-         * we don't have to. Don't try to reverse running
-         * jobs if we don't have to. */
-        if (mode == JOB_FAIL)
-                transaction_minimize_impact(tr);
+        /* Second step: Try not to stop any running services if we don't have to. Don't try to reverse
+         * running jobs if we don't have to. */
+        r = transaction_minimize_impact(tr, mode, e);
+        if (r < 0)
+                return r; /* Note that we don't log here, because for JOB_LENIENT conflicts are very much expected
+                             and shouldn't appear to be fatal for the unit. Only inform the caller via bus error. */
 
         /* Third step: Drop redundant jobs */
         transaction_drop_redundant(tr);

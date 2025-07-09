@@ -17,19 +17,25 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     concurrency:
-      group: ${{ github.workflow }}-${{ toJSON(matrix.env) }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ toJSON(matrix.env) }}-${{ github.ref }}-${{ matrix.runner }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
+        runner: [ ubuntu-24.04 ]
         env:
           - { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd"  }
           - { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "mold" }
           - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "mold" }
           - { COMPILER: "clang", COMPILER_VERSION: "16", LINKER: "bfd"  }
           - { COMPILER: "clang", COMPILER_VERSION: "18", LINKER: "lld"  }
+        include:
+          - env: { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd"  }
+            runner: [ ubuntu-24.04-ppc64le ]
+          - env: { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "mold"  }
+            runner: [ ubuntu-24.04-arm ]
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout

@@ -239,17 +239,6 @@ def expectedFailureIfNexthopIsNotAvailable():
 
     return f
 
-def expectedFailureIfRTA_VIAIsNotSupported():
-    def f(func):
-        call_quiet('ip link add dummy98 type dummy')
-        call_quiet('ip link set up dev dummy98')
-        call_quiet('ip route add 2001:1234:5:8fff:ff:ff:ff:fe/128 dev dummy98')
-        rc = call_quiet('ip route add 10.10.10.10 via inet6 2001:1234:5:8fff:ff:ff:ff:fe dev dummy98')
-        remove_link('dummy98')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
 def expectedFailureIfAlternativeNameIsNotAvailable():
     def f(func):
         call_quiet('ip link add dummy98 type dummy')
@@ -4510,7 +4499,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'local fe80:[a-f0-9:]* table local proto kernel metric 0 pref medium', output)
         self.assertIn('multicast ff00::/8 table local proto kernel metric 256 pref medium', output)
 
-    @expectedFailureIfRTA_VIAIsNotSupported()
     def test_route_via_ipv6(self):
         copy_network_unit('25-route-via-ipv6.network', '12-dummy.netdev')
         start_networkd()

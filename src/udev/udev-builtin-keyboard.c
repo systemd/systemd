@@ -6,6 +6,7 @@
 #include <sys/ioctl.h>
 
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"
@@ -199,8 +200,13 @@ static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
 
                         if (fd < 0) {
                                 fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-                                if (fd < 0)
-                                        return log_device_error_errno(dev, fd, "Failed to open device '%s': %m", node);
+                                if (fd < 0) {
+                                        bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+                                        log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
+                                                              "Failed to open device '%s'%s: %m",
+                                                              node, ignore ? ", ignoring" : "");
+                                        return ignore ? 0 : fd;
+                                }
                         }
 
                         (void) map_keycode(dev, fd, scancode, keycode);
@@ -216,8 +222,13 @@ static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
 
                         if (fd < 0) {
                                 fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-                                if (fd < 0)
-                                        return log_device_error_errno(dev, fd, "Failed to open device '%s': %m", node);
+                                if (fd < 0) {
+                                        bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+                                        log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
+                                                              "Failed to open device '%s'%s: %m",
+                                                              node, ignore ? ", ignoring" : "");
+                                        return ignore ? 0 : fd;
+                                }
                         }
 
                         if (has_abs == -1) {

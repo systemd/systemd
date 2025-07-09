@@ -133,6 +133,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGrou
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_private_bpf, private_bpf, PrivateBPF);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_tmp, private_tmp, PrivateTmp);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_users, private_users, PrivateUsers);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_pids, private_pids, PrivatePIDs);
@@ -159,6 +160,11 @@ DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagat
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat);
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_defer_trigger, socket_defer_trigger, SocketDeferTrigger);
+DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_commands, bpf_delegate_commands_from_string, uint64_t);
+DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_maps, bpf_delegate_maps_from_string, uint64_t);
+DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_programs, bpf_delegate_programs_from_string, uint64_t);
+DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_attachments, bpf_delegate_attachments_from_string, uint64_t);
 
 bool contains_instance_specifier_superset(const char *s) {
         const char *p, *q;
@@ -1449,7 +1455,7 @@ int config_parse_exec_io_class(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->ioprio_set = false;
+                c->ioprio_is_set = false;
                 c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
                 return 0;
         }
@@ -1461,7 +1467,7 @@ int config_parse_exec_io_class(
         }
 
         c->ioprio = ioprio_normalize(ioprio_prio_value(x, ioprio_prio_data(c->ioprio)));
-        c->ioprio_set = true;
+        c->ioprio_is_set = true;
 
         return 0;
 }
@@ -1486,7 +1492,7 @@ int config_parse_exec_io_priority(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->ioprio_set = false;
+                c->ioprio_is_set = false;
                 c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
                 return 0;
         }
@@ -1498,7 +1504,7 @@ int config_parse_exec_io_priority(
         }
 
         c->ioprio = ioprio_normalize(ioprio_prio_value(ioprio_prio_class(c->ioprio), i));
-        c->ioprio_set = true;
+        c->ioprio_is_set = true;
 
         return 0;
 }
@@ -4601,6 +4607,48 @@ int config_parse_exec_directories(
         }
 }
 
+int config_parse_exec_quota(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        QuotaLimit *quota_limit = ASSERT_PTR(data);
+        uint64_t quota_absolute = UINT64_MAX;
+        uint32_t quota_scale = UINT32_MAX;
+        int r;
+
+        if (isempty(rvalue) || streq(rvalue, "off")) {
+                quota_limit->quota_enforce = false;
+                quota_limit->quota_absolute = UINT64_MAX;
+                quota_limit->quota_scale = UINT32_MAX;
+                return 0;
+        }
+
+        r = parse_permyriad(rvalue);
+        if (r < 0) {
+                r = parse_size(rvalue, 1024, &quota_absolute);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse disk quota value, ignoring: %s", rvalue);
+                        return 0;
+                }
+        } else
+                /* Normalize to 2^32-1 == 100% */
+                quota_scale = UINT32_SCALE_FROM_PERMYRIAD(r);
+
+        quota_limit->quota_absolute = quota_absolute;
+        quota_limit->quota_scale = quota_scale;
+        quota_limit->quota_enforce = true;
+
+        return 0;
+}
+
 int config_parse_set_credential(
                 const char *unit,
                 const char *filename,
@@ -6227,6 +6275,10 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_personality,           "PERSONALITY" },
                 { config_parse_log_filter_patterns,   "REGEX" },
                 { config_parse_mount_node,            "NODE" },
+                { config_parse_bpf_delegate_commands, "BPF_DELEGATE_COMMANDS" },
+                { config_parse_bpf_delegate_maps,     "BPF_DELEGATE_MAPS" },
+                { config_parse_bpf_delegate_programs, "BPF_DELEGATE_PROGRAMS" },
+                { config_parse_bpf_delegate_attachments, "BPF_DELEGATE_ATTACHMENTS" },
         };
 
         const char *prev = NULL;

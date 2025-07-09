@@ -1253,16 +1253,13 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
 }
 
 static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
-        int r, nr_open;
+        int r;
 
         assert(p);
         assert(f);
         assert(fds);
 
-        nr_open = read_nr_open();
-        if (nr_open < 3)
-                nr_open = HIGH_RLIMIT_NOFILE;
-        assert(nr_open > 0); /* For compilers/static analyzers */
+        unsigned nr_open = MAX(read_nr_open(), NR_OPEN_MINIMUM);
 
         for (;;) {
                 _cleanup_free_ char *l = NULL;
@@ -1290,7 +1287,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
 
-                        if (p->n_socket_fds > (size_t) nr_open)
+                        if (p->n_socket_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
                 } else if ((val = startswith(l, "exec-parameters-n-storage-fds="))) {
                         if (p->fds)
@@ -1300,7 +1297,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
 
-                        if (p->n_storage_fds > (size_t) nr_open)
+                        if (p->n_storage_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
                 } else if ((val = startswith(l, "exec-parameters-n-extra-fds="))) {
                         if (p->fds)
@@ -1310,7 +1307,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
 
-                        if (p->n_extra_fds > (size_t) nr_open)
+                        if (p->n_extra_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
                 } else if ((val = startswith(l, "exec-parameters-fds="))) {
                         if (p->n_socket_fds + p->n_storage_fds + p->n_extra_fds == 0)
@@ -1318,7 +1315,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                                 SYNTHETIC_ERRNO(EINVAL),
                                                 "Got exec-parameters-fds= without "
                                                 "prior exec-parameters-n-socket-fds= or exec-parameters-n-storage-fds= or exec-parameters-n-extra-fds=");
-                        if (p->n_socket_fds + p->n_storage_fds + p->n_extra_fds > (size_t) nr_open)
+                        if (p->n_socket_fds + p->n_storage_fds + p->n_extra_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
 
                         if (p->fds)
@@ -1806,6 +1803,34 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item(f, "exec-context-private-bpf", private_bpf_to_string(c->private_bpf));
+        if (r < 0)
+                return r;
+
+        if (c->bpf_delegate_commands != 0) {
+                r = serialize_item_format(f, "exec-context-bpf-delegate-commands", "0x%"PRIx64, c->bpf_delegate_commands);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->bpf_delegate_maps != 0) {
+                r = serialize_item_format(f, "exec-context-bpf-delegate-maps", "0x%"PRIx64, c->bpf_delegate_maps);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->bpf_delegate_programs != 0) {
+                r = serialize_item_format(f, "exec-context-bpf-delegate-programs", "0x%"PRIx64, c->bpf_delegate_programs);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->bpf_delegate_attachments != 0) {
+                r = serialize_item_format(f, "exec-context-bpf-delegate-attachments", "0x%"PRIx64, c->bpf_delegate_attachments);
+                if (r < 0)
+                        return r;
+        }
+
         r = serialize_item(f, "exec-context-runtime-directory-preserve-mode", exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
         if (r < 0)
                 return r;
@@ -1851,6 +1876,28 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 r = serialize_item(f, key, value);
                 if (r < 0)
                         return r;
+
+                if (c->directories[dt].exec_quota.quota_enforce) {
+                        _cleanup_free_ char *key_quota = NULL;
+                        key_quota = strjoin("exec-context-quota-directories-", exec_directory_type_to_string(dt));
+                        if (!key_quota)
+                                return log_oom_debug();
+
+                        r = serialize_item_format(f, key_quota, "%" PRIu64 " %" PRIu32, c->directories[dt].exec_quota.quota_absolute,
+                                                                                        c->directories[dt].exec_quota.quota_scale);
+                        if (r < 0)
+                                return r;
+
+                } else if (c->directories[dt].exec_quota.quota_accounting) {
+                        _cleanup_free_ char *key_quota = NULL;
+                        key_quota = strjoin("exec-context-quota-accounting-directories-", exec_directory_type_to_string(dt));
+                        if (!key_quota)
+                                return log_oom_debug();
+
+                        r = serialize_bool(f, key_quota, c->directories[dt].exec_quota.quota_accounting);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = serialize_usec(f, "exec-context-timeout-clean-usec", c->timeout_clean_usec);
@@ -1894,7 +1941,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
-        if (c->ioprio_set) {
+        if (c->ioprio_is_set) {
                 r = serialize_item_format(f, "exec-context-ioprio", "%d", c->ioprio);
                 if (r < 0)
                         return r;
@@ -2722,6 +2769,26 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         c->proc_subset = proc_subset_from_string(val);
                         if (c->proc_subset < 0)
                                 return -EINVAL;
+                } else if ((val = startswith(l, "exec-context-private-bpf="))) {
+                        c->private_bpf = private_bpf_from_string(val);
+                        if (c->private_bpf < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-context-bpf-delegate-commands="))) {
+                        r = safe_atoux64(val, &c->bpf_delegate_commands);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-bpf-delegate-maps="))) {
+                        r = safe_atoux64(val, &c->bpf_delegate_maps);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-bpf-delegate-programs="))) {
+                        r = safe_atoux64(val, &c->bpf_delegate_programs);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-bpf-delegate-attachments="))) {
+                        r = safe_atoux64(val, &c->bpf_delegate_attachments);
+                        if (r < 0)
+                                return r;
                 } else if ((val = startswith(l, "exec-context-runtime-directory-preserve-mode="))) {
                         c->runtime_directory_preserve_mode = exec_preserve_mode_from_string(val);
                         if (c->runtime_directory_preserve_mode < 0)
@@ -2738,7 +2805,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 
                         dt = exec_directory_type_from_string(type);
                         if (dt < 0)
-                                return -EINVAL;
+                                return dt;
 
                         r = parse_mode(mode, &c->directories[dt].mode);
                         if (r < 0)
@@ -2796,6 +2863,48 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                                 return r;
                                 }
                         }
+                } else if ((val = startswith(l, "exec-context-quota-accounting-directories-"))) {
+                        _cleanup_free_ char *type = NULL, *quota_accounting = NULL;
+                        ExecDirectoryType dt;
+
+                        r = split_pair(val, "=", &type, &quota_accounting);
+                        if (r < 0)
+                                return r;
+
+                        dt = exec_directory_type_from_string(type);
+                        if (dt < 0)
+                                return dt;
+
+                        r = parse_boolean(quota_accounting);
+                        if (r < 0)
+                                return r;
+
+                        c->directories[dt].exec_quota.quota_accounting = r;
+                } else if ((val = startswith(l, "exec-context-quota-directories-"))) {
+                        _cleanup_free_ char *type = NULL, *quota_info = NULL, *quota_absolute = NULL, *quota_scale = NULL;
+                        ExecDirectoryType dt;
+
+                        r = split_pair(val, "=", &type, &quota_info);
+                        if (r < 0)
+                                return r;
+
+                        r = split_pair(quota_info, " ", &quota_absolute, &quota_scale);
+                        if (r < 0)
+                                return r;
+
+                        dt = exec_directory_type_from_string(type);
+                        if (dt < 0)
+                                return dt;
+
+                        r = safe_atou64(quota_absolute, &c->directories[dt].exec_quota.quota_absolute);
+                        if (r < 0)
+                               return r;
+
+                        r = safe_atou32(quota_scale, &c->directories[dt].exec_quota.quota_scale);
+                        if (r < 0)
+                               return r;
+
+                        c->directories[dt].exec_quota.quota_enforce = true;
                 } else if ((val = startswith(l, "exec-context-timeout-clean-usec="))) {
                         r = deserialize_usec(val, &c->timeout_clean_usec);
                         if (r < 0)
@@ -2859,7 +2968,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = safe_atoi(val, &c->ioprio);
                         if (r < 0)
                                 return r;
-                        c->ioprio_set = true;
+                        c->ioprio_is_set = true;
                 } else if ((val = startswith(l, "exec-context-cpu-scheduling-policy="))) {
                         c->cpu_sched_policy = sched_policy_from_string(val);
                         if (c->cpu_sched_policy < 0)

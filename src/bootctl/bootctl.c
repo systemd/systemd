@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/stat.h>
 
 #include "sd-varlink.h"
 

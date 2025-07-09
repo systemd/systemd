@@ -22,7 +22,6 @@
 #include "glyph-util.h"
 #include "locale-util.h"
 #include "manager.h"
-#include "missing_fcntl.h"
 #include "mount-util.h"
 #include "open-file.h"
 #include "path-util.h"

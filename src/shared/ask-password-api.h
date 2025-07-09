@@ -19,7 +19,7 @@ typedef enum AskPasswordFlags {
 
 /* Encapsulates the mostly static fields of a password query */
 typedef struct AskPasswordRequest {
-        const char *message;         /* The human readable password prompt when asking interactively */
+        const char *message;         /* The human-readable password prompt when asking interactively */
         const char *keyring;         /* kernel keyring key name (key of "user" type) */
         const char *icon;            /* freedesktop icon spec name */
         const char *id;              /* some identifier used for this prompt for the "ask-password" protocol */

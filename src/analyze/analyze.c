@@ -12,7 +12,6 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
-#include "analyze-verify-util.h"
 #include "analyze.h"
 #include "analyze-architectures.h"
 #include "analyze-blame.h"
@@ -46,9 +45,12 @@
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
+#include "analyze-unit-shell.h"
 #include "analyze-verify.h"
+#include "analyze-verify-util.h"
 #include "build.h"
 #include "bus-error.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "calendarspec.h"
 #include "dissect-image.h"
@@ -67,6 +69,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "verbs.h"
 
@@ -160,6 +163,29 @@ void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timesp
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }
 
+static int verb_transient_settings(int argc, char *argv[], void *userdata) {
+        assert(argc >= 2);
+
+        pager_open(arg_pager_flags);
+
+        bool first = true;
+        STRV_FOREACH(arg, strv_skip(argv, 1)) {
+                UnitType t;
+
+                t = unit_type_from_string(*arg);
+                if (t < 0)
+                        return log_error_errno(t, "Invalid unit type '%s'.", *arg);
+
+                if (!first)
+                        puts("");
+
+                bus_dump_transient_settings(t);
+                first = false;
+        }
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
@@ -202,6 +228,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  architectures [NAME...]    List known architectures\n"
                "  smbios11                   List strings passed via SMBIOS Type #11\n"
                "  chid                       List local CHIDs\n"
+               "  transient-settings TYPE... List transient settings for unit TYPE\n"
                "\n%3$sExpression Evaluation:%4$s\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  compare-versions VERSION1 [OP] VERSION2\n"
@@ -217,6 +244,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]         Analyze security of unit\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
+               "  unit-shell SERVICE [Command]\n"
+               "                             Run command on the namespace of the service\n"
                "\n%3$sExecutable Analysis:%4$s\n"
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
                "\n%3$sTPM Operations:%4$s\n"
@@ -359,13 +388,67 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int r, c;
+        bool reorder = false;
+        int r, c, unit_shell = -1;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hqH:M:U:m", options, NULL)) >= 0)
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+; at the beginning). */
+        optind = 0;
+
+        for (;;) {
+                static const char option_string[] = "-hqH:M:U:m";
+
+                c = getopt_long(argc, argv, option_string + reorder, options, NULL);
+                if (c < 0)
+                        break;
+
                 switch (c) {
+
+                case 1: /* getopt_long() returns 1 if "-" was the first character of the option string, and a
+                         * non-option argument was discovered. */
+
+                        assert(!reorder);
+
+                        /* We generally are fine with the fact that getopt_long() reorders the command line, and looks
+                         * for switches after the main verb. However, for "unit-shell" we really don't want that, since we
+                         * want that switches specified after the service name are passed to the program to execute,
+                         * and not processed by us. To make this possible, we'll first invoke getopt_long() with
+                         * reordering disabled (i.e. with the "-" prefix in the option string), looking for the first
+                         * non-option parameter. If it's the verb "unit-shell" we remember its position and continue
+                         * processing options. In this case, as soon as we hit the next non-option argument we found
+                         * the service name, and stop further processing. If the first non-option argument is any other
+                         * verb than "unit-shell" we switch to normal reordering mode and continue processing arguments
+                         * normally. */
+
+                        if (unit_shell >= 0) {
+                                optind--; /* don't process this argument, go one step back */
+                                goto done;
+                        }
+                        if (streq(optarg, "unit-shell"))
+                                /* Remember the position of the "unit_shell" verb, and continue processing normally. */
+                                unit_shell = optind - 1;
+                        else {
+                                int saved_optind;
+
+                                /* Ok, this is some other verb. In this case, turn on reordering again, and continue
+                                 * processing normally. */
+                                reorder = true;
+
+                                /* We changed the option string. getopt_long() only looks at it again if we invoke it
+                                 * at least once with a reset option index. Hence, let's reset the option index here,
+                                 * then invoke getopt_long() again (ignoring what it has to say, after all we most
+                                 * likely already processed it), and the bump the option index so that we read the
+                                 * intended argument again. */
+                                saved_optind = optind;
+                                optind = 0;
+                                (void) getopt_long(argc, argv, option_string + reorder, options, NULL);
+                                optind = saved_optind - 1; /* go one step back, process this argument again */
+                        }
+
+                        break;
 
                 case 'h':
                         return help(0, NULL, NULL);
@@ -578,6 +661,22 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+        }
+
+done:
+        if (unit_shell >= 0) {
+                char *t;
+
+                /* We found the "unit-shell" verb while processing the argument list. Since we turned off reordering of the
+                 * argument list initially let's readjust it now, and move the "unit-shell" verb to the back. */
+
+                optind -= 1; /* place the option index where the "unit-shell" verb will be placed */
+
+                t = argv[unit_shell];
+                for (int i = unit_shell; i < optind; i++)
+                        argv[i] = argv[i+1];
+                argv[optind] = t;
+        }
 
         if (arg_offline && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -641,47 +740,49 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
 
         static const Verb verbs[] = {
-                { "help",              VERB_ANY, VERB_ANY, 0,            help                   },
-                { "time",              VERB_ANY, 1,        VERB_DEFAULT, verb_time              },
-                { "blame",             VERB_ANY, 1,        0,            verb_blame             },
-                { "shutdown-blame",    VERB_ANY, 1,        0,            verb_shutdown_blame    },
-                { "critical-chain",    VERB_ANY, VERB_ANY, 0,            verb_critical_chain    },
-                { "plot",              VERB_ANY, 1,        0,            verb_plot              },
-                { "dot",               VERB_ANY, VERB_ANY, 0,            verb_dot               },
+                { "help",               VERB_ANY, VERB_ANY, 0,            help                         },
+                { "time",               VERB_ANY, 1,        VERB_DEFAULT, verb_time                    },
+                { "blame",              VERB_ANY, 1,        0,            verb_blame                   },
+                { "shutdown-blame",     VERB_ANY, 1,        0,            verb_shutdown_blame          },
+                { "critical-chain",     VERB_ANY, VERB_ANY, 0,            verb_critical_chain          },
+                { "plot",               VERB_ANY, 1,        0,            verb_plot                    },
+                { "dot",                VERB_ANY, VERB_ANY, 0,            verb_dot                     },
                 /* ↓ The following seven verbs are deprecated, from here … ↓ */
-                { "log-level",         VERB_ANY, 2,        0,            verb_log_control       },
-                { "log-target",        VERB_ANY, 2,        0,            verb_log_control       },
-                { "set-log-level",     2,        2,        0,            verb_log_control       },
-                { "get-log-level",     VERB_ANY, 1,        0,            verb_log_control       },
-                { "set-log-target",    2,        2,        0,            verb_log_control       },
-                { "get-log-target",    VERB_ANY, 1,        0,            verb_log_control       },
-                { "service-watchdogs", VERB_ANY, 2,        0,            verb_service_watchdogs },
+                { "log-level",          VERB_ANY, 2,        0,  verb_log_control        },
+                { "log-target",         VERB_ANY, 2,        0,  verb_log_control        },
+                { "set-log-level",      2,        2,        0,  verb_log_control        },
+                { "get-log-level",      VERB_ANY, 1,        0,  verb_log_control        },
+                { "set-log-target",     2,        2,        0,  verb_log_control        },
+                { "get-log-target",     VERB_ANY, 1,        0,  verb_log_control        },
+                { "service-watchdogs",  VERB_ANY, 2,        0,  verb_service_watchdogs  },
                 /* ↑ … until here ↑ */
-                { "dump",              VERB_ANY, VERB_ANY, 0,            verb_dump              },
-                { "cat-config",        2,        VERB_ANY, 0,            verb_cat_config        },
-                { "unit-files",        VERB_ANY, VERB_ANY, 0,            verb_unit_files        },
-                { "unit-paths",        1,        1,        0,            verb_unit_paths        },
-                { "exit-status",       VERB_ANY, VERB_ANY, 0,            verb_exit_status       },
-                { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            verb_syscall_filters   },
-                { "capability",        VERB_ANY, VERB_ANY, 0,            verb_capabilities      },
-                { "filesystems",       VERB_ANY, VERB_ANY, 0,            verb_filesystems       },
-                { "condition",         VERB_ANY, VERB_ANY, 0,            verb_condition         },
-                { "compare-versions",  3,        4,        0,            verb_compare_versions  },
-                { "verify",            2,        VERB_ANY, 0,            verb_verify            },
-                { "calendar",          2,        VERB_ANY, 0,            verb_calendar          },
-                { "timestamp",         2,        VERB_ANY, 0,            verb_timestamp         },
-                { "timespan",          2,        VERB_ANY, 0,            verb_timespan          },
-                { "security",          VERB_ANY, VERB_ANY, 0,            verb_security          },
-                { "inspect-elf",       2,        VERB_ANY, 0,            verb_elf_inspection    },
-                { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
-                { "fdstore",           2,        VERB_ANY, 0,            verb_fdstore           },
-                { "image-policy",      2,        2,        0,            verb_image_policy      },
-                { "has-tpm2",          VERB_ANY, 1,        0,            verb_has_tpm2          },
-                { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
-                { "srk",               VERB_ANY, 1,        0,            verb_srk               },
-                { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
-                { "smbios11",          VERB_ANY, 1,        0,            verb_smbios11          },
-                { "chid",              VERB_ANY, VERB_ANY, 0,            verb_chid              },
+                { "dump",               VERB_ANY, VERB_ANY, 0,  verb_dump               },
+                { "cat-config",         2,        VERB_ANY, 0,  verb_cat_config         },
+                { "unit-files",         VERB_ANY, VERB_ANY, 0,  verb_unit_files         },
+                { "unit-paths",         1,        1,        0,  verb_unit_paths         },
+                { "unit-shell",         2,        VERB_ANY, 0,  verb_unit_shell         },
+                { "exit-status",        VERB_ANY, VERB_ANY, 0,  verb_exit_status        },
+                { "syscall-filter",     VERB_ANY, VERB_ANY, 0,  verb_syscall_filters    },
+                { "capability",         VERB_ANY, VERB_ANY, 0,  verb_capabilities       },
+                { "filesystems",        VERB_ANY, VERB_ANY, 0,  verb_filesystems        },
+                { "condition",          VERB_ANY, VERB_ANY, 0,  verb_condition          },
+                { "compare-versions",   3,        4,        0,  verb_compare_versions   },
+                { "verify",             2,        VERB_ANY, 0,  verb_verify             },
+                { "calendar",           2,        VERB_ANY, 0,  verb_calendar           },
+                { "timestamp",          2,        VERB_ANY, 0,  verb_timestamp          },
+                { "timespan",           2,        VERB_ANY, 0,  verb_timespan           },
+                { "security",           VERB_ANY, VERB_ANY, 0,  verb_security           },
+                { "inspect-elf",        2,        VERB_ANY, 0,  verb_elf_inspection     },
+                { "malloc",             VERB_ANY, VERB_ANY, 0,  verb_malloc             },
+                { "fdstore",            2,        VERB_ANY, 0,  verb_fdstore            },
+                { "image-policy",       2,        2,        0,  verb_image_policy       },
+                { "has-tpm2",           VERB_ANY, 1,        0,  verb_has_tpm2           },
+                { "pcrs",               VERB_ANY, VERB_ANY, 0,  verb_pcrs               },
+                { "srk",                VERB_ANY, 1,        0,  verb_srk                },
+                { "architectures",      VERB_ANY, VERB_ANY, 0,  verb_architectures      },
+                { "smbios11",           VERB_ANY, 1,        0,  verb_smbios11           },
+                { "chid",               VERB_ANY, VERB_ANY, 0,  verb_chid               },
+                { "transient-settings", 2,        VERB_ANY, 0,  verb_transient_settings },
                 {}
         };
 

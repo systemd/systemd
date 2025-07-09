@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <features.h>
 #include <linux/fs.h>
 #include <linux/mount.h> /* IWYU pragma: export */
@@ -10,7 +11,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "missing_fcntl.h"
 #include "missing_syscall_def.h"
 
 /* Since glibc-2.37 (774058d72942249f71d74e7f2b639f77184160a6), sys/mount.h includes linux/mount.h, and
@@ -119,4 +119,14 @@ static inline int missing_mount_setattr(int dfd, const char *path, unsigned flag
         return syscall(__NR_mount_setattr, dfd, path, flags, attr, size);
 }
 #  define mount_setattr missing_mount_setattr
+#endif
+
+#if HAVE_OPEN_TREE_ATTR
+extern int open_tree_attr(int __dfd, const char *__filename, unsigned int __flags, struct mount_attr *__uattr, size_t __usize) __THROW;
+#else
+static inline int missing_open_tree_attr(int dfd, const char *filename, unsigned int flags, struct mount_attr *attr, size_t size) {
+        return syscall(__NR_open_tree_attr, dfd, filename, flags, attr, size);
+}
+
+#  define open_tree_attr missing_open_tree_attr
 #endif

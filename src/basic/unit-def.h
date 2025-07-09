@@ -169,6 +169,7 @@ typedef enum SocketState {
         SOCKET_START_CHOWN,
         SOCKET_START_POST,
         SOCKET_LISTENING,
+        SOCKET_DEFERRED,
         SOCKET_RUNNING,
         SOCKET_STOP_PRE,
         SOCKET_STOP_PRE_SIGTERM,
@@ -282,6 +283,7 @@ typedef enum NotifyAccess {
 
 typedef enum JobMode {
         JOB_FAIL,                 /* Fail if a conflicting job is already queued */
+        JOB_LENIENT,              /* Fail if any conflicting unit is active (even weaker than JOB_FAIL) */
         JOB_REPLACE,              /* Replace an existing conflicting job */
         JOB_REPLACE_IRREVERSIBLY, /* Like JOB_REPLACE + produce irreversible jobs */
         JOB_ISOLATE,              /* Start a unit, and stop all others */
@@ -294,6 +296,16 @@ typedef enum JobMode {
         _JOB_MODE_INVALID = -EINVAL,
 } JobMode;
 
+typedef enum ExecDirectoryType {
+        EXEC_DIRECTORY_RUNTIME,
+        EXEC_DIRECTORY_STATE,
+        EXEC_DIRECTORY_CACHE,
+        EXEC_DIRECTORY_LOGS,
+        EXEC_DIRECTORY_CONFIGURATION,
+        _EXEC_DIRECTORY_TYPE_MAX,
+        _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
+} ExecDirectoryType;
+
 char* unit_dbus_path_from_name(const char *name);
 int unit_name_from_dbus_path(const char *path, char **name);
 
@@ -302,6 +314,7 @@ const char* unit_dbus_interface_from_name(const char *name);
 
 const char* unit_type_to_string(UnitType i) _const_;
 UnitType unit_type_from_string(const char *s) _pure_;
+void unit_types_list(void);
 
 const char* unit_load_state_to_string(UnitLoadState i) _const_;
 UnitLoadState unit_load_state_from_string(const char *s) _pure_;
@@ -357,5 +370,8 @@ NotifyAccess notify_access_from_string(const char *s) _pure_;
 
 const char* job_mode_to_string(JobMode t) _const_;
 JobMode job_mode_from_string(const char *s) _pure_;
+
+const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
+ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
 
 Glyph unit_active_state_to_glyph(UnitActiveState state);

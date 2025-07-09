@@ -1681,6 +1681,46 @@ StateDirectory=aaa/bbb ccc</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StateDirectoryQuota=</varname></term>
+        <term><varname>CacheDirectoryQuota=</varname></term>
+        <term><varname>LogsDirectoryQuota=</varname></term>
+
+        <listitem><para>Specifies the storage limits for the directories specified in <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname>, or <varname>LogsDirectory=</varname> respectively.</para>
+
+        <para>The storage quota is defined in terms of disk blocks and inodes, as per
+        <ulink url="https://man7.org/linux/man-pages/man2/quotactl.2.html">quotactl</ulink>. Takes an absolute size limit
+        in bytes. If the value is suffixed with K, M, G or T, the specified size is parsed as Kilobytes, Megabytes, Gigabytes,
+        or Terabytes (with the base 1024), respectively. If an absolute size limit is specified, only the block quota is set
+        (rounded up to the nearest block). Alternatively, a percentage value may be specified, which applies the same percent
+        quota to both blocks and inodes. Defaults to <constant>off</constant>, in which case no storage limits will be set.</para>
+
+        <para>Only hard limits are set, not soft limits. If the underlying filesystem for the specified directories does not
+        support project quotas, the specified storage limits will not be set. In addition to enabling per-unit quotas with
+        these settings, it is necessary to enable <constant>prjquota</constant> on the file system level as well
+        (i.e. <command>tune2fs -Q prjquota</command>). Quotas must also be turned on with
+        <ulink url="https://linux.die.net/man/8/quotaon">quotaon.</ulink></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StateDirectoryAccounting=</varname></term>
+        <term><varname>CacheDirectoryAccounting=</varname></term>
+        <term><varname>LogsDirectoryAccounting=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, a project ID is assigned to the directories specified in
+        <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>, or <varname>LogsDirectory=</varname>
+        respectively, which is used for tracking disk usage when disk quotas are turned on
+        (see <ulink url="https://man7.org/linux/man-pages/man8/repquota.8.html">repquota</ulink>). Defaults to false.</para>
+
+        <para>To set and enforce disk quotas, <varname>StateDirectoryQuota=</varname>, <varname>CacheDirectoryQuota=</varname>,
+        or <varname>LogsDirectoryQuota=</varname> must be specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RuntimeDirectoryPreserve=</varname></term>
 
         <listitem><para>Takes a boolean argument or <option>restart</option>. If set to <option>no</option> (the
@@ -2511,6 +2551,66 @@ RestrictNamespaces=~cgroup net</programlisting>
         such as <varname>PrivatePIDs=</varname>, <varname>ProtectControlGroups=private/strict</varname>, or
         <varname>PrivateNetwork=</varname>. If any of the mentioned options are enabled, mount namespace
         is implicitly delegated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PrivateBPF=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If set, mount a private instance of the BPF filesystem
+        on <filename>/sys/fs/bpf/</filename>. Otherwise, if <varname>ProtectKernelTunables=</varname> is set,
+        the instance from the host is inherited but mounted read-only. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFDelegateCommands=</varname></term>
+
+        <listitem><para>Accepts a list of BPF commands to allow or <literal>any</literal> to allow everything.
+        Defaults to none. The accepted values are:
+        <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_cmd"/>
+        Requires <varname>PrivateBPF=</varname> enabled to be effective.
+        This will set the <constant>delegate_cmds</constant> bpffs mount option.
+        A more detailed explanation of the feature can be found in this
+        <ulink url="https://lwn.net/Articles/947173/">LWN post</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFDelegateMaps=</varname></term>
+
+        <listitem><para>Accepts a list of BPF maps to allow or <literal>any</literal> to allow everything.
+        Defaults to none. The accepted values are:
+        <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_map_type"/>
+        This will set the <constant>delegate_maps</constant> bpffs mount option.
+        See <varname>BPFDelegateCommands=</varname> for dependencies and more details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFDelegatePrograms=</varname></term>
+
+        <listitem><para>Accepts a list of BPF programs to allow or <literal>any</literal> to allow everything.
+        Defaults to none. The accepted values are:
+        <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_prog_type"/>
+        This will set the <constant>delegate_progs</constant> bpffs mount option.
+        See <varname>BPFDelegateCommands=</varname> for dependencies and more details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFDelegateAttachments=</varname></term>
+
+        <listitem><para>Accepts a list of BPF attach points to allow or <literal>any</literal> to allow everything.
+        Defaults to none. The accepted values are:
+        <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_attach_type"/>
+        This will set the <constant>delegate_attachs</constant> bpffs mount option.
+        See <varname>BPFDelegateCommands=</varname> for dependencies and more details.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>

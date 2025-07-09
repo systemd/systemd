@@ -71,7 +71,7 @@
       <varlistentry>
         <term><varname>Description=</varname></term>
 
-        <listitem><para>A short human readable description of this feature.
+        <listitem><para>A short human-readable description of this feature.
         This may be used as a label for this feature, so the string should meaningfully identify the feature
         among the features available in <filename>sysupdate.d/</filename>.</para>
 

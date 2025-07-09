@@ -19,6 +19,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "chase.h"
+#include "chattr-util.h"
 #include "condition.h"
 #include "dbus-unit.h"
 #include "dropin.h"
@@ -45,6 +46,7 @@
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "quota-util.h"
 #include "rm-rf.h"
 #include "serialize.h"
 #include "set.h"
@@ -617,6 +619,28 @@ void unit_submit_to_release_resources_queue(Unit *u) {
         u->in_release_resources_queue = true;
 }
 
+void unit_add_to_stop_notify_queue(Unit *u) {
+        assert(u);
+
+        if (u->in_stop_notify_queue)
+                return;
+
+        assert(UNIT_VTABLE(u)->stop_notify);
+
+        LIST_PREPEND(stop_notify_queue, u->manager->stop_notify_queue, u);
+        u->in_stop_notify_queue = true;
+}
+
+void unit_remove_from_stop_notify_queue(Unit *u) {
+        assert(u);
+
+        if (!u->in_stop_notify_queue)
+                return;
+
+        LIST_REMOVE(stop_notify_queue, u->manager->stop_notify_queue, u);
+        u->in_stop_notify_queue = false;
+}
+
 static void unit_clear_dependencies(Unit *u) {
         assert(u);
 
@@ -841,6 +865,8 @@ Unit* unit_free(Unit *u) {
 
         if (u->in_release_resources_queue)
                 LIST_REMOVE(release_resources_queue, u->manager->release_resources_queue, u);
+
+        unit_remove_from_stop_notify_queue(u);
 
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
@@ -2369,7 +2395,7 @@ static int unit_log_resources(Unit *u) {
                 return log_oom();
 
         /* Invoked whenever a unit enters failed or dead state. Logs information about consumed resources if resource
-         * accounting was enabled for a unit. It does this in two ways: a friendly human readable string with reduced
+         * accounting was enabled for a unit. It does this in two ways: a friendly human-readable string with reduced
          * information and the complete data in structured fields. */
 
         (void) unit_get_cpu_usage(u, &cpu_nsec);
@@ -2803,6 +2829,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 /* Maybe the concurrency limits now allow dispatching of another start job in this slice? */
                 unit_check_concurrency_limit(u);
+
+                /* Maybe someone else has been waiting for us to stop? */
+                m->may_dispatch_stop_notify_queue = true;
 
         } else if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
                 /* Start uphold units regardless if going up was expected or not */
@@ -4012,6 +4041,7 @@ static int unit_kill_one(
 int unit_kill(
                 Unit *u,
                 KillWhom whom,
+                const char *subgroup,
                 int signo,
                 int code,
                 int value,
@@ -4031,11 +4061,19 @@ int unit_kill(
         assert(SIGNAL_VALID(signo));
         assert(IN_SET(code, SI_USER, SI_QUEUE));
 
+        if (subgroup) {
+                if (!IN_SET(whom, KILL_CGROUP, KILL_CGROUP_FAIL))
+                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Killing by subgroup is only supported for 'cgroup' or 'cgroup-kill' modes.");
+
+                if (!unit_cgroup_delegate(u))
+                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Killing by subgroup is only available for units with control group delegation enabled.");
+        }
+
         main_pid = unit_main_pid(u);
         control_pid = unit_control_pid(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u) && !main_pid && !control_pid)
-                return sd_bus_error_setf(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit type does not support process killing.");
+                return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit type does not support process killing.");
 
         if (IN_SET(whom, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (!main_pid)
@@ -4066,54 +4104,66 @@ int unit_kill(
         /* Note: if we shall enqueue rather than kill we won't do this via the cgroup mechanism, since it
          * doesn't really make much sense (and given that enqueued values are a relatively expensive
          * resource, and we shouldn't allow us to be subjects for such allocation sprees) */
-        if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
+        if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL, KILL_CGROUP, KILL_CGROUP_FAIL) && code == SI_USER) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
                 if (crt && crt->cgroup_path) {
                         _cleanup_set_free_ Set *pid_set = NULL;
+                        _cleanup_free_ char *joined = NULL;
+                        const char *p;
+
+                        if (empty_or_root(subgroup))
+                                p = crt->cgroup_path;
+                        else {
+                                joined = path_join(crt->cgroup_path, subgroup);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                p = joined;
+                        }
 
                         if (signo == SIGKILL) {
-                                r = cg_kill_kernel_sigkill(crt->cgroup_path);
+                                r = cg_kill_kernel_sigkill(p);
                                 if (r >= 0) {
                                         killed = true;
-                                        log_unit_info(u, "Killed unit cgroup with SIGKILL on client request.");
+                                        log_unit_info(u, "Killed unit cgroup '%s' with SIGKILL on client request.", p);
                                         goto finish;
                                 }
                                 if (r != -EOPNOTSUPP) {
                                         if (ret >= 0)
                                                 sd_bus_error_set_errnof(ret_error, r,
                                                                         "Failed to kill unit cgroup: %m");
-                                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to kill unit cgroup: %m"));
+                                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to kill unit cgroup '%s': %m", p));
                                         goto finish;
                                 }
                                 /* Fall back to manual enumeration */
-                        } else {
-                                /* Exclude the main/control pids from being killed via the cgroup if
-                                 * not SIGKILL */
+                        } else if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL)) {
+                                /* Exclude the main/control pids from being killed via the cgroup if not
+                                 * SIGKILL */
                                 r = unit_pid_set(u, &pid_set);
                                 if (r < 0)
                                         return log_oom();
                         }
 
-                        r = cg_kill_recursive(crt->cgroup_path, signo, 0, pid_set, kill_common_log, u);
+                        r = cg_kill_recursive(p, signo, /* flags= */ 0, pid_set, kill_common_log, u);
                         if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT)) {
                                 if (ret >= 0)
                                         sd_bus_error_set_errnof(
                                                         ret_error, r,
-                                                        "Failed to send signal SIG%s to auxiliary processes: %m",
-                                                        signal_to_string(signo));
+                                                        "Failed to send signal SIG%s to processes in unit cgroup '%s': %m",
+                                                        signal_to_string(signo), p);
 
                                 RET_GATHER(ret, log_unit_warning_errno(
                                                         u, r,
-                                                        "Failed to send signal SIG%s to auxiliary processes on client request: %m",
-                                                        signal_to_string(signo)));
+                                                        "Failed to send signal SIG%s to processes in unit cgroup '%s' on client request: %m",
+                                                        signal_to_string(signo), p));
                         }
-                        killed = killed || r >= 0;
+                        killed = killed || r > 0;
                 }
         }
 
 finish:
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
-        if (ret >= 0 && !killed && IN_SET(whom, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
+        if (ret >= 0 && !killed && IN_SET(whom, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL, KILL_CGROUP_FAIL))
                 return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
 
         return ret;
@@ -4398,7 +4448,7 @@ int unit_patch_contexts(Unit *u) {
                         cc->device_policy = CGROUP_DEVICE_POLICY_CLOSED;
 
                 /* Only add these if needed, as they imply that everything else is blocked. */
-                if (cc->device_policy != CGROUP_DEVICE_POLICY_AUTO || cc->device_allow) {
+                if (cgroup_context_has_device_policy(cc)) {
                         if (ec->root_image || ec->mount_images) {
 
                                 /* When RootImage= or MountImages= is specified, the following devices are touched. */
@@ -6049,7 +6099,7 @@ int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *error) {
 
         /* First, a simple range check */
         if (!pidref_is_set(pid))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process identifier is not valid.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Process identifier is not valid.");
 
         /* Some extra safety check */
         if (pid->pid == 1 || pidref_is_self(pid))
@@ -6332,7 +6382,7 @@ void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret_ne
                  * if its parent is frozen. So we instead "demote" a normal freeze into a freeze
                  * initiated by parent if the parent is frozen */
                 if (IN_SET(current, FREEZER_RUNNING, FREEZER_THAWING,
-                                 FREEZER_FREEZING_BY_PARENT, FREEZER_FROZEN_BY_PARENT)) /* Should usually be refused by unit_freezer_action */
+                                    FREEZER_FREEZING_BY_PARENT, FREEZER_FROZEN_BY_PARENT)) /* Should usually be refused by unit_freezer_action */
                         next = current;
                 else if (current == FREEZER_FREEZING) {
                         if (IN_SET(parent, FREEZER_RUNNING, FREEZER_THAWING))
@@ -6693,6 +6743,52 @@ static uint64_t unit_get_cpu_weight(Unit *u) {
 
         cc = unit_get_cgroup_context(u);
         return cc ? cgroup_context_cpu_weight(cc, manager_state(u->manager)) : CGROUP_WEIGHT_DEFAULT;
+}
+
+int unit_get_exec_quota_stats(Unit *u, ExecContext *c, ExecDirectoryType dt, uint64_t *ret_usage, uint64_t *ret_limit) {
+        int r;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *p = NULL, *pp = NULL;
+
+        assert(u);
+        assert(c);
+
+        if (c->directories[dt].n_items == 0) {
+                *ret_usage = UINT64_MAX;
+                *ret_limit = UINT64_MAX;
+                return 0;
+        }
+
+        ExecDirectoryItem *i = &c->directories[dt].items[0];
+        p = path_join(u->manager->prefix[dt], i->path);
+        if (!p)
+                return log_oom_debug();
+
+        if (exec_directory_is_private(c, dt)) {
+                pp = path_join(u->manager->prefix[dt], "private", i->path);
+                if (!pp)
+                        return log_oom_debug();
+        }
+
+        const char *target_dir = pp ?: p;
+        fd = open(target_dir, O_PATH | O_CLOEXEC | O_DIRECTORY);
+        if (fd < 0)
+                return log_unit_debug_errno(u, errno, "Failed to get exec quota stats: %m");
+
+        uint32_t proj_id;
+        r = read_fs_xattr_fd(fd, /* ret_xflags = */ NULL, &proj_id);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to get project ID for exec quota stats: %m");
+
+        struct dqblk req;
+        r = quota_query_proj_id(fd, proj_id, &req);
+        if (r <= 0)
+                return log_unit_debug_errno(u, r, "Failed to query project ID for exec quota stats: %m");
+
+        *ret_usage = req.dqb_curspace;
+        *ret_limit = req.dqb_bhardlimit * QIF_DQBLKSIZE;
+
+        return r;
 }
 
 int unit_compare_priority(Unit *a, Unit *b) {

@@ -172,6 +172,7 @@ systemshutdowndir = libexecdir / 'system-shutdown'
 systemsleepdir = libexecdir / 'system-sleep'
 systemunitdir = prefixdir / 'lib/systemd/system'
 systempresetdir = prefixdir / 'lib/systemd/system-preset'
+initrdpresetdir = prefixdir / 'lib/systemd/initrd-preset'
 udevlibexecdir = prefixdir / 'lib/udev'
 udevrulesdir = udevlibexecdir / 'rules.d'
 udevhwdbdir = udevlibexecdir / 'hwdb.d'
@@ -398,6 +399,7 @@ possible_common_cc_flags = [
         '-Werror=override-init',
         '-Werror=pointer-sign',
         '-Werror=return-type',
+        '-Werror=sequence-point',
         '-Werror=shift-count-overflow',
         '-Werror=shift-overflow=2',
         '-Werror=strict-flex-arrays',
@@ -482,6 +484,7 @@ possible_link_flags = [
         '-Wl,--fatal-warnings',
         '-Wl,-z,now',
         '-Wl,-z,relro',
+        '-Wl,--gc-sections',
 ]
 
 if get_option('b_sanitize') == 'none'
@@ -500,15 +503,6 @@ possible_cc_flags = [
         '-fstrict-flex-arrays=1',
         '-fvisibility=hidden',
 ]
-
-if get_option('buildtype') != 'debug'
-        possible_cc_flags += [
-                '-ffunction-sections',
-                '-fdata-sections',
-        ]
-
-        possible_link_flags += '-Wl,--gc-sections'
-endif
 
 if get_option('mode') == 'developer'
         possible_cc_flags += '-fno-omit-frame-pointer'
@@ -605,6 +599,7 @@ foreach ident : [
         ['pivot_root',        '''#include <sys/syscall.h>'''],  # no known header declares pivot_root
         ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
+        ['open_tree_attr',    '''#include <sys/mount.h>'''],    # no known header declares open_tree_attr
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')

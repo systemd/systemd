@@ -16,7 +16,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_fcntl.h"
 #include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
@@ -971,7 +970,7 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
          *             and since we refuse O_PATH it should be safe.
          *
          * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
-         *                  See comment in missing_fcntl.h for more details about this.
+         *                  See comment in src/basic/include/fcntl.h for more details about this.
          *
          * If 'extra_flags' is specified as non-zero the included flags are also allowed.
          */
@@ -991,7 +990,7 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
         return flags & (O_ACCMODE_STRICT | extra_flags); /* return the flags variable, but remove the noise */
 }
 
-int read_nr_open(void) {
+unsigned read_nr_open(void) {
         _cleanup_free_ char *nr_open = NULL;
         int r;
 
@@ -1002,9 +1001,9 @@ int read_nr_open(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read /proc/sys/fs/nr_open, ignoring: %m");
         else {
-                int v;
+                unsigned v;
 
-                r = safe_atoi(nr_open, &v);
+                r = safe_atou(nr_open, &v);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse /proc/sys/fs/nr_open value '%s', ignoring: %m", nr_open);
                 else
@@ -1012,7 +1011,7 @@ int read_nr_open(void) {
         }
 
         /* If we fail, fall back to the hard-coded kernel limit of 1024 * 1024. */
-        return 1024 * 1024;
+        return NR_OPEN_DEFAULT;
 }
 
 int fd_get_diskseq(int fd, uint64_t *ret) {

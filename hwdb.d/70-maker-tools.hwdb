@@ -68,5 +68,5 @@ usb:v2B71p000E*
 # PowerSpec Ultra 3DPrinter
 usb:v0315p0001*
 usb:v2B71p00F6*
-usb:v2B71p00FF
+usb:v2B71p00FF*
  ID_MAKER_TOOL=1

@@ -324,6 +324,7 @@ bool exec_needs_mount_namespace(
             exec_needs_cgroup_mount(context) ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
+            context->private_bpf != PRIVATE_BPF_NO ||
             exec_needs_ipc_namespace(context) ||
             exec_needs_pid_namespace(context, params))
                 return true;
@@ -1124,7 +1125,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sKeyringMode: %s\n"
                 "%sProtectHostname: %s%s%s\n"
                 "%sProtectProc: %s\n"
-                "%sProcSubset: %s\n",
+                "%sProcSubset: %s\n"
+                "%sPrivateBPF: %s\n",
                 prefix, c->umask,
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
@@ -1151,7 +1153,21 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, exec_keyring_mode_to_string(c->keyring_mode),
                 prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
-                prefix, proc_subset_to_string(c->proc_subset));
+                prefix, proc_subset_to_string(c->proc_subset),
+                prefix, private_bpf_to_string(c->private_bpf));
+
+        if (c->private_bpf == PRIVATE_BPF_YES) {
+                _cleanup_free_ char
+                        *commands = bpf_delegate_commands_to_string(c->bpf_delegate_commands),
+                        *maps = bpf_delegate_maps_to_string(c->bpf_delegate_maps),
+                        *programs = bpf_delegate_programs_to_string(c->bpf_delegate_programs),
+                        *attachments = bpf_delegate_attachments_to_string(c->bpf_delegate_attachments);
+
+                fprintf(f, "%sBPFDelegateCommands: %s\n", prefix, strna(commands));
+                fprintf(f, "%sBPFDelegateMaps: %s\n", prefix, strna(maps));
+                fprintf(f, "%sBPFDelegatePrograms: %s\n", prefix, strna(programs));
+                fprintf(f, "%sBPFDelegateAttachments: %s\n", prefix, strna(attachments));
+        }
 
         if (c->set_login_environment >= 0)
                 fprintf(f, "%sSetLoginEnvironment: %s\n", prefix, yes_no(c->set_login_environment > 0));
@@ -1245,7 +1261,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                                 prefix, rlimit_to_string(i), c->rlimit[i]->rlim_cur);
                 }
 
-        if (c->ioprio_set) {
+        if (c->ioprio_is_set) {
                 _cleanup_free_ char *class_str = NULL;
 
                 r = ioprio_class_to_string_alloc(ioprio_prio_class(c->ioprio), &class_str);
@@ -1607,7 +1623,7 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
 
         assert(c);
 
-        if (c->ioprio_set)
+        if (c->ioprio_is_set)
                 return c->ioprio;
 
         p = ioprio_get(IOPRIO_WHO_PROCESS, 0);
@@ -2999,17 +3015,6 @@ static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
-
-/* This table maps ExecDirectoryType to the setting it is configured with in the unit */
-static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectory",
-        [EXEC_DIRECTORY_STATE]         = "StateDirectory",
-        [EXEC_DIRECTORY_CACHE]         = "CacheDirectory",
-        [EXEC_DIRECTORY_LOGS]          = "LogsDirectory",
-        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectory",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
 
 /* This table maps ExecDirectoryType to the symlink setting it is configured with in the unit */
 static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_MAX] = {

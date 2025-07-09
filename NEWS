@@ -291,6 +291,25 @@ CHANGES WITH 258 in spe:
           an equivalent operation), any confext images for the services are
           also reloaded.
 
+        * A new RandomizedOffsetSec= setting has been added to .timer units
+          which allows configured of a randomized but stable time offset for
+          when the timer shall elapse.
+
+        * Whenever a TTY is initialized by the service manager, an attempt is
+          made to read the terminfo identifier from it via DCS sequences, as
+          part of the regular ANSI sequence initialization scheme. The
+          identifier is used to initialize $TERM. This is not done if $TERM is
+          already set from some other sources. Note that the DCS sequence for
+          this is widely supported, but not universal (at this point VTE-based
+          terminal emulators lack the necessary support). This functionality
+          should be particularly useful on serial TTYs as $TERM information
+          will likely be initialized to a useful value instead of a badly
+          guessed default of vt220.
+
+        * .socket units gained a new PassPIDFD= setting that controls the new
+          SO_PASSPIDFD socket option for AF_UNIX socket. There's also a new
+          setting AcceptFileDescriptors= that controls the new SO_PASSRIGHTS.
+
         systemd-journald & journal-remote:
 
         * journalctl's --setup-keys command now supports JSON output.
@@ -440,6 +459,12 @@ CHANGES WITH 258 in spe:
 
         * .netdev files can now configure HSR/SRP network devices too, via he new
           [HSR] section.
+
+        * The LLDP client will now pick up the VLAN Id from LLDP data. The LLDP
+          sender will now send this field on VLAN devices.
+
+        * The DHCPv4 client in systemd-networkd now also supports BOOTP (via
+          the new BOOTP= setting).
 
         sd-varlink & sd-json:
 
@@ -718,6 +743,16 @@ CHANGES WITH 258 in spe:
           the previously supported ^]^]^] which will immediately shut it down,
           without going through the clean shutdown logic.
 
+        * systemd-nspawn will now invoke the TTY password agent if invoked
+          interactively and without privileges. This makes sure unprivileged
+          containers start to work even when no other polkit agent is currently
+          running for the user. The usual --no-ask-password switch is now also
+          available in systemd-nspawn to disable this.
+
+        * systemd-nspawn gained a new --bind-user-shell= switch which allows to
+          tweak the shell field of users bound into a container with
+          --bind-user=….
+
         systemd-machined:
 
         * systemd-machined now provides a comprehensive Varlink IPC API to its
@@ -751,7 +786,8 @@ CHANGES WITH 258 in spe:
         * systemd-keyutil gained a new verb "pkcs7" which can be used to
           convert between PKCS#1 and PKCS#7 signatures. The --content= switch
           may be used to generate inline signatures (as opposed to the default
-          of detached signatures).
+          of detached signatures). It also gained a new --hash-algorithm=
+          switch to select the hash algorithm for signatures.
 
         * systemd-sbsign learnt support for offline SecureBoot signing via
           --prepare-offline-signing, --signed-data=, --signed-data-signature=.
@@ -777,6 +813,12 @@ CHANGES WITH 258 in spe:
           triggered, ensuring that somehow making PCR extensions fails cannot
           be used to gain access to TPM objects to which access should have
           been blocked already via PCR measurements.
+
+        * systemd-pcrlock gained a new "is-supported" verb that determines
+          whether local TPM and system provide all necessary functionality for
+          systemd-pcrlock to work. It does a superset of the checks
+          "systemd-analyze has-tpm2" does, and additionally ensures that the
+          TPM supports PolicyAuthorizeNV and SHA-256.
 
         systemd-userdbd & systemd-homed:
 
@@ -829,7 +871,7 @@ CHANGES WITH 258 in spe:
         * userdbctl gained a new switch --from-file=. If used the tool will not
           look up a user or group record from the system's user database but
           instead read it from the specified JSON file, and then present it in
-          the usual, human readable fashion.
+          the usual, human-readable fashion.
 
         * systemd-homed gained D-Bus API calls for listing, adding, removing and
           showing use record signing keys.
@@ -1084,6 +1126,23 @@ CHANGES WITH 258 in spe:
           below), for all partitions it recognizes. Controllable via the
           AddValidateFS= partition setting (which defaults to true).
 
+        * repart.d/ drop-ins gained a new setting FileSystemSectorSize= which
+          allows configuring the sector size that file systems for newly
+          formatted file systems explicitly.
+
+        * systemd-repart will now enforce a minimum size for ESP/XBOOTLDR
+          partitions of 100M (on 512b sector drives) or 260M (on 4K sector
+          drives), in accordance to the requirements for these kind of
+          partitions.
+
+        * The Format= setting in repart.d/ files gained support for a special
+          value "empty". This is a shortcut to set up an empty partition and
+          set the partition label to "_empty", and set the "NoAuto" GPT
+          flag. The former is useful as systemd-sysupdate recognizes empty
+          partitions that way, the latter is useful to ensure that the
+          partition is not automatically made used of as is, on any OS that
+          supports GPT.
+
         Other:
 
         * systemd-ask-password now provides a small Varlink API to
@@ -1242,6 +1301,29 @@ CHANGES WITH 258 in spe:
           for acquiring the unique inode ID of a pidfd, coupling the
           $MAINPIDFDID/$MANAGERPIDFDID and session/machine leader pidfd IDs
           exposed as described above.
+
+        * systemd-coredump will now attach a new COREDUMP_DUMPABLE= journal
+          field to all coredumps indicating the "dumpable" per-process flag (as
+          settable via PR_SET_DUMPABLE) at the moment the coredump took
+          place. It will also add a new journal field COREDUMP_BY_PIDFD= that
+          indicates whether the coredump was acquired via a stable pidfd to the
+          process.
+
+        * systemd-sysext (and portable services with sysexts applied) will now
+          take the os-release "ID_LIKE=" field into account when validating that
+          a sysext images is compatible with the underlying image. Previously
+          it would only check "ID=".
+
+        * A new UID range has been defined for "greeters", i.e. graphical login
+          prompt UIs that shall be security isolated from each other. This is
+          supposed to be used by graphical display managers (specifically:
+          gdm), to ensure that it is harder to exploit the UI sessions used to
+          prompt the user for login credentials, in order to gain access to the
+          prompts of other users.
+
+        * systemd-socket-activate gained a new --now switch which ensures the
+          specified binary is immediately invoked, and not delayed until a
+          connection comes in.
 
         — <place>, <date>
 
@@ -7934,7 +8016,7 @@ CHANGES WITH 248:
 
         * systemd-hostnamed now exports the "HardwareVendor" and
           "HardwareModel" D-Bus properties, which are supposed to contain a
-          pair of cleaned up, human readable strings describing the system's
+          pair of cleaned up, human-readable strings describing the system's
           vendor and model. It's typically sourced from the firmware's DMI
           tables, but may be augmented from a new hwdb database. hostnamectl
           shows this in the status output.
@@ -15420,7 +15502,7 @@ CHANGES WITH 220:
           journal-nocow.conf tmpfiles file.
 
         * systemd-journald will now translate audit message types to
-          human readable identifiers when writing them to the
+          human-readable identifiers when writing them to the
           journal. This should improve readability of audit messages.
 
         * The LUKS logic gained support for the offset= and skip=

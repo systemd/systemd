@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
+#include <sys/stat.h>
+
 #include "compress.h"
 #include "forward.h"
 #include "gcrypt-util.h"
 #include "journal-def.h"
-#include "missing_fcntl.h"
 #include "mmap-cache.h"
 #include "sparse-endian.h"
 
@@ -377,7 +379,4 @@ static inline uint32_t COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(Compression c) {
         }
 }
 
-static inline bool journal_file_writable(JournalFile *f) {
-        assert(f);
-        return (f->open_flags & O_ACCMODE_STRICT) != O_RDONLY;
-}
+bool journal_file_writable(const JournalFile *f) _pure_;

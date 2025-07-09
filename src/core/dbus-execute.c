@@ -31,7 +31,9 @@
 #include "namespace.h"
 #include "nsflags.h"
 #include "ordered-set.h"
+#include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pcre2-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -52,6 +54,7 @@ BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_preserve_mode, exec_preserve_
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_proc, protect_proc, ProtectProc);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_proc_subset, proc_subset, ProcSubset);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_private_bpf, private_bpf, PrivateBPF);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_system, protect_system, ProtectSystem);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsigned long);
@@ -1000,6 +1003,22 @@ static int property_get_exec_dir_symlink(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_exec_quota(sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        QuotaLimit *q = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "(tus)", q->quota_absolute, q->quota_scale, yes_no(q->quota_enforce));
+}
+
 static int property_get_image_policy(
                 sd_bus *bus,
                 const char *path,
@@ -1113,6 +1132,90 @@ static int property_get_unsigned_as_uint16(
 
         uint16_t q = *value >= UINT16_MAX ? UINT16_MAX : (uint16_t) *value;
         return sd_bus_message_append_basic(reply, 'q', &q);
+}
+
+static int property_get_bpf_delegate_commands(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t *u = ASSERT_PTR(userdata);
+        _cleanup_free_ char *s = NULL;
+
+        assert(reply);
+
+        s = bpf_delegate_commands_to_string(*u);
+        if (!s)
+                return -ENOMEM;
+
+        return sd_bus_message_append(reply, "s", s);
+}
+
+static int property_get_bpf_delegate_maps(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t *u = ASSERT_PTR(userdata);
+        _cleanup_free_ char *s = NULL;
+
+        assert(reply);
+
+        s = bpf_delegate_maps_to_string(*u);
+        if (!s)
+                return -ENOMEM;
+
+        return sd_bus_message_append(reply, "s", s);
+}
+
+static int property_get_bpf_delegate_programs(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t *u = ASSERT_PTR(userdata);
+        _cleanup_free_ char *s = NULL;
+
+        assert(reply);
+
+        s = bpf_delegate_programs_to_string(*u);
+        if (!s)
+                return -ENOMEM;
+
+        return sd_bus_message_append(reply, "s", s);
+}
+
+static int property_get_bpf_delegate_attachments(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t *u = ASSERT_PTR(userdata);
+        _cleanup_free_ char *s = NULL;
+
+        assert(reply);
+
+        s = bpf_delegate_attachments_to_string(*u);
+        if (!s)
+                return -ENOMEM;
+
+        return sd_bus_message_append(reply, "s", s);
 }
 
 const sd_bus_vtable bus_exec_vtable[] = {
@@ -1266,12 +1369,18 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RuntimeDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StateDirectoryAccounting", "b", bus_property_get_bool, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].exec_quota.quota_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StateDirectoryQuota", "(tus)", property_get_exec_quota, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].exec_quota), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CacheDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CacheDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectoryAccounting", "b", bus_property_get_bool, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].exec_quota.quota_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectoryQuota", "(tus)", property_get_exec_quota, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].exec_quota), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CacheDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectoryAccounting", "b", bus_property_get_bool, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].exec_quota.quota_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectoryQuota", "(tus)", property_get_exec_quota, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].exec_quota), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION]), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1292,6 +1401,11 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ProcSubset", "s", property_get_proc_subset, offsetof(ExecContext, proc_subset), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHostname", "b", property_get_protect_hostname, offsetof(ExecContext, protect_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHostnameEx", "(ss)", property_get_protect_hostname_ex, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PrivateBPF", "s", property_get_private_bpf, offsetof(ExecContext, private_bpf), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BPFDelegateCommands", "s", property_get_bpf_delegate_commands, offsetof(ExecContext, bpf_delegate_commands), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BPFDelegateMaps", "s", property_get_bpf_delegate_maps, offsetof(ExecContext, bpf_delegate_maps), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BPFDelegatePrograms", "s", property_get_bpf_delegate_programs, offsetof(ExecContext, bpf_delegate_programs), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BPFDelegateAttachments", "s", property_get_bpf_delegate_attachments, offsetof(ExecContext, bpf_delegate_attachments), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryKSM", "b", bus_property_get_tristate, offsetof(ExecContext, memory_ksm), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkNamespacePath", "s", NULL, offsetof(ExecContext, network_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IPCNamespacePath", "s", NULL, offsetof(ExecContext, ipc_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1305,6 +1419,60 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ReadOnlyDirectories", "as", NULL, offsetof(ExecContext, read_only_paths), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("InaccessibleDirectories", "as", NULL, offsetof(ExecContext, inaccessible_paths), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("IOScheduling", "i", property_get_ioprio, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+
+        SD_BUS_VTABLE_END
+};
+
+static int property_get_quota_usage(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+        ExecContext *c = ASSERT_PTR(unit_get_exec_context(u));
+        uint64_t current_usage_bytes = UINT64_MAX, limit_bytes = UINT64_MAX;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        ExecDirectoryType dt;
+        if (streq(property, "StateDirectoryQuotaUsage"))
+                dt = EXEC_DIRECTORY_STATE;
+        else if (streq(property, "CacheDirectoryQuotaUsage"))
+                dt = EXEC_DIRECTORY_CACHE;
+        else if (streq(property, "LogsDirectoryQuotaUsage"))
+                dt = EXEC_DIRECTORY_LOGS;
+        else
+                assert_not_reached();
+
+        const QuotaLimit *q;
+        q = &c->directories[dt].exec_quota;
+
+        if (q->quota_enforce || q->quota_accounting) {
+                r = unit_get_exec_quota_stats(u, c, dt, &current_usage_bytes, &limit_bytes);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!q->quota_enforce)
+                limit_bytes = UINT64_MAX;
+        if (!q->quota_accounting)
+                current_usage_bytes = UINT64_MAX;
+
+        return sd_bus_message_append(reply, "(tt)", current_usage_bytes, limit_bytes);
+}
+
+const sd_bus_vtable bus_unit_exec_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        SD_BUS_PROPERTY("StateDirectoryQuotaUsage", "(tt)", property_get_quota_usage, 0, 0),
+        SD_BUS_PROPERTY("CacheDirectoryQuotaUsage", "(tt)", property_get_quota_usage, 0, 0),
+        SD_BUS_PROPERTY("LogsDirectoryQuotaUsage", "(tt)", property_get_quota_usage, 0, 0),
 
         SD_BUS_VTABLE_END
 };
@@ -1675,6 +1843,11 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_home, ProtectHome, protect_home_fr
 static BUS_DEFINE_SET_TRANSIENT_PARSE(keyring_mode, ExecKeyringMode, exec_keyring_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_proc, ProtectProc, protect_proc_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(proc_subset, ProcSubset, proc_subset_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(private_bpf, PrivateBPF, private_bpf_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_commands, uint64_t, bpf_delegate_commands_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_maps, uint64_t, bpf_delegate_maps_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_programs, uint64_t, bpf_delegate_programs_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_attachments, uint64_t, bpf_delegate_attachments_from_string);
 BUS_DEFINE_SET_TRANSIENT_PARSE(exec_preserve_mode, ExecPreserveMode, exec_preserve_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(personality, unsigned long, parse_personality);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(secure_bits, "i", int32_t, int, "%" PRIi32, secure_bits_to_string_alloc_with_check);
@@ -2201,6 +2374,21 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "ProcSubset"))
                 return bus_set_transient_proc_subset(u, name, &c->proc_subset, message, flags, error);
 
+        if (streq(name, "PrivateBPF"))
+                return bus_set_transient_private_bpf(u, name, &c->private_bpf, message, flags, error);
+
+        if (streq(name, "BPFDelegateCommands"))
+                return bus_set_transient_bpf_delegate_commands(u, name, &c->bpf_delegate_commands, message, flags, error);
+
+        if (streq(name, "BPFDelegateMaps"))
+                return bus_set_transient_bpf_delegate_maps(u, name, &c->bpf_delegate_maps, message, flags, error);
+
+        if (streq(name, "BPFDelegatePrograms"))
+                return bus_set_transient_bpf_delegate_programs(u, name, &c->bpf_delegate_programs, message, flags, error);
+
+        if (streq(name, "BPFDelegateAttachments"))
+                return bus_set_transient_bpf_delegate_attachments(u, name, &c->bpf_delegate_attachments, message, flags, error);
+
         if (streq(name, "RuntimeDirectoryPreserve"))
                 return bus_set_transient_exec_preserve_mode(u, name, &c->runtime_directory_preserve_mode, message, flags, error);
 
@@ -2209,6 +2397,15 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RuntimeDirectoryMode"))
                 return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_RUNTIME].mode, message, flags, error);
+
+        if (streq(name, "StateDirectoryAccounting"))
+                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_STATE].exec_quota.quota_accounting, message, flags, error);
+
+        if (streq(name, "CacheDirectoryAccounting"))
+                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_CACHE].exec_quota.quota_accounting, message, flags, error);
+
+        if (streq(name, "LogsDirectoryAccounting"))
+                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_LOGS].exec_quota.quota_accounting, message, flags, error);
 
         if (streq(name, "StateDirectoryMode"))
                 return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_STATE].mode, message, flags, error);
@@ -2315,8 +2512,8 @@ int bus_exec_context_set_transient_property(
 
                 STRV_FOREACH(p, l)
                         if (!isempty(*p) && !valid_user_group_name(*p, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX|VALID_USER_WARN))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                         "Invalid supplementary group names");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                        "Invalid supplementary group names");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -3028,7 +3225,7 @@ int bus_exec_context_set_transient_property(
                                 return r;
 
                         c->ioprio = ioprio_normalize(ioprio_prio_value(q, ioprio_prio_data(c->ioprio)));
-                        c->ioprio_set = true;
+                        c->ioprio_is_set = true;
 
                         unit_write_settingf(u, flags, name, "IOSchedulingClass=%s", s);
                 }
@@ -3047,7 +3244,7 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->ioprio = ioprio_normalize(ioprio_prio_value(ioprio_prio_class(c->ioprio), p));
-                        c->ioprio_set = true;
+                        c->ioprio_is_set = true;
 
                         unit_write_settingf(u, flags, name, "IOSchedulingPriority=%i", p);
                 }
@@ -3599,6 +3796,47 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, joined);
                         }
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "StateDirectoryQuota", "CacheDirectoryQuota", "LogsDirectoryQuota")) {
+                uint64_t quota_absolute = UINT64_MAX;
+                uint32_t quota_scale = UINT32_MAX;
+                const char *enforce_flag;
+                int quota_enforce;
+
+                r = sd_bus_message_read(message, "(tus)", &quota_absolute, &quota_scale, &enforce_flag);
+                if (r < 0)
+                        return r;
+
+                quota_enforce = parse_boolean(enforce_flag);
+                if (quota_enforce < 0)
+                        return quota_enforce;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        ExecDirectoryType dt;
+                        if (streq(name, "StateDirectoryQuota"))
+                                dt = EXEC_DIRECTORY_STATE;
+                        else if (streq(name, "CacheDirectoryQuota"))
+                                dt = EXEC_DIRECTORY_CACHE;
+                        else if (streq(name, "LogsDirectoryQuota"))
+                                dt = EXEC_DIRECTORY_LOGS;
+                        else
+                                assert_not_reached();
+
+                        if (quota_enforce) {
+                                c->directories[dt].exec_quota.quota_absolute = quota_absolute;
+                                c->directories[dt].exec_quota.quota_scale = quota_scale;
+
+                                if (quota_absolute != UINT64_MAX)
+                                        unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, quota_absolute);
+                                else
+                                        unit_write_settingf(u, flags, name, "%s=%d%%", name, UINT32_SCALE_TO_PERCENT(quota_scale));
+                        } else
+                                unit_write_settingf(u, flags, name, "%s=", name);
+
+                        c->directories[dt].exec_quota.quota_enforce = quota_enforce;
                 }
 
                 return 1;

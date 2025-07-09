@@ -617,6 +617,8 @@ def main() -> None:
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
         'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
+        *(['--', '--capability=CAP_BPF'] \
+            if not args.vm and os.getenv('TEST_PREFER_QEMU', '0') == '0' else []),
     ]  # fmt: skip
 
     try:
@@ -672,7 +674,10 @@ def main() -> None:
             id = os.environ['GITHUB_RUN_ID']
             wf = os.environ['GITHUB_WORKFLOW']
             iter = os.environ['GITHUB_RUN_ATTEMPT']
-            artifact = f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-failed-test-journals'
+            runner = os.environ['TEST_RUNNER']
+            artifact = (
+                f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-{runner}-failed-test-journals'  # noqa: E501
+            )
             ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
             journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')
 
