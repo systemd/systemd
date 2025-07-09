@@ -63,6 +63,11 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         SD_JSON_BUILD_PAIR_UNSIGNED("DefaultTasksMax", cgroup_tasks_max_resolve(&m->defaults.tasks_max)),
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultMemoryPressureThresholdUSec", m->defaults.memory_pressure_threshold_usec),
                         SD_JSON_BUILD_PAIR_STRING("DefaultMemoryPressureWatch", cgroup_pressure_watch_to_string(m->defaults.memory_pressure_watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("RuntimeWatchdogUSec", manager_get_watchdog(m, WATCHDOG_RUNTIME)),
+                        JSON_BUILD_PAIR_FINITE_USEC("RebootWatchdogUSec", manager_get_watchdog(m, WATCHDOG_REBOOT)),
+                        JSON_BUILD_PAIR_FINITE_USEC("KExecWatchdogUSec", manager_get_watchdog(m, WATCHDOG_KEXEC)),
+                        JSON_BUILD_PAIR_FINITE_USEC("RuntimeWatchdogPreUSec", manager_get_watchdog(m, WATCHDOG_PRETIMEOUT)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RuntimeWatchdogPreGovernor", m->watchdog_pretimeout_governor),
                         JSON_BUILD_PAIR_FINITE_USEC("TimerSlackNSec", (uint64_t) prctl(PR_GET_TIMERSLACK)),
                         SD_JSON_BUILD_PAIR_STRING("DefaultOOMPolicy", oom_policy_to_string(m->defaults.oom_policy)),
                         SD_JSON_BUILD_PAIR_INTEGER("DefaultOOMScoreAdjust", m->defaults.oom_score_adjust),
@@ -149,11 +154,6 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 JSON_BUILD_PAIR_STRING_NON_EMPTY("ControlGroup", m->cgroup_root),
                 SD_JSON_BUILD_PAIR_STRING("SystemState", manager_state_to_string(manager_state(m))),
                 SD_JSON_BUILD_PAIR_UNSIGNED("ExitCode", m->return_value),
-                JSON_BUILD_PAIR_FINITE_USEC("RuntimeWatchdogUSec", manager_get_watchdog(m, WATCHDOG_RUNTIME)),
-                JSON_BUILD_PAIR_FINITE_USEC("RuntimeWatchdogPreUSec", manager_get_watchdog(m, WATCHDOG_PRETIMEOUT)),
-                JSON_BUILD_PAIR_STRING_NON_EMPTY("RuntimeWatchdogPreGovernor", m->watchdog_pretimeout_governor),
-                JSON_BUILD_PAIR_FINITE_USEC("RebootWatchdogUSec", manager_get_watchdog(m, WATCHDOG_REBOOT)),
-                JSON_BUILD_PAIR_FINITE_USEC("KExecWatchdogUSec", manager_get_watchdog(m, WATCHDOG_KEXEC)),
                 SD_JSON_BUILD_PAIR_UNSIGNED("SoftRebootsCount", m->soft_reboots_count));
 }
 
