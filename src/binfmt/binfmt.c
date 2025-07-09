@@ -193,10 +193,10 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int binfmt_mounted_warn(void) {
+static int binfmt_mounted_and_writable_warn(void) {
         int r;
 
-        r = binfmt_mounted();
+        r = binfmt_mounted_and_writable();
         if (r < 0)
                 return log_error_errno(r, "Failed to check if /proc/sys/fs/binfmt_misc is mounted: %m");
         if (r == 0)
@@ -222,7 +222,7 @@ static int run(int argc, char *argv[]) {
                 return disable_binfmt();
 
         if (argc > optind) {
-                r = binfmt_mounted_warn();
+                r = binfmt_mounted_and_writable_warn();
                 if (r <= 0)
                         return r;
 
@@ -239,7 +239,7 @@ static int run(int argc, char *argv[]) {
                 if (arg_cat_flags != CAT_CONFIG_OFF)
                         return cat_config(files);
 
-                r = binfmt_mounted_warn();
+                r = binfmt_mounted_and_writable_warn();
                 if (r <= 0)
                         return r;
 
