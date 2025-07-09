@@ -824,7 +824,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
          * caller's userns *without* any mount idmapping in place. To get that uid, we clone the
          * mount source tree and clear any existing idmapping and temporarily mount that tree over
          * the mount source before we stat the mount source to figure out the source uid. */
-        _cleanup_close_ int fd_clone = open_tree_attr_fallback(
+        _cleanup_close_ int fd_clone = open_tree_attr_with_fallback(
                         AT_FDCWD,
                         m->source,
                         OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC,

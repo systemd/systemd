@@ -1441,10 +1441,18 @@ int make_userns(uid_t uid_shift,
         return TAKE_FD(userns_fd);
 }
 
-int open_tree_attr_fallback(int dir_fd, const char *path, unsigned int flags, struct mount_attr *attr) {
+int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned int flags, struct mount_attr *attr) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(attr);
 
-        _cleanup_close_ int fd = open_tree_attr(dir_fd, path, flags, attr, sizeof(struct mount_attr));
+        if (isempty(path)) {
+                path = "";
+                flags |= AT_EMPTY_PATH;
+        }
+
+        fd = open_tree_attr(dir_fd, path, flags, attr, sizeof(struct mount_attr));
         if (fd >= 0)
                 return TAKE_FD(fd);
         if (!ERRNO_IS_NOT_SUPPORTED(errno))
@@ -1492,8 +1500,8 @@ int remount_idmap_fd(
 
         for (size_t i = 0; i < n; i++) {
                 /* Clone the mount point and et the user namespace mapping attribute on the cloned mount point. */
-                mount_fds[n_mounts_fds] = open_tree_attr_fallback(
-                                /* dir_fd= */ -EBADF,
+                mount_fds[n_mounts_fds] = open_tree_attr_with_fallback(
+                                AT_FDCWD,
                                 paths[i],
                                 OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC,
                                 &(struct mount_attr) {

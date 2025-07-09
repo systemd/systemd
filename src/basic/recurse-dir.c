@@ -175,7 +175,7 @@ int recurse_dir(
 
                 r = func(RECURSE_DIR_ENTER,
                          path,
-                         -1, /* we have no parent fd */
+                         -EBADF, /* we have no parent fd */
                          dir_fd,
                          NULL, /* we have no dirent */
                          statx_mask != 0 ? &root_sx : NULL,
@@ -191,7 +191,8 @@ int recurse_dir(
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < de->n_entries; i++) {
+        FOREACH_ARRAY(entry, de->entries, de->n_entries) {
+                struct dirent *i = *entry;
                 _cleanup_close_ int inode_fd = -EBADF, subdir_fd = -EBADF;
                 _cleanup_free_ char *joined = NULL;
                 struct statx sx;
@@ -206,16 +207,16 @@ int recurse_dir(
                  */
 
                 if (path) {
-                        joined = path_join(path, de->entries[i]->d_name);
+                        joined = path_join(path, i->d_name);
                         if (!joined)
                                 return -ENOMEM;
 
                         p = joined;
                 } else
-                        p = de->entries[i]->d_name;
+                        p = i->d_name;
 
-                if (IN_SET(de->entries[i]->d_type, DT_UNKNOWN, DT_DIR)) {
-                        subdir_fd = openat(dir_fd, de->entries[i]->d_name, O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
+                if (IN_SET(i->d_type, DT_UNKNOWN, DT_DIR)) {
+                        subdir_fd = openat(dir_fd, i->d_name, O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
                         if (subdir_fd < 0) {
                                 if (errno == ENOENT) /* Vanished by now, go for next file immediately */
                                         continue;
@@ -229,9 +230,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
-                                                 -1,
-                                                 de->entries[i],
-                                                 NULL,
+                                                 /* inode_fd = */ -EBADF,
+                                                 i,
+                                                 /* sx = */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -245,7 +246,7 @@ int recurse_dir(
 
                         } else {
                                 /* If we managed to get a DIR* off the inode, it's definitely a directory. */
-                                de->entries[i]->d_type = DT_DIR;
+                                i->d_type = DT_DIR;
 
                                 if (statx_mask != 0 || (flags & RECURSE_DIR_SAME_MOUNT)) {
                                         if (statx(subdir_fd, "", AT_EMPTY_PATH, statx_mask, &sx) < 0)
@@ -261,7 +262,7 @@ int recurse_dir(
 
                         if (flags & RECURSE_DIR_INODE_FD) {
 
-                                inode_fd = openat(dir_fd, de->entries[i]->d_name, O_PATH|O_NOFOLLOW|O_CLOEXEC);
+                                inode_fd = openat(dir_fd, i->d_name, O_PATH|O_NOFOLLOW|O_CLOEXEC);
                                 if (inode_fd < 0) {
                                         if (errno == ENOENT) /* Vanished by now, go for next file immediately */
                                                 continue;
@@ -273,9 +274,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
-                                                 -1,
-                                                 de->entries[i],
-                                                 NULL,
+                                                 /* inode_fd = */ -EBADF,
+                                                 i,
+                                                 /* sx = */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -308,9 +309,9 @@ int recurse_dir(
                                         inode_fd = safe_close(inode_fd);
                                 }
 
-                        } else if (statx_mask != 0 || (de->entries[i]->d_type == DT_UNKNOWN && (flags & RECURSE_DIR_ENSURE_TYPE))) {
+                        } else if (statx_mask != 0 || (i->d_type == DT_UNKNOWN && (flags & RECURSE_DIR_ENSURE_TYPE))) {
 
-                                if (statx(dir_fd, de->entries[i]->d_name, AT_SYMLINK_NOFOLLOW, statx_mask | STATX_TYPE, &sx) < 0) {
+                                if (statx(dir_fd, i->d_name, AT_SYMLINK_NOFOLLOW, statx_mask | STATX_TYPE, &sx) < 0) {
                                         if (errno == ENOENT) /* Vanished by now? Go for next file immediately */
                                                 continue;
 
@@ -321,9 +322,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
-                                                 -1,
-                                                 de->entries[i],
-                                                 NULL,
+                                                 /* inode_fd = */ -EBADF,
+                                                 i,
+                                                 /* sx = */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -351,9 +352,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + EISDIR,
                                                  p,
                                                  dir_fd,
-                                                 -1,
-                                                 de->entries[i],
-                                                 NULL,
+                                                 /* inode_fd = */ -EBADF,
+                                                 i,
+                                                 /* sx = */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -369,11 +370,11 @@ int recurse_dir(
                         /* Copy over the data we acquired through statx() if we acquired any */
                         if (sx.stx_mask & STATX_TYPE) {
                                 assert((subdir_fd < 0) == !S_ISDIR(sx.stx_mode));
-                                de->entries[i]->d_type = IFTODT(sx.stx_mode);
+                                i->d_type = IFTODT(sx.stx_mode);
                         }
 
                         if (sx.stx_mask & STATX_INO)
-                                de->entries[i]->d_ino = sx.stx_ino;
+                                i->d_ino = sx.stx_ino;
                 }
 
                 if (subdir_fd >= 0) {
@@ -383,7 +384,7 @@ int recurse_dir(
                                 if (sx_valid && FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
                                         is_mount = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
                                 else {
-                                        r = is_mount_point_at(dir_fd, de->entries[i]->d_name, 0);
+                                        r = is_mount_point_at(dir_fd, i->d_name, /* flags = */ 0);
                                         if (r < 0)
                                                 log_debug_errno(r, "Failed to determine whether %s is a submount, assuming not: %m", p);
 
@@ -395,7 +396,7 @@ int recurse_dir(
                                                  p,
                                                  dir_fd,
                                                  subdir_fd,
-                                                 de->entries[i],
+                                                 i,
                                                  statx_mask != 0 ? &sx : NULL, /* only pass sx if user asked for it */
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
@@ -414,7 +415,7 @@ int recurse_dir(
                                          p,
                                          dir_fd,
                                          subdir_fd,
-                                         de->entries[i],
+                                         i,
                                          statx_mask != 0 ? &sx : NULL, /* only pass sx if user asked for it */
                                          userdata);
                                 if (r == RECURSE_DIR_LEAVE_DIRECTORY)
@@ -429,7 +430,7 @@ int recurse_dir(
                                  p,
                                  dir_fd,
                                  subdir_fd,
-                                 de->entries[i],
+                                 i,
                                  statx_mask != 0 ? &sx : NULL, /* only pass sx if user asked for it */
                                  userdata);
                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
@@ -443,7 +444,7 @@ int recurse_dir(
                                         p,
                                         statx_mask,
                                         n_depth_max - 1,
-                                        flags &~ RECURSE_DIR_TOPLEVEL, /* we already called the callback for this entry */
+                                        flags & ~RECURSE_DIR_TOPLEVEL, /* we already called the callback for this entry */
                                         func,
                                         userdata);
                         if (r != 0)
@@ -453,7 +454,7 @@ int recurse_dir(
                                  p,
                                  dir_fd,
                                  subdir_fd,
-                                 de->entries[i],
+                                 i,
                                  statx_mask != 0 ? &sx : NULL, /* only pass sx if user asked for it */
                                  userdata);
                 } else
@@ -462,7 +463,7 @@ int recurse_dir(
                                  p,
                                  dir_fd,
                                  inode_fd,
-                                 de->entries[i],
+                                 i,
                                  statx_mask != 0 ? &sx : NULL, /* only pass sx if user asked for it */
                                  userdata);
 
@@ -476,9 +477,9 @@ int recurse_dir(
 
                 r = func(RECURSE_DIR_LEAVE,
                          path,
-                         -1,
+                         -EBADF, /* we have no parent fd */
                          dir_fd,
-                         NULL,
+                         NULL, /* we have no dirent */
                          statx_mask != 0 ? &root_sx : NULL,
                          userdata);
                 if (!IN_SET(r, RECURSE_DIR_LEAVE_DIRECTORY, RECURSE_DIR_SKIP_ENTRY, RECURSE_DIR_CONTINUE))
