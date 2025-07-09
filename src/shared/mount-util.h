@@ -13,11 +13,13 @@ typedef struct SubMount {
 void sub_mount_array_free(SubMount *s, size_t n);
 
 int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts);
+int bind_mount_submounts(
+                const char *source,
+                const char *target);
 
 int repeat_unmount(const char *path, int flags);
 
 int umount_recursive_full(const char *target, int flags, char **keep);
-
 static inline int umount_recursive(const char *target, int flags) {
         return umount_recursive_full(target, flags, NULL);
 }
@@ -153,10 +155,6 @@ int open_tree_attr_fallback(int dir_fd, const char *path, unsigned int flags, st
 int make_userns(uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
 int remount_idmap_fd(char **p, int userns_fd, uint64_t extra_mount_attr_set);
 int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
-
-int bind_mount_submounts(
-                const char *source,
-                const char *target);
 
 /* Creates a mount point (without any parents) based on the source path or mode - i.e., a file or a directory */
 int make_mount_point_inode_from_mode(int dir_fd, const char *dest, mode_t source_mode, mode_t target_mode);
