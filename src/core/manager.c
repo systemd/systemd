@@ -4259,6 +4259,8 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         m->defaults.timeout_abort_set = defaults->timeout_abort_set;
         m->defaults.device_timeout_usec = defaults->device_timeout_usec;
 
+        m->defaults.restrict_suid_sgid = defaults->restrict_suid_sgid;
+
         m->defaults.start_limit = defaults->start_limit;
 
         m->defaults.memory_accounting = defaults->memory_accounting;

@@ -74,6 +74,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DefaultOOMPolicy, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultOOMScoreAdjust="),
                 SD_VARLINK_DEFINE_FIELD(DefaultOOMScoreAdjust, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultRestrictSUIDSGID="),
+                SD_VARLINK_DEFINE_FIELD(DefaultRestrictSUIDSGID, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#CtrlAltDelBurstAction="),
                 SD_VARLINK_DEFINE_FIELD(CtrlAltDelBurstAction, SD_VARLINK_STRING, 0));
 
