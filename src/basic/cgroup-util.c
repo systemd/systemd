@@ -142,6 +142,9 @@ int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags) {
         assert(f);
         assert(ret);
 
+        /* NB: The kernel returns ENODEV if we tried to read from cgroup.procs of a cgroup that has been
+         * removed already. Callers should handle that! */
+
         for (;;) {
                 errno = 0;
                 if (fscanf(f, "%lu", &ul) != 1) {
@@ -300,6 +303,13 @@ int cg_kill(
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                         r = cg_read_pidref(f, &pidref, flags);
+                        if (r == -ENODEV) {
+                                /* reading from cgroup.pids will result in ENODEV if the cgroup is
+                                 * concurrently removed. Just leave in that case, because a removed cgroup
+                                 * contains no processes anymore. */
+                                done = true;
+                                break;
+                        }
                         if (r < 0)
                                 return RET_GATHER(ret, log_debug_errno(r, "Failed to read pidref from cgroup '%s': %m", path));
                         if (r == 0)

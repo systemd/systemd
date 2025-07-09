@@ -1351,10 +1351,13 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
                  * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads, “cgroup.procs” in a
                  * threaded domain cgroup contains the PIDs of all processes in the subtree and is not
-                 * readable in the subtree proper. */
+                 * readable in the subtree proper.
+                 *
+                 * We'll see ENODEV when trying to enumerate processes and the cgroup is removed at the same
+                 * time. Handle this gracefully. */
 
                 r = cg_read_pidref(f, &pidref, /* flags = */ 0);
-                if (IN_SET(r, 0, -EOPNOTSUPP))
+                if (IN_SET(r, 0, -EOPNOTSUPP, -ENODEV))
                         break;
                 if (r < 0)
                         return r;
