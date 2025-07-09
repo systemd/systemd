@@ -1164,18 +1164,6 @@ static int dump_core(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static void sigterm_handler(int signal, siginfo_t *info, void *ucontext) {
-        assert(signal == SIGTERM);
-        assert(info);
-
-        /* If the sender is not us, propagate the signal to all processes in
-         * the same process group */
-        if (si_code_from_process(info->si_code) &&
-            pid_is_valid(info->si_pid) &&
-            info->si_pid != getpid_cached())
-                (void) kill(0, signal);
-}
-
 static int run_debug(int argc, char **argv, void *userdata) {
         static const struct sigaction sa = {
                 .sa_sigaction = sigterm_handler,
