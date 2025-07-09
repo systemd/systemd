@@ -832,8 +832,8 @@ static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_kill_unit_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        /* We don't bother with GENERIC_UNIT_LOAD nor GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
-         * matter whether a unit is loaded for killing any processes possibly in the unit's cgroup. */
+        /* We don't bother with GENERIC_UNIT_LOAD or GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
+         * matter whether a unit is loaded for killing any processes in the unit's cgroup. */
         return method_generic_unit_operation(message, userdata, error, bus_unit_method_kill_subgroup, 0);
 }
 

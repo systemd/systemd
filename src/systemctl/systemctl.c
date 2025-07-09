@@ -260,7 +260,7 @@ static int systemctl_help(void) {
                "     --kill-whom=WHOM    Whom to send signal to\n"
                "     --kill-value=INT    Signal value to enqueue\n"
                "     --kill-subgroup=PATH\n"
-               "                         Send signal to sub-control-group only\n"
+               "                         Send signal to sub-control group only\n"
                "     --what=RESOURCES    Which types of resources to remove\n"
                "     --now               Start or stop unit after enabling or disabling it\n"
                "     --dry-run           Only print what would be done\n"

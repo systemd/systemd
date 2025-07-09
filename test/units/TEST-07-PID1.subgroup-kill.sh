@@ -36,4 +36,4 @@ systemctl kill user@"$(id -u testuser)".service --kill-subgroup=app.slice/subgro
 run0 -u testuser systemctl --user is-active subgroup-test.service
 systemctl kill user@"$(id -u testuser)".service --kill-subgroup=app.slice/subgroup-test.service --kill-whom=cgroup-fail
 
-timeout 60 bash -c 'while run0 -u testuser systemctl --user is-active subgroup-test.service ; do sleep 1 ; done'
+timeout 60 bash -c 'while run0 -u testuser systemctl --user is-active subgroup-test.service; do sleep 1; done'
