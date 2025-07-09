@@ -107,9 +107,12 @@ static int show_cgroup_one_by_path(
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
                  * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
                  * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
-                 * the subtree and is not readable in the subtree proper. */
+                 * the subtree and is not readable in the subtree proper.
+                 *
+                 * ENODEV is generated when we enumerate processes from a cgroup and the cgroup is removed
+                 * concurrently. */
                 r = cg_read_pid(f, &pid, /* flags = */ 0);
-                if (IN_SET(r, 0, -EOPNOTSUPP))
+                if (IN_SET(r, 0, -EOPNOTSUPP, -ENODEV))
                         break;
                 if (r < 0)
                         return r;
