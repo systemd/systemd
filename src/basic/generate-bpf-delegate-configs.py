@@ -56,7 +56,7 @@ with open(header) as file:
                     if output == 'code':
                         print(f'\t"{enumValue}",')
                     else:
-                        print(f'<literal>{enumValue}</literal>')
+                        print(f'<constant>{enumValue}</constant>')
                 if output == 'code':
                     print('};')
                 else:
