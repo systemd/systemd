@@ -7,6 +7,7 @@
 
 import re
 import sys
+import typing
 
 
 def print_usage_and_exit() -> None:
@@ -26,7 +27,7 @@ if output not in ['code', 'doc']:
 
 with open(header) as file:
     inEnum = False
-    enumValues: list[str] = []
+    enumValues: typing.List[str] = []
     enumName = ''
 
     if output == 'doc':
@@ -67,10 +68,12 @@ with open(header) as file:
                 match = re.fullmatch(r'(\w+)\b,', line)
                 if match and len(match.groups()) > 0 and not match[1].startswith('__'):
                     enumValues.append(match[1])
-        elif match := re.match(r'^\s*enum\s+bpf_(cmd|map_type|prog_type|attach_type)+\s*{', line):
-            # Start of a new enum
-            inEnum = True
-            enumName = 'bpf_delegate_' + match[1]
+        else:
+            match = re.match(r'^\s*enum\s+bpf_(cmd|map_type|prog_type|attach_type)+\s*{', line)
+            if match:
+                # Start of a new enum
+                inEnum = True
+                enumName = 'bpf_delegate_' + match[1]
 
     if output == 'doc':
         print('</para>')
