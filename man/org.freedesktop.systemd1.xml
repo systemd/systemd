@@ -557,6 +557,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i DefaultOOMScoreAdjust = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DefaultRestrictSUIDSGID = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s CtrlAltDelBurstAction = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u SoftRebootsCount = ...;
@@ -792,6 +794,8 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultOOMPolicy is not documented!-->
 
     <!--property DefaultOOMScoreAdjust is not documented!-->
+
+    <!--property DefaultRestrictSUIDSGID is not documented!-->
 
     <!--property CtrlAltDelBurstAction is not documented!-->
 
@@ -1236,6 +1240,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultOOMPolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultOOMScoreAdjust"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultRestrictSUIDSGID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CtrlAltDelBurstAction"/>
 
@@ -12246,7 +12252,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>ShutdownStartTimestamp</varname>,
       <varname>ShutdownStartTimestampMonotonic</varname>, and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
-      <para><function>RemoveSubgroupFromUnit()</function>, and
+      <para><varname>DefaultRestrictSUIDSGID</varname>,
+      <function>RemoveSubgroupFromUnit()</function> and
       <function>KillUnitSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
