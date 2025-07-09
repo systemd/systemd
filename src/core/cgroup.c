@@ -62,7 +62,7 @@
 /* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
  * problems we downgrade to LOG_DEBUG. This is supposed to be nice to container managers and kernels which want to mask
  * out specific attributes from us. */
-#define LOG_LEVEL_CGROUP_WRITE(r) (IN_SET(ABS(r), ENOENT, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING)
+#define LOG_LEVEL_CGROUP_WRITE(r) ((ABS(r) == ENOENT || ERRNO_IS_FS_CANNOT_WRITE(r)) ? LOG_DEBUG : LOG_WARNING)
 
 static void unit_remove_from_cgroup_empty_queue(Unit *u);
 

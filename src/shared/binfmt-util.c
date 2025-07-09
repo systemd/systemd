@@ -11,7 +11,7 @@
 #include "missing_magic.h"
 #include "stat-util.h"
 
-int binfmt_mounted(void) {
+int binfmt_mounted_and_writable(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -25,7 +25,13 @@ int binfmt_mounted(void) {
         if (r <= 0)
                 return r;
 
-        return access_fd(fd, W_OK) >= 0;
+        r = access_fd(fd, W_OK);
+        if (ERRNO_IS_NEG_FS_CANNOT_WRITE(r))
+                return false;
+        if (r < 0)
+                return r;
+
+        return true;
 }
 
 int disable_binfmt(void) {
@@ -37,7 +43,7 @@ int disable_binfmt(void) {
          * We are a bit careful here, since binfmt_misc might still be an autofs which we don't want to
          * trigger. */
 
-        r = binfmt_mounted();
+        r = binfmt_mounted_and_writable();
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether binfmt_misc is mounted: %m");
         if (r == 0) {

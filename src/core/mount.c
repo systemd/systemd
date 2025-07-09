@@ -1269,7 +1269,7 @@ static void mount_enter_mounting(Mount *m) {
                  * when the path is on NFS. See issue #24120. All such errors will be logged in the debug level. */
                 if (r < 0 && r != -EEXIST)
                         log_unit_full_errno(UNIT(m),
-                                            (r == -EROFS || ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_WARNING,
+                                            ERRNO_IS_NEG_FS_CANNOT_WRITE(r) ? LOG_DEBUG : LOG_WARNING,
                                             r, "Failed to make bind mount source '%s', ignoring: %m", p->what);
         }
 
