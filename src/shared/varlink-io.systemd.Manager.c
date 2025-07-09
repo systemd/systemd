@@ -20,7 +20,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ManagerContext,
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd-system.conf.html#ManagerEnvironment="),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#ManagerEnvironment="),
                 SD_VARLINK_DEFINE_FIELD(Environment, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultStandardOutput="),
                 SD_VARLINK_DEFINE_FIELD(DefaultStandardOutput, SD_VARLINK_STRING, 0),
@@ -143,8 +143,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(NFailedJobs, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Boot progress as a floating point value between 0.0 and 1.0"),
                 SD_VARLINK_DEFINE_FIELD(Progress, SD_VARLINK_FLOAT, 0),
-                SD_VARLINK_FIELD_COMMENT("The manager environment variables"),
-                SD_VARLINK_DEFINE_FIELD(Environment, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("The hardware watchdog device currently in use"),
                 SD_VARLINK_DEFINE_FIELD(WatchdogDevice, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the hardware watchdog was last pinged"),
