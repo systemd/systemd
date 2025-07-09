@@ -73,7 +73,7 @@ jq -se "length == 10" "$LOG_FILE"
     timeout 5 curl -LSfs \
          --header "Accept: application/json" \
          --header "Range: entries=:-1:" \
-         http://localhost:19531/entries?follow >"$LOG_FILE" ; \
+         http://localhost:19531/entries?follow >"$LOG_FILE"; \
     test $? -eq 124 # timeout should kill the curl process waiting for new entries
 )
 # Check that follow with num_entries returns the specified number of entries and exits
