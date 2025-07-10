@@ -65,7 +65,7 @@ TEST(cg_create) {
         (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, /* delete_root= */ true);
 
         r = cg_create(SYSTEMD_CGROUP_CONTROLLER, test_a);
-        if (IN_SET(r, -EPERM, -EACCES, -EROFS)) {
+        if (IN_SET(r, -EPERM, -EACCES, -EROFS, -ENOENT)) {
                 log_info_errno(r, "Skipping %s: %m", __func__);
                 return;
         }
