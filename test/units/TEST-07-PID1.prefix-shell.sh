@@ -18,5 +18,5 @@ systemctl start prefix-shell.service
 assert_eq "$(cat /tmp/TEST-07-PID1.prefix-shell.flag)" "YAY!"
 
 journalctl --sync
-timeout 30 bash -c "until journalctl -b -u prefix-shell.service --grep 'with login shell .*: lvl 101'; do sleep 0.5; done"
-timeout 30 bash -c "until journalctl -b -u prefix-shell.service --grep 'with normal shell'; do sleep 0.5; done"
+journalctl -b -u prefix-shell.service --grep "with login shell .*: lvl 101"
+journalctl -b -u prefix-shell.service --grep "with normal shell"
