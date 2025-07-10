@@ -269,7 +269,10 @@ int bind_user_prepare(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot bind user with no UID, refusing.");
 
                 if (u->uid >= uid_shift && u->uid < uid_shift + uid_range)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID of user '%s' to map is already in container UID range, refusing.", u->user_name);
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "UID "UID_FMT" of user '%s' to map is already in container UID range ("UID_FMT" - "UID_FMT"), refusing.",
+                                        u->uid, u->user_name, uid_shift, uid_shift + uid_range);
 
                 r = groupdb_by_gid(user_record_gid(u), /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
                 if (r < 0)
