@@ -214,21 +214,21 @@ jobs:
         run: mkosi summary
 
       - name: Build tools tree
-        run: sudo mkosi -f sandbox -- true
+        run: sudo mkosi -f box -- true
 
       - name: Configure meson
         run: |
           # /usr/sbin/bpftool is completely broken inside containers on Ubuntu which makes meson blow up so
           # disable the bpf-framework stuff to avoid the issue.
           # TODO: Drop when we move off Ubuntu Noble as this will be fixed in the next Ubuntu LTS release.
-          sudo mkosi sandbox -- \
+          sudo mkosi box -- \
             meson setup \
             --buildtype=debugoptimized \
             -Dbpf-framework=disabled \
             build
 
       - name: Build image
-        run: sudo mkosi sandbox -- meson compile -C build mkosi
+        run: sudo mkosi box -- meson compile -C build mkosi
 
       - name: Make sure sources weren't polluted by package build scripts
         run: |
@@ -243,7 +243,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          if [[ "$(sudo mkosi sandbox -- meson test --help)" == *"--max-lines"* ]]; then
+          if [[ "$(sudo mkosi box -- meson test --help)" == *"--max-lines"* ]]; then
               MAX_LINES=(--max-lines 300)
           else
               MAX_LINES=()
@@ -256,7 +256,7 @@ jobs:
           # --preserve-env makes sure all the github actions environment variables are propagated which are
           # used in integration-test-wrapper.py to construct the `gh` command line to download the journals
           # of failed tests.
-          sudo --preserve-env mkosi sandbox -- \
+          sudo --preserve-env mkosi box -- \
             env \
             TEST_PREFER_QEMU=${{ matrix.vm }} \
             TEST_NO_QEMU=${{ matrix.no_qemu }} \

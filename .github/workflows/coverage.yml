@@ -83,22 +83,22 @@ jobs:
         run: mkosi summary
 
       - name: Build tools tree
-        run: sudo mkosi -f sandbox -- true
+        run: sudo mkosi -f box -- true
 
       - name: Configure meson
         run: |
-          sudo mkosi sandbox -- \
+          sudo mkosi box -- \
             meson setup \
             --buildtype=debugoptimized \
             build
 
       - name: Build image
-        run: sudo mkosi sandbox -- meson compile -C build mkosi
+        run: sudo mkosi box -- meson compile -C build mkosi
 
       - name: Initial coverage report
         run: |
           sudo mkdir -p build/test/coverage
-          sudo mkosi sandbox -- \
+          sudo mkosi box -- \
             lcov \
             --directory build/mkosi.builddir/arch~rolling~x86-64 \
             --capture \
@@ -115,7 +115,7 @@ jobs:
           # --preserve-env makes sure all the github actions environment variables are propagated which are
           # used in integration-test-wrapper.py to construct the `gh` command line to download the journals
           # of failed tests.
-          sudo --preserve-env mkosi sandbox -- \
+          sudo --preserve-env mkosi box -- \
             env \
             TEST_RUNNER=ubuntu-24.04 \
             meson test \
@@ -147,10 +147,10 @@ jobs:
               lcov_args+=(--add-tracefile "${file}")
           done < <(find build/test/coverage -name "TEST-*.coverage-info")
 
-          sudo mkosi sandbox -- lcov --ignore-errors inconsistent,inconsistent "${lcov_args[@]}" --output-file build/test/coverage/everything.coverage-info
+          sudo mkosi box -- lcov --ignore-errors inconsistent,inconsistent "${lcov_args[@]}" --output-file build/test/coverage/everything.coverage-info
 
       - name: List coverage report
-        run: sudo mkosi sandbox -- lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
+        run: sudo mkosi box -- lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
 
       - name: Coveralls
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b

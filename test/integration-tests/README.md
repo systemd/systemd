@@ -17,7 +17,7 @@ $ mkosi genkey
 Next, we can build the integration test image with meson:
 
 ```shell
-$ mkosi -f sandbox -- meson compile -C build mkosi
+$ mkosi -f box -- meson compile -C build mkosi
 ```
 
 By default, the `mkosi` meson target which builds the integration test image depends on
@@ -38,24 +38,24 @@ directory (`OutputDirectory=`) to point to the other directory using `mkosi/mkos
 After the image has been built, the integration tests can be run with:
 
 ```shell
-$ mkosi -f sandbox -- meson test -C build --setup=integration --suite integration-tests --num-processes "$(($(nproc) / 4))"
+$ mkosi -f box -- meson test -C build --setup=integration --suite integration-tests --num-processes "$(($(nproc) / 4))"
 ```
 
 As usual, specific tests can be run in meson by appending the name of the test
 which is usually the name of the directory e.g.
 
 ```shell
-$ mkosi -f sandbox -- meson test -C build --setup=integration -v TEST-01-BASIC
+$ mkosi -f box -- meson test -C build --setup=integration -v TEST-01-BASIC
 ```
 
-See `mkosi -f sandbox -- meson introspect build --tests` for a list of tests.
+See `mkosi -f box -- meson introspect build --tests` for a list of tests.
 
 To interactively debug a failing integration test, the `--interactive` option
 (`-i`) for `meson test` can be used. Note that this requires meson v1.5.0 or
 newer:
 
 ```shell
-$ mkosi -f sandbox -- meson test -C build --setup=integration -i TEST-01-BASIC
+$ mkosi -f box -- meson test -C build --setup=integration -i TEST-01-BASIC
 ```
 
 Due to limitations in meson, the integration tests do not yet depend on the
@@ -64,7 +64,7 @@ running the integration tests. To rebuild the image and rerun a test, the
 following command can be used:
 
 ```shell
-$ mkosi -f sandbox -- meson compile -C build mkosi && mkosi -f sandbox -- meson test -C build --setup=integration -v TEST-01-BASIC
+$ mkosi -f box -- meson compile -C build mkosi && mkosi -f box -- meson test -C build --setup=integration -v TEST-01-BASIC
 ```
 
 The integration tests use the same mkosi configuration that's used when you run
@@ -78,7 +78,7 @@ To iterate on an integration test, let's first get a shell in the integration te
 the following:
 
 ```shell
-$ mkosi -f sandbox -- meson compile -C build mkosi && mkosi -f sandbox -- meson test -C build --setup=shell -i TEST-01-BASIC
+$ mkosi -f box -- meson compile -C build mkosi && mkosi -f box -- meson test -C build --setup=shell -i TEST-01-BASIC
 ```
 
 This will get us a shell in the integration test environment after booting the machine without running the
@@ -173,9 +173,9 @@ Finally, we'll make use of the standalone mode of running the integration tests
 to avoid having to install any build dependencies.
 
 ```sh
-$ mkosi -f sandbox -- meson setup testsuite test/integration-tests/standalone
+$ mkosi -f box -- meson setup testsuite test/integration-tests/standalone
 $ mkosi -f
-$ mkosi sandbox -- meson test -C testsuite --num-processes "$(($(nproc) / 4))"
+$ mkosi box -- meson test -C testsuite --num-processes "$(($(nproc) / 4))"
 ```
 
 ### SELinux AVCs
