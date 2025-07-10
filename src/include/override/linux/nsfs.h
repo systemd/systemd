@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/nsfs.h> /* IWYU pragma: export */
-#include <linux/types.h>
+#include_next <linux/nsfs.h>    /* IWYU pragma: export */
 
 /* Root namespace inode numbers, as per include/linux/proc_ns.h in the kernel source tree, since v3.8:
  * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=98f842e675f96ffac96e6c50315790912b2812be */

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/loop.h>
+#include <linux/magic.h>
 #include <poll.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -45,8 +46,6 @@
 #include "keyring-util.h"
 #include "loop-util.h"
 #include "memory-util.h"
-#include "missing_magic.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mkfs-util.h"
 #include "openssl-util.h"
