@@ -104,7 +104,8 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         SD_JSON_BUILD_PAIR_INTEGER("DefaultOOMScoreAdjust", m->defaults.oom_score_adjust),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRestrictSUIDSGID", m->defaults.restrict_suid_sgid),
                         SD_JSON_BUILD_PAIR_STRING("CtrlAltDelBurstAction", emergency_action_to_string(m->cad_burst_action)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfirmSpawn", manager_get_confirm_spawn(m)));
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfirmSpawn", manager_get_confirm_spawn(m)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ControlGroup", m->cgroup_root));
 }
 
 static int manager_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -151,7 +152,6 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 SD_JSON_BUILD_PAIR_UNSIGNED("NFailedJobs", m->n_failed_jobs),
                 SD_JSON_BUILD_PAIR_REAL("Progress", manager_get_progress(m)),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("WatchdogLastPingTimestamp", watchdog_get_last_ping_as_dual_timestamp(&watchdog_last_ping)),
-                JSON_BUILD_PAIR_STRING_NON_EMPTY("ControlGroup", m->cgroup_root),
                 SD_JSON_BUILD_PAIR_STRING("SystemState", manager_state_to_string(manager_state(m))),
                 SD_JSON_BUILD_PAIR_UNSIGNED("ExitCode", m->return_value),
                 SD_JSON_BUILD_PAIR_UNSIGNED("SoftRebootsCount", m->soft_reboots_count));
