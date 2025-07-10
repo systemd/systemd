@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <linux/magic.h>
 #include <unistd.h>
 
 #include "sd-json.h"
@@ -23,7 +24,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "missing_magic.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"

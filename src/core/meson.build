@@ -100,15 +100,34 @@ load_fragment_gperf_nulstr_c = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c]
+generate_bpf_delegate_configs = files('generate-bpf-delegate-configs.py')
+bpf_delegate_configs_inc = custom_target(
+        input : [generate_bpf_delegate_configs, bpf_delegate_sources],
+        output : 'bpf-delegate-configs.inc',
+        command : [python,
+                   generate_bpf_delegate_configs,
+                   'code',
+                   bpf_delegate_sources],
+        capture : true)
+
+bpf_delegate_xml = custom_target(
+        input : [generate_bpf_delegate_configs, bpf_delegate_sources],
+        output : 'bpf-delegate.xml',
+        command : [python,
+                   generate_bpf_delegate_configs,
+                   'doc',
+                   bpf_delegate_sources],
+        capture : true)
+man_page_depends += bpf_delegate_xml
+
+generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
+libcore_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
 
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
 
 libcore_static = static_library(
         libcore_name,
         libcore_sources,
-        load_fragment_gperf_c,
-        load_fragment_gperf_nulstr_c,
         include_directories : [includes, include_directories('.')],
         implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
@@ -162,6 +181,7 @@ executor_libs = get_option('link-executor-shared') ? \
                 libcore,
                 libshared,
         ] : [
+                libc_wrapper_static,
                 libcore_static,
                 libshared_static,
                 libbasic_static,

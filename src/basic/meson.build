@@ -84,6 +84,7 @@ basic_sources = files(
         'psi-util.c',
         'random-util.c',
         'ratelimit.c',
+        'raw-clone.c',
         'recurse-dir.c',
         'replace-var.c',
         'rlimit-util.c',
@@ -119,44 +120,26 @@ basic_sources = files(
 
 sources += basic_sources
 
-missing_audit_h = files('missing_audit.h')
-
-missing_syscall_def_h = files('missing_syscall_def.h')
-basic_sources += missing_syscall_def_h
-
-generate_af_list = find_program('generate-af-list.sh')
-af_list_txt = custom_target(
-        output : 'af-list.txt',
-        command : [generate_af_list, cpp, files('include/sys/socket.h')],
-        capture : true)
-
-generate_arphrd_list = find_program('generate-arphrd-list.sh')
-arphrd_list_txt = custom_target(
-        output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, files('include/linux/if_arp.h')],
-        capture : true)
-
-generate_cap_list = find_program('generate-cap-list.sh')
-cap_list_txt = custom_target(
-        output : 'cap-list.txt',
-        command : [generate_cap_list, cpp, files('include/linux/capability.h')],
-        capture : true)
-
-generate_errno_list = find_program('generate-errno-list.sh')
-errno_list_txt = custom_target(
-        output : 'errno-list.txt',
-        command : [generate_errno_list, cpp],
-        capture : true)
-
 generated_gperf_headers = []
-foreach item : [['af',     af_list_txt,     'af',         '',        ['<sys/socket.h>']],
-                ['arphrd', arphrd_list_txt, 'arphrd',     'ARPHRD_', []],
-                ['cap',    cap_list_txt,    'capability', '',        []],
-                ['errno',  errno_list_txt,  'errno',      '',        []]]
+foreach item : [
+        # name,    source,         struct name,  prefix,    headers
+        ['af',     af_sources,     'af',         '',        ['<sys/socket.h>'],       ],
+        ['arphrd', arphrd_sources, 'arphrd',     'ARPHRD_', ['<linux/if_arp.h>'],     ],
+        ['cap',    cap_sources,    'capability', '',        ['<linux/capability.h>'], ],
+        ['errno',  [],             'errno',      '',        ['<errno.h>'],            ],
+]
+
+        fname = '@0@-list.txt'.format(item[0])
+        generate_list = files('generate-@0@-list.sh'.format(item[0]))
+        list_txt = custom_target(
+                input : [generate_list, item[1]],
+                output : fname,
+                command : [env, 'bash', generate_list, cpp, system_include_args],
+                capture : true)
 
         fname = '@0@-from-name.gperf'.format(item[0])
         gperf_file = custom_target(
-                input : item[1],
+                input : list_txt,
                 output : fname,
                 command : [generate_gperfs, item[2], item[3], '@INPUT@'] + item[4],
                 capture : true)
@@ -176,7 +159,7 @@ foreach item : [['af',     af_list_txt,     'af',         '',        ['<sys/sock
         fname = '@0@-to-name.inc'.format(item[0])
         awkscript = '@0@-to-name.awk'.format(item[0])
         target2 = custom_target(
-                input : [awkscript, item[1]],
+                input : [awkscript, list_txt],
                 output : fname,
                 command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
                 capture : true)
@@ -189,61 +172,13 @@ basic_sources += generated_gperf_headers
 
 ############################################################
 
-arch_list = [
-        'alpha',
-        'arc',
-        'arm',
-        'arm64',
-        'i386',
-        'ia64',
-        'loongarch64',
-        'm68k',
-        'mips64',
-        'mips64n32',
-        'mipso32',
-        'parisc',
-        'powerpc',
-        'powerpc64',
-        'riscv32',
-        'riscv64',
-        's390',
-        's390x',
-        'sparc',
-        'x86_64'
-]
-
-run_target(
-        'update-syscall-tables',
-        command : [update_syscall_tables_sh, meson.current_source_dir()] + arch_list)
-
-syscall_list_txt = files('syscall-list.txt')
-
-syscall_lists = []
-foreach arch: arch_list
-        syscall_lists += files('syscalls-@0@.txt'.format(arch))
-endforeach
-
-missing_syscalls_py = find_program('missing_syscalls.py')
-
-run_target(
-        'update-syscall-header',
-        command : [missing_syscalls_py,
-                   missing_syscall_def_h,
-                   syscall_lists])
-
-############################################################
-
-filesystem_includes = files(
-        'include/linux/magic.h',
-        'missing_magic.h',
-)
-
 check_filesystems = find_program('check-filesystems.sh')
 r = run_command(
         [
                 'env', '--chdir', meson.project_build_root(),
-                check_filesystems, cpp, files('filesystems-gperf.gperf')
-        ] + filesystem_includes,
+                check_filesystems, cpp, files('filesystems-gperf.gperf'),
+                system_include_args,
+        ],
         check: false,
 )
 if r.returncode() != 0
@@ -273,17 +208,8 @@ filesystem_switch_case_inc = custom_target(
                    '@INPUT@'],
         capture : true)
 
-generate_bpf_delegate_configs = find_program('generate-bpf-delegate-configs.py')
-bpf_delegate_configs_inc = custom_target(
-        input : files('include/linux/bpf.h'),
-        output : 'bpf-delegate-configs.inc',
-        command : [generate_bpf_delegate_configs,
-                   'code',
-                   '@INPUT@'],
-        capture : true)
-
-generated_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h, bpf_delegate_configs_inc]
-basic_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h, bpf_delegate_configs_inc]
+generated_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
+basic_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
 
 libbasic_static = static_library(
         'basic',

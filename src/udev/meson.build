@@ -61,19 +61,19 @@ endif
 
 ############################################################
 
-generate_keyboard_keys_list = find_program('generate-keyboard-keys-list.sh')
+generate_keyboard_keys_list = files('generate-keyboard-keys-list.sh')
 keyboard_keys_list_txt = custom_target(
-        input : files('../basic/include/linux/input.h'),
+        input : [generate_keyboard_keys_list, keyboard_sources],
         output : 'keyboard-keys-list.txt',
-        command : [generate_keyboard_keys_list, cpp, '@INPUT@'],
+        command : [env, 'bash', generate_keyboard_keys_list, cpp, system_include_args],
         capture : true)
 
-generate_keyboard_keys_gperf = find_program('generate-keyboard-keys-gperf.sh')
+generate_keyboard_keys_gperf = files('generate-keyboard-keys-gperf.sh')
 fname = 'keyboard-keys-from-name.gperf'
 gperf_file = custom_target(
-        input : keyboard_keys_list_txt,
+        input : [generate_keyboard_keys_gperf, keyboard_keys_list_txt],
         output : fname,
-        command : [generate_keyboard_keys_gperf, '@INPUT@'],
+        command : [env, 'bash', '@INPUT@'],
         capture : true)
 
 fname = 'keyboard-keys-from-name.inc'
