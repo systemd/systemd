@@ -25,10 +25,30 @@ __systemctl() {
 __get_slice_units () { __systemctl $1 list-units --all -t slice \
                            | { while read -r a b c d; do echo " $a"; done; }; }
 
+__get_properties () {
+    systemd-analyze transient-settings scope service 2>/dev/null |
+        while read -r p; do [ -z "$p" ] || echo "$p="; done
+}
+
+__get_path_properties () {
+    systemd-analyze transient-settings path |
+        while read -r p; do [ -z "$p" ] || echo "$p="; done
+}
+
+__get_socket_properties () {
+    systemd-analyze transient-settings socket 2>/dev/null |
+        while read -r p; do [ -z "$p" ] || echo "$p="; done
+}
+
+__get_timer_properties () {
+    systemd-analyze transient-settings timer 2>/dev/null |
+        while read -r p; do [ -z "$p" ] || echo "$p="; done
+}
+
 __get_machines() {
     local a b
     { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-	{ while read a b; do echo " $a"; done; } | \
+	{ while read -r a b; do echo " $a"; done; } | \
         sort -u
 }
 
@@ -59,8 +79,16 @@ _systemd_run() {
     done
 
     case "$prev" in
-        --unit|--description|--on-active|--on-boot|--on-startup|--on-unit-active|--on-unit-inactive|--on-calendar|--background)
+        --unit|--description|--nice|-E|--setenv|--on-active|--on-boot|--on-startup|--on-unit-active|--on-unit-inactive|--on-calendar|--background)
             # argument required but no completions available
+            return
+            ;;
+        --uid)
+            _comp_compgen -- -u
+            return
+            ;;
+        --gid)
+            _comp_compgen -- -g
             return
             ;;
         --expand-environment)
@@ -82,19 +110,7 @@ _systemd_run() {
             return 0
             ;;
         -p|--property)
-            local comps='CPUAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP=
-                         SendSIGKILL= MemoryLimit= CPUShares= BlockIOWeight= User= Group=
-                         DevicePolicy= KillMode= ExitType= DeviceAllow= BlockIOReadBandwidth=
-                         BlockIOWriteBandwidth= BlockIODeviceWeight= Nice= Environment=
-                         KillSignal= RestartKillSignal= FinalKillSignal= LimitCPU= LimitFSIZE= LimitDATA=
-                         LimitSTACK= LimitCORE= LimitRSS= LimitNOFILE= LimitAS= LimitNPROC=
-                         LimitMEMLOCK= LimitLOCKS= LimitSIGPENDING= LimitMSGQUEUE=
-                         LimitNICE= LimitRTPRIO= LimitRTTIME= PrivateTmp= PrivateDevices=
-                         PrivateNetwork= NoNewPrivileges= WorkingDirectory= RootDirectory=
-                         TTYPath= SyslogIdentifier= SyslogLevelPrefix= SyslogLevel=
-                         SyslogFacility= TimerSlackNSec= OOMScoreAdjust= ReadWritePaths=
-                         ReadOnlyPaths= InaccessiblePaths= EnvironmentFile=
-                         ProtectSystem= ProtectHome= RuntimeDirectory= PassEnvironment='
+            local comps=$(__get_properties)
 
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
             return 0
@@ -107,12 +123,21 @@ _systemd_run() {
             ;;
         -M|--machine)
             local comps=$( __get_machines )
-
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
+            ;;
+        --path-property)
+            local comps=$(__get_path_properties)
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
+            ;;
+        --socket-property)
+            local comps=$(__get_socket_properties)
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
             return 0
             ;;
         --timer-property)
-            local comps='AccuracySec= WakeSystem='
+            local comps=$(__get_timer_properties)
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
             return 0
             ;;
