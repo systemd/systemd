@@ -475,8 +475,7 @@ Virtualization detect_vm(void) {
                    VIRTUALIZATION_ORACLE,
                    VIRTUALIZATION_XEN,
                    VIRTUALIZATION_AMAZON,
-                   VIRTUALIZATION_PARALLELS,
-                   VIRTUALIZATION_GOOGLE)) {
+                   VIRTUALIZATION_PARALLELS)) {
                 v = dmi;
                 goto finish;
         }
@@ -515,6 +514,10 @@ Virtualization detect_vm(void) {
                 hyperv = true;
         else if (v == VIRTUALIZATION_VM_OTHER)
                 other = true;
+        else if (v == VIRTUALIZATION_KVM && dmi == VIRTUALIZATION_GOOGLE)
+                /* The DMI vendor tables in /sys/class/dmi/id don't help us distinguish between GCE
+                 * virtual machines and bare-metal instances, so we need to look at hypervisor. */
+                return VIRTUALIZATION_GOOGLE;
         else if (v != VIRTUALIZATION_NONE)
                 goto finish;
 
