@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "audit-fd.h"
@@ -26,6 +27,7 @@ static bool initialized = false;
 
 struct audit_info {
         sd_bus_creds *creds;
+        sd_varlink *link;
         const char *path;
         const char *cmdline;
         const char *function;
@@ -48,12 +50,23 @@ static int audit_callback(
         char uid_buf[DECIMAL_STR_MAX(uid_t) + 1] = "n/a";
         char gid_buf[DECIMAL_STR_MAX(gid_t) + 1] = "n/a";
 
-        if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
-                xsprintf(login_uid_buf, UID_FMT, login_uid);
-        if (sd_bus_creds_get_euid(audit->creds, &uid) >= 0)
-                xsprintf(uid_buf, UID_FMT, uid);
-        if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
-                xsprintf(gid_buf, GID_FMT, gid);
+        if (audit->creds) {
+                /* DBus case */
+                if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
+                        xsprintf(login_uid_buf, UID_FMT, login_uid);
+                if (sd_bus_creds_get_euid(audit->creds, &uid) >= 0)
+                        xsprintf(uid_buf, UID_FMT, uid);
+                if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
+                        xsprintf(gid_buf, GID_FMT, gid);
+        }
+
+        if (audit->link) {
+                /* varlink */
+                if (sd_varlink_get_peer_uid(audit->link, &uid) >= 0)
+                        xsprintf(uid_buf, UID_FMT, uid);
+                if (sd_varlink_get_peer_gid(audit->link, &gid) >= 0)
+                        xsprintf(gid_buf, GID_FMT, gid);
+        }
 
         (void) snprintf(msgbuf, msgbufsize,
                         "auid=%s uid=%s gid=%s%s%s%s%s%s%s%s%s%s",
@@ -317,6 +330,60 @@ int mac_selinux_access_check_bus_internal(
         return check_access(scon, acon, tclass, permission, &audit_info, error);
 }
 
+int mac_selinux_access_check_varlink_internal(
+                sd_varlink *link,
+                const Unit *unit,
+                const char *permission,
+                const char *function) {
+        _cleanup_freecon_ char *fcon = NULL, *scon = NULL;
+        const char *tclass, *acon;
+        int r;
+
+        assert(link);
+        assert(permission);
+        assert(function);
+
+        r = access_init(/* error= */ NULL);
+        if (r <= 0)
+                return log_debug_errno(r, "Failed to init SELinux: %m");
+
+        /* delay call until we checked in `access_init()` if SELinux is actually enabled */
+        bool enforce = mac_selinux_enforcing();
+
+        int fd = sd_varlink_get_fd(link);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to get varlink peer fd: %m");
+
+        /* We should call mac_selinux_get_peer_label() here similarly to get_our_contexts().
+         * See the explanation there why not. */
+        if (getpeercon_raw(fd, &scon) < 0)
+                return log_selinux_enforcing_errno(
+                                errno,
+                                "Failed to get peer SELinux context%s: %m",
+                                enforce ? "" : ", ignoring");
+
+        if (!scon)
+                return log_selinux_enforcing_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "Peer does not have SELinux context");
+
+        r = get_our_contexts(unit, &acon, &tclass, &fcon);
+        if (r < 0)
+                return log_selinux_enforcing_errno(
+                                r,
+                                "Failed to retrieves SELinux context of current process (perm=%s)%s: %m",
+                                permission,
+                                enforce ? "" : ", ignoring");
+
+        struct audit_info audit_info = {
+                .link = link,
+                .path = unit ? unit->fragment_path : NULL,
+                .function = function,
+        };
+
+        return check_access(scon, acon, tclass, permission, &audit_info, /* error= */ NULL);
+}
+
 #else /* HAVE_SELINUX */
 
 int mac_selinux_access_check_bus_internal(
@@ -326,6 +393,14 @@ int mac_selinux_access_check_bus_internal(
                 const char *function,
                 sd_bus_error *error) {
 
+        return 0;
+}
+
+int mac_selinux_access_check_varlink_internal(
+                sd_varlink *link,
+                const Unit *unit,
+                const char *permission,
+                const char *function) {
         return 0;
 }
 
