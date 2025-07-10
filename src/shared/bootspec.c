@@ -48,7 +48,7 @@ static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_AUTO]   = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type, BootEntryType);
+DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType);
 
 static const char* const boot_entry_source_description_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "EFI System Partition",
