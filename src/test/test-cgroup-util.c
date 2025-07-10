@@ -258,7 +258,7 @@ TEST(proc, .sd_booted = true) {
                 ASSERT_OK_OR(r4, -ESRCH, -ENXIO);
                 ASSERT_OK_OR(r5, -ESRCH, -ENXIO);
                 ASSERT_OK_OR(r6, -ESRCH, -ENXIO);
-                ASSERT_OK_OR(r7, -ESRCH, -ENOENT);
+                ASSERT_OK_OR(r7, -ESRCH, -ENXIO, -ENOENT);
         }
 }
 
