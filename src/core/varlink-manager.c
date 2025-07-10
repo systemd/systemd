@@ -103,7 +103,8 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         SD_JSON_BUILD_PAIR_STRING("DefaultOOMPolicy", oom_policy_to_string(m->defaults.oom_policy)),
                         SD_JSON_BUILD_PAIR_INTEGER("DefaultOOMScoreAdjust", m->defaults.oom_score_adjust),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRestrictSUIDSGID", m->defaults.restrict_suid_sgid),
-                        SD_JSON_BUILD_PAIR_STRING("CtrlAltDelBurstAction", emergency_action_to_string(m->cad_burst_action)));
+                        SD_JSON_BUILD_PAIR_STRING("CtrlAltDelBurstAction", emergency_action_to_string(m->cad_burst_action)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfirmSpawn", manager_get_confirm_spawn(m)));
 }
 
 static int manager_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -124,7 +125,6 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 SD_JSON_BUILD_PAIR_STRV("UnitPath", m->lookup_paths.search_path),
                 SD_JSON_BUILD_PAIR_STRING("Virtualization", virtualization_to_string(detect_virtualization())),
                 SD_JSON_BUILD_PAIR_STRING("ConfidentialVirtualization", confidential_virtualization_to_string(detect_confidential_virtualization())),
-                JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfirmSpawn", manager_get_confirm_spawn(m)),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("FirmwareTimestamp", &m->timestamps[MANAGER_TIMESTAMP_FIRMWARE]),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("LoaderTimestamp", &m->timestamps[MANAGER_TIMESTAMP_LOADER]),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("KernelTimestamp", &m->timestamps[MANAGER_TIMESTAMP_KERNEL]),

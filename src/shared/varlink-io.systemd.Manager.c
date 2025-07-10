@@ -85,7 +85,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultRestrictSUIDSGID="),
                 SD_VARLINK_DEFINE_FIELD(DefaultRestrictSUIDSGID, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#CtrlAltDelBurstAction="),
-                SD_VARLINK_DEFINE_FIELD(CtrlAltDelBurstAction, SD_VARLINK_STRING, 0));
+                SD_VARLINK_DEFINE_FIELD(CtrlAltDelBurstAction, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The console on which systemd asks for confirmation when spawning processes"),
+                SD_VARLINK_DEFINE_FIELD(ConfirmSpawn, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ManagerRuntime,
@@ -103,8 +105,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Virtualization, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("A short ID string describing the confidential virtualization technology the system runs in"),
                 SD_VARLINK_DEFINE_FIELD(ConfidentialVirtualization, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("The console on which systemd asks for confirmation when spawning processes"),
-                SD_VARLINK_DEFINE_FIELD(ConfirmSpawn, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the firmware first began execution"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(FirmwareTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the boot loader first began execution"),
