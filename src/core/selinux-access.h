@@ -11,3 +11,9 @@ int mac_selinux_access_check_varlink_internal(sd_varlink *link, const Unit *unit
 
 #define mac_selinux_unit_access_check(unit, message, permission, error) \
         mac_selinux_access_check_bus_internal((message), (unit), (permission), __func__, (error))
+
+#define mac_selinux_access_check_varlink(link, permission) \
+        mac_selinux_access_check_varlink_internal((link), NULL, (permission), __func__)
+
+#define mac_selinux_unit_access_check_varlink(unit, link, permission) \
+        mac_selinux_access_check_bus_internal((link), (unit), (permission), __func__)
