@@ -35,6 +35,29 @@ static ShutdownTime* shutdown_time_free(ShutdownTime *t) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ShutdownTime*, shutdown_time_free);
 
+static int get_previous_boot_id(sd_journal *j, sd_id128_t *ret_boot_id) {
+        _cleanup_free_ LogId *boots = NULL;
+        size_t n_boots;
+        int r;
+
+        assert(j);
+        assert(ret_boot_id);
+
+        /* Get list of boots, starting from newest */
+        r = journal_get_boots(j, /* advance_older = */ true, /* max_ids = */ 10, &boots, &n_boots);
+        if (r < 0)
+                return r;
+
+        if (n_boots < 2) {
+                /* If we don't have at least 2 boots, use current boot */
+                return sd_id128_get_boot(ret_boot_id);
+        }
+
+        /* boots[0] is current boot, boots[1] is previous boot */
+        *ret_boot_id = boots[1].id;
+        return 1;
+}
+
 static int compare_shutdown_times(ShutdownTime * const *a, ShutdownTime * const *b) {
         assert(a);
         assert(*a);
@@ -52,6 +75,7 @@ static int acquire_shutdown_times(Hashmap **ret) {
         _cleanup_(hashmap_freep) Hashmap *shutdown_times = NULL;
         const void *data;
         size_t length;
+        sd_id128_t boot_id;
         int r;
 
         assert(ret);
@@ -60,8 +84,19 @@ static int acquire_shutdown_times(Hashmap **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
-        /* For shutdown analysis we search through all available journal data to find
-         * the most recent shutdown events. This will typically be from the previous boot. */
+        /* Get the previous boot ID for shutdown analysis */
+        r = get_previous_boot_id(j, &boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get previous boot ID: %m");
+
+        /* Filter by the previous boot ID */
+        r = add_match_boot_id(j, boot_id);
+        if (r < 0)
+                return r;
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add journal conjunction: %m");
 
         /* Match systemd process messages */
         r = sd_journal_add_match(j, "_COMM=systemd", 0);
@@ -149,10 +184,8 @@ static int acquire_shutdown_times(Hashmap **ret) {
 
                                 r = hashmap_ensure_put(&shutdown_times, &string_hash_ops, st->name, st);
                                 if (r < 0) {
-                                        if (r == -EEXIST) {
-                                                /* Unit already exists from a more recent entry, skip this older one */
-                                                continue;
-                                        }
+                                        if (r == -EEXIST)
+                                                continue; /* Skip duplicate entries */
                                         return log_error_errno(r, "Failed to store shutdown time: %m");
                                 }
 
@@ -176,10 +209,8 @@ static int acquire_shutdown_times(Hashmap **ret) {
 
                                 r = hashmap_ensure_put(&shutdown_times, &string_hash_ops, st->name, st);
                                 if (r < 0) {
-                                        if (r == -EEXIST) {
-                                                /* Unit already exists from a more recent entry, skip this older one */
-                                                continue;
-                                        }
+                                        if (r == -EEXIST)
+                                                continue; /* Skip duplicate entries */
                                         return log_error_errno(r, "Failed to store shutdown time: %m");
                                 }
 
