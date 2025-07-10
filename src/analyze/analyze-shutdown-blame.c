@@ -143,7 +143,7 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                 if (existing->stop_time > 0)
                                         existing->duration = existing->stop_time - existing->start_time;
                         } else {
-                                st = new(ShutdownTime, 1);
+                                st = new0(ShutdownTime, 1);
                                 if (!st)
                                         return log_oom();
 
@@ -152,8 +152,6 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                         return log_oom();
 
                                 st->start_time = timestamp;
-                                st->stop_time = 0;
-                                st->duration = 0;
 
                                 r = hashmap_ensure_put(&shutdown_times, &string_hash_ops, st->name, st);
                                 if (r < 0)
@@ -167,7 +165,7 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                 if (existing->start_time > 0)
                                         existing->duration = existing->stop_time - existing->start_time;
                         } else {
-                                st = new(ShutdownTime, 1);
+                                st = new0(ShutdownTime, 1);
                                 if (!st)
                                         return log_oom();
 
@@ -175,9 +173,7 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                 if (!st->name)
                                         return log_oom();
 
-                                st->start_time = 0;
                                 st->stop_time = timestamp;
-                                st->duration = 0;
 
                                 r = hashmap_ensure_put(&shutdown_times, &string_hash_ops, st->name, st);
                                 if (r < 0)
