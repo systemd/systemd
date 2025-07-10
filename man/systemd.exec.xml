@@ -2561,10 +2561,16 @@ RestrictNamespaces=~cgroup net</programlisting>
         <listitem><para>Takes a boolean argument. If set, mount a private instance of the BPF filesystem
         on <filename>/sys/fs/bpf/</filename>, effectively hiding the host bpffs which contains information
         about loaded programs and maps. Otherwise, if <varname>ProtectKernelTunables=</varname> is set, the
-        instance from the host is inherited but mounted read-only.</para>
+        instance from the host is inherited but mounted read-only. Defaults to false.</para>
 
-        <para>This can be used together with the BPF delegate feature to choose what BPF functions are
-        available to the unit's processes. Defaults to false.</para>
+        <para>This can be used together with the bpffs delegate feature to choose what BPF functions are
+        available to the unit's processes. When mounting the BPF filesystem with the fsopen API, four mount
+        options can be specified to set a list of BPF commands, maps, programs and attachment types that are
+        allowed to use. Processes needs to get a file descriptor for the bpffs mountpoint and use that to get
+        a token which will enable for that user namespace the BPF functionalities choosen upon bpffs mount.
+        A more detailed explanation of the feature can be found in this
+        <ulink url="https://lwn.net/Articles/947173/">LWN post</ulink>.</para>
+
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -2575,10 +2581,10 @@ RestrictNamespaces=~cgroup net</programlisting>
         <listitem><para>Accepts a list of BPF commands to allow or <literal>any</literal> to allow everything.
         Defaults to none. The accepted values are:
         <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_cmd"/>
-        Requires <varname>PrivateBPF=</varname> enabled to be effective.
-        This will set the <constant>delegate_cmds</constant> bpffs mount option.
-        A more detailed explanation of the feature can be found in this
-        <ulink url="https://lwn.net/Articles/947173/">LWN post</ulink>.</para>
+        This will set the <constant>delegate_cmds</constant> bpffs mount option.</para>
+
+        <para>Requires <varname>PrivateBPF=yes</varname> to be effective,
+        see <varname>PrivateBPF=</varname> more details.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -2589,8 +2595,10 @@ RestrictNamespaces=~cgroup net</programlisting>
         <listitem><para>Accepts a list of BPF maps to allow or <literal>any</literal> to allow everything.
         Defaults to none. The accepted values are:
         <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_map_type"/>
-        This will set the <constant>delegate_maps</constant> bpffs mount option.
-        See <varname>BPFDelegateCommands=</varname> for dependencies and more details.</para>
+        This will set the <constant>delegate_maps</constant> bpffs mount option.</para>
+
+        <para>Requires <varname>PrivateBPF=yes</varname> to be effective,
+        see <varname>PrivateBPF=</varname> more details.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -2601,8 +2609,10 @@ RestrictNamespaces=~cgroup net</programlisting>
         <listitem><para>Accepts a list of BPF programs to allow or <literal>any</literal> to allow everything.
         Defaults to none. The accepted values are:
         <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_prog_type"/>
-        This will set the <constant>delegate_progs</constant> bpffs mount option.
-        See <varname>BPFDelegateCommands=</varname> for dependencies and more details.</para>
+        This will set the <constant>delegate_progs</constant> bpffs mount option.</para>
+
+        <para>Requires <varname>PrivateBPF=yes</varname> to be effective,
+        see <varname>PrivateBPF=</varname> more details.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -2613,8 +2623,10 @@ RestrictNamespaces=~cgroup net</programlisting>
         <listitem><para>Accepts a list of BPF attach points to allow or <literal>any</literal> to allow everything.
         Defaults to none. The accepted values are:
         <xi:include href="bpf-delegate.xml" xpointer="bpf_delegate_attach_type"/>
-        This will set the <constant>delegate_attachs</constant> bpffs mount option.
-        See <varname>BPFDelegateCommands=</varname> for dependencies and more details.</para>
+        This will set the <constant>delegate_attachs</constant> bpffs mount option.</para>
+
+        <para>Requires <varname>PrivateBPF=yes</varname> to be effective,
+        see <varname>PrivateBPF=</varname> more details.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
