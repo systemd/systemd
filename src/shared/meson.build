@@ -258,10 +258,11 @@ if conf.get('HAVE_PAM') == 1
         shared_sources += files('pam-util.c')
 endif
 
-generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
+generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
+        input : [generate_ip_protocol_list, ipproto_sources],
         output : 'ip-protocol-list.txt',
-        command : [generate_ip_protocol_list, cpp],
+        command : [env, 'bash', generate_ip_protocol_list, cpp, system_include_args],
         capture : true)
 
 fname = 'ip-protocol-from-name.gperf'
@@ -294,11 +295,12 @@ target2 = custom_target(
 generated_sources += [target1, target2]
 shared_sources += [target1, target2]
 
+ethtool_link_mode_py = files('ethtool-link-mode.py')
 fname = 'ethtool-link-mode.inc'
 ethtool_link_mode_inc = custom_target(
-        input : ['ethtool-link-mode.py', '../basic/include/linux/ethtool.h'],
+        input : [ethtool_link_mode_py, ethtool_link_mode_sources],
         output : fname,
-        command : [python, '@INPUT0@', '--header', cpp, '@INPUT1@'],
+        command : [python, ethtool_link_mode_py, '--header', cpp, system_include_args],
         capture : true)
 
 generated_sources += ethtool_link_mode_inc
@@ -307,9 +309,9 @@ sources += shared_sources
 
 fname = 'ethtool-link-mode.xml'
 ethtool_link_mode_xml = custom_target(
-        input : ['ethtool-link-mode.py', '../basic/include/linux/ethtool.h'],
+        input : [ethtool_link_mode_py, ethtool_link_mode_sources],
         output : fname,
-        command : [python, '@INPUT0@', '--xml', cpp, '@INPUT1@'],
+        command : [python, ethtool_link_mode_py, '--xml', cpp, system_include_args],
         capture : true)
 man_page_depends += ethtool_link_mode_xml
 
@@ -358,7 +360,8 @@ libshared = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_depends : libshared_sym_path,
-        link_whole : [libshared_static,
+        link_whole : [libc_wrapper_static,
+                      libshared_static,
                       libbasic_static,
                       libsystemd_static],
         dependencies : [libshared_deps,

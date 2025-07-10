@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/fs.h>
+#include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <threads.h>
 #include <unistd.h>
@@ -7,8 +9,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_fs.h"
-#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "pidfd-util.h"

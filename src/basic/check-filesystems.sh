@@ -3,19 +3,14 @@
 set -eu
 set -o pipefail
 
-cpp="$1"
-filesystems_gperf="$2"
+cpp="${1:?}"
+filesystems_gperf="${2:?}"
 shift 2
-
-includes=""
-for i in "$@"; do
-    includes="$includes -include $i"
-done
 
 error=false
 
 # shellcheck disable=SC2086
-for fs in $($cpp -dM $includes - </dev/null | \
+for fs in $($cpp -dM -include linux/magic.h "$@" - </dev/null | \
             grep -E '_MAGIC' | \
             grep -vE 'LINUX_MAGIC' | \
             awk '/^#define[ \t]+[A-Z0-9_]+MAGIC[ \t]+/ { print $2; }'); do

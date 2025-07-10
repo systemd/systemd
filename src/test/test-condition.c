@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <gnu/libc-version.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/utsname.h>
@@ -25,6 +24,7 @@
 #include "id128-util.h"
 #include "ima-util.h"
 #include "libaudit-util.h"
+#include "libc-version-util.h"
 #include "limits-util.h"
 #include "log.h"
 #include "nulstr-util.h"
@@ -669,8 +669,10 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         /* Test glibc version */
+        const char *w = get_libc_version();
+
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 1", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), !!w);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 2", false, false)));
@@ -678,24 +680,26 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 9999", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), !!w);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 9999", false, false)));
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
-        v = strjoina("glibc = ", gnu_get_libc_version());
+        if (w) {
+                v = strjoina("glibc = ", w);
 
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
-        condition_free(condition);
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                condition_free(condition);
 
-        v = strjoina("glibc != ", gnu_get_libc_version());
+                v = strjoina("glibc != ", w);
 
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
-        condition_free(condition);
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
+                ASSERT_OK_ZERO(condition_test(condition, environ));
+                condition_free(condition);
+        }
 }
 
 TEST(condition_test_credential) {
