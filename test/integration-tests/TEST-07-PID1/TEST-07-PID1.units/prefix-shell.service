@@ -4,5 +4,5 @@ Type=oneshot
 Environment=SHLVL=100
 ExecStartPre=-|false
 ExecStart=|@logger -p crit "with login shell $$SHELL: lvl $$SHLVL"
-ExecStart=:|"str='with normal shell'" logger -p crit "$$str"
+ExecStart=:|logger -p crit "with normal shell"
 ExecStart=|echo YAY! >/tmp/TEST-07-PID1.prefix-shell.flag
