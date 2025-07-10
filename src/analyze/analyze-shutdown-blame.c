@@ -147,7 +147,7 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                 if (!st)
                                         return log_oom();
 
-                                st->name = strndup(unit, strcspn(unit, "\n"));
+                                st->name = strndup(unit, length - STRLEN("UNIT="));
                                 if (!st->name)
                                         return log_oom();
 
@@ -171,7 +171,7 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                 if (!st)
                                         return log_oom();
 
-                                st->name = strndup(unit, strcspn(unit, "\n"));
+                                st->name = strndup(unit, length - STRLEN("UNIT="));
                                 if (!st->name)
                                         return log_oom();
 
