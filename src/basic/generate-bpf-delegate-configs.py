@@ -7,7 +7,6 @@
 
 import re
 import sys
-import typing
 
 
 def print_usage_and_exit() -> None:
@@ -27,7 +26,7 @@ if output not in ['code', 'doc']:
 
 with open(header) as file:
     inEnum = False
-    enumValues: typing.List[str] = []
+    enumValues: list[str] = []
     enumName = ''
 
     if output == 'doc':
