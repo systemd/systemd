@@ -17,6 +17,21 @@ static inline void freeconp(char **p) {
 
 #define _cleanup_freecon_ _cleanup_(freeconp)
 
+#define log_selinux_enforcing(...)                                      \
+        log_full(mac_selinux_enforcing() ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
+
+#define log_selinix_enforcing_errno(error, ...)                         \
+        ({                                                              \
+                bool _enforcing = mac_selinux_enforcing();              \
+                int _level = _enforcing ? LOG_ERR : LOG_WARNING;        \
+                int _e = (error);                                       \
+                                                                        \
+                int _r = (log_get_max_level() >= LOG_PRI(_level))       \
+                        ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                        : -ERRNO_VALUE(_e);                             \
+                _enforcing ? _r : 0;                                    \
+        })
+
 bool mac_selinux_use(void);
 void mac_selinux_retest(void);
 bool mac_selinux_enforcing(void);
