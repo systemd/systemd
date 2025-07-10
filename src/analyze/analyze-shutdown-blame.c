@@ -69,6 +69,15 @@ static int acquire_shutdown_times(Hashmap **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add journal conjunction: %m");
 
+        /* Match systemd process messages */
+        r = sd_journal_add_match(j, "_COMM=systemd", 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add systemd process match: %m");
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add journal conjunction: %m");
+
         /* Match unit stopping messages */
         r = sd_journal_add_disjunction(j);
         if (r < 0)
