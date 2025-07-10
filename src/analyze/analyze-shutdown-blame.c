@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 #include "sd-journal.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "analyze.h"
@@ -11,6 +12,7 @@
 #include "hashmap.h"
 #include "journal-util.h"
 #include "log.h"
+#include "logs-show.h"
 #include "runtime-scope.h"
 #include "sort-util.h"
 #include "string-util.h"
@@ -34,6 +36,10 @@ static ShutdownTime* shutdown_time_free(ShutdownTime *t) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(ShutdownTime*, shutdown_time_free);
 
 static int compare_shutdown_times(ShutdownTime * const *a, ShutdownTime * const *b) {
+        assert(a);
+        assert(*a);
+        assert(b);
+        assert(*b);
         if ((*a)->duration > (*b)->duration)
                 return -1;
         if ((*a)->duration < (*b)->duration)
@@ -48,18 +54,33 @@ static int acquire_shutdown_times(Hashmap **ret) {
         size_t length;
         int r;
 
-        shutdown_times = hashmap_new(&string_hash_ops);
-        if (!shutdown_times)
-                return log_oom();
+        assert(ret);
 
         r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
-        /* Look for systemd messages with units */
-        r = sd_journal_add_match(j, "SYSLOG_IDENTIFIER=systemd", 0);
+        /* Filter by current boot ID - for shutdown analysis we want the most recent boot */
+        r = add_match_boot_id(j, SD_ID128_NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to add journal match: %m");
+                return r;
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add journal conjunction: %m");
+
+        /* Match unit stopping messages */
+        r = sd_journal_add_disjunction(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add journal disjunction: %m");
+
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add stopping message match: %m");
+
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPED_STR, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add stopped message match: %m");
 
         /* Seek to the end and go backwards to find the most recent shutdown */
         r = sd_journal_seek_tail(j);
@@ -71,21 +92,22 @@ static int acquire_shutdown_times(Hashmap **ret) {
                 return log_error_errno(r, "Failed to iterate journal: %m");
 
         SD_JOURNAL_FOREACH_BACKWARDS(j) {
-                const char *message = NULL, *unit = NULL;
+                const char *message_id = NULL, *unit = NULL;
                 usec_t timestamp;
                 _cleanup_(shutdown_time_freep) ShutdownTime *st = NULL;
                 ShutdownTime *existing;
+                bool is_stopping;
 
                 r = sd_journal_get_realtime_usec(j, &timestamp);
                 if (r < 0)
                         continue;
 
-                r = sd_journal_get_data(j, "MESSAGE", &data, &length);
+                r = sd_journal_get_data(j, "MESSAGE_ID", &data, &length);
                 if (r < 0)
                         continue;
 
-                message = (const char*) data + STRLEN("MESSAGE=");
-                if (length <= STRLEN("MESSAGE="))
+                message_id = (const char*) data + STRLEN("MESSAGE_ID=");
+                if (length <= STRLEN("MESSAGE_ID="))
                         continue;
 
                 r = sd_journal_get_data(j, "UNIT", &data, &length);
@@ -96,19 +118,23 @@ static int acquire_shutdown_times(Hashmap **ret) {
                 if (length <= STRLEN("UNIT="))
                         continue;
 
-                /* Skip if this is not a stopping or stopped message */
-                if (!startswith(message, "Stopping") && !startswith(message, "Stopped"))
+                /* Check if this is a stopping or stopped message */
+                if (startswith(message_id, SD_MESSAGE_UNIT_STOPPING_STR))
+                        is_stopping = true;
+                else if (startswith(message_id, SD_MESSAGE_UNIT_STOPPED_STR))
+                        is_stopping = false;
+                else
                         continue;
 
                 existing = hashmap_get(shutdown_times, unit);
 
-                if (startswith(message, "Stopping")) {
+                if (is_stopping) {
                         if (existing) {
                                 existing->start_time = timestamp;
                                 if (existing->stop_time > 0)
                                         existing->duration = existing->stop_time - existing->start_time;
                         } else {
-                                st = new0(ShutdownTime, 1);
+                                st = new(ShutdownTime, 1);
                                 if (!st)
                                         return log_oom();
 
@@ -120,19 +146,19 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                 st->stop_time = 0;
                                 st->duration = 0;
 
-                                r = hashmap_put(shutdown_times, st->name, st);
+                                r = hashmap_ensure_put(&shutdown_times, &string_hash_ops, st->name, st);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to store shutdown time: %m");
 
                                 TAKE_PTR(st);
                         }
-                } else if (startswith(message, "Stopped")) {
+                } else {
                         if (existing) {
                                 existing->stop_time = timestamp;
                                 if (existing->start_time > 0)
                                         existing->duration = existing->stop_time - existing->start_time;
                         } else {
-                                st = new0(ShutdownTime, 1);
+                                st = new(ShutdownTime, 1);
                                 if (!st)
                                         return log_oom();
 
@@ -144,7 +170,7 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                 st->stop_time = timestamp;
                                 st->duration = 0;
 
-                                r = hashmap_put(shutdown_times, st->name, st);
+                                r = hashmap_ensure_put(&shutdown_times, &string_hash_ops, st->name, st);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to store shutdown time: %m");
 
