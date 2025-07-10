@@ -338,7 +338,7 @@ CHANGES WITH 258 in spe:
           per-unit quota of the indicated per-unit directories. This is
           implemented via project quota, as supported by xfs and ext4. This
           does not support btrfs, currently. If quota accounting is enabled
-          this information is shown in the usual "systemct status" output.
+          this information is shown in the usual "systemctl status" output.
 
         * The service manager gained a new KillUnitSubgroup() syscall which may
           be used to send a signal to a sub-control group of the unit's control
@@ -1208,7 +1208,7 @@ CHANGES WITH 258 in spe:
           when invoking transient units.
 
         * systemd-analyze gained a new "unit-shell" verb that invokes an
-          interactive shell inside the processes namespaces of the main process
+          interactive shell inside the namespaces of the main process
           of a specified unit. This is useful for debugging unit sandboxes, and
           getting an idea how things look like from the "inside" of a service.
 
