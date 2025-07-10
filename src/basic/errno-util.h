@@ -188,6 +188,12 @@ static inline bool ERRNO_IS_NEG_PRIVILEGE(intmax_t r) {
 }
 _DEFINE_ABS_WRAPPER(PRIVILEGE);
 
+/* Three different errors for writing on a filesystem */
+static inline bool ERRNO_IS_NEG_FS_WRITE_REFUSED(intmax_t r) {
+        return r == -EROFS || ERRNO_IS_NEG_PRIVILEGE(r);
+}
+_DEFINE_ABS_WRAPPER(FS_WRITE_REFUSED);
+
 /* Three different errors for "not enough disk space" */
 static inline bool ERRNO_IS_NEG_DISK_SPACE(intmax_t r) {
         return IN_SET(r,

@@ -95,7 +95,7 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
                  * permission problem here, since that's how container managers usually protected their
                  * sysctls.)
                  * In all other cases log an error and make the tool fail. */
-                if (ignore_failure || (!arg_strict && (r == -EROFS || ERRNO_IS_PRIVILEGE(r))))
+                if (ignore_failure || (!arg_strict && ERRNO_IS_NEG_FS_WRITE_REFUSED(r)))
                         log_debug_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
                 else if (ignore_enoent && r == -ENOENT)
                         log_warning_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
