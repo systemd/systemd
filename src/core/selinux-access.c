@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "audit-fd.h"
@@ -26,6 +27,7 @@ static bool initialized = false;
 
 struct audit_info {
         sd_bus_creds *creds;
+        sd_varlink *link;
         const char *path;
         const char *cmdline;
         const char *function;
@@ -48,12 +50,23 @@ static int audit_callback(
         char uid_buf[DECIMAL_STR_MAX(uid_t) + 1] = "n/a";
         char gid_buf[DECIMAL_STR_MAX(gid_t) + 1] = "n/a";
 
-        if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
-                xsprintf(login_uid_buf, UID_FMT, login_uid);
-        if (sd_bus_creds_get_euid(audit->creds, &uid) >= 0)
-                xsprintf(uid_buf, UID_FMT, uid);
-        if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
-                xsprintf(gid_buf, GID_FMT, gid);
+        if (audit->creds) {
+                /* DBus case */
+                if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
+                        xsprintf(login_uid_buf, UID_FMT, login_uid);
+                if (sd_bus_creds_get_euid(audit->creds, &uid) >= 0)
+                        xsprintf(uid_buf, UID_FMT, uid);
+                if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
+                        xsprintf(gid_buf, GID_FMT, gid);
+        }
+
+        if (audit->link) {
+                /* varlink */
+                if (sd_varlink_get_peer_uid(audit->link, &uid) >= 0)
+                        xsprintf(uid_buf, UID_FMT, uid);
+                if (sd_varlink_get_peer_gid(audit->link, &gid) >= 0)
+                        xsprintf(gid_buf, GID_FMT, gid);
+        }
 
         (void) snprintf(msgbuf, msgbufsize,
                         "auid=%s uid=%s gid=%s%s%s%s%s%s%s%s%s%s",
@@ -164,13 +177,46 @@ static int access_init(sd_bus_error *error) {
         return 1;
 }
 
+static int get_our_contexts(const Unit *unit, const char **ret_acon, const char **ret_tclass, char **ret_fcon) {
+        _cleanup_freecon_ char *fcon = NULL;
+
+        assert(ret_acon);
+        assert(ret_tclass);
+        assert(ret_fcon);
+
+        if (unit && unit->access_selinux_context) {
+                /* Nice! The unit comes with a SELinux context read from the unit file */
+                *ret_acon = unit->access_selinux_context;
+                *ret_tclass = "service";
+                *ret_fcon = NULL;
+                return 0;
+        }
+
+        /* If no unit context is known, use our own */
+
+        /* Ideally, we should call mac_selinux_get_our_label() here because it
+         * does exactly the same - call getcon_raw(). However, it involves
+         * selinux_init() which opens label DB. It was not part of the
+         * original code. I don't want to change it for now. */
+        if (getcon_raw(&fcon) < 0)
+                return log_warning_errno(errno, "SELinux getcon_raw() failed: %m");
+
+        if (!fcon)
+                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "SELinux returned no context of the current process");
+
+        *ret_acon = fcon;
+        *ret_tclass = "system";
+        *ret_fcon = TAKE_PTR(fcon);
+        return 0;
+}
+
 /*
    This function communicates with the kernel to check whether or not it should
    allow the access.
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_access_check_internal(
+int mac_selinux_access_check_bus_internal(
                 sd_bus_message *message,
                 const Unit *unit,
                 const char *permission,
@@ -216,30 +262,19 @@ int mac_selinux_access_check_internal(
         if (r < 0)
                 return r;
 
-        if (unit && unit->access_selinux_context) {
-                /* Nice! The unit comes with a SELinux context read from the unit file */
-                acon = unit->access_selinux_context;
-                tclass = "service";
-        } else {
-                /* If no unit context is known, use our own */
-                if (getcon_raw(&fcon) < 0) {
-                        log_warning_errno(errno, "SELinux getcon_raw() failed%s (perm=%s): %m",
-                                          enforce ? "" : ", ignoring",
-                                          permission);
-                        if (!enforce)
-                                return 0;
+        r = get_our_contexts(unit, &acon, &tclass, &fcon);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to retrieves SELinux context of current process (perm=%s)%s: %m",
+                                permission,
+                                enforce ? "" : ", ignoring");
 
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %m");
-                }
-                if (!fcon) {
-                        if (!enforce)
-                                return 0;
+                if (!enforce)
+                        return 0;
 
+                if (r == -EOPNOTSUPP)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "We appear not to have any SELinux context: %m");
-                }
 
-                acon = fcon;
-                tclass = "system";
+                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %m");
         }
 
         (void) sd_bus_creds_get_cmdline(creds, &cmdline);
@@ -266,15 +301,98 @@ int mac_selinux_access_check_internal(
         return enforce ? r : 0;
 }
 
+int mac_selinux_access_check_varlink_internal(
+                sd_varlink *link,
+                const Unit *unit,
+                const char *permission,
+                const char *function) {
+        _cleanup_freecon_ char *fcon = NULL, *scon = NULL;
+        const char *tclass, *acon;
+        int r;
+
+        assert(link);
+        assert(permission);
+        assert(function);
+
+        r = access_init(/* error= */ NULL);
+        if (r <= 0)
+                return log_debug_errno(r, "Failed to init SELinux: %m");
+
+        /* delay call until we checked in `access_init()` if SELinux is actually enabled */
+        bool enforce = mac_selinux_enforcing();
+
+        int fd = sd_varlink_get_fd(link);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to get varlink peer fd: %m");
+
+        /* We should call mac_selinux_get_peer_label() similarly to get_our_contexts().
+         * See the explanation there why not. */
+        if (getpeercon_raw(fd, &scon) < 0) {
+                log_warning_errno(errno, "Failed to get peer SELinux context%s: %m",
+                                enforce ? "" : ", ignoring");
+
+                if (!enforce)
+                        return 0;
+
+                return log_warning_errno(errno, "Failed to get peer SELinux context: %m");
+        }
+
+        if (!scon) {
+                if (!enforce)
+                        return 0;
+
+                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Varlink peer does not have SELinux context");
+        }
+
+        r = get_our_contexts(unit, &acon, &tclass, &fcon);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to retrieves SELinux context of current process (perm=%s)%s: %m",
+                                permission,
+                                enforce ? "" : ", ignoring");
+
+                if (!enforce)
+                        return 0;
+
+                if (r == -EOPNOTSUPP)
+                        return log_debug_errno(r, "We appear not to have any SELinux context: %m");
+
+                return log_debug_errno(r, "Failed to get current context: %m");
+        }
+
+        struct audit_info audit_info = {
+                .link = link,
+                .path = unit ? unit->fragment_path : NULL,
+                .function = function,
+        };
+
+        r = selinux_check_access(scon, acon, tclass, permission, &audit_info);
+        if (r < 0)
+                errno = -(r = errno_or_else(EPERM));
+
+        log_full_errno_zerook(LOG_DEBUG, r,
+                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s path=%s: %m",
+                              scon, acon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(unit ? unit->fragment_path : NULL));
+        return enforce ? r : 0;
+}
+
 #else /* HAVE_SELINUX */
 
-int mac_selinux_access_check_internal(
+int mac_selinux_access_check_bus_internal(
                 sd_bus_message *message,
                 const Unit *unit,
                 const char *permission,
                 const char *function,
                 sd_bus_error *error) {
 
+        return 0;
+}
+
+
+int mac_selinux_access_check_varlink_internal(
+                sd_varlink *link,
+                const Unit *unit,
+                const char *permission,
+                const char *function) {
         return 0;
 }
 
