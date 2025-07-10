@@ -60,14 +60,8 @@ static int acquire_shutdown_times(Hashmap **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
-        /* Filter by current boot ID - for shutdown analysis we want the most recent boot */
-        r = add_match_boot_id(j, SD_ID128_NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add journal conjunction: %m");
+        /* For shutdown analysis we search through all available journal data to find
+         * the most recent shutdown events. This will typically be from the previous boot. */
 
         /* Match systemd process messages */
         r = sd_journal_add_match(j, "_COMM=systemd", 0);
@@ -154,8 +148,13 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                 st->start_time = timestamp;
 
                                 r = hashmap_ensure_put(&shutdown_times, &string_hash_ops, st->name, st);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (r == -EEXIST) {
+                                                /* Unit already exists from a more recent entry, skip this older one */
+                                                continue;
+                                        }
                                         return log_error_errno(r, "Failed to store shutdown time: %m");
+                                }
 
                                 TAKE_PTR(st);
                         }
@@ -176,8 +175,13 @@ static int acquire_shutdown_times(Hashmap **ret) {
                                 st->stop_time = timestamp;
 
                                 r = hashmap_ensure_put(&shutdown_times, &string_hash_ops, st->name, st);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (r == -EEXIST) {
+                                                /* Unit already exists from a more recent entry, skip this older one */
+                                                continue;
+                                        }
                                         return log_error_errno(r, "Failed to store shutdown time: %m");
+                                }
 
                                 TAKE_PTR(st);
                         }
