@@ -40,7 +40,8 @@ _systemd_run() {
         --path-property --socket-property --timer-property -H --host -M --machine --expand-environment
         --background --json --job-mode
     )
-    local OPTS="${opts_with_values[*]} --no-ask-password --scope -u --slice-inherit -r --remain-after-exit
+    local OPTS="${opts_with_values[*]} --no-ask-password --no-pager
+                --scope -u --slice-inherit -r --remain-after-exit
                 --send-sighup -d --same-dir -t --pty -P --pipe -S --shell -q --quiet --ignore-failure
                 --on-clock-change --on-timezone-change --no-block --wait -G --collect --user --system -h --help --version -v --verbose"
     local mode=--system

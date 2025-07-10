@@ -42,6 +42,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "osc-context.h"
+#include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -110,6 +111,7 @@ static char **arg_cmdline = NULL;
 static char *arg_exec_path = NULL;
 static bool arg_ignore_failure = false;
 static char *arg_background = NULL;
+static PagerFlags arg_pager_flags = 0;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static char *arg_shell_prompt_prefix = NULL;
 static int arg_lightweight = -1;
@@ -132,6 +134,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_area, freep);
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
+
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("systemd-run", "1", &link);
         if (r < 0)
@@ -177,6 +181,7 @@ static int help(void) {
                "                                  when queueing a new job\n"
                "     --ignore-failure             Ignore the exit status of the invoked process\n"
                "     --background=COLOR           Set ANSI color for background\n"
+               "     --no-pager                   Do not pipe output into a pager\n"
                "\n%3$sPath options:%4$s\n"
                "     --path-property=NAME=VALUE   Set path unit property\n"
                "\n%3$sSocket options:%4$s\n"
@@ -318,6 +323,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JOB_MODE,
                 ARG_IGNORE_FAILURE,
                 ARG_BACKGROUND,
+                ARG_NO_PAGER,
                 ARG_JSON,
         };
 
@@ -370,6 +376,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "job-mode",           required_argument, NULL, ARG_JOB_MODE           },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
+                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
                 { "json",               required_argument, NULL, ARG_JSON               },
                 {},
         };
@@ -682,6 +689,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup_warn(&arg_background, optarg);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_JSON:
