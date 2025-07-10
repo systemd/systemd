@@ -197,6 +197,44 @@ static int get_our_contexts(const Unit *unit, const char **ret_acon, const char 
         return 0;
 }
 
+static int check_access(
+                const char *scon,
+                const char *tcon,
+                const char *tclass,
+                const char *permission,
+                struct audit_info *audit_info,
+                sd_bus_error *error) {
+        bool enforce = mac_selinux_enforcing();
+        int r;
+
+        assert(scon);
+        assert(tcon);
+        assert(tclass);
+        assert(permission);
+        assert(audit_info);
+        assert(audit_info->function);
+
+        r = selinux_check_access(scon, tcon, tclass, permission, &audit_info);
+        if (r < 0) {
+                errno = -(r = errno_or_else(EPERM));
+
+                if (enforce)
+                        sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access: %m");
+        }
+
+        return log_selinix_enforcing_errno(
+                              r,
+                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s path=%s cmdline=%s: %m",
+                              scon,
+                              tcon,
+                              tclass,
+                              permission,
+                              enforce ? "enforcing" : "permissive",
+                              audit_info->function,
+                              empty_to_na(audit_info->path),
+                              empty_to_na(audit_info->cmdline));
+}
+
 /*
    This function communicates with the kernel to check whether or not it should
    allow the access.
@@ -276,18 +314,7 @@ int mac_selinux_access_check_bus_internal(
                 .function = function,
         };
 
-        r = selinux_check_access(scon, acon, tclass, permission, &audit_info);
-        if (r < 0) {
-                errno = -(r = errno_or_else(EPERM));
-
-                if (enforce)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access: %m");
-        }
-
-        log_full_errno_zerook(LOG_DEBUG, r,
-                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s path=%s cmdline=%s: %m",
-                              scon, acon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(unit ? unit->fragment_path : NULL), empty_to_na(cl));
-        return enforce ? r : 0;
+        return check_access(scon, acon, tclass, permission,  &audit_info, error);
 }
 
 #else /* HAVE_SELINUX */
