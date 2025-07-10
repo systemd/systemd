@@ -23,7 +23,7 @@ void manager_forward_wall(
         assert(m);
         assert(message);
 
-        if (LOG_PRI(priority) > m->max_level_wall)
+        if (LOG_PRI(priority) > m->config.max_level_wall)
                 return;
 
         if (ucred) {
