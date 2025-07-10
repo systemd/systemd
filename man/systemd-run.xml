@@ -565,6 +565,15 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="json" />
+
+      <varlistentry id='no-pager'>
+        <term><option>--no-pager</option></term>
+
+        <listitem>
+          <para>Do not pipe output into a pager. This currently only applies to <option>--help</option>.
+          (The pager is not started during normal operation.)</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>All command line arguments after the first non-option argument become part of the command line of
