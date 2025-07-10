@@ -2559,7 +2559,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         <term><varname>PrivateBPF=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, mount a private instance of the BPF filesystem
-        on <filename>/sys/fs/bpf/</filename>, effectively hiding the host bpffs which contains informations
+        on <filename>/sys/fs/bpf/</filename>, effectively hiding the host bpffs which contains information
         about loaded programs and maps. Otherwise, if <varname>ProtectKernelTunables=</varname> is set, the
         instance from the host is inherited but mounted read-only.</para>
 
