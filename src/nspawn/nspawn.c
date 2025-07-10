@@ -1907,14 +1907,14 @@ static int setup_timezone(const char *dest) {
                         log_debug_errno(r, "Timezone %s does not exist (or is not accessible) in container, not creating symlink: %m", z);
                 else {
                         if (unlink(where) < 0 && errno != ENOENT) {
-                                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING, /* Don't complain on read-only images */
+                                log_full_errno(ERRNO_IS_FS_WRITE_REFUSED(errno) ? LOG_DEBUG : LOG_WARNING, /* Don't complain on read-only images */
                                                errno, "Failed to remove existing timezone info %s in container, ignoring: %m", where);
                                 return 0;
                         }
 
                         what = strjoina("../usr/share/zoneinfo/", z);
                         if (symlink(what, where) < 0) {
-                                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING,
+                                log_full_errno(ERRNO_IS_FS_WRITE_REFUSED(errno) ? LOG_DEBUG : LOG_WARNING,
                                                errno, "Failed to correct timezone of container, ignoring: %m");
                                 return 0;
                         }
@@ -1949,7 +1949,7 @@ static int setup_timezone(const char *dest) {
                 /* If mounting failed, try to copy */
                 r = copy_file_atomic("/etc/localtime", where, 0644, COPY_REFLINK|COPY_REPLACE);
                 if (r < 0) {
-                        log_full_errno(IN_SET(r, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(ERRNO_IS_NEG_FS_WRITE_REFUSED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to copy /etc/localtime to %s, ignoring: %m", where);
                         return 0;
                 }
@@ -2085,7 +2085,7 @@ static int setup_resolv_conf(const char *dest) {
                  * If the disk image is read-only, there's also no point in complaining.
                  */
                 log_full_errno(!IN_SET(RESOLV_CONF_COPY_HOST, RESOLV_CONF_COPY_STATIC, RESOLV_CONF_COPY_UPLINK, RESOLV_CONF_COPY_STUB) &&
-                               IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                               (r == -ELOOP || ERRNO_IS_NEG_FS_WRITE_REFUSED(r)) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to copy /etc/resolv.conf to %s, ignoring: %m", where);
                 return 0;
         }

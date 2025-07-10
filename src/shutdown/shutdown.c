@@ -447,7 +447,7 @@ int main(int argc, char *argv[]) {
                 (void) sync_with_progress(-EBADF);
 
         disable_coredumps();
-        disable_binfmt();
+        (void) disable_binfmt();
 
         log_info("Sending SIGTERM to remaining processes...");
         broadcast_signal(SIGTERM, true, true, arg_timeout);
