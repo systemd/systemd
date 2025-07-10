@@ -135,6 +135,9 @@ CHANGES WITH 258 in spe:
           incompatible with PrivateDevices= and resulted in automatic extension
           of the DeviceAllow= list. The latter behaviour has been removed.
 
+        * The command 'journalctl --follow' now exits with success on
+          SIGTERM/SIGINT, or its pipe STDOUT is disconnected.
+
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be

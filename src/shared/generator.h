@@ -115,7 +115,6 @@ bool generator_soft_rebooted(void);
                 impl(argv[1],                                           \
                      argv[argc == 4 ? 2 : 1],                           \
                      argv[argc == 4 ? 3 : 1]),                          \
-                exit_failure_if_negative,                               \
                 exit_failure_if_negative)
 
 typedef enum GptAutoRoot {
