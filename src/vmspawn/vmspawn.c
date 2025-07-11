@@ -1712,13 +1712,8 @@ static int datagram_read_cmdline_and_exec(int _fd /* always taking possession, e
 _noreturn_ static void child(int cmdline_fd) {
         assert(cmdline_fd >= 0);
 
-        /* set TERM and LANG if they are missing */
-        if (setenv("TERM", "vt220", 0) < 0) {
-                log_oom();
-                goto fail;
-        }
-
-        if (setenv("LANG", "C.UTF-8", 0) < 0) {
+        /* set LANG if they are missing */
+        if (setenv("LANG", "C.UTF-8", /* override= */ 0) < 0) {
                 log_oom();
                 goto fail;
         }
