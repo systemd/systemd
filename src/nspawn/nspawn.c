@@ -12,7 +12,6 @@
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include "constants.h"
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -38,6 +37,7 @@
 #include "cgroup-util.h"
 #include "chase.h"
 #include "common-signal.h"
+#include "constants.h"
 #include "copy.h"
 #include "cpu-set-util.h"
 #include "daemon-util.h"
