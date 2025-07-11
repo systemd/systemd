@@ -245,8 +245,9 @@ int bridge_vlan_set_message(Link *link, sd_netlink_message *m, bool is_set) {
         if (r < 0)
                 return r;
 
-        if (link->master_ifindex <= 0) {
-                /* master needs BRIDGE_FLAGS_SELF flag */
+        if (link->master_ifindex <= 0 || streq(link->kind, "bridge")) {
+                /* If the setting is requested in a .network file for a bridge master (or a physical master)
+                 * interface, then BRIDGE_FLAGS_SELF flag needs to be set. */
                 r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF);
                 if (r < 0)
                         return r;
