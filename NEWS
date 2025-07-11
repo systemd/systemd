@@ -2963,9 +2963,9 @@ CHANGES WITH 256:
           controlled via the --register= switch.
 
         * machinectl's start command (and related) can now invoke images either
-          as containers via `systemd-nspawn` (switch is --runner=nspawn, the
-          default) or as VMs via `systemd-vmspawn` (switch is --runner=vmspawn,
-          or short -V).
+          as containers via systemd-nspawn (specified as '--runner=nspawn', the
+          default) or as VMs via systemd-vmspawn (specified as
+          '--runner=vmspawn' or '-V').
 
         * systemd-vmspawn now supports two switches --pass-ssh-key= and
           --ssh-key-type= to optionally set up transient SSH keys to pass to the
@@ -3871,7 +3871,7 @@ CHANGES WITH 255:
           sd_id128_get_machine_app_specific() and
           sd_id128_get_boot_app_specific() but takes the ID to base calculation
           on as input. This new functionality is also exposed in the
-          "systemd-id128" tool where you can now combine --app= with `show`.
+          systemd-id128 tool where you can now combine --app= with 'show'.
 
         * All tools that parse timestamps now can also parse RFC3339 style
           timestamps that include the "T" and Z" characters.
@@ -6178,7 +6178,7 @@ CHANGES WITH 251:
           compatibility reasons, but nonetheless apparently commonplace). Note
           that this mapping is mapped 1:1 in a pass-through fashion, i.e. the
           UID assignments from the range are not managed or mapped by
-          `systemd-homed`, and must be managed with other mechanisms, in the
+          systemd-homed, and must be managed with other mechanisms, in the
           context of the local system.
 
           Typically, a better approach to user namespacing in relevant
@@ -6323,15 +6323,15 @@ CHANGES WITH 251:
         * PID 1 will now automatically pick up system credentials from qemu's
           fw_cfg interface, thus allowing passing arbitrary data into VM
           systems similar to how this is already supported for passing them
-          into `systemd-nspawn` containers. Credentials may now also be passed
-          in via the new kernel command line option `systemd.set_credential=`
+          into systemd-nspawn containers. Credentials may now also be passed in
+          via the new kernel command line option "systemd.set_credential="
           (note that kernel command line options are world-readable during
           runtime, and only useful for credentials that require no
           confidentiality). The credentials that can be passed to unified
-          kernels that use the `systemd-stub` UEFI stub are now similarly
+          kernels that use the systemd-stub UEFI stub are now similarly
           picked up automatically. Automatic importing of system credentials
           this way can be turned off via the new
-          `systemd.import_credentials=no` kernel command line option.
+          "systemd.import_credentials=no" kernel command line option.
 
         * LoadCredential= will now automatically look for credentials in the
           /etc/credstore/, /run/credstore/, /usr/lib/credstore/ directories if
@@ -10840,7 +10840,7 @@ CHANGES WITH 242:
 
           Hint: the log output from udev (at debug level) was enhanced to
           clarify what policy is followed and which attributes are used.
-          `SYSTEMD_LOG_LEVEL=debug udevadm test-builtin net_setup_link /sys/class/net/<name>`
+          'SYSTEMD_LOG_LEVEL=debug udevadm test-builtin net_setup_link /sys/class/net/<name>'
           may be used to view this.
 
           Hint: if a bridge interface is created without any slaves, and gains
@@ -10870,7 +10870,7 @@ CHANGES WITH 242:
           configured with PIDFile= for processes of that service.
 
         * The fallback DNS server list was augmented with Cloudflare public DNS
-          servers. Use `-Ddns-servers=` to set a different fallback.
+          servers. Use '-Ddns-servers=' to set a different fallback.
 
         * A new special target usb-gadget.target will be started automatically
           when a USB Device Controller is detected (which means that the system
@@ -11006,7 +11006,7 @@ CHANGES WITH 242:
           system tree, --console=/--pipe may be used to configure how standard
           input, output, and error are set up.
 
-        * busctl learned the `emit` verb to generate D-Bus signals.
+        * busctl learned the 'emit' verb to generate D-Bus signals.
 
         * systemd-analyze cat-config may be used to gather and display
           configuration spread over multiple files, for example system and user
@@ -11057,14 +11057,14 @@ CHANGES WITH 242:
           This makes it easier to use kernel-install with plugins which support
           a different layout of the bootloader partitions (for example grub2).
 
-        * During package installation (with `ninja install`), we would create
+        * During package installation (with 'ninja install'), we would create
           symlinks for getty@tty1.service, systemd-networkd.service,
           systemd-networkd.socket, systemd-resolved.service,
           remote-cryptsetup.target, remote-fs.target,
           systemd-networkd-wait-online.service, and systemd-timesyncd.service
-          in /etc, as if `systemctl enable` was called for those units, to make
+          in /etc, as if 'systemctl enable' was called for those units, to make
           the system usable immediately after installation. Now this is not
-          done anymore, and instead calling `systemctl preset-all` is
+          done anymore, and instead calling 'systemctl preset-all' is
           recommended after the first installation of systemd.
 
         * A new boolean sandboxing option RestrictSUIDSGID= has been added that
@@ -11828,11 +11828,12 @@ CHANGES WITH 239:
           "systemd-resolve" user on such systems, so that nss-ldap won't be
           triggered; or use a different NSS package that doesn't do networking
           in-process but provides a local asynchronous name cache; or configure
-          the NSS package to avoid lookups for UIDs in the range `pkg-config
-          systemd --variable=dynamicuidmin` … `pkg-config systemd
-          --variable=dynamicuidmax`, so that it does not consider itself
-          authoritative for the same UID range systemd allocates dynamic users
-          from.
+          the NSS package to avoid lookups for UIDs in the range between the
+          values returned by the commands
+          'pkg-config systemd --variable=dynamicuidmin' and
+          'pkg-config systemd --variable=dynamicuidmax', so that it does not
+          consider itself authoritative for the same UID range systemd
+          allocates dynamic users from.
 
         * The systemd-resolve tool has been renamed to resolvectl (it also
           remains available under the old name, for compatibility), and its
