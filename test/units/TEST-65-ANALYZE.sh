@@ -313,6 +313,7 @@ if [[ ! -v ASAN_OPTIONS ]]; then
     # check that systemd-analyze cat-config paths work in a chroot
     mkdir -p /tmp/root
     mount --bind / /tmp/root
+    mount -t proc proc /tmp/root/proc
     if mountpoint -q /usr; then
         mount --bind /usr /tmp/root/usr
     fi
