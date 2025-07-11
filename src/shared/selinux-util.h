@@ -17,14 +17,14 @@ static inline void freeconp(char **p) {
 
 #define _cleanup_freecon_ _cleanup_(freeconp)
 
-#define log_selinux_enforcing(...)                                      \
-        log_full(mac_selinux_enforcing() ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
-
+/* This accepts 0 error, like _zerook(). */
 #define log_selinux_enforcing_errno(error, ...)                         \
         ({                                                              \
-                bool _enforcing = mac_selinux_enforcing();              \
-                int _level = _enforcing ? LOG_ERR : LOG_WARNING;        \
                 int _e = (error);                                       \
+                bool _enforcing = mac_selinux_enforcing();              \
+                int _level =                                            \
+                        ERRNO_VALUE(_e) == 0 ? LOG_DEBUG :              \
+                                  _enforcing ? LOG_ERR : LOG_WARNING;   \
                                                                         \
                 int _r = (log_get_max_level() >= LOG_PRI(_level))       \
                         ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
