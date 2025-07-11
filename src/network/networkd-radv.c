@@ -37,9 +37,6 @@ bool link_radv_enabled(Link *link) {
         if (!link_ipv6ll_enabled_harder(link))
                 return false;
 
-        if (link->hw_addr.length != ETH_ALEN)
-                return false;
-
         return link->network->router_prefix_delegation;
 }
 
