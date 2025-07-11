@@ -20,9 +20,10 @@ xsltproc_flags = [
         '--stringparam', 'man.copyright.section.enabled', '0',
         '--stringparam', 'systemd.version', '@0@'.format(meson.project_version()),
         '--path',
-        '@0@:@1@:@2@'.format(meson.current_build_dir(),
+        '@0@:@1@:@2@:@3@'.format(meson.current_build_dir(),
                              meson.current_source_dir(),
-                             libshared_build_dir)]
+                             libshared_build_dir,
+                             libcore_build_dir)]
 
 custom_man_xsl = files('custom-man.xsl')
 custom_html_xsl = files('custom-html.xsl')
@@ -34,17 +35,6 @@ custom_entities_ent = custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'])
 
 man_page_depends += custom_entities_ent
-
-generate_bpf_delegate_configs = find_program('../src/basic/generate-bpf-delegate-configs.py')
-
-bpf_delegate_xml = custom_target(
-        input : files('../src/basic/include/linux/bpf.h'),
-        output : 'bpf-delegate.xml',
-        command : [generate_bpf_delegate_configs,
-                   'doc',
-                   '@INPUT@'],
-        capture : true)
-man_page_depends += bpf_delegate_xml
 
 man_pages = []
 html_pages = []

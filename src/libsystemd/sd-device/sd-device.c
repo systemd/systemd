@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -19,7 +20,6 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "missing_magic.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
