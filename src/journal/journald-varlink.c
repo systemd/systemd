@@ -22,6 +22,9 @@ void sync_req_varlink_reply(SyncReq *req) {
         if (req->offline)
                 manager_full_sync(req->manager, /* wait = */ true);
 
+        /* Ensure journal files are fully synced and readable by forcing another sync with verification */
+        manager_verify_sync_complete(req->manager);
+
         /* Disconnect the SyncReq from the Varlink connection object, and free it */
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = TAKE_PTR(req->link);
         sd_varlink_set_userdata(vl, req->manager); /* reinstall manager object */
