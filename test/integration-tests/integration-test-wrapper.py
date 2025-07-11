@@ -572,6 +572,8 @@ def main() -> None:
     else:
         firmware = args.firmware
 
+    vm = args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1'
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.mkosi_dir),
@@ -616,9 +618,8 @@ def main() -> None:
         ),
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
-        'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
-        *(['--', '--capability=CAP_BPF'] \
-            if not args.vm and os.getenv('TEST_PREFER_QEMU', '0') == '0' else []),
+        'vm' if vm else 'boot',
+        *(['--', '--capability=CAP_BPF'] if not vm else []),
     ]  # fmt: skip
 
     try:
