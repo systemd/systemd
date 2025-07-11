@@ -31,7 +31,10 @@
 bool link_radv_enabled(Link *link) {
         assert(link);
 
-        if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
+        if (!link_multicast_enabled(link))
+                return false;
+
+        if (!link_ipv6ll_enabled_harder(link))
                 return false;
 
         if (link->hw_addr.length != ETH_ALEN)
