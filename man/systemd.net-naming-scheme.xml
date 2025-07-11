@@ -90,6 +90,10 @@
             <entry><constant>ww</constant></entry>
             <entry>Wireless wide area network (WWAN)</entry>
           </row>
+          <row>
+            <entry><constant>mc</constant></entry>
+            <entry>Management Component Transport Protocol (MCTP)</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
