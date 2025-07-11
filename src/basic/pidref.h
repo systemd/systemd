@@ -68,6 +68,7 @@ bool pidref_equal(PidRef *a, PidRef *b);
  * PIDREF_MAKE_FROM_PID() above, which does not acquire a pidfd.) */
 int pidref_set_pid(PidRef *pidref, pid_t pid);
 int pidref_set_pidstr(PidRef *pidref, const char *pid);
+int pidref_set_pid_and_pidfd_id(PidRef *pidref, pid_t pid, uint64_t pidfd_id);
 int pidref_set_pidfd(PidRef *pidref, int fd);
 int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the passed pidfd on success */
 int pidref_set_pidfd_consume(PidRef *pidref, int fd); /* takes ownership of the passed pidfd in both success and failure */
