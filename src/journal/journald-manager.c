@@ -2482,7 +2482,7 @@ static void manager_adjust_configs(Manager *m) {
 static void manager_merge_forward_to_socket(Manager *m) {
         assert(m);
 
-        /* Conf file takes precendence over credentials. */
+        /* Conf file takes precedence over credentials. */
         if (m->config_by_conf.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
                 m->config.forward_to_socket = m->config_by_conf.forward_to_socket;
         else if (m->config_by_cred.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
@@ -2494,7 +2494,7 @@ static void manager_merge_forward_to_socket(Manager *m) {
 static void manager_merge_storage(Manager *m) {
         assert(m);
 
-        /* Conf file takes precendence over credentials. */
+        /* Conf file takes precedence over credentials. */
         if (m->config_by_conf.storage != _STORAGE_INVALID)
                 m->config.storage = m->config_by_conf.storage;
         else if (m->config_by_cred.storage != _STORAGE_INVALID)
