@@ -2219,17 +2219,12 @@ static int device_sysattrs_read_all(sd_device *device) {
 
 _public_ const char *sd_device_get_sysattr_first(sd_device *device) {
         void *v;
-        int r;
 
         assert_return(device, NULL);
 
-        if (!device->sysattrs_read) {
-                r = device_sysattrs_read_all(device);
-                if (r < 0) {
-                        errno = -r;
-                        return NULL;
-                }
-        }
+        if (!device->sysattrs_read &&
+            device_sysattrs_read_all(device) < 0)
+                return NULL;
 
         device->sysattrs_iterator = ITERATOR_FIRST;
 
