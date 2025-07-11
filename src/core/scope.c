@@ -502,8 +502,7 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "state", scope_state_to_string(s->state));
         (void) serialize_bool(f, "was-abandoned", s->was_abandoned);
 
-        if (s->controller)
-                (void) serialize_item(f, "controller", s->controller);
+        (void) serialize_item(f, "controller", s->controller);
 
         SET_FOREACH(pid, u->pids)
                 serialize_pidref(f, fds, "pids", pid);
