@@ -52,7 +52,7 @@ int device_new_aux(sd_device **ret) {
         return 0;
 }
 
-static sd_device *device_free(sd_device *device) {
+static sd_device* device_free(sd_device *device) {
         assert(device);
 
         sd_device_unref(device->parent);
@@ -1051,7 +1051,7 @@ static int device_enumerate_children(sd_device *device) {
         return 1; /* Enumerated. */
 }
 
-_public_ sd_device *sd_device_get_child_first(sd_device *device, const char **ret_suffix) {
+_public_ sd_device* sd_device_get_child_first(sd_device *device, const char **ret_suffix) {
         int r;
 
         assert(device);
@@ -1069,7 +1069,7 @@ _public_ sd_device *sd_device_get_child_first(sd_device *device, const char **re
         return sd_device_get_child_next(device, ret_suffix);
 }
 
-_public_ sd_device *sd_device_get_child_next(sd_device *device, const char **ret_suffix) {
+_public_ sd_device* sd_device_get_child_next(sd_device *device, const char **ret_suffix) {
         sd_device *child;
 
         assert(device);
@@ -1922,7 +1922,7 @@ _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *r
         return 0;
 }
 
-_public_ const char *sd_device_get_tag_first(sd_device *device) {
+_public_ const char* sd_device_get_tag_first(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -1936,7 +1936,7 @@ _public_ const char *sd_device_get_tag_first(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_tag_next(sd_device *device) {
+_public_ const char* sd_device_get_tag_next(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -1962,7 +1962,7 @@ static bool device_database_supports_current_tags(sd_device *device) {
         return device->database_version >= 1;
 }
 
-_public_ const char *sd_device_get_current_tag_first(sd_device *device) {
+_public_ const char* sd_device_get_current_tag_first(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -1979,7 +1979,7 @@ _public_ const char *sd_device_get_current_tag_first(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_current_tag_next(sd_device *device) {
+_public_ const char* sd_device_get_current_tag_next(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -1996,7 +1996,7 @@ _public_ const char *sd_device_get_current_tag_next(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_devlink_first(sd_device *device) {
+_public_ const char* sd_device_get_devlink_first(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -2010,7 +2010,7 @@ _public_ const char *sd_device_get_devlink_first(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_devlink_next(sd_device *device) {
+_public_ const char* sd_device_get_devlink_next(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -2083,7 +2083,7 @@ int device_properties_prepare(sd_device *device) {
         return 0;
 }
 
-_public_ const char *sd_device_get_property_first(sd_device *device, const char **_value) {
+_public_ const char* sd_device_get_property_first(sd_device *device, const char **_value) {
         const char *key;
         int r;
 
@@ -2100,7 +2100,7 @@ _public_ const char *sd_device_get_property_first(sd_device *device, const char 
         return key;
 }
 
-_public_ const char *sd_device_get_property_next(sd_device *device, const char **_value) {
+_public_ const char* sd_device_get_property_next(sd_device *device, const char **_value) {
         const char *key;
         int r;
 
@@ -2217,19 +2217,14 @@ static int device_sysattrs_read_all(sd_device *device) {
         return 0;
 }
 
-_public_ const char *sd_device_get_sysattr_first(sd_device *device) {
+_public_ const char* sd_device_get_sysattr_first(sd_device *device) {
         void *v;
-        int r;
 
         assert_return(device, NULL);
 
-        if (!device->sysattrs_read) {
-                r = device_sysattrs_read_all(device);
-                if (r < 0) {
-                        errno = -r;
-                        return NULL;
-                }
-        }
+        if (!device->sysattrs_read &&
+            device_sysattrs_read_all(device) < 0)
+                return NULL;
 
         device->sysattrs_iterator = ITERATOR_FIRST;
 
@@ -2237,7 +2232,7 @@ _public_ const char *sd_device_get_sysattr_first(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_sysattr_next(sd_device *device) {
+_public_ const char* sd_device_get_sysattr_next(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
