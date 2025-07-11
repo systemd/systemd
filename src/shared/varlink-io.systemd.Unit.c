@@ -383,6 +383,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Transient, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Whether this unit is perpetual"),
                 SD_VARLINK_DEFINE_FIELD(Perpetual, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("When true, logs about this unit will be at debug level regardless of other log level settings"),
+                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE));
 
@@ -510,8 +512,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Markers, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Provides details about why a unit was activated"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ActivationDetails, ActivationDetails, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("When true, logs about this unit will be at debug level regardless of other log level settings"),
-                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The cgroup runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE));
 
