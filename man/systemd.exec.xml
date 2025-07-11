@@ -2567,7 +2567,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         available to the unit's processes. When mounting the BPF filesystem with the fsopen() API, four mount
         options can be specified to set a list of BPF commands, maps, programs and attachment types that are
         allowed to be used. Processes needs to get a file descriptor for the bpffs mountpoint and use that to
-        get a token which will enable for that user namespace the BPF functionalities choosen upon bpffs mount.
+        get a token which will enable for that user namespace the BPF functionalities chosen upon bpffs mount.
         A more detailed explanation of the feature can be found in this
         <ulink url="https://lwn.net/Articles/947173/">LWN post</ulink>.</para>
 
