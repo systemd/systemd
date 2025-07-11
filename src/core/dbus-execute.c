@@ -9,7 +9,7 @@
 #include "bpf-restrict-fs.h"
 #include "bus-get-properties.h"
 #include "bus-unit-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
 #include "dbus-execute.h"

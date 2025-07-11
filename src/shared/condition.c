@@ -16,7 +16,7 @@
 #include "battery-util.h"
 #include "bitfield.h"
 #include "blockdev-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "compare-operator.h"

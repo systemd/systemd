@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "bitfield.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "cgroup-util.h"
 #include "dns-domain.h"
 #include "glyph-util.h"

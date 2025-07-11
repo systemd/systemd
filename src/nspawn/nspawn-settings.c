@@ -3,7 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "extract-word.h"

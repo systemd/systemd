@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
