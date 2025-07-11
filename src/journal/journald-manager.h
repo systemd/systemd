@@ -236,6 +236,7 @@ void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *f
                 .max_level_kmsg = -1,                                                           \
                 .max_level_console = -1,                                                        \
                 .max_level_wall = -1,                                                           \
+                .max_level_socket = -1,                                                         \
         }
 
 /* gperf lookup function */
