@@ -13,6 +13,7 @@ DefaultDependencies=no
 Before=sysinit.target systemd-tmpfiles-setup-dev-early.service
 ConditionCapability=CAP_SYS_MODULE
 ConditionFileNotEmpty=/lib/modules/%v/modules.devname
+ConditionPathExists={{KMOD}}
 
 [Service]
 Type=oneshot
