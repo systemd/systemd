@@ -217,6 +217,7 @@ static int check_access(
                 const char *permission,
                 struct audit_info *audit_info,
                 sd_bus_error *error) {
+
         bool enforce = mac_selinux_enforcing();
         int r;
 
@@ -335,6 +336,7 @@ int mac_selinux_access_check_varlink_internal(
                 const Unit *unit,
                 const char *permission,
                 const char *function) {
+
         _cleanup_freecon_ char *fcon = NULL, *scon = NULL;
         const char *tclass, *acon;
         int r;
