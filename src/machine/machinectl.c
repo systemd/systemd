@@ -28,9 +28,9 @@
 #include "cgroup-util.h"
 #include "edit-util.h"
 #include "env-util.h"
-#include "format-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "in-addr-util.h"
@@ -46,6 +46,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -412,9 +413,15 @@ static int list_images(int argc, char *argv[], void *userdata) {
         return show_table(table, "images");
 }
 
-static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
+static int show_unit_cgroup(
+                sd_bus *bus,
+                const char *unit,
+                const char *subgroup,
+                pid_t leader) {
+
         _cleanup_free_ char *cgroup = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        OutputFlags extra_flags = 0;
         int r;
 
         assert(bus);
@@ -427,8 +434,16 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         if (isempty(cgroup))
                 return 0;
 
+        if (!empty_or_root(subgroup)) {
+                if (!path_extend(&cgroup, subgroup))
+                        return log_oom();
+
+                /* If we have a subcgroup, then hide all processes outside of it */
+                extra_flags |= OUTPUT_HIDE_EXTRA;
+        }
+
         unsigned c = MAX(LESS_BY(columns(), 18U), 10U);
-        r = unit_show_processes(bus, unit, cgroup, "\t\t  ", c, get_output_flags(), &error);
+        r = unit_show_processes(bus, unit, cgroup, "\t\t  ", c, get_output_flags() | extra_flags, &error);
         if (r == -EBADR) {
 
                 if (arg_transport == BUS_TRANSPORT_REMOTE)
@@ -494,18 +509,50 @@ typedef struct MachineStatusInfo {
         const char *class;
         const char *service;
         const char *unit;
+        const char *subgroup;
         const char *root_directory;
         pid_t leader;
+        uint64_t leader_pidfdid;
+        pid_t supervisor;
+        uint64_t supervisor_pidfdid;
         struct dual_timestamp timestamp;
         int *netif;
         size_t n_netif;
+        uid_t uid;
 } MachineStatusInfo;
 
-static void machine_status_info_clear(MachineStatusInfo *info) {
-        if (info) {
-                free(info->netif);
-                zero(*info);
+static void machine_status_info_done(MachineStatusInfo *info) {
+        if (!info)
+                return;
+
+        free(info->netif);
+        zero(*info);
+}
+
+static void print_process_info(const char *field, pid_t pid, uint64_t pidfdid) {
+        int r;
+
+        assert(field);
+
+        if (pid <= 0)
+                return;
+
+        printf("%s: " PID_FMT, field, pid);
+
+        _cleanup_(pidref_done) PidRef pr = PIDREF_NULL;
+        r = pidref_set_pid_and_pidfd_id(&pr, pid, pidfdid);
+        if (r < 0)
+                log_debug_errno(r, "Failed to acquire reference to process, ignoring: %m");
+        else {
+                _cleanup_free_ char *t = NULL;
+                r = pidref_get_comm(&pr, &t);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to acquire name of process, ignoring: %m");
+                else
+                        printf(" (%s)", t);
         }
+
+        putchar('\n');
 }
 
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
@@ -530,17 +577,8 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         else if (!isempty(s2))
                 printf("\t   Since: %s\n", s2);
 
-        if (i->leader > 0) {
-                _cleanup_free_ char *t = NULL;
-
-                printf("\t  Leader: %u", (unsigned) i->leader);
-
-                (void) pid_get_comm(i->leader, &t);
-                if (t)
-                        printf(" (%s)", t);
-
-                putchar('\n');
-        }
+        print_process_info("\t  Leader", i->leader, i->leader_pidfdid);
+        print_process_info("\t Superv.", i->supervisor, i->supervisor_pidfdid);
 
         if (i->service) {
                 printf("\t Service: %s", i->service);
@@ -551,6 +589,9 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 putchar('\n');
         } else if (i->class)
                 printf("\t   Class: %s\n", i->class);
+
+        if (i->uid != 0)
+                printf("\t     UID: " UID_FMT "\n", i->uid);
 
         if (i->root_directory)
                 printf("\t    Root: %s\n", i->root_directory);
@@ -589,7 +630,11 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
 
         if (i->unit) {
                 printf("\t    Unit: %s\n", i->unit);
-                show_unit_cgroup(bus, i->unit, i->leader);
+
+                if (!empty_or_root(i->subgroup))
+                        printf("\tSubgroup: %s\n", i->subgroup);
+
+                show_unit_cgroup(bus, i->unit, i->subgroup, i->leader);
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL)
 
@@ -636,18 +681,23 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                 { "Class",              "s",  NULL,          offsetof(MachineStatusInfo, class)               },
                 { "Service",            "s",  NULL,          offsetof(MachineStatusInfo, service)             },
                 { "Unit",               "s",  NULL,          offsetof(MachineStatusInfo, unit)                },
+                { "Subgroup",           "s",  NULL,          offsetof(MachineStatusInfo, subgroup)            },
                 { "RootDirectory",      "s",  NULL,          offsetof(MachineStatusInfo, root_directory)      },
                 { "Leader",             "u",  NULL,          offsetof(MachineStatusInfo, leader)              },
+                { "LeaderPIDFDId",      "t",  NULL,          offsetof(MachineStatusInfo, leader_pidfdid)      },
+                { "Supervisor",         "u",  NULL,          offsetof(MachineStatusInfo, supervisor)          },
+                { "SupervisorPIDFDId",  "t",  NULL,          offsetof(MachineStatusInfo, supervisor_pidfdid)  },
                 { "Timestamp",          "t",  NULL,          offsetof(MachineStatusInfo, timestamp.realtime)  },
                 { "TimestampMonotonic", "t",  NULL,          offsetof(MachineStatusInfo, timestamp.monotonic) },
                 { "Id",                 "ay", bus_map_id128, offsetof(MachineStatusInfo, id)                  },
                 { "NetworkInterfaces",  "ai", map_netif,     0                                                },
+                { "UID",                "u",  NULL,          offsetof(MachineStatusInfo, uid)                 },
                 {}
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(machine_status_info_clear) MachineStatusInfo info = {};
+        _cleanup_(machine_status_info_done) MachineStatusInfo info = {};
         int r;
 
         assert(verb);
