@@ -29,8 +29,7 @@ fi
 for unit_file in "${UNIT_FILES[@]}"; do
     # Skip the check for a couple of units, namely:
     #   - syslog.socket: the corresponding syslog.service might not be installed
-    #   - rc-local.service: compat API, /etc/rc.d/rc.local most likely won't be present
-    if [[ "$unit_file" =~ /(syslog.socket|rc-local.service)$ ]]; then
+    if [[ "$unit_file" =~ /syslog.socket$ ]]; then
         continue
     fi
 
