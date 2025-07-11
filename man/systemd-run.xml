@@ -572,7 +572,7 @@
         <listitem><para>Do not pipe output into a pager. This currently only applies to
         <option>--help</option>. (The pager is not started during normal operation.)</para>
 
-        <xi:include href="version-info.xml" xpointer="v256"/>
+        <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
     </variablelist>
