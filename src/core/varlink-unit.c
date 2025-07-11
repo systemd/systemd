@@ -104,6 +104,10 @@ static int unit_conditions_build_json(sd_json_variant **ret, const char *name, v
 static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Unit *u = ASSERT_PTR(userdata);
 
+        /* The main principle behind context/runtime split is the following:
+         * If it make sense to place a property into a config/unit file it belongs to Context.
+         * Otherwise it's a 'Runtime'. */
+
         return sd_json_buildo(
                         ASSERT_PTR(ret),
                         SD_JSON_BUILD_PAIR_STRING("Type", unit_type_to_string(u->type)),
@@ -178,9 +182,10 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("UnitFilePreset", preset_action_past_tense_to_string(unit_get_unit_file_preset(u))),
                         SD_JSON_BUILD_PAIR_BOOLEAN("Transient", u->transient),
                         SD_JSON_BUILD_PAIR_BOOLEAN("Perpetual", u->perpetual),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
 
                         /* CGroup */
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, unit_get_cgroup_context(u)));
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, u));
 
         // TODO follow up PRs:
         // JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u)
@@ -300,7 +305,6 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(u->invocation_id), "InvocationID", SD_JSON_BUILD_UUID(u->invocation_id)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Markers", markers_build_json, &u->markers),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("ActivationDetails", activation_details_build_json, u->activation_details),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_runtime_build_json, u));
 }
 
