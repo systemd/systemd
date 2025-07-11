@@ -2,7 +2,7 @@
 
 #include "analyze.h"
 #include "analyze-capability.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "format-table.h"
 #include "log.h"

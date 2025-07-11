@@ -249,11 +249,11 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
-                'sources' : files('test-cap-list.c'),
+                'sources' : files('test-capability-list.c'),
                 'dependencies' : libcap,
         },
         test_template + {
-                'sources' : files('test-capability.c'),
+                'sources' : files('test-capability-util.c'),
                 'dependencies' : libcap,
         },
         test_template + {

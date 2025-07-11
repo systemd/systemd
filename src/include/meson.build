@@ -13,7 +13,7 @@ arphrd_sources = files(
 )
 
 # Source files that provides CAP_XYZ
-cap_sources = files(
+capability_sources = files(
         'uapi/linux/capability.h',
 )
 

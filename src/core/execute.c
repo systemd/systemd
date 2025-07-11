@@ -14,7 +14,7 @@
 #include "alloc-util.h"
 #include "async.h"
 #include "bitfield.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
 #include "coredump-util.h"

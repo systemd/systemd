@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-print-properties.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "cgroup-util.h"
 #include "escape.h"
 #include "log.h"

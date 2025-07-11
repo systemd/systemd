@@ -11,7 +11,7 @@
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "condition.h"
