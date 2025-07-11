@@ -8,9 +8,9 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Virtual Machine and Containers
+Description=Virtual Machines and Containers
 Documentation=man:systemd.special(7)
-Before=multi-user.target
+Before=default.target
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
