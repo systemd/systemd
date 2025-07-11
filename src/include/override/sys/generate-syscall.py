@@ -44,6 +44,10 @@ HEADER = '''\
 
 #include_next <sys/syscall.h>
 
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
 #include <assert.h>
 '''
 

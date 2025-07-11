@@ -8,6 +8,10 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
 #include "af-list.h"
 #include "alloc-util.h"
 #include "env-util.h"
