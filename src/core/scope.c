@@ -236,15 +236,6 @@ static int scope_coldplug(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED) && u->pids) {
-                PidRef *pid;
-                SET_FOREACH(pid, u->pids) {
-                        r = unit_watch_pidref(u, pid, /* exclusive= */ false);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
         bus_scope_track_controller(s);
 
         scope_set_state(s, s->deserialized_state);
