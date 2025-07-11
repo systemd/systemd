@@ -37,6 +37,30 @@ __systemctl() {
         _values 'NAME=VALUE' "${_properties[@]}"
     }
 
+(( $+functions[_systemd-run_path-properties] )) ||
+    _systemd-run_path-properties() {
+        local -a _properties
+        _properties=($( systemd-analyze transient-settings path 2>/dev/null |
+            while read -r p; do [ -z "$p" ] || echo "$p="; done ))
+        _values 'NAME=VALUE' "${_properties[@]}"
+    }
+
+(( $+functions[_systemd-run_socket-properties] )) ||
+    _systemd-run_socket-properties() {
+        local -a _properties
+        _properties=($( systemd-analyze transient-settings socket 2>/dev/null |
+            while read -r p; do [ -z "$p" ] || echo "$p="; done ))
+        _values 'NAME=VALUE' "${_properties[@]}"
+    }
+
+(( $+functions[_systemd-run_timer-properties] )) ||
+    _systemd-run_timer-properties() {
+        local -a _properties
+        _properties=($( systemd-analyze transient-settings timer 2>/dev/null |
+            while read -r p; do [ -z "$p" ] || echo "$p="; done ))
+        _values 'NAME=VALUE' "${_properties[@]}"
+    }
+
 _arguments \
     '(-G --collect --shell)'{-G,--collect}'[Unload the transient unit after it completed]' \
     '--description=[Description for unit]:description' \
@@ -57,7 +81,7 @@ _arguments \
     '--on-timezone-change[Defines a trigger based on system timezone changes]' \
     '--on-unit-active=[Run SEC seconds after the last activation]:SEC' \
     '--on-unit-inactive=[Run SEC seconds after the last deactivation]:SEC' \
-    '--path-property=[Set path unit property]:NAME=VALUE' \
+    '--path-property=[Set path unit property]:NAME=VALUE:_systemd-run_path-properties' \
     '(-P --pipe)'{-P,--pipe}'[Inherit standard input, output, and error]' \
     {'*-p+','*--property='}'[Set unit property]:NAME=VALUE:_systemd-run_properties' \
     '(-t --pty --shell)'{-t,--pty}'[The service connects to the terminal]' \
@@ -74,9 +98,9 @@ _arguments \
     '--slice=[Run in the specified slice]:slices:__systemd-run_slices' \
     '--slice-inherit[Run in the inherited slice]' \
     '--expand-environment=[Control expansion of environment variables]:bool:(yes no)' \
-    '--socket-property=[Set socket unit property]:NAME=VALUE' \
+    '--socket-property=[Set socket unit property]:NAME=VALUE:_systemd-run_socket-properties' \
     '(--user)--system[Run as system unit]' \
-    '--timer-property=[Set timer unit property]:NAME=VALUE' \
+    '--timer-property=[Set timer unit property]:NAME=VALUE:_systemd-run_timer-properties' \
     '--uid=[Run as system user]:user:_users' \
     '(-u --unit)'{-u+,--unit=}'[Run under the specified unit name]:unit name' \
     '(--system)--user[Run as user unit]' \
