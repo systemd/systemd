@@ -322,6 +322,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--entry-type=type1|type2|all</option></term>
+
+        <listitem>
+          <para>
+            Controls the type of entries handled by the command. This is typically useful when multiple types
+            of boot entries with the same kernel version are installed, and only one should be removed. When
+            <literal>type1</literal> or <literal>type2</literal> is specified, each plugin is invoked with
+            <varname>$KERNEL_INSTALL_BOOT_ENTRY_TYPE</varname> environment variable with the specified
+            value. When <literal>all</literal> is specified, the environment variable will not be set.
+            Defaults to <literal>all</literal>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--entry-token=</option></term>
 
         <listitem>
