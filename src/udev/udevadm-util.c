@@ -305,7 +305,7 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
         if (!GREEDY_REALLOC_APPEND(*files, *n_files, f, n))
                 return log_oom();
 
-        TAKE_PTR(f);
+        f = mfree(f); /* The array elements are owned by 'files'. So, conf_file_free_many() must not be called. */
         n = 0;
         return 0;
 }
