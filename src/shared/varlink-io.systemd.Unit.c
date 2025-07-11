@@ -87,6 +87,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupContext,
 
+                /* ID */
+                SD_VARLINK_FIELD_COMMENT("ID of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Path of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(Path, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Slice of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(Slice, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+
                 /* CPU Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#CPU%20Control */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#CPUWeight=weight"),
@@ -367,6 +375,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Asserts, Condition, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
 
                 /* Others */
+                SD_VARLINK_FIELD_COMMENT("The Following= dependencies of this unit"),
+                SD_VARLINK_DEFINE_FIELD(Following, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The Triggers= dependencies of this unit"),
                 SD_VARLINK_DEFINE_FIELD(Triggers, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The TriggeredBy= dependencies of this unit"),
@@ -383,6 +393,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Transient, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Whether this unit is perpetual"),
                 SD_VARLINK_DEFINE_FIELD(Perpetual, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("When true, logs about this unit will be at debug level regardless of other log level settings"),
+                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE));
 
@@ -395,14 +407,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupRuntime,
-
-                /* ID */
-                SD_VARLINK_FIELD_COMMENT("ID of the CGroup"),
-                SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Path of the CGroup"),
-                SD_VARLINK_DEFINE_FIELD(Path, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Slice of the CGroup"),
-                SD_VARLINK_DEFINE_FIELD(Slice, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 /* Memory */
                 SD_VARLINK_FIELD_COMMENT("The current amount of memory used by the cgroup, in bytes"),
@@ -456,8 +460,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitRuntime,
-                SD_VARLINK_FIELD_COMMENT("If not empty, the field contains the name of another unit that this unit follows in state"),
-                SD_VARLINK_DEFINE_FIELD(Following, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the configuration file of this unit has been loaded"),
                 SD_VARLINK_DEFINE_FIELD(LoadState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit is currently active or not"),
@@ -510,8 +512,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Markers, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Provides details about why a unit was activated"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ActivationDetails, ActivationDetails, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("When true, logs about this unit will be at debug level regardless of other log level settings"),
-                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The cgroup runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE));
 
