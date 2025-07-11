@@ -1801,6 +1801,53 @@ void manager_full_sync(Manager *m, bool wait) {
                                             "Failed to write %s, ignoring: %m", fn);
 }
 
+void manager_verify_sync_complete(Manager *m) {
+        JournalFile *f;
+        int r;
+
+        assert(m);
+
+        /* Ensure journal files are fully synced and immediately readable.
+         * This addresses the race condition where files are written and synced
+         * but may not be immediately available for reading. */
+
+        /* Force additional sync operations to ensure all data is committed */
+        manager_sync(m, /* wait = */ true);
+
+        /* Sync directories for all journal files to ensure metadata updates are visible */
+        if (m->system_journal && m->system_journal->path) {
+                _cleanup_free_ char *dir = NULL;
+                r = path_extract_directory(m->system_journal->path, &dir);
+                if (r >= 0) {
+                        _cleanup_close_ int dirfd = open(dir, O_RDONLY|O_DIRECTORY);
+                        if (dirfd >= 0) {
+                                r = fsync(dirfd);
+                                if (r < 0)
+                                        log_debug_errno(errno, "Failed to sync system journal directory, ignoring: %m");
+                        }
+                }
+        }
+
+        /* Also sync user journal directories */
+        ORDERED_HASHMAP_FOREACH(f, m->user_journals) {
+                if (f->path) {
+                        _cleanup_free_ char *dir = NULL;
+                        r = path_extract_directory(f->path, &dir);
+                        if (r >= 0) {
+                                _cleanup_close_ int dirfd = open(dir, O_RDONLY|O_DIRECTORY);
+                                if (dirfd >= 0) {
+                                        r = fsync(dirfd);
+                                        if (r < 0)
+                                                log_debug_errno(errno, "Failed to sync user journal directory %s, ignoring: %m", dir);
+                                }
+                        }
+                }
+        }
+
+        /* Brief pause to ensure filesystem consistency */
+        (void) usleep(1000); /* 1ms */
+}
+
 static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         assert(si);
