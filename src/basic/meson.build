@@ -14,7 +14,7 @@ basic_sources = files(
         'build.c',
         'build-path.c',
         'bus-label.c',
-        'cap-list.c',
+        'capability-list.c',
         'capability-util.c',
         'capsule-util.c',
         'cgroup-util.c',
@@ -122,11 +122,11 @@ sources += basic_sources
 
 generated_gperf_headers = []
 foreach item : [
-        # name,    source,         struct name,  prefix,    headers
-        ['af',     af_sources,     'af',         '',        ['<sys/socket.h>'],       ],
-        ['arphrd', arphrd_sources, 'arphrd',     'ARPHRD_', ['<linux/if_arp.h>'],     ],
-        ['cap',    cap_sources,    'capability', '',        ['<linux/capability.h>'], ],
-        ['errno',  [],             'errno',      '',        ['<errno.h>'],            ],
+        # name,        source,             prefix,    headers
+        ['af',         af_sources,         '',        ['<sys/socket.h>'],       ],
+        ['arphrd',     arphrd_sources,     'ARPHRD_', ['<linux/if_arp.h>'],     ],
+        ['capability', capability_sources, '',        ['<linux/capability.h>'], ],
+        ['errno',      [],                 '',        ['<errno.h>'],            ],
 ]
 
         fname = '@0@-list.txt'.format(item[0])
@@ -141,7 +141,7 @@ foreach item : [
         gperf_file = custom_target(
                 input : list_txt,
                 output : fname,
-                command : [generate_gperfs, item[2], item[3], '@INPUT@'] + item[4],
+                command : [generate_gperfs, item[0], item[2], '@INPUT@'] + item[3],
                 capture : true)
 
         fname = '@0@-from-name.inc'.format(item[0])
@@ -150,8 +150,8 @@ foreach item : [
                 output : fname,
                 command : [gperf,
                            '-L', 'ANSI-C', '-t', '--ignore-case',
-                           '-N', 'lookup_@0@'.format(item[2]),
-                           '-H', 'hash_@0@_name'.format(item[2]),
+                           '-N', 'lookup_@0@'.format(item[0]),
+                           '-H', 'hash_@0@_name'.format(item[0]),
                            '-p', '-C',
                            '@INPUT@'],
                 capture : true)

@@ -22,7 +22,7 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-locator.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
 #include "chase.h"

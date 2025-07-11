@@ -17,7 +17,7 @@
 #include "bpf-restrict-fs.h"
 #include "bus-error.h"
 #include "calendarspec.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
 #include "condition.h"

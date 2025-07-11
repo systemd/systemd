@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "parse-util.h"
 #include "random-util.h"

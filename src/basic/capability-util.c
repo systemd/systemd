@@ -8,7 +8,7 @@
 
 #include "alloc-util.h"
 #include "bitfield.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"

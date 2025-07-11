@@ -8,7 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "device-util.h"
