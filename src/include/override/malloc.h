@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
+#include <stdio.h>
+
 #include_next <malloc.h>
 
 #if !HAVE_MALLINFO2
@@ -18,6 +21,7 @@ struct mallinfo2 {
 };
 
 static inline struct mallinfo2 mallinfo2(void) {
+#if HAVE_MALLINFO
         _Pragma("GCC diagnostic push");
         _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"");
         struct mallinfo m = mallinfo();
@@ -35,5 +39,24 @@ static inline struct mallinfo2 mallinfo2(void) {
                 .fordblks = m.fordblks,
                 .keepcost = m.keepcost,
         };
+#else
+        return (struct mallinfo2) {};
+#endif
+}
+#endif
+
+#if !HAVE_MALLOC_INFO
+static inline int malloc_info(int options, FILE *stream) {
+        if (options != 0)
+                errno = EINVAL;
+        else
+                errno = EOPNOTSUPP;
+        return -1;
+}
+#endif
+
+#if !HAVE_MALLOC_TRIM
+static inline int malloc_trim(size_t pad) {
+        return 0;
 }
 #endif
