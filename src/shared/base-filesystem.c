@@ -5,6 +5,10 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
 #include "alloc-util.h"
 #include "base-filesystem.h"
 #include "errno-util.h"
