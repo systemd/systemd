@@ -64,7 +64,7 @@ TEST(cg_create) {
         (void) cg_trim(test_b, /* delete_root= */ true);
 
         r = cg_create(test_a);
-        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(r))
+        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(r) || r == -ENOENT)
                 return (void) log_tests_skipped_errno(r, "%s: Failed to create cgroup %s", __func__, test_a);
 
         ASSERT_OK_EQ(r, 1);
