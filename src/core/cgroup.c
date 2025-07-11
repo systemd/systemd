@@ -4380,8 +4380,7 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
-        if (MATCH_DESERIALIZE_IMMEDIATE(u, "cpu-usage-base", key, value, safe_atou64, cpu_usage_base) ||
-            MATCH_DESERIALIZE_IMMEDIATE(u, "cpuacct-usage-base", key, value, safe_atou64, cpu_usage_base))
+        if (MATCH_DESERIALIZE_IMMEDIATE(u, "cpu-usage-base", key, value, safe_atou64, cpu_usage_base))
                 return 1;
 
         if (MATCH_DESERIALIZE_IMMEDIATE(u, "cpu-usage-last", key, value, safe_atou64, cpu_usage_last))
