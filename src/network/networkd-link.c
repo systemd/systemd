@@ -133,7 +133,7 @@ bool link_ipv6_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        if (link_may_have_ipv6ll(link, /* check_multicast = */ false))
+        if (link_ipv6ll_enabled(link))
                 return true;
 
         if (network_has_static_ipv6_configurations(link->network))
@@ -2124,6 +2124,17 @@ void link_update_operstate(Link *link, bool also_update_master) {
 bool link_has_carrier(Link *link) {
         assert(link);
         return netif_has_carrier(link->kernel_operstate, link->flags);
+}
+
+bool link_multicast_enabled(Link *link) {
+        assert(link);
+
+        /* If Multicast= is specified, use the value. */
+        if (link->network && link->network->multicast >= 0)
+                return link->network->multicast;
+
+        /* Otherwise, return the current state. */
+        return FLAGS_SET(link->flags, IFF_MULTICAST);
 }
 
 #define FLAG_STRING(string, flag, old, new)                      \

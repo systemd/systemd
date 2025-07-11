@@ -1345,7 +1345,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
         /* IPv6LL address may be in the tentative state, and in that case networkd has not received it.
          * So, we need to dump all IPv6 addresses. */
 
-        if (link_may_have_ipv6ll(link, /* check_multicast = */ false))
+        if (link_ipv6ll_enabled_harder(link))
                 return 0;
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_GETADDR, link->ifindex, AF_INET6);
