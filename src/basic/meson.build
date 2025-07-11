@@ -122,11 +122,11 @@ sources += basic_sources
 
 generated_gperf_headers = []
 foreach item : [
-        # name,    source,         struct name,  prefix,    headers
-        ['af',     af_sources,     'af',         '',        ['<sys/socket.h>'],       ],
-        ['arphrd', arphrd_sources, 'arphrd',     'ARPHRD_', ['<linux/if_arp.h>'],     ],
-        ['cap',    cap_sources,    'capability', '',        ['<linux/capability.h>'], ],
-        ['errno',  [],             'errno',      '',        ['<errno.h>'],            ],
+        # source,        struct name,  prefix,    headers
+        [af_sources,     'af',         '',        ['<sys/socket.h>'],       ],
+        [arphrd_sources, 'arphrd',     'ARPHRD_', ['<linux/if_arp.h>'],     ],
+        [cap_sources,    'capability', '',        ['<linux/capability.h>'], ],
+        [[],             'errno',      '',        ['<errno.h>'],            ],
 ]
 
         fname = '@0@-list.txt'.format(item[0])
