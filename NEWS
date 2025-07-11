@@ -86,9 +86,10 @@ CHANGES WITH 258 in spe:
           keyboard mapping hardware database (hwdb.d/60-keyboard.hwdb) so far
           mapped the microphone mute and touchpad on/off/toggle keys to the
           function keys F20, F21, F22, F23 instead of their correct key codes.
-          This key code mangling has been removed.
+          This key code mangling has been removed from udev.
+
           To maintain compatibility with X11 applications that rely on the old
-          function key code mappings, this mangling has now been moved to the
+          function key code mappings, this mangling has now been added to the
           relevant X11 keyboard driver modules. In order to ensure these keys
           continue to work, update to xf86-input-evdev >= 2.11.0 and
           xf86-input-libinput >= 1.5.0 before updating to systemd >= 258.
@@ -550,8 +551,8 @@ CHANGES WITH 258 in spe:
         * The generic "io.systemd.service" Varlink service that various of our
           long-running services implement, gained a new GetEnvironment() call
           that returns the current environment block of the service's main
-          process. In addition, this service interface has been implemented in many
-          more long-running services.
+          process. In addition, this service interface has been implemented in
+          many more long-running services.
 
         * A new sd-varlink call sd_varlink_get_description() has been added
           that returns the string previously set via
@@ -635,15 +636,15 @@ CHANGES WITH 258 in spe:
 
         * resolved.conf gained a new setting RefuseRecordTypes= which takes a
           list of RR types for which to refuse lookup attempts. This may be
-          used to for example block A or AAAA lookups on IPv4 or IPv6 only
+          used to for example block A or AAAA lookups on IPv4- or IPv6-only
           hosts.
 
         * A new DNS "delegate zone" concept has been introduced, which are
           additional lookup scopes (on top of the existing per-interface and
           the one global scope so far supported in resolved), which carry one
           or more DNS server addresses and a DNS search/routing domain. It
-          allows routing requests to specific domains to specific
-          servers. Delegate zones can be configured via drop-ins below
+          allows routing requests to specific domains to specific servers.
+          Delegate zones can be configured via drop-ins below
           /etc/systemd/dns-delegate.d/*.dns-delegate.
 
         * "resolvectl query -t sshfp" will now decode the returned RR
@@ -706,13 +707,13 @@ CHANGES WITH 258 in spe:
           variables can be forced now in environments where we'd previously
           automatically turn this off (e.g. in choot() contexts).
 
-        * systemd-stub learnt support for a couple of "extension" CHIDs, that
+        * systemd-stub gained support for a couple of "extension" CHIDs, that
           are not part of the Microsoft's original spec, and which include EDID
           display identification information in the hash. This may be used to
           match Devicetree blobs in UKIs. "systemd-analyze chid" has been
           updated to support these extension CHIDs, too. (They are clearly
           marked as extensions CHIDs, to emphasize they are systemd's own
-          invention, and not based on the Windows CHID spec)
+          invention, and not based on the Windows CHID spec.)
 
         * systemd-boot's loader.conf configuration file gained a new
           secure-boot-enroll-action setting which controls the action to take
@@ -782,11 +783,11 @@ CHANGES WITH 258 in spe:
           systemd-nsresourced, even if run privileged.
 
         * If systemd-nspawn is used interactively, two new special key
-          sequences can be entered to trigger an immediate clean shutdown or
-          reboot of the container (under the assumption it runs systemd as PID
-          1): ^]^]p will shutdown and ^]^]r will reboot. This is in addition to
-          the previously supported ^]^]^] which will immediately shut it down,
-          without going through the clean shutdown logic.
+          sequences can be used to trigger an immediate clean shutdown or
+          reboot of the container with systemd running as PID 1: '^]^]p' for
+          shutdown and '^]^]r' for reboot. This is in addition to the
+          previously supported '^]^]^]' which triggers immediate shutdown
+          without going through the usual shutdown logic.
 
         * systemd-nspawn will now invoke the TTY password agent if invoked
           interactively and without privileges. This makes sure unprivileged
@@ -889,26 +890,27 @@ CHANGES WITH 258 in spe:
           filtering by UID/GID min/max, fuzzy name matching and user
           disposition. Previously this was supported by the userdbctl
           client-side only. With this, userdb providers may now optionally
-          implement this server side too in order to optimize the lookups.
+          implement this server-side too in order to optimize the lookups.
 
         * User records now support a concept of home "areas",
           i.e. subdirectories of the primary $HOME directory that a user can
           log into. This is useful to maintain separate development
           environments or configuration contexts, but within the ownership of
           the same user. Support for this is implemented in systemd-homed, but
-          is conceptually open to other backends, too. New home areas can be
-          created via "mkdir -p ~/Areas/ && cp /etc/skel ~/Areas/foo", or
-          removed by "rm -rf ~/Areas/foo". Whenever prompted for login and a
-          user name is requested, it is possible to enter a username suffixed
-          by "%" and the area name in order to log into the specified area of
-          the user. (e.g. "bar%foo"). Effectively this ensures that $HOME and
-          $XDG_RUNTIME_DIR include the area choice after login. Note that at
-          this moment it's not possible to log into a fully graphical session
-          with this, since we'd have to start a per-area user service manager
-          for that, and we currently do not do this. But we hope to provide
-          this in one of the next releases. In order to implement all this user
-          records gained a new "defaultArea" field, which is configurable with
-          homectl's --default-area= switch.
+          is conceptually open to other backends, too.
+
+          New home areas can be created via "mkdir -p ~/Areas/ && cp /etc/skel
+          ~/Areas/foo", or removed by "rm -rf ~/Areas/foo". Whenever prompted
+          for login and a user name is requested, it is possible to enter a
+          username suffixed by "%" and the area name in order to log into the
+          specified area of the user. (e.g. "bar%foo"). Effectively this
+          ensures that $HOME and $XDG_RUNTIME_DIR include the area choice after
+          login. Note that at this moment it's not possible to log into a full
+          graphical session with this, since we'd have to start a per-area user
+          service manager for that, and we currently do not do this. But we
+          hope to provide this in one of the next releases. In order to
+          implement all this user records gained a new "defaultArea" field,
+          which is configurable with homectl's --default-area= switch.
 
         * An explicit MIME type application/x.systemd-home is now used for all
           LUKS *.home files managed by systemd.
@@ -1039,25 +1041,24 @@ CHANGES WITH 258 in spe:
         * There's now a per-user counterpart of /var/lib/machines/ defined as
           ~/.local/state/machines/. Various tools such as systemd-nspawn +
           systemd-vmspawn now will search this directory when looking for a
-          disk image, when invoked in unprivileged user
-          context. systemd-dissect's --discover command may now be combined
-          with --user or --system to choose in which of the directory scopes to
-          look for images.
+          disk image, when invoked in unprivileged user context.
+          systemd-dissect's --discover command may now be combined with --user
+          or --system to choose in which of the directory scopes to look for
+          images.
 
         * systemd-dissect gained a new --all switch. If specified the tool will
           not just discover DDIs (i.e. disk images) but also images stored in
           regular directories.
 
         * systemd-dissect gained a new "--shift" switch for recursively
-          re-chown()ing a directory tree from one set of UID/GIDs to
-          another. This may be used to shift a tree from the base-0-UID range
-          to the foreign UID range or back.
+          re-chown()ing a directory tree from one set of UID/GIDs to another.
+          This may be used to shift a tree from the base-0-UID range to the
+          foreign UID range or back.
 
-        * systemd-dissect gained a new --usr-hash= option (and
-          --usr-hash-sig=), that is what the existing --root-hash= switch does
-          (and --root-hash-sig=), but for the /usr/ partition. Or in other words,
-          it allows specifying the root hash of the /usr/ Verity volume, and
-          possible its signature.
+        * systemd-dissect gained new --usr-hash= and --usr-hash-sig= options,
+          that are similar to the existing --root-hash=/--root-hash-sig=
+          options, but for the /usr/ partition. This allows the root hash of
+          the /usr/ Verity volume and its signature to be specified.
 
         * When dissecting/mounting a DDI disk image, and no Verity root hash or
           signature is provided, suitable values are now automatically
@@ -1162,8 +1163,8 @@ CHANGES WITH 258 in spe:
         * systemd-repart gained a new switch --append-fstab= for controlling
           how to write or append automatically generated /etc/fstab entries.
 
-        * `CopyFiles=` lines can now contain an `fsverity=copy` flag to
-          preserve the fs-verity status of the source files when populating the
+        * CopyFiles= lines can now contain an "fsverity=copy" flag to preserve
+          the fs-verity status of the source files when populating the
           filesystem.
 
         * systemd-repart has been updated to automatically generate the
