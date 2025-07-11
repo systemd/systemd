@@ -181,7 +181,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
 
                         /* CGroup */
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, unit_get_cgroup_context(u)));
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, u));
 
         // TODO follow up PRs:
         // JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u)

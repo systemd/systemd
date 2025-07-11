@@ -87,6 +87,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupContext,
 
+                SD_VARLINK_FIELD_COMMENT("Slice of the CGroup"),
+                SD_VARLINK_DEFINE_FIELD(Slice, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+
                 /* CPU Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#CPU%20Control */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#CPUWeight=weight"),
@@ -403,8 +406,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path of the CGroup"),
                 SD_VARLINK_DEFINE_FIELD(Path, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Slice of the CGroup"),
-                SD_VARLINK_DEFINE_FIELD(Slice, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 /* Memory */
                 SD_VARLINK_FIELD_COMMENT("The current amount of memory used by the cgroup, in bytes"),

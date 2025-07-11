@@ -258,10 +258,12 @@ static int controllers_build_json(sd_json_variant **ret, const char *name, void 
 }
 
 int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+
         assert(ret);
         assert(name);
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = unit_get_cgroup_context(u);
         if (!c) {
                 *ret = NULL;
                 return 0;
@@ -269,6 +271,8 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
 
         return sd_json_buildo(
                         ret,
+
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Slice", unit_slice_name(u)),
 
                         /* CPU Control */
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("CPUWeight", c->cpu_weight, CGROUP_WEIGHT_INVALID),
@@ -579,7 +583,6 @@ int unit_cgroup_runtime_build_json(sd_json_variant **ret, const char *name, void
                         /* ID */
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("ID", crt->cgroup_id),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Path", crt->cgroup_path ? empty_to_root(crt->cgroup_path) : NULL),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Slice", unit_slice_name(u)),
 
                         /* Memory */
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("MemoryCurrent", memory_accounting_metric_build_json, u),
