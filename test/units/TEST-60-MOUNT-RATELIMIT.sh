@@ -243,9 +243,9 @@ EOF
 
         sleep 1
 
-        if [[ "$(systemctl is-failed tmp-hoge.mount)" == "failed" ]] || \
+        if [[ "$(systemctl is-failed tmp-hoge.mount)" == "failed" ]] ||
            journalctl --since="$since" -u tmp-hoge.mount -q --grep "but there is no mount"; then
-                exit 1
+            exit 1
         fi
 
         systemctl stop tmp-hoge.mount
