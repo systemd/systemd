@@ -267,6 +267,10 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                 return 0;
         }
 
+        /* The main principle behind context/runtime split is the following:
+         * If it make sense to place a property into a config/unit file it belongs to Context.
+         * Otherwise it's a 'Runtime'. */
+
         return sd_json_buildo(
                         ret,
 

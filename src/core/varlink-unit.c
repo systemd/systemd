@@ -105,6 +105,10 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
         Unit *u = ASSERT_PTR(userdata);
         Unit *f = unit_following(u);
 
+        /* The main principle behind context/runtime split is the following:
+         * If it make sense to place a property into a config/unit file it belongs to Context.
+         * Otherwise it's a 'Runtime'. */
+
         return sd_json_buildo(
                         ASSERT_PTR(ret),
                         SD_JSON_BUILD_PAIR_STRING("Type", unit_type_to_string(u->type)),
