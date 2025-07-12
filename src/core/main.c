@@ -1591,23 +1591,6 @@ static int fixup_environment(void) {
         return 0;
 }
 
-static void redirect_telinit(int argc, char *argv[]) {
-
-        /* This is compatibility support for SysV, where calling init as a user is identical to telinit. */
-
-#if HAVE_SYSV_COMPAT
-        if (getpid_cached() == 1)
-                return;
-
-        if (!invoked_as(argv, "init"))
-                return;
-
-        execv(SYSTEMCTL_BINARY_PATH, argv);
-        log_error_errno(errno, "Failed to execute %s: %m", SYSTEMCTL_BINARY_PATH);
-        exit(EXIT_FAILURE);
-#endif
-}
-
 static int become_shutdown(int objective, int retval) {
         static const char* const table[_MANAGER_OBJECTIVE_MAX] = {
                 [MANAGER_EXIT]     = "exit",
@@ -3040,9 +3023,6 @@ int main(int argc, char *argv[]) {
         FDSet *fds = NULL;
 
         assert_se(argc > 0 && !isempty(argv[0]));
-
-        /* SysV compatibility: redirect init → telinit */
-        redirect_telinit(argc, argv);
 
         /* Take timestamps early on */
         dual_timestamp_from_monotonic(&kernel_timestamp, 0);
