@@ -1566,6 +1566,7 @@ static int verb_components(int argc, char **argv, void *userdata) {
                 for (;;) {
                         _cleanup_free_ char *n = NULL;
                         struct dirent *de;
+                        struct stat st;
                         const char *e, *a;
 
                         de = readdir_ensure_type(d);
@@ -1576,7 +1577,17 @@ static int verb_components(int argc, char **argv, void *userdata) {
                                 break;
                         }
 
-                        if (de->d_type != DT_DIR)
+                        if (de->d_type == DT_LNK) {
+                                if (fstatat(dirfd(d), de->d_name, &st, AT_NO_AUTOMOUNT) < 0) {
+                                        if (errno == ENOENT) /* Gone by now? */
+                                                continue;
+
+                                        return log_error_errno(errno, "Failed to stat %s/%s: %m", p, de->d_name);
+                                }
+
+                                if (!(S_ISDIR(st.st_mode)))
+                                    continue;
+                        } else if (de->d_type != DT_DIR)
                                 continue;
 
                         if (dot_or_dot_dot(de->d_name))
