@@ -3950,7 +3950,11 @@ bool unit_invalidate_cgroup(Unit *u, CGroupMask m) {
         if (!crt)
                 return false;
 
-        if (FLAGS_SET(crt->cgroup_invalidated_mask, m)) /* NOP? */
+        /* If all controllers shall be invalidated, let's unconditionally submit the unit to realize queue.
+         * We initialize the field to _CGROUP_MASK_ALL after all, and semantically it makes sense to use
+         * it as a special signal to forcibly re-realize cgroup. */
+        if (m != _CGROUP_MASK_ALL &&
+            FLAGS_SET(crt->cgroup_invalidated_mask, m)) /* NOP? */
                 return false;
 
         crt->cgroup_invalidated_mask |= m;
