@@ -63,6 +63,32 @@
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-quotacheck</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>quotacheck.mode</varname></term>
+
+        <listitem>
+          <para>The contents of the credential is parsed as same as the kernel command line option with the
+          same name. See above for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-quotacheck@.service</filename> and
+    <filename>systemd-quotacheck-root.service</filename> unit files are set up to inherit
+    <varname>quotacheck.mode</varname> credential from the service manager.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

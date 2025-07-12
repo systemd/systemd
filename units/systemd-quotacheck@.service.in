@@ -25,3 +25,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-quotacheck %f
 TimeoutSec=infinity
+ImportCredential=quotacheck.*
