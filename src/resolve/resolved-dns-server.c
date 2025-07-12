@@ -482,7 +482,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
 
 #if ENABLE_DNS_OVER_HTTPS                
-                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_HTTPS_NO ?
+                best = dns_server_get_dns_over_https_mode(s) == DNS_OVER_HTTPS_NO ?
                         DNS_SERVER_FEATURE_LEVEL_EDNS0 :
                         DNS_SERVER_FEATURE_LEVEL_HTTPS_PLAIN;
 #endif
