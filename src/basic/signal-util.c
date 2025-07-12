@@ -5,6 +5,7 @@
 
 #include "errno-util.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -318,4 +319,16 @@ int parse_signo(const char *s, int *ret) {
                 *ret = sig;
 
         return 0;
+}
+
+void sigterm_process_group_handler(int signal, siginfo_t *info, void *ucontext) {
+        assert(signal == SIGTERM);
+        assert(info);
+
+        /* If the sender is not us, propagate the signal to all processes in
+         * the same process group */
+        if (si_code_from_process(info->si_code) &&
+            pid_is_valid(info->si_pid) &&
+            info->si_pid != getpid_cached())
+                (void) kill(0, signal);
 }

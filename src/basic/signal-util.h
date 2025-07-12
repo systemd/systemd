@@ -93,3 +93,5 @@ static inline bool si_code_from_process(int si_code) {
 
         return si_code < 0 || IN_SET(si_code, SI_USER, SI_QUEUE);
 }
+
+void sigterm_process_group_handler(int signal, siginfo_t *info, void *ucontext);
