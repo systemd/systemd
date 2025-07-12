@@ -135,3 +135,14 @@ void shim_retain_protocol(void) {
          * Requires Shim 15.8. */
         (void) efivar_set_raw(MAKE_GUID_PTR(SHIM_LOCK), u"ShimRetainProtocol", &value, sizeof(value), 0);
 }
+
+void shim_mark_as_participating(void) {
+        EFI_STATUS err;
+        struct ShimLock *shim_lock;
+
+        err = BS->LocateProtocol(MAKE_GUID_PTR(SHIM_LOCK), NULL, (void **) &shim_lock);
+        if (err != EFI_SUCCESS)
+                return ;
+
+        shim_lock->shim_verify(NULL, 0);
+}
