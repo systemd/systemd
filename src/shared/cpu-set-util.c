@@ -97,9 +97,11 @@ char* cpu_set_to_mask_string(const CPUSet *c) {
         for (size_t i = c->allocated * 8; i > 0; ) {
                 uint32_t m = 0;
 
-                for (int j = (i % 32 ?: 32) - 1; j >= 0; j--)
-                        if (CPU_ISSET_S(--i, c->allocated, c->set))
+                for (int j = (i % 32 ?: 32) - 1; j >= 0; j--) {
+                        i--;
+                        if (CPU_ISSET_S(i, c->allocated, c->set))
                                 SET_BIT(m, j);
+                }
 
                 if (!found_nonzero) {
                         if (m == 0)
