@@ -128,6 +128,10 @@ Deprecations and removals:
 
 Features:
 
+* Split vconsole-setup in two, of which the second is started via udev (instead
+  of the "restart" job it currently fires). That way, boot becomes purely
+  positive again, and we can nicely order the two against each other.
+
 * Add ELF section to make systemd main binary recognizable cleanly, the same
   way as we make sd-boot recognizable via PE section.
 
