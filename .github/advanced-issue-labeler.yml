@@ -121,9 +121,6 @@ policy:
           - name: sysusers
             keys: ['systemd-sysusers']
 
-          - name: sysv
-            keys: ['systemd-sysv-generator']
-
           - name: tests
             keys: ['tests']
 

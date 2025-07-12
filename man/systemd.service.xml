@@ -50,12 +50,6 @@
     which configure resource control settings for the processes of the
     service.</para>
 
-    <para>If SysV init compat is enabled, systemd automatically creates service units that wrap SysV init
-    scripts (the service name is the same as the name of the script, with a <literal>.service</literal>
-    suffix added); see
-    <citerefentry><refentrytitle>systemd-sysv-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    </para>
-
     <para>The <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     command allows creating <filename>.service</filename> and <filename>.scope</filename> units dynamically
     and transiently from the command line.</para>

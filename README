@@ -435,17 +435,6 @@ GLIBC NSS:
                 gshadow: files systemd
                 hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns
 
-SYSV INIT.D SCRIPTS:
-        When calling "systemctl enable/disable/is-enabled" on a unit which is a
-        SysV init.d script, it calls /usr/lib/systemd/systemd-sysv-install;
-        this needs to translate the action into the distribution specific
-        mechanism such as chkconfig or update-rc.d. Packagers need to provide
-        this script if you need this functionality (you don't if you disabled
-        SysV init support).
-
-        Please see src/systemctl/systemd-sysv-install.SKELETON for how this
-        needs to look like, and provide an implementation at the marked places.
-
 WARNINGS and TAINT FLAGS:
         systemd requires that the /run mount point exists. systemd also
         requires that /var/run is a symlink to /run. Taint flag 'var-run-bad'
