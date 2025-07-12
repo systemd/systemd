@@ -4755,7 +4755,7 @@ static int operation_to_signal(
 
         case KILL_TERMINATE:
         case KILL_TERMINATE_AND_LOG:
-                *ret_noteworthy = false;
+                *ret_noteworthy = k == KILL_TERMINATE_AND_LOG;
                 return c->kill_signal;
 
         case KILL_RESTART:
