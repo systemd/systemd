@@ -344,6 +344,7 @@ conf.set10('ENABLE_FIRST_BOOT_FULL_PRESET',                   get_option('first-
 cc = meson.get_compiler('c')
 userspace_c_args = []
 userspace_c_ld_args = []
+userspace_sources = []
 meson_build_sh = find_program('tools/meson-build.sh')
 
 want_tests = get_option('tests')
@@ -1963,9 +1964,7 @@ endif
 
 #####################################################################
 
-if get_option('b_coverage')
-        userspace_c_args += ['-include', 'coverage.h']
-endif
+subdir('src/coverage')
 
 #####################################################################
 
@@ -1980,7 +1979,7 @@ jinja2_cmdline = [meson_render_jinja2, config_h]
 userspace = declare_dependency(
         compile_args : userspace_c_args,
         link_args : userspace_c_ld_args,
-        sources : version_h,
+        sources : userspace_sources,
 )
 
 man_page_depends = []

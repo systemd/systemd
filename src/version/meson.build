@@ -13,3 +13,4 @@ version_h = custom_target('version',
                 vcs_tag ? '1' : '0',
         ])
 version_include = include_directories('.')
+userspace_sources += [version_h]
