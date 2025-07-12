@@ -28,12 +28,28 @@
 #include "socket-util.h"
 #include "special.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 
-static bool arg_skip = false;
-static bool arg_force = false;
+typedef enum FSCKMode {
+        FSCK_AUTO,
+        FSCK_FORCE,
+        FSCK_SKIP,
+        _FSCK_MODE_MAX,
+        _FSCK_MODE_INVALID = -EINVAL,
+} FSCKMode;
+
+static FSCKMode arg_mode = FSCK_AUTO;
 static const char *arg_repair = "-a";
+
+static const char * const fsck_mode_table[_FSCK_MODE_MAX] = {
+        [FSCK_AUTO]  = "auto",
+        [FSCK_FORCE] = "force",
+        [FSCK_SKIP]  = "skip",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(fsck_mode, FSCKMode);
 
 static void start_target(const char *target, const char *mode) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -58,6 +74,27 @@ static void start_target(const char *target, const char *mode) {
                 log_error("Failed to start unit: %s", bus_error_message(&error, r));
 }
 
+static int parse_fsck_repair(const char *value) {
+        int r;
+
+        assert(value);
+
+        if (streq(value, "preen")) {
+                arg_repair = "-a";
+                return 0;
+        }
+
+        r = parse_boolean(value);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                arg_repair = "-y";
+        else
+                arg_repair = "-n";
+
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -68,38 +105,25 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (streq(value, "auto"))
-                        arg_force = arg_skip = false;
-                else if (streq(value, "force"))
-                        arg_force = true;
-                else if (streq(value, "skip"))
-                        arg_skip = true;
-                else
-                        log_warning("Invalid fsck.mode= parameter '%s'. Ignoring.", value);
+                arg_mode = fsck_mode_from_string(value);
+                if (arg_mode < 0)
+                        log_warning_errno(arg_mode, "Invalid fsck.mode= parameter, ignoring: %s", value);
 
         } else if (streq(key, "fsck.repair")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (streq(value, "preen"))
-                        arg_repair = "-a";
-                else {
-                        r = parse_boolean(value);
-                        if (r > 0)
-                                arg_repair = "-y";
-                        else if (r == 0)
-                                arg_repair = "-n";
-                        else
-                                log_warning("Invalid fsck.repair= parameter '%s'. Ignoring.", value);
-                }
+                r = parse_fsck_repair(value);
+                if (r < 0)
+                        log_warning_errno(r, "Invalid fsck.repair= parameter, ignoring: %s", value);
         }
 
         else if (streq(key, "fastboot") && !value)
-                arg_skip = true;
+                arg_mode = FSCK_SKIP;
 
         else if (streq(key, "forcefsck") && !value)
-                arg_force = true;
+                arg_mode = FSCK_FORCE;
 
         return 0;
 }
@@ -233,7 +257,7 @@ static int run(int argc, char *argv[]) {
 
         bool show_progress = access("/run/systemd/show-status", F_OK) >= 0;
 
-        if (!arg_force && arg_skip)
+        if (arg_mode == FSCK_SKIP)
                 return 0;
 
         if (argc > 1) {
@@ -341,7 +365,7 @@ static int run(int argc, char *argv[]) {
                         dash_c[0] = 0;
 
                 cmdline[i++] = "fsck";
-                cmdline[i++] =  arg_repair;
+                cmdline[i++] = arg_repair;
                 cmdline[i++] = "-T";
 
                 /*
@@ -354,7 +378,7 @@ static int run(int argc, char *argv[]) {
                 if (!root_directory)
                         cmdline[i++] = "-M";
 
-                if (arg_force)
+                if (arg_mode == FSCK_FORCE)
                         cmdline[i++] = "-f";
 
                 if (!isempty(dash_c))
