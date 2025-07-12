@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-with_runlevels = conf.get('HAVE_SYSV_COMPAT') == 1
-
 units = [
         { 'file' : 'basic.target' },
         { 'file' : 'blockdev@.target' },
@@ -51,7 +49,7 @@ units = [
         },
         {
           'file' : 'graphical.target',
-          'symlinks' : ['default.target'] + (with_runlevels ? ['runlevel5.target'] : []),
+          'symlinks' : ['default.target'],
         },
         { 'file' : 'halt.target' },
         {
@@ -144,20 +142,14 @@ units = [
           'conditions' : ['ENABLE_MACHINED'],
         },
         { 'file' : 'modprobe@.service' },
-        {
-          'file' : 'multi-user.target',
-          'symlinks' : with_runlevels ? ['runlevel2.target', 'runlevel3.target', 'runlevel4.target'] : [],
-        },
+        { 'file' : 'multi-user.target' },
         { 'file' : 'network-online.target' },
         { 'file' : 'network-pre.target' },
         { 'file' : 'network.target' },
         { 'file' : 'nss-lookup.target' },
         { 'file' : 'nss-user-lookup.target' },
         { 'file' : 'paths.target' },
-        {
-          'file' : 'poweroff.target',
-          'symlinks' : with_runlevels ? ['runlevel0.target'] : [],
-        },
+        { 'file' : 'poweroff.target' },
         { 'file' : 'printer.target' },
         {
           'file' : 'proc-sys-fs-binfmt_misc.automount',
@@ -182,7 +174,7 @@ units = [
         },
         {
           'file' : 'reboot.target',
-          'symlinks' : ['ctrl-alt-del.target'] + (with_runlevels ? ['runlevel6.target'] : []),
+          'symlinks' : ['ctrl-alt-del.target'],
         },
         {
           'file' : 'remote-cryptsetup.target',
@@ -202,10 +194,7 @@ units = [
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         { 'file' : 'rescue.service.in' },
-        {
-          'file' : 'rescue.target',
-          'symlinks' : with_runlevels ? ['runlevel1.target'] : [],
-        },
+        { 'file' : 'rescue.target' },
         { 'file' : 'rpcbind.target' },
         { 'file' : 'serial-getty@.service.in' },
         { 'file' : 'shutdown.target' },
@@ -411,15 +400,6 @@ units = [
           'file' : 'imports.target',
           'conditions' : ['ENABLE_IMPORTD'],
           'symlinks' : ['sysinit.target.wants/'],
-        },
-        {
-          'file' : 'systemd-initctl.service.in',
-          'conditions' : ['HAVE_SYSV_COMPAT'],
-        },
-        {
-          'file' : 'systemd-initctl.socket',
-          'conditions' : ['HAVE_SYSV_COMPAT'],
-          'symlinks' : ['sockets.target.wants/'],
         },
         {
           'file' : 'systemd-journal-catalog-update.service',
@@ -828,11 +808,6 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
-          'file' : 'systemd-update-utmp-runlevel.service.in',
-          'conditions' : ['ENABLE_UTMP', 'HAVE_SYSV_COMPAT'],
-          'symlinks' : ['multi-user.target.wants/', 'graphical.target.wants/', 'rescue.target.wants/'],
-        },
-        {
           'file' : 'systemd-update-utmp.service.in',
           'conditions' : ['ENABLE_UTMP'],
           'symlinks' : ['sysinit.target.wants/'],
@@ -995,12 +970,6 @@ else
         meson.add_install_script(sh, '-c',
                 ln_s.format(dbussystemservicedir / 'org.freedesktop.systemd1.service',
                             dbussessionservicedir / 'org.freedesktop.systemd1.service'))
-endif
-
-if conf.get('HAVE_SYSV_COMPAT') == 1
-        foreach i : [1, 2, 3, 4, 5]
-                install_emptydir(systemunitdir / 'runlevel@0@.target.wants'.format(i))
-        endforeach
 endif
 
 subdir('user')

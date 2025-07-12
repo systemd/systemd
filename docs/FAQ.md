@@ -11,13 +11,7 @@ Also check out the [Tips & Tricks](/TIPS_AND_TRICKS)!
 
 **Q: How do I change the current runlevel?**
 
-A: In systemd runlevels are exposed via "target units". You can change them like this:
-
-```sh
-# systemctl isolate runlevel5.target
-```
-
-Note however, that the concept of runlevels is a bit out of date, and it is usually nicer to use modern names for this. e.g.:
+A: The concept of runlevels is obsolete. A set of target units are exposed that carry similar semantics, e.g. runlevel 5 -> `graphical.target`:
 
 ```sh
 # systemctl isolate graphical.target
@@ -46,8 +40,6 @@ A: Note that there might be more than one target active at the same time. So the
 ```sh
 $ systemctl list-units --type=target
 ```
-
-If you are just interested in a single number, you can use the venerable _runlevel_ command, but again, its output might be misleading.
 
 **Q: I want to change a service file, but rpm keeps overwriting it in /usr/lib/systemd/system all the time, how should I handle this?**
 

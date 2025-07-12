@@ -73,10 +73,6 @@
     <filename>remote-fs.target</filename>,
     <filename>rescue.target</filename>,
     <filename>rpcbind.target</filename>,
-    <filename>runlevel2.target</filename>,
-    <filename>runlevel3.target</filename>,
-    <filename>runlevel4.target</filename>,
-    <filename>runlevel5.target</filename>,
     <filename>shutdown.target</filename>,
     <filename>sigpwr.target</filename>,
     <filename>sleep.target</filename>,
@@ -627,9 +623,6 @@
             <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
             <command>org.freedesktop.login1.Manager.PowerOff</command> D-Bus method
             directly.</para>
-
-            <para><filename>runlevel0.target</filename> is an alias for
-            this target unit, for compatibility with SysV.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -646,9 +639,6 @@
             <para>See
             <citerefentry><refentrytitle>systemd-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             for further details of the operation this target pulls in.</para>
-
-            <para><filename>runlevel6.target</filename> is an alias for this target unit, for compatibility
-            with SysV.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -707,26 +697,9 @@
             <filename>multi-user.target</filename>, this target could be seen as
             <filename>single-user.target</filename>.</para>
 
-            <para><filename>runlevel1.target</filename> is an alias for this target unit, for
-            compatibility with SysV.</para>
-
             <para>Use the <literal>systemd.unit=rescue.target</literal> kernel command line option
             to boot into this mode. A short alias for this kernel command line option is
             <literal>1</literal>, for compatibility with SysV.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><filename>runlevel2.target</filename></term>
-          <term><filename>runlevel3.target</filename></term>
-          <term><filename>runlevel4.target</filename></term>
-          <term><filename>runlevel5.target</filename></term>
-          <listitem>
-            <para>These are targets that are called whenever the SysV
-            compatibility code asks for runlevel 2, 3, 4, 5,
-            respectively. It is a good idea to make this an alias for
-            (i.e. symlink to) <filename>graphical.target</filename>
-            (for runlevel 5) or <filename>multi-user.target</filename>
-            (the others).</para>
           </listitem>
         </varlistentry>
         <varlistentry>

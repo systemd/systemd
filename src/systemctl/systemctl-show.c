@@ -48,7 +48,6 @@
 #include "systemctl.h"
 #include "systemctl-list-machines.h"
 #include "systemctl-show.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
 #include "terminal-util.h"
 #include "utf8.h"

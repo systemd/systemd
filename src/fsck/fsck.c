@@ -33,7 +33,6 @@
 
 static bool arg_skip = false;
 static bool arg_force = false;
-static bool arg_show_progress = false;
 static const char *arg_repair = "-a";
 
 static void start_target(const char *target, const char *mode) {
@@ -103,23 +102,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_force = true;
 
         return 0;
-}
-
-static void test_files(void) {
-
-#if HAVE_SYSV_COMPAT
-        if (access("/fastboot", F_OK) >= 0) {
-                log_error("Please pass 'fsck.mode=skip' on the kernel command line rather than creating /fastboot on the root file system.");
-                arg_skip = true;
-        }
-
-        if (access("/forcefsck", F_OK) >= 0) {
-                log_error("Please pass 'fsck.mode=force' on the kernel command line rather than creating /forcefsck on the root file system.");
-                arg_force = true;
-        }
-#endif
-
-        arg_show_progress = access("/run/systemd/show-status", F_OK) >= 0;
 }
 
 static double percent(int pass, unsigned long cur, unsigned long max) {
@@ -249,7 +231,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        test_files();
+        bool show_progress = access("/run/systemd/show-status", F_OK) >= 0;
 
         if (!arg_force && arg_skip)
                 return 0;
@@ -328,7 +310,7 @@ static int run(int argc, char *argv[]) {
 
         console = fopen("/dev/console", "we");
         if (console &&
-            arg_show_progress &&
+            show_progress &&
             pipe(progress_pipe) < 0)
                 return log_error_errno(errno, "pipe(): %m");
 
