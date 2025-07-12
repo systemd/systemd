@@ -29,6 +29,7 @@ typedef struct Context {
         bool has_cursor;
         bool need_seek;
         bool since_seeked;
+        bool until_safe;
         bool ellipsized;
         bool previous_boot_id_valid;
         sd_id128_t previous_boot_id;
@@ -117,10 +118,15 @@ static int seek_journal(Context *c) {
                                 return log_error_errno(r, "Failed to seek to tail: %m");
                 }
 
-                if (arg_reverse)
+                if (arg_reverse) {
                         r = sd_journal_previous(j);
-                else /* arg_lines_needs_seek_end */
+                        c->until_safe = true; /* can't possibly go beyond --until= if --reverse */
+
+                } else { /* arg_lines_needs_seek_end */
                         r = sd_journal_previous_skip(j, arg_lines);
+                        c->until_safe = r >= arg_lines; /* We have enough lines to output before --until= is hit.
+                                                           No need to check timestamp of each journal entry */
+                }
 
         } else if (arg_since_set) {
                 /* This is placed after arg_reverse and arg_lines. If --since is used without
@@ -174,11 +180,10 @@ static int show(Context *c) {
                                 break;
                 }
 
-                if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set || c->has_cursor)) {
+                if (arg_until_set && !c->until_safe) {
                         /* If --lines= is set, we usually rely on the n_shown to tell us when to stop.
-                         * However, if --since= or one of the cursor argument is set too, we may end up
-                         * having less than --lines= to output. In this case let's also check if the entry
-                         * is in range. */
+                         * However, in the case where we may have less than --lines= to output let's check
+                         * whether the individual entries are in range. */
 
                         usec_t usec;
 
@@ -206,6 +211,11 @@ static int show(Context *c) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to seek to date: %m");
                                 c->since_seeked = true;
+
+                                /* We just jumped forward, meaning there might suddenly be less than
+                                 * --lines= to show within the --until= range, hence keep a close eye on
+                                 * timestamps from now on. */
+                                c->until_safe = false;
 
                                 c->need_seek = true;
                                 continue;
@@ -235,6 +245,12 @@ static int show(Context *c) {
                         r = sd_journal_get_data(j, "MESSAGE", &message, &len);
                         if (r < 0) {
                                 if (r == -ENOENT) {
+                                        /* We will skip some entries forward, meaning there might suddenly
+                                         * be less than --lines= to show within the --until= range, hence
+                                         * keep a close eye on timestamps from now on. */
+                                        if (!arg_reverse)
+                                                c->until_safe = false;
+
                                         c->need_seek = true;
                                         continue;
                                 }
@@ -249,6 +265,12 @@ static int show(Context *c) {
                         if (r < 0)
                                 return r;
                         if (r == 0) {
+                                /* We will skip some entries forward, meaning there might suddenly
+                                 * be less than --lines= to show within the --until= range, hence
+                                 * keep a close eye on timestamps from now on. */
+                                if (!arg_reverse)
+                                        c->until_safe = false;
+
                                 c->need_seek = true;
                                 continue;
                         }
