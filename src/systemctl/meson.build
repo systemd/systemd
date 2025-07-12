@@ -32,9 +32,7 @@ systemctl_sources = files(
 )
 systemctl_extract_sources = files(
         'systemctl-compat-halt.c',
-        'systemctl-compat-runlevel.c',
         'systemctl-compat-shutdown.c',
-        'systemctl-compat-telinit.c',
         'systemctl-daemon-reload.c',
         'systemctl-logind.c',
         'systemctl-start-unit.c',
@@ -74,8 +72,7 @@ executables += [
         },
 ]
 
-foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
-                 (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
+foreach alias : ['halt', 'poweroff', 'reboot', 'shutdown']
         install_symlink(alias,
                         pointing_to : sbin_to_bin + 'systemctl',
                         install_dir : sbindir)
