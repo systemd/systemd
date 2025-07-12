@@ -174,12 +174,7 @@ static int show(Context *c) {
                                 break;
                 }
 
-                if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set || c->has_cursor)) {
-                        /* If --lines= is set, we usually rely on the n_shown to tell us when to stop.
-                         * However, if --since= or one of the cursor argument is set too, we may end up
-                         * having less than --lines= to output. In this case let's also check if the entry
-                         * is in range. */
-
+                if (arg_until_set && !arg_reverse) {
                         usec_t usec;
 
                         r = sd_journal_get_realtime_usec(j, &usec);
