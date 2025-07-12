@@ -1422,7 +1422,18 @@ testcase_unpriv_dir() {
     # Use an image owned by the foreign UID range first via direct mapping, and than via the managed uid logic
     systemd-dissect --shift "$root" foreign
     assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=pick --private-users-ownership=foreign bash -c 'echo foobar')" "foobar"
-    assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=managed --private-network bash -c 'echo foobar')" "foobar"
+    # FIXME:
+    # Since 90fa161b5ba29d58953e9f08ddca49121b51efe6, --bind= or Bind= settings for coverage directory does
+    # not work with managed mode:
+    # ========
+    # [  158.105361] systemd-nspawn[3718]: Failed to open tree and set mount attributes: Operation not permitted
+    # [  158.105364] systemd-nspawn[3718]: Failed to clone /coverage: Operation not permitted
+    # [  158.118655] systemd-nspawn[3707]: (sd-namespace) failed with exit status 1.
+    # ========
+    # Let's tentatively skip the test case when running on coverage.
+    if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
+        assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=managed --private-network bash -c 'echo foobar')" "foobar"
+    fi
 
     # Test unprivileged operation
     chown testuser:testuser "$root/.."
