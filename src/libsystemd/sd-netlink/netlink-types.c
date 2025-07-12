@@ -43,7 +43,7 @@ const NLAPolicySet *policy_get_policy_set(const NLAPolicy *policy) {
 
 const NLAPolicySetUnion *policy_get_policy_set_union(const NLAPolicy *policy) {
         assert(policy);
-        assert(IN_SET(policy->type, NETLINK_TYPE_NESTED_UNION_BY_STRING, NETLINK_TYPE_NESTED_UNION_BY_FAMILY));
+        assert(IN_SET(policy->type, NETLINK_TYPE_NESTED_UNION_BY_STRING, NETLINK_TYPE_NESTED_UNION_BY_U8, NETLINK_TYPE_NESTED_UNION_BY_FAMILY));
 
         return ASSERT_PTR(policy->policy_set_union);
 }
@@ -141,6 +141,18 @@ const NLAPolicySet *policy_set_union_get_policy_set_by_string(const NLAPolicySet
         for (size_t i = 0; i < policy_set_union->count; i++)
                 if (streq(policy_set_union->elements[i].string, string))
                         return &policy_set_union->elements[i].policy_set;
+
+        return NULL;
+}
+
+const NLAPolicySet *policy_set_union_get_policy_set_by_u8(const NLAPolicySetUnion *policy_set_union, uint8_t val) {
+        assert(policy_set_union);
+        assert(policy_set_union->elements);
+
+        for (size_t i = 0; i < policy_set_union->count; i++) {
+                if (policy_set_union->elements[i].u8_val == val)
+                        return &policy_set_union->elements[i].policy_set;
+        }
 
         return NULL;
 }
