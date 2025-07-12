@@ -133,7 +133,9 @@ int pidref_set_pid_and_pidfd_id(
                 return r;
 
         if (pidfd_id > 0) {
-                pidref_acquire_pidfd_id(&n);
+                r = pidref_acquire_pidfd_id(&n);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return r;
 
                 if (n.fd_id != pidfd_id)
                         return -ESRCH;
