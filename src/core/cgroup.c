@@ -4398,6 +4398,8 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to set cgroup path %s, ignoring: %m", value);
 
+                (void) unit_watch_cgroup(u);
+                (void) unit_watch_cgroup_memory(u);
                 return 1;
         }
 
