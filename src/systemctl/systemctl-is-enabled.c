@@ -12,7 +12,6 @@
 #include "strv.h"
 #include "systemctl.h"
 #include "systemctl-is-enabled.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
 
 static int show_installation_targets_client_side(const char *name) {
@@ -68,19 +67,12 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
 
 int verb_is_enabled(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
-        bool not_found, enabled;
+        bool not_found = true, enabled = false;
         int r;
 
         r = mangle_names("to check", strv_skip(argv, 1), &names);
         if (r < 0)
                 return r;
-
-        r = enable_sysv_units(argv[0], names);
-        if (r < 0)
-                return r;
-
-        not_found = r == 0; /* Doesn't have SysV support or SYSV_UNIT_NOT_FOUND */
-        enabled = r == SYSV_UNIT_ENABLED;
 
         if (install_client_side()) {
                 STRV_FOREACH(name, names) {

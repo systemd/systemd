@@ -139,6 +139,21 @@ CHANGES WITH 258 in spe:
         * The command 'journalctl --follow' now exits with success on
           SIGTERM/SIGINT, or its pipe STDOUT is disconnected.
 
+        * Support for System V style system state control has been removed:
+          - The /dev/initctl device node has been removed.
+          - The initctl, runlevel and telinit commands have been removed.
+          - Support for system state control via the init command (e.g.
+            'init 3') has been removed.
+          - The units runlevel[0-6].target have been removed.
+          - The concept of runlevels has been removed, so runlevel transitions
+            are no longer recorded in the utmp/wtmp databases.
+
+        * Support for traditional /forcefsck and /fastboot files to control fsck
+          on boot has been removed from systemd-fsck. Similarly, support for
+          /forcequotacheck file to control quotacheck on boot has been removed
+          from systemd-quotacheck. To control the execution mode of them at boot
+          time, please use the kernel command line options of the same names.
+
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
