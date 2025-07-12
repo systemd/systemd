@@ -111,6 +111,34 @@
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-fsck</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>fsck.mode</varname></term>
+        <term><varname>fsck.repair</varname></term>
+
+        <listitem>
+          <para>The contents of the credentials are parsed as same as the kernel command line options with
+          the same name. See above for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-fsck@.service</filename>,
+    <filename>systemd-fsck-root.service</filename>, and <filename>systemd-fsck-usr.service</filename> unit
+    files are set up to inherit both <varname>fsck.mode</varname> and <varname>fsck.repair</varname>
+    credentials from the service manager.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

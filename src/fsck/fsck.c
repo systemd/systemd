@@ -16,6 +16,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
+#include "creds-util.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -126,6 +127,31 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_mode = FSCK_FORCE;
 
         return 0;
+}
+
+static void parse_credentials(void) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        r = read_credential("fsck.mode", (void**) &value, /* ret_size = */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential 'fsck.mode', ignoring: %m");
+        else {
+                arg_mode = fsck_mode_from_string(value);
+                if (arg_mode < 0)
+                        log_warning_errno(arg_mode, "Invalid 'fsck.mode' credential, ignoring: %s", value);
+        }
+
+        value = mfree(value);
+
+        r = read_credential("fsck.repair", (void**) &value, /* ret_size = */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential 'fsck.repair', ignoring: %m");
+        else {
+                r = parse_fsck_repair(value);
+                if (r < 0)
+                        log_warning_errno(r, "Invalid 'fsck.repair' credential, ignoring: %s", value);
+        }
 }
 
 static double percent(int pass, unsigned long cur, unsigned long max) {
@@ -254,6 +280,8 @@ static int run(int argc, char *argv[]) {
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+
+        parse_credentials();
 
         bool show_progress = access("/run/systemd/show-status", F_OK) >= 0;
 
