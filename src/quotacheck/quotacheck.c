@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "creds-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "proc-cmdline.h"
@@ -45,6 +46,20 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+static void parse_credentials(void) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        r = read_credential("quotacheck.mode", (void**) &value, /* ret_size = */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential 'quotacheck.mode', ignoring: %m");
+        else {
+                arg_mode = quota_check_mode_from_string(value);
+                if (arg_mode < 0)
+                        log_warning_errno(arg_mode, "Invalid 'quotacheck.mode' credential, ignoring: %s", value);
+        }
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -59,6 +74,8 @@ static int run(int argc, char *argv[]) {
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+
+        parse_credentials();
 
         if (arg_mode == QUOTA_CHECK_SKIP)
                 return 0;
