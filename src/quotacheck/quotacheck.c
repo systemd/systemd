@@ -7,14 +7,10 @@
 #include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "static-destruct.h"
 #include "string-util.h"
 
-static char *arg_path = NULL;
 static bool arg_skip = false;
 static bool arg_force = false;
-
-STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
@@ -68,9 +64,10 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
+        _cleanup_free_ char *path = NULL;
         if (argc == 2) {
-                arg_path = strdup(argv[1]);
-                if (!arg_path)
+                path = strdup(argv[1]);
+                if (!path)
                         return log_oom();
         }
 
@@ -80,8 +77,8 @@ static int run(int argc, char *argv[]) {
         if (r == 0) {
                 const char *cmdline[] = {
                         QUOTACHECK,
-                        arg_path ? "-nug" : "-anug", /* Check all file systems if path isn't specified */
-                        arg_path,
+                        path ? "-nug" : "-anug", /* Check all file systems if path isn't specified */
+                        path,
                         NULL
                 };
 
