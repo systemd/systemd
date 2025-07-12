@@ -3,37 +3,39 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-quotacheck.service" conditional='ENABLE_QUOTACHECK'
+<refentry id="systemd-quotacheck_.service" conditional='ENABLE_QUOTACHECK'
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
-    <title>systemd-quotacheck.service</title>
+    <title>systemd-quotacheck@.service</title>
     <productname>systemd</productname>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-quotacheck.service</refentrytitle>
+    <refentrytitle>systemd-quotacheck@.service</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-quotacheck.service</refname>
+    <refname>systemd-quotacheck@.service</refname>
+    <refname>systemd-quotacheck-root.service</refname>
     <refname>systemd-quotacheck</refname>
     <refpurpose>File system quota checker logic</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-quotacheck.service</filename></para>
+    <para><filename>systemd-quotacheck@.service</filename></para>
+    <para><filename>systemd-quotacheck-root.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-quotacheck</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-quotacheck.service</filename> is a service
-    responsible for file system quota checks. It is run once at boot
-    after all necessary file systems are mounted. It is pulled in only
-    if at least one file system has quotas enabled.</para>
+    <para><filename>systemd-quotacheck@.service</filename> and
+    <filename>systemd-quotacheck-root.service</filename> are services responsible for file system quota
+    checks. They run once at boot after all necessary file systems are mounted. They are pulled in only if at
+    least one file system has quotas enabled.</para>
   </refsect1>
 
   <refsect1>
