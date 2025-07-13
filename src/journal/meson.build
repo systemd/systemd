@@ -6,6 +6,7 @@ systemd_journald_sources = files(
 systemd_journald_extract_sources = files(
         'journald-audit.c',
         'journald-client.c',
+        'journald-config.c',
         'journald-console.c',
         'journald-context.c',
         'journald-kmsg.c',
