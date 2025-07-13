@@ -13,7 +13,7 @@
 
 #define _COMPRESS_PARSE_CHECK(str, enab, thresh, varname)               \
         do {                                                            \
-                JournalCompressOptions varname = {true, 111};           \
+                JournalCompressOptions varname = {-222, 111};           \
                 config_parse_compress("", "", 0, "", 0, "", 0, str,     \
                                       &varname, NULL);                  \
                 assert_se((enab) == varname.enabled);                   \
@@ -48,9 +48,9 @@ TEST(config_compress) {
         COMPRESS_PARSE_CHECK("1G", true, 1024 * 1024 * 1024);
 
         /* Invalid Case */
-        COMPRESS_PARSE_CHECK("-1", true, 111);
-        COMPRESS_PARSE_CHECK("blah blah", true, 111);
-        COMPRESS_PARSE_CHECK("", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("-1", -222, 111);
+        COMPRESS_PARSE_CHECK("blah blah", -222, 111);
+        COMPRESS_PARSE_CHECK("", -1, UINT64_MAX);
 }
 
 #define _FORWARD_TO_SOCKET_PARSE_CHECK_FAILS(str, addr, varname)             \
