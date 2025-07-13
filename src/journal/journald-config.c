@@ -448,38 +448,32 @@ int config_parse_line_max(
         size_t *sz = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue))
+        if (isempty(rvalue)) {
                 /* Empty assignment means default */
                 *sz = DEFAULT_LINE_MAX;
-        else {
-                uint64_t v;
-
-                r = parse_size(rvalue, 1024, &v);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse LineMax= value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                if (v < 79) {
-                        /* Why specify 79 here as minimum line length? Simply, because the most common traditional
-                         * terminal size is 80ch, and it might make sense to break one character before the natural
-                         * line break would occur on that. */
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "LineMax= too small, clamping to 79: %s", rvalue);
-                        *sz = 79;
-                } else if (v > (uint64_t) (SSIZE_MAX-1)) {
-                        /* So, why specify SSIZE_MAX-1 here? Because that's one below the largest size value read()
-                         * can return, and we need one extra byte for the trailing NUL byte. Of course IRL such large
-                         * memory allocations will fail anyway, hence this limit is mostly theoretical anyway, as we'll
-                         * fail much earlier anyway. */
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "LineMax= too large, clamping to %" PRIu64 ": %s", (uint64_t) (SSIZE_MAX-1), rvalue);
-                        *sz = SSIZE_MAX-1;
-                } else
-                        *sz = (size_t) v;
+                return 0;
         }
+
+        uint64_t v;
+        r = parse_size(rvalue, 1024, &v);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        if (v < 79) {
+                /* Why specify 79 here as minimum line length? Simply, because the most common traditional
+                 * terminal size is 80ch, and it might make sense to break one character before the natural
+                 * line break would occur on that. */
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "LineMax= too small, clamping to 79: %s", rvalue);
+                *sz = 79;
+        } else if (v > (uint64_t) (SSIZE_MAX-1)) {
+                /* So, why specify SSIZE_MAX-1 here? Because that's one below the largest size value read()
+                 * can return, and we need one extra byte for the trailing NUL byte. Of course IRL such large
+                 * memory allocations will fail anyway, hence this limit is mostly theoretical anyway, as we'll
+                 * fail much earlier anyway. */
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "LineMax= too large, clamping to %" PRIu64 ": %s", (uint64_t) (SSIZE_MAX-1), rvalue);
+                *sz = SSIZE_MAX-1;
+        } else
+                *sz = (size_t) v;
 
         return 0;
 }
@@ -548,20 +542,17 @@ int config_parse_forward_to_socket(
                 void *data,
                 void *userdata) {
 
-        SocketAddress* addr = ASSERT_PTR(data);
+        SocketAddress *addr = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(rvalue);
-
-        if (isempty(rvalue))
-                *addr = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC };
-        else {
-                r = socket_address_parse(addr, rvalue);
-                if (r < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse ForwardToSocket= value, ignoring: %s", rvalue);
+        if (isempty(rvalue)) {
+                *addr = (SocketAddress) {};
+                return 0;
         }
+
+        r = socket_address_parse(addr, rvalue);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }
