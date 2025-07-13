@@ -9,8 +9,9 @@
 #include "bpf-dlopen.h"
 
 /* libbpf is used via dlopen(), so rename symbols */
+#define bpf_object__attach_skeleton sym_bpf_object__attach_skeleton
 #define bpf_object__destroy_skeleton sym_bpf_object__destroy_skeleton
 #define bpf_object__load_skeleton sym_bpf_object__load_skeleton
 #define bpf_object__open_skeleton sym_bpf_object__open_skeleton
 
-#include "bpf/sysctl_monitor/sysctl-monitor.skel.h"
+#include "bpf/userns-restrict/userns-restrict.skel.h"

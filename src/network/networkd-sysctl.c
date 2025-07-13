@@ -29,8 +29,8 @@
 #if HAVE_VMLINUX_H
 
 #include "bpf-link.h"
-#include "bpf/sysctl_monitor/sysctl-monitor-skel.h"
-#include "bpf/sysctl_monitor/sysctl-write-event.h"
+#include "bpf/sysctl-monitor/sysctl-monitor-skel.h"
+#include "bpf/sysctl-monitor/sysctl-write-event.h"
 
 static struct sysctl_monitor_bpf* sysctl_monitor_bpf_free(struct sysctl_monitor_bpf *obj) {
         sysctl_monitor_bpf__destroy(obj);
