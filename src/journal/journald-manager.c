@@ -261,7 +261,7 @@ static void manager_add_acls(JournalFile *f, uid_t uid) {
 }
 
 static JournalFileFlags manager_get_file_flags(Manager *m, bool seal) {
-        return (m->compress.enabled ? JOURNAL_COMPRESS : 0) |
+        return (m->config.compress.enabled ? JOURNAL_COMPRESS : 0) |
                 (seal ? JOURNAL_SEAL : 0) |
                 JOURNAL_STRICT_ORDER;
 }
@@ -293,7 +293,7 @@ static int manager_open_journal(
                                 open_flags,
                                 file_flags,
                                 0640,
-                                m->compress.threshold_bytes,
+                                m->config.compress.threshold_bytes,
                                 metrics,
                                 m->mmap,
                                 &f);
@@ -304,7 +304,7 @@ static int manager_open_journal(
                                 open_flags,
                                 file_flags,
                                 0640,
-                                m->compress.threshold_bytes,
+                                m->config.compress.threshold_bytes,
                                 metrics,
                                 m->mmap,
                                 /* template= */ NULL,
@@ -376,7 +376,7 @@ static int manager_system_journal_open(
                                 /* reliably= */ true,
                                 fn,
                                 O_RDWR|O_CREAT,
-                                m->seal,
+                                m->config.seal,
                                 &m->system_storage.metrics,
                                 &m->system_journal);
                 if (r >= 0) {
@@ -484,7 +484,7 @@ static int manager_find_user_journal(Manager *m, uid_t uid, JournalFile **ret) {
                         /* reliably= */ true,
                         p,
                         O_RDWR|O_CREAT,
-                        m->seal,
+                        m->config.seal,
                         &m->system_storage.metrics,
                         &f);
         if (r < 0)
@@ -556,7 +556,7 @@ static int manager_do_rotate(
         if (!*f)
                 return -EINVAL;
 
-        r = journal_file_rotate(f, m->mmap, manager_get_file_flags(m, seal), m->compress.threshold_bytes, m->deferred_closes);
+        r = journal_file_rotate(f, m->mmap, manager_get_file_flags(m, seal), m->config.compress.threshold_bytes, m->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -666,9 +666,9 @@ static int manager_archive_offline_user_journals(Manager *m) {
                                 fd,
                                 full,
                                 O_RDWR,
-                                manager_get_file_flags(m, m->seal) & ~JOURNAL_STRICT_ORDER, /* strict order does not matter here */
+                                manager_get_file_flags(m, m->config.seal) & ~JOURNAL_STRICT_ORDER, /* strict order does not matter here */
                                 0640,
-                                m->compress.threshold_bytes,
+                                m->config.compress.threshold_bytes,
                                 &m->system_storage.metrics,
                                 m->mmap,
                                 /* template= */ NULL,
@@ -711,11 +711,11 @@ void manager_rotate(Manager *m) {
 
         /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
         (void) manager_do_rotate(m, &m->runtime_journal, "runtime", /* seal= */ false, /* uid= */ 0);
-        (void) manager_do_rotate(m, &m->system_journal, "system", m->seal, /* uid= */ 0);
+        (void) manager_do_rotate(m, &m->system_journal, "system", m->config.seal, /* uid= */ 0);
 
         /* Then, rotate all user journals we have open (keeping them open) */
         ORDERED_HASHMAP_FOREACH_KEY(f, k, m->user_journals) {
-                r = manager_do_rotate(m, &f, "user", m->seal, PTR_TO_UID(k));
+                r = manager_do_rotate(m, &f, "user", m->config.seal, PTR_TO_UID(k));
                 if (r >= 0)
                         ordered_hashmap_replace(m->user_journals, k, f);
                 else if (!f)
@@ -742,12 +742,12 @@ static void manager_rotate_journal(Manager *m, JournalFile *f, uid_t uid) {
          * 💣💣💣 This invalidate 'f', and the caller cannot reuse the passed JournalFile object. 💣💣💣 */
 
         if (f == m->system_journal)
-                (void) manager_do_rotate(m, &m->system_journal, "system", m->seal, /* uid= */ 0);
+                (void) manager_do_rotate(m, &m->system_journal, "system", m->config.seal, /* uid= */ 0);
         else if (f == m->runtime_journal)
                 (void) manager_do_rotate(m, &m->runtime_journal, "runtime", /* seal= */ false, /* uid= */ 0);
         else {
                 assert(ordered_hashmap_get(m->user_journals, UID_TO_PTR(uid)) == f);
-                r = manager_do_rotate(m, &f, "user", m->seal, uid);
+                r = manager_do_rotate(m, &f, "user", m->config.seal, uid);
                 if (r >= 0)
                         ordered_hashmap_replace(m->user_journals, UID_TO_PTR(uid), f);
                 else if (!f)
@@ -796,7 +796,7 @@ static void manager_do_vacuum(Manager *m, JournalStorage *storage, bool verbose)
                 manager_space_usage_message(m, storage);
 
         r = journal_directory_vacuum(storage->path, storage->space.limit,
-                                     storage->metrics.n_max_files, m->max_retention_usec,
+                                     storage->metrics.n_max_files, m->config.max_retention_usec,
                                      &m->oldest_file_usec, verbose);
         if (r < 0 && r != -ENOENT)
                 log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -965,7 +965,7 @@ static void manager_write_to_journal(
         if (!f)
                 return;
 
-        if (journal_file_rotate_suggested(f, m->max_file_usec, LOG_DEBUG)) {
+        if (journal_file_rotate_suggested(f, m->config.max_file_usec, LOG_DEBUG)) {
                 if (vacuumed) {
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Suppressing rotation, as we already rotated immediately before write attempt. Giving up.");
@@ -1175,10 +1175,10 @@ static void manager_dispatch_message_real(
         iovec[n++] = in_initrd() ? IOVEC_MAKE_STRING("_RUNTIME_SCOPE=initrd") : IOVEC_MAKE_STRING("_RUNTIME_SCOPE=system");
         assert(n <= mm);
 
-        if (m->split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
+        if (m->config.split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
                 /* Split up strictly by (non-root) UID */
                 journal_uid = c->uid;
-        else if (m->split_mode == SPLIT_LOGIN && c && c->uid > 0 && uid_is_valid(c->owner_uid))
+        else if (m->config.split_mode == SPLIT_LOGIN && c && c->uid > 0 && uid_is_valid(c->owner_uid))
                 /* Split up by login UIDs.  We do this only if the
                  * realuid is not root, in order not to accidentally
                  * leak privileged information to the user that is
@@ -1879,21 +1879,21 @@ static int manager_schedule_sync(Manager *m, int priority) {
         if (m->sync_scheduled)
                 return 0;
 
-        if (m->sync_interval_usec > 0) {
+        if (m->config.sync_interval_usec > 0) {
 
                 if (!m->sync_event_source) {
                         r = sd_event_add_time_relative(
                                         m->event,
                                         &m->sync_event_source,
                                         CLOCK_MONOTONIC,
-                                        m->sync_interval_usec, 0,
+                                        m->config.sync_interval_usec, 0,
                                         manager_dispatch_sync, m);
                         if (r < 0)
                                 return r;
 
                         r = sd_event_source_set_priority(m->sync_event_source, SD_EVENT_PRIORITY_IMPORTANT);
                 } else {
-                        r = sd_event_source_set_time_relative(m->sync_event_source, m->sync_interval_usec);
+                        r = sd_event_source_set_time_relative(m->sync_event_source, m->config.sync_interval_usec);
                         if (r < 0)
                                 return r;
 
@@ -2123,7 +2123,7 @@ static bool manager_is_idle(Manager *m) {
 
         /* If a retention maximum is set larger than the idle time we need to be running to enforce it, hence
          * turn off the idle logic. */
-        if (m->max_retention_usec > IDLE_TIMEOUT_USEC)
+        if (m->config.max_retention_usec > IDLE_TIMEOUT_USEC)
                 return false;
 
         /* We aren't idle if we have a varlink client */
@@ -2256,8 +2256,8 @@ int manager_reload_journals(Manager *m) {
                 /* Current journal can continue being used. Update config values as needed. */
                 r = journal_file_reload(
                                 m->system_journal,
-                                manager_get_file_flags(m, m->seal),
-                                m->compress.threshold_bytes,
+                                manager_get_file_flags(m, m->config.seal),
+                                m->config.compress.threshold_bytes,
                                 &m->system_storage.metrics);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to reload system journal on reload, ignoring: %m");
@@ -2271,7 +2271,7 @@ int manager_reload_journals(Manager *m) {
                 r = journal_file_reload(
                                 m->runtime_journal,
                                 manager_get_file_flags(m, /* seal */ false),
-                                m->compress.threshold_bytes,
+                                m->config.compress.threshold_bytes,
                                 &m->runtime_storage.metrics);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to reload runtime journal on reload, ignoring: %m");
@@ -2305,6 +2305,9 @@ int manager_new(Manager **ret, const char *namespace) {
                 .hostname_fd = -EBADF,
                 .notify_fd = -EBADF,
                 .forward_socket_fd = -EBADF,
+
+                .system_storage.name = "System Journal",
+                .runtime_storage.name = "Runtime Journal",
 
                 .watchdog_usec = USEC_INFINITY,
 
@@ -2600,7 +2603,6 @@ Manager* manager_free(Manager *m) {
         manager_unmap_seqnum_file(m->kernel_seqnum, sizeof(*m->kernel_seqnum));
 
         free(m->buffer);
-        free(m->tty_path);
         free(m->cgroup_root);
         free(m->hostname_field);
         free(m->runtime_storage.path);
@@ -2617,6 +2619,11 @@ Manager* manager_free(Manager *m) {
         while ((req = prioq_peek(m->sync_req_boottime_prioq)))
                 sync_req_free(req);
         prioq_free(m->sync_req_boottime_prioq);
+
+        journal_config_done(&m->config);
+        journal_config_done(&m->config_by_cred);
+        journal_config_done(&m->config_by_conf);
+        journal_config_done(&m->config_by_cmdline);
 
         return mfree(m);
 }
