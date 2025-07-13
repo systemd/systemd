@@ -156,7 +156,7 @@ static void manager_adjust_configs(Manager *m) {
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-        Manager *m = ASSERT_PTR(data);
+        JournalConfig *c = ASSERT_PTR(data);
         int r;
 
         if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_syslog")) {
@@ -165,7 +165,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to syslog switch \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.forward_to_syslog = r;
+                        c->forward_to_syslog = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_kmsg")) {
 
@@ -173,7 +173,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to kmsg switch \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.forward_to_kmsg = r;
+                        c->forward_to_kmsg = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_console")) {
 
@@ -181,7 +181,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to console switch \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.forward_to_console = r;
+                        c->forward_to_console = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_wall")) {
 
@@ -189,7 +189,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to wall switch \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.forward_to_wall = r;
+                        c->forward_to_wall = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_console")) {
 
@@ -200,7 +200,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level console value \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.max_level_console = r;
+                        c->max_level_console = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_store")) {
 
@@ -211,7 +211,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level store value \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.max_level_store = r;
+                        c->max_level_store = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_syslog")) {
 
@@ -222,7 +222,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level syslog value \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.max_level_syslog = r;
+                        c->max_level_syslog = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_kmsg")) {
 
@@ -233,7 +233,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level kmsg value \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.max_level_kmsg = r;
+                        c->max_level_kmsg = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_wall")) {
 
@@ -244,7 +244,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level wall value \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.max_level_wall = r;
+                        c->max_level_wall = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_socket")) {
 
@@ -255,7 +255,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level socket value \"%s\". Ignoring.", value);
                 else
-                        m->config_by_cmdline.max_level_socket = r;
+                        c->max_level_socket = r;
 
         } else if (startswith(key, "systemd.journald"))
                 log_warning("Unknown journald kernel command line option \"%s\". Ignoring.", key);
@@ -325,7 +325,7 @@ void manager_load_config(Manager *m) {
 
         if (!m->namespace) {
                 /* Parse kernel command line, but only if we are not a namespace instance */
-                r = proc_cmdline_parse(parse_proc_cmdline_item, m, PROC_CMDLINE_STRIP_RD_PREFIX);
+                r = proc_cmdline_parse(parse_proc_cmdline_item, &m->config_by_cmdline, PROC_CMDLINE_STRIP_RD_PREFIX);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
         }
