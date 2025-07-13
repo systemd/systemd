@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "fuzz.h"
-#include "fuzz-journald.h"
+#include "fuzz-journald-util.h"
 #include "journald-kmsg.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
