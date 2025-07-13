@@ -4,6 +4,11 @@
 #include "conf-parser-forward.h"    /* IWYU pragma: export */
 #include "forward.h"                /* IWYU pragma: export */
 
+typedef enum Storage Storage;
+typedef enum SplitMode SplitMode;
+typedef struct JournalCompressOptions JournalCompressOptions;
+typedef struct JournalConfig JournalConfig;
+
 typedef struct Manager Manager;
 typedef struct StreamSyncReq StreamSyncReq;
 typedef struct SyncReq SyncReq;

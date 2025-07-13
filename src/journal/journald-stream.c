@@ -454,7 +454,7 @@ static size_t stdout_stream_line_max(StdoutStream *s) {
                 return STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX;
 
         /* After the protocol's "setup" phase is complete, let's use whatever the user configured */
-        return s->manager->line_max;
+        return s->manager->config.line_max;
 }
 
 static int stdout_stream_scan(
@@ -557,7 +557,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
 
         /* Try to make use of the allocated buffer in full, but never read more than the configured line size. Also,
          * always leave room for a terminating NUL we might need to add. */
-        limit = MIN(allocated - 1, MAX(s->manager->line_max, STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX));
+        limit = MIN(allocated - 1, MAX(s->manager->config.line_max, STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX));
         assert(s->length <= limit);
         iovec = IOVEC_MAKE(s->buffer + s->length, limit - s->length);
 
