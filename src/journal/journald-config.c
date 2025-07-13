@@ -359,11 +359,11 @@ int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_sig
 
         (void) notify_reloading();
 
+        _cleanup_(journal_config_done) JournalConfig old = TAKE_STRUCT(m->config);
+
         manager_reload_config(m);
 
-        r = manager_reload_dev_kmsg(m);
-        if (r < 0)
-                return r;
+        (void) manager_reopen_dev_kmsg(m, old.read_kmsg);
 
         r = manager_reload_journals(m);
         if (r < 0)

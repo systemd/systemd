@@ -451,32 +451,46 @@ void manager_close_kernel_seqnum(Manager *m) {
         m->kernel_seqnum = NULL;
 }
 
-int manager_reload_dev_kmsg(Manager *m) {
+static int manager_unlink_kernel_seqnum(Manager *m) {
+        assert(m);
+        assert(!m->kernel_seqnum); /* The file must not be mmap()ed. */
+
+        return manager_unlink_seqnum_file(m, "kernel-seqnum");
+}
+
+int manager_reopen_dev_kmsg(Manager *m, bool old_read_kmsg) {
         int r;
 
         assert(m);
 
-        /* Check if the fd has not yet been initialized. If so, open /dev/kmsg. */
+        /* If the fd has not yet been initialized, let's shortcut and simply open /dev/kmsg. */
         if (m->dev_kmsg_fd < 0)
                 return manager_open_dev_kmsg(m);
 
-        mode_t mode = manager_kmsg_mode(m->config.read_kmsg);
-        int flags = fcntl(m->dev_kmsg_fd, F_GETFL);
-        if (flags < 0)
-                /* Proceed with reload in case the flags have changed. */
-                log_warning_errno(errno, "Failed to get flags for /dev/kmsg, ignoring: %m");
-        else if ((flags & O_ACCMODE_STRICT) == mode)
-                /* Mode is the same. No-op. */
-                return 0;
+        if (m->config.read_kmsg == old_read_kmsg)
+                return 0; /* Setting is unchanged. */
 
-        /* Flush kmsg. */
-        r = manager_flush_dev_kmsg(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to flush /dev/kmsg on reload, ignoring: %m");
+        if (!m->config.read_kmsg) {
+                /* If reading kmsg was enabled but now disable, let's flush the buffer before disabling it. */
+                m->config.read_kmsg = true;
+                (void) manager_flush_dev_kmsg(m);
+                m->config.read_kmsg = false;
 
-        /* Set kmsg values to default. */
+                /* seqnum file is not necessary anymore. Let's close it. */
+                manager_close_kernel_seqnum(m);
+
+                /* Also, unlink the file name as we will not warn some kmsg are lost when reading kmsg is
+                 * re-enabled later. */
+                manager_unlink_kernel_seqnum(m);
+        }
+
+        /* Close previously configured event source and opened file descriptor. */
         m->dev_kmsg_event_source = sd_event_source_disable_unref(m->dev_kmsg_event_source);
         m->dev_kmsg_fd = safe_close(m->dev_kmsg_fd);
 
-        return manager_open_dev_kmsg(m);
+        r = manager_open_dev_kmsg(m);
+        if (r < 0)
+                return r;
+
+        return manager_open_kernel_seqnum(m);
 }
