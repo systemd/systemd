@@ -482,7 +482,7 @@
         kernel auditing on start-up. If disabled it will turn it off. If unset it will neither enable nor
         disable it, leaving the previous state unchanged.  This means if another tool turns on auditing even
         if <command>systemd-journald</command> left it off, it will still collect the generated
-        messages. Defaults to on.</para>
+        messages. Defaults to on in the default journal namespace, and unset otherwise.</para>
 
         <para>Note that this option does not control whether <command>systemd-journald</command> collects
         generated audit records, it just controls whether it tells the kernel to generate them. If you need

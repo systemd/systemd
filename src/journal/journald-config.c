@@ -49,7 +49,9 @@ static void manager_set_defaults(Manager *m) {
         /* By default, only read from /dev/kmsg if are the main namespace */
         m->read_kmsg = !m->namespace;
 
-        m->set_audit = true;
+        /* By default, kernel auditing is enabled by the main namespace instance, and not controlled by
+         * non-default namespace instances. */
+        m->set_audit = m->namespace ? -1 : true;
 
         m->sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC;
 
