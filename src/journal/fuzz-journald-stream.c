@@ -8,7 +8,7 @@
 
 #include "fd-util.h"
 #include "fuzz.h"
-#include "fuzz-journald.h"
+#include "fuzz-journald-util.h"
 #include "journald-stream.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {

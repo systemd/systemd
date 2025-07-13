@@ -2243,7 +2243,6 @@ static int manager_setup_memory_pressure(Manager *m) {
 
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
-        int r;
 
         assert(ret);
 

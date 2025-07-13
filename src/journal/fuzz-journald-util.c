@@ -3,7 +3,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "fuzz-journald.h"
+#include "fuzz-journald-util.h"
 #include "journald-manager.h"
 #include "tests.h"
 
