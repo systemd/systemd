@@ -33,6 +33,11 @@ UKI_DIR="$BOOT_ROOT/EFI/Linux"
 
 case "$COMMAND" in
     remove)
+        if [ "$KERNEL_INSTALL_BOOT_ENTRY_TYPE" = "type1" ]; then
+            [ "KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "BOOT_ENTRY_TYPE=type1, not removing UKI related."
+            exit 0
+        fi
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing $UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION*.efi and extras"
         exec rm -rf \
