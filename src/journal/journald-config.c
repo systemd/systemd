@@ -283,32 +283,32 @@ static void manager_parse_config_file(Manager *m) {
                         m);
 }
 
-static void manager_load_credentials(Manager *m) {
-        _cleanup_free_ void *data = NULL;
+static void manager_load_credentials(JournalConfig *c) {
+        _cleanup_free_ char *data = NULL;
         int r;
 
-        assert(m);
+        assert(c);
 
-        r = read_credential("journal.forward_to_socket", &data, NULL);
+        r = read_credential("journal.forward_to_socket", (void**) &data, /* ret_size = */ NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
+                log_debug_errno(r, "Failed to read credential 'journal.forward_to_socket', ignoring: %m");
         else {
-                r = socket_address_parse(&m->config_by_cred.forward_to_socket, data);
+                r = socket_address_parse(&c->forward_to_socket, data);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to parse socket address '%s' from credential journal.forward_to_socket, ignoring: %m", (char *) data);
+                        log_debug_errno(r, "Failed to parse journal.forward_to_socket credential, ignoring: %s", data);
         }
 
         data = mfree(data);
 
-        r = read_credential("journal.storage", &data, NULL);
+        r = read_credential("journal.storage", (void**) &data, /* ret_size = */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential journal.storage, ignoring: %m");
         else {
                 r = storage_from_string(data);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to parse storage '%s' from credential journal.storage, ignoring: %m", (char *) data);
+                        log_debug_errno(r, "Failed to parse journal.storage credential, ignoring: %s", data);
                 else
-                        m->config_by_cred.storage = r;
+                        c->storage = r;
         }
 }
 
@@ -320,7 +320,7 @@ void manager_load_config(Manager *m) {
         manager_set_defaults(m);
         manager_reset_configs(m);
 
-        manager_load_credentials(m);
+        manager_load_credentials(&m->config_by_cred);
         manager_parse_config_file(m);
 
         if (!m->namespace) {
