@@ -444,29 +444,22 @@ int manager_open_kernel_seqnum(Manager *m) {
 }
 
 int manager_reload_dev_kmsg(Manager *m) {
-        int r;
-
         assert(m);
 
-        /* Check if the fd has not yet been initialized. If so, open /dev/kmsg. */
+        /* If the fd has not yet been initialized, let's shortcut and simply open /dev/kmsg. */
         if (m->dev_kmsg_fd < 0)
                 return manager_open_dev_kmsg(m);
 
+        /* Proceed with reload in case the requested flags have changed. */
         mode_t mode = manager_kmsg_mode(m->config.read_kmsg);
         int flags = fcntl(m->dev_kmsg_fd, F_GETFL);
         if (flags < 0)
-                /* Proceed with reload in case the flags have changed. */
-                log_warning_errno(errno, "Failed to get flags for /dev/kmsg, ignoring: %m");
-        else if ((flags & O_ACCMODE_STRICT) == mode)
+                log_warning_errno(errno, "Failed to get flags for /dev/kmsg, reopening /dev/kmsg, ignoring: %m");
+        else if (((flags ^ mode) & O_ACCMODE_STRICT) == 0)
                 /* Mode is the same. No-op. */
                 return 0;
 
-        /* Flush kmsg. */
-        r = manager_flush_dev_kmsg(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to flush /dev/kmsg on reload, ignoring: %m");
-
-        /* Set kmsg values to default. */
+        /* Close previously configured event source and opened file descriptor. */
         m->dev_kmsg_event_source = sd_event_source_disable_unref(m->dev_kmsg_event_source);
         m->dev_kmsg_fd = safe_close(m->dev_kmsg_fd);
 
