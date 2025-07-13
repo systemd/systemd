@@ -363,11 +363,8 @@ int manager_flush_dev_kmsg(Manager *m) {
 
         for (;;) {
                 r = manager_read_dev_kmsg(m);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-
-                if (r == 0)
-                        break;
         }
 
         return 0;
