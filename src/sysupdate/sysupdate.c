@@ -176,7 +176,7 @@ static int read_definitions(
 }
 
 static int context_read_definitions(Context *c, const char* node, bool requires_enabled_transfers) {
-        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
+        _cleanup_strv_free_ char **dirs = NULL;
         int r;
 
         assert(c);
@@ -205,22 +205,26 @@ static int context_read_definitions(Context *c, const char* node, bool requires_
         if (!dirs)
                 return log_oom();
 
-        r = conf_files_list_strv(&files,
-                                 ".feature",
-                                 arg_root,
-                                 CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
-                                 (const char**) dirs);
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        r = conf_files_list_strv_full(".feature", arg_root,
+                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                      (const char**) dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
 
-        STRV_FOREACH(p, files) {
+        FOREACH_ARRAY(i, files, n_files) {
                 _cleanup_(feature_unrefp) Feature *f = NULL;
+                ConfFile *e = *i;
 
                 f = feature_new();
                 if (!f)
                         return log_oom();
 
-                r = feature_read_definition(f, *p, (const char**) dirs);
+                r = feature_read_definition(f, e->result, (const char**) dirs);
                 if (r < 0)
                         return r;
 
