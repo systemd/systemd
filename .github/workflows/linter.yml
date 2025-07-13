@@ -35,8 +35,6 @@ jobs:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_GITHUB_ACTIONS: true
-          LINTER_RULES_PATH: .github/linters
-          GITHUB_ACTIONS_CONFIG_FILE: actionlint.yml
 
       - uses: systemd/mkosi@184472f0f1f831ca29953546ec01fd941ff763a6
 
