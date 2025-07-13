@@ -74,17 +74,9 @@ typedef struct Manager {
         char *buffer;
 
         OrderedHashmap *ratelimit_groups_by_id;
-        usec_t sync_interval_usec;
-        usec_t ratelimit_interval;
-        unsigned ratelimit_burst;
 
         JournalStorage runtime_storage;
         JournalStorage system_storage;
-
-        JournalCompressOptions compress;
-        int set_audit;
-        bool seal;
-        bool read_kmsg;
 
         bool send_watchdog;
         bool sent_notify_ready;
@@ -93,17 +85,11 @@ typedef struct Manager {
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
 
-        usec_t max_retention_usec;
-        usec_t max_file_usec;
         usec_t oldest_file_usec;
 
         LIST_HEAD(StdoutStream, stdout_streams);
         LIST_HEAD(StdoutStream, stdout_streams_notify_queue);
         unsigned n_stdout_streams;
-
-        char *tty_path;
-
-        SplitMode split_mode;
 
         MMapCache *mmap;
 
@@ -124,8 +110,6 @@ typedef struct Manager {
         usec_t watchdog_usec;
 
         usec_t last_realtime_clock;
-
-        size_t line_max;
 
         /* Caching of client metadata */
         Hashmap *client_contexts;

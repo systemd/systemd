@@ -332,7 +332,7 @@ static int manager_read_dev_kmsg(Manager *m) {
 
         assert(m);
         assert(m->dev_kmsg_fd >= 0);
-        assert(m->read_kmsg);
+        assert(m->config.read_kmsg);
 
         l = read(m->dev_kmsg_fd, buffer, sizeof(buffer) - 1);
         if (l == 0)
@@ -356,7 +356,7 @@ int manager_flush_dev_kmsg(Manager *m) {
         if (m->dev_kmsg_fd < 0)
                 return 0;
 
-        if (!m->read_kmsg)
+        if (!m->config.read_kmsg)
                 return 0;
 
         log_debug("Flushing /dev/kmsg...");
@@ -400,7 +400,7 @@ int manager_open_dev_kmsg(Manager *m) {
         assert(m->dev_kmsg_fd < 0);
         assert(!m->dev_kmsg_event_source);
 
-        mode_t mode = manager_kmsg_mode(m->read_kmsg);
+        mode_t mode = manager_kmsg_mode(m->config.read_kmsg);
 
         _cleanup_close_ int fd = open("/dev/kmsg", mode);
         if (fd < 0) {
@@ -409,7 +409,7 @@ int manager_open_dev_kmsg(Manager *m) {
                 return 0;
         }
 
-        if (!m->read_kmsg) {
+        if (!m->config.read_kmsg) {
                 m->dev_kmsg_fd = TAKE_FD(fd);
                 return 0;
         }
@@ -436,7 +436,7 @@ int manager_open_kernel_seqnum(Manager *m) {
         /* We store the seqnum we last read in an mmapped file. That way we can just use it like a variable,
          * but it is persistent and automatically flushed at reboot. */
 
-        if (!m->read_kmsg)
+        if (!m->config.read_kmsg)
                 return 0;
 
         r = manager_map_seqnum_file(m, "kernel-seqnum", sizeof(uint64_t), (void**) &m->kernel_seqnum);
@@ -455,7 +455,7 @@ int manager_reload_dev_kmsg(Manager *m) {
         if (m->dev_kmsg_fd < 0)
                 return manager_open_dev_kmsg(m);
 
-        mode_t mode = manager_kmsg_mode(m->read_kmsg);
+        mode_t mode = manager_kmsg_mode(m->config.read_kmsg);
         int flags = fcntl(m->dev_kmsg_fd, F_GETFL);
         if (flags < 0)
                 /* Proceed with reload in case the flags have changed. */
