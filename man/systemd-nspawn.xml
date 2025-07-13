@@ -1605,10 +1605,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <orderedlist>
           <listitem><para>The user's home directory is bind mounted from the host into
-          <filename>/run/host/home/</filename>.</para></listitem>
-
-          <listitem><para>An additional UID/GID mapping is added that maps the host user's UID/GID to a
-          container UID/GID, allocated from the 60514…60577 range.</para></listitem>
+          <filename>/run/host/home/</filename>, using an idmapped mount to map the host user's UID/GID to its
+          assigned UID/GID in the container.</para></listitem>
 
           <listitem><para>A JSON user and group record is generated in <filename>/run/userdb/</filename> that
           describes the mapped user. It contains a minimized representation of the host's user record,
@@ -1643,9 +1641,6 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         is not currently defined in the user/group databases of the container. Both checks directly access
         the container's <filename>/etc/passwd</filename> and <filename>/etc/group</filename>, and thus might
         not detect existing accounts in other databases.</para>
-
-        <para>This operation is only supported in combination with
-        <option>--private-users=</option>/<option>-U</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
