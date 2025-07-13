@@ -26,115 +26,121 @@
  * for a bit of additional metadata. */
 #define DEFAULT_LINE_MAX            (48*1024)
 
-#define JOURNAL_CONFIG_INIT                                                                     \
-        (JournalConfig) {                                                                       \
-                .forward_to_socket = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC },    \
-                .storage = _STORAGE_INVALID,                                                    \
-                .max_level_store = -1,                                                          \
-                .max_level_syslog = -1,                                                         \
-                .max_level_kmsg = -1,                                                           \
-                .max_level_console = -1,                                                        \
-                .max_level_wall = -1,                                                           \
-                .max_level_socket = -1,                                                         \
-        }
+void journal_config_done(JournalConfig *c) {
+        assert(c);
 
-static void manager_set_defaults(Manager *m) {
-        assert(m);
-
-        m->compress.enabled = true;
-        m->compress.threshold_bytes = UINT64_MAX;
-
-        m->seal = true;
-
-        /* By default, only read from /dev/kmsg if are the main namespace */
-        m->read_kmsg = !m->namespace;
-
-        /* By default, kernel auditing is enabled by the main namespace instance, and not controlled by
-         * non-default namespace instances. */
-        m->set_audit = m->namespace ? -1 : true;
-
-        m->sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC;
-
-        m->ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
-        m->ratelimit_burst = DEFAULT_RATE_LIMIT_BURST;
-
-        m->system_storage.name = "System Journal";
-        journal_reset_metrics(&m->system_storage.metrics);
-
-        m->runtime_storage.name = "Runtime Journal";
-        journal_reset_metrics(&m->runtime_storage.metrics);
-
-        m->max_file_usec = DEFAULT_MAX_FILE_USEC;
-
-        m->config.forward_to_wall = true;
-
-        m->config.max_level_store = LOG_DEBUG;
-        m->config.max_level_syslog = LOG_DEBUG;
-        m->config.max_level_kmsg = LOG_NOTICE;
-        m->config.max_level_console = LOG_INFO;
-        m->config.max_level_wall = LOG_EMERG;
-        m->config.max_level_socket = LOG_DEBUG;
-
-        m->line_max = DEFAULT_LINE_MAX;
+        free(c->tty_path);
 }
 
-static void manager_reset_configs(Manager *m) {
+static void journal_config_set_defaults(JournalConfig *c) {
+        assert(c);
+
+        journal_config_done(c);
+
+        *c = (JournalConfig) {
+                .storage = _STORAGE_INVALID,
+                .compress.enabled = -1,
+                .compress.threshold_bytes = UINT64_MAX,
+                .seal = -1,
+                .read_kmsg = -1,
+                .set_audit = -1,
+                .ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL,
+                .ratelimit_burst = DEFAULT_RATE_LIMIT_BURST,
+                .forward_to_syslog = -1,
+                .forward_to_kmsg = -1,
+                .forward_to_console = -1,
+                .forward_to_wall = -1,
+                .max_level_store = -1,
+                .max_level_syslog = -1,
+                .max_level_kmsg = -1,
+                .max_level_console = -1,
+                .max_level_wall = -1,
+                .max_level_socket = -1,
+        };
+
+        journal_reset_metrics(&c->system_storage_metrics);
+        journal_reset_metrics(&c->runtime_storage_metrics);
+}
+
+static void manager_merge_journal_compress_options(Manager *m) {
         assert(m);
 
-        m->config_by_cmdline = JOURNAL_CONFIG_INIT;
-        m->config_by_conf = JOURNAL_CONFIG_INIT;
-        m->config_by_cred = JOURNAL_CONFIG_INIT;
+        if (m->config_by_cmdline.compress.enabled >= 0)
+                m->config.compress = m->config_by_cmdline.compress;
+        else if (m->config_by_conf.compress.enabled >= 0)
+                m->config.compress = m->config_by_conf.compress;
+        else if (m->config_by_cred.compress.enabled >= 0)
+                m->config.compress = m->config_by_cred.compress;
+        else
+                m->config.compress = (JournalCompressOptions) {
+                        .enabled = true,
+                        .threshold_bytes = UINT64_MAX,
+                };
 }
 
 static void manager_merge_forward_to_socket(Manager *m) {
         assert(m);
 
-        /* Conf file takes precedence over credentials. */
-        if (m->config_by_conf.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
+        if (m->config_by_cmdline.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
+                m->config.forward_to_socket = m->config_by_cmdline.forward_to_socket;
+        else if (m->config_by_conf.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
                 m->config.forward_to_socket = m->config_by_conf.forward_to_socket;
         else if (m->config_by_cred.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
                 m->config.forward_to_socket = m->config_by_cred.forward_to_socket;
         else
-                m->config.forward_to_socket = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC };
+                m->config.forward_to_socket = (SocketAddress) {};
 }
 
-static void manager_merge_storage(Manager *m) {
-        assert(m);
+#define MERGE_NON_NEGATIVE(name, default_value)                         \
+        m->config.name =                                                \
+                m->config_by_cmdline.name >= 0 ? m->config_by_cmdline.name : \
+                m->config_by_conf.name >= 0 ? m->config_by_conf.name :  \
+                m->config_by_cred.name >= 0 ? m->config_by_cred.name :  \
+                default_value
 
-        /* Conf file takes precedence over credentials. */
-        if (m->config_by_conf.storage != _STORAGE_INVALID)
-                m->config.storage = m->config_by_conf.storage;
-        else if (m->config_by_cred.storage != _STORAGE_INVALID)
-                m->config.storage = m->config_by_cred.storage;
-        else
-                m->config.storage = m->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
-}
-
-#define MERGE_BOOL(name, default_value)                                                 \
-    (m->config.name = (m->config_by_cmdline.name  ? m->config_by_cmdline.name :         \
-                       m->config_by_conf.name     ? m->config_by_conf.name     :        \
-                       m->config_by_cred.name     ? m->config_by_cred.name     :        \
-                       default_value))
-
-#define MERGE_NON_NEGATIVE(name, default_value)                                         \
-        (m->config.name = (m->config_by_cmdline.name >= 0 ? m->config_by_cmdline.name : \
-                           m->config_by_conf.name >= 0    ? m->config_by_conf.name :    \
-                           m->config_by_cred.name >= 0    ? m->config_by_cred.name :    \
-                           default_value))
+#define MERGE_NON_ZERO(name, default_value)                             \
+        m->config.name =                                                \
+                m->config_by_cmdline.name ?:                            \
+                m->config_by_conf.name ?:                               \
+                m->config_by_cred.name ?:                               \
+                default_value
 
 static void manager_merge_configs(Manager *m) {
         assert(m);
 
-        /*
-         * From highest to lowest priority: cmdline, conf, cred
-         */
-        manager_merge_storage(m);
+        /* From highest to lowest priority: cmdline, conf, cred */
+
+        journal_config_done(&m->config);
+
+        MERGE_NON_NEGATIVE(storage, STORAGE_AUTO);
+        manager_merge_journal_compress_options(m);
+        MERGE_NON_NEGATIVE(seal, true);
+        /* By default, /dev/kmsg is read only by the main namespace instance. */
+        MERGE_NON_NEGATIVE(read_kmsg, !m->namespace);
+        /* By default, kernel auditing is enabled by the main namespace instance, and not controlled by
+         * non-default namespace instances. */
+        MERGE_NON_NEGATIVE(set_audit, m->namespace ? -1 : true);
+        MERGE_NON_ZERO(sync_interval_usec, DEFAULT_SYNC_INTERVAL_USEC);
+
+        /* TODO: also merge them when comdline or credentials support to configure them. */
+        m->config.ratelimit_interval = m->config_by_conf.ratelimit_interval;
+        m->config.ratelimit_burst = m->config_by_conf.ratelimit_burst;
+        m->system_storage.metrics = m->config_by_conf.system_storage_metrics;
+        m->runtime_storage.metrics = m->config_by_conf.runtime_storage_metrics;
+
+        MERGE_NON_ZERO(max_retention_usec, 0);
+        MERGE_NON_ZERO(max_file_usec, DEFAULT_MAX_FILE_USEC);
+        MERGE_NON_NEGATIVE(forward_to_syslog, false);
+        MERGE_NON_NEGATIVE(forward_to_kmsg, false);
+        MERGE_NON_NEGATIVE(forward_to_console, false);
+        MERGE_NON_NEGATIVE(forward_to_wall, true);
         manager_merge_forward_to_socket(m);
 
-        MERGE_BOOL(forward_to_syslog, false);
-        MERGE_BOOL(forward_to_kmsg, false);
-        MERGE_BOOL(forward_to_console, false);
-        MERGE_BOOL(forward_to_wall, true);
+        if (strdup_to(&m->config.tty_path,
+                      m->config_by_cmdline.tty_path ?:
+                      m->config_by_conf.tty_path ?:
+                      m->config_by_cred.tty_path) < 0)
+                log_oom_debug();
 
         MERGE_NON_NEGATIVE(max_level_store, LOG_DEBUG);
         MERGE_NON_NEGATIVE(max_level_syslog, LOG_DEBUG);
@@ -142,16 +148,19 @@ static void manager_merge_configs(Manager *m) {
         MERGE_NON_NEGATIVE(max_level_console, LOG_INFO);
         MERGE_NON_NEGATIVE(max_level_wall, LOG_EMERG);
         MERGE_NON_NEGATIVE(max_level_socket, LOG_DEBUG);
+        MERGE_NON_NEGATIVE(split_mode, SPLIT_UID);
+        MERGE_NON_ZERO(line_max, DEFAULT_LINE_MAX);
 }
 
-static void manager_adjust_configs(Manager *m) {
-        assert(m);
+static void manager_adjust_configs(JournalConfig *c) {
+        assert(c);
 
-        if (!!m->ratelimit_interval != !!m->ratelimit_burst) { /* One set to 0 and the other not? */
+        if ((c->ratelimit_interval == 0) != (c->ratelimit_burst == 0)) { /* One set to 0 and the other not? */
                 log_debug("Setting both rate limit interval and burst from %s/%u to 0/0",
-                          FORMAT_TIMESPAN(m->ratelimit_interval, USEC_PER_SEC),
-                          m->ratelimit_burst);
-                m->ratelimit_interval = m->ratelimit_burst = 0;
+                          FORMAT_TIMESPAN(c->ratelimit_interval, USEC_PER_SEC),
+                          c->ratelimit_burst);
+                c->ratelimit_interval = 0;
+                c->ratelimit_burst = 0;
         }
 }
 
@@ -280,7 +289,7 @@ static void manager_parse_config_file(Manager *m) {
                         config_item_perf_lookup,
                         journald_gperf_lookup,
                         CONFIG_PARSE_WARN,
-                        m);
+                        &m->config_by_conf);
 }
 
 static void manager_load_credentials(JournalConfig *c) {
@@ -317,8 +326,9 @@ void manager_load_config(Manager *m) {
 
         assert(m);
 
-        manager_set_defaults(m);
-        manager_reset_configs(m);
+        journal_config_set_defaults(&m->config_by_conf);
+        journal_config_set_defaults(&m->config_by_cred);
+        journal_config_set_defaults(&m->config_by_cmdline);
 
         manager_load_credentials(&m->config_by_cred);
         manager_parse_config_file(m);
@@ -331,24 +341,20 @@ void manager_load_config(Manager *m) {
         }
 
         manager_merge_configs(m);
-
-        manager_adjust_configs(m);
+        manager_adjust_configs(&m->config);
 }
 
 static void manager_reload_config(Manager *m) {
         assert(m);
 
-        manager_set_defaults(m);
-
-        m->config_by_conf = JOURNAL_CONFIG_INIT;
+        journal_config_set_defaults(&m->config_by_conf);
         manager_parse_config_file(m);
-
         manager_merge_configs(m);
-        manager_adjust_configs(m);
+        manager_adjust_configs(&m->config);
 }
 
 JournalFileFlags manager_get_file_flags(Manager *m, bool seal) {
-        return (m->compress.enabled ? JOURNAL_COMPRESS : 0) |
+        return (m->config.compress.enabled ? JOURNAL_COMPRESS : 0) |
                 (seal ? JOURNAL_SEAL : 0) |
                 JOURNAL_STRICT_ORDER;
 }
@@ -362,9 +368,9 @@ static int manager_reload_journals(Manager *m) {
                 /* Current journal can continue being used. Update config values as needed. */
                 r = journal_file_reload(
                                 m->system_journal,
-                                manager_get_file_flags(m, m->seal),
-                                m->compress.threshold_bytes,
-                                &m->system_storage.metrics);
+                                manager_get_file_flags(m, m->config.seal),
+                                m->config.compress.threshold_bytes,
+                                &m->config.system_storage_metrics);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to reload system journal on reload, ignoring: %m");
         } else if (m->system_journal && m->config.storage == STORAGE_VOLATILE) {
@@ -377,8 +383,8 @@ static int manager_reload_journals(Manager *m) {
                 r = journal_file_reload(
                                 m->runtime_journal,
                                 manager_get_file_flags(m, /* seal */ false),
-                                m->compress.threshold_bytes,
-                                &m->runtime_storage.metrics);
+                                m->config.compress.threshold_bytes,
+                                &m->config.runtime_storage_metrics);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to reload runtime journal on reload, ignoring: %m");
         }
@@ -494,7 +500,7 @@ int config_parse_compress(
         int r;
 
         if (isempty(rvalue)) {
-                compress->enabled = true;
+                compress->enabled = -1;
                 compress->threshold_bytes = UINT64_MAX;
                 return 0;
         }
