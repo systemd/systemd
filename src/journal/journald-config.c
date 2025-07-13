@@ -345,7 +345,7 @@ static void manager_reload_config(Manager *m) {
         manager_adjust_configs(m);
 }
 
-int manager_get_file_flags(Manager *m, bool seal) {
+JournalFileFlags manager_get_file_flags(Manager *m, bool seal) {
         return (m->compress.enabled ? JOURNAL_COMPRESS : 0) |
                 (seal ? JOURNAL_SEAL : 0) |
                 JOURNAL_STRICT_ORDER;

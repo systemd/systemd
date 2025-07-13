@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "journal-file.h"
 #include "journald-forward.h"
 #include "socket-util.h"
 
@@ -44,7 +45,7 @@ typedef struct JournalConfig {
         int max_level_socket;
 } JournalConfig;
 
-int manager_get_file_flags(Manager *m, bool seal);
+JournalFileFlags manager_get_file_flags(Manager *m, bool seal);
 void manager_load_config(Manager *m);
 int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
 
