@@ -7,7 +7,7 @@
 #include "sd-netlink.h"
 
 #include "device-private.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"

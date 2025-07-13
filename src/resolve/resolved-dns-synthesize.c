@@ -7,7 +7,7 @@
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "log.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "resolved-def.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"

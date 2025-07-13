@@ -19,7 +19,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-#include "missing_network.h"
+#include "missing-network.h"
 #include "netlink-types-internal.h"
 
 enum {

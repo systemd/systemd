@@ -22,7 +22,7 @@
 #include "logind-session.h"
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
-#include "missing_drm.h"
+#include "missing-drm.h"
 #include "string-util.h"
 
 enum SessionDeviceNotifications {
