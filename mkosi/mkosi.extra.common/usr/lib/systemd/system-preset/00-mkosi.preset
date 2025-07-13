@@ -29,8 +29,8 @@ disable dnf-makecache.*
 # We have journald to receive audit data so let's make sure we're not running auditd as well
 disable auditd.service
 
-# systemd-timesyncd is not enabled by default in the default systemd preset so enable it here instead.
-enable systemd-timesyncd.service
+# systemd-timesyncd causes quite a bit of debug log noise so let's disable it by default.
+disable systemd-timesyncd.service
 
 # Enabled by default on OpenSUSE and not conditioned out in containers, so let's disable these here instead.
 disable iscsi.service
