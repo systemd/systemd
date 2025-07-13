@@ -451,36 +451,43 @@ int config_parse_compress(
                 void *data,
                 void *userdata) {
 
-        JournalCompressOptions* compress = ASSERT_PTR(data);
+        JournalCompressOptions *compress = ASSERT_PTR(data);
         int r;
-
-        assert(filename);
-        assert(rvalue);
 
         if (isempty(rvalue)) {
                 compress->enabled = true;
                 compress->threshold_bytes = UINT64_MAX;
-        } else if (streq(rvalue, "1")) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Compress= ambiguously specified as 1, enabling compression with default threshold");
-                compress->enabled = true;
-        } else if (streq(rvalue, "0")) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Compress= ambiguously specified as 0, disabling compression");
-                compress->enabled = false;
-        } else {
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        r = parse_size(rvalue, 1024, &compress->threshold_bytes);
-                        if (r < 0)
-                                log_syntax(unit, LOG_WARNING, filename, line, r,
-                                           "Failed to parse Compress= value, ignoring: %s", rvalue);
-                        else
-                                compress->enabled = true;
-                } else
-                        compress->enabled = r;
+                return 0;
         }
 
+        if (streq(rvalue, "1")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compress= ambiguously specified as 1, enabling compression with default threshold.");
+                compress->enabled = true;
+                compress->threshold_bytes = UINT64_MAX;
+                return 0;
+        }
+
+        if (streq(rvalue, "0")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compress= ambiguously specified as 0, disabling compression.");
+                compress->enabled = false;
+                compress->threshold_bytes = UINT64_MAX;
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r >= 0) {
+                compress->enabled = r;
+                compress->threshold_bytes = UINT64_MAX;
+                return 0;
+        }
+
+        r = parse_size(rvalue, 1024, &compress->threshold_bytes);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        compress->enabled = true;
         return 0;
 }
 
