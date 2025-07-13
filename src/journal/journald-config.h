@@ -83,6 +83,8 @@ typedef struct JournalConfig {
 } JournalConfig;
 
 void journal_config_done(JournalConfig *c);
+void journal_config_set_defaults(JournalConfig *c);
+void manager_merge_configs(Manager *m);
 void manager_load_config(Manager *m);
 int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
 
