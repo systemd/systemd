@@ -172,7 +172,8 @@ void manager_dispatch_message(Manager *m, struct iovec *iovec, size_t n, size_t 
 void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *format, ...) _sentinel_;
 #define manager_driver_message(...) manager_driver_message_internal(__VA_ARGS__, NULL)
 
-int manager_new(Manager **ret, const char *namespace);
+int manager_new(Manager **ret);
+int manager_set_namespace(Manager *m, const char *namespace);
 int manager_init(Manager *m);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

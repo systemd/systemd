@@ -32,7 +32,7 @@ void journal_config_done(JournalConfig *c) {
         free(c->tty_path);
 }
 
-static void journal_config_set_defaults(JournalConfig *c) {
+void journal_config_set_defaults(JournalConfig *c) {
         assert(c);
 
         journal_config_done(c);
@@ -105,7 +105,7 @@ static void manager_merge_forward_to_socket(Manager *m) {
                 m->config_by_cred.name ?:                               \
                 default_value
 
-static void manager_merge_configs(Manager *m) {
+void manager_merge_configs(Manager *m) {
         assert(m);
 
         /* From highest to lowest priority: cmdline, conf, cred */
@@ -325,10 +325,6 @@ void manager_load_config(Manager *m) {
         int r;
 
         assert(m);
-
-        journal_config_set_defaults(&m->config_by_conf);
-        journal_config_set_defaults(&m->config_by_cred);
-        journal_config_set_defaults(&m->config_by_cmdline);
 
         manager_load_credentials(&m->config_by_cred);
         manager_parse_config_file(m);

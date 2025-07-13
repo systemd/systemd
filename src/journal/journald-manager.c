@@ -2185,7 +2185,7 @@ static int manager_refresh_idle_timer(Manager *m) {
         return 1;
 }
 
-static int manager_set_namespace(Manager *m, const char *namespace) {
+int manager_set_namespace(Manager *m, const char *namespace) {
         assert(m);
 
         if (!namespace)
@@ -2241,7 +2241,7 @@ static int manager_setup_memory_pressure(Manager *m) {
         return 0;
 }
 
-int manager_new(Manager **ret, const char *namespace) {
+int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -2277,11 +2277,9 @@ int manager_new(Manager **ret, const char *namespace) {
                 .sigrtmin18_info.memory_pressure_userdata = m,
         };
 
-        r = manager_set_namespace(m, namespace);
-        if (r < 0)
-                return r;
-
-        manager_load_config(m);
+        journal_config_set_defaults(&m->config_by_conf);
+        journal_config_set_defaults(&m->config_by_cred);
+        journal_config_set_defaults(&m->config_by_cmdline);
 
         *ret = TAKE_PTR(m);
         return 0;
