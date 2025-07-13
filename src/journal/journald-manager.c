@@ -149,6 +149,7 @@ static int cache_space_refresh(Manager *m, JournalStorage *storage) {
         int r;
 
         assert(m);
+        assert(storage);
 
         metrics = &storage->metrics;
         space = &storage->space;
@@ -550,7 +551,6 @@ static int manager_do_rotate(
                 bool seal,
                 uint32_t uid) {
 
-        JournalFileFlags file_flags;
         int r;
 
         assert(m);
@@ -558,12 +558,7 @@ static int manager_do_rotate(
         if (!*f)
                 return -EINVAL;
 
-        file_flags =
-                (m->compress.enabled ? JOURNAL_COMPRESS : 0)|
-                (seal ? JOURNAL_SEAL : 0) |
-                JOURNAL_STRICT_ORDER;
-
-        r = journal_file_rotate(f, m->mmap, file_flags, m->compress.threshold_bytes, m->deferred_closes);
+        r = journal_file_rotate(f, m->mmap, manager_get_file_flags(m, seal), m->compress.threshold_bytes, m->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -673,8 +668,7 @@ static int manager_archive_offline_user_journals(Manager *m) {
                                 fd,
                                 full,
                                 O_RDWR,
-                                (m->compress.enabled ? JOURNAL_COMPRESS : 0) |
-                                (m->seal ? JOURNAL_SEAL : 0), /* strict order does not matter here */
+                                manager_get_file_flags(m, m->seal) & ~JOURNAL_STRICT_ORDER, /* strict order does not matter here */
                                 0640,
                                 m->compress.threshold_bytes,
                                 &m->system_storage.metrics,
@@ -793,7 +787,6 @@ static void manager_sync(Manager *m, bool wait) {
 }
 
 static void manager_do_vacuum(Manager *m, JournalStorage *storage, bool verbose) {
-
         int r;
 
         assert(m);
