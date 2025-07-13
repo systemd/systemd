@@ -332,7 +332,7 @@ static int manager_read_dev_kmsg(Manager *m) {
 
         assert(m);
         assert(m->dev_kmsg_fd >= 0);
-        assert(m->read_kmsg);
+        assert(m->config.read_kmsg);
 
         l = read(m->dev_kmsg_fd, buffer, sizeof(buffer) - 1);
         if (l == 0)
@@ -356,18 +356,15 @@ int manager_flush_dev_kmsg(Manager *m) {
         if (m->dev_kmsg_fd < 0)
                 return 0;
 
-        if (!m->read_kmsg)
+        if (!m->config.read_kmsg)
                 return 0;
 
         log_debug("Flushing /dev/kmsg...");
 
         for (;;) {
                 r = manager_read_dev_kmsg(m);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-
-                if (r == 0)
-                        break;
         }
 
         return 0;
@@ -400,7 +397,7 @@ int manager_open_dev_kmsg(Manager *m) {
         assert(m->dev_kmsg_fd < 0);
         assert(!m->dev_kmsg_event_source);
 
-        mode_t mode = manager_kmsg_mode(m->read_kmsg);
+        mode_t mode = manager_kmsg_mode(m->config.read_kmsg);
 
         _cleanup_close_ int fd = open("/dev/kmsg", mode);
         if (fd < 0) {
@@ -409,7 +406,7 @@ int manager_open_dev_kmsg(Manager *m) {
                 return 0;
         }
 
-        if (!m->read_kmsg) {
+        if (!m->config.read_kmsg) {
                 m->dev_kmsg_fd = TAKE_FD(fd);
                 return 0;
         }
@@ -436,7 +433,7 @@ int manager_open_kernel_seqnum(Manager *m) {
         /* We store the seqnum we last read in an mmapped file. That way we can just use it like a variable,
          * but it is persistent and automatically flushed at reboot. */
 
-        if (!m->read_kmsg)
+        if (!m->config.read_kmsg)
                 return 0;
 
         r = manager_map_seqnum_file(m, "kernel-seqnum", sizeof(uint64_t), (void**) &m->kernel_seqnum);
@@ -447,29 +444,22 @@ int manager_open_kernel_seqnum(Manager *m) {
 }
 
 int manager_reload_dev_kmsg(Manager *m) {
-        int r;
-
         assert(m);
 
-        /* Check if the fd has not yet been initialized. If so, open /dev/kmsg. */
+        /* If the fd has not yet been initialized, let's shortcut and simply open /dev/kmsg. */
         if (m->dev_kmsg_fd < 0)
                 return manager_open_dev_kmsg(m);
 
-        mode_t mode = manager_kmsg_mode(m->read_kmsg);
+        /* Proceed with reload in case the requested flags have changed. */
+        mode_t mode = manager_kmsg_mode(m->config.read_kmsg);
         int flags = fcntl(m->dev_kmsg_fd, F_GETFL);
         if (flags < 0)
-                /* Proceed with reload in case the flags have changed. */
-                log_warning_errno(errno, "Failed to get flags for /dev/kmsg, ignoring: %m");
-        else if ((flags & O_ACCMODE_STRICT) == mode)
+                log_warning_errno(errno, "Failed to get flags for /dev/kmsg, reopening /dev/kmsg, ignoring: %m");
+        else if (((flags ^ mode) & O_ACCMODE_STRICT) == 0)
                 /* Mode is the same. No-op. */
                 return 0;
 
-        /* Flush kmsg. */
-        r = manager_flush_dev_kmsg(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to flush /dev/kmsg on reload, ignoring: %m");
-
-        /* Set kmsg values to default. */
+        /* Close previously configured event source and opened file descriptor. */
         m->dev_kmsg_event_source = sd_event_source_disable_unref(m->dev_kmsg_event_source);
         m->dev_kmsg_fd = safe_close(m->dev_kmsg_fd);
 

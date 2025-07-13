@@ -25,21 +25,21 @@
         _COMPRESS_PARSE_CHECK(str, enabled, threshold, conf##__COUNTER__)
 
 TEST(config_compress) {
-        COMPRESS_PARSE_CHECK("yes", true, 111);
-        COMPRESS_PARSE_CHECK("no", false, 111);
-        COMPRESS_PARSE_CHECK("y", true, 111);
-        COMPRESS_PARSE_CHECK("n", false, 111);
-        COMPRESS_PARSE_CHECK("true", true, 111);
-        COMPRESS_PARSE_CHECK("false", false, 111);
-        COMPRESS_PARSE_CHECK("t", true, 111);
-        COMPRESS_PARSE_CHECK("f", false, 111);
-        COMPRESS_PARSE_CHECK("on", true, 111);
-        COMPRESS_PARSE_CHECK("off", false, 111);
+        COMPRESS_PARSE_CHECK("yes", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("no", false, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("y", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("n", false, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("true", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("false", false, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("t", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("f", false, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("on", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("off", false, UINT64_MAX);
 
         /* Weird size/bool overlapping case. We preserve backward compatibility instead of assuming these are byte
          * counts. */
-        COMPRESS_PARSE_CHECK("1", true, 111);
-        COMPRESS_PARSE_CHECK("0", false, 111);
+        COMPRESS_PARSE_CHECK("1", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("0", false, UINT64_MAX);
 
         /* IEC sizing */
         COMPRESS_PARSE_CHECK("1B", true, 1);
