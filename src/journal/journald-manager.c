@@ -259,10 +259,12 @@ static void manager_add_acls(JournalFile *f, uid_t uid) {
 #endif
 }
 
-static int manager_get_file_flags(Manager *m, bool seal) {
+static JournalFileFlags manager_get_file_flags(Manager *m, bool seal) {
+        assert(m);
+
         return (m->compress.enabled ? JOURNAL_COMPRESS : 0) |
-               (seal ? JOURNAL_SEAL : 0) |
-               JOURNAL_STRICT_ORDER;
+                (seal ? JOURNAL_SEAL : 0) |
+                JOURNAL_STRICT_ORDER;
 }
 
 static int manager_open_journal(
