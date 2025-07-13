@@ -544,12 +544,12 @@ int manager_open_audit(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add audit fd to event loop: %m");
 
-        if (m->set_audit >= 0) {
+        if (m->config.set_audit >= 0) {
                 /* We are listening now, try to enable audit if configured so */
-                r = enable_audit(m->audit_fd, m->set_audit);
+                r = enable_audit(m->audit_fd, m->config.set_audit);
                 if (r < 0)
                         log_warning_errno(r, "Failed to issue audit enable call: %m");
-                else if (m->set_audit > 0)
+                else if (m->config.set_audit > 0)
                         log_debug("Auditing in kernel turned on.");
                 else
                         log_debug("Auditing in kernel turned off.");

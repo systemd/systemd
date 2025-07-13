@@ -52,9 +52,15 @@ static int run(int argc, char *argv[]) {
 
         sigbus_install();
 
-        r = manager_new(&m, namespace);
+        r = manager_new(&m);
         if (r < 0)
                 return log_oom();
+
+        r = manager_set_namespace(m, namespace);
+        if (r < 0)
+                return r;
+
+        manager_load_config(m);
 
         r = manager_init(m);
         if (r < 0)
@@ -91,9 +97,9 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get the current time: %m");
 
-                if (m->max_retention_usec > 0 && m->oldest_file_usec > 0) {
+                if (m->config.max_retention_usec > 0 && m->oldest_file_usec > 0) {
                         /* Calculate when to rotate the next time */
-                        t = usec_sub_unsigned(usec_add(m->oldest_file_usec, m->max_retention_usec), n);
+                        t = usec_sub_unsigned(usec_add(m->oldest_file_usec, m->config.max_retention_usec), n);
 
                         /* The retention time is reached, so let's vacuum! */
                         if (t <= 0) {

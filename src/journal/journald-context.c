@@ -139,8 +139,8 @@ static int client_context_new(Manager *m, pid_t pid, ClientContext **ret) {
                 .timestamp = USEC_INFINITY,
                 .extra_fields_mtime = NSEC_INFINITY,
                 .log_level_max = -1,
-                .log_ratelimit_interval = m->ratelimit_interval,
-                .log_ratelimit_burst = m->ratelimit_burst,
+                .log_ratelimit_interval = m->config.ratelimit_interval,
+                .log_ratelimit_burst = m->config.ratelimit_burst,
                 .capability_quintet = CAPABILITY_QUINTET_NULL,
         };
 
@@ -188,8 +188,8 @@ static void client_context_reset(Manager *m, ClientContext *c) {
 
         c->log_level_max = -1;
 
-        c->log_ratelimit_interval = m->ratelimit_interval;
-        c->log_ratelimit_burst = m->ratelimit_burst;
+        c->log_ratelimit_interval = m->config.ratelimit_interval;
+        c->log_ratelimit_burst = m->config.ratelimit_burst;
 
         c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
         c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
