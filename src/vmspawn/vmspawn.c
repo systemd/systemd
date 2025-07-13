@@ -1036,7 +1036,9 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         return 0;
 }
 
-static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel) {
+static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel, const char *smbios_dir) {
+        int r;
+
         assert(cmdline);
 
         if (strv_isempty(arg_kernel_cmdline_extra))
@@ -1055,28 +1057,29 @@ static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel) {
                         return 0;
                 }
 
-                _cleanup_free_ char *escaped_kcl = NULL;
-                escaped_kcl = escape_qemu_value(kcl);
-                if (!escaped_kcl)
-                        return log_oom();
+                FOREACH_STRING(id, "io.systemd.stub.kernel-cmdline-extra", "io.systemd.boot.kernel-cmdline-extra") {
+                        _cleanup_free_ char *p = path_join(smbios_dir, id);
+                        if (!p)
+                                return log_oom();
 
-                if (strv_extend(cmdline, "-smbios") < 0)
-                        return log_oom();
+                        r = write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE, "%s=%s", id, kcl);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write smbios kernel command line to file: %m");
 
-                if (strv_extendf(cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", escaped_kcl) < 0)
-                        return log_oom();
+                        if (strv_extend(cmdline, "-smbios") < 0)
+                                return log_oom();
 
-                if (strv_extend(cmdline, "-smbios") < 0)
-                        return log_oom();
-
-                if (strv_extendf(cmdline, "type=11,value=io.systemd.boot.kernel-cmdline-extra=%s", escaped_kcl) < 0)
-                        return log_oom();
+                        if (strv_extendf(cmdline, "type=11,path=%s", p) < 0)
+                                return log_oom();
+                }
         }
 
         return 0;
 }
 
-static int cmdline_add_smbios11(char ***cmdline) {
+static int cmdline_add_smbios11(char ***cmdline, const char* smbios_dir) {
+        int r;
+
         assert(cmdline);
 
         if (strv_isempty(arg_smbios11))
@@ -1088,15 +1091,20 @@ static int cmdline_add_smbios11(char ***cmdline) {
         }
 
         STRV_FOREACH(i, arg_smbios11) {
-                _cleanup_free_ char *escaped = NULL;
-                escaped = escape_qemu_value(*i);
-                if (!escaped)
-                        return log_oom();
+                _cleanup_(unlink_and_freep) char *p = NULL;
+
+                r = tempfn_random_child(smbios_dir, "smbios11", &p);
+                if (r < 0)
+                        return r;
+
+                r = write_string_file(p, *i, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write smbios data to smbios file %s: %m", p);
 
                 if (strv_extend(cmdline, "-smbios") < 0)
                         return log_oom();
 
-                if (strv_extendf(cmdline, "type=11,value=%s", escaped) < 0)
+                if (strv_extendf(cmdline, "type=11,path=%s", p) < 0)
                         return log_oom();
         }
 
@@ -2386,11 +2394,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        r = cmdline_add_kernel_cmdline(&cmdline, kernel);
+        _cleanup_(rm_rf_physical_and_freep) char *smbios_dir = NULL;
+        r = mkdtemp_malloc("/var/tmp/vmspawn-smbios-XXXXXX", &smbios_dir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary directory: %m");
+
+        r = cmdline_add_kernel_cmdline(&cmdline, kernel, smbios_dir);
         if (r < 0)
                 return r;
 
-        r = cmdline_add_smbios11(&cmdline);
+        r = cmdline_add_smbios11(&cmdline, smbios_dir);
         if (r < 0)
                 return r;
 
@@ -2586,18 +2599,26 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (ARCHITECTURE_SUPPORTS_SMBIOS)
                 FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
-                        _cleanup_free_ char *cred_data_b64 = NULL;
+                        _cleanup_free_ char *p = NULL, *cred_data_b64 = NULL;
                         ssize_t n;
 
                         n = base64mem(cred->data, cred->size, &cred_data_b64);
                         if (n < 0)
                                 return log_oom();
 
+                        p = path_join(smbios_dir, cred->id);
+                        if (!p)
+                                return log_oom();
+
+                        r = write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE, "io.systemd.credential.binary:%s=%s", cred->id, cred_data_b64);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write smbios credential file %s: %m", p);
+
                         r = strv_extend(&cmdline, "-smbios");
                         if (r < 0)
                                 return log_oom();
 
-                        r = strv_extendf(&cmdline, "type=11,value=io.systemd.credential.binary:%s=%s", cred->id, cred_data_b64);
+                        r = strv_extendf(&cmdline, "type=11,path=%s", p);
                         if (r < 0)
                                 return log_oom();
                 }
