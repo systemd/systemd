@@ -12,9 +12,11 @@ in_files = [
 # The last two don't get installed anywhere, one of them needs to included in
 # the rpm spec file definition instead.
 
+rpm_depends = []
+
 foreach tuple : in_files
         file = tuple[0]
-        custom_target(
+        rpm_depends += custom_target(
                 file,
                 input : file + '.in',
                 output : file,
