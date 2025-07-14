@@ -829,7 +829,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                         m->source,
                         OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC,
                         &(struct mount_attr) {
-                                .attr_clr = MOUNT_ATTR_IDMAP,
+                                .attr_clr = idmapping != REMOUNT_IDMAPPING_NONE ? MOUNT_ATTR_IDMAP : 0,
                         });
         if (ERRNO_IS_NEG_NOT_SUPPORTED(fd_clone))
                 /* We can only clear idmapped mounts with open_tree_attr(), but there might not be one in
