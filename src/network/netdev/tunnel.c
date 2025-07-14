@@ -11,6 +11,7 @@
 #include "conf-parser.h"
 #include "hexdecoct.h"
 #include "missing-network.h"
+#include "netdev-util.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
@@ -784,7 +785,7 @@ int config_parse_tunnel_local_address(
         type = netdev_local_address_type_from_string(rvalue);
         if (IN_SET(type, NETDEV_LOCAL_ADDRESS_IPV4LL, NETDEV_LOCAL_ADDRESS_DHCP4))
                 f = AF_INET;
-        else if (IN_SET(type, NETDEV_LOCAL_ADDRESS_IPV6LL, NETDEV_LOCAL_ADDRESS_DHCP6, NETDEV_LOCAL_ADDRESS_SLAAC))
+        else if (IN_SET(type, NETDEV_LOCAL_ADDRESS_IPV6LL, NETDEV_LOCAL_ADDRESS_DHCP6, NETDEV_LOCAL_ADDRESS_SLAAC, NETDEV_LOCAL_ADDRESS_DHCP_PD))
                 f = AF_INET6;
         else {
                 type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;

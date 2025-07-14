@@ -12,6 +12,7 @@ static const char * const netdev_local_address_type_table[_NETDEV_LOCAL_ADDRESS_
         [NETDEV_LOCAL_ADDRESS_DHCP4]  = "dhcp4",
         [NETDEV_LOCAL_ADDRESS_DHCP6]  = "dhcp6",
         [NETDEV_LOCAL_ADDRESS_SLAAC]  = "slaac",
+        [NETDEV_LOCAL_ADDRESS_DHCP_PD]  = "dhcp_pd",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_local_address_type, NetDevLocalAddressType);
@@ -36,6 +37,7 @@ int link_get_local_address(
         case NETDEV_LOCAL_ADDRESS_IPV6LL:
         case NETDEV_LOCAL_ADDRESS_DHCP6:
         case NETDEV_LOCAL_ADDRESS_SLAAC:
+        case NETDEV_LOCAL_ADDRESS_DHCP_PD:
                 assert(IN_SET(family, AF_UNSPEC, AF_INET6));
                 family = AF_INET6;
                 break;
@@ -75,6 +77,10 @@ int link_get_local_address(
                         break;
                 case NETDEV_LOCAL_ADDRESS_SLAAC:
                         if (a->source != NETWORK_CONFIG_SOURCE_NDISC)
+                                continue;
+                        break;
+                case NETDEV_LOCAL_ADDRESS_DHCP_PD:
+                        if (a->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
                                 continue;
                         break;
                 default:
