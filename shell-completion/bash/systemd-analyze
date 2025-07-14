@@ -35,12 +35,12 @@ __get_machines() {
 
 __get_units_all() {
     systemctl list-units --no-legend --no-pager --plain --all $1 | \
-        { while read -r a b c; do echo " $a"; done }
+        { while read -r a b c; do echo " $a"; done; }
 }
 
 __get_services() {
     systemctl list-units --no-legend --no-pager --plain -t service --all $1 | \
-        { while read -r a b c; do [[ $b == "loaded" ]]; echo " $a"; done }
+        { while read -r a b c; do [[ $b == "loaded" ]]; echo " $a"; done; }
 }
 
 __get_syscall_sets() {
@@ -53,7 +53,7 @@ __get_syscall_sets() {
 }
 
 __get_architectures() {
-    systemd-analyze --no-legend --no-pager architectures | { while read -r a b; do echo " $a"; done }
+    systemd-analyze --no-legend --no-pager architectures | { while read -r a b; do echo " $a"; done; }
 }
 
 _systemd_analyze() {
