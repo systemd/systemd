@@ -43,7 +43,7 @@ __get_machines() {
 
 __get_env() {
     local a
-    env | { while read -r a; do echo " ${a%%=*}"; done; }
+    env | { while read -r a; do [[ $a =~ ^[A-Za-z0-9_]+= ]] && echo " ${a%%=*}"; done; }
 }
 
 __get_interfaces(){
