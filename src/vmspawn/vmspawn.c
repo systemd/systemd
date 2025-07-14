@@ -21,7 +21,6 @@
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-util.h"
-#include "bus-wait-for-jobs.h"
 #include "capability-util.h"
 #include "common-signal.h"
 #include "copy.h"
@@ -32,6 +31,7 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fork-notify.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
@@ -39,8 +39,6 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
-#include "io-util.h"
-#include "iovec-util.h"
 #include "log.h"
 #include "machine-credential.h"
 #include "main-func.h"
@@ -48,7 +46,6 @@
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
-#include "nulstr-util.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -1010,7 +1007,36 @@ fallback:
 }
 
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        sd_event_exit(sd_event_source_get_event(s), 0);
+        assert(si);
+
+        /* Let's first do some logging about the exit status of the child. */
+
+        int ret;
+        if (si->si_code == CLD_EXITED) {
+                if (si->si_status == EXIT_SUCCESS)
+                        log_debug("Child process " PID_FMT " exited successfully.", si->si_pid);
+                else
+                        log_error("Child process " PID_FMT " died with a failure exit status %i.", si->si_pid, si->si_status);
+
+                ret = si->si_status;
+        } else if (si->si_code == CLD_KILLED)
+                ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
+                                      "Child process " PID_FMT " was killed by signal %s.",
+                                      si->si_pid, signal_to_string(si->si_status));
+        else if (si->si_code == CLD_DUMPED)
+                ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
+                                      "Child process " PID_FMT " dumped core by signal %s.",
+                                      si->si_pid, signal_to_string(si->si_status));
+        else
+                ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
+                                      "Got unexpected exit code %i via SIGCHLD,",
+                                      si->si_code);
+
+        /* Regardless of whether the main qemu process or an auxiliary process died, let's exit either way
+         * as it's very likely that the main qemu process won't be able to operate properly anymore if one
+         * of the auxiliary processes died. */
+
+        sd_event_exit(sd_event_source_get_event(s), ret);
         return 0;
 }
 
@@ -1117,15 +1143,15 @@ static int cmdline_add_smbios11(char ***cmdline, const char* smbios_dir) {
 }
 
 static int start_tpm(
-                sd_bus *bus,
                 const char *scope,
                 const char *swtpm,
                 const char *runtime_dir,
-                char **ret_listen_address) {
+                const char *sd_socket_activate,
+                char **ret_listen_address,
+                PidRef *ret_pidref) {
 
         int r;
 
-        assert(bus);
         assert(scope);
         assert(swtpm);
         assert(runtime_dir);
@@ -1135,16 +1161,8 @@ static int start_tpm(
         if (r < 0)
                 return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
-        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
-                .socket_type = SOCK_STREAM,
-        };
-
-        ssp.unit_name_prefix = strjoin(scope_prefix, "-tpm");
-        if (!ssp.unit_name_prefix)
-                return log_oom();
-
-        ssp.listen_address = path_join(runtime_dir, "tpm.sock");
-        if (!ssp.listen_address)
+        _cleanup_free_ char *listen_address = path_join(runtime_dir, "tpm.sock");
+        if (!listen_address)
                 return log_oom();
 
         _cleanup_free_ char *transient_state_dir = NULL;
@@ -1152,7 +1170,11 @@ static int start_tpm(
         if (arg_tpm_state_path)
                 state_dir = arg_tpm_state_path;
         else {
-                transient_state_dir = path_join(runtime_dir, ssp.unit_name_prefix);
+                _cleanup_free_ char *dirname = strjoin(scope_prefix, "-tpm");
+                if (!dirname)
+                        return log_oom();
+
+                transient_state_dir = path_join(runtime_dir, dirname);
                 if (!transient_state_dir)
                         return log_oom();
 
@@ -1168,74 +1190,88 @@ static int start_tpm(
         if (r < 0)
                 return log_error_errno(r, "Failed to find swtpm_setup binary: %m");
 
-        ssp.exec_start_pre = strv_new(swtpm_setup, "--tpm-state", state_dir, "--tpm2", "--pcr-banks", "sha256", "--not-overwrite");
-        if (!ssp.exec_start_pre)
+        _cleanup_strv_free_ char **argv = strv_new(swtpm_setup, "--tpm-state", state_dir, "--tpm2", "--pcr-banks", "sha256", "--not-overwrite");
+        if (!argv)
                 return log_oom();
 
-        ssp.exec_start = strv_new(swtpm, "socket", "--tpm2", "--tpmstate");
-        if (!ssp.exec_start)
+        r = safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+        if (r == 0) {
+                /* Child */
+                execvp(argv[0], argv);
+                log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
+                _exit(EXIT_FAILURE);
+        }
+
+        strv_free(argv);
+        argv = strv_new(sd_socket_activate, "--listen", listen_address, swtpm, "socket", "--tpm2", "--tpmstate");
+        if (!argv)
                 return log_oom();
 
-        r = strv_extendf(&ssp.exec_start, "dir=%s", state_dir);
+        r = strv_extendf(&argv, "dir=%s", state_dir);
         if (r < 0)
                 return log_oom();
 
-        r = strv_extend_many(&ssp.exec_start, "--ctrl", "type=unixio,fd=3");
+        r = strv_extend_many(&argv, "--ctrl", "type=unixio,fd=3");
         if (r < 0)
                 return log_oom();
 
-        r = start_socket_service_pair(bus, scope, &ssp);
+        r = fork_notify(argv, ret_pidref);
         if (r < 0)
                 return r;
 
         if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(ssp.listen_address);
+                *ret_listen_address = TAKE_PTR(listen_address);
 
         return 0;
 }
 
 static int start_systemd_journal_remote(
-                sd_bus *bus,
                 const char *scope,
                 unsigned port,
-                const char *sd_journal_remote,
-                char **ret_listen_address) {
+                const char *sd_socket_activate,
+                char **ret_listen_address,
+                PidRef *ret_pidref) {
 
         int r;
 
-        assert(bus);
         assert(scope);
-        assert(sd_journal_remote);
 
         _cleanup_free_ char *scope_prefix = NULL;
         r = unit_name_to_prefix(scope, &scope_prefix);
         if (r < 0)
                 return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
-        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
-                .socket_type = SOCK_STREAM,
-        };
-
-        ssp.unit_name_prefix = strjoin(scope_prefix, "-forward-journal");
-        if (!ssp.unit_name_prefix)
+        _cleanup_free_ char *listen_address = NULL;
+        if (asprintf(&listen_address, "vsock:2:%u", port) < 0)
                 return log_oom();
 
-        if (asprintf(&ssp.listen_address, "vsock:2:%u", port) < 0)
-                return log_oom();
+        _cleanup_free_ char *sd_journal_remote = NULL;
+        r = find_executable_full(
+                        "systemd-journal-remote",
+                        /* root = */ NULL,
+                        STRV_MAKE(LIBEXECDIR),
+                        /* use_path_envvar = */ true, /* systemd-journal-remote should be installed in
+                                                        * LIBEXECDIR, but for supporting fancy setups. */
+                        &sd_journal_remote,
+                        /* ret_fd = */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
-        ssp.exec_start = strv_new(
+        _cleanup_strv_free_ char **argv = strv_new(
+                        sd_socket_activate,
+                        "--listen", listen_address,
                         sd_journal_remote,
                         "--output", arg_forward_journal,
                         "--split-mode", endswith(arg_forward_journal, ".journal") ? "none" : "host");
-        if (!ssp.exec_start)
+        if (!argv)
                 return log_oom();
 
-        r = start_socket_service_pair(bus, scope, &ssp);
+        r = fork_notify(argv, ret_pidref);
         if (r < 0)
                 return r;
 
         if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(ssp.listen_address);
+                *ret_listen_address = TAKE_PTR(listen_address);
 
         return 0;
 }
@@ -1304,17 +1340,16 @@ static int find_virtiofsd(char **ret) {
 }
 
 static int start_virtiofsd(
-                sd_bus *bus,
                 const char *scope,
                 const char *directory,
                 bool uidmap,
                 const char *runtime_dir,
-                char **ret_listen_address) {
+                const char *sd_socket_activate,
+                char **ret_listen_address,
+                PidRef *ret_pidref) {
 
-        static unsigned virtiofsd_instance = 0;
         int r;
 
-        assert(bus);
         assert(scope);
         assert(directory);
         assert(runtime_dir);
@@ -1329,45 +1364,46 @@ static int start_virtiofsd(
         if (r < 0)
                 return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
-        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
-                .socket_type = SOCK_STREAM,
-        };
-
-        if (asprintf(&ssp.unit_name_prefix, "%s-virtiofsd-%u", scope_prefix, virtiofsd_instance++) < 0)
-                return log_oom();
-
-        if (asprintf(&ssp.listen_address, "%s/sock-%"PRIx64, runtime_dir, random_u64()) < 0)
+        _cleanup_free_ char *listen_address = NULL;
+        if (asprintf(&listen_address, "%s/sock-%"PRIx64, runtime_dir, random_u64()) < 0)
                 return log_oom();
 
         /* QEMU doesn't support submounts so don't announce them */
-        ssp.exec_start = strv_new(virtiofsd, "--shared-dir", directory, "--xattr", "--fd", "3", "--no-announce-submounts");
-        if (!ssp.exec_start)
+        _cleanup_strv_free_ char **argv = strv_new(
+                        sd_socket_activate,
+                        "--listen", listen_address,
+                        virtiofsd,
+                        "--shared-dir", directory,
+                        "--xattr",
+                        "--fd", "3",
+                        "--no-announce-submounts");
+        if (!argv)
                 return log_oom();
 
         if (uidmap && arg_uid_shift != UID_INVALID) {
-                r = strv_extend(&ssp.exec_start, "--uid-map");
+                r = strv_extend(&argv, "--uid-map");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&ssp.exec_start, ":0:" UID_FMT ":" UID_FMT ":", arg_uid_shift, arg_uid_range);
+                r = strv_extendf(&argv, ":0:" UID_FMT ":" UID_FMT ":", arg_uid_shift, arg_uid_range);
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extend(&ssp.exec_start, "--gid-map");
+                r = strv_extend(&argv, "--gid-map");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&ssp.exec_start, ":0:" GID_FMT ":" GID_FMT ":", arg_uid_shift, arg_uid_range);
+                r = strv_extendf(&argv, ":0:" GID_FMT ":" GID_FMT ":", arg_uid_shift, arg_uid_range);
                 if (r < 0)
                         return log_oom();
         }
 
-        r = start_socket_service_pair(bus, scope, &ssp);
+        r = fork_notify(argv, ret_pidref);
         if (r < 0)
                 return r;
 
         if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(ssp.listen_address);
+                *ret_listen_address = TAKE_PTR(listen_address);
 
         return 0;
 }
@@ -1611,134 +1647,6 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
         return 0;
 }
 
-static int datagram_read_cmdline_and_exec(int _fd /* always taking possession, even on error */) {
-        _cleanup_close_ int fd = TAKE_FD(_fd);
-        int r;
-
-        assert(fd >= 0);
-
-        /* The first datagram contains the cmdline */
-        r = fd_wait_for_event(fd, POLLIN, USEC_INFINITY);
-        if (r < 0)
-                return log_error_errno(r, "Failed to wait for command line: %m");
-
-        ssize_t n = next_datagram_size_fd(fd);
-        if (n < 0)
-                return log_error_errno(n, "Failed to determine datagram size: %m");
-        n += 1; /* extra byte to validate that the size we determined here was correct */
-
-        _cleanup_free_ char *p = malloc(n);
-        if (!p)
-                return log_oom();
-
-        ssize_t m = recv(fd, p, n, /* flags= */ 0);
-        if (m < 0)
-                return log_error_errno(errno, "Failed to read datagram: %m");
-        if (m >= n)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected message size.");
-
-        _cleanup_strv_free_ char **a = strv_parse_nulstr(p, m);
-        if (!a)
-                return log_oom();
-        if (strv_isempty(a))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Invalid command line.");
-
-        /* The second datagram contains an integer array of the intended fd numbers, and the an SCM_RIGHTS fd
-         * list along with it, matching that. */
-        r = fd_wait_for_event(fd, POLLIN, USEC_INFINITY);
-        if (r < 0)
-                return log_error_errno(r, "Failed to wait for command line: %m");
-
-        n = next_datagram_size_fd(fd);
-        if (n < 0)
-                return log_error_errno(n, "Failed to determine datagram size: %m");
-        n += 1; /* extra byte to validate that the size we determined here was correct */
-
-        _cleanup_free_ int *f = malloc(n);
-        if (!p)
-                return log_oom();
-
-        struct iovec iov = {
-                .iov_base = f,
-                .iov_len = n,
-        };
-
-        int *fds = NULL;
-        size_t n_fds = 0;
-        CLEANUP_ARRAY(fds, n_fds, close_many_and_free);
-
-        m = receive_many_fds_iov(
-                        fd,
-                        &iov, /* iovlen= */ 1,
-                        &fds,
-                        &n_fds,
-                        /* flags= */ MSG_TRUNC);
-        if (m < 0)
-                return log_error_errno(m, "Failed to read datagram: %m");
-        if (m >= n || (size_t) m != n_fds * sizeof(int))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected message size.");
-
-        fd = safe_close(fd);
-
-        /* At this point the fds[] contains the file descriptors we got, and f[] contains the numbers we want
-         * for them. Let's rearrange things. */
-
-        /* 1. Determine largest number we want */
-        int max_fd = 2;
-        for (size_t k = 0; k < n_fds; k++)
-                max_fd = MAX(max_fd, f[k]);
-
-        /* 2. Move all fds we got above that */
-        for (size_t k = 0; k < n_fds; k++) {
-                if (fds[k] > max_fd)
-                        continue;
-
-                _cleanup_close_ int copy = fcntl(fds[k], F_DUPFD_CLOEXEC, max_fd+1);
-                if (copy < 0)
-                        return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
-
-                safe_close(fds[k]);
-                fds[k] = TAKE_FD(copy);
-
-                assert(fds[k] > max_fd);
-        }
-
-        log_close();
-
-        r = close_all_fds(fds, n_fds);
-        if (r < 0)
-                return log_error_errno(r, "Failed to close remaining file descriptors: %m");
-
-        /* 3. Move into place (this also disables O_CLOEXEC) */
-        for (size_t k = 0; k < n_fds; k++) {
-                if (dup2(fds[k], f[k]) < 0)
-                        return log_error_errno(errno, "Failed to move file descriptor: %m");
-
-                safe_close(fds[k]);
-                fds[k] = f[k];
-        }
-
-        execv(a[0], a);
-        return log_error_errno(errno, "Failed to execve %s: %m", a[0]);
-}
-
-_noreturn_ static void child(int cmdline_fd) {
-        assert(cmdline_fd >= 0);
-
-        /* set LANG if they are missing */
-        if (setenv("LANG", "C.UTF-8", /* override= */ 0) < 0) {
-                log_oom();
-                goto fail;
-        }
-
-        /* Now wait for the command line from the parent, and then execute it */
-
-        (void) datagram_read_cmdline_and_exec(TAKE_FD(cmdline_fd));
-
-fail:
-        _exit(EXIT_FAILURE);
-}
-
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
@@ -1746,9 +1654,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
-        size_t n_pass_fds = 0;
+        sd_event_source **children = NULL;
+        size_t n_children = 0, n_pass_fds = 0;
         const char *accel;
         int r;
+
+        CLEANUP_ARRAY(children, n_children, fork_notify_terminate_many);
 
         polkit_agent_open();
 
@@ -1781,76 +1692,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
 
                 runtime_bus = sd_bus_ref(user_bus);
-        }
-
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
-
-        _cleanup_close_pair_ int cmdline_socket[2] = EBADF_PAIR;
-        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, cmdline_socket) < 0)
-                return log_error_errno(errno, "Failed to allocate command line socket pair: %m");
-
-        /* Fork off child early on, as we need to assign it to a scope unit, which we can generate
-         * dependencies towards for swtpm, virtiofsd and so on. It's just going to hang until we fully
-         * prepared a command line */
-        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
-        r = pidref_safe_fork_full(
-                        "(qemu)",
-                        /* stdio_fds= */ NULL,
-                        cmdline_socket + 0, 1,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
-                        &child_pidref);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                cmdline_socket[1] = -EBADF; /* closed due to FORK_CLOEXEC_ALL_FDS */
-
-                child(cmdline_socket[0]);
-                assert_not_reached();
-        }
-
-        cmdline_socket[0] = safe_close(cmdline_socket[0]);
-
-        if (!arg_keep_unit) {
-                /* When a new scope is created for this container, then we'll be registered as its controller, in which
-                 * case PID 1 will send us a friendly RequestStop signal, when it is asked to terminate the
-                 * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
-
-                r = sd_bus_match_signal_async(
-                                runtime_bus,
-                                /* ret= */ NULL,
-                                "org.freedesktop.systemd1",
-                                /* path= */ NULL,
-                                "org.freedesktop.systemd1.Scope",
-                                "RequestStop",
-                                on_request_stop,
-                                /* install_callback= */ NULL,
-                                /* userdata= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to request RequestStop match: %m");
-        }
-
-        _cleanup_free_ char *unit = NULL;
-        bool scope_allocated = false;
-        if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
-                r = allocate_scope(
-                                runtime_bus,
-                                arg_machine,
-                                &child_pidref,
-                                arg_slice,
-                                arg_property,
-                                /* allow_pidfd= */ true,
-                                &unit);
-                if (r < 0)
-                        return r;
-
-                scope_allocated = true;
-        } else {
-                if (arg_privileged)
-                        r = cg_pid_get_unit(0, &unit);
-                else
-                        r = cg_pid_get_user_unit(0, &unit);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get our own unit: %m");
         }
 
         bool use_kvm = arg_kvm > 0;
@@ -2285,17 +2126,50 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
+        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get default event loop: %m");
+
+        (void) sd_event_set_watchdog(event, true);
+
+        _cleanup_free_ char *unit = NULL;
+        r = unit_name_mangle_with_suffix(arg_machine, "as machine name", /* flags= */ 0, ".scope", &unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle scope name: %m");
+
+        _cleanup_free_ char *sd_socket_activate = NULL;
+        r = find_executable("systemd-socket-activate", &sd_socket_activate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find systemd-socket-activate binary: %m");
+
         if (arg_directory) {
                 _cleanup_free_ char *listen_address = NULL;
+                _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
+
+                if (!GREEDY_REALLOC(children, n_children + 1))
+                        return log_oom();
+
                 r = start_virtiofsd(
-                                runtime_bus,
                                 unit,
                                 arg_directory,
                                 /* uidmap= */ true,
                                 runtime_dir,
-                                &listen_address);
+                                sd_socket_activate,
+                                &listen_address,
+                                &child);
                 if (r < 0)
                         return r;
+
+                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                if (r < 0)
+                        return r;
+
+                pidref_done(&child);
+                children[n_children++] = TAKE_PTR(source);
 
                 _cleanup_free_ char *escaped_listen_address = escape_qemu_value(listen_address);
                 if (!escaped_listen_address)
@@ -2360,15 +2234,29 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         FOREACH_ARRAY(mount, arg_runtime_mounts.mounts, arg_runtime_mounts.n_mounts) {
                 _cleanup_free_ char *listen_address = NULL;
+                _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
+
+                if (!GREEDY_REALLOC(children, n_children + 1))
+                        return log_oom();
+
                 r = start_virtiofsd(
-                                runtime_bus,
                                 unit,
                                 mount->source,
                                 /* uidmap= */ false,
                                 runtime_dir,
-                                &listen_address);
+                                sd_socket_activate,
+                                &listen_address,
+                                &child);
                 if (r < 0)
                         return r;
+
+                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                if (r < 0)
+                        return r;
+
+                pidref_done(&child);
+                children[n_children++] = TAKE_PTR(source);
 
                 _cleanup_free_ char *escaped_listen_address = escape_qemu_value(listen_address);
                 if (!escaped_listen_address)
@@ -2462,11 +2350,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         _cleanup_free_ char *tpm_socket_address = NULL;
         if (swtpm) {
-                r = start_tpm(runtime_bus,
-                              unit,
-                              swtpm,
-                              runtime_dir,
-                              &tpm_socket_address);
+                _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
+
+                if (!GREEDY_REALLOC(children, n_children + 1))
+                        return log_oom();
+
+                r = start_tpm(unit, swtpm, runtime_dir, sd_socket_activate, &tpm_socket_address, &child);
                 if (r < 0) {
                         /* only bail if the user asked for a tpm */
                         if (arg_tpm > 0)
@@ -2474,6 +2363,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                         log_debug_errno(r, "Failed to start tpm, ignoring: %m");
                 }
+
+                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                if (r < 0)
+                        return r;
+
+                pidref_done(&child);
+                children[n_children++] = TAKE_PTR(source);
         }
 
         if (tpm_socket_address) {
@@ -2519,27 +2416,23 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_forward_journal) {
-                _cleanup_free_ char *sd_journal_remote = NULL, *listen_address = NULL, *cred = NULL;
+                _cleanup_free_ char *listen_address = NULL, *cred = NULL;
 
-                r = find_executable_full(
-                                "systemd-journal-remote",
-                                /* root = */ NULL,
-                                STRV_MAKE(LIBEXECDIR),
-                                /* use_path_envvar = */ true, /* systemd-journal-remote should be installed in
-                                                               * LIBEXECDIR, but for supporting fancy setups. */
-                                &sd_journal_remote,
-                                /* ret_fd = */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
+                if (!GREEDY_REALLOC(children, n_children + 1))
+                        return log_oom();
 
-                r = start_systemd_journal_remote(
-                                runtime_bus,
-                                unit,
-                                child_cid,
-                                sd_journal_remote,
-                                &listen_address);
+                _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
+                r = start_systemd_journal_remote(unit, child_cid, sd_socket_activate, &listen_address, &child);
                 if (r < 0)
                         return r;
+
+                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                if (r < 0)
+                        return r;
+
+                pidref_done(&child);
+                children[n_children++] = TAKE_PTR(source);
 
                 cred = strjoin("journal.forward_to_socket:", listen_address);
                 if (!cred)
@@ -2660,6 +2553,77 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
+        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
+
+        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
+                        qemu_binary,
+                        /* stdio_fds= */ NULL,
+                        pass_fds, n_pass_fds,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
+                        &child_pidref);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                if (setenv("LANG", "C.UTF-8", 0) < 0) {
+                        log_oom();
+                        goto fail;
+                }
+
+                execv(qemu_binary, cmdline);
+                log_error_errno(errno, "Failed to execve %s: %m", qemu_binary);
+        fail:
+                _exit(EXIT_FAILURE);
+        }
+
+        /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
+        child_vsock_fd = safe_close(child_vsock_fd);
+        tap_fd = safe_close(tap_fd);
+
+        if (!arg_keep_unit) {
+                /* When a new scope is created for this container, then we'll be registered as its controller, in which
+                 * case PID 1 will send us a friendly RequestStop signal, when it is asked to terminate the
+                 * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
+
+                r = sd_bus_match_signal_async(
+                                runtime_bus,
+                                /* ret= */ NULL,
+                                "org.freedesktop.systemd1",
+                                /* path= */ NULL,
+                                "org.freedesktop.systemd1.Scope",
+                                "RequestStop",
+                                on_request_stop,
+                                /* install_callback= */ NULL,
+                                /* userdata= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to request RequestStop match: %m");
+        }
+
+        bool scope_allocated = false;
+        if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
+                r = allocate_scope(
+                                runtime_bus,
+                                arg_machine,
+                                &child_pidref,
+                                children,
+                                n_children,
+                                unit,
+                                arg_slice,
+                                arg_property,
+                                /* allow_pidfd= */ true);
+                if (r < 0)
+                        return r;
+
+                scope_allocated = true;
+        } else {
+                if (arg_privileged)
+                        r = cg_pid_get_unit(0, &unit);
+                else
+                        r = cg_pid_get_user_unit(0, &unit);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get our own unit: %m");
+        }
+
         bool registered = false;
         if (arg_register) {
                 char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
@@ -2681,33 +2645,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 registered = true;
         }
 
-        _cleanup_free_ char *nulstr = NULL;
-        size_t nulstr_size = 0;
-        if (strv_make_nulstr(cmdline, &nulstr, &nulstr_size) < 0)
-                return log_oom();
-
-        /* First datagram: the command line to execute */
-        ssize_t n = send(cmdline_socket[1], nulstr, nulstr_size, /* flags= */ 0);
-        if (n < 0)
-                return log_error_errno(errno, "Failed to send command line: %m");
-
-        /* Second datagram: the file descriptor array and the fds inside it */
-        n = send_many_fds_iov(
-                        cmdline_socket[1],
-                        pass_fds, n_pass_fds, /* both as payload … */
-                        &IOVEC_MAKE(pass_fds, n_pass_fds * sizeof(int)), /* … and as auxiliary fds */
-                        /* iovlen= */ 1,
-                        /* flags= */ 0);
-        if (n < 0)
-                return log_error_errno(n, "Failed to send file descriptors to child: %m");
-
-        /* We submitted the command line now, qemu is running now */
-        cmdline_socket[1] = safe_close(cmdline_socket[1]);
-
-        /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
-        child_vsock_fd = safe_close(child_vsock_fd);
-        tap_fd = safe_close(tap_fd);
-
         /* Report that the VM is now set up */
         (void) sd_notifyf(/* unset_environment= */ false,
                           "STATUS=VM started.\n"
@@ -2724,12 +2661,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         polkit_agent_close();
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        r = sd_event_new(&event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get default event source: %m");
-
-        (void) sd_event_set_watchdog(event, true);
 
         if (system_bus) {
                 r = sd_bus_attach_event(system_bus, event, 0);
