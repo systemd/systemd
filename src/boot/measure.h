@@ -6,6 +6,7 @@
 #if ENABLE_TPM
 
 bool tpm_present(void);
+uint32_t tpm_get_active_pcr_banks(void);
 
 /* Routines for boot-time TPM PCR measurement as well as submitting an event log entry about it. The latter
  * can be done with two different event log record types. For old stuff we use EV_IPL (which is legacy, and
@@ -26,6 +27,10 @@ EFI_STATUS tpm_log_load_options(const char16_t *cmdline, bool *ret_measured);
 
 static inline bool tpm_present(void) {
         return false;
+}
+
+static inline uint32_t tpm_get_active_pcr_banks(void) {
+        return 0;
 }
 
 static inline EFI_STATUS tpm_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
