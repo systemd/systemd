@@ -150,8 +150,8 @@ bool mount_point_ignore(const char *path) {
                 if (path_equal(path, i))
                         return true;
 
-        if (path_startswith(path, "/run/host")) /* All mounts passed in from the container manager are
-                                                 * something we better ignore. */
+        if (detect_container() > 0 && path_startswith(path, "/run/host")) /* All mounts passed in from the container manager are
+                                                                           * something we better ignore. */
                 return true;
 
         return false;
