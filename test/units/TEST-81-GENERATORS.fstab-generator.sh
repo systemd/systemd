@@ -349,7 +349,12 @@ cat "$FSTAB"
 (! SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR")
 
 : "fstab-generator: invalid"
-printf "%s\n" "${FSTAB_INVALID[@]}" >"$FSTAB"
+INVALID="$(printf "%s\n" "${FSTAB_INVALID[@]}")"
+# If we're not in a container, /run/host is a valid mount so filter it in that case.
+if ! systemd-detect-virt -c; then
+    INVALID="$(grep -v /run/host <<<"$INVALID")"
+fi
+echo "$INVALID" >"$FSTAB"
 cat "$FSTAB"
 # Don't care about the exit code here
 SYSTEMD_PROC_CMDLINE="" SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR" || :
