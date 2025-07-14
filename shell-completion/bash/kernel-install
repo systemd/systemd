@@ -38,7 +38,7 @@ _kernel_install() {
         2)
             comps=$(cd /lib/modules; echo [0-9]*)
             if [[ ${COMP_WORDS[1]} == "remove" ]] && [[ -f /etc/machine-id ]]; then
-                read MACHINE_ID < /etc/machine-id
+                read -r MACHINE_ID < /etc/machine-id
                 if [[ $MACHINE_ID ]] && ( [[ -d /boot/$MACHINE_ID ]] || [[ -L /boot/$MACHINE_ID ]] ); then
                     comps=$(cd "/boot/$MACHINE_ID"; echo [0-9]*)
                 fi

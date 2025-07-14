@@ -120,7 +120,7 @@ __get_all_unit_files() { __systemctl $1 list-unit-files "$2*" | while read -r a 
 __get_machines() {
     local a
 
-    while read a _; do
+    while read -r a _; do
         echo " $a"
     done < <(machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null | sort -u; echo ".host")
 }

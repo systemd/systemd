@@ -8,7 +8,7 @@ __bootctl() {
 _bootctl_comp_ids() {
     local expl
     local -a ids
-    __bootctl list | while read a b; do
+    __bootctl list | while read -r a b; do
         if [[ "$a" == "id:" ]]; then
             ids+="$b"
         fi
