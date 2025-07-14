@@ -220,7 +220,8 @@ if rpm.found() and rpmspec.found()
                 test('test-rpm-macros',
                      test_rpm_macros,
                      suite : 'dist',
-                     args : [meson.project_build_root()])
+                     args : [meson.project_build_root()],
+                     depends : rpm_depends)
         endif
 else
       message('Skipping test-rpm-macros since rpm and/or rpmspec are not available')
