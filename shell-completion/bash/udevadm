@@ -51,12 +51,12 @@ __get_root() {
 
     for ((i=0; i < COMP_CWORD; i++)); do
         if [[ "${COMP_WORDS[i]}" = --root=* ]]; then
-             echo "${COMP_WORDS[i]#--root=}"
-             break
+            echo "${COMP_WORDS[i]#--root=}"
+            break
         fi
         if (( i > 0 )) && [[ "${COMP_WORDS[i-1]}" == "--root" ]]; then
-             echo "${COMP_WORDS[i]}"
-             break
+            echo "${COMP_WORDS[i]}"
+            break
         fi
     done
 }

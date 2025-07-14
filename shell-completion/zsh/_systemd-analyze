@@ -7,7 +7,7 @@
     }
 
 (( $+functions[_systemd-analyze_cat-config] )) ||
-	_systemd-analyze_cat-config() {
+    _systemd-analyze_cat-config() {
         _files -W '(/run/systemd/ /etc/systemd/ /usr/lib/systemd/)' -P 'systemd/'
     }
 

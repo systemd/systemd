@@ -39,36 +39,36 @@
 
 (( $+functions[_resolvectl_commands] )) ||
     _resolvectl_commands() {
-    local -a _resolvectl_cmds
-    _resolvectl_cmds=(
-        default-route:"Configure per-interface default-route setting"
-        dns:"Configure per-interface DNS configuration"
-        dnsovertls:"Configure per-interface dnsovertls enabled status"
-        dnssec:"Configure per-interface dnssec enabled status"
-        domain:"Configure per-interface search and route-only domains"
-        flush-caches:"Flushes all DNS resource record caches the service maintains locally"
-        llmnr:"Configure per-interface llmnr enabled status"
-        log-level:"Get/set logging threshold for systemd-resolved"
-        mdns:"Configure per-interface mdns enabled status"
-        monitor:"Monitor DNS queries"
-        nta:"Configure per-interface nta domains"
-        openpgp:"Retrieve openpgp keys for an email"
-        query:"Resolve domain names, IPv4 and IPv6 addresses"
-        reset-server-features:"Flushes all feature level information the resolver has learned about specific servers"
-        reset-statistics:"Resets the statistics counter shown in statistics to zero"
-        revert:"Revert the per-interfce DNS configuration"
-        service:"Resolve DNS-SD and SRV services"
-        show-cache:"Show the current cache contents"
-        show-server-state:"Show servers state"
-        statistics:"Show resolver statistics"
-        status:"Show the global and per-link DNS settings currently in effect"
-        tlsa:"Query tlsa public keys stored as TLSA resource records"
-    )
+        local -a _resolvectl_cmds
+        _resolvectl_cmds=(
+            default-route:"Configure per-interface default-route setting"
+            dns:"Configure per-interface DNS configuration"
+            dnsovertls:"Configure per-interface dnsovertls enabled status"
+            dnssec:"Configure per-interface dnssec enabled status"
+            domain:"Configure per-interface search and route-only domains"
+            flush-caches:"Flushes all DNS resource record caches the service maintains locally"
+            llmnr:"Configure per-interface llmnr enabled status"
+            log-level:"Get/set logging threshold for systemd-resolved"
+            mdns:"Configure per-interface mdns enabled status"
+            monitor:"Monitor DNS queries"
+            nta:"Configure per-interface nta domains"
+            openpgp:"Retrieve openpgp keys for an email"
+            query:"Resolve domain names, IPv4 and IPv6 addresses"
+            reset-server-features:"Flushes all feature level information the resolver has learned about specific servers"
+            reset-statistics:"Resets the statistics counter shown in statistics to zero"
+            revert:"Revert the per-interfce DNS configuration"
+            service:"Resolve DNS-SD and SRV services"
+            show-cache:"Show the current cache contents"
+            show-server-state:"Show servers state"
+            statistics:"Show resolver statistics"
+            status:"Show the global and per-link DNS settings currently in effect"
+            tlsa:"Query tlsa public keys stored as TLSA resource records"
+        )
 
-    if (( CURRENT == 1 )); then
-        _describe -t commands 'resolvectl commands' _resolvectl_cmds
-    fi
-}
+        if (( CURRENT == 1 )); then
+            _describe -t commands 'resolvectl commands' _resolvectl_cmds
+        fi
+    }
 
 _arguments \
     '(- *)'{-h,--help}'[Print a short help text and exit]' \

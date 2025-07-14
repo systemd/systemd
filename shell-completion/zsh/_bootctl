@@ -32,7 +32,7 @@ _bootctl_reboot-to-firmware() {
     local -a _completions
     _completions=( yes no )
     typeset -U _completions
-   _describe 'possible values' _completions
+    _describe 'possible values' _completions
 }
 
 (( $+functions[_bootctl_commands] )) || _bootctl_commands()
