@@ -13,6 +13,7 @@
 #include "log.h"
 #include "missing-network.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -367,6 +368,29 @@ int parse_fd(const char *t) {
                 return -EBADF;
 
         return fd;
+}
+
+int parse_user_shell(const char *s, char **ret_sh, bool *ret_copy) {
+        char *sh;
+        int r;
+
+        if (path_is_absolute(s) && path_is_normalized(s)) {
+                sh = strdup(s);
+                if (!sh)
+                        return -ENOMEM;
+
+                *ret_sh = sh;
+                *ret_copy = false;
+        } else {
+                r = parse_boolean(s);
+                if (r < 0)
+                        return r;
+
+                *ret_sh = NULL;
+                *ret_copy = r;
+        }
+
+        return 0;
 }
 
 static const char *mangle_base(const char *s, unsigned *base) {

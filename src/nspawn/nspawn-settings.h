@@ -276,8 +276,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_userns_ownership);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user_shell);
 
-int parse_bind_user_shell(const char *s, char **ret_sh, bool *ret_copy);
-
 const char* resolv_conf_mode_to_string(ResolvConfMode a) _const_;
 ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
 

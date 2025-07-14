@@ -1542,7 +1542,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_BIND_USER_SHELL: {
                         bool copy = false;
                         char *sh = NULL;
-                        r = parse_bind_user_shell(optarg, &sh, &copy);
+                        r = parse_user_shell(optarg, &sh, &copy);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
