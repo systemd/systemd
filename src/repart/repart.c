@@ -169,8 +169,7 @@ static bool arg_size_auto = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
-static void *arg_key = NULL;
-static size_t arg_key_size = 0;
+static struct iovec arg_key = { 0 };
 static char *arg_private_key = NULL;
 static KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
@@ -207,7 +206,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key, iovec_done_erase);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
@@ -4789,13 +4788,13 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 CRYPT_ANY_SLOT,
                                 NULL,
                                 VOLUME_KEY_SIZE,
-                                strempty(arg_key),
-                                arg_key_size);
+                                strempty(arg_key.iov_base),
+                                arg_key.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
-                passphrase = strempty(arg_key);
-                passphrase_size = arg_key_size;
+                passphrase = strempty(arg_key.iov_base);
+                passphrase_size = arg_key.iov_len;
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
@@ -8804,20 +8803,21 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         break;
 
                 case ARG_KEY_FILE: {
-                        _cleanup_(erase_and_freep) char *k = NULL;
-                        size_t n = 0;
+                        struct iovec key = { 0 };
 
                         r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                        AT_FDCWD, optarg,
+                                        /* offset=*/ UINT64_MAX,
+                                        /* size=*/ SIZE_MAX,
                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &k, &n);
+                                        /* bind_name=*/ NULL,
+                                        (char **) &key.iov_base,
+                                        &key.iov_len);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read key file '%s': %m", optarg);
 
-                        erase_and_free(arg_key);
-                        arg_key = TAKE_PTR(k);
-                        arg_key_size = n;
+                        iovec_done_erase(&arg_key);
+                        arg_key = key;
                         break;
                 }
 
