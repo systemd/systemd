@@ -412,6 +412,8 @@ typedef struct Partition {
         OrderedHashmap *subvolumes;
         char *default_subvolume;
         EncryptMode encrypt;
+        void *key;
+        size_t key_size;
         Tpm2PCRValue *tpm2_hash_pcr_values;
         size_t tpm2_n_hash_pcr_values;
         VerityMode verity;
@@ -681,6 +683,9 @@ static Partition* partition_free(Partition *p) {
         free(p->compression);
         free(p->compression_level);
 
+        erase_and_free(p->key);
+        p->key_size = 0;
+
         copy_files_free_many(p->copy_files, p->n_copy_files);
 
         iovec_done(&p->roothash);
@@ -721,6 +726,9 @@ static void partition_foreignize(Partition *p) {
         p->verity_match_key = mfree(p->verity_match_key);
         p->compression = mfree(p->compression);
         p->compression_level = mfree(p->compression_level);
+
+        p->key = erase_and_free(p->key);
+        p->key_size = 0;
 
         copy_files_free_many(p->copy_files, p->n_copy_files);
         p->copy_files = NULL;
@@ -2492,6 +2500,56 @@ static int config_parse_tpm2_pcrs(
         return 0;
 }
 
+static int parse_key_file(const char *filename, void **key, size_t *key_size) {
+        _cleanup_(erase_and_freep) char *k = NULL;
+        size_t n = 0;
+        int r;
+
+        r = read_full_file_full(
+                        AT_FDCWD, filename, UINT64_MAX, SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL,
+                        &k, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key file '%s': %m", filename);
+
+        erase_and_free(*key);
+        *key = TAKE_PTR(k);
+        *key_size = n;
+
+        return 0;
+}
+
+static int config_parse_key_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *partition = ASSERT_PTR(userdata);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                partition->key = erase_and_free(partition->key);
+                partition->key_size = 0;
+                return 0;
+        }
+
+        r = parse_key_file(rvalue, &partition->key, &partition->key_size);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF);
 
@@ -2598,6 +2656,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
                 { "Partition", "Tpm2Pcrs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
+                { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
@@ -4819,18 +4878,22 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
         if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
+                /* Use partition-specific key if available, otherwise fall back to global key */
+                const char *key = p->key ? p->key : strempty(arg_key);
+                size_t key_size = p->key ? p->key_size : arg_key_size;
+
                 r = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 NULL,
                                 VOLUME_KEY_SIZE,
-                                strempty(arg_key),
-                                arg_key_size);
+                                key,
+                                key_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
-                passphrase = strempty(arg_key);
-                passphrase_size = arg_key_size;
+                passphrase = strempty(key);
+                passphrase_size = key_size;
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
@@ -8841,20 +8904,9 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         break;
 
                 case ARG_KEY_FILE: {
-                        _cleanup_(erase_and_freep) char *k = NULL;
-                        size_t n = 0;
-
-                        r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &k, &n);
+                        r = parse_key_file(optarg, &arg_key, &arg_key_size);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to read key file '%s': %m", optarg);
-
-                        erase_and_free(arg_key);
-                        arg_key = TAKE_PTR(k);
-                        arg_key_size = n;
+                                return r;
                         break;
                 }
 

@@ -881,6 +881,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>KeyFile=</varname></term>
+
+        <listitem><para>Takes a file system path. Configures the encryption key to use when setting up LUKS2
+        volumes configured with the <varname>Encrypt=key-file</varname> setting in partition files.
+        Please refer to the documentation of <varname>--key-file=</varname> for more details.
+        Configuring this option will override the global <varname>--key-file=</varname> option.</para>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Compression=</varname></term>
 
         <listitem><para>Specifies the compression algorithm to use for the filesystem configured with
