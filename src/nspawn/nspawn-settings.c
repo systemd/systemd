@@ -1003,29 +1003,6 @@ int config_parse_bind_user(
         return 0;
 }
 
-int parse_bind_user_shell(const char *s, char **ret_sh, bool *ret_copy) {
-        char *sh;
-        int r;
-
-        if (path_is_absolute(s) && path_is_normalized(s)) {
-                sh = strdup(s);
-                if (!sh)
-                        return -ENOMEM;
-
-                *ret_sh = sh;
-                *ret_copy = false;
-        } else {
-                r = parse_boolean(s);
-                if (r < 0)
-                        return r;
-
-                *ret_sh = NULL;
-                *ret_copy = r;
-        }
-
-        return 0;
-}
-
 int config_parse_bind_user_shell(
                 const char *unit,
                 const char *filename,
@@ -1053,7 +1030,7 @@ int config_parse_bind_user_shell(
                 return 0;
         }
 
-        r = parse_bind_user_shell(rvalue, &sh, &copy);
+        r = parse_user_shell(rvalue, &sh, &copy);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
