@@ -43,6 +43,7 @@
 #include "analyze-timespan.h"
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
+#include "analyze-unit-gdb.h"
 #include "analyze-unit-paths.h"
 #include "analyze-unit-shell.h"
 #include "analyze-verify.h"
@@ -53,6 +54,7 @@
 #include "bus-util.h"
 #include "calendarspec.h"
 #include "dissect-image.h"
+#include "extract-word.h"
 #include "image-policy.h"
 #include "log.h"
 #include "loop-util.h"
@@ -79,6 +81,8 @@ usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
 CatFlags arg_cat_flags = 0;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+const char *arg_debugger = NULL;
+static char **arg_debugger_args = NULL;
 const char *arg_host = NULL;
 RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = _RECURSIVE_ERRORS_INVALID;
@@ -242,6 +246,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]         Analyze security of unit\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
+               "  unit-gdb SERVICE           Attach a debugger to the given running service\n"
                "  unit-shell SERVICE [Command]\n"
                "                             Run command on the namespace of the service\n"
                "\n%3$sExecutable Analysis:%4$s\n"
@@ -296,6 +301,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
                "  -m --mask                  Parse parameter as numeric capability mask\n"
                "     --drm-device=PATH       Use this DRM device sysfs path to get EDID\n"
+               "     --debugger=DEBUGGER     Use the given debugger\n"
+               "  -A --debugger-arguments=ARGS\n"
+               "                             Pass the given arguments to the debugger\n"
 
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -344,45 +352,48 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SCALE_FACTOR_SVG,
                 ARG_DETAILED_SVG,
                 ARG_DRM_DEVICE_PATH,
+                ARG_DEBUGGER,
         };
 
         static const struct option options[] = {
-                { "help",             no_argument,       NULL, 'h'                  },
-                { "version",          no_argument,       NULL, ARG_VERSION          },
-                { "quiet",            no_argument,       NULL, 'q'                  },
-                { "order",            no_argument,       NULL, ARG_ORDER            },
-                { "require",          no_argument,       NULL, ARG_REQUIRE          },
-                { "root",             required_argument, NULL, ARG_ROOT             },
-                { "image",            required_argument, NULL, ARG_IMAGE            },
-                { "image-policy",     required_argument, NULL, ARG_IMAGE_POLICY     },
-                { "recursive-errors", required_argument, NULL, ARG_RECURSIVE_ERRORS },
-                { "offline",          required_argument, NULL, ARG_OFFLINE          },
-                { "threshold",        required_argument, NULL, ARG_THRESHOLD        },
-                { "security-policy",  required_argument, NULL, ARG_SECURITY_POLICY  },
-                { "system",           no_argument,       NULL, ARG_SYSTEM           },
-                { "user",             no_argument,       NULL, ARG_USER             },
-                { "global",           no_argument,       NULL, ARG_GLOBAL           },
-                { "from-pattern",     required_argument, NULL, ARG_DOT_FROM_PATTERN },
-                { "to-pattern",       required_argument, NULL, ARG_DOT_TO_PATTERN   },
-                { "fuzz",             required_argument, NULL, ARG_FUZZ             },
-                { "no-pager",         no_argument,       NULL, ARG_NO_PAGER         },
-                { "man",              optional_argument, NULL, ARG_MAN              },
-                { "generators",       optional_argument, NULL, ARG_GENERATORS       },
-                { "instance",         required_argument, NULL, ARG_INSTANCE         },
-                { "host",             required_argument, NULL, 'H'                  },
-                { "machine",          required_argument, NULL, 'M'                  },
-                { "iterations",       required_argument, NULL, ARG_ITERATIONS       },
-                { "base-time",        required_argument, NULL, ARG_BASE_TIME        },
-                { "unit",             required_argument, NULL, 'U'                  },
-                { "json",             required_argument, NULL, ARG_JSON             },
-                { "profile",          required_argument, NULL, ARG_PROFILE          },
-                { "table",            optional_argument, NULL, ARG_TABLE            },
-                { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
-                { "tldr",             no_argument,       NULL, ARG_TLDR             },
-                { "mask",             no_argument,       NULL, 'm'                  },
-                { "scale-svg",        required_argument, NULL, ARG_SCALE_FACTOR_SVG },
-                { "detailed",         no_argument,       NULL, ARG_DETAILED_SVG     },
-                { "drm-device",       required_argument, NULL, ARG_DRM_DEVICE_PATH  },
+                { "help",               no_argument,       NULL, 'h'                  },
+                { "version",            no_argument,       NULL, ARG_VERSION          },
+                { "quiet",              no_argument,       NULL, 'q'                  },
+                { "order",              no_argument,       NULL, ARG_ORDER            },
+                { "require",            no_argument,       NULL, ARG_REQUIRE          },
+                { "root",               required_argument, NULL, ARG_ROOT             },
+                { "image",              required_argument, NULL, ARG_IMAGE            },
+                { "image-policy",       required_argument, NULL, ARG_IMAGE_POLICY     },
+                { "recursive-errors"  , required_argument, NULL, ARG_RECURSIVE_ERRORS },
+                { "offline",            required_argument, NULL, ARG_OFFLINE          },
+                { "threshold",          required_argument, NULL, ARG_THRESHOLD        },
+                { "security-policy",    required_argument, NULL, ARG_SECURITY_POLICY  },
+                { "system",             no_argument,       NULL, ARG_SYSTEM           },
+                { "user",               no_argument,       NULL, ARG_USER             },
+                { "global",             no_argument,       NULL, ARG_GLOBAL           },
+                { "from-pattern",       required_argument, NULL, ARG_DOT_FROM_PATTERN },
+                { "to-pattern",         required_argument, NULL, ARG_DOT_TO_PATTERN   },
+                { "fuzz",               required_argument, NULL, ARG_FUZZ             },
+                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER         },
+                { "man",                optional_argument, NULL, ARG_MAN              },
+                { "generators",         optional_argument, NULL, ARG_GENERATORS       },
+                { "instance",           required_argument, NULL, ARG_INSTANCE         },
+                { "host",               required_argument, NULL, 'H'                  },
+                { "machine",            required_argument, NULL, 'M'                  },
+                { "iterations",         required_argument, NULL, ARG_ITERATIONS       },
+                { "base-time",          required_argument, NULL, ARG_BASE_TIME        },
+                { "unit",               required_argument, NULL, 'U'                  },
+                { "json",               required_argument, NULL, ARG_JSON             },
+                { "profile",            required_argument, NULL, ARG_PROFILE          },
+                { "table",              optional_argument, NULL, ARG_TABLE            },
+                { "no-legend",          optional_argument, NULL, ARG_NO_LEGEND        },
+                { "tldr",               no_argument,       NULL, ARG_TLDR             },
+                { "mask",               no_argument,       NULL, 'm'                  },
+                { "scale-svg",          required_argument, NULL, ARG_SCALE_FACTOR_SVG },
+                { "detailed",           no_argument,       NULL, ARG_DETAILED_SVG     },
+                { "drm-device",         required_argument, NULL, ARG_DRM_DEVICE_PATH  },
+                { "debugger",           required_argument, NULL, ARG_DEBUGGER         },
+                { "debugger-arguments", required_argument, NULL, 'A'                  },
                 {}
         };
 
@@ -397,7 +408,7 @@ static int parse_argv(int argc, char *argv[]) {
         optind = 0;
 
         for (;;) {
-                static const char option_string[] = "-hqH:M:U:m";
+                static const char option_string[] = "-hqH:M:U:mA:";
 
                 c = getopt_long(argc, argv, option_string + reorder, options, NULL);
                 if (c < 0)
@@ -653,6 +664,19 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_DEBUGGER:
+                        arg_debugger = strdup(optarg);
+                        break;
+
+                case 'A': {
+                        _cleanup_strv_free_ char **l = NULL;
+                        r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
+                        strv_free_and_replace(arg_debugger_args, l);
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -700,10 +724,10 @@ done:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --security-policy= is only supported for security.");
 
-        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf")) &&
+        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf", "unit-gdb")) &&
            (!(streq_ptr(argv[optind], "security") && arg_offline)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Options --root= and --image= are only supported for cat-config, verify, condition and security when used with --offline= right now.");
+                                       "Options --root= and --image= are only supported for cat-config, verify, condition, unit-gdb, and security when used with --offline= right now.");
 
         /* Having both an image and a root is not supported by the code */
         if (arg_root && arg_image)
@@ -756,6 +780,7 @@ static int run(int argc, char *argv[]) {
                 { "dump",               VERB_ANY, VERB_ANY, 0,  verb_dump               },
                 { "cat-config",         2,        VERB_ANY, 0,  verb_cat_config         },
                 { "unit-files",         VERB_ANY, VERB_ANY, 0,  verb_unit_files         },
+                { "unit-gdb",           2,        VERB_ANY, 0,  verb_unit_gdb           },
                 { "unit-paths",         1,        1,        0,  verb_unit_paths         },
                 { "unit-shell",         2,        VERB_ANY, 0,  verb_unit_shell         },
                 { "exit-status",        VERB_ANY, VERB_ANY, 0,  verb_exit_status        },
