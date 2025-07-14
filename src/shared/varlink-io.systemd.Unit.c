@@ -4,6 +4,10 @@
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Unit.h"
 
+/*
+ * CGroupContext
+ */
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupTasksMax,
                 SD_VARLINK_FIELD_COMMENT("The maximum amount of tasks"),
@@ -237,6 +241,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Reflects whether to forward coredumps for processes that crash within this cgroup"),
                 SD_VARLINK_DEFINE_FIELD(CoredumpReceive, SD_VARLINK_BOOL, 0));
 
+/*
+ * ExecContext
+ */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 WorkingDirectory,
                 SD_VARLINK_FIELD_COMMENT("The path to the working directory"),
@@ -714,6 +721,10 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#UtmpMode="),
                 SD_VARLINK_DEFINE_FIELD(UtmpMode, SD_VARLINK_STRING, 0));
 
+/*
+ * UnitContext
+ */
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Condition,
                 SD_VARLINK_FIELD_COMMENT("The condition type"),
@@ -1035,6 +1046,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ActivationDetails,
                 SD_VARLINK_SYMBOL_COMMENT("An object for referencing UNIX processes"),
                 &vl_type_ProcessId,
+
+                /* CGroupContext */
                 &vl_type_CGroupTasksMax,
                 &vl_type_CGroupIODeviceWeight,
                 &vl_type_CGroupIODeviceLimit,
@@ -1049,6 +1062,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_CGroupContext,
                 SD_VARLINK_SYMBOL_COMMENT("CGroup runtime of a unit"),
                 &vl_type_CGroupRuntime,
+
+                /* ExecContext */
                 &vl_type_WorkingDirectory,
                 &vl_type_PartitionMountOptions,
                 &vl_type_BindPath,
@@ -1074,5 +1089,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_SetCredential,
                 SD_VARLINK_SYMBOL_COMMENT("Exec context of a unit"),
                 &vl_type_ExecContext,
+
+                /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit);
