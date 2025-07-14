@@ -120,7 +120,6 @@ static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static RuntimeMountContext arg_runtime_mounts = {};
-static SettingsMask arg_settings_mask = 0;
 static char *arg_firmware = NULL;
 static char *arg_forward_journal = NULL;
 static bool arg_privileged = false;
@@ -368,7 +367,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_settings_mask |= SETTING_DIRECTORY;
                         break;
 
                 case 'i':
@@ -376,7 +374,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_settings_mask |= SETTING_DIRECTORY;
                         break;
 
                 case 'M':
@@ -488,7 +485,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Invalid UUID: %s", optarg);
 
-                        arg_settings_mask |= SETTING_MACHINE_ID;
                         break;
 
                 case ARG_REGISTER:
@@ -508,7 +504,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --bind(-ro)= argument %s: %m", optarg);
 
-                        arg_settings_mask |= SETTING_BIND_MOUNTS;
                         break;
 
                 case ARG_EXTRA_DRIVE: {
@@ -561,7 +556,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = machine_credential_set(&arg_credentials, optarg);
                         if (r < 0)
                                 return r;
-                        arg_settings_mask |= SETTING_CREDENTIALS;
                         break;
                 }
 
@@ -570,7 +564,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_settings_mask |= SETTING_CREDENTIALS;
                         break;
                 }
 
@@ -696,8 +689,6 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_kernel_cmdline_extra = strv_copy(argv + optind);
                 if (!arg_kernel_cmdline_extra)
                         return log_oom();
-
-                arg_settings_mask |= SETTING_START_MODE;
         }
 
         return 1;
