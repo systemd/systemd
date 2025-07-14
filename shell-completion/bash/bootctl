@@ -94,7 +94,7 @@ _bootctl() {
             if ! __contains_word "${COMP_WORDS[i]}" ${OPTS[*]} ${VERBS[*]} &&
                     ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                 name=${COMP_WORDS[i]}
-                break;
+                break
             fi
         done
 

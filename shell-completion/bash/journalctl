@@ -61,7 +61,7 @@ _journalctl() {
     if __contains_word "$prev" '>' '>>' '&>'; then
         compopt -o filenames
         COMPREPLY=( $(compgen -f -- "$cur") )
-        return 0;
+        return 0
     fi
 
     if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then

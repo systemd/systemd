@@ -163,7 +163,7 @@ _systemd_analyze() {
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --global --man=no --generators=yes --root --image --recursive-errors=no --recursive-errors=yes --recursive-errors=one'
         else
-            comps=$( compgen -A file -- "$cur";
+            comps=$( compgen -A file -- "$cur"
                      __get_units_all $mode )
             compopt -o filenames
         fi

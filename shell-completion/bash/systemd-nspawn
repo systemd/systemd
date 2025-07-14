@@ -26,12 +26,12 @@ __contains_word() {
 
 __get_users() {
     local a b
-    loginctl list-users --no-legend --no-pager | { while read a b; do echo " $b"; done; };
+    loginctl list-users --no-legend --no-pager | { while read a b; do echo " $b"; done; }
 }
 
 __get_slices() {
     local a b
-    systemctl list-units -t slice --no-legend --no-pager --plain | { while read a b; do echo " $a"; done; };
+    systemctl list-units -t slice --no-legend --no-pager --plain | { while read a b; do echo " $a"; done; }
 }
 
 __get_machines() {
@@ -43,7 +43,7 @@ __get_machines() {
 
 __get_env() {
     local a
-    env | { while read a; do echo " ${a%%=*}"; done; };
+    env | { while read a; do echo " ${a%%=*}"; done; }
 }
 
 __get_interfaces(){

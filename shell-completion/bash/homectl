@@ -27,7 +27,7 @@ __contains_word () {
 __get_machines() {
     local a b
     machinectl list --full --no-legend --no-pager 2>/dev/null |
-        { while read a b; do echo " $a"; done; };
+        { while read a b; do echo " $a"; done; }
 }
 
 __get_homes() {

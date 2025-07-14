@@ -11,7 +11,7 @@ __systemctl() {
 (( $+functions[__systemd-run_get_slices] )) ||
     __systemd-run_get_slices () {
         __systemctl list-units --all -t slice \
-            | { while read -r a b; do echo $a; done; };
+            | { while read -r a b; do echo $a; done; }
     }
 
 (( $+functions[__systemd-run_slices] )) ||

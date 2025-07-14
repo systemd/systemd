@@ -36,7 +36,7 @@ __get_units_have_cgroup() {
         while read -r a b c d; do
             [[ $c == "active" && ${a##*.} =~ (service|socket|mount|swap|slice|scope) ]] && echo " $a"
         done
-    };
+    }
 }
 
 _systemd_cgls() {

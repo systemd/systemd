@@ -291,13 +291,13 @@ _systemctl () {
         compopt -o filenames
 
     elif __contains_word "$verb" ${VERBS[DISABLED_UNITS]}; then
-        comps=$( __get_disabled_units $mode "$cur";
+        comps=$( __get_disabled_units $mode "$cur"
                  __get_template_names $mode "$cur")
         compopt -o filenames
 
     elif __contains_word "$verb" ${VERBS[REENABLABLE_UNITS]}; then
-        comps=$( __get_disabled_units $mode "$cur";
-                 __get_enabled_units $mode "$cur";
+        comps=$( __get_disabled_units $mode "$cur"
+                 __get_enabled_units $mode "$cur"
                  __get_template_names $mode "$cur")
         compopt -o filenames
 
