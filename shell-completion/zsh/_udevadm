@@ -50,10 +50,10 @@ _udevadm_trigger(){
 (( $+functions[_udevadm_settle] )) ||
 _udevadm_settle(){
     _arguments \
-       '(-)'{-h,--help}'[Print help]' \
-       '(-)'{-V,--version}'[Print version of the program]' \
-       '(-t --timeout)'{-t,--timeout=}'[Maximum number of seconds to wait for the event queue to become empty.]:SEC' \
-       '(-E --exit-if-exists)'{-E,--exit-if-exists=}'[Stop waiting if file exists.]:files:_files'
+        '(-)'{-h,--help}'[Print help]' \
+        '(-)'{-V,--version}'[Print version of the program]' \
+        '(-t --timeout)'{-t,--timeout=}'[Maximum number of seconds to wait for the event queue to become empty.]:SEC' \
+        '(-E --exit-if-exists)'{-E,--exit-if-exists=}'[Stop waiting if file exists.]:files:_files'
 }
 
 (( $+functions[_udevadm_control] )) ||
@@ -92,7 +92,7 @@ _udevadm_test(){
         '(-)'{-V,--version}'[Show package version]' \
         '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
         '(-N --resolve-names)'{-N,--resolve-names=}'[When to resolve names.]:resolve:(early late never)' \
-       '--subsystem=[The subsystem string.]' \
+        '--subsystem=[The subsystem string.]' \
         '(-D --extra-rules-dir=)'{-D,--extra-rules-dir=}'[Also load rules from the directory.]' \
         '(-v --verbose)'{-v,--verbose}'[Show verbose logs.]' \
         '--json=[Generate JSON output]:MODE:(pretty short off)' \
@@ -102,11 +102,11 @@ _udevadm_test(){
 (( $+functions[_udevadm_test-builtin] )) ||
 _udevadm_test-builtin(){
     if (( CURRENT == 2 )); then
-    _arguments \
-        '(- *)'{-h,--help}'[Print help]' \
-        '(- *)'{-V,--version}'[Print version of the program]' \
-        '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
-        '*::builtins:(blkid btrfs dissect_image factory_reset hwdb input_id keyboard kmod net_driver net_id net_setup_link path_id uaccess usb_id)'
+        _arguments \
+            '(- *)'{-h,--help}'[Print help]' \
+            '(- *)'{-V,--version}'[Print version of the program]' \
+            '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
+            '*::builtins:(blkid btrfs dissect_image factory_reset hwdb input_id keyboard kmod net_driver net_id net_setup_link path_id uaccess usb_id)'
     elif  (( CURRENT == 3 )); then
         _arguments \
             '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
