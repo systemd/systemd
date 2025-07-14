@@ -29,21 +29,12 @@ int link_get_local_address(
 
         switch (type) {
         case NETDEV_LOCAL_ADDRESS_IPV4LL:
-                assert(IN_SET(family, AF_UNSPEC, AF_INET));
-                family = AF_INET;
-                break;
-        case NETDEV_LOCAL_ADDRESS_IPV6LL:
-                assert(IN_SET(family, AF_UNSPEC, AF_INET6));
-                family = AF_INET6;
-                break;
         case NETDEV_LOCAL_ADDRESS_DHCP4:
                 assert(IN_SET(family, AF_UNSPEC, AF_INET));
                 family = AF_INET;
                 break;
+        case NETDEV_LOCAL_ADDRESS_IPV6LL:
         case NETDEV_LOCAL_ADDRESS_DHCP6:
-                assert(IN_SET(family, AF_UNSPEC, AF_INET6));
-                family = AF_INET6;
-                break;
         case NETDEV_LOCAL_ADDRESS_SLAAC:
                 assert(IN_SET(family, AF_UNSPEC, AF_INET6));
                 family = AF_INET6;
