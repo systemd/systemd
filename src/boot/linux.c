@@ -22,6 +22,28 @@
 #define STUB_PAYLOAD_GUID \
         { 0x55c5d1f8, 0x04cd, 0x46b5, { 0x8a, 0x20, 0xe5, 0x6c, 0xbb, 0x30, 0x52, 0xd0 } }
 
+typedef struct {
+        const void *addr;
+        size_t len;
+        const EFI_DEVICE_PATH *device_path;
+} ValidationContext;
+
+static bool validate_payload(
+                const void *ctx, const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
+
+        const ValidationContext *payload = ASSERT_PTR(ctx);
+
+        if (device_path != payload->device_path)
+                return false;
+
+        /* Security arch (1) protocol does not provide a file buffer. Instead we are supposed to fetch the payload
+         * ourselves, which is not needed as we already have everything in memory and the device paths match. */
+        if (file_buffer && (file_buffer != payload->addr || file_size != payload->len))
+                return false;
+
+        return true;
+}
+
 static EFI_STATUS load_via_boot_services(
                 EFI_HANDLE parent,
                 EFI_LOADED_IMAGE_PROTOCOL* parent_loaded_image,
@@ -43,12 +65,28 @@ static EFI_STATUS load_via_boot_services(
 
         _cleanup_free_ EFI_DEVICE_PATH* file_path = device_path_replace_node(parent_loaded_image->FilePath, NULL, &device_node.Header);
 
+        /* When running with shim < v16 and booting a UKI directly from it, without a second stage loader,
+         * the shim verify protocol needs to be called or it will raise a security violation when starting
+         * the image (e.g.: Fedora Cloud Base UKI). TODO: drop once support for shim < v16 is not needed. */
+        if (!shim_loader_available())
+                install_security_override(
+                                validate_payload,
+                                &(ValidationContext) {
+                                        .addr = kernel->iov_base,
+                                        .len = kernel->iov_len,
+                                        .device_path = file_path,
+                                });
+
+
         err = BS->LoadImage(/* BootPolicy= */false,
                             parent,
                             file_path,
                             kernel->iov_base,
                             kernel->iov_len,
                             &kernel_image);
+
+        if (!shim_loader_available())
+                uninstall_security_override();
 
         if (err != EFI_SUCCESS)
                 return log_error_status(EFI_LOAD_ERROR, "Error loading inner kernel with shim: %m");
@@ -125,7 +163,7 @@ EFI_STATUS linux_exec(
          *
          * See https://github.com/rhboot/shim/blob/main/README.md#shim-loader-protocol
          */
-        if (secure_boot_enabled() && shim_loader_available())
+        if (secure_boot_enabled() && (shim_loader_available() || shim_loaded()))
                 return load_via_boot_services(
                                 parent,
                                 parent_loaded_image,
