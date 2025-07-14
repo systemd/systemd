@@ -50,6 +50,18 @@ See [reporting of security vulnerabilities](https://systemd.io/SECURITY).
 * Github will automatically add the `please-review` label when a pull request is opened or updated.
   If you need more information after a review, you can comment `/please-review` on the pull request to have Github add the `please-review` label to the pull request.
 
+## Using AI Code Generators
+
+If you use an AI code generator such as ChatGPT, Claude, Copilot, Llama or a similar tool, please mention so
+in the pull request description and include the prompt given to the AI code generator in the pull request
+description. The quality bar for contributions to this project is high, and unlikely to be met by an
+unattended AI tool, without significant manual corrections. Always thoroughly review and correct any such
+outputs, for example ensuring it accurately follows [Coding Style](https://systemd.io/CODING_STYLE) at the
+very minimum. Please do not fire-and-forget pull requests without any human intervention and review, as that
+will likely result in low-quality results that will not be accepted, and if done repeatedly, may result in
+the account being blocked. As with any other submissions, authors are responsible for doing due diligence and
+ensuring their submissions are compatible with the project's license as documented in LICENSES/README.md.
+
 ## Reviewing Pull Requests
 
 * See [filtered list of pull requests](https://github.com/systemd/systemd/pulls?q=is%3Aopen+is%3Apr+-label%3A%22reviewed%2Fneeds-rework+%F0%9F%94%A8%22+-label%3Aneeds-rebase+-label%3Agood-to-merge%2Fwith-minor-suggestions+-label%3A%22good-to-merge%2Fwaiting-for-ci+%F0%9F%91%8D%22+-label%3Apostponed+-label%3A%22needs-reporter-feedback+%E2%9D%93%22+-label%3A%22dont-merge+%F0%9F%92%A3%22+-label%3A%22ci-fails%2Fneeds-rework+%F0%9F%94%A5%22+sort%3Aupdated-desc) for requests that are ready for review.
