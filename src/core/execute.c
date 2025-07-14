@@ -381,13 +381,17 @@ const char* exec_get_private_notify_socket_path(const ExecContext *context, cons
         return "/run/host/notify";
 }
 
-int exec_log_level_max(const ExecContext *context, const ExecParameters *params) {
-        assert(context);
+int exec_log_level_max_with_exec_params(const ExecContext *context, const ExecParameters *params) {
         assert(params);
 
         if (params->debug_invocation)
                 return LOG_DEBUG;
 
+        return exec_log_level_max(context);
+}
+
+int exec_log_level_max(const ExecContext *context) {
+        assert(context);
         return context->log_level_max < 0 ? log_get_max_level() : context->log_level_max;
 }
 
