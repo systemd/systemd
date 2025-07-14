@@ -34,7 +34,6 @@
 #include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
-#include "cgroup-util.h"
 #include "chase.h"
 #include "common-signal.h"
 #include "constants.h"
@@ -55,7 +54,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
-#include "group-record.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -66,6 +64,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
+#include "machine-bind-user.h"
 #include "machine-credential.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -1730,9 +1729,6 @@ static int verify_arguments(void) {
                 if (arg_start_mode == START_BOOT)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= setting is not useful for boot mode.");
         }
-
-        if (arg_userns_mode == USER_NAMESPACE_NO && !strv_isempty(arg_bind_user))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--bind-user= requires --private-users");
 
         /* Drop duplicate --bind-user= entries */
         strv_uniq(arg_bind_user);
@@ -3878,7 +3874,6 @@ static int outer_child(
                 int netns_fd,
                 const char *unix_export_path) {
 
-        _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
         bool idmap = false;
         ssize_t l;
@@ -4043,38 +4038,41 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = bind_user_prepare(
+        _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
+        r = machine_bind_user_prepare(
                         directory,
                         arg_bind_user,
                         arg_bind_user_shell,
                         arg_bind_user_shell_copy,
-                        chown_uid,
-                        chown_range,
-                        &arg_custom_mounts, &arg_n_custom_mounts,
                         &bind_user_context);
         if (r < 0)
                 return r;
 
-        if (arg_userns_mode != USER_NAMESPACE_NO && bind_user_context) {
-                /* Send the user maps we determined to the parent, so that it installs it in our user
-                 * namespace UID map table */
+        if (bind_user_context)
+                FOREACH_ARRAY(bind_user, bind_user_context->data, bind_user_context->n_data) {
+                        _cleanup_free_ char *sm = strdup(user_record_home_directory(bind_user->host_user));
+                        if (!sm)
+                                return log_oom();
 
-                FOREACH_ARRAY(d, bind_user_context->data, bind_user_context->n_data) {
-                        uid_t map[] = {
-                                d->payload_user->uid,
-                                d->host_user->uid,
-                                (uid_t) d->payload_group->gid,
-                                (uid_t) d->host_group->gid,
+                        _cleanup_free_ char *sd = strdup(user_record_home_directory(bind_user->payload_user));
+                        if (!sd)
+                                return log_oom();
+
+                        if (!GREEDY_REALLOC(arg_custom_mounts, arg_n_custom_mounts + 1))
+                                return log_oom();
+
+                        char *options = strdup("owneridmap");
+                        if (!options)
+                                return log_oom();
+
+                        arg_custom_mounts[arg_n_custom_mounts++] = (CustomMount) {
+                                .type = CUSTOM_MOUNT_BIND,
+                                .source = TAKE_PTR(sm),
+                                .destination = TAKE_PTR(sd),
+                                .options = TAKE_PTR(options),
+                                .destination_uid = bind_user->payload_user->uid,
                         };
-
-                        l = send(fd_outer_socket, map, sizeof(map), MSG_NOSIGNAL);
-                        if (l < 0)
-                                return log_error_errno(errno, "Failed to send user UID map: %m");
-                        if (l != sizeof(map))
-                                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                                       "Short write while sending user UID map.");
                 }
-        }
 
         r = mount_custom(
                         directory,
@@ -4492,69 +4490,6 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
         }
 }
 
-static int add_one_uid_map(
-                char **p,
-                uid_t container_uid,
-                uid_t host_uid,
-                uid_t range) {
-
-        return strextendf(p,
-                       UID_FMT " " UID_FMT " " UID_FMT "\n",
-                       container_uid, host_uid, range);
-}
-
-static int make_uid_map_string(
-                const uid_t bind_user_uid[],
-                size_t n_bind_user_uid,
-                size_t offset,
-                char **ret) {
-
-        _cleanup_free_ char *s = NULL;
-        uid_t previous_uid = 0;
-        int r;
-
-        assert(n_bind_user_uid == 0 || bind_user_uid);
-        assert(IN_SET(offset, 0, 2)); /* used to switch between UID and GID map */
-        assert(ret);
-
-        /* The bind_user_uid[] array is a series of 4 uid_t values, for each --bind-user= entry one
-         * quadruplet, consisting of host and container UID + GID. */
-
-        for (size_t i = 0; i < n_bind_user_uid; i++) {
-                uid_t payload_uid = bind_user_uid[i*4+offset],
-                        host_uid = bind_user_uid[i*4+offset+1];
-
-                assert(previous_uid <= payload_uid);
-                assert(payload_uid < arg_uid_range);
-
-                /* Add a range to close the gap to previous entry */
-                if (payload_uid > previous_uid) {
-                        r = add_one_uid_map(&s, previous_uid, arg_uid_shift + previous_uid, payload_uid - previous_uid);
-                        if (r < 0)
-                                return r;
-                }
-
-                /* Map this specific user */
-                r = add_one_uid_map(&s, payload_uid, host_uid, 1);
-                if (r < 0)
-                        return r;
-
-                previous_uid = payload_uid + 1;
-        }
-
-        /* And add a range to close the gap to finish the range */
-        if (arg_uid_range > previous_uid) {
-                r = add_one_uid_map(&s, previous_uid, arg_uid_shift + previous_uid, arg_uid_range - previous_uid);
-                if (r < 0)
-                        return r;
-        }
-
-        assert(s);
-
-        *ret = TAKE_PTR(s);
-        return 0;
-}
-
 static int setup_uid_map(
                 const PidRef *pid,
                 const uid_t bind_user_uid[],
@@ -4567,19 +4502,13 @@ static int setup_uid_map(
         assert(pidref_is_set(pid));
         assert(pid->pid > 1);
 
-        /* Build the UID map string */
-        if (make_uid_map_string(bind_user_uid, n_bind_user_uid, 0, &s) < 0) /* offset=0 contains the UID pair */
+        if (asprintf(&s, "0 " UID_FMT " " UID_FMT "\n", arg_uid_shift, arg_uid_range) < 0)
                 return log_oom();
 
         xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid->pid);
         r = write_string_file(uid_map, s, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "Failed to write UID map: %m");
-
-        /* And now build the GID map string */
-        s = mfree(s);
-        if (make_uid_map_string(bind_user_uid, n_bind_user_uid, 2, &s) < 0) /* offset=2 contains the GID pair */
-                return log_oom();
 
         xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid->pid);
         r = write_string_file(uid_map, s, WRITE_STRING_FILE_DISABLE_BUFFER);
@@ -5313,26 +5242,6 @@ static int run_container(
                                 return log_error_errno(errno, "Failed to send UID shift: %m");
                         if (l != sizeof arg_uid_shift)
                                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing UID shift.");
-                }
-
-                n_bind_user_uid = strv_length(arg_bind_user);
-                if (n_bind_user_uid > 0) {
-                        /* Right after the UID shift, we'll receive the list of UID mappings for the
-                         * --bind-user= logic. Always a quadruplet of payload and host UID + GID. */
-
-                        bind_user_uid = new(uid_t, n_bind_user_uid*4);
-                        if (!bind_user_uid)
-                                return log_oom();
-
-                        for (size_t i = 0; i < n_bind_user_uid; i++) {
-                                l = recv(fd_outer_socket_pair[0], bind_user_uid + i*4, sizeof(uid_t)*4, 0);
-                                if (l < 0)
-                                        return log_error_errno(errno, "Failed to read user UID map pair: %m");
-                                if (l != sizeof(uid_t)*4)
-                                        return log_full_errno(l == 0 ? LOG_DEBUG : LOG_WARNING,
-                                                              SYNTHETIC_ERRNO(EIO),
-                                                              "Short read while reading bind user UID pairs.");
-                        }
                 }
         }
 
