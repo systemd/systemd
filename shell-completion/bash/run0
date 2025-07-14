@@ -21,13 +21,13 @@ __systemctl() {
     systemctl --system --full --no-legend --no-pager --plain "$@"
 }
 
-__get_slice_units () { __systemctl list-units --all -t slice \
-                           | { while read -r a b c d; do echo " $a"; done; }; }
+__get_slice_units () { __systemctl list-units --all -t slice |
+                           { while read -r a b c d; do echo " $a"; done; }; }
 
 __get_machines() {
     local a b
-    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-        { while read a b; do echo " $a"; done; } | \
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+        { while read a b; do echo " $a"; done; } |
         sort -u
 }
 

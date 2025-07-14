@@ -119,8 +119,8 @@
         while _tags; do
             for i in $groups; do
                 if _requested ${i//_/-}-commands; then
-                    _describe -t ${i//_/-}-commands "${i//_/ } command" ${i}_commands \
-                        && ret=0
+                    _describe -t ${i//_/-}-commands "${i//_/ } command" ${i}_commands &&
+                        ret=0
                 fi
             done
         done

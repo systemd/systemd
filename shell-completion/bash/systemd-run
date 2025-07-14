@@ -22,8 +22,8 @@ __systemctl() {
     systemctl $mode --full --no-legend --no-pager --plain "$@"
 }
 
-__get_slice_units () { __systemctl $1 list-units --all -t slice \
-                           | { while read -r a b c d; do echo " $a"; done; }; }
+__get_slice_units () { __systemctl $1 list-units --all -t slice |
+                           { while read -r a b c d; do echo " $a"; done; }; }
 
 __get_properties () {
     systemd-analyze transient-settings scope service 2>/dev/null |
@@ -47,8 +47,8 @@ __get_timer_properties () {
 
 __get_machines() {
     local a b
-    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-        { while read -r a b; do echo " $a"; done; } | \
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+        { while read -r a b; do echo " $a"; done; } |
         sort -u
 }
 

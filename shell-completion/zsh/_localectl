@@ -4,9 +4,9 @@
 (( $+functions[_localectl_set-locale] )) ||
 _localectl_set-locale() {
     local -a _locales locale_fields
-    locale_fields=(LANG LANGUAGE LC_CTYPE LC_NUMERIC LC_TIME \
-                   LC_COLLATE LC_MONETARY LC_MESSAGES LC_PAPER \
-                   LC_NAME LC_ADDRESS LC_TELEPHONE \
+    locale_fields=(LANG LANGUAGE LC_CTYPE LC_NUMERIC LC_TIME
+                   LC_COLLATE LC_MONETARY LC_MESSAGES LC_PAPER
+                   LC_NAME LC_ADDRESS LC_TELEPHONE
                    LC_MEASUREMENT LC_IDENTIFICATION)
     # LC_ALL is omitted on purpose
 
