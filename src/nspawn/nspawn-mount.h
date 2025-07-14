@@ -45,6 +45,7 @@ typedef struct CustomMount {
         char *type_argument; /* only for CUSTOM_MOUNT_ARBITRARY */
         bool graceful;
         bool in_userns;
+        uid_t dest_owner;
 } CustomMount;
 
 CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t);
