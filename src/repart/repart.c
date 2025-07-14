@@ -412,6 +412,10 @@ typedef struct Partition {
         OrderedHashmap *subvolumes;
         char *default_subvolume;
         EncryptMode encrypt;
+        void *key;
+        size_t key_size;
+        Tpm2PCRValue *tpm2_hash_pcr_values;
+        size_t tpm2_n_hash_pcr_values;
         VerityMode verity;
         char *verity_match_key;
         MinimizeMode minimize;
@@ -679,6 +683,9 @@ static Partition* partition_free(Partition *p) {
         free(p->compression);
         free(p->compression_level);
 
+        erase_and_free(p->key);
+        p->key_size = 0;
+
         copy_files_free_many(p->copy_files, p->n_copy_files);
 
         iovec_done(&p->roothash);
@@ -719,6 +726,9 @@ static void partition_foreignize(Partition *p) {
         p->verity_match_key = mfree(p->verity_match_key);
         p->compression = mfree(p->compression);
         p->compression_level = mfree(p->compression_level);
+
+        p->key = erase_and_free(p->key);
+        p->key_size = 0;
 
         copy_files_free_many(p->copy_files, p->n_copy_files);
         p->copy_files = NULL;
@@ -2458,6 +2468,88 @@ static int config_parse_encrypted_volume(
         return 0;
 }
 
+static int config_parse_tpm2_pcrs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *partition = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Clear existing PCR values if empty */
+                partition->tpm2_hash_pcr_values = mfree(partition->tpm2_hash_pcr_values);
+                partition->tpm2_n_hash_pcr_values = 0;
+                return 0;
+        }
+
+        r = tpm2_parse_pcr_argument_append(rvalue, &partition->tpm2_hash_pcr_values, &partition->tpm2_n_hash_pcr_values);
+        if (r < 0) {
+                return 0;
+        }
+
+        return 0;
+}
+
+static int parse_key_file(const char *filename, void **key, size_t *key_size) {
+        _cleanup_(erase_and_freep) char *k = NULL;
+        size_t n = 0;
+        int r;
+
+        r = read_full_file_full(
+                        AT_FDCWD, filename, UINT64_MAX, SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL,
+                        &k, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key file '%s': %m", filename);
+
+        erase_and_free(*key);
+        *key = TAKE_PTR(k);
+        *key_size = n;
+
+        return 0;
+}
+
+static int config_parse_key_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *partition = ASSERT_PTR(userdata);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                partition->key = erase_and_free(partition->key);
+                partition->key_size = 0;
+                return 0;
+        }
+
+        r = parse_key_file(rvalue, &partition->key, &partition->key_size);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF);
 
@@ -2563,6 +2655,8 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "Tpm2Pcrs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
+                { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
@@ -4784,18 +4878,22 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
         if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
+                /* Use partition-specific key if available, otherwise fall back to global key */
+                const char *key = p->key ? p->key : strempty(arg_key);
+                size_t key_size = p->key ? p->key_size : arg_key_size;
+
                 r = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 NULL,
                                 VOLUME_KEY_SIZE,
-                                strempty(arg_key),
-                                arg_key_size);
+                                key,
+                                key_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
-                passphrase = strempty(arg_key);
-                passphrase_size = arg_key_size;
+                passphrase = strempty(key);
+                passphrase_size = key_size;
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
@@ -4806,8 +4904,10 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 ssize_t base64_encoded_size;
                 int keyslot;
                 TPM2Flags flags = 0;
+                Tpm2PCRValue *pcr_values = p->tpm2_n_hash_pcr_values > 0 ? p->tpm2_hash_pcr_values : arg_tpm2_hash_pcr_values;
+                size_t n_pcr_values = p->tpm2_n_hash_pcr_values > 0 ? p->tpm2_n_hash_pcr_values : arg_tpm2_n_hash_pcr_values;
 
-                if (arg_tpm2_n_hash_pcr_values == 0 &&
+                if (n_pcr_values == 0 &&
                     arg_tpm2_public_key_pcr_mask == 0 &&
                     !arg_tpm2_pcrlock)
                         log_notice("Notice: encrypting future partition %" PRIu64 ", locking against TPM2 with an empty policy, i.e. without any state or access restrictions.\n"
@@ -4847,7 +4947,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         if (r < 0)
                                 return r;
 
-                        if (!tpm2_pcr_values_has_all_values(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values))
+                        if (!tpm2_pcr_values_has_all_values(pcr_values, n_pcr_values))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Must provide all PCR values when using TPM2 device key.");
                 } else {
@@ -4855,8 +4955,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         if (r < 0)
                                 return r;
 
-                        if (!tpm2_pcr_values_has_all_values(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values)) {
-                                r = tpm2_pcr_read_missing_values(tpm2_context, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values);
+                        if (!tpm2_pcr_values_has_all_values(pcr_values, n_pcr_values)) {
+                                r = tpm2_pcr_read_missing_values(tpm2_context, pcr_values, n_pcr_values);
                                 if (r < 0)
                                         return log_error_errno(r, "Could not read pcr values: %m");
                         }
@@ -4864,17 +4964,17 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 uint16_t hash_pcr_bank = 0;
                 uint32_t hash_pcr_mask = 0;
-                if (arg_tpm2_n_hash_pcr_values > 0) {
+                if (n_pcr_values > 0) {
                         size_t hash_count;
-                        r = tpm2_pcr_values_hash_count(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, &hash_count);
+                        r = tpm2_pcr_values_hash_count(pcr_values, n_pcr_values, &hash_count);
                         if (r < 0)
                                 return log_error_errno(r, "Could not get hash count: %m");
 
                         if (hash_count > 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR banks selected.");
 
-                        hash_pcr_bank = arg_tpm2_hash_pcr_values[0].hash;
-                        r = tpm2_pcr_values_to_mask(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
+                        hash_pcr_bank = pcr_values[0].hash;
+                        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, hash_pcr_bank, &hash_pcr_mask);
                         if (r < 0)
                                 return log_error_errno(r, "Could not get hash mask: %m");
                 }
@@ -4887,8 +4987,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 /* If both PCR public key unlock and pcrlock unlock is selected, then shard the encryption key. */
                 r = tpm2_calculate_sealing_policy(
-                                arg_tpm2_hash_pcr_values,
-                                arg_tpm2_n_hash_pcr_values,
+                                pcr_values,
+                                n_pcr_values,
                                 iovec_is_set(&pubkey) ? &public : NULL,
                                 /* use_pin= */ false,
                                 arg_tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
@@ -4898,8 +4998,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 if (arg_tpm2_pcrlock && iovec_is_set(&pubkey)) {
                         r = tpm2_calculate_sealing_policy(
-                                        arg_tpm2_hash_pcr_values,
-                                        arg_tpm2_n_hash_pcr_values,
+                                        pcr_values,
+                                        n_pcr_values,
                                         /* public= */ NULL,      /* Turn this one off for the 2nd shard */
                                         /* use_pin= */ false,
                                         &pcrlock_policy,         /* But turn this one on */
@@ -8804,20 +8904,9 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         break;
 
                 case ARG_KEY_FILE: {
-                        _cleanup_(erase_and_freep) char *k = NULL;
-                        size_t n = 0;
-
-                        r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &k, &n);
+                        r = parse_key_file(optarg, &arg_key, &arg_key_size);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to read key file '%s': %m", optarg);
-
-                        erase_and_free(arg_key);
-                        arg_key = TAKE_PTR(k);
-                        arg_key_size = n;
+                                return r;
                         break;
                 }
 

@@ -868,6 +868,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>TPM2PCRs=</varname></term>
+
+        <listitem><para>Configures the list of PCRs to use for LUKS2 volumes configured with
+        the <varname>Encrypt=tpm2</varname> setting in partition files.
+        This option take the same parameters as the identically named options to
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and have the same effect on partitions where TPM2 enrollment is requested.
+        Configuring this option will override the global <varname>--tpm2-pcrs=</varname> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>KeyFile=</varname></term>
+
+        <listitem><para>Takes a file system path. Configures the encryption key to use when setting up LUKS2
+        volumes configured with the <varname>Encrypt=key-file</varname> setting in partition files.
+        Please refer to the documentation of <varname>--key-file=</varname> for more details.
+        Configuring this option will override the global <varname>--key-file=</varname> option.</para>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Compression=</varname></term>
 
         <listitem><para>Specifies the compression algorithm to use for the filesystem configured with
