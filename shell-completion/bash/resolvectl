@@ -67,7 +67,7 @@ _resolvectl() {
                 comps=$( __get_interfaces )
                 ;;
             --protocol|-p|--type|-t|--class|-c|--json)
-                comps=$( resolvectl --legend=no "$prev" help; echo help )
+                comps=$( resolvectl --legend=no "$prev" help 2>/dev/null; echo help )
                 ;;
             --raw)
                 comps="payload packet"

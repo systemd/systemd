@@ -81,7 +81,7 @@ _journalctl() {
                 comps=$( journalctl --output=help 2>/dev/null )
                 ;;
             --field|-F)
-                comps=$(journalctl --fields | sort 2>/dev/null)
+                comps=$(journalctl --fields 2>/dev/null | sort)
                 ;;
             --machine|-M)
                 comps=$( __get_machines )

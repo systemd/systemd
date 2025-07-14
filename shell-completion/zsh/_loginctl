@@ -4,7 +4,7 @@
 (( $+functions[_loginctl_all_sessions] )) ||
 _loginctl_all_sessions() {
     local session description
-    loginctl --no-legend list-sessions | while read -r session description; do
+    loginctl --no-legend list-sessions 2>/dev/null | while read -r session description; do
         _sys_all_sessions+=( "$session" )
         _sys_all_sessions_descr+=( "${session}:$description" )
     done
@@ -13,7 +13,7 @@ _loginctl_all_sessions() {
 (( $+functions[_loginctl_all_users] )) ||
 _loginctl_all_users() {
     local uid description
-    loginctl --no-legend list-users | while read -r uid description; do
+    loginctl --no-legend list-users 2>/dev/null | while read -r uid description; do
         _sys_all_users+=( "$uid" )
         _sys_all_users_descr+=( "${uid}:$description" )
     done
@@ -22,7 +22,7 @@ _loginctl_all_users() {
 (( $+functions[_loginctl_all_seats] )) ||
 _loginctl_all_seats() {
     local seat description
-    loginctl --no-legend list-seats | while read -r seat description; do
+    loginctl --no-legend list-seats 2>/dev/null | while read -r seat description; do
         _sys_all_seats+=( "$seat" )
         _sys_all_seats_descr+=( "${seat}:$description" )
     done

@@ -26,7 +26,7 @@ __contains_word () {
 }
 
 __get_links() {
-    networkctl list --no-legend --no-pager --all --full | { while read -r a b c; do echo " $b"; done; }
+    networkctl list --no-legend --no-pager --all --full 2>/dev/null | { while read -r a b c; do echo " $b"; done; }
 }
 
 __get_links_with_prefix() {
@@ -70,7 +70,7 @@ _networkctl() {
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
             --json)
-                comps=$(networkctl --json=help)
+                comps=$(networkctl --json=help 2>/dev/null)
                 ;;
             *)
                 return 0

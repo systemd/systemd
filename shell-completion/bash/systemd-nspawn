@@ -26,12 +26,14 @@ __contains_word() {
 
 __get_users() {
     local a b
-    loginctl list-users --no-legend --no-pager | { while read -r a b; do echo " $b"; done; }
+    loginctl list-users --no-legend --no-pager 2>/dev/null |
+        { while read -r a b; do echo " $b"; done; }
 }
 
 __get_slices() {
     local a b
-    systemctl list-units -t slice --no-legend --no-pager --plain | { while read -r a b; do echo " $a"; done; }
+    systemctl list-units -t slice --no-legend --no-pager --plain 2>/dev/null |
+        { while read -r a b; do echo " $a"; done; }
 }
 
 __get_machines() {

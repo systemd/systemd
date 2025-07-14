@@ -21,7 +21,7 @@ __systemctl() {
     systemctl --system --full --no-legend --no-pager --plain "$@"
 }
 
-__get_slice_units () { __systemctl list-units --all -t slice |
+__get_slice_units () { __systemctl list-units --all -t slice 2>/dev/null |
                            { while read -r a b c d; do echo " $a"; done; }; }
 
 __get_machines() {

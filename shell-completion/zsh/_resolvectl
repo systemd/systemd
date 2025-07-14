@@ -19,21 +19,21 @@
 (( $+functions[_resolvectl_protocols] )) ||
     _resolvectl_protocols() {
         local -a _protocol
-        _protocol=( $(_call_program protocol ${service} --legend=no --protocol help; echo help) )
+        _protocol=( $(_call_program protocol ${service} --legend=no --protocol help 2>/dev/null; echo help) )
         _values 'protocol' "$_protocol[@]"
     }
 
 (( $+functions[_resolvectl_types] )) ||
     _resolvectl_types() {
         local -a _type
-        _type=( $(_call_program type ${service} --legend=no --type help; echo help) )
+        _type=( $(_call_program type ${service} --legend=no --type help 2>/dev/null; echo help) )
         _values 'type' "$_type[@]"
     }
 
 (( $+functions[_resolvectl_classes] )) ||
     _resolvectl_classes() {
         local -a _class
-        _class=( $(_call_program class ${service} --legend=no --class help; echo help) )
+        _class=( $(_call_program class ${service} --legend=no --class help 2>/dev/null; echo help) )
         _values 'class' "$_class[@]"
     }
 
