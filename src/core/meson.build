@@ -70,9 +70,9 @@ libcore_sources = files(
         'varlink-unit.c',
 )
 
-subdir('bpf/socket_bind')
-subdir('bpf/restrict_fs')
-subdir('bpf/restrict_ifaces')
+subdir('bpf/socket-bind')
+subdir('bpf/restrict-fs')
+subdir('bpf/restrict-ifaces')
 
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [

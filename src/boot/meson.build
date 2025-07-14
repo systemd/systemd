@@ -147,7 +147,7 @@ if efi_conf.get('SBAT_DISTRO', '') != ''
 endif
 
 configure_file(
-        output : 'efi_config.h',
+        output : 'efi-config.h',
         configuration : efi_conf)
 
 ############################################################
@@ -163,7 +163,7 @@ efi_c_args = [
         '-ffreestanding',
         '-fno-strict-aliasing',
         '-fshort-wchar',
-        '-include', 'efi_config.h',
+        '-include', 'efi-config.h',
 ]
 
 efi_c_args += cc.get_supported_arguments(

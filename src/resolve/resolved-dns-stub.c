@@ -11,7 +11,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "resolve-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"

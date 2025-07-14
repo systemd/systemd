@@ -54,7 +54,7 @@
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "bpf-restrict-fs.h"
-#include "bpf/restrict_fs/restrict-fs-skel.h"
+#include "bpf/restrict-fs/restrict-fs-skel.h"
 #endif
 
 #define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC (100 * USEC_PER_MSEC)

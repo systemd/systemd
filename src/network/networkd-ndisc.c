@@ -12,7 +12,7 @@
 #include "conf-parser.h"
 #include "errno-util.h"
 #include "event-util.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "ndisc-router-internal.h"
 #include "networkd-address.h"
 #include "networkd-address-generation.h"

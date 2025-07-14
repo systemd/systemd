@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-subdir('bpf/sysctl_monitor')
+subdir('bpf/sysctl-monitor')
 
 systemd_networkd_sources = files(
         'networkd.c'

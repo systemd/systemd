@@ -4,7 +4,7 @@ if conf.get('ENABLE_NSRESOURCED') != 1
         subdir_done()
 endif
 
-subdir('bpf/userns_restrict')
+subdir('bpf/userns-restrict')
 
 systemd_nsresourced_sources = files(
         'nsresourced-manager.c',

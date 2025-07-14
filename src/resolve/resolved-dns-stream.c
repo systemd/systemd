@@ -9,7 +9,7 @@
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "ordered-set.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-server.h"

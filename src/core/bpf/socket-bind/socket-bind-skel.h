@@ -13,4 +13,4 @@
 #define bpf_object__load_skeleton sym_bpf_object__load_skeleton
 #define bpf_object__destroy_skeleton sym_bpf_object__destroy_skeleton
 
-#include "bpf/socket_bind/socket-bind.skel.h"
+#include "bpf/socket-bind/socket-bind.skel.h"

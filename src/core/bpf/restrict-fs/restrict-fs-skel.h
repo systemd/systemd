@@ -13,4 +13,4 @@
 #define bpf_object__load_skeleton sym_bpf_object__load_skeleton
 #define bpf_object__destroy_skeleton sym_bpf_object__destroy_skeleton
 
-#include "bpf/restrict_fs/restrict-fs.skel.h"
+#include "bpf/restrict-fs/restrict-fs.skel.h"

@@ -13,4 +13,4 @@
 #define bpf_object__load_skeleton sym_bpf_object__load_skeleton
 #define bpf_object__destroy_skeleton sym_bpf_object__destroy_skeleton
 
-#include "bpf/restrict_ifaces/restrict-ifaces.skel.h"
+#include "bpf/restrict-ifaces/restrict-ifaces.skel.h"
