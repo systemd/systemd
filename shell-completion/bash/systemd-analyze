@@ -40,7 +40,7 @@ __get_units_all() {
 
 __get_services() {
     systemctl list-units --no-legend --no-pager --plain -t service --all $1 |
-        { while read -r a b c; do [[ $b == "loaded" ]]; echo " $a"; done; }
+        { while read -r a b c; do [[ $b == "loaded" ]] && echo " $a"; done; }
 }
 
 __get_syscall_sets() {
