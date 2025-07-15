@@ -17,6 +17,7 @@
 #include "mkdir.h"
 #include "netif-util.h"
 #include "parse-util.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
@@ -176,6 +177,7 @@ void link_allocate_scopes(Link *l) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv4 scope, ignoring: %m");
+                        dns_browse_services_restart(l->manager);
                 }
         } else
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
@@ -186,6 +188,7 @@ void link_allocate_scopes(Link *l) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv6 scope, ignoring: %m");
+                        dns_browse_services_restart(l->manager);
                 }
         } else
                 l->mdns_ipv6_scope = dns_scope_free(l->mdns_ipv6_scope);
