@@ -539,7 +539,7 @@ int bus_image_common_remove(
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                r = image_remove(image);
+                r = image_remove(image, m->runtime_scope);
                 if (r < 0) {
                         (void) write(errno_pipe_fd[1], &r, sizeof(r));
                         _exit(EXIT_FAILURE);

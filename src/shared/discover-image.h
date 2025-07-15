@@ -55,7 +55,7 @@ int image_from_path(const char *path, Image **ret);
 int image_find_harder(RuntimeScope scope, ImageClass class, const char *name_or_path, const char *root, Image **ret);
 int image_discover(RuntimeScope scope, ImageClass class, const char *root, Hashmap **images);
 
-int image_remove(Image *i);
+int image_remove(Image *i, RuntimeScope scope);
 int image_rename(Image *i, const char *new_name, RuntimeScope scope);
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope);
 int image_read_only(Image *i, bool b);
@@ -67,7 +67,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
 int image_name_lock(const char *name, int operation, LockFile *ret);
 
 int image_set_limit(Image *i, uint64_t referenced_max);
-int image_set_pool_limit(ImageClass class, uint64_t referenced_max);
+int image_set_pool_limit(RuntimeScope scope, ImageClass class, uint64_t referenced_max);
 
 int image_read_metadata(Image *i, const ImagePolicy *image_policy);
 
