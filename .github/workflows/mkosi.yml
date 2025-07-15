@@ -87,6 +87,17 @@ jobs:
             no_qemu: 1
             no_kvm: 1
             shim: 0
+          - distro: debian
+            release: testing
+            runner: ubuntu-24.04-ppc64le
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
+            no_qemu: 1
+            no_kvm: 1
+            shim: 0
           - distro: ubuntu
             release: noble
             runner: ubuntu-24.04
