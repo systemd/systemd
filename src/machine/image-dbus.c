@@ -205,7 +205,7 @@ int bus_image_method_mark_read_only(
                 sd_bus_error *error) {
 
         Image *image = userdata;
-        Manager *m = image->userdata;
+        Manager *m = ASSERT_PTR(image->userdata);
         int read_only, r;
 
         assert(message);
@@ -234,7 +234,7 @@ int bus_image_method_mark_read_only(
                         return 1; /* Will call us back */
         }
 
-        r = image_read_only(image, read_only);
+        r = image_read_only(image, read_only, m->runtime_scope);
         if (r < 0)
                 return r;
 
@@ -290,11 +290,12 @@ int bus_image_method_get_hostname(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(image->userdata);
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container);
+                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -308,11 +309,12 @@ int bus_image_method_get_machine_id(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(image->userdata);
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container);
+                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -336,11 +338,12 @@ int bus_image_method_get_machine_info(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(image->userdata);
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container);
+                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -353,11 +356,12 @@ int bus_image_method_get_os_release(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(image->userdata);
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container);
+                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
