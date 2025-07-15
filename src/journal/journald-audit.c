@@ -460,7 +460,15 @@ void manager_process_audit_message(
         process_audit_string(m, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)));
 }
 
-static int enable_audit(int fd, bool b) {
+static int manager_set_kernel_audit(Manager *m) {
+        int r;
+
+        assert(m);
+        assert(m->audit_fd >= 0);
+
+        if (m->config.set_audit < 0)
+                return 0;
+
         struct {
                 union {
                         struct nlmsghdr header;
@@ -474,7 +482,7 @@ static int enable_audit(int fd, bool b) {
                 .header.nlmsg_seq = 1,
                 .header.nlmsg_pid = 0,
                 .body.mask = AUDIT_STATUS_ENABLED,
-                .body.enabled = b,
+                .body.enabled = m->config.set_audit,
         };
         union sockaddr_union sa = {
                 .nl.nl_family = AF_NETLINK,
@@ -491,17 +499,18 @@ static int enable_audit(int fd, bool b) {
                 .msg_namelen = sizeof(sa.nl),
         };
 
-        ssize_t n;
-
-        n = sendmsg(fd, &mh, MSG_NOSIGNAL);
+        r = 0;
+        ssize_t n = sendmsg(m->audit_fd, &mh, MSG_NOSIGNAL);
         if (n < 0)
-                return -errno;
+                r = -errno;
         if (n != NLMSG_LENGTH(sizeof(struct audit_status)))
-                return -EIO;
+                r = SYNTHETIC_ERRNO(EIO);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to %s kernel auditing: %m", enable_disable(m->config.set_audit));
 
-        /* We don't wait for the result here, we can't do anything
-         * about it anyway */
+        /* We don't wait for the result here, we can't do anything about it anyway. */
 
+        log_debug("Auditing in kernel is %s.", enabled_disabled(m->config.set_audit));
         return 0;
 }
 
@@ -544,16 +553,6 @@ int manager_open_audit(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add audit fd to event loop: %m");
 
-        if (m->config.set_audit >= 0) {
-                /* We are listening now, try to enable audit if configured so */
-                r = enable_audit(m->audit_fd, m->config.set_audit);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to issue audit enable call: %m");
-                else if (m->config.set_audit > 0)
-                        log_debug("Auditing in kernel turned on.");
-                else
-                        log_debug("Auditing in kernel turned off.");
-        }
-
+        (void) manager_set_kernel_audit(m);
         return 0;
 }
