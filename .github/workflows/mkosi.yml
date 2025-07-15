@@ -84,12 +84,23 @@ jobs:
             cflags: "-Og"
             relabel: no
             vm: 0
+            no_qemu: 0
+            no_kvm: 1
+            shim: 0
+          - distro: debian
+            release: testing
+            runner: ub24ppc
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
             no_qemu: 1
             no_kvm: 1
             shim: 0
           - distro: debian
             release: testing
-            runner: ubuntu-24.04-ppc64le
+            runner: ubuntu-24.04-s390x
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
@@ -167,7 +178,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: systemd/mkosi@cb1a3c90490922441548d09b09c7b76426e4bc20
+      - uses: systemd/mkosi@07c24a7d42b20d4fde14e6b0bf4b1d77ac299d13
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
