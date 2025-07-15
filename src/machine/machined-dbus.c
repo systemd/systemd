@@ -788,7 +788,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        r = image_set_pool_limit(IMAGE_MACHINE, limit);
+        r = image_set_pool_limit(m->runtime_scope, IMAGE_MACHINE, limit);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)
