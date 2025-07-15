@@ -28,12 +28,12 @@ __contains_word () {
 
 __get_all_users () {
     local a b
-    userdbctl user --no-legend -B | { while read -r a b; do printf "%s\n" "$a"; done; }
+    userdbctl user --no-legend -B 2>/dev/null | { while read -r a b; do printf "%s\n" "$a"; done; }
 }
 
 __get_all_groups () {
     local a b
-    userdbctl group --no-legend -B | { while read -r a b; do printf "%s\n" "$a"; done; }
+    userdbctl group --no-legend -B 2>/dev/null | { while read -r a b; do printf "%s\n" "$a"; done; }
 }
 
 _userdbctl () {

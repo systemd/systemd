@@ -7,14 +7,14 @@
     }
 
 (( $+functions[_systemd-analyze_cat-config] )) ||
-	_systemd-analyze_cat-config() {
+    _systemd-analyze_cat-config() {
         _files -W '(/run/systemd/ /etc/systemd/ /usr/lib/systemd/)' -P 'systemd/'
     }
 
 (( $+functions[_systemd-analyze_critical-chain] )) ||
     _systemd-analyze_critical-chain() {
         local -a _units
-        systemctl list-units --no-legend --no-pager --plain --all |
+        systemctl list-units --no-legend --no-pager --plain --all 2>/dev/null |
         while read -r a b c; do
             _units+=($a)
         done
@@ -29,14 +29,14 @@
 (( $+functions[_systemd-analyze_syscall-filter] )) ||
     _systemd-analyze_syscall-filter() {
         local -a _groups
-        _groups=( $(systemd-analyze --quiet --no-pager syscall-filter | grep '^@') )
+        _groups=( $(systemd-analyze --quiet --no-pager syscall-filter 2>/dev/null | grep '^@') )
         _describe -t groups 'syscall groups' _groups || compadd "$@"
     }
 
 (( $+functions[_systemd-analyze_filesystems] )) ||
     _systemd-analyze_filesystems() {
         local -a _groups
-        _groups=( $(systemd-analyze --quiet --no-pager filesystems | grep '^@') )
+        _groups=( $(systemd-analyze --quiet --no-pager filesystems 2>/dev/null | grep '^@') )
         _describe -t groups 'file system groups' _groups || compadd "$@"
     }
 
@@ -50,7 +50,7 @@
 (( $+functions[_systemd-analyze_transient-settings] )) ||
     _systemd-analyze_transient-settings() {
         local -a _types
-        _types=( $(systemctl --no-pager --no-legend -t help) )
+        _types=( $(systemctl --no-pager --no-legend -t help 2>/dev/null) )
         _describe -t types 'unit types' _types
     }
 
@@ -62,8 +62,7 @@
             'time:Print time spent in the kernel before reaching userspace'
             'blame:Print list of running units ordered by time to init'
             'critical-chain:Print a tree of the time critical chain of units'
-            'plot:Output SVG graphic showing service initialization, or raw time data in
-JSON or table format'
+            'plot:Output SVG graphic showing service initialization, or raw time data in JSON or table format'
             'dot:Dump dependency graph (in dot(1) format)'
             'dump:Dump server status'
             'cat-config:Cat systemd config files'

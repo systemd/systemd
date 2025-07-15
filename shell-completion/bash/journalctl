@@ -28,8 +28,8 @@ __contains_word () {
 
 __get_machines() {
     local a b
-    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-        { while read a b; do echo " $a"; done; } | \
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+        { while read -r a b; do echo " $a"; done; } |
         sort -u
 }
 
@@ -61,7 +61,7 @@ _journalctl() {
     if __contains_word "$prev" '>' '>>' '&>'; then
         compopt -o filenames
         COMPREPLY=( $(compgen -f -- "$cur") )
-        return 0;
+        return 0
     fi
 
     if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
@@ -81,7 +81,7 @@ _journalctl() {
                 comps=$( journalctl --output=help 2>/dev/null )
                 ;;
             --field|-F)
-                comps=$(journalctl --fields | sort 2>/dev/null)
+                comps=$(journalctl --fields 2>/dev/null | sort)
                 ;;
             --machine|-M)
                 comps=$( __get_machines )
@@ -95,9 +95,9 @@ _journalctl() {
                 ;;
             --unit|-u)
                 if __contains_word "--user" ${COMP_WORDS[*]}; then
-                     comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                    comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
                 else
-                     comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
+                    comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
                 fi
                 # Similarly to systemctl, we need to distinguish between
                 # escaped and unescaped names in order to be able to correctly

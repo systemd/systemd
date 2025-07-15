@@ -119,8 +119,8 @@
         while _tags; do
             for i in $groups; do
                 if _requested ${i//_/-}-commands; then
-                    _describe -t ${i//_/-}-commands "${i//_/ } command" ${i}_commands \
-                        && ret=0
+                    _describe -t ${i//_/-}-commands "${i//_/ } command" ${i}_commands &&
+                        ret=0
                 fi
             done
         done
@@ -162,7 +162,7 @@ __systemctl()
 (( $+functions[_systemctl_all_units] )) ||
     _systemctl_all_units()
 {
-    if _cache_invalid SYS_ALL_UNITS$_sys_service_mgr || ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
+    if _cache_invalid SYS_ALL_UNITS$_sys_service_mgr || ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr
     then
         _sys_all_units=( ${${(f)"$(__systemctl list-units --all)"}%% *} )
         _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
@@ -173,9 +173,9 @@ __systemctl()
 (( $+functions[_systemctl_really_all_units] )) ||
     _systemctl_really_all_units()
 {
-    local -a all_unit_files;
-    local -a really_all_units;
-    if _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr || ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
+    local -a all_unit_files
+    local -a really_all_units
+    if _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr || ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr
     then
         all_unit_files=( ${${(f)"$(__systemctl list-unit-files)"}%% *} )
         _systemctl_all_units
@@ -473,9 +473,9 @@ done
 
 (( $+functions[_systemctl_unit_properties] )) ||
     _systemctl_unit_properties() {
-		local -a _sys_all_properties=( ${(f)"$({{LIBEXECDIR}}/systemd --no-pager --dump-bus-properties 2>/dev/null)"} )
+        local -a _sys_all_properties=( ${(f)"$({{LIBEXECDIR}}/systemd --no-pager --dump-bus-properties 2>/dev/null)"} )
         _wanted systemd-unit-properties expl 'unit property' \
-			_values -s , "${_sys_all_properties[@]}"
+            _values -s , "${_sys_all_properties[@]}"
     }
 
 (( $+functions[_systemctl_job_modes] )) ||
