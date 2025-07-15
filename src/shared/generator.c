@@ -250,7 +250,8 @@ static int write_fsck_sysroot_service(
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "ExecStart=" SYSTEMD_FSCK_PATH " %6$s\n"
-                "TimeoutSec=infinity\n",
+                "TimeoutSec=infinity\n"
+                "ImportCredential=fsck.*\n",
                 escaped,
                 unit,
                 device,

@@ -22,3 +22,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-fsck %f
 TimeoutSec=infinity
+ImportCredential=fsck.*
