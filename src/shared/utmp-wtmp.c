@@ -11,44 +11,6 @@
 #include "time-util.h"
 #include "utmp-wtmp.h"
 
-int utmp_get_runlevel(int *runlevel, int *previous) {
-        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
-        struct utmpx *found, lookup = { .ut_type = RUN_LVL };
-        const char *e;
-
-        assert(runlevel);
-
-        /* If these values are set in the environment this takes
-         * precedence. Presumably, sysvinit does this to work around a
-         * race condition that would otherwise exist where we'd always
-         * go to disk and hence might read runlevel data that might be
-         * very new and not apply to the current script being executed. */
-
-        e = getenv("RUNLEVEL");
-        if (!isempty(e)) {
-                *runlevel = e[0];
-                if (previous)
-                        *previous = 0;
-
-                return 0;
-        }
-
-        if (utmpxname(UTMPX_FILE) < 0)
-                return -errno;
-
-        utmpx = utxent_start();
-
-        found = getutxid(&lookup);
-        if (!found)
-                return -errno;
-
-        *runlevel = found->ut_pid & 0xFF;
-        if (previous)
-                *previous = (found->ut_pid >> 8) & 0xFF;
-
-        return 0;
-}
-
 static void init_timestamp(struct utmpx *store, usec_t t) {
         assert(store);
 
@@ -236,34 +198,4 @@ int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
         init_timestamp(&store_wtmp, 0);
 
         return write_utmp_wtmp(&store, &store_wtmp);
-}
-
-int utmp_put_runlevel(int runlevel, int previous) {
-        struct utmpx store = {};
-        int r;
-
-        assert(runlevel > 0);
-
-        if (previous <= 0) {
-                /* Find the old runlevel automatically */
-
-                r = utmp_get_runlevel(&previous, NULL);
-                if (r < 0) {
-                        if (r != -ESRCH)
-                                return r;
-
-                        previous = 0;
-                }
-        }
-
-        if (previous == runlevel)
-                return 0;
-
-        init_entry(&store, 0);
-
-        store.ut_type = RUN_LVL;
-        store.ut_pid = (runlevel & 0xFF) | ((previous & 0xFF) << 8);
-        strncpy(store.ut_user, "runlevel", sizeof(store.ut_user));
-
-        return write_entry_both(&store);
 }
