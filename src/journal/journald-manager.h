@@ -192,3 +192,4 @@ int manager_start_or_stop_idle_timer(Manager *m);
 int manager_reload_journals(Manager *m);
 
 int manager_map_seqnum_file(Manager *m, const char *fname, size_t size, void **ret);
+void manager_unmap_seqnum_file(void *p, size_t size);

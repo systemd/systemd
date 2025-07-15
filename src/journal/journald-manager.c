@@ -2105,7 +2105,7 @@ int manager_map_seqnum_file(
         return 0;
 }
 
-static void manager_unmap_seqnum_file(void *p, size_t size) {
+void manager_unmap_seqnum_file(void *p, size_t size) {
         assert(size > 0);
 
         if (!p)
@@ -2597,7 +2597,7 @@ Manager* manager_free(Manager *m) {
         ordered_hashmap_free(m->ratelimit_groups_by_id);
 
         manager_unmap_seqnum_file(m->seqnum, sizeof(*m->seqnum));
-        manager_unmap_seqnum_file(m->kernel_seqnum, sizeof(*m->kernel_seqnum));
+        manager_close_kernel_seqnum(m);
 
         free(m->buffer);
         free(m->cgroup_root);
