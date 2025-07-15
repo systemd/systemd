@@ -85,7 +85,7 @@ int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         }
 
         if (p.read_only >= 0) {
-                r = image_read_only(image, p.read_only);
+                r = image_read_only(image, p.read_only, manager->runtime_scope);
                 if (r < 0)
                         RET_GATHER(ret, log_debug_errno(r, "Failed to toggle image read only, ignoring: %m"));
         }
