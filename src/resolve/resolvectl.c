@@ -3625,6 +3625,8 @@ static int compat_help(void) {
         if (r < 0)
                 return log_oom();
 
+        pager_open(arg_pager_flags);
+
         printf("%1$s [OPTIONS...] HOSTNAME|ADDRESS...\n"
                "%1$s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n"
                "%1$s [OPTIONS...] --openpgp EMAIL@DOMAIN...\n"
@@ -3681,6 +3683,8 @@ static int native_help(void) {
         r = terminal_urlify_man("resolvectl", "1", &link);
         if (r < 0)
                 return log_oom();
+
+        pager_open(arg_pager_flags);
 
         printf("%1$s [OPTIONS...] COMMAND ...\n"
                "\n"
