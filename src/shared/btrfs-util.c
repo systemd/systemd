@@ -323,6 +323,7 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
         *ret = (BtrfsSubvolInfo) {
                 .subvol_id = info.treeid,
                 .otime = info.otime.sec * USEC_PER_SEC + (info.otime.nsec / NSEC_PER_USEC),
+                .ctime = info.ctime.sec * USEC_PER_SEC + (info.ctime.nsec / NSEC_PER_USEC),
                 .read_only = FLAGS_SET(info.flags, BTRFS_SUBVOL_RDONLY),
         };
 
