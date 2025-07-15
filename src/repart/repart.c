@@ -872,7 +872,7 @@ static bool context_drop_or_foreignize_one_priority(Context *context) {
 }
 
 static uint64_t partition_min_size(const Context *context, const Partition *p) {
-        uint64_t sz, override_min;
+        uint64_t sz;
 
         assert(context);
         assert(p);
@@ -914,9 +914,17 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
                         sz = d;
         }
 
-        override_min = p->suppressing ? MAX(p->size_min, p->suppressing->size_min) : p->size_min;
+        uint64_t min_size = p->size_min;
+        if (p->suppressing && (min_size == UINT64_MAX || p->suppressing->size_min > min_size))
+                min_size = p->suppressing->size_min;
 
-        return MAX(round_up_size(override_min != UINT64_MAX ? override_min : DEFAULT_MIN_SIZE, context->grain_size), sz);
+        /* Default to 10M min size, except if the file system is read-only, in which case let's not enforce a
+         * minimum size, because even if we wanted to we couldn't take possession of the extra space
+         * allocated. */
+        if (min_size == UINT64_MAX)
+                min_size = (p->format && fstype_is_ro(p->format)) || p->verity != VERITY_OFF ? 1 : DEFAULT_MIN_SIZE;
+
+        return MAX(round_up_size(min_size, context->grain_size), sz);
 }
 
 static uint64_t partition_max_size(const Context *context, const Partition *p) {
