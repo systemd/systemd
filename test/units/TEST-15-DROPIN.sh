@@ -712,6 +712,17 @@ EOF
     clear_units test15-a.service
 }
 
+testcase_order_dropin_paths_set_property() {
+    # For issue #35710.
+    echo "Testing the order of dropin paths that are created by set-property"
+
+    create_service test15-a
+    systemctl set-property test15-a DevicePolicy=strict DeviceAllow="char-* m"
+    check_ok test15-a NeedDaemonReload no
+
+    clear_units test15-a.service
+}
+
 run_testcases
 
 touch /testok
