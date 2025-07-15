@@ -148,6 +148,16 @@ CHANGES WITH 258 in spe:
           - The concept of runlevels has been removed, so runlevel transitions
             are no longer recorded in the utmp/wtmp databases.
 
+        * Support for traditional /forcefsck and /fastboot files to control
+          exection mode of fsck on boot has been removed from systemd-fsck. To
+          control the mode, please use the fsck.mode= kernel command line option
+          or newly introduced fsck.mode credential.
+
+        * Support for traditional /forcequotacheck file to control execution
+          mode of quotacheck on boot has been removed from systemd-quotacheck.
+          To control the mode, please use the quotacheck.mode= kerenl command
+          line option of newly introduced quotacheck.mode credential.
+
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
@@ -1399,6 +1409,12 @@ CHANGES WITH 258 in spe:
           booted up in an AF_VSOCK capable VM the console login screen shown
           once boot-up is complete will tell you how to connect to the system
           via SSH, if that's available.
+
+        * systemd-fsck gained fsck.mode and fsck.repair credentials support to
+          control the execution mode of fsck.
+
+        * systemd-quotacheck gained quotacheck.mode credential support to
+          control the execution mode of quotacheck.
 
         — <place>, <date>
 
