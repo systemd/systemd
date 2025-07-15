@@ -315,6 +315,7 @@ void journal_file_post_change(JournalFile *f);
 int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t);
 
 void journal_reset_metrics(JournalMetrics *m);
+bool journal_metrics_equal(const JournalMetrics *x, const JournalMetrics *y);
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec_t *ret_to);
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *ret_from, usec_t *ret_to);

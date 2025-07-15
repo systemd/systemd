@@ -4578,6 +4578,19 @@ void journal_reset_metrics(JournalMetrics *m) {
         };
 }
 
+bool journal_metrics_equal(const JournalMetrics *x, const JournalMetrics *y) {
+        assert(x);
+        assert(y);
+
+        return
+                x->max_size == y->max_size &&
+                x->min_size == y->min_size &&
+                x->max_use == y->max_use &&
+                x->min_use == y->min_use &&
+                x->keep_free == y->keep_free &&
+                x->n_max_files == y->n_max_files;
+}
+
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec_t *ret_to) {
         assert(f);
         assert(f->header);
