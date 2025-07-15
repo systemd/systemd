@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Console Getty
+Description=Console Getty (Use serial-getty@*.service or getty@*.service instead wherever possible, /dev/console is automatically mapped to the active virtual console and therefore mya change. Especially when "console=" has not been set on the kernel cmdline. This unit is intended for OCI containers. If you really want to use /dev/console (which you shouldn't) use serial-console@console.service or getty@console.service, however should /dev/console change from a serial tty to a non-serial one (like .e.g tty1) this may have unpredictable side effects)
 Documentation=man:agetty(8) man:systemd-getty-generator(8)
 After=systemd-user-sessions.service plymouth-quit-wait.service getty-pre.target
 {% if HAVE_SYSV_COMPAT %}
@@ -16,7 +16,11 @@ After=rc-local.service
 {% endif %}
 Before=getty.target
 
+Conflicts=serial-getty@console.service
+Conflicts=getty@console.service
+
 # OCI containers may be run without a console
+ConditionVirtualization=container
 ConditionPathExists=/dev/console
 
 [Service]
