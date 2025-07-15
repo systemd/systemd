@@ -68,6 +68,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">unit-gdb</arg>
+      <arg choice="plain"><replaceable>SERVICE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">unit-paths</arg>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -1183,6 +1189,23 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
 
       <xi:include href="version-info.xml" xpointer="v258"/>
     </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze unit-gdb <replaceable>SERVICE</replaceable></command></title>
+
+      <para>Spawn and attach a debugger to the given service. By default,
+      <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      will be used. This may be changed using the <option>--debugger=</option> option or the
+      <varname>$SYSTEMD_DEBUGGER</varname> environment variable. Use the <option>--debugger-arguments=</option> option
+      to pass extra command line arguments to the debugger and quote as appropriate
+      when <replaceable>ARGS</replaceable> contain whitespace (See Example).</para>
+
+      <example>
+        <programlisting>$ systemd-analyze --debugger-arguments="-batch -ex 'info all-registers'" unit-gdb systemd-oomd.service</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v258"/>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -1328,8 +1351,8 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-config</command>, <command>verify</command>,
-        <command>condition</command> and <command>security</command> when used with
-        <option>--offline=</option>, operate on files underneath the specified root path
+        <command>condition</command>, <command>unit-gdb</command>, and <command>security</command> when
+        used with <option>--offline=</option>, operate on files underneath the specified root path
         <replaceable>PATH</replaceable>.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
@@ -1780,6 +1803,26 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
 
         <listitem><para>When provided with the <command>chid</command> command, use this sysfs path to a DRM
         device to fetch EDID from. Example: <filename>/sys/class/drm/card1-HDMI-A-1/</filename></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--debugger=<replaceable>DEBUGGER</replaceable></option></term>
+
+        <listitem><para>Use the given debugger for the <command>unit-gdb</command> command. If not given and
+        <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
+        <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-A</option> <replaceable>ARGS</replaceable></term>
+        <term><option>--debugger-arguments=<replaceable>ARGS</replaceable></option></term>
+
+        <listitem><para>Pass the given <replaceable>ARGS</replaceable> as extra command line arguments to the debugger.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
