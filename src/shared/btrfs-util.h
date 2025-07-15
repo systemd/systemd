@@ -8,7 +8,8 @@
 
 typedef struct BtrfsSubvolInfo {
         uint64_t subvol_id;
-        usec_t otime;
+        usec_t otime; /* creation time */
+        usec_t ctime; /* change time */
 
         sd_id128_t uuid;
         sd_id128_t parent_uuid;

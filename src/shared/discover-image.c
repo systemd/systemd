@@ -430,7 +430,7 @@ static int image_make(
                                               filename,
                                               info.read_only || read_only,
                                               info.otime,
-                                              0,
+                                              info.ctime,
                                               ret);
                                 if (r < 0)
                                         return r;
