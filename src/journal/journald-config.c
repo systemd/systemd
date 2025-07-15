@@ -9,6 +9,7 @@
 #include "journald-config.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
+#include "journald-socket.h"
 #include "log.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -366,6 +367,7 @@ int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_sig
 
         (void) manager_reopen_dev_kmsg(m, old.read_kmsg);
         manager_reset_kernel_audit(m, old.set_audit);
+        manager_reload_forward_socket(m, &old.forward_to_socket);
 
         r = manager_reload_journals(m);
         if (r < 0)
