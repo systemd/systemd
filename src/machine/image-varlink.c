@@ -225,7 +225,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
-                r = image_remove(image);
+                r = image_remove(image, manager->runtime_scope);
                 report_errno_and_exit(errno_pipe_fd[1], r);
         }
 
@@ -276,7 +276,7 @@ int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r < 0)
                 return r;
 
-        r = image_set_pool_limit(IMAGE_MACHINE, limit);
+        r = image_set_pool_limit(manager->runtime_scope, IMAGE_MACHINE, limit);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NOT_SUPPORTED, NULL);
         if (r < 0)
