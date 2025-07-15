@@ -1605,8 +1605,8 @@ int machine_open_root_directory(Machine *machine) {
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
         [MACHINE_CONTAINER] = "container",
-        [MACHINE_VM] = "vm",
-        [MACHINE_HOST] = "host",
+        [MACHINE_VM]        = "vm",
+        [MACHINE_HOST]      = "host",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(machine_class, MachineClass);

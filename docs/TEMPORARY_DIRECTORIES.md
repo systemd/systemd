@@ -143,7 +143,7 @@ strategies to avoid these issues:
    the sticky bit has a different meaning for them.
 
 6. Don't use `/tmp/` or `/var/tmp/`, but use your own sub-directory under
-   `/run/` or `$XDG_RUNTIME_DIRECTORY` (the former if privileged, the latter if
+   `/run/` or `$XDG_RUNTIME_DIR` (the former if privileged, the latter if
    unprivileged), or `/var/lib/` and `~/.config/` (similar, but with
    persistency and suitable for larger data). The two temporary directories
    `/tmp/` and `/var/tmp/` come with the implicit clean-up semantics described
