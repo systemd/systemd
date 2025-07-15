@@ -386,10 +386,6 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
         return manager_read_dev_kmsg(m);
 }
 
-static mode_t manager_kmsg_mode(bool read_kmsg) {
-        return O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(read_kmsg ? O_RDWR : O_WRONLY);
-}
-
 int manager_open_dev_kmsg(Manager *m) {
         int r;
 
@@ -397,7 +393,7 @@ int manager_open_dev_kmsg(Manager *m) {
         assert(m->dev_kmsg_fd < 0);
         assert(!m->dev_kmsg_event_source);
 
-        mode_t mode = manager_kmsg_mode(m->config.read_kmsg);
+        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(m->config.read_kmsg ? O_RDWR : O_WRONLY);
 
         _cleanup_close_ int fd = open("/dev/kmsg", mode);
         if (fd < 0) {
