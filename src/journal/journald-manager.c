@@ -2116,6 +2116,20 @@ void manager_unmap_seqnum_file(void *p, size_t size) {
         assert_se(munmap(p, size) >= 0);
 }
 
+int manager_unlink_seqnum_file(Manager *m, const char *fname) {
+        assert(m);
+        assert(fname);
+
+        _cleanup_free_ char *fn = path_join(m->runtime_directory, fname);
+        if (!fn)
+                return log_oom();
+
+        if (unlink(fn) < 0 && errno != ENOENT)
+                return log_warning_errno(errno, "Failed to remove '%s': %m", fname);
+
+        return 0;
+}
+
 static bool manager_is_idle(Manager *m) {
         assert(m);
 
