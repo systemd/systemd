@@ -89,7 +89,7 @@ int machine_link(Manager *manager, Machine *machine) {
                 return -EINVAL;
 
         if (machine->class != MACHINE_HOST) {
-                char *temp = path_join("/run/systemd/machines", machine->name);
+                char *temp = path_join(manager->state_dir, machine->name);
                 if (!temp)
                         return -ENOMEM;
 
@@ -171,14 +171,14 @@ int machine_save(Machine *m) {
 
         _cleanup_(unlink_and_freep) char *sl = NULL; /* auto-unlink! */
         if (m->unit && !m->subgroup) {
-                sl = strjoin("/run/systemd/machines/unit:", m->unit);
+                sl = strjoin(m->manager->state_dir, "/unit:", m->unit);
                 if (!sl)
                         return log_oom();
         }
 
-        r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label(m->manager->state_dir, 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/systemd/machines/: %m");
+                return log_error_errno(r, "Failed to create '%s': %m", m->manager->state_dir);
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -268,7 +268,7 @@ static void machine_unlink(Machine *m) {
         assert(m);
 
         if (m->unit && !m->subgroup) {
-                const char *sl = strjoina("/run/systemd/machines/unit:", m->unit);
+                const char *sl = strjoina(m->manager->state_dir, "/unit:", m->unit);
                 (void) unlink(sl);
         }
 
@@ -437,7 +437,7 @@ static int machine_start_scope(
                 return log_oom();
 
         r = bus_message_new_method_call(
-                        machine->manager->bus,
+                        machine->manager->api_bus,
                         &m,
                         bus_systemd_mgr,
                         "StartTransientUnit");
@@ -919,7 +919,7 @@ int machine_start_getty(Machine *m, const char *ptmx_name, sd_bus_error *error) 
         if (r < 0)
                 return log_debug_errno(r, "Failed to create DBus to machine: %m");
 
-        container_bus = allocated_bus ?: m->manager->bus;
+        container_bus = allocated_bus ?: m->manager->system_bus;
         getty = strjoina("container-getty@", p, ".service");
 
         r = bus_call_method(container_bus, bus_systemd_mgr, "StartUnit", error, /* ret_reply = */ NULL, "ss", getty, "replace");
@@ -965,7 +965,7 @@ int machine_start_shell(
         if (r < 0)
                 return log_debug_errno(r, "Failed to create DBus to machine: %m");
 
-        container_bus = allocated_bus ?: m->manager->bus;
+        container_bus = allocated_bus ?: m->manager->system_bus;
         r = bus_message_new_method_call(container_bus, &tm, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
                 return r;
