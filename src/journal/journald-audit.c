@@ -556,3 +556,15 @@ int manager_open_audit(Manager *m) {
         (void) manager_set_kernel_audit(m);
         return 0;
 }
+
+void manager_reset_kernel_audit(Manager *m, int old_set_audit) {
+        assert(m);
+
+        if (m->audit_fd < 0)
+                return;
+
+        if (m->config.set_audit == old_set_audit)
+                return;
+
+        (void) manager_set_kernel_audit(m);
+}
