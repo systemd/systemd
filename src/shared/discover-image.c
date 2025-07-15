@@ -19,6 +19,7 @@
 #include "chase.h"
 #include "chattr-util.h"
 #include "copy.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
@@ -37,6 +38,7 @@
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
@@ -1149,7 +1151,7 @@ int image_remove(Image *i, RuntimeScope scope) {
                 return r;
 
         /* Make sure we don't interfere with a running nspawn */
-        r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
+        r = image_path_lock(scope, i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
         if (r < 0)
                 return r;
 
@@ -1244,14 +1246,14 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
                 return r;
 
         /* Make sure we don't interfere with a running nspawn */
-        r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
+        r = image_path_lock(scope, i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
         if (r < 0)
                 return r;
 
         /* Make sure nobody takes the new name, between the time we
          * checked it is currently unused in all search paths, and the
          * time we take possession of it */
-        r = image_name_lock(new_name, LOCK_EX|LOCK_NB, &name_lock);
+        r = image_name_lock(scope, new_name, LOCK_EX|LOCK_NB, &name_lock);
         if (r < 0)
                 return r;
 
@@ -1408,7 +1410,7 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
         /* Make sure nobody takes the new name, between the time we
          * checked it is currently unused in all search paths, and the
          * time we take possession of it */
-        r = image_name_lock(new_name, LOCK_EX|LOCK_NB, &name_lock);
+        r = image_name_lock(scope, new_name, LOCK_EX|LOCK_NB, &name_lock);
         if (r < 0)
                 return r;
 
@@ -1475,7 +1477,7 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
         return 0;
 }
 
-int image_read_only(Image *i, bool b) {
+int image_read_only(Image *i, bool b, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
 
@@ -1485,7 +1487,7 @@ int image_read_only(Image *i, bool b) {
                 return -EROFS;
 
         /* Make sure we don't interfere with a running nspawn */
-        r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
+        r = image_path_lock(scope, i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
         if (r < 0)
                 return r;
 
@@ -1562,12 +1564,33 @@ int image_read_only(Image *i, bool b) {
         return 0;
 }
 
-static void make_lock_dir(void) {
-        (void) mkdir_p("/run/systemd/nspawn", 0755);
-        (void) mkdir("/run/systemd/nspawn/locks", 0700);
+static int make_lock_dir(RuntimeScope scope) {
+        int r;
+
+        _cleanup_free_ char *p = NULL;
+        r = runtime_directory_generic(scope, "systemd", &p);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int pfd = open_mkdir_at(AT_FDCWD, p, O_CLOEXEC, 0755);
+        if (pfd < 0)
+                return pfd;
+
+        _cleanup_close_ int nfd = open_mkdir_at(pfd, "nspawn", O_CLOEXEC, 0755);
+        if (nfd < 0)
+                return nfd;
+
+        r = RET_NERRNO(mkdirat(nfd, "locks", 0700));
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int image_path_lock(
+                RuntimeScope scope,
                 const char *path,
                 int operation,
                 LockFile *ret_global,
@@ -1583,7 +1606,7 @@ int image_path_lock(
         assert(ret_local);
 
         /* Locks an image path. This actually creates two locks: one "local" one, next to the image path
-         * itself, which might be shared via NFS. And another "global" one, in /run, that uses the
+         * itself, which might be shared via NFS. And another "global" one, in /run/, that uses the
          * device/inode number. This has the benefit that we can even lock a tree that is a mount point,
          * correctly. */
 
@@ -1627,15 +1650,21 @@ int image_path_lock(
         }
 
         if (ret_global) {
-                if (stat(path, &st) >= 0) {
+                if (stat(path, &st) < 0)
+                        log_debug_errno(errno, "Failed to stat() image '%s', not locking image: %m", path);
+                else {
+                        r = runtime_directory_generic(scope, "systemd/nspawn/locks/", &p);
+                        if (r < 0)
+                                return r;
+
                         if (S_ISBLK(st.st_mode))
-                                r = asprintf(&p, "/run/systemd/nspawn/locks/block-%u:%u", major(st.st_rdev), minor(st.st_rdev));
+                                r = strextendf(&p, "block-" DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(st.st_rdev));
                         else if (S_ISDIR(st.st_mode) || S_ISREG(st.st_mode))
-                                r = asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino);
+                                r = strextendf(&p, "inode-%" PRIu64 ":%" PRIu64, (uint64_t) st.st_dev, (uint64_t) st.st_ino);
                         else
                                 return -ENOTTY;
                         if (r < 0)
-                                return -ENOMEM;
+                                return r;
                 }
         }
 
@@ -1644,15 +1673,15 @@ int image_path_lock(
         if (!path_startswith(path, "/dev/")) {
                 r = make_lock_file_for(path, operation, &t);
                 if (r < 0) {
-                        if (!exclusive && r == -EROFS)
-                                log_debug_errno(r, "Failed to create shared lock for '%s', ignoring: %m", path);
-                        else
+                        if (exclusive || r != -EROFS)
                                 return r;
+
+                        log_debug_errno(r, "Failed to create shared lock for '%s', ignoring: %m", path);
                 }
         }
 
         if (p) {
-                make_lock_dir();
+                (void) make_lock_dir(scope);
 
                 r = make_lock_file(p, operation, ret_global);
                 if (r < 0) {
@@ -1718,13 +1747,13 @@ int image_set_pool_limit(RuntimeScope scope, ImageClass class, uint64_t referenc
         return 0;
 }
 
-int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
+int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
 
         assert(i);
 
-        r = image_path_lock(i->path, LOCK_SH|LOCK_NB, &global_lock, &local_lock);
+        r = image_path_lock(scope, i->path, LOCK_SH|LOCK_NB, &global_lock, &local_lock);
         if (r < 0)
                 return r;
 
@@ -1854,8 +1883,13 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
         return 0;
 }
 
-int image_name_lock(const char *name, int operation, LockFile *ret) {
-        const char *p;
+int image_name_lock(
+                RuntimeScope scope,
+                const char *name,
+                int operation,
+                LockFile *ret) {
+
+        int r;
 
         assert(name);
         assert(ret);
@@ -1873,9 +1907,16 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
                 return 0;
         }
 
-        make_lock_dir();
+        (void) make_lock_dir(scope);
 
-        p = strjoina("/run/systemd/nspawn/locks/name-", name);
+        _cleanup_free_ char *p = NULL;
+        r = runtime_directory_generic(scope, "systemd/nspawn/locks/name-", &p);
+        if (r < 0)
+                return r;
+
+        if (!strextend(&p, name))
+                return -ENOMEM;
+
         return make_lock_file(p, operation, ret);
 }
 

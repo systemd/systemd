@@ -6054,6 +6054,7 @@ static int run(int argc, char *argv[]) {
                         /* We take an exclusive lock on this image, since it's our private, ephemeral copy
                          * only owned by us and no one else. */
                         r = image_path_lock(
+                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                         np,
                                         LOCK_EX|LOCK_NB,
                                         arg_privileged ? &tree_global_lock : NULL,
@@ -6090,6 +6091,7 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
 
                         r = image_path_lock(
+                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                         arg_directory,
                                         (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB,
                                         arg_privileged ? &tree_global_lock : NULL,
@@ -6217,6 +6219,7 @@ static int run(int argc, char *argv[]) {
 
                         /* Always take an exclusive lock on our own ephemeral copy. */
                         r = image_path_lock(
+                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                         np,
                                         LOCK_EX|LOCK_NB,
                                         arg_privileged ? &tree_global_lock : NULL,
@@ -6244,6 +6247,7 @@ static int run(int argc, char *argv[]) {
                         remove_image = true;
                 } else {
                         r = image_path_lock(
+                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                         arg_image,
                                         (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB,
                                         arg_privileged ? &tree_global_lock : NULL,
