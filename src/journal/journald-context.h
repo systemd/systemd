@@ -50,6 +50,8 @@ typedef struct ClientContext {
 
         usec_t log_ratelimit_interval;
         unsigned log_ratelimit_burst;
+        bool log_ratelimit_interval_from_unit;
+        bool log_ratelimit_burst_from_unit;
 
         Set *log_filter_allowed_patterns;
         Set *log_filter_denied_patterns;
@@ -81,6 +83,7 @@ void client_context_maybe_refresh(
                 const char *unit_id,
                 usec_t tstamp);
 
+void manager_refresh_client_contexts_on_reload(Manager *m, usec_t old_interval, unsigned old_burst);
 void client_context_acquire_default(Manager *m);
 void client_context_flush_all(Manager *m);
 void client_context_flush_regular(Manager *m);

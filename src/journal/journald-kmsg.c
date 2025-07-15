@@ -332,7 +332,7 @@ static int manager_read_dev_kmsg(Manager *m) {
 
         assert(m);
         assert(m->dev_kmsg_fd >= 0);
-        assert(m->read_kmsg);
+        assert(m->config.read_kmsg);
 
         l = read(m->dev_kmsg_fd, buffer, sizeof(buffer) - 1);
         if (l == 0)
@@ -356,18 +356,15 @@ int manager_flush_dev_kmsg(Manager *m) {
         if (m->dev_kmsg_fd < 0)
                 return 0;
 
-        if (!m->read_kmsg)
+        if (!m->config.read_kmsg)
                 return 0;
 
         log_debug("Flushing /dev/kmsg...");
 
         for (;;) {
                 r = manager_read_dev_kmsg(m);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-
-                if (r == 0)
-                        break;
         }
 
         return 0;
@@ -389,10 +386,6 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
         return manager_read_dev_kmsg(m);
 }
 
-static mode_t manager_kmsg_mode(bool read_kmsg) {
-        return O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(read_kmsg ? O_RDWR : O_WRONLY);
-}
-
 int manager_open_dev_kmsg(Manager *m) {
         int r;
 
@@ -400,7 +393,7 @@ int manager_open_dev_kmsg(Manager *m) {
         assert(m->dev_kmsg_fd < 0);
         assert(!m->dev_kmsg_event_source);
 
-        mode_t mode = manager_kmsg_mode(m->read_kmsg);
+        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(m->config.read_kmsg ? O_RDWR : O_WRONLY);
 
         _cleanup_close_ int fd = open("/dev/kmsg", mode);
         if (fd < 0) {
@@ -409,7 +402,7 @@ int manager_open_dev_kmsg(Manager *m) {
                 return 0;
         }
 
-        if (!m->read_kmsg) {
+        if (!m->config.read_kmsg) {
                 m->dev_kmsg_fd = TAKE_FD(fd);
                 return 0;
         }
@@ -432,11 +425,12 @@ int manager_open_kernel_seqnum(Manager *m) {
         int r;
 
         assert(m);
+        assert(!m->kernel_seqnum);
 
         /* We store the seqnum we last read in an mmapped file. That way we can just use it like a variable,
          * but it is persistent and automatically flushed at reboot. */
 
-        if (!m->read_kmsg)
+        if (!m->config.read_kmsg)
                 return 0;
 
         r = manager_map_seqnum_file(m, "kernel-seqnum", sizeof(uint64_t), (void**) &m->kernel_seqnum);
@@ -446,32 +440,53 @@ int manager_open_kernel_seqnum(Manager *m) {
         return 0;
 }
 
-int manager_reload_dev_kmsg(Manager *m) {
+void manager_close_kernel_seqnum(Manager *m) {
+        assert(m);
+
+        manager_unmap_seqnum_file(m->kernel_seqnum, sizeof(*m->kernel_seqnum));
+        m->kernel_seqnum = NULL;
+}
+
+static int manager_unlink_kernel_seqnum(Manager *m) {
+        assert(m);
+        assert(!m->kernel_seqnum); /* The file must not be mmap()ed. */
+
+        return manager_unlink_seqnum_file(m, "kernel-seqnum");
+}
+
+int manager_reopen_dev_kmsg(Manager *m, bool old_read_kmsg) {
         int r;
 
         assert(m);
 
-        /* Check if the fd has not yet been initialized. If so, open /dev/kmsg. */
+        /* If the fd has not yet been initialized, let's shortcut and simply open /dev/kmsg. */
         if (m->dev_kmsg_fd < 0)
                 return manager_open_dev_kmsg(m);
 
-        mode_t mode = manager_kmsg_mode(m->read_kmsg);
-        int flags = fcntl(m->dev_kmsg_fd, F_GETFL);
-        if (flags < 0)
-                /* Proceed with reload in case the flags have changed. */
-                log_warning_errno(errno, "Failed to get flags for /dev/kmsg, ignoring: %m");
-        else if ((flags & O_ACCMODE_STRICT) == mode)
-                /* Mode is the same. No-op. */
-                return 0;
+        if (m->config.read_kmsg == old_read_kmsg)
+                return 0; /* Setting is unchanged. */
 
-        /* Flush kmsg. */
-        r = manager_flush_dev_kmsg(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to flush /dev/kmsg on reload, ignoring: %m");
+        if (!m->config.read_kmsg) {
+                /* If reading kmsg was enabled but now disable, let's flush the buffer before disabling it. */
+                m->config.read_kmsg = true;
+                (void) manager_flush_dev_kmsg(m);
+                m->config.read_kmsg = false;
 
-        /* Set kmsg values to default. */
+                /* seqnum file is not necessary anymore. Let's close it. */
+                manager_close_kernel_seqnum(m);
+
+                /* Also, unlink the file name as we will not warn some kmsg are lost when reading kmsg is
+                 * re-enabled later. */
+                manager_unlink_kernel_seqnum(m);
+        }
+
+        /* Close previously configured event source and opened file descriptor. */
         m->dev_kmsg_event_source = sd_event_source_disable_unref(m->dev_kmsg_event_source);
         m->dev_kmsg_fd = safe_close(m->dev_kmsg_fd);
 
-        return manager_open_dev_kmsg(m);
+        r = manager_open_dev_kmsg(m);
+        if (r < 0)
+                return r;
+
+        return manager_open_kernel_seqnum(m);
 }
