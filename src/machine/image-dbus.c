@@ -65,7 +65,7 @@ int bus_image_method_remove(
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
-                r = image_remove(image);
+                r = image_remove(image, m->runtime_scope);
                 report_errno_and_exit(errno_pipe_fd[1], r);
         }
 
