@@ -1569,7 +1569,7 @@ static int setup_environment(
                 /* Also create a per-area subdirectory for $XDG_RUNTIME_DIR, so that each area has their own
                  * set of runtime services. We follow the same directory structure as for $HOME. Note that we
                  * do not define any form of automatic clean-up for the per-aera subdirs beyond the regular
-                 * clean-up of the whole $XDG_RUNTIME_DIRECTORY hierarchy when the user finally logs out. */
+                 * clean-up of the whole $XDG_RUNTIME_DIR hierarchy when the user finally logs out. */
 
                 r = make_area_runtime_directory(handle, ur, runtime_directory, area, &per_area_runtime_directory);
                 if (r != PAM_SUCCESS)
