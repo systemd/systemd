@@ -127,11 +127,12 @@ static int read_definitions(
                 const char *suffix,
                 const char *node) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        ConfFile **files = NULL;
         Transfer **transfers = NULL, **disabled = NULL;
-        size_t n_transfers = 0, n_disabled = 0;
+        size_t n_files = 0, n_transfers = 0, n_disabled = 0;
         int r;
 
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
         CLEANUP_ARRAY(transfers, n_transfers, free_transfers);
         CLEANUP_ARRAY(disabled, n_disabled, free_transfers);
 
@@ -139,19 +140,20 @@ static int read_definitions(
         assert(dirs);
         assert(suffix);
 
-        r = conf_files_list_strv(&files, suffix, arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
+        r = conf_files_list_strv_full(suffix, arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate sysupdate.d/*%s definitions: %m", suffix);
 
-        STRV_FOREACH(p, files) {
+        FOREACH_ARRAY(i, files, n_files) {
                 _cleanup_(transfer_freep) Transfer *t = NULL;
                 Transfer **appended;
+                ConfFile *e = *i;
 
                 t = transfer_new(c);
                 if (!t)
                         return log_oom();
 
-                r = transfer_read_definition(t, *p, dirs, c->features);
+                r = transfer_read_definition(t, e->result, dirs, c->features);
                 if (r < 0)
                         return r;
 
