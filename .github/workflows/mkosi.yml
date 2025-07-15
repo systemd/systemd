@@ -169,19 +169,24 @@ jobs:
 
       - name: Btrfs
         run: |
-          truncate --size=100G btrfs.raw
-          mkfs.btrfs btrfs.raw
-          sudo mkdir -p /mnt/mkosi
-          LOOP="$(sudo losetup --find --show --direct-io=on btrfs.raw)"
-          rm -f btrfs.raw
-          sudo mount "$LOOP" /mnt/mkosi --options compress=zstd:1,user_subvol_rm_allowed,noatime,discard=async,space_cache=v2
-          sudo chown "$(id -u):$(id -g)" /mnt/mkosi
-          mkdir -p /mnt/mkosi/tmp
-          echo "TMPDIR=/mnt/mkosi/tmp" >>"$GITHUB_ENV"
-          ln -sf /mnt/mkosi/build build
+          if [ -e /dev/loop-control ]; then
+            truncate --size=100G btrfs.raw
+            mkfs.btrfs btrfs.raw
+            sudo mkdir -p /mnt/mkosi
+            LOOP="$(sudo losetup --find --show --direct-io=on btrfs.raw)"
+            rm -f btrfs.raw
+            sudo mount "$LOOP" /mnt/mkosi --options compress=zstd:1,user_subvol_rm_allowed,noatime,discard=async,space_cache=v2
+            sudo chown "$(id -u):$(id -g)" /mnt/mkosi
+            mkdir -p /mnt/mkosi/tmp
+            echo "TMPDIR=/mnt/mkosi/tmp" >>"$GITHUB_ENV"
+            ln -sf /mnt/mkosi/build build
+          fi
 
       - name: Configure
         run: |
+          if [ -e /dev/loop-control ]; then
+            subvolumes="UseSubvolumes=yes"
+          fi
           tee mkosi/mkosi.local.conf <<EOF
           [Distribution]
           Distribution=${{ matrix.distro }}
@@ -192,7 +197,7 @@ jobs:
           Format=disk
 
           [Build]
-          UseSubvolumes=yes
+          ${subvolumes:-}
           ToolsTreeDistribution=${{ matrix.distro }}
           ToolsTreeRelease=${{ matrix.release }}
           WithTests=yes
