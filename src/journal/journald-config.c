@@ -363,7 +363,6 @@ static void manager_reload_config(Manager *m) {
 
 int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        int r;
 
         (void) notify_reloading();
 
@@ -375,10 +374,7 @@ int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_sig
         manager_reset_kernel_audit(m, old.set_audit);
         manager_reload_forward_socket(m, &old.forward_to_socket);
         manager_refresh_client_contexts_on_reload(m, old.ratelimit_interval, old.ratelimit_burst);
-
-        r = manager_reload_journals(m);
-        if (r < 0)
-                return r;
+        manager_reopen_journals(m, &old);
 
         log_info("Config file reloaded.");
         (void) sd_notify(/* unset_environment */ false, NOTIFY_READY_MESSAGE);

@@ -2263,43 +2263,34 @@ static int manager_setup_memory_pressure(Manager *m) {
         return 0;
 }
 
-int manager_reload_journals(Manager *m) {
+void manager_reopen_journals(Manager *m, const JournalConfig *old) {
         assert(m);
 
-        int r;
+        if (m->config.storage == old->storage &&
+            m->config.compress.enabled == old->compress.enabled &&
+            m->config.compress.threshold_bytes == old->compress.threshold_bytes &&
+            m->config.seal == old->seal &&
+            m->config.sync_interval_usec == old->sync_interval_usec &&
+            journal_metrics_equal(&m->config.system_storage_metrics, &old->system_storage_metrics) &&
+            journal_metrics_equal(&m->config.runtime_storage_metrics, &old->runtime_storage_metrics))
+                return; /* no-op */
 
-        if (m->system_journal && IN_SET(m->config.storage, STORAGE_PERSISTENT, STORAGE_AUTO)) {
-                /* Current journal can continue being used. Update config values as needed. */
-                r = journal_file_reload(
-                                m->system_journal,
-                                manager_get_file_flags(m, m->config.seal),
-                                m->config.compress.threshold_bytes,
-                                &m->system_storage.metrics);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to reload system journal on reload, ignoring: %m");
-        } else if (m->system_journal && m->config.storage == STORAGE_VOLATILE) {
-                /* Journal needs to be switched from system to runtime. */
-                r = manager_relinquish_var(m);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to relinquish to runtime journal on reload, ignoring: %m");
-        } else if (m->runtime_journal && IN_SET(m->config.storage, STORAGE_PERSISTENT, STORAGE_AUTO, STORAGE_VOLATILE)) {
-                /* Current journal can continue being used. Update config values as needed.*/
-                r = journal_file_reload(
-                                m->runtime_journal,
-                                manager_get_file_flags(m, /* seal */ false),
-                                m->config.compress.threshold_bytes,
-                                &m->runtime_storage.metrics);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to reload runtime journal on reload, ignoring: %m");
-        }
+        /* Explicitly close the runtime journal to make it reopened later by manager_system_journal_open().
+         * But only when volatile (or no) storage is requested. If auto or persistent storage is requested,
+         * we may need to flush the runtime journal to the persistent storage, it will done through
+         * manager_system_journal_open(). Hence, we should not touch the runtime journal here in that case. */
+        if (IN_SET(m->config.storage, STORAGE_VOLATILE, STORAGE_NONE))
+                m->runtime_journal = journal_file_offline_close(m->runtime_journal);
 
-        /* If journal-related configuration, such as SystemMaxUse, SystemMaxFileSize, RuntimeMaxUse, RuntimeMaxFileSize,
-         * were to change, then we can vacuum for the change to take effect. For example, if pre-reload SystemMaxUse=2M,
-         * current usage=1.5M, and the post-reload SystemMaxUse=1M, the vacuum can shrink it to 1M.
-         */
+        /* Close other journals unconditionally to make the new settings applied. */
+        m->system_journal = journal_file_offline_close(m->system_journal);
+        ordered_hashmap_clear(m->user_journals);
+        set_clear(m->deferred_closes);
+
+        (void) manager_system_journal_open(m, /* flush_requested = */ false, /* relinquish_requested = */ false);
+
+        /* To make the storage related settings applied, vacuum the storage. */
         manager_vacuum(m, /* verbose */ false);
-
-        return 0;
 }
 
 int manager_new(Manager **ret) {
