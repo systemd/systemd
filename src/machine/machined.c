@@ -198,15 +198,13 @@ static int manager_enumerate_machines(Manager *m) {
 
                 k = manager_add_machine(m, de->d_name, &machine);
                 if (k < 0) {
-                        r = log_error_errno(k, "Failed to add machine by file name %s: %m", de->d_name);
+                        RET_GATHER(r, log_error_errno(k, "Failed to add machine by file name %s: %m", de->d_name));
                         continue;
                 }
 
                 machine_add_to_gc_queue(machine);
 
-                k = machine_load(machine);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(r, machine_load(machine));
         }
 
         return r;
