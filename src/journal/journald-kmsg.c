@@ -429,6 +429,7 @@ int manager_open_kernel_seqnum(Manager *m) {
         int r;
 
         assert(m);
+        assert(!m->kernel_seqnum);
 
         /* We store the seqnum we last read in an mmapped file. That way we can just use it like a variable,
          * but it is persistent and automatically flushed at reboot. */
@@ -441,6 +442,13 @@ int manager_open_kernel_seqnum(Manager *m) {
                 return log_error_errno(r, "Failed to map kernel seqnum file: %m");
 
         return 0;
+}
+
+void manager_close_kernel_seqnum(Manager *m) {
+        assert(m);
+
+        manager_unmap_seqnum_file(m->kernel_seqnum, sizeof(*m->kernel_seqnum));
+        m->kernel_seqnum = NULL;
 }
 
 int manager_reload_dev_kmsg(Manager *m) {
