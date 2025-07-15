@@ -168,6 +168,11 @@ static void manager_adjust_configs(Manager *m) {
         /* copy metrics to manager */
         m->system_storage.metrics = m->config.system_storage_metrics;
         m->runtime_storage.metrics = m->config.runtime_storage_metrics;
+
+        if (m->config.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC && m->namespace) {
+                log_debug("ForwardToSocket= is not supported in non-default namespace instance.");
+                m->config.forward_to_socket = (SocketAddress) {};
+        }
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
