@@ -321,22 +321,24 @@ static int method_create_or_register_machine(
         if (r < 0)
                 return r;
 
-        const char *details[] = {
-                "name",  name,
-                "class", machine_class_to_string(c),
-                NULL
-        };
+        if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "name",  name,
+                        "class", machine_class_to_string(c),
+                        NULL
+                };
 
-        r = bus_verify_polkit_async(
-                        message,
-                        polkit_action,
-                        details,
-                        &manager->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 0; /* Will call us back */
+                r = bus_verify_polkit_async(
+                                message,
+                                polkit_action,
+                                details,
+                                &manager->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 0; /* Will call us back */
+        }
 
         r = manager_add_machine(manager, name, &m);
         if (r < 0)
@@ -434,7 +436,18 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = cg_pidref_get_unit_full(&m->leader, &m->unit, &m->subgroup);
+        switch (manager->runtime_scope) {
+        case RUNTIME_SCOPE_USER:
+                r = cg_pidref_get_user_unit_full(&m->leader, &m->unit, &m->subgroup);
+                break;
+
+        case RUNTIME_SCOPE_SYSTEM:
+                r = cg_pidref_get_unit_full(&m->leader, &m->unit, &m->subgroup);
+                break;
+
+        default:
+                assert_not_reached();
+        }
         if (r < 0) {
                 r = sd_bus_error_set_errnof(error, r,
                                             "Failed to determine unit of process "PID_FMT" : %m",
@@ -728,22 +741,24 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
         else
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mode '%s'.", mm);
 
-        const char *details[] = {
-                "verb", "clean_pool",
-                "mode", mm,
-                NULL
-        };
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "verb", "clean_pool",
+                        "mode", mm,
+                        NULL
+                };
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.machine1.manage-machines",
-                        details,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.machine1.manage-machines",
+                                details,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         r = image_clean_pool_operation(m, mode, &operation);
         if (r < 0)
@@ -767,21 +782,23 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
-        const char *details[] = {
-                "verb", "set_pool_limit",
-                NULL
-        };
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "verb", "set_pool_limit",
+                        NULL
+                };
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.machine1.manage-machines",
-                        details,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.machine1.manage-machines",
+                                details,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         /* Set up the machine directory if necessary */
         r = setup_machine_directory(error, /* use_btrfs_subvol= */ true, /* use_btrfs_quota= */ true);
@@ -1269,7 +1286,7 @@ int manager_unref_unit(
         assert(m);
         assert(unit);
 
-        return bus_call_method(m->bus, bus_systemd_mgr, "UnrefUnit", error, NULL, "s", unit);
+        return bus_call_method(m->api_bus, bus_systemd_mgr, "UnrefUnit", error, NULL, "s", unit);
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
@@ -1279,7 +1296,7 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
         assert(manager);
         assert(unit);
 
-        r = bus_call_method(manager->bus, bus_systemd_mgr, "StopUnit", error, &reply, "ss", unit, "fail");
+        r = bus_call_method(manager->api_bus, bus_systemd_mgr, "StopUnit", error, &reply, "ss", unit, "fail");
         if (r < 0) {
                 if (sd_bus_error_has_names(error, BUS_ERROR_NO_SUCH_UNIT,
                                                   BUS_ERROR_LOAD_FAILED)) {
@@ -1317,9 +1334,9 @@ int manager_kill_unit(Manager *manager, const char *unit, const char *subgroup, 
         assert(unit);
 
         if (empty_or_root(subgroup))
-                return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnit", reterr_error, NULL, "ssi", unit, "all", signo);
+                return bus_call_method(manager->api_bus, bus_systemd_mgr, "KillUnit", reterr_error, NULL, "ssi", unit, "all", signo);
 
-        return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnitSubgroup", reterr_error, NULL, "sssi", unit, "cgroup", subgroup, signo);
+        return bus_call_method(manager->api_bus, bus_systemd_mgr, "KillUnitSubgroup", reterr_error, NULL, "sssi", unit, "cgroup", subgroup, signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *reterr_error) {
@@ -1337,7 +1354,7 @@ int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret
                 return -ENOMEM;
 
         r = sd_bus_get_property(
-                        manager->bus,
+                        manager->api_bus,
                         "org.freedesktop.systemd1",
                         path,
                         "org.freedesktop.systemd1.Unit",
@@ -1373,7 +1390,7 @@ int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *rete
         assert(path);
 
         r = sd_bus_get_property(
-                        manager->bus,
+                        manager->api_bus,
                         "org.freedesktop.systemd1",
                         path,
                         "org.freedesktop.systemd1.Job",

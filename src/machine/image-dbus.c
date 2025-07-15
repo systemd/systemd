@@ -40,22 +40,24 @@ int bus_image_method_remove(
         if (m->n_operations >= OPERATIONS_MAX)
                 return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
 
-        const char *details[] = {
-                "image", image->name,
-                "verb", "remove",
-                NULL
-        };
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "image", image->name,
+                        "verb", "remove",
+                        NULL
+                };
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.machine1.manage-images",
-                        details,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.machine1.manage-images",
+                                details,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
@@ -101,23 +103,25 @@ int bus_image_method_rename(
         if (!image_name_is_valid(new_name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
-        const char *details[] = {
-                "image", image->name,
-                "verb", "rename",
-                "new_name", new_name,
-                NULL
-        };
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "image", image->name,
+                        "verb", "rename",
+                        "new_name", new_name,
+                        NULL
+                };
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.machine1.manage-images",
-                        details,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.machine1.manage-images",
+                                details,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         r = rename_image_and_update_cache(m, image, new_name);
         if (r < 0)
@@ -150,23 +154,25 @@ int bus_image_method_clone(
         if (!image_name_is_valid(new_name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
-        const char *details[] = {
-                "image", image->name,
-                "verb", "clone",
-                "new_name", new_name,
-                NULL
-        };
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "image", image->name,
+                        "verb", "clone",
+                        "new_name", new_name,
+                        NULL
+                };
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.machine1.manage-images",
-                        details,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.machine1.manage-images",
+                                details,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
@@ -208,23 +214,25 @@ int bus_image_method_mark_read_only(
         if (r < 0)
                 return r;
 
-        const char *details[] = {
-                "image", image->name,
-                "verb", "mark_read_only",
-                "read_only", one_zero(read_only),
-                NULL
-        };
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "image", image->name,
+                        "verb", "mark_read_only",
+                        "read_only", one_zero(read_only),
+                        NULL
+                };
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.machine1.manage-images",
-                        details,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.machine1.manage-images",
+                                details,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         r = image_read_only(image, read_only);
         if (r < 0)
@@ -251,22 +259,24 @@ int bus_image_method_set_limit(
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
-        const char *details[] = {
-                "machine", image->name,
-                "verb", "set_limit",
-                NULL
-        };
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "machine", image->name,
+                        "verb", "set_limit",
+                        NULL
+                };
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.machine1.manage-images",
-                        details,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.machine1.manage-images",
+                                details,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         r = image_set_limit(image, limit);
         if (r < 0)
