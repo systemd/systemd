@@ -18,6 +18,7 @@
 #include "machine-varlink.h"
 #include "machined.h"
 #include "machined-varlink.h"
+#include "path-lookup.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -733,6 +734,8 @@ static int manager_varlink_init_userdb(Manager *m) {
 
         if (m->varlink_userdb_server)
                 return 0;
+        if (m->runtime_scope != RUNTIME_SCOPE_SYSTEM) /* no userdb in per-user mode! */
+                return 0;
 
         r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
         if (r < 0)
@@ -817,11 +820,20 @@ static int manager_varlink_init_machine(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
         if (r == 0) {
-                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+                _cleanup_free_ char *socket_path = NULL;
+                r = runtime_directory_generic(m->runtime_scope, "systemd/machine/io.systemd.Machine", &socket_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine socket path: %m");
+
+                r = sd_varlink_server_listen_address(s, socket_path, runtime_scope_to_socket_mode(m->runtime_scope) | SD_VARLINK_SERVER_MODE_MKDIR_0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to io.systemd.Machine varlink socket: %m");
 
-                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.MachineImage", 0666);
+                socket_path = mfree(socket_path);
+                r = runtime_directory_generic(m->runtime_scope, "systemd/machine/io.systemd.MachineImage", &socket_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine socket path: %m");
+                r = sd_varlink_server_listen_address(s, socket_path, runtime_scope_to_socket_mode(m->runtime_scope));
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to io.systemd.MachineImage varlink socket: %m");
         }
