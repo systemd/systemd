@@ -13,12 +13,26 @@ systemd-run --wait \
         grep -q '/sys/fs/bpf .* ro,' /proc/mounts
 
 # Check that with PrivateBPF=yes, a new bpffs instance is mounted
-systemd-run --wait \
+if ! systemd-run --wait \
         -p PrivateUsers=yes \
         -p PrivateMounts=yes \
         -p DelegateNamespaces=mnt \
         -p PrivateBPF=yes \
-        grep -q '^none /sys/fs/bpf bpf rw' /proc/mounts
+        grep -q '^none /sys/fs/bpf bpf rw' /proc/mounts; then
+
+    # If it does not work, maybe the kernel is old or the system has buggy ubuntu kernel.
+    # Let's check if PrivateBPF=yes is ignored gracefully in that case.
+    systemd-run --wait \
+                -p PrivateUsers=yes \
+                -p PrivateMounts=yes \
+                -p DelegateNamespaces=mnt \
+                -p ProtectKernelTunables=yes \
+                -p PrivateBPF=yes \
+                grep -q '/sys/fs/bpf .* ro,' /proc/mounts
+
+    # Skip all remaining tests.
+    exit 0
+fi
 
 # Check that when specifying the delegate arguments, the mount options are set properly
 check_mount_opts() {
