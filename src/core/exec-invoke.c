@@ -5738,10 +5738,8 @@ int exec_invoke(
                  * https://github.com/torvalds/linux/blob/master/tools/testing/selftests/bpf/prog_tests/token.c
                  */
                 r = bpffs_prepare(context, &bpffs_pidref, &bpffs_socket_fd, &bpffs_errno_pipe);
-                if (r < 0) {
-                        *exit_status = EXIT_BPF;
-                        return log_error_errno(r, "Failed to mount bpffs in bpffs_prepare(): %m");
-                }
+                if (r < 0)
+                        log_warning_errno(r, "Failed to mount bpffs in bpffs_prepare(): %m");
         }
 
         if (needs_sandboxing && !have_cap_sys_admin && exec_needs_cap_sys_admin(context, params)) {
@@ -5849,19 +5847,15 @@ int exec_invoke(
 
         if (context->private_bpf != PRIVATE_BPF_NO) {
                 r = pidref_wait_for_terminate_and_check("(sd-bpffs)", &bpffs_pidref, /* flags = */ 0);
-                if (r < 0) {
-                        *exit_status = EXIT_BPF;
-                        return r;
-                }
-                /* If something strange happened with the child, let's consider this fatal, too */
+                /* If something strange happened with the child, let's consider this error, too */
                 if (r != EXIT_SUCCESS) {
-                        *exit_status = EXIT_BPF;
                         ssize_t ss = read(bpffs_errno_pipe, &r, sizeof(r));
                         if (ss == sizeof(r))
-                                return log_debug_errno(r, "bpffs helper exited with error: %m");
-                        if (ss < 0)
-                                return log_debug_errno(errno, "Failed to read from the bpffs helper errno pipe: %m");
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from the bpffs helper errno pipe.");
+                                log_debug_errno(r, "bpffs helper exited with error: %m");
+                        else if (ss < 0)
+                                log_debug_errno(errno, "Failed to read from the bpffs helper errno pipe: %m");
+                        else
+                                log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from the bpffs helper errno pipe.");
                 }
                 pidref_done(&bpffs_pidref);
         }
