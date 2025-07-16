@@ -10,6 +10,7 @@
 #include "install.h"
 #include "json-util.h"
 #include "manager.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "set.h"
 #include "strv.h"
@@ -356,7 +357,7 @@ static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pid
 }
 
 typedef struct UnitLookupParameters {
-        const char *name;
+        const char *name, *cgroup;
         PidRef pidref;
 } UnitLookupParameters;
 
@@ -375,9 +376,10 @@ static int varlink_error_no_such_unit(sd_varlink *v, const char *name) {
 static int varlink_error_conflict_lookup_parameters(sd_varlink *v, const UnitLookupParameters *p) {
         log_debug_errno(
                         ESRCH,
-                        "Searching unit by lookup parameters name='%s' pid="PID_FMT" resulted in multiple different units",
+                        "Searching unit by lookup parameters name='%s' pid="PID_FMT" cgroup='%s' resulted in multiple different units",
                         p->name,
-                        p->pidref.pid);
+                        p->pidref.pid,
+                        p->cgroup);
 
         return varlink_error_no_such_unit(v, /* name= */ NULL);
 }
@@ -413,7 +415,20 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
                 unit = pid_unit;
         }
 
-        // TODO lookup by invocationID, CGroup
+        if (p->cgroup) {
+                if (!path_is_safe(p->cgroup))
+                        return sd_varlink_error_invalid_parameter_name(link, "cgroup");
+
+                Unit *cgroup_unit = manager_get_unit_by_cgroup(manager, p->cgroup);
+                if (!cgroup_unit)
+                        return varlink_error_no_such_unit(link, "cgroup");
+                if (cgroup_unit != unit && unit != NULL)
+                        return varlink_error_conflict_lookup_parameters(link, p);
+
+                unit = cgroup_unit;
+        }
+
+        // TODO lookup by invocationID
 
         *ret_unit = unit;
         return 0;
@@ -421,8 +436,9 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
 
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name", SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(UnitLookupParameters, name),   0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
-                { "pid",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref), SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
+                { "name",         SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(UnitLookupParameters, name),          0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
+                { "pid",          _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref),        SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
+                { "cgroup",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(UnitLookupParameters, cgroup),        0                                                   },
                 {}
         };
 
