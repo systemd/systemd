@@ -3,6 +3,11 @@
 set -eux
 set -o pipefail
 
+if systemd-analyze compare-versions "$(uname -r)" lt 6.11; then
+        echo 'Mount bpffs with fsopen() API requires kernel 6.11 or later'
+        exit 0
+fi
+
 # Check that with ProtectKernelTunables=yes and PrivateBPF=no, the host bpffs is remounted ro
 systemd-run --wait \
         -p PrivateUsers=yes \
