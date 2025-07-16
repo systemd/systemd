@@ -2405,11 +2405,27 @@ static int unit_log_resources(Unit *u) {
                         return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
+                /* Calculate wall clock time if we have an active_enter_timestamp */
+                usec_t wall_clock_usec = USEC_INFINITY;
+                if (dual_timestamp_is_set(&u->active_enter_timestamp)) {
+                        usec_t now_usec = now(CLOCK_MONOTONIC);
+                        if (now_usec >= u->active_enter_timestamp.monotonic)
+                                wall_clock_usec = now_usec - u->active_enter_timestamp.monotonic;
+                }
+
                 /* Format the CPU time for inclusion in the human language message string */
-                if (strextendf_with_separator(&message, ", ",
-                                              "Consumed %s CPU time",
-                                              FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC)) < 0)
-                        return log_oom();
+                if (wall_clock_usec != USEC_INFINITY) {
+                        if (strextendf_with_separator(&message, ", ",
+                                                      "Consumed %s CPU time over %s wall clock time",
+                                                      FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC),
+                                                      FORMAT_TIMESPAN(wall_clock_usec, USEC_PER_MSEC)) < 0)
+                                return log_oom();
+                } else {
+                        if (strextendf_with_separator(&message, ", ",
+                                                      "Consumed %s CPU time",
+                                                      FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC)) < 0)
+                                return log_oom();
+                }
 
                 log_level = raise_level(log_level,
                                         cpu_nsec > MENTIONWORTHY_CPU_NSEC,
