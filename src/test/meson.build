@@ -238,6 +238,10 @@ executables += [
                 'conditions' : ['ENABLE_EFI'],
         },
         test_template + {
+                'sources' : files('test-bpffs.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-btrfs.c'),
                 'type' : 'manual',
         },
