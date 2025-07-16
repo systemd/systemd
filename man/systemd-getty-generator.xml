@@ -101,7 +101,39 @@
         TTYs. The two credentials should contain a newline-separated list of TTY names to spawn instances of
         <filename>serial-getty@.service</filename> (in case of <varname>getty.ttys.serial</varname>) and
         <filename>container-getty@.service</filename> (in case of <varname>getty.ttys.container</varname>)
-        on.</para>
+        on.  Any list items starting with a <literal>#</literal> are comments.</para>
+
+        <para>Since version 258, either file can contain specially-formatted comments to disable the
+        automatic creation of login prompts.</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><varname># no-container</varname></term>
+            <listitem><para>Disable the generation of login prompts on the ptys listed in
+            <varname>$container_ttys</varname>.</para>
+            <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><varname># no-consoles</varname></term>
+            <listitem><para>Disable the generation of login prompts on the consoles used by the
+            kernel.</para>
+            <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><varname># no-builtins</varname></term>
+            <listitem><para>Disable the generation of login prompts on the built-in list of
+            ttys.</para>
+            <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><varname># no-auto</varname></term>
+            <listitem><para>Disable all of the above.</para>
+            <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+          </varlistentry>
+        </variablelist>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
