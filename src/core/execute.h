@@ -525,6 +525,7 @@ char** exec_context_get_address_families(const ExecContext *c);
 char** exec_context_get_restrict_filesystems(const ExecContext *c);
 bool exec_context_restrict_namespaces_set(const ExecContext *c);
 bool exec_context_restrict_filesystems_set(const ExecContext *c);
+PrivateBPF exec_context_get_private_bpf(const ExecContext *c);
 bool exec_context_with_rootfs(const ExecContext *c);
 
 int exec_context_has_vpicked_extensions(const ExecContext *context);

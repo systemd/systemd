@@ -39,6 +39,7 @@
 #include "log.h"
 #include "manager.h"
 #include "mkdir.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "namespace.h"
 #include "nsflags.h"
@@ -324,7 +325,7 @@ bool exec_needs_mount_namespace(
             exec_needs_cgroup_mount(context) ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
-            context->private_bpf != PRIVATE_BPF_NO ||
+            exec_context_get_private_bpf(context) != PRIVATE_BPF_NO ||
             exec_needs_ipc_namespace(context) ||
             exec_needs_pid_namespace(context, params))
                 return true;
@@ -2042,6 +2043,20 @@ bool exec_context_restrict_filesystems_set(const ExecContext *c) {
 
         return c->restrict_filesystems_allow_list ||
           !set_isempty(c->restrict_filesystems);
+}
+
+PrivateBPF exec_context_get_private_bpf(const ExecContext *c) {
+        assert(c);
+
+        if (c->private_bpf == PRIVATE_BPF_NO)
+                return PRIVATE_BPF_NO;
+
+        if (!fsconfig_bpffs_supported()) {
+                log_once(LOG_INFO, "PrivateBPF=%s is not supported by the kernel, disabling the feature.", private_bpf_to_string(c->private_bpf));
+                return PRIVATE_BPF_NO;
+        }
+
+        return c->private_bpf;
 }
 
 bool exec_context_with_rootfs(const ExecContext *c) {

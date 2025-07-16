@@ -3904,7 +3904,7 @@ static int apply_mount_namespace(
                 .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
-                .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
+                .private_bpf = needs_sandboxing ? exec_context_get_private_bpf(context) : PRIVATE_BPF_NO,
 
                 .bpffs_socket_fd = bpffs_socket_fd,
         };
@@ -5724,7 +5724,7 @@ int exec_invoke(
                 }
         }
 
-        if (context->private_bpf != PRIVATE_BPF_NO) {
+        if (exec_context_get_private_bpf(context) != PRIVATE_BPF_NO) {
                 /* To create a BPF token, the bpffs has to be mounted with the fsopen()/fsmount() API.
                  * More specifically, fsopen() must be called within the user namespace, then all the
                  * fsconfig() as privileged user, and finally and fsmount() and move_mount() in
@@ -5847,7 +5847,7 @@ int exec_invoke(
         if (r < 0)
                 return r;
 
-        if (context->private_bpf != PRIVATE_BPF_NO) {
+        if (pidref_is_set(&bpffs_pidref)) {
                 r = pidref_wait_for_terminate_and_check("(sd-bpffs)", &bpffs_pidref, /* flags = */ 0);
                 if (r < 0) {
                         *exit_status = EXIT_BPF;
