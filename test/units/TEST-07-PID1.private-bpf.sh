@@ -12,6 +12,26 @@ systemd-run --wait \
         -p PrivateBPF=no \
         grep -q '/sys/fs/bpf .* ro,' /proc/mounts
 
+# This fails if fsopen()/fsconfig() bpffs is not supported by the kernel.
+set +e
+/usr/lib/systemd/tests/unit-tests/manual/test-private-bpf
+RET_TEST_PRIVATE_BPF=$?
+set -e
+
+if (( RET_TEST_PRIVATE_BPF != 0 )); then
+    # Check if PrivateBPF=yes is gracefully ignored.
+    systemd-run --wait \
+                -p PrivateUsers=yes \
+                -p PrivateMounts=yes \
+                -p DelegateNamespaces=mnt \
+                -p ProtectKernelTunables=yes \
+                -p PrivateBPF=yes \
+                grep -q '/sys/fs/bpf .* ro,' /proc/mounts
+
+    # Skip all remaining tests.
+    exit 0
+fi
+
 # Check that with PrivateBPF=yes, a new bpffs instance is mounted
 systemd-run --wait \
         -p PrivateUsers=yes \
