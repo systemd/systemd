@@ -55,6 +55,10 @@ static inline bool pidref_is_set(const PidRef *pidref) {
 
 bool pidref_is_automatic(const PidRef *pidref);
 
+static inline bool pidref_is_set_or_automatic(const PidRef *pidref) {
+        return pidref_is_set(pidref) || pidref_is_automatic(pidref);
+}
+
 static inline bool pidref_is_remote(const PidRef *pidref) {
         /* If the fd is set to -EREMOTE we assume PidRef does not refer to a local PID, but on another
          * machine (and we just got the PidRef initialized due to deserialization of some RPC message) */
