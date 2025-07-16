@@ -79,5 +79,6 @@ bool mount_new_api_supported(void);
 unsigned long ms_nosymfollow_supported(void);
 
 int mount_option_supported(const char *fstype, const char *key, const char *value);
+bool fsconfig_bpffs_supported(void);
 
 bool path_below_api_vfs(const char *p);
