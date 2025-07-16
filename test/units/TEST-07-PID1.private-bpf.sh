@@ -12,6 +12,21 @@ systemd-run --wait \
         -p PrivateBPF=no \
         grep -q '/sys/fs/bpf .* ro,' /proc/mounts
 
+# The following test will return 77 if at compile time the libbpf version
+# is less than 1.5.0 or libbpf support is disabled.
+# It fails if fsopen()/fsconfig() bpffs is not supported.
+set +e
+/usr/lib/systemd/tests/unit-tests/manual/test-bpf-token
+RET_TEST_BPF_TOKEN=$?
+set -e
+
+if (( $RET_TEST_BPF_TOKEN != 0 && $RET_TEST_BPF_TOKEN != 77 )); then
+    # fsopen()/fsconfig() does not work, skip all remaining tests
+    echo "fsopen()/fsconfig() for bpffs does not work, skipping tests for PrivateBPF=yes."
+    exit 0
+fi
+
+
 # Check that with PrivateBPF=yes, a new bpffs instance is mounted
 systemd-run --wait \
         -p PrivateUsers=yes \
@@ -37,21 +52,10 @@ check_mount_opts 'BPFDelegateMaps=BPFMapTypeArray,BPFMapTypeCpumap,BPFMapTypeRin
 check_mount_opts 'BPFDelegatePrograms=BPFProgTypeTracepoint,BPFProgTypeXdp,BPFProgTypeTracing' 'delegate_progs=tracepoint:xdp:tracing'
 check_mount_opts 'BPFDelegateAttachments=BPFFlowDissector,BPFCgroupSysctl,BPFNetfilter' 'delegate_attachs=flow_dissector:cgroup_sysctl:netfilter'
 
-# Building test-bpf-token requires BPF support
-if systemctl --version | grep -q -- -BPF_FRAMEWORK; then
-        exit 0
+if (( $RET_TEST_BPF_TOKEN == 77 )); then
+   echo "libbpf is not supported or older than v1.5, skipping bpf token tests."
+   exit 0
 fi
-
-# The following test will always return 77 if at compile time the libbpf version
-# is less than 1.5.0. If it happens don't let the whole test fail
-set +e
-
-/usr/lib/systemd/tests/unit-tests/manual/test-bpf-token
-if [ $? -eq 77 ]; then
-        exit 0
-fi
-
-set -e
 
 # Check that our helper is able to get a BPF token
 systemd-run --wait \
@@ -63,9 +67,9 @@ systemd-run --wait \
         /usr/lib/systemd/tests/unit-tests/manual/test-bpf-token
 
 # Check that without the delegates, the helper aborts trying to get a token
-! systemd-run --wait \
+(! systemd-run --wait \
         -p PrivateUsers=yes \
         -p PrivateMounts=yes \
         -p DelegateNamespaces=mnt \
         -p PrivateBPF=yes \
-        /usr/lib/systemd/tests/unit-tests/manual/test-bpf-token
+        /usr/lib/systemd/tests/unit-tests/manual/test-bpf-token)
