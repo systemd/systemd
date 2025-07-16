@@ -350,10 +350,6 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 if (strv_isempty(names))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No units matched the specified patterns.");
 
-                if (arg_stdin && arg_full && strv_length(names) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "With 'edit --stdin --full', exactly one unit for editing must be specified.");
-
                 STRV_FOREACH(tmp, names) {
                         r = unit_is_masked(bus, *tmp);
                         if (r < 0 && r != -ENOENT)
@@ -371,13 +367,13 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 
                 if (strv_isempty(names))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No units specified.");
-
-                if (arg_stdin && arg_full && strv_length(names) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "With 'edit --stdin --full', exactly one unit for editing must be specified.");
                 
                 /* For global scope, we can't check if units are masked via bus */
         }
+
+        if (arg_stdin && arg_full && strv_length(names) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "With 'edit --stdin --full', exactly one unit for editing must be specified.");
 
         r = find_paths_to_edit(bus, &context, names);
         if (r < 0)
