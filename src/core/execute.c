@@ -39,6 +39,7 @@
 #include "log.h"
 #include "manager.h"
 #include "mkdir.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "namespace.h"
 #include "nsflags.h"
@@ -224,6 +225,25 @@ bool exec_needs_ipc_namespace(const ExecContext *context) {
         return context->private_ipc || context->ipc_namespace_path;
 }
 
+PrivateBPF exec_get_private_bpf(const ExecContext *context) {
+        int r;
+
+        assert(context);
+
+        if (context->private_bpf == PRIVATE_BPF_NO)
+                return PRIVATE_BPF_NO;
+
+        r = private_bpf_supported();
+        if (r < 0) {
+                log_once_errno(LOG_INFO, r,
+                               "PrivateBPF=%s is not supported by the kernel, disabling the feature.",
+                               private_bpf_to_string(context->private_bpf));
+                return PRIVATE_BPF_NO;
+        }
+
+        return context->private_bpf;
+}
+
 static bool needs_cgroup_namespace(ProtectControlGroups i) {
         return IN_SET(i, PROTECT_CONTROL_GROUPS_PRIVATE, PROTECT_CONTROL_GROUPS_STRICT);
 }
@@ -324,7 +344,7 @@ bool exec_needs_mount_namespace(
             exec_needs_cgroup_mount(context) ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
-            context->private_bpf != PRIVATE_BPF_NO ||
+            exec_get_private_bpf(context) != PRIVATE_BPF_NO ||
             exec_needs_ipc_namespace(context) ||
             exec_needs_pid_namespace(context, params))
                 return true;
