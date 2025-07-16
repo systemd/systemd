@@ -63,9 +63,9 @@ systemd-run --wait \
         /usr/lib/systemd/tests/unit-tests/manual/test-bpf-token
 
 # Check that without the delegates, the helper aborts trying to get a token
-! systemd-run --wait \
+(! systemd-run --wait \
         -p PrivateUsers=yes \
         -p PrivateMounts=yes \
         -p DelegateNamespaces=mnt \
         -p PrivateBPF=yes \
-        /usr/lib/systemd/tests/unit-tests/manual/test-bpf-token
+        /usr/lib/systemd/tests/unit-tests/manual/test-bpf-token)
