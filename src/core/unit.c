@@ -4442,6 +4442,12 @@ int unit_patch_contexts(Unit *u) {
 
                 FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
                         exec_directory_sort(d);
+
+                if (ec->private_bpf != PRIVATE_BPF_NO && !fsconfig_bpffs_supported()) {
+                        log_unit_debug(u, "PrivateBPF=%s is not supported by the kernel, disabling the feature.",
+                                       private_bpf_to_string(ec->private_bpf));
+                        ec->private_bpf = PRIVATE_BPF_NO;
+                }
         }
 
         cc = unit_get_cgroup_context(u);

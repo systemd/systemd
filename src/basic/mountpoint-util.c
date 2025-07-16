@@ -807,6 +807,33 @@ int mount_option_supported(const char *fstype, const char *key, const char *valu
         return true; /* works! */
 }
 
+bool fsconfig_bpffs_supported(void) {
+        static int supported = -1;
+
+        if (supported >= 0)
+                return supported;
+
+        _cleanup_close_ int fs_fd = fsopen("bpf", FSOPEN_CLOEXEC);
+        if (fs_fd < 0) {
+                log_debug_errno(errno, "Failed to fsopen bpffs: %m");
+                return (supported = false);
+        }
+
+        FOREACH_STRING(s, "delegate_cmds", "delegate_maps", "delegate_progs", "delegate_attachs") {
+                if (fsconfig(fs_fd, FSCONFIG_SET_STRING, s, "0xffffffffffffffff", /* aux = */ 0) < 0) {
+                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING(%s) for bpffs: %m", s);
+                        return (supported = false);
+                }
+        }
+
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key = */ NULL, /* value = */ NULL, /* aux = */ 0) < 0) {
+                log_debug_errno(errno, "Failed to FSCONFIG_CMD_CREATE for bpffs: %m");
+                return (supported = false);
+        }
+
+        return (supported = true);
+}
+
 bool path_below_api_vfs(const char *p) {
         assert(p);
 
