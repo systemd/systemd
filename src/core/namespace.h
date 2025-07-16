@@ -309,3 +309,5 @@ int refresh_extensions_in_namespace(
                 const PidRef *target,
                 const char *hierarchy_env,
                 const NamespaceParameters *p);
+
+int private_bpf_supported(void);
