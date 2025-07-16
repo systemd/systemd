@@ -98,15 +98,6 @@ static int acquire_shutdown_times(Hashmap **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add journal conjunction: %m");
 
-        /* Match systemd process messages */
-        r = sd_journal_add_match(j, "_COMM=systemd", 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add systemd process match: %m");
-
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add journal conjunction: %m");
-
         /* Match unit stopping messages */
         r = sd_journal_add_disjunction(j);
         if (r < 0)
@@ -157,9 +148,14 @@ static int acquire_shutdown_times(Hashmap **ret) {
                         continue;
 
                 /* Check if this is a stopping or stopped message */
-                if (startswith(message_id, SD_MESSAGE_UNIT_STOPPING_STR))
+                sd_id128_t msg_id;
+                r = sd_id128_from_string(message_id, &msg_id);
+                if (r < 0)
+                        continue;
+
+                if (sd_id128_equal(msg_id, SD_MESSAGE_UNIT_STOPPING))
                         is_stopping = true;
-                else if (startswith(message_id, SD_MESSAGE_UNIT_STOPPED_STR))
+                else if (sd_id128_equal(msg_id, SD_MESSAGE_UNIT_STOPPED))
                         is_stopping = false;
                 else
                         continue;
@@ -169,7 +165,7 @@ static int acquire_shutdown_times(Hashmap **ret) {
                 if (is_stopping) {
                         if (existing) {
                                 existing->start_time = timestamp;
-                                if (existing->stop_time > 0)
+                                if (existing->stop_time > 0 && existing->stop_time >= existing->start_time)
                                         existing->duration = existing->stop_time - existing->start_time;
                         } else {
                                 st = new0(ShutdownTime, 1);
@@ -194,7 +190,7 @@ static int acquire_shutdown_times(Hashmap **ret) {
                 } else {
                         if (existing) {
                                 existing->stop_time = timestamp;
-                                if (existing->start_time > 0)
+                                if (existing->start_time > 0 && existing->stop_time >= existing->start_time)
                                         existing->duration = existing->stop_time - existing->start_time;
                         } else {
                                 st = new0(ShutdownTime, 1);
