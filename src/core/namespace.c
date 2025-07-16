@@ -2020,7 +2020,13 @@ static int apply_one_mount(
                 return mount_overlay(m);
 
         case MOUNT_BPFFS:
-                return mount_bpffs(m, p->bpffs_socket_fd);
+                r = mount_bpffs(m, p->bpffs_socket_fd);
+                if (r < 0 && p->private_bpf != PRIVATE_BPF_NO) {
+                        log_warning_errno(r, "Private bpffs mount failed, ignoring: %m");
+                        return 0;
+                }
+
+                return r;
 
         default:
                 assert_not_reached();
