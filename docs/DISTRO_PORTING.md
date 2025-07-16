@@ -13,9 +13,6 @@ You need to make the follow changes to adapt systemd to your distribution:
 
 1. Find the right configure parameters for:
 
-   * `-Dsysvinit-path=`
-   * `-Dsysvrcnd-path=`
-   * `-Drc-local=`
    * `-Dloadkeys-path=`
    * `-Dsetfont-path=`
    * `-Dtty-gid=`

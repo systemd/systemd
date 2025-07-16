@@ -169,10 +169,6 @@ units = [
           'conditions' : ['ENABLE_QUOTACHECK'],
         },
         {
-          'file' : 'rc-local.service.in',
-          'conditions' : ['HAVE_SYSV_COMPAT'],
-        },
-        {
           'file' : 'reboot.target',
           'symlinks' : ['ctrl-alt-del.target'],
         },
