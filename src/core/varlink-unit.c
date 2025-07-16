@@ -12,6 +12,7 @@
 #include "manager.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "selinux-access.h"
 #include "set.h"
 #include "strv.h"
 #include "unit.h"
@@ -330,6 +331,21 @@ static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
         return sd_varlink_reply(link, v);
 }
 
+static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit, bool more) {
+        int r;
+
+        assert(link);
+        assert(unit);
+
+        r = mac_selinux_unit_access_check_varlink(unit, link, "status");
+        if (r < 0)
+                /* If mac_selinux_unit_access_check_varlink() returned a error,
+                 * it means that SELinux enforce is one. It also does all the logging(). */
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        return list_unit_one(link, unit, more);
+}
+
 static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pidref, Unit **ret_unit) {
         _cleanup_(pidref_done) PidRef peer = PIDREF_NULL;
         Unit *unit;
@@ -472,7 +488,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r < 0)
                 return r;
         if (unit)
-                return list_unit_one(link, unit, /* more = */ false);
+                return list_unit_one_with_selinux_access_check(link, unit, /* more = */ false);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
