@@ -516,7 +516,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The cgroup runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
+static SD_VARLINK_DEFINE_ERROR(
+                NoSuchUnit,
+                SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
