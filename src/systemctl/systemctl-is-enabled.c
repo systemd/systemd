@@ -82,7 +82,7 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
         not_found = r == 0; /* Doesn't have SysV support or SYSV_UNIT_NOT_FOUND */
         enabled = r == SYSV_UNIT_ENABLED;
 
-        if (install_client_side()) {
+        if (install_client_side())
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
 
@@ -114,9 +114,7 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
                                 }
                         }
                 }
-
-                r = 0;
-        } else {
+        else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
