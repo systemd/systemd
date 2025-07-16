@@ -359,6 +359,7 @@ static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pid
 typedef struct UnitLookupParameters {
         const char *name, *cgroup;
         PidRef pidref;
+        sd_id128_t invocation_id;
 } UnitLookupParameters;
 
 static void unit_lookup_parameters_done(UnitLookupParameters *p) {
@@ -376,10 +377,11 @@ static int varlink_error_no_such_unit(sd_varlink *v, const char *name) {
 static int varlink_error_conflict_lookup_parameters(sd_varlink *v, const UnitLookupParameters *p) {
         log_debug_errno(
                         ESRCH,
-                        "Searching unit by lookup parameters name='%s' pid="PID_FMT" cgroup='%s' resulted in multiple different units",
+                        "Searching unit by lookup parameters name='%s' pid="PID_FMT" cgroup='%s' invocationID='%s' resulted in multiple different units",
                         p->name,
                         p->pidref.pid,
-                        p->cgroup);
+                        p->cgroup,
+                        sd_id128_is_null(p->invocation_id) ? "" : SD_ID128_TO_UUID_STRING(p->invocation_id));
 
         return varlink_error_no_such_unit(v, /* name= */ NULL);
 }
@@ -428,7 +430,15 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
                 unit = cgroup_unit;
         }
 
-        // TODO lookup by invocationID
+        if (!sd_id128_is_null(p->invocation_id)) {
+                Unit *id128_unit = hashmap_get(manager->units_by_invocation_id, &p->invocation_id);
+                if (!id128_unit)
+                        return varlink_error_no_such_unit(link, "invocationID");
+                if (id128_unit != unit && unit != NULL)
+                        return varlink_error_conflict_lookup_parameters(link, p);
+
+                unit = id128_unit;
+        }
 
         *ret_unit = unit;
         return 0;
@@ -439,6 +449,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 { "name",         SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(UnitLookupParameters, name),          0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
                 { "pid",          _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref),        SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
                 { "cgroup",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(UnitLookupParameters, cgroup),        0                                                   },
+                { "invocationID", SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,        offsetof(UnitLookupParameters, invocation_id), 0                                                   },
                 {}
         };
 
