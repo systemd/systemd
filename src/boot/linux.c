@@ -106,22 +106,28 @@ EFI_STATUS linux_exec(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Bad kernel image: %m");
 
-        EFI_LOADED_IMAGE_PROTOCOL* parent_loaded_image;
+        EFI_LOADED_IMAGE_PROTOCOL *parent_loaded_image;
         err = BS->HandleProtocol(
                         parent, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &parent_loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot get parent loaded image: %m");
 
-        /* If shim provides LoadImage, it comes from version 16.1 or later and does the following:
-         * - It keeps a database of all PE sections that it already authenticated.
-         * - shim's LoadImage always verifies PE images against denylists: dbx, mokx, sbat.
-         * - If the PE image was not authenticated as a PE section it will also:
-         *   + verify it against allowlists: db, mok
-         *   + measure it on PCR 4
+        /* If shim provides LoadImage, it comes from the new SHIM_IMAGE_LOADER interface added in shim 16,
+         * and implements the following:
+         * - shim hashes PE sections of PE binaries it authenticates and stores the hashes in a global
+         *   database.
+         * - shim's LoadImage always verifies PE images against denylists: DBX, MOKX, SBAT.
+         * - If the PE image was _not_ authenticated as a PE section it will also:
+         *   + verify it against allowlists: DB, MOK,
+         *   + measure it on PCR 4.
          *
-         * In our case, we are loading a PE section that was already authenticated as part of the UKI.
-         * So in contrast to a normal UEFI LoadImage, shim will verify extra denylists (mokx, sbat),
-         * while skipping all allowlists and measurements.
+         * (Compared to standard UEFI LoadImage(), the patched shim version of LoadImage() is both stricter —
+         * as it checks SBAT + MOKX for all PE payloads — and more relaxed — as it disables DB checks for PE
+         * payloads it has seen as part of another PE binary before.)
+         *
+         * In our case, we are loading a PE section that was already authenticated as part of the UKI. In
+         * contrast to a normal UEFI LoadImage, shim will verify extra denylists (MOKX, SBAT), but skip all
+         * allowlists and measurements.
          *
          * See https://github.com/rhboot/shim/blob/main/README.md#shim-loader-protocol
          */
@@ -187,8 +193,8 @@ EFI_STATUS linux_exec(
                 .FilePath = file_path,
                 .ImageBase = loaded_kernel,
                 .ImageSize = kernel_size_in_memory,
-                .ImageCodeType = /*EFI_LOADER_CODE*/1,
-                .ImageDataType = /*EFI_LOADER_DATA*/2,
+                .ImageCodeType = 1 /* EFI_LOADER_CODE */,
+                .ImageDataType = 2 /* EFI_LOADER_DATA */,
         };
 
         if (cmdline) {

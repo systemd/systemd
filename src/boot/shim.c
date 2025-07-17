@@ -42,11 +42,7 @@ bool shim_loaded(void) {
         return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_LOCK), NULL, (void **) &shim_lock) == EFI_SUCCESS;
 }
 
-/* The shim lock protocol is for pre-v16 shim, where it was not hooked up to the BS->LoadImage() system
- * table and friends, and it has to be checked manually via the shim_validate() helper. If the shim image
- * loader protocol is available (shim v16 and newer), then it will have overridden BS->LoadImage() and
- * friends in the system table, so no specific helper is needed, and the standard BS->LoadImage() and
- * friends can be called instead. */
+/* Check if SHIM_IMAGE_LOADER is available, shim 16 or newer. */
 bool shim_loader_available(void) {
         void *shim_image_loader;
 
@@ -104,7 +100,15 @@ EFI_STATUS shim_load_image(
         assert(device_path);
         assert(ret_image);
 
+        /* The shim lock protocol is for pre-v16 shim, where it was not hooked up to the BS->LoadImage()
+         * system table and friends, and it has to be checked manually via the shim_validate() helper. If the
+         * shim image loader protocol is available (shim v16 and newer), then it will have overridden
+         * BS->LoadImage() and friends in the system table, so no specific helper is needed, and the standard
+         * BS->LoadImage() and friends can be called instead.
+         */
+
         // TODO: drop lock protocol and just use plain BS->LoadImage once Shim < 16 is no longer supported
+
         bool have_shim = shim_loaded() && !shim_loader_available();
 
         if (have_shim)
