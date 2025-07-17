@@ -1508,7 +1508,7 @@ Ports=eth2</programlisting>
           <para>A static local address for tunneled packets. It must be an address on another interface
           of this host, or one of the special values <literal>any</literal>,
           <literal>ipv4_link_local</literal>, <literal>ipv6_link_local</literal>,
-          <literal>dhcp4</literal>, <literal>dhcp6</literal>, and <literal>slaac</literal>. If one
+          <literal>dhcp4</literal>, <literal>dhcp6</literal>, <literal>dhcp_pd</literal>, and <literal>slaac</literal>. If one
           of the special values except for <literal>any</literal> is specified, an address which
           matches the corresponding type on the underlying interface will be used. Defaults to
           <literal>any</literal>.</para>
