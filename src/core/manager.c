@@ -622,6 +622,7 @@ static char** sanitize_environment(char **l) {
                         "LISTEN_FDNAMES",
                         "LISTEN_FDS",
                         "LISTEN_PID",
+                        "LISTEN_PIDFDID",
                         "LOGS_DIRECTORY",
                         "LOG_NAMESPACE",
                         "MAINPID",
