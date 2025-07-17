@@ -13,6 +13,7 @@
 #include <sys/prctl.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#include "pidfd-util.h"
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
@@ -1977,7 +1978,7 @@ static int build_environment(
         assert(cgroup_context);
         assert(ret);
 
-#define N_ENV_VARS 19
+#define N_ENV_VARS 20
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX + 1);
         if (!our_env)
                 return -ENOMEM;
@@ -1988,6 +1989,16 @@ static int build_environment(
                 if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
+
+                uint64_t pidfdid;
+                r = pidfd_get_inode_id_self_cached(&pidfdid);
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to determine PIDFDID for current proccess: %m");
+
+                        if (asprintf(&x, "LISTEN_PIDFDID="INO_FMT, pidfdid) < 0)
+                                return -ENOMEM;
+                }
 
                 if (asprintf(&x, "LISTEN_FDS=%zu", n_fds) < 0)
                         return -ENOMEM;
