@@ -66,6 +66,19 @@ int config_parse(
                 void *userdata,
                 struct stat *ret_stat);     /* possibly NULL */
 
+/* Parse a list of configuration files, drop-in directories are optional. */
+int config_parse_many_files(
+                const char *root,
+                const char* const* conf_files, /* possibly empty */
+                char **files,
+                const char *sections,          /* nulstr */
+                ConfigItemLookup lookup,
+                const void *table,
+                ConfigParseFlags flags,
+                void *userdata,
+                Hashmap **ret_stats_by_path); /* possibly NULL */
+
+/* Same as config_parse_many_files(), but includes drop-in directories. */
 int config_parse_many(
                 const char* const* conf_files,  /* possibly empty */
                 const char* const* conf_file_dirs,

@@ -479,7 +479,7 @@ int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const s
         return 0;
 }
 
-static int config_parse_many_files(
+int config_parse_many_files(
                 const char *root,
                 const char* const* conf_files,
                 char **files,
