@@ -45,6 +45,7 @@ typedef struct TarImport {
 
         int input_fd;
         int tar_fd;
+        int tree_fd;
 
         ImportCompress compress;
 
@@ -79,6 +80,7 @@ TarImport* tar_import_unref(TarImport *i) {
         sd_event_unref(i->event);
 
         safe_close(i->tar_fd);
+        safe_close(i->tree_fd);
 
         free(i->final_path);
         free(i->image_root);
@@ -111,6 +113,7 @@ int tar_import_new(
         *i = (TarImport) {
                 .input_fd = -EBADF,
                 .tar_fd = -EBADF,
+                .tree_fd = -EBADF,
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .last_percent = UINT_MAX,
@@ -172,6 +175,7 @@ static int tar_import_finish(TarImport *i) {
 
         assert(i);
         assert(i->tar_fd >= 0);
+        assert(i->tree_fd >= 0);
 
         i->tar_fd = safe_close(i->tar_fd);
 
@@ -215,6 +219,7 @@ static int tar_import_fork_tar(TarImport *i) {
         assert(!i->final_path);
         assert(!i->temp_path);
         assert(i->tar_fd < 0);
+        assert(i->tree_fd < 0);
 
         if (i->flags & IMPORT_DIRECT) {
                 d = i->local;
@@ -254,7 +259,11 @@ static int tar_import_fork_tar(TarImport *i) {
                 (void) import_assign_pool_quota_and_warn(d);
         }
 
-        i->tar_fd = import_fork_tar_x(d, &i->tar_pid);
+        i->tree_fd = open(d, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (i->tree_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", d);
+
+        i->tar_fd = import_fork_tar_x(i->tree_fd, &i->tar_pid);
         if (i->tar_fd < 0)
                 return i->tar_fd;
 
