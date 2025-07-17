@@ -20,6 +20,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -876,9 +877,19 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                         log_error_errno(r, "Failed to set $LISTEN_PID environment variable: %m");
                                         _exit(EXIT_FAILURE);
                                 }
+
+                                uint64_t pidfdid;
+                                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                                        r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
+                                        if (r < 0) {
+                                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID environment variable: %m");
+                                                _exit(EXIT_FAILURE);
+                                        }
+                                }
                         } else {
                                 (void) unsetenv("LISTEN_FDS");
                                 (void) unsetenv("LISTEN_PID");
+                                (void) unsetenv("LISTEN_PIDFDID");
                         }
                         (void) unsetenv("LISTEN_FDNAMES");
 

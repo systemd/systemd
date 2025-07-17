@@ -65,9 +65,9 @@ string of choice, which may be used to identify the fd later.
 
 Whenever the service is restarted the fds in its fdstore will be passed to the
 new instance following the same protocol as for socket activation fds. i.e. the
-`$LISTEN_FDS`, `$LISTEN_PIDS`, `$LISTEN_FDNAMES` environment variables will be
-set (the latter will be populated from the `FDNAME=…` field mentioned
-above). See
+`$LISTEN_FDS`, `$LISTEN_PID`, `$LISTEN_PIDFDID`, and `$LISTEN_FDNAMES`
+environment variables will be set (the latter will be populated from the
+`FDNAME=…` field mentioned above). See
 [`sd_listen_fds()`](https://www.freedesktop.org/software/systemd/man/sd_listen_fds.html)
 for details on receiving such fds in a service. (Note that the name set in
 `FDNAME=…` does not need to be unique, which is useful when operating with
