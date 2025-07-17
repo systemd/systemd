@@ -95,23 +95,22 @@ int verb_unit_shell(int argc, char *argv[], void *userdata) {
 
         if (r == 0) {
                 if (args) {
-                        r = execvp(args[0], args);
-                        if (r < 0)
-                                log_error_errno(errno, "Failed to execute '%s': %m", *args);
+                        (void) execvp(args[0], args);
+                        log_error_errno(errno, "Failed to execute '%s': %m", *args);
                 } else {
-                        r = execl(DEFAULT_USER_SHELL, "-" DEFAULT_USER_SHELL_NAME, NULL);
-                        if (r < 0)
-                                log_debug_errno(errno, "Failed to execute '" DEFAULT_USER_SHELL "', ignoring: %m");
+                        (void) execl(DEFAULT_USER_SHELL, "-" DEFAULT_USER_SHELL_NAME, NULL);
+                        log_debug_errno(errno, "Failed to execute '" DEFAULT_USER_SHELL "', ignoring: %m");
+
                         if (!streq(DEFAULT_USER_SHELL, "/bin/bash")) {
-                                r = execl("/bin/bash", "-bash", NULL);
-                                if (r < 0)
-                                        log_debug_errno(errno, "Failed to execute '/bin/bash', ignoring: %m");
+                                (void) execl("/bin/bash", "-bash", NULL);
+                                log_debug_errno(errno, "Failed to execute '/bin/bash', ignoring: %m");
                         }
+
                         if (!streq(DEFAULT_USER_SHELL, "/bin/sh")) {
-                                r = execl("/bin/sh", "-sh", NULL);
-                                if (r < 0)
-                                        log_debug_errno(errno, "Failed to execute '/bin/sh', ignoring: %m");
+                                (void) execl("/bin/sh", "-sh", NULL);
+                                log_debug_errno(errno, "Failed to execute '/bin/sh', ignoring: %m");
                         }
+
                         log_error_errno(errno, "Failed to execute '" DEFAULT_USER_SHELL "', '/bin/bash', and '/bin/sh': %m");
                 }
                 _exit(EXIT_FAILURE);
