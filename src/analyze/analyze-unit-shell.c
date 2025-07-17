@@ -28,7 +28,7 @@ int verb_unit_shell(int argc, char *argv[], void *userdata) {
         int r;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot spawn a unit shell for a remote service");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot spawn a unit shell for a remote service.");
 
         r = unit_name_mangle_with_suffix(argv[1], "as unit", UNIT_NAME_MANGLE_WARN, ".service", &unit);
         if (r < 0)
