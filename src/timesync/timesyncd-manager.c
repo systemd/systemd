@@ -926,6 +926,10 @@ void manager_flush_server_names(Manager *m, ServerType t) {
                 while (m->fallback_servers)
                         server_name_free(m->fallback_servers);
 
+        if (t == SERVER_NTSKE)
+                while (m->nts_ke_servers)
+                        server_name_free(m->nts_ke_servers);
+
         if (t == SERVER_RUNTIME)
                 manager_flush_runtime_servers(m);
 }
@@ -946,6 +950,7 @@ Manager* manager_free(Manager *m) {
         manager_flush_server_names(m, SERVER_LINK);
         manager_flush_server_names(m, SERVER_RUNTIME);
         manager_flush_server_names(m, SERVER_FALLBACK);
+        manager_flush_server_names(m, SERVER_NTSKE);
 
         sd_event_source_unref(m->event_retry);
 
@@ -1225,6 +1230,7 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
 static const char* ntp_server_property_name[_SERVER_TYPE_MAX] = {
         [SERVER_SYSTEM]   = "SystemNTPServers",
         [SERVER_FALLBACK] = "FallbackNTPServers",
+        [SERVER_NTSKE]    = "NTSKeyExchangeServers",
         [SERVER_LINK]     = "LinkNTPServers",
         [SERVER_RUNTIME]  = "RuntimeNTPServers",
 };
