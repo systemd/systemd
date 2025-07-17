@@ -59,6 +59,7 @@
 #include "osc-context.h"
 #include "pam-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -2014,7 +2015,7 @@ static int build_environment(
         assert(cgroup_context);
         assert(ret);
 
-#define N_ENV_VARS 19
+#define N_ENV_VARS 20
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX + 1);
         if (!our_env)
                 return -ENOMEM;
@@ -2025,6 +2026,13 @@ static int build_environment(
                 if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        if (asprintf(&x, "LISTEN_PIDFDID=%"PRIu64, pidfdid) < 0)
+                                return -ENOMEM;
+                        our_env[n_env++] = x;
+                }
 
                 if (asprintf(&x, "LISTEN_FDS=%zu", n_fds) < 0)
                         return -ENOMEM;
