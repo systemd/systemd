@@ -1735,11 +1735,13 @@ static int mount_overlay(const MountEntry *m) {
         return 1;
 }
 
-static int mount_bpffs(const MountEntry *m, int socket_fd) {
+static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int errno_pipe) {
         int r;
 
         assert(m);
+        assert(pidref_is_set(pidref));
         assert(socket_fd >= 0);
+        assert(errno_pipe >= 0);
 
         _cleanup_close_ int fs_fd = fsopen("bpf", FSOPEN_CLOEXEC);
         if (fs_fd < 0)
@@ -1749,8 +1751,21 @@ static int mount_bpffs(const MountEntry *m, int socket_fd) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to send bpffs fd to child: %m");
 
-        if (read(socket_fd, (uint8_t[1]) {}, 1) < 0)
-                return log_debug_errno(errno, "Failed to receive data from child: %m");
+        r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pidref, /* flags = */ 0);
+        if (r < 0)
+                return r;
+
+        /* If something strange happened with the child, let's consider this fatal, too */
+        if (r != EXIT_SUCCESS) {
+                ssize_t ss = read(errno_pipe, &r, sizeof(r));
+                if (ss < 0)
+                        return log_debug_errno(errno, "Failed to read from the bpffs helper errno pipe: %m");
+                if (ss != sizeof(r))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from the bpffs helper errno pipe.");
+                return log_debug_errno(r, "bpffs helper exited with error: %m");
+        }
+
+        pidref_done(pidref);
 
         _cleanup_close_ int mnt_fd = fsmount(fs_fd, /* flags = */ 0, /* mount_attrs = */ 0);
         if (mnt_fd < 0)
@@ -2020,7 +2035,7 @@ static int apply_one_mount(
                 return mount_overlay(m);
 
         case MOUNT_BPFFS:
-                return mount_bpffs(m, p->bpffs_socket_fd);
+                return mount_bpffs(m, p->bpffs_pidref, p->bpffs_socket_fd, p->bpffs_errno_pipe);
 
         default:
                 assert_not_reached();
