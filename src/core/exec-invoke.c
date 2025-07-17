@@ -2270,95 +2270,6 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
         return 0;
 }
 
-static int bpffs_prepare(
-                const ExecContext *c,
-                PidRef *ret_pid,
-                int *ret_sock_fd,
-                int *ret_errno_pipe) {
-
-        _cleanup_close_pair_ int socket_fds[2] = EBADF_PAIR, bpffs_errno_pipe[2] = EBADF_PAIR;
-        int r;
-
-        assert(ret_sock_fd);
-        assert(ret_pid);
-        assert(ret_errno_pipe);
-
-        r = pipe2(bpffs_errno_pipe, O_CLOEXEC|O_NONBLOCK);
-        if (r < 0)
-                return log_debug_errno(errno, "Failed to create pipe: %m");
-
-        r = socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, socket_fds);
-        if (r < 0)
-                return log_debug_errno(errno, "Failed to create socket pair: %m");
-
-        r = pidref_safe_fork("(sd-bpffs)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, ret_pid);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to fork bpffs privileged helper: %m");
-        if (r == 0) {
-                _cleanup_close_ int fs_fd = -EBADF;
-                char number[STRLEN("0x") + sizeof(c->bpf_delegate_commands) * 2 + 1];
-
-                bpffs_errno_pipe[0] = safe_close(bpffs_errno_pipe[0]);
-                socket_fds[0] = safe_close(socket_fds[0]);
-
-                fs_fd = receive_one_fd(socket_fds[1], /* flags = */ 0);
-                if (fs_fd < 0) {
-                        log_debug_errno(fs_fd, "Failed to receive file descriptor from parent: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], fs_fd);
-                }
-
-                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_commands);
-
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_maps);
-
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_programs);
-
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_attachments);
-
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key = */ NULL, /* value = */ NULL, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to create bpffs superblock: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                if (write(socket_fds[1], (uint8_t[1]) {}, 1) < 0) {
-                        log_debug_errno(errno, "Failed to send data to child: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        *ret_sock_fd = TAKE_FD(socket_fds[0]);
-        *ret_errno_pipe = TAKE_FD(bpffs_errno_pipe[0]);
-
-        return 0;
-}
-
 static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
@@ -5737,10 +5648,18 @@ int exec_invoke(
                  * This is the kernel sample doing this:
                  * https://github.com/torvalds/linux/blob/master/tools/testing/selftests/bpf/prog_tests/token.c
                  */
-                r = bpffs_prepare(context, &bpffs_pidref, &bpffs_socket_fd, &bpffs_errno_pipe);
+
+                r = private_bpffs_prepare(
+                                context->bpf_delegate_commands,
+                                context->bpf_delegate_maps,
+                                context->bpf_delegate_programs,
+                                context->bpf_delegate_attachments,
+                                &bpffs_pidref,
+                                &bpffs_socket_fd,
+                                &bpffs_errno_pipe);
                 if (r < 0) {
                         *exit_status = EXIT_BPF;
-                        return log_error_errno(r, "Failed to mount bpffs in bpffs_prepare(): %m");
+                        return log_error_errno(r, "Failed to prepare private bpffs: %m");
                 }
         }
 
