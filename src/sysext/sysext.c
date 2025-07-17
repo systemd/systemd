@@ -177,9 +177,11 @@ static int config_parse_mutable_mode(
         return 0;
 }
 
+
 static int parse_config_file(ImageClass image_class) {
         const ConfigTableItem items[] = {
                 { image_class == IMAGE_SYSEXT ? "Sysext" : "Confext", "Mutable", config_parse_mutable_mode, 0, &arg_mutable },
+                { image_class == IMAGE_SYSEXT ? "Sysext" : "Confext", "ImagePolicy", config_parse_image_policy, 0, &arg_image_policy },
                 {}
         };
         _cleanup_free_ char *config_file = NULL;
