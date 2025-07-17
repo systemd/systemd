@@ -9,12 +9,14 @@
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "mkdir.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -179,6 +181,19 @@ static int start_one_worker(Manager *m) {
                 if (r < 0) {
                         log_error_errno(r, "Failed to set $LISTEN_PID: %m");
                         _exit(EXIT_FAILURE);
+                }
+
+                uint64_t pidfdid;
+                r = pidfd_get_inode_id_self_cached(&pidfdid);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to determine PIDFDID for current process: %m");
+                        _exit(EXIT_FAILURE);
+                } else if (!ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        r = setenvf("LISTEN_PIDFDID", true, "%" PRIu64, pidfdid);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (setenv("LISTEN_FDS", "1", 1) < 0) {
