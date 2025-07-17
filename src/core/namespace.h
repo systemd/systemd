@@ -309,3 +309,13 @@ int refresh_extensions_in_namespace(
                 const PidRef *target,
                 const char *hierarchy_env,
                 const NamespaceParameters *p);
+
+int private_bpffs_prepare(
+                uint64_t bpf_delegate_commands,
+                uint64_t bpf_delegate_maps,
+                uint64_t bpf_delegate_programs,
+                uint64_t bpf_delegate_attachments,
+                PidRef *ret_pid,
+                int *ret_sock_fd,
+                int *ret_errno_pipe);
+int private_bpf_supported(void);
