@@ -2328,9 +2328,6 @@ static int bpffs_prepare(
                 if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key = */ NULL, /* value = */ NULL, /* aux = */ 0) < 0)
                         report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to create bpffs superblock: %m"));
 
-                if (write(socket_fds[1], (uint8_t[1]) {}, 1) < 0)
-                        report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to send data to child: %m"));
-
                 _exit(EXIT_SUCCESS);
         }
 
@@ -3672,7 +3669,9 @@ static int apply_mount_namespace(
                 bool needs_sandboxing,
                 uid_t exec_directory_uid,
                 gid_t exec_directory_gid,
+                PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
+                int bpffs_errno_pipe,
                 char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -3887,7 +3886,9 @@ static int apply_mount_namespace(
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
                 .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
 
+                .bpffs_pidref = bpffs_pidref,
                 .bpffs_socket_fd = bpffs_socket_fd,
+                .bpffs_errno_pipe = bpffs_errno_pipe,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4528,7 +4529,9 @@ static int setup_delegated_namespaces(
                 const ExecCommand *command,
                 bool needs_sandboxing,
                 bool have_cap_sys_admin,
+                PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
+                int bpffs_errno_pipe,
                 int *reterr_exit_status) {
 
         int r;
@@ -4651,7 +4654,9 @@ static int setup_delegated_namespaces(
                                           needs_sandboxing,
                                           uid,
                                           gid,
+                                          bpffs_pidref,
                                           bpffs_socket_fd,
+                                          bpffs_errno_pipe,
                                           &error_path);
                 if (r < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
@@ -5763,7 +5768,9 @@ int exec_invoke(
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
+                        &bpffs_pidref,
                         bpffs_socket_fd,
+                        bpffs_errno_pipe,
                         exit_status);
         if (r < 0)
                 return r;
@@ -5823,29 +5830,15 @@ int exec_invoke(
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
+                        &bpffs_pidref,
                         bpffs_socket_fd,
+                        bpffs_errno_pipe,
                         exit_status);
         if (r < 0)
                 return r;
 
-        if (context->private_bpf != PRIVATE_BPF_NO) {
-                r = pidref_wait_for_terminate_and_check("(sd-bpffs)", &bpffs_pidref, /* flags = */ 0);
-                if (r < 0) {
-                        *exit_status = EXIT_BPF;
-                        return r;
-                }
-                /* If something strange happened with the child, let's consider this fatal, too */
-                if (r != EXIT_SUCCESS) {
-                        *exit_status = EXIT_BPF;
-                        ssize_t ss = read(bpffs_errno_pipe, &r, sizeof(r));
-                        if (ss == sizeof(r))
-                                return log_debug_errno(r, "bpffs helper exited with error: %m");
-                        if (ss < 0)
-                                return log_debug_errno(errno, "Failed to read from the bpffs helper errno pipe: %m");
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from the bpffs helper errno pipe.");
-                }
-                pidref_done(&bpffs_pidref);
-        }
+        /* Kill unnecessary process, for the case that e.g. when the bpffs mount point is hidden. */
+        pidref_done_sigkill_wait(&bpffs_pidref);
 
         if (needs_sandboxing && exec_needs_cgroup_namespace(context) && params->cgroup_path) {
                 /* Move ourselves into the subcgroup now *after* we've unshared the cgroup namespace, which
