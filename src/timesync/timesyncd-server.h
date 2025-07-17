@@ -10,6 +10,7 @@ typedef enum ServerType {
         SERVER_FALLBACK,
         SERVER_LINK,
         SERVER_RUNTIME,
+        SERVER_NTSKE,
         _SERVER_TYPE_MAX,
         _SERVER_TYPE_INVALID = -EINVAL,
 } ServerType;

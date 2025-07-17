@@ -22,8 +22,10 @@ struct ConfigPerfItem;
 %includes
 %%
 Time.NTP,                            config_parse_servers, SERVER_SYSTEM,   0
+Time.NTS,                            config_parse_servers, SERVER_NTSKE,    0
 Time.Servers,                        config_parse_servers, SERVER_SYSTEM,   0
 Time.FallbackNTP,                    config_parse_servers, SERVER_FALLBACK, 0
+Time.SecureServers,                  config_parse_servers, SERVER_NTSKE,    0
 Time.RootDistanceMaxSec,             config_parse_sec,     0,               offsetof(Manager, root_distance_max_usec)
 Time.PollIntervalMinSec,             config_parse_sec,     0,               offsetof(Manager, poll_interval_min_usec)
 Time.PollIntervalMaxSec,             config_parse_sec,     0,               offsetof(Manager, poll_interval_max_usec)
