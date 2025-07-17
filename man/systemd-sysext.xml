@@ -33,7 +33,13 @@
       <arg choice="plain">COMMAND</arg>
     </cmdsynopsis>
 
-    <para><filename>systemd-sysext.service</filename></para>
+    <para><simplelist>
+      <member><filename>systemd-sysext.service</filename><member>
+      <member><filename>/etc/systemd/sysext.conf</filename></member>
+      <member><filename>/run/systemd/sysext.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/sysext.conf</filename></member>
+      <member><filename>/usr/lib/systemd/sysext.conf</filename></member>
+    </simplelist></para>
 
     <cmdsynopsis>
       <command>systemd-confext</command>
@@ -41,7 +47,14 @@
       <arg choice="plain">COMMAND</arg>
     </cmdsynopsis>
 
-    <para><filename>systemd-confext.service</filename></para>
+    <para><simplelist>
+      <member><filename>systemd-confext.service</filename><member>
+      <member><filename>/etc/systemd/confext.conf</filename></member>
+      <member><filename>/run/systemd/confext.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/confext.conf</filename></member>
+      <member><filename>/usr/lib/systemd/confext.conf</filename></member>
+    </simplelist></para>
+
   </refsynopsisdiv>
 
   <refsect1>
@@ -385,7 +398,7 @@
 
       <varlistentry>
         <term><option>--mutable=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable>|<replaceable>ephemeral</replaceable>|<replaceable>ephemeral-import</replaceable></option></term>
-        <listitem><para>Set mutable mode.</para>
+        <listitem><para>Set mutable mode. This option takes precedence over the configuration file setting and the environment variable.</para>
 
         <variablelist>
           <varlistentry>
@@ -465,6 +478,29 @@
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration Files</title>
+
+    <para>Some options can be globally configured via configuration files. The
+    configuration files are always overridden by the command line options.</para>
+
+    <refsect2>
+      <title>Section Options</title>
+
+      <para>The following options are supported in the <literal>[Sysext]</literal> and <literal>[Confext]</literal> sections:</para>
+
+      <variablelist class='config-directives'>
+        <varlistentry>
+          <term><varname>Mutable=</varname></term>
+          <listitem><para>Set the mutable mode. Takes one of <literal>no</literal>, <literal>yes</literal>,
+          <literal>auto</literal>, <literal>import</literal>, <literal>ephemeral</literal>, or
+          <literal>ephemeral-import</literal>. For details, see the <option>--mutable=</option> option above.
+          Defaults to <literal>no</literal>.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
