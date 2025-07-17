@@ -103,6 +103,10 @@ int verb_unit_gdb(int argc, char *argv[], void *userdata) {
         } else
                 assert_not_reached();
 
+        r = strv_extend_strv(&debugger_call, arg_debugger_args, /* filter_duplicates = */ false);
+        if (r < 0)
+                return log_oom();
+
         /* Don't interfere with debugger and its handling of SIGINT. */
         (void) ignore_signals(SIGINT);
         (void) sigaction(SIGTERM, &sa, NULL);
