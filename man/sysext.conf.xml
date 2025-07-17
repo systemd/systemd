@@ -1,0 +1,89 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sysext.conf" conditional='ENABLE_SYSEXT'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sysext.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sysext.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysext.conf</refname>
+    <refname>confext.conf</refname>
+    <refname>sysext.conf.d</refname>
+    <refname>confext.conf.d</refname>
+    <refpurpose>Configuration files for systemd-sysext</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/sysext.conf</filename></para>
+    <para><filename>/etc/systemd/sysext.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/sysext.conf</filename></para>
+    <para><filename>/run/systemd/sysext.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/sysext.conf</filename></para>
+    <para><filename>/usr/lib/systemd/sysext.conf.d/*.conf</filename></para>
+    <para><filename>/etc/systemd/confext.conf</filename></para>
+    <para><filename>/etc/systemd/confext.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/confext.conf</filename></para>
+    <para><filename>/run/systemd/confext.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/confext.conf</filename></para>
+    <para><filename>/usr/lib/systemd/confext.conf.d/*.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These configuration files control the behavior of
+    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    They are especially useful when needing to customize the behavior of the
+    respective extension service units.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood in both the <literal>[Sysext]</literal> and
+    <literal>[Confext]</literal> sections:</para>
+
+    <refsect2>
+      <title>Section Options</title>
+
+      <variablelist class='config-directives'>
+        <varlistentry>
+          <term><varname>Mutable=</varname></term>
+          <listitem><para>Set the mutable mode for system extensions. Takes one of <literal>no</literal>,
+          <literal>yes</literal>, <literal>auto</literal>, <literal>import</literal>,
+          <literal>ephemeral</literal>, or <literal>ephemeral-import</literal>. For details about the modes,
+          see the <option>--mutable=</option> option in
+          <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          Defaults to <literal>no</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
