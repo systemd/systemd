@@ -24,6 +24,7 @@
 #include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -265,6 +266,18 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                 }
 
                 xsprintf(spid, PID_FMT, pid);
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        char spidfdid[DECIMAL_STR_MAX(uint64_t)+1];
+                        xsprintf(spidfdid, "%" PRIu64, pidfdid);
+
+                        if (setenv("LISTEN_PIDFDID", spidfdid, /* override= */ true) < 0) {
+                                log_debug_errno(errno,
+                                                "Failed to set environment variable 'LISTEN_PIDFDID': %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
 
                 STRV_FOREACH_PAIR(a, b, setenv_list) {
                         if (setenv(*a, *b, /* override= */ true) < 0) {
