@@ -181,6 +181,7 @@ static int parse_config_file(ImageClass image_class) {
         const char *section = image_class == IMAGE_SYSEXT ? "Sysext" : "Confext";
         const ConfigTableItem items[] = {
                 { section, "Mutable", config_parse_mutable_mode, 0, &arg_mutable },
+                { section, "ImagePolicy", config_parse_image_policy, 0, &arg_image_policy },
                 {}
         };
         _cleanup_free_ char *config_file = NULL;
