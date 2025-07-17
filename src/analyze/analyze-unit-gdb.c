@@ -63,8 +63,11 @@ int verb_unit_gdb(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read the main PID of %s from reply: %m", unit);
 
-        if (!arg_debugger)
-                arg_debugger = secure_getenv("SYSTEMD_DEBUGGER") ?: "gdb";
+        if (!arg_debugger) {
+                arg_debugger = strdup(secure_getenv("SYSTEMD_DEBUGGER") ?: "gdb");
+                if (!arg_debugger)
+                        return log_oom();
+        }
 
         _cleanup_strv_free_ char **debugger_call = NULL;
         r = strv_extend(&debugger_call, arg_debugger);

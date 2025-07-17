@@ -81,8 +81,8 @@ usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
 CatFlags arg_cat_flags = 0;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-const char *arg_debugger = NULL;
-static char **arg_debugger_args = NULL;
+char *arg_debugger = NULL;
+char **arg_debugger_args = NULL;
 const char *arg_host = NULL;
 RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = _RECURSIVE_ERRORS_INVALID;
@@ -109,6 +109,8 @@ char *arg_drm_device_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_debugger, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_debugger_args, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_security_policy, freep);
@@ -665,7 +667,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DEBUGGER:
-                        arg_debugger = strdup(optarg);
+                        r = free_and_strdup_warn(&arg_debugger, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'A': {
