@@ -69,39 +69,39 @@ int verb_unit_gdb(int argc, char *argv[], void *userdata) {
                         return log_oom();
         }
 
+        if (!STR_IN_SET(arg_debugger, "gdb", "lldb"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The debugger must be either 'gdb' or 'lldb'.");
+
         _cleanup_strv_free_ char **debugger_call = NULL;
         r = strv_extend(&debugger_call, arg_debugger);
         if (r < 0)
                 return log_oom();
 
-        if (!STR_IN_SET(arg_debugger, "gdb", "lldb"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The debugger must be either 'gdb' or 'lldb'.");
-
         if (streq(arg_debugger, "gdb")) {
                 r = strv_extendf(&debugger_call, "--pid=" PID_FMT, pid);
                 if (r < 0)
                         return log_oom();
-        }
 
-        if (streq(arg_debugger, "lldb")) {
-                r = strv_extendf(&debugger_call, "--attach-pid=" PID_FMT, pid);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        if (arg_root) {
-                if (streq(arg_debugger, "gdb")) {
+                if (arg_root) {
                         _cleanup_free_ char *sysroot_cmd = strjoin("set sysroot ", arg_root);
                         r = strv_extend_many(&debugger_call, "-iex", sysroot_cmd);
                         if (r < 0)
                                 return log_oom();
-                } else if (streq(arg_debugger, "lldb")) {
+                }
+
+        } else if (streq(arg_debugger, "lldb")) {
+                r = strv_extendf(&debugger_call, "--attach-pid=" PID_FMT, pid);
+                if (r < 0)
+                        return log_oom();
+
+                if (arg_root) {
                         _cleanup_free_ char *sysroot_cmd = strjoin("platform select --sysroot ", arg_root, " host");
                         r = strv_extend_many(&debugger_call, "-O", sysroot_cmd);
                         if (r < 0)
                                 return log_oom();
                 }
-        }
+        } else
+                assert_not_reached();
 
         /* Don't interfere with debugger and its handling of SIGINT. */
         (void) ignore_signals(SIGINT);
