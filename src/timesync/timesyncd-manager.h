@@ -30,6 +30,7 @@ typedef struct Manager {
         LIST_HEAD(ServerName, link_servers);
         LIST_HEAD(ServerName, runtime_servers);
         LIST_HEAD(ServerName, fallback_servers);
+        LIST_HEAD(ServerName, nts_ke_servers);
 
         RateLimit ratelimit;
         bool exhausted_servers;
