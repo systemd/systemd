@@ -957,6 +957,7 @@ static int append_private_bpf(
                 *me = (MountEntry) {
                         .path_const = "/sys/fs/bpf",
                         .mode = MOUNT_BPFFS,
+                        .ignore = protect_kernel_tunables, /* indicate whether we should fall back to MOUNT_READ_ONLY on failure. */
                 };
                 return 0;
         }
@@ -1832,6 +1833,22 @@ static int apply_one_mount(
 
         log_debug("Applying namespace mount on %s", mount_entry_path(m));
 
+        if (m->mode == MOUNT_BPFFS) {
+                r = mount_bpffs(m, p->bpffs_pidref, p->bpffs_socket_fd, p->bpffs_errno_pipe);
+                if (r >= 0 ||
+                    (!ERRNO_IS_NEG_NOT_SUPPORTED(r) && /* old kernel? */
+                     !ERRNO_IS_NEG_PRIVILEGE(r)))      /* ubuntu kernel bug? See issue #38225 */
+                        return r;
+
+                if (!m->ignore) {
+                        log_debug_errno(r, "Failed to mount new bpffs instance, ignoring: %m");
+                        return 0;
+                }
+
+                log_debug_errno(r, "Failed to mount new bpffs instance, fallback to making %s read-only, ignoring: %m", mount_entry_path(m));
+                m->mode = MOUNT_READ_ONLY;
+        }
+
         switch (m->mode) {
 
         case MOUNT_INACCESSIBLE: {
@@ -2033,9 +2050,6 @@ static int apply_one_mount(
 
         case MOUNT_OVERLAY:
                 return mount_overlay(m);
-
-        case MOUNT_BPFFS:
-                return mount_bpffs(m, p->bpffs_pidref, p->bpffs_socket_fd, p->bpffs_errno_pipe);
 
         default:
                 assert_not_reached();
