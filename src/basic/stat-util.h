@@ -16,6 +16,7 @@ int is_dir_at(int fd, const char *path, bool follow);
 int is_dir(const char *path, bool follow);
 
 int stat_verify_symlink(const struct stat *st);
+int fd_verify_symlink(int fd);
 int is_symlink(const char *path);
 
 int stat_verify_linked(const struct stat *st);
