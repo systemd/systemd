@@ -499,6 +499,13 @@
           <literal>ephemeral-import</literal>. For details, see the <option>--mutable=</option> option above.
           Defaults to <literal>no</literal>.</para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>ImagePolicy=</varname></term>
+          <listitem><para>Set the image policy. Takes an image policy string as argument, as per
+          <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          For details, see the <option>--image-policy=</option> option above.</para></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
