@@ -17,6 +17,8 @@
 #include "bus-util.h"
 #include "capability-util.h"
 #include "chase.h"
+#include "constants.h"
+#include "conf-parser.h"
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
@@ -146,6 +148,61 @@ static const struct {
 
 static int parse_mutable_mode(const char *p) {
         return mutable_mode_from_string(p);
+}
+
+static int config_parse_mutable_mode(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        MutableMode *m = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        r = parse_mutable_mode(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse mutable mode '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        *m = r;
+        return 0;
+}
+
+static int parse_config_file(ImageClass image_class) {
+        const char *section = image_class == IMAGE_SYSEXT ? "Sysext" : "Confext";
+        const ConfigTableItem items[] = {
+                { section, "Mutable", config_parse_mutable_mode, 0, &arg_mutable },
+                {}
+        };
+        _cleanup_free_ char *config_file = NULL;
+        int r;
+
+        config_file = strjoin("systemd/", image_class_info[image_class].short_identifier, ".conf");
+        if (!config_file)
+                return log_oom();
+
+        r = config_parse_standard_file_with_dropins_full(
+                        NULL,
+                        config_file,
+                        image_class == IMAGE_SYSEXT ? "Sysext\0" : "Confext\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        NULL,
+                        NULL,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int is_our_mount_point(
@@ -2593,6 +2650,7 @@ static int run(int argc, char *argv[]) {
 
         arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_SYSEXT;
 
+        /* Parse environment variable first */
         env_var = getenv(image_class_info[arg_image_class].mode_env);
         if (env_var) {
                 r = parse_mutable_mode(env_var);
@@ -2603,6 +2661,12 @@ static int run(int argc, char *argv[]) {
                         arg_mutable = r;
         }
 
+        /* Parse configuration file */
+        r = parse_config_file(arg_image_class);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse global config file, ignoring: %m");
+
+        /* Parse command line */
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
