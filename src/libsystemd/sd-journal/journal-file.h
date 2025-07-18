@@ -149,12 +149,6 @@ int journal_file_open(
                 JournalFile *template,
                 JournalFile **ret);
 
-int journal_file_reload(
-        JournalFile *f,
-        JournalFileFlags file_flags,
-        uint64_t compress_threshold_bytes,
-        JournalMetrics *metrics);
-
 int journal_file_set_offline_thread_join(JournalFile *f);
 JournalFile* journal_file_close(JournalFile *j);
 int journal_file_fstat(JournalFile *f);
@@ -315,6 +309,7 @@ void journal_file_post_change(JournalFile *f);
 int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t);
 
 void journal_reset_metrics(JournalMetrics *m);
+bool journal_metrics_equal(const JournalMetrics *x, const JournalMetrics *y);
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec_t *ret_to);
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *ret_from, usec_t *ret_to);

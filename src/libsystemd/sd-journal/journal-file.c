@@ -4082,54 +4082,6 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                   m->n_max_files);
 }
 
-static uint64_t get_compress_threshold_bytes(uint64_t compress_threshold_bytes) {
-        return compress_threshold_bytes == UINT64_MAX ?
-                DEFAULT_COMPRESS_THRESHOLD :
-                MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes);
-}
-
-static int set_metrics(JournalFile *f, JournalMetrics *metrics, JournalFile *template) {
-        assert(f);
-        int r;
-
-        if (!journal_file_writable(f))
-                return 0;
-
-        if (metrics) {
-                journal_default_metrics(metrics, f->fd, JOURNAL_HEADER_COMPACT(f->header));
-                f->metrics = *metrics;
-        } else if (template)
-                f->metrics = template->metrics;
-
-        r = journal_file_refresh_header(f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to refresh journal file header. Error to be handled by caller.");
-
-        return 0;
-}
-
-int journal_file_reload(
-                JournalFile *f,
-                JournalFileFlags file_flags,
-                uint64_t compress_threshold_bytes,
-                JournalMetrics *metrics) {
-
-        assert(f);
-        assert((file_flags & ~_JOURNAL_FILE_FLAGS_ALL) == 0);
-        assert(metrics);
-
-        int r;
-
-        f->compress_threshold_bytes = get_compress_threshold_bytes(compress_threshold_bytes);
-
-        r = set_metrics(f, metrics, /* template */ NULL);
-        if (r < 0)
-                /* Journal file header failed to be rotated. The changes may not have taken effect in this case. */
-                return r;
-
-        return 0;
-}
-
 int journal_file_open(
                 int fd,
                 const char *fname,
@@ -4169,7 +4121,9 @@ int journal_file_open(
                 .fd = fd,
                 .mode = mode,
                 .open_flags = open_flags,
-                .compress_threshold_bytes = get_compress_threshold_bytes(compress_threshold_bytes),
+                .compress_threshold_bytes = compress_threshold_bytes == UINT64_MAX ?
+                                            DEFAULT_COMPRESS_THRESHOLD :
+                                            MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
                 .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
                 .last_direction = _DIRECTION_INVALID,
@@ -4278,9 +4232,17 @@ int journal_file_open(
         }
 #endif
 
-        r = set_metrics(f, metrics, template);
-        if (r < 0)
-                goto fail;
+        if (journal_file_writable(f)) {
+                if (metrics) {
+                        journal_default_metrics(metrics, f->fd, JOURNAL_HEADER_COMPACT(f->header));
+                        f->metrics = *metrics;
+                } else if (template)
+                        f->metrics = template->metrics;
+
+                r = journal_file_refresh_header(f);
+                if (r < 0)
+                        goto fail;
+        }
 
 #if HAVE_GCRYPT
         r = journal_file_hmac_setup(f);
@@ -4576,6 +4538,19 @@ void journal_reset_metrics(JournalMetrics *m) {
                 .keep_free = UINT64_MAX,
                 .n_max_files = UINT64_MAX,
         };
+}
+
+bool journal_metrics_equal(const JournalMetrics *x, const JournalMetrics *y) {
+        assert(x);
+        assert(y);
+
+        return
+                x->max_size == y->max_size &&
+                x->min_size == y->min_size &&
+                x->max_use == y->max_use &&
+                x->min_use == y->min_use &&
+                x->keep_free == y->keep_free &&
+                x->n_max_files == y->n_max_files;
 }
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec_t *ret_to) {

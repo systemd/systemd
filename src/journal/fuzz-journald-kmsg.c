@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "fuzz.h"
-#include "fuzz-journald.h"
+#include "fuzz-journald-util.h"
 #include "journald-kmsg.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -12,8 +12,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(manager_new(&m, /* namespace= */ NULL) >= 0);
-        dummy_manager_init(m, data, size);
+        dummy_manager_new(&m, data, size);
         dev_kmsg_record(m, m->buffer, size);
 
         return 0;

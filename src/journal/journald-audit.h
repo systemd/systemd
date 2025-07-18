@@ -10,3 +10,4 @@ void manager_process_audit_message(Manager *m, const void *buffer, size_t buffer
 void process_audit_string(Manager *m, int type, const char *data, size_t size);
 
 int manager_open_audit(Manager *m);
+void manager_reset_kernel_audit(Manager *m, int old_set_audit);

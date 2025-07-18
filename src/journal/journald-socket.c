@@ -163,3 +163,20 @@ int manager_forward_socket(
 
         return 0;
 }
+
+void manager_reload_forward_socket(Manager *m, const SocketAddress *old) {
+        assert(m);
+        assert(old);
+
+        /* The socket is not opened yet or already closed. There is nothing we need to do now. The socket
+         * will be opened when necessary. */
+        if (m->forward_socket_fd < 0)
+                return;
+
+        if (socket_address_equal(&m->config.forward_to_socket, old))
+                return;
+
+        /* A different socket address is specified. Let's close the old socket. New socket will be opened
+         * when necessary. */
+        m->forward_socket_fd = safe_close(m->forward_socket_fd);
+}
