@@ -2270,20 +2270,52 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
         return 0;
 }
 
+static int bpffs_helper(const ExecContext *c, int socket_fd) {
+        char number[STRLEN("0x") + sizeof(c->bpf_delegate_commands) * 2 + 1];
+
+        assert(c);
+        assert(socket_fd >= 0);
+
+        _cleanup_close_ int fs_fd = receive_one_fd(socket_fd, /* flags = */ 0);
+        if (fs_fd < 0)
+                return log_debug_errno(fs_fd, "Failed to receive file descriptor from parent: %m");
+
+        xsprintf(number, "0x%"PRIx64, c->bpf_delegate_commands);
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, /* aux = */ 0) < 0)
+                return log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+
+        xsprintf(number, "0x%"PRIx64, c->bpf_delegate_maps);
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", number, /* aux = */ 0) < 0)
+                return log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+
+        xsprintf(number, "0x%"PRIx64, c->bpf_delegate_programs);
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", number, /* aux = */ 0) < 0)
+                return log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+
+        xsprintf(number, "0x%"PRIx64, c->bpf_delegate_attachments);
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", number, /* aux = */ 0) < 0)
+                return log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
+
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key = */ NULL, /* value = */ NULL, /* aux = */ 0) < 0)
+                return log_debug_errno(errno, "Failed to create bpffs superblock: %m");
+
+        return 0;
+}
+
 static int bpffs_prepare(
                 const ExecContext *c,
                 PidRef *ret_pid,
                 int *ret_sock_fd,
                 int *ret_errno_pipe) {
 
-        _cleanup_close_pair_ int socket_fds[2] = EBADF_PAIR, bpffs_errno_pipe[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int socket_fds[2] = EBADF_PAIR, errno_pipe[2] = EBADF_PAIR;
         int r;
 
         assert(ret_sock_fd);
         assert(ret_pid);
         assert(ret_errno_pipe);
 
-        r = pipe2(bpffs_errno_pipe, O_CLOEXEC|O_NONBLOCK);
+        r = pipe2(errno_pipe, O_CLOEXEC|O_NONBLOCK);
         if (r < 0)
                 return log_debug_errno(errno, "Failed to create pipe: %m");
 
@@ -2295,67 +2327,13 @@ static int bpffs_prepare(
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork bpffs privileged helper: %m");
         if (r == 0) {
-                _cleanup_close_ int fs_fd = -EBADF;
-                char number[STRLEN("0x") + sizeof(c->bpf_delegate_commands) * 2 + 1];
-
-                bpffs_errno_pipe[0] = safe_close(bpffs_errno_pipe[0]);
+                errno_pipe[0] = safe_close(errno_pipe[0]);
                 socket_fds[0] = safe_close(socket_fds[0]);
-
-                fs_fd = receive_one_fd(socket_fds[1], /* flags = */ 0);
-                if (fs_fd < 0) {
-                        log_debug_errno(fs_fd, "Failed to receive file descriptor from parent: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], fs_fd);
-                }
-
-                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_commands);
-
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_maps);
-
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_programs);
-
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                xsprintf(number, "0x%"PRIx64, c->bpf_delegate_attachments);
-
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key = */ NULL, /* value = */ NULL, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to create bpffs superblock: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                if (write(socket_fds[1], (uint8_t[1]) {}, 1) < 0) {
-                        log_debug_errno(errno, "Failed to send data to child: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
-
-                _exit(EXIT_SUCCESS);
+                report_errno_and_exit(errno_pipe[1], bpffs_helper(c, socket_fds[1]));
         }
 
         *ret_sock_fd = TAKE_FD(socket_fds[0]);
-        *ret_errno_pipe = TAKE_FD(bpffs_errno_pipe[0]);
-
+        *ret_errno_pipe = TAKE_FD(errno_pipe[0]);
         return 0;
 }
 
@@ -3691,7 +3669,9 @@ static int apply_mount_namespace(
                 bool needs_sandboxing,
                 uid_t exec_directory_uid,
                 gid_t exec_directory_gid,
+                PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
+                int bpffs_errno_pipe,
                 char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -3906,7 +3886,9 @@ static int apply_mount_namespace(
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
                 .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
 
+                .bpffs_pidref = bpffs_pidref,
                 .bpffs_socket_fd = bpffs_socket_fd,
+                .bpffs_errno_pipe = bpffs_errno_pipe,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4547,7 +4529,9 @@ static int setup_delegated_namespaces(
                 const ExecCommand *command,
                 bool needs_sandboxing,
                 bool have_cap_sys_admin,
+                PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
+                int bpffs_errno_pipe,
                 int *reterr_exit_status) {
 
         int r;
@@ -4670,7 +4654,9 @@ static int setup_delegated_namespaces(
                                           needs_sandboxing,
                                           uid,
                                           gid,
+                                          bpffs_pidref,
                                           bpffs_socket_fd,
+                                          bpffs_errno_pipe,
                                           &error_path);
                 if (r < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
@@ -5782,7 +5768,9 @@ int exec_invoke(
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
+                        &bpffs_pidref,
                         bpffs_socket_fd,
+                        bpffs_errno_pipe,
                         exit_status);
         if (r < 0)
                 return r;
@@ -5842,29 +5830,15 @@ int exec_invoke(
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
+                        &bpffs_pidref,
                         bpffs_socket_fd,
+                        bpffs_errno_pipe,
                         exit_status);
         if (r < 0)
                 return r;
 
-        if (context->private_bpf != PRIVATE_BPF_NO) {
-                r = pidref_wait_for_terminate_and_check("(sd-bpffs)", &bpffs_pidref, /* flags = */ 0);
-                if (r < 0) {
-                        *exit_status = EXIT_BPF;
-                        return r;
-                }
-                /* If something strange happened with the child, let's consider this fatal, too */
-                if (r != EXIT_SUCCESS) {
-                        *exit_status = EXIT_BPF;
-                        ssize_t ss = read(bpffs_errno_pipe, &r, sizeof(r));
-                        if (ss == sizeof(r))
-                                return log_debug_errno(r, "bpffs helper exited with error: %m");
-                        if (ss < 0)
-                                return log_debug_errno(errno, "Failed to read from the bpffs helper errno pipe: %m");
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from the bpffs helper errno pipe.");
-                }
-                pidref_done(&bpffs_pidref);
-        }
+        /* Kill unnecessary process, for the case that e.g. when the bpffs mount point is hidden. */
+        pidref_done_sigkill_wait(&bpffs_pidref);
 
         if (needs_sandboxing && exec_needs_cgroup_namespace(context) && params->cgroup_path) {
                 /* Move ourselves into the subcgroup now *after* we've unshared the cgroup namespace, which
