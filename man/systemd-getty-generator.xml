@@ -64,11 +64,35 @@
       <varlistentry>
         <term><varname>systemd.getty_auto=</varname></term>
 
-        <listitem><para>this options take an optional boolean argument, and default to yes.
-        The generator is enabled by default, and a false value may be used to disable it.
-        </para>
+        <listitem>
+          <para>This kernel command line option may be used to control the execution mode of the
+          generator. Takes an optional boolean argument or comma separated list of special values;
+          <literal>credential</literal>, <literal>container</literal>, <literal>console</literal>, and
+          <literal>builtin</literal>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+          <para>When <literal>credential</literal> is specified, the two credentials
+          <varname>getty.ttys.serial</varname> and <varname>getty.ttys.container</varname> will be parsed.
+          See System Credentials section below for more details.</para>
+
+          <para>When <literal>container</literal> is specified, <filename>console-getty.service</filename>
+          and <filename>container-getty@.service</filename> will be enabled when the system is running in a
+          container. This option will be ignored when the system is not in a container.</para>
+
+          <para>When <literal>console</literal> is specified, <filename>serial-getty@.service</filename> for
+          active kernel consoles will be enabled. This option will be ignored when the system is running in a
+          container.</para>
+
+          <para>When <literal>builtins</literal> is specified, <filename>serial-getty@.service</filename> for
+          available virtualizer consoles will be enabled. This option will be ignored when the system is
+          running in a container.</para>
+
+          <para>When yes, the above four options will be enabled. When no, all options are disabled and no
+          service will be enabled. When the kernel command line option is specified without an argument,
+          defaults to yes. The generator is enabled by default, and a false value may be used to disable it.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -80,11 +104,12 @@
       <varlistentry>
         <term><varname>$SYSTEMD_GETTY_AUTO</varname></term>
 
-        <listitem><para>This variable takes an optional boolean argument, and default to yes.
-        The generator is enabled by default, and a false value may be used to disable it.
-        </para>
+        <listitem>
+          <para>This environment variable may be used to control the execution mode of the generator.
+          Takes the same value as <varname>systemd.getty_auto=</varname> kernel command line option.</para>
 
-        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -94,6 +119,17 @@
 
     <variablelist class='system-credentials'>
       <varlistentry>
+        <term><varname>getty.auto</varname></term>
+
+        <listitem>
+          <para>The system credential may be used to control the execution mode of the generator.
+          Takes the same value as <varname>systemd.getty_auto=</varname> kernel command line option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>getty.ttys.serial</varname></term>
         <term><varname>getty.ttys.container</varname></term>
 
@@ -101,7 +137,7 @@
         TTYs. The two credentials should contain a newline-separated list of TTY names to spawn instances of
         <filename>serial-getty@.service</filename> (in case of <varname>getty.ttys.serial</varname>) and
         <filename>container-getty@.service</filename> (in case of <varname>getty.ttys.container</varname>)
-        on.</para>
+        on. Any lines starting with a <literal>#</literal> will be ignored.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
