@@ -1096,6 +1096,40 @@ TEST(pidfd_get_inode_id_self_cached) {
         }
 }
 
+TEST(getenv_for_pid) {
+        _cleanup_strv_free_ char **copy_env = NULL;
+        pid_t pid = getpid_cached();
+        int r;
+
+        ASSERT_NOT_NULL(copy_env = strv_copy(environ));
+
+        ASSERT_OK(r = pidref_safe_fork("(getenv_for_pid)", FORK_WAIT, NULL));
+        if (r == 0) {
+                STRV_FOREACH(e, copy_env) {
+                        const char *v = strchr(*e, '=');
+                        if (!v)
+                                continue;
+
+                        _cleanup_free_ char *k = NULL;
+                        ASSERT_NOT_NULL(k = strndup(*e, v - *e));
+
+                        v++;
+
+                        _cleanup_free_ char *value = NULL;
+                        ASSERT_OK_POSITIVE(getenv_for_pid(pid, k, &value));
+                        ASSERT_STREQ(value, v);
+                }
+
+                if (!strv_find_startswith(copy_env, "HOGEHOGE")) {
+                        char *value = POINTER_MAX;
+                        ASSERT_OK_ZERO(getenv_for_pid(pid, "HOGEHOGE", &value));
+                        ASSERT_NULL(value);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 static int intro(void) {
         log_show_color(true);
         return EXIT_SUCCESS;
