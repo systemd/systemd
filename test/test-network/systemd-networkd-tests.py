@@ -7367,6 +7367,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # The name ipv6-only option may not be supported by older dnsmasq
         # start_dnsmasq('--dhcp-option=option:ipv6-only,300')
         start_dnsmasq('--dhcp-option=108,00:00:02:00',
+                      '--dhcp-option=option6:sip-server,[2600::dd]',
                       '--dhcp-option=option6:dns-server,[2600::ee]',
                       '--dhcp-option=option6:ntp-server,[2600::ff]',
                       ra_mode='ra-stateless')
@@ -7384,6 +7385,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## link state file')
         output = read_link_state_file('veth99')
         print(output)
+        self.assertIn('SIP=2600::dd', output)
         self.assertIn('DNS=2600::ee', output)
         self.assertIn('NTP=2600::ff', output)
 
@@ -7391,6 +7393,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## manager state file')
         output = read_manager_state_file()
         print(output)
+        self.assertRegex(output, 'SIP=.*2600::dd')
         self.assertRegex(output, 'DNS=.*2600::ee')
         self.assertRegex(output, 'NTP=.*2600::ff')
 
@@ -7409,6 +7412,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # solicit mode
         stop_dnsmasq()
         start_dnsmasq('--dhcp-option=108,00:00:02:00',
+                      '--dhcp-option=option6:sip-server,[2600::dd]',
                       '--dhcp-option=option6:dns-server,[2600::ee]',
                       '--dhcp-option=option6:ntp-server,[2600::ff]')
         networkctl_reconfigure('veth99')
@@ -7437,6 +7441,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## link state file')
         output = read_link_state_file('veth99')
         print(output)
+        self.assertIn('SIP=2600::dd', output)
         self.assertIn('DNS=2600::ee', output)
         self.assertIn('NTP=2600::ff', output)
 
@@ -7444,6 +7449,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## manager state file')
         output = read_manager_state_file()
         print(output)
+        self.assertRegex(output, 'SIP=.*2600::dd')
         self.assertRegex(output, 'DNS=.*2600::ee')
         self.assertRegex(output, 'NTP=.*2600::ff')
 
@@ -7466,6 +7472,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         stop_dnsmasq()
         start_dnsmasq('--dhcp-option=108,00:00:02:00',
+                      '--dhcp-option=option6:sip-server,[2600::dd]',
                       '--dhcp-option=option6:dns-server,[2600::ee]',
                       '--dhcp-option=option6:ntp-server,[2600::ff]')
 
@@ -7490,6 +7497,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## link state file')
         output = read_link_state_file('veth99')
         print(output)
+        self.assertIn('SIP=2600::dd', output)
         self.assertIn('DNS=2600::ee', output)
         self.assertIn('NTP=2600::ff', output)
 
@@ -7497,6 +7505,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## manager state file')
         output = read_manager_state_file()
         print(output)
+        self.assertRegex(output, 'SIP=.*2600::dd')
         self.assertRegex(output, 'DNS=.*2600::ee')
         self.assertRegex(output, 'NTP=.*2600::ff')
 
