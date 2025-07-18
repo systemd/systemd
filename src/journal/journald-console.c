@@ -91,7 +91,7 @@ void manager_forward_console(
         iovec[n++] = IOVEC_MAKE_STRING(color_off);
         iovec[n++] = IOVEC_MAKE_STRING("\n");
 
-        tty = m->tty_path ?: "/dev/console";
+        tty = m->config.tty_path ?: "/dev/console";
 
         /* Before you ask: yes, on purpose we open/close the console for each log line we write individually. This is a
          * good strategy to avoid journald getting killed by the kernel's SAK concept (it doesn't fix this entirely,
