@@ -243,7 +243,10 @@ static void parse_env(void) {
                 r = parse_getty_sources(value, &arg_getty_sources);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse $SYSTEMD_GETTY_AUTO, ignoring: %s", value);
-        }
+                else
+                        log_debug_errno(r, "Parsed $SYSTEMD_GETTY_AUTO=%s", value);
+        } else
+                log_debug_errno(r, "$SYSTEMD_GETTY_AUTO= is unspecified");
 }
 
 static void parse_credentials(void) {
