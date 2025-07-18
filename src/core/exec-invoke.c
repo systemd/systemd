@@ -2325,6 +2325,8 @@ static int bpffs_prepare(
                 if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", number, /* aux = */ 0) < 0)
                         report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m"));
 
+                report_errno_and_exit(errno_pipe[1], log_debug_errno(EPERM, "DUMMY FAILURE: %m"));
+
                 if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key = */ NULL, /* value = */ NULL, /* aux = */ 0) < 0)
                         report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to create bpffs superblock: %m"));
 
