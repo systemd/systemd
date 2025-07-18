@@ -24,14 +24,15 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 
-static int add_getty_impl(const char *tty, const char *type, const char *unit_path) {
+static int add_getty_impl(const char *tty, const char *path, const char *type, const char *unit_path) {
         int r;
 
         assert(type);
+        assert(path);
         assert(unit_path);
 
         if (!filename_is_valid(tty)) {
-                log_debug("Invalid %s tty device specified, ignoring: %s", type, tty);
+                log_debug("Invalid %s tty device specified, ignoring: %s", type, path);
                 return 0;
         }
 
@@ -45,17 +46,23 @@ static int add_getty_impl(const char *tty, const char *type, const char *unit_pa
         return generator_add_symlink_full(arg_dest, "getty.target", "wants", unit_path, instance);
 }
 
-static int add_serial_getty(const char *tty) {
-        tty = skip_dev_prefix(ASSERT_PTR(tty));
-        return add_getty_impl(tty, "serial", SYSTEM_DATA_UNIT_DIR "/serial-getty@.service");
+static int add_serial_getty(const char *path) {
+        const char *tty = skip_dev_prefix(ASSERT_PTR(path));
+        return add_getty_impl(tty, path, "serial", SYSTEM_DATA_UNIT_DIR "/serial-getty@.service");
 }
 
-static int add_container_getty(const char *tty) {
-        if (is_path(tty))
-                /* Check if it is actually a pty. */
-                tty = path_startswith(skip_dev_prefix(tty), "pts/");
+static int add_container_getty(const char *tty_or_path) {
+        const char *tty;
 
-        return add_getty_impl(tty, "container", SYSTEM_DATA_UNIT_DIR "/container-getty@.service");
+        assert(tty_or_path);
+
+        if (is_path(tty_or_path))
+                /* Check if it is actually a pty. */
+                tty = path_startswith(skip_dev_prefix(tty_or_path), "pts/");
+        else
+                tty = tty_or_path;
+
+        return add_getty_impl(tty, tty_or_path, "container", SYSTEM_DATA_UNIT_DIR "/container-getty@.service");
 }
 
 static int verify_tty(const char *path) {
