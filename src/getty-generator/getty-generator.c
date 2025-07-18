@@ -31,7 +31,7 @@ static int add_getty_impl(const char *tty, const char *type, const char *unit_pa
         assert(unit_path);
 
         if (!filename_is_valid(tty)) {
-                log_debug("Invalid %s tty device specified, ignoring: %s", type, tty);
+                log_debug("Invalid %s tty device specified, ignoring: %s", type, strna(tty));
                 return 0;
         }
 
