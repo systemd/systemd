@@ -2276,14 +2276,14 @@ static int bpffs_prepare(
                 int *ret_sock_fd,
                 int *ret_errno_pipe) {
 
-        _cleanup_close_pair_ int socket_fds[2] = EBADF_PAIR, bpffs_errno_pipe[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int socket_fds[2] = EBADF_PAIR, errno_pipe[2] = EBADF_PAIR;
         int r;
 
         assert(ret_sock_fd);
         assert(ret_pid);
         assert(ret_errno_pipe);
 
-        r = pipe2(bpffs_errno_pipe, O_CLOEXEC|O_NONBLOCK);
+        r = pipe2(errno_pipe, O_CLOEXEC|O_NONBLOCK);
         if (r < 0)
                 return log_debug_errno(errno, "Failed to create pipe: %m");
 
@@ -2298,63 +2298,44 @@ static int bpffs_prepare(
                 _cleanup_close_ int fs_fd = -EBADF;
                 char number[STRLEN("0x") + sizeof(c->bpf_delegate_commands) * 2 + 1];
 
-                bpffs_errno_pipe[0] = safe_close(bpffs_errno_pipe[0]);
+                errno_pipe[0] = safe_close(errno_pipe[0]);
                 socket_fds[0] = safe_close(socket_fds[0]);
 
                 fs_fd = receive_one_fd(socket_fds[1], /* flags = */ 0);
-                if (fs_fd < 0) {
-                        log_debug_errno(fs_fd, "Failed to receive file descriptor from parent: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], fs_fd);
-                }
+                if (fs_fd < 0)
+                        report_errno_and_exit(errno_pipe[1], log_debug_errno(fs_fd, "Failed to receive file descriptor from parent: %m"));
 
                 xsprintf(number, "0x%"PRIx64, c->bpf_delegate_commands);
 
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
+                if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, /* aux = */ 0) < 0)
+                        report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m"));
 
                 xsprintf(number, "0x%"PRIx64, c->bpf_delegate_maps);
 
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
+                if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", number, /* aux = */ 0) < 0)
+                        report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m"));
 
                 xsprintf(number, "0x%"PRIx64, c->bpf_delegate_programs);
 
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
+                if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", number, /* aux = */ 0) < 0)
+                        report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m"));
 
                 xsprintf(number, "0x%"PRIx64, c->bpf_delegate_attachments);
 
-                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", number, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
+                if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", number, /* aux = */ 0) < 0)
+                        report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m"));
 
-                r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key = */ NULL, /* value = */ NULL, /* aux = */ 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to create bpffs superblock: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
+                if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key = */ NULL, /* value = */ NULL, /* aux = */ 0) < 0)
+                        report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to create bpffs superblock: %m"));
 
-                if (write(socket_fds[1], (uint8_t[1]) {}, 1) < 0) {
-                        log_debug_errno(errno, "Failed to send data to child: %m");
-                        report_errno_and_exit(bpffs_errno_pipe[1], errno);
-                }
+                if (write(socket_fds[1], (uint8_t[1]) {}, 1) < 0)
+                        report_errno_and_exit(errno_pipe[1], log_debug_errno(errno, "Failed to send data to child: %m"));
 
                 _exit(EXIT_SUCCESS);
         }
 
         *ret_sock_fd = TAKE_FD(socket_fds[0]);
-        *ret_errno_pipe = TAKE_FD(bpffs_errno_pipe[0]);
+        *ret_errno_pipe = TAKE_FD(errno_pipe[0]);
 
         return 0;
 }
