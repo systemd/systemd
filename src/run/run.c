@@ -174,7 +174,7 @@ static int help(void) {
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
                "  -v --verbose                    Show unit logs while executing operation\n"
-               "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
+               "     --json=pretty|short|off      Print information about created units as JSON\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
                "     --job-mode=MODE              Specify how to deal with already queued jobs,\n"
@@ -2895,7 +2895,24 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         if (r < 0)
                 return r;
 
-        if (!arg_quiet) {
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                /* Trigger type can be inferred from the suffix, no reason to print it */
+                r = sd_json_variant_set_field_string(&v, "trigger", trigger);
+                if (r < 0)
+                        return r;
+
+                if (!strv_isempty(arg_cmdline)) {
+                        r = sd_json_variant_set_field_string(&v, "unit", service);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return r;
+        } else if (!arg_quiet) {
                 log_info("Running %s as unit: %s", suffix + 1, trigger);
                 if (!strv_isempty(arg_cmdline))
                         log_info("Will run service as unit: %s", service);
