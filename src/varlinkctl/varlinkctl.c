@@ -10,6 +10,7 @@
 
 #include "build.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -20,6 +21,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -869,9 +871,23 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                         log_error_errno(r, "Failed to set $LISTEN_PID environment variable: %m");
                                         _exit(EXIT_FAILURE);
                                 }
+
+                                uint64_t pidfdid;
+                                r = pidfd_get_inode_id_self_cached(&pidfdid);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to determine PIDFDID of current process: %m");
+                                        _exit(EXIT_FAILURE);
+                                } else if (!ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                                        r = setenvf("LISTEN_PIDFDID", true, "%" PRIu64, pidfdid);
+                                        if (r < 0) {
+                                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID environment process: %m");
+                                                _exit(EXIT_FAILURE);
+                                        }
+                                }
                         } else {
                                 (void) unsetenv("LISTEN_FDS");
                                 (void) unsetenv("LISTEN_PID");
+                                (void) unsetenv("LISTEN_PIDFDID");
                         }
                         (void) unsetenv("LISTEN_FDNAMES");
 

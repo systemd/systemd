@@ -24,6 +24,7 @@
 #include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -248,10 +249,13 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                 return log_debug_errno(r, "Failed to spawn process: %m");
         if (r == 0) {
                 char spid[DECIMAL_STR_MAX(pid_t)+1];
+                char spidfdid[DECIMAL_STR_MAX(uint64_t)+1];
                 const char *setenv_list[] = {
                         "LISTEN_FDS", "1",
                         "LISTEN_PID", spid,
                         "LISTEN_FDNAMES", "varlink",
+                        /* Reserved for $LISTEN_PIDFDID */
+                        NULL, NULL,
                         NULL, NULL,
                 };
                 /* Child */
@@ -265,6 +269,19 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                 }
 
                 xsprintf(spid, PID_FMT, pid);
+
+                uint64_t pidfdid;
+
+                r = pidfd_get_inode_id_self_cached(&pidfdid);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to determine PIDFDID for current process: %m");
+                        _exit(EXIT_FAILURE);
+                } else if (!ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        xsprintf(spidfdid, "%" PRIu64, pidfdid);
+                        // There has to be a better way! (than setting arbitrary elements on an array)
+                        setenv_list[6] = "LISTEN_PIDFDID";
+                        setenv_list[7] = spidfdid;
+                }
 
                 STRV_FOREACH_PAIR(a, b, setenv_list) {
                         if (setenv(*a, *b, /* override= */ true) < 0) {
