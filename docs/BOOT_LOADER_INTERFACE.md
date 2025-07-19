@@ -112,6 +112,11 @@ variables. All EFI variables use the vendor UUID
 * The EFI variable `LoaderDeviceURL` contains the URL the boot loader was
   downloaded from, in UTF-16 format. Only set in case of network boots.
 
+* The EFI variable `LoaderTpm2ActivePcrBanks` contains a hexadecimal string
+  representation of a bitmask with values defined by the TCG EFI Protocol
+  Specification for TPM 2.0 as EFI_TCG2_BOOT_HASH_ALG_*. If no TPM2 support or
+  no active banks were detected, will be set to `0`.
+
 If `LoaderTimeInitUSec` and `LoaderTimeExecUSec` are set, `systemd-analyze`
 will include them in its boot-time analysis.  If `LoaderDevicePartUUID` is set,
 systemd will mount the ESP that was used for the boot to `/boot`, but only if
