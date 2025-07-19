@@ -3,6 +3,7 @@
 systemd_analyze_sources = files(
         'analyze-architectures.c',
         'analyze-blame.c',
+        'analyze-shutdown-blame.c',
         'analyze-calendar.c',
         'analyze-capability.c',
         'analyze-cat-config.c',
