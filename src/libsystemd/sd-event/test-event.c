@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
@@ -825,6 +826,40 @@ TEST(inotify_process_buffered_data) {
         assert_se(sd_event_dispatch(e) > 0);
         assert_se(sd_event_prepare(e) == 0);
         assert_se(sd_event_wait(e, 0) == 0);
+}
+
+static int inotify_handler_issue_38265(sd_event_source *s, const struct inotify_event *event, void *userdata) {
+        log_debug("Inotify event: mask=0x%x name=%s", event->mask, event->name);
+        return 0;
+}
+
+TEST(inotify_issue_38265) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *a = NULL, *b = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_free_ char *p = NULL;
+
+        /* For issue #38265. */
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-inotify-XXXXXX", &t));
+
+        ASSERT_OK(sd_event_default(&e));
+
+        /* Create inode data that watches IN_MODIFY */
+        ASSERT_OK(sd_event_add_inotify(e, &a, t, IN_CREATE | IN_MODIFY, inotify_handler_issue_38265, NULL));
+        ASSERT_OK(sd_event_add_inotify(e, &b, t, IN_CREATE, inotify_handler_issue_38265, NULL));
+
+        /* Then drop the event source that is interested in IN_MODIFY */
+        ASSERT_NULL(a = sd_event_source_unref(a));
+
+        /* Trigger IN_MODIFY (of course with IN_CREATE) */
+        ASSERT_NOT_NULL(p = path_join(t, "hoge"));
+        ASSERT_OK(write_string_file(p, "aaa", WRITE_STRING_FILE_CREATE));
+
+        for (unsigned i = 1; i < 5; i++) {
+                log_debug("Running event loop cycle %u to process inotify events...", i);
+                ASSERT_OK(sd_event_run(e, USEC_PER_MSEC));
+        }
 }
 
 TEST(fork) {
