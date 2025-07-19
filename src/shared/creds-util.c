@@ -178,7 +178,7 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
         if (r >= 0)
                 return 1; /* found */
         if (!IN_SET(r, -ENXIO, -ENOENT))
-                return log_error_errno(r, "Failed read unencrypted credential '%s': %m", name);
+                return log_error_errno(r, "Failed to read unencrypted credential '%s': %m", name);
 
         r = get_encrypted_credentials_dir(&d);
         if (r == -ENXIO)
@@ -920,7 +920,7 @@ int encrypt_credential_and_warn(
                         r = tpm2_load_pcr_public_key(tpm2_pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
                         if (r < 0) {
                                 if (tpm2_pubkey_path || r != -ENOENT || !sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_INITRD, _CRED_AUTO_SCOPED))
-                                        return log_error_errno(r, "Failed read TPM PCR public key: %m");
+                                        return log_error_errno(r, "Failed to read TPM PCR public key: %m");
 
                                 log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
                         }

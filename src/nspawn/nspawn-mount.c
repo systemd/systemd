@@ -685,7 +685,7 @@ int mount_all(const char *dest,
 
                                 log_debug_errno(r, "Failed to create directory %s: %m", where);
 
-                                /* If we failed mkdir() or chown() due to the root directory being read only,
+                                /* If mkdir() or chown() failed due to the root directory being read only,
                                  * attempt to mount this fs anyway and let mount_verbose log any errors */
                                 if (r != -EROFS)
                                         continue;

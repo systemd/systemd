@@ -2623,7 +2623,7 @@ static int acquire_group_list(char ***ret) {
                         if (r == -ESRCH)
                                 break;
                         if (r < 0)
-                                return log_debug_errno(r, "Failed acquire next group: %m");
+                                return log_debug_errno(r, "Failed to acquire next group: %m");
 
                         if (group_record_disposition(gr) == USER_REGULAR) {
                                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;

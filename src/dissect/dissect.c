@@ -1556,7 +1556,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                  * the mounts are done in a mount namespace there's not going to be a collision here */
                 r = get_common_dissect_directory(&t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed generate private mount directory: %m");
+                        return log_error_errno(r, "Failed to generate private mount directory: %m");
 
                 r = dissected_image_mount_and_warn(
                                 m,

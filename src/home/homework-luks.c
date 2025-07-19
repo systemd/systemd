@@ -2731,7 +2731,7 @@ static int prepare_resize_partition(
 
         r = sd_id128_from_string(disk_uuid_as_string, &disk_uuid);
         if (r < 0)
-                return log_error_errno(r, "Failed parse disk UUID: %m");
+                return log_error_errno(r, "Failed to parse disk UUID: %m");
 
         r = fdisk_get_partitions(c, &t);
         if (r < 0)
