@@ -74,7 +74,11 @@
     <para>System extension images are strictly read-only by default. On mutable host file systems,
     <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies become read-only while extensions
     are merged, unless mutability is enabled. Mutability may be enabled via the <option>--mutable=</option>
-    option; see "Mutability" below for more information.</para>
+    option and the <varname>Mutable=</varname> option in the configuration file; see "Mutability" below for more information.</para>
+
+    <para>Various command options can be configured globally via configuration files. See
+    <citerefentry><refentrytitle>sysext.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
 
     <para>System extensions are supposed to be purely additive, i.e. they are supposed to include only files
     that do not exist in the underlying basic OS image. However, the underlying mechanism (overlayfs) also
@@ -477,6 +481,7 @@
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysext.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
