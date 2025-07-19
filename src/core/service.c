@@ -5810,13 +5810,6 @@ const UnitVTable service_vtable = {
         .status_text = service_status_text,
 
         .status_message_formats = {
-                .finished_start_job = {
-                        [JOB_FAILED]     = "Failed to start %s.",
-                },
-                .finished_stop_job = {
-                        [JOB_DONE]       = "Stopped %s.",
-                        [JOB_FAILED]     = "Stopped (with error) %s.",
-                },
                 .finished_job = service_finished_job,
         },
 
