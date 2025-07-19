@@ -3480,7 +3480,7 @@ _public_ int sd_varlink_server_add_connection_pair(
                         ucred = *override_ucred;
                 else {
                         if (input_fd != output_fd)
-                                return varlink_server_log_errno(server, SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot determine peer identity of connection with separate input/output, refusing: %m");
+                                return varlink_server_log_errno(server, SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot determine peer identity of connection with separate input/output, refusing.");
 
                         r = getpeercred(input_fd, &ucred);
                         if (r < 0)

@@ -1578,7 +1578,7 @@ static int socket_address_listen_in_cgroup(
 
         r = unit_setup_exec_runtime(UNIT(s));
         if (r < 0)
-                return log_unit_error_errno(UNIT(s), r, "Failed acquire runtime: %m");
+                return log_unit_error_errno(UNIT(s), r, "Failed to acquire runtime: %m");
 
         if (s->exec_context.network_namespace_path &&
             s->exec_runtime &&
@@ -3796,7 +3796,7 @@ const UnitVTable socket_vtable = {
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Closed %s.",
-                        [JOB_FAILED]     = "Failed stopping %s.",
+                        [JOB_FAILED]     = "Failed to stop %s.",
                         [JOB_TIMEOUT]    = "Timed out stopping %s.",
                 },
         },

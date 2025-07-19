@@ -1616,7 +1616,7 @@ static int grow_image(const char *path, uint64_t size) {
         }
 
         if (ftruncate(fd, size) < 0)
-                return log_error_errno(errno, "Failed grow image file '%s' from %s to %s: %m", path,
+                return log_error_errno(errno, "Failed to grow image file '%s' from %s to %s: %m", path,
                                        FORMAT_BYTES(st.st_size), FORMAT_BYTES(size));
 
         r = fsync_full(fd);
@@ -2204,7 +2204,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 else if (S_ISBLK(st.st_mode))
                         driver = "host_device";
                 else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s': %m", *drive);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", *drive);
 
                 r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", driver, escaped_drive, i);
                 if (r < 0)
@@ -2691,7 +2691,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         /* Exit when the child exits */
         r = event_add_child_pidref(event, /* ret= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);

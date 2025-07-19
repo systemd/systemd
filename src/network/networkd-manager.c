@@ -539,7 +539,7 @@ int manager_setup(Manager *m) {
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         r = sd_event_add_post(m->event, NULL, manager_post_handler, m);
         if (r < 0)

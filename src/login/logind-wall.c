@@ -107,11 +107,11 @@ static int wall_message_timeout_handler(
         if (next > 0) {
                 r = sd_event_source_set_time(s, n + next);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed. %m");
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m");
 
                 r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed. %m");
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
         }
 
         return 0;

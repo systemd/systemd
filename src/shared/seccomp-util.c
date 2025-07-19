@@ -1538,7 +1538,7 @@ int seccomp_protect_syslog(void) {
                                 0);
 
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to add syslog() rule for architecture %s, skipping %m", seccomp_arch_to_string(arch));
+                        log_debug_errno(r, "Failed to add syslog() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                         continue;
                 }
 
@@ -1546,7 +1546,7 @@ int seccomp_protect_syslog(void) {
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
-                        log_debug_errno(r, "Failed to install syslog protection rules for architecture %s, skipping %m",
+                        log_debug_errno(r, "Failed to install syslog protection rules for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
         }
 

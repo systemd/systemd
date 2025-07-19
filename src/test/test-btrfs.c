@@ -192,11 +192,11 @@ int main(int argc, char *argv[]) {
 
         r = btrfs_subvol_remove("/xxxquotatest", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE);
         if (r < 0)
-                log_error_errno(r, "Failed remove subvolume: %m");
+                log_error_errno(r, "Failed to remove subvolume: %m");
 
         r = btrfs_subvol_remove("/xxxquotatest2", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE);
         if (r < 0)
-                log_error_errno(r, "Failed remove subvolume: %m");
+                log_error_errno(r, "Failed to remove subvolume: %m");
 
         return 0;
 }

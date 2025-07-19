@@ -921,7 +921,7 @@ int bus_init_private(Manager *m) {
                 r = sockaddr_un_set_path(&sa.un, p);
         }
         if (r < 0)
-                return log_error_errno(r, "Failed set socket path for private bus: %m");
+                return log_error_errno(r, "Failed to set socket path for private bus: %m");
         sa_len = r;
 
         (void) sockaddr_un_unlink(&sa.un);

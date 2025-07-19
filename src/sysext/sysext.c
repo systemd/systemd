@@ -254,7 +254,7 @@ static int need_reload(
                         const char *extension_reload_manager = NULL;
                         int b;
 
-                        r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check */ true, &extension_release);
+                        r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check = */ true, &extension_release);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to parse extension-release metadata of %s, ignoring: %m", *extension);
                                 continue;
@@ -1547,7 +1547,7 @@ static int store_info_in_meta(
 
         /* Make sure the top-level dir has an mtime marking the point we established the merge */
         if (utimensat(AT_FDCWD, meta_path, NULL, AT_SYMLINK_NOFOLLOW) < 0)
-                return log_error_errno(r, "Failed fix mtime of '%s': %m", meta_path);
+                return log_error_errno(r, "Failed to fix mtime of '%s': %m", meta_path);
 
         return 0;
 }
@@ -1731,7 +1731,7 @@ static int merge_subprocess(
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(arg_root));
         if (isempty(host_os_release_id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m",
+                                       "'ID' field not found or empty in 'os-release' data of OS tree '%s'.",
                                        empty_to_root(arg_root));
 
         /* Let's now mount all images */

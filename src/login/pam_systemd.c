@@ -1812,7 +1812,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        /* desktop= */ NULL,
                        /* area= */ NULL,
                        &debug,
-                       /* default_capability_bounding_set */ NULL,
+                       /* default_capability_bounding_set= */ NULL,
                        /* default_capability_ambient_set= */ NULL) < 0)
                 return PAM_SESSION_ERR;
 

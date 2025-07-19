@@ -229,7 +229,7 @@ static int manager_process_route(sd_netlink *rtnl, sd_netlink_message *mm, void 
 
         r = sd_netlink_message_get_type(mm, &type);
         if (r < 0) {
-                log_warning_errno(r, "Failed not get message type, ignoring: %m");
+                log_warning_errno(r, "Failed to get rtnl message type, ignoring: %m");
                 return 0;
         }
 
@@ -785,23 +785,23 @@ int manager_new(Manager **ret) {
 
         r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGHUP handler: %m");
+                return log_debug_errno(r, "Failed to install SIGHUP handler: %m");
 
         r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr1, m);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGUSR1 handler: %m");
+                return log_debug_errno(r, "Failed to install SIGUSR1 handler: %m");
 
         r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr2, m);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGUSR2 handler: %m");
+                return log_debug_errno(r, "Failed to install SIGUSR2 handler: %m");
 
         r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+1) | SD_EVENT_SIGNAL_PROCMASK, manager_sigrtmin1, m);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGRTMIN+1 handler: %m");
+                return log_debug_errno(r, "Failed to install SIGRTMIN+1 handler: %m");
 
         r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &m->sigrtmin18_info);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGRTMIN+18 handler: %m");
+                return log_debug_errno(r, "Failed to install SIGRTMIN+18 handler: %m");
 
         manager_cleanup_saved_user(m);
 

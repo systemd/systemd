@@ -366,8 +366,8 @@ static void pe_locate_sections(
                                   n_section_table,
                                   section_names,
                                   validate_base,
-                                  /* device_base */ NULL,
-                                  /* device */ NULL,
+                                  /* device_base = */ NULL,
+                                  /* device = */ NULL,
                                   sections);
 
         /* It doesn't make sense not to provide validate_base here */
@@ -386,8 +386,8 @@ static void pe_locate_sections(
                                 n_section_table,
                                 hwid_section_names,
                                 validate_base,
-                                /* device_table */ NULL,
-                                /* device */ NULL,
+                                /* device_table = */ NULL,
+                                /* device = */ NULL,
                                 hwids_section);
 
                 if (PE_SECTION_VECTOR_IS_SET(hwids_section)) {

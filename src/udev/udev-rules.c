@@ -954,7 +954,7 @@ static int parse_token(
                 if (is_case_insensitive)
                         return log_line_invalid_prefix(rule_line, key);
 
-                r = rule_line_add_token(rule_line, TK_M_PROGRAM, op, value, NULL, /* is_case_insensitive */ false, token_str);
+                r = rule_line_add_token(rule_line, TK_M_PROGRAM, op, value, NULL, /* is_case_insensitive = */ false, token_str);
         } else if (streq(key, "IMPORT")) {
                 if (isempty(attr))
                         return log_line_invalid_attr(rule_line, key);
