@@ -254,7 +254,7 @@ static int need_reload(
                         const char *extension_reload_manager = NULL;
                         int b;
 
-                        r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check */ true, &extension_release);
+                        r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check = */ true, &extension_release);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to parse extension-release metadata of %s, ignoring: %m", *extension);
                                 continue;
