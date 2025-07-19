@@ -309,7 +309,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 if (hw_addr.length != sizeof(struct ether_addr))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Unsupported hardware address length %zu: %m",
+                                               "Unsupported hardware address length %zu.",
                                                hw_addr.length);
 
                 arg_source_mac = hw_addr.ether;

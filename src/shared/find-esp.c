@@ -103,7 +103,7 @@ static int verify_esp_blkid(
         if (r != 0)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "No filesystem found on \"%s\": %m", node);
+                                      "No filesystem found on \"%s\".", node);
         if (!streq(v, "vfat"))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
@@ -631,7 +631,7 @@ static int verify_xbootldr_blkid(
         if (r != 0)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(EIO),
-                                      "%s: Failed to probe PART_ENTRY_SCHEME: %m", node);
+                                      "%s: Failed to probe PART_ENTRY_SCHEME.", node);
         if (streq(type, "gpt")) {
 
                 errno = 0;

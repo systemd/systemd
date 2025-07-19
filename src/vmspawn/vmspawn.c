@@ -2204,7 +2204,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 else if (S_ISBLK(st.st_mode))
                         driver = "host_device";
                 else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s': %m", *drive);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", *drive);
 
                 r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", driver, escaped_drive, i);
                 if (r < 0)

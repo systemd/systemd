@@ -3196,7 +3196,7 @@ int image_filter_parse(const char *s, ImageFilter **ret) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to extract designator: %m");
                 if (r != 2 || !isempty(x))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to split: %m");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to split: %s", word);
 
                 PartitionDesignator d = partition_designator_from_string(designator);
                 if (d < 0)

@@ -291,7 +291,7 @@ static int files_add(
 
                         if (need_stat) {
                                 /* If we need to have stat, skip the entry. */
-                                log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to chase '%s/%s', ignoring: %m",
+                                log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to chase '%s/%s', ignoring.",
                                                 root, skip_leading_slash(original_path));
                                 continue;
                         }
