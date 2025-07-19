@@ -134,7 +134,7 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
                 r = journal_append_message(mj, message);
                 if (r < 0) {
                         /* We care only about crashes or sanitizer errors,
-                         * failed write without any crash is a success */
+                         * failed to write without any crash is a success */
                         log_info_errno(r, "Failed to write to the journal: %m");
                         break;
                 }

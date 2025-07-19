@@ -1647,7 +1647,7 @@ const UnitVTable swap_vtable = {
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Deactivated swap %s.",
-                        [JOB_FAILED]     = "Failed deactivating swap %s.",
+                        [JOB_FAILED]     = "Failed to deactivate swap %s.",
                         [JOB_TIMEOUT]    = "Timed out deactivating swap %s.",
                 },
         },

@@ -2548,7 +2548,7 @@ const UnitVTable mount_vtable = {
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Unmounted %s.",
-                        [JOB_FAILED]     = "Failed unmounting %s.",
+                        [JOB_FAILED]     = "Failed to unmount %s.",
                         [JOB_TIMEOUT]    = "Timed out unmounting %s.",
                 },
         },

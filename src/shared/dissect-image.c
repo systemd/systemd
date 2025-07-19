@@ -4584,7 +4584,7 @@ int mountfsd_mount_image(
         if (image_policy) {
                 r = image_policy_to_string(image_policy, /* simplify= */ false, &ps);
                 if (r < 0)
-                        return log_error_errno(r, "Failed format image policy to string: %m");
+                        return log_error_errno(r, "Failed to format image policy to string: %m");
         }
 
         sd_json_variant *reply = NULL;
