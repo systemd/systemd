@@ -1547,7 +1547,7 @@ static int store_info_in_meta(
 
         /* Make sure the top-level dir has an mtime marking the point we established the merge */
         if (utimensat(AT_FDCWD, meta_path, NULL, AT_SYMLINK_NOFOLLOW) < 0)
-                return log_error_errno(r, "Failed fix mtime of '%s': %m", meta_path);
+                return log_error_errno(r, "Failed to fix mtime of '%s': %m", meta_path);
 
         return 0;
 }

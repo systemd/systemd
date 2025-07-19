@@ -1199,7 +1199,7 @@ void job_add_to_run_queue(Job *j) {
 
         r = prioq_put(j->manager->run_queue, j, &j->run_queue_idx);
         if (r < 0)
-                log_warning_errno(r, "Failed put job in run queue, ignoring: %m");
+                log_warning_errno(r, "Failed to put job in run queue, ignoring: %m");
         else
                 j->in_run_queue = true;
 

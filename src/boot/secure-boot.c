@@ -120,7 +120,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
 
         err = open_directory(root_dir, path, &dir);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed opening keys directory %ls: %m", path);
+                return log_error_status(err, "Failed to open keys directory %ls: %m", path);
 
         struct {
                 const char16_t *name;
@@ -140,7 +140,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         FOREACH_ELEMENT(sb_var, sb_vars) {
                 err = file_read(dir, sb_var->filename, 0, 0, &sb_var->buffer, &sb_var->size);
                 if (err != EFI_SUCCESS && sb_var->required) {
-                        log_error_status(err, "Failed reading file %ls\\%ls: %m", path, sb_var->filename);
+                        log_error_status(err, "Failed to read file %ls\\%ls: %m", path, sb_var->filename);
                         goto out_deallocate;
                 }
                 if (streq16(sb_var->name, u"PK") && sb_var->size > 20) {

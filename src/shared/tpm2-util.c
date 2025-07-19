@@ -1141,7 +1141,7 @@ static int tpm2_credit_random(Tpm2Context *c) {
 
                 r = random_write_entropy(-1, buffer->buffer, buffer->size, /* credit= */ false);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed wo write entropy to kernel: %m");
+                        return log_debug_errno(r, "Failed to write entropy to kernel: %m");
 
                 done += buffer->size;
                 rps = LESS_BY(rps, buffer->size);

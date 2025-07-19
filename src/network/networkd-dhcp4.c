@@ -1693,7 +1693,7 @@ static int dhcp4_configure(Link *link) {
         if (link->network->dhcp_fallback_lease_lifetime_usec > 0) {
                 r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime_usec);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed set to lease lifetime: %m");
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set fallback lease lifetime: %m");
         }
 
         return dhcp4_set_client_identifier(link);

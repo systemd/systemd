@@ -1366,7 +1366,7 @@ static int parse_argv(int argc, char *argv[]) {
                         } else {
                                 r = read_full_file(optarg, (char**) &p, &l);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed parse root hash signature file '%s': %m", optarg);
+                                        return log_error_errno(r, "Failed to parse root hash signature file '%s': %m", optarg);
                         }
 
                         free_and_replace(arg_verity_settings.root_hash_sig, p);
@@ -5583,7 +5583,7 @@ static int run_container(
 
         r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         /* Exit when the child exits */
         (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, pid);

@@ -255,7 +255,7 @@ int journal_directory_vacuum(
 
                 r = journal_file_empty(dirfd(d), p);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed check if %s is empty, ignoring: %m", p);
+                        log_debug_errno(r, "Failed to check if %s is empty, ignoring: %m", p);
                         continue;
                 }
                 if (r > 0) {
