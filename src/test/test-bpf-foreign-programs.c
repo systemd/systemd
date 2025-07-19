@@ -249,12 +249,12 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
         ASSERT_OK(unit_patch_contexts(u));
         r = unit_start(u, NULL);
         if (r < 0)
-                return log_error_errno(r, "Unit start failed %m");
+                return log_error_errno(r, "Unit start failed: %m");
 
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED)) {
                 r = sd_event_run(m->event, UINT64_MAX);
                 if (r < 0)
-                        return log_error_errno(r, "Event run failed %m");
+                        return log_error_errno(r, "Event run failed: %m");
         }
 
         cld_code = SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.code;

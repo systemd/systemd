@@ -1187,7 +1187,7 @@ static int run(int argc, char *argv[]) {
                                 if (r == -ESRCH)
                                         return log_error_errno(r, "Parent already died?");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to send SIGUSR2 signal to parent. %m");
+                                        return log_error_errno(r, "Failed to send SIGUSR2 signal to parent: %m");
                         }
                 }
 
