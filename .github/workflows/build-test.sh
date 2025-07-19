@@ -27,6 +27,7 @@ PACKAGES=(
     isc-dhcp-client
     itstool
     kbd
+    libarchive-dev
     libblkid-dev
     libbpf-dev
     libcap-dev
@@ -117,6 +118,15 @@ elif [[ "$COMPILER" == gcc ]]; then
         # Only needed for ia32 EFI builds
         PACKAGES+=("gcc-$COMPILER_VERSION-multilib")
     fi
+elif [[ "$COMPILER" == musl-gcc ]]; then
+    CC="musl-gcc"
+    CXX="musl-gcc"
+    AR=""
+    CFLAGS=""
+    CXXFLAGS=""
+    ADDITIONAL_ARGS="-Dlibc=musl -Ddbus-interfaces-dir=no"
+
+    PACKAGES+=("musl-tools")
 else
     fatal "Unknown compiler: $COMPILER"
 fi
@@ -141,6 +151,67 @@ $CC --version
 meson --version
 ninja --version
 
+if [[ "$COMPILER" == musl-gcc ]]; then
+    LINKS=(
+        acl
+        archive.h
+        archive_entry.h
+        #asm
+        #asm-generic
+        audit-records.h
+        audit_logging.h
+        bpf
+        bzlib.h
+        curl
+        dwarf.h
+        elfutils
+        fido.h
+        gcrypt.h
+        gelf.h
+        gnutls
+        gpg-error.h
+        idn2.h
+        libaudit.h
+        libcryptsetup.h
+        libelf.h
+        libiptc
+        libkmod.h
+        #linux
+        lz4.h
+        lz4frame.h
+        lz4frame_static.h
+        lz4hc.h
+        lzma
+        lzma.h
+        microhttpd.h
+        mtd
+        openssl
+        pcre2.h
+        pwquality.h
+        qrencode.h
+        seccomp-syscalls.h
+        seccomp.h
+        security
+        selinux
+        tss2
+        xen
+        xkbcommon
+        zconf.h
+        zlib.h
+        zlib_name_mangling.h
+        zstd.h
+        zstd_errors.h
+    )
+
+    for i in "${LINKS[@]}"; do
+        if [[ -e "/usr/include/$i" ]]; then
+            sudo ln -s "/usr/include/$i" "/usr/include/$(uname -m)-linux-musl/"
+        else
+            fatal "Cannot find $i"
+        fi
+    done
+fi
+
 for args in "${ARGS[@]}"; do
     SECONDS=0
 
@@ -157,7 +228,7 @@ for args in "${ARGS[@]}"; do
          meson setup \
                -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
                -Dnobody-group=nogroup -Ddebug=false \
-               $args build; then
+               $args ${ADDITIONAL_ARGS:-} build; then
 
         cat build/meson-logs/meson-log.txt
         fatal "meson failed with $args"

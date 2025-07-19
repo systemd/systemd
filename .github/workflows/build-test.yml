@@ -31,6 +31,7 @@ jobs:
           - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "mold" }
           - { COMPILER: "clang", COMPILER_VERSION: "16", LINKER: "bfd"  }
           - { COMPILER: "clang", COMPILER_VERSION: "18", LINKER: "lld"  }
+          - { COMPILER: "musl-gcc", COMPILER_VERSION: "14", LINKER: "bfd"  }
         include:
           - env: { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd"  }
             runner: [ ubuntu-24.04-ppc64le ]
