@@ -161,7 +161,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         }
 
         if (need_custom_mode && !custom_mode_enabled()) {
-                err = set_custom_mode(/* enable */ true);
+                err = set_custom_mode(/* enable = */ true);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err, "Failed to enable custom mode: %m");
                         goto out_deallocate;

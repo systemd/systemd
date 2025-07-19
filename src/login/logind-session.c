@@ -734,7 +734,7 @@ static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, vo
         if (idle) {
                 log_info("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
 
-                return session_stop(s, /* force */ true);
+                return session_stop(s, /* force = */ true);
         }
 
         r = sd_event_source_set_time(

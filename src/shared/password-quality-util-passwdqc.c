@@ -127,7 +127,7 @@ int check_password_quality(
 
                 check_reason = sym_passwdqc_check(&params->qc, password, old, &pw);
         } else
-                check_reason = sym_passwdqc_check(&params->qc, password, old, /* pw */ NULL);
+                check_reason = sym_passwdqc_check(&params->qc, password, old, /* pw = */ NULL);
 
         if (check_reason) {
                 if (ret_error) {
