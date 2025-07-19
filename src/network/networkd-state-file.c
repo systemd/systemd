@@ -266,10 +266,18 @@ static int link_put_sip(Link *link, OrderedSet **s) {
 
         if (link->dhcp6_lease && link->network->dhcp6_use_sip) {
                 const struct in6_addr *addresses;
+                char **domains;
 
                 r = sd_dhcp6_lease_get_sip_addrs(link->dhcp6_lease, &addresses);
                 if (r >= 0) {
                         r = ordered_set_put_in6_addrv(s, addresses, r);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_dhcp6_lease_get_sip_domains(link->dhcp6_lease, &domains);
+                if (r >= 0) {
+                        r = ordered_set_put_strdupv_full(s, &dns_name_hash_ops_free, domains);
                         if (r < 0)
                                 return r;
                 }
@@ -856,7 +864,7 @@ static int link_save(Link *link) {
                                     link->dhcp6_lease,
                                     link->network->dhcp6_use_sip,
                                     sd_dhcp6_lease_get_sip_addrs,
-                                    NULL);
+                                    sd_dhcp6_lease_get_sip_domains);
 
                 /************************************************************/
 

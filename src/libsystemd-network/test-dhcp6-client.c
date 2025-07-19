@@ -748,6 +748,9 @@ static const uint8_t msg_reply[] = {
         0x00, SD_DHCP6_OPTION_SIP_SERVER_ADDRESS, 0x00, 0x20,
         SIP1_BYTES,
         SIP2_BYTES,
+        /* SIP server domains */
+        0x00, SD_DHCP6_OPTION_SIP_SERVER_DOMAIN_NAME, 0x00, 0x0b,
+        0x03, 's', 'i', 'p', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
         /* Domain list */
         0x00, SD_DHCP6_OPTION_DOMAIN, 0x00, 0x0b,
         0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
@@ -834,6 +837,9 @@ static const uint8_t msg_advertise[] = {
         0x00, SD_DHCP6_OPTION_SIP_SERVER_ADDRESS, 0x00, 0x20,
         SIP1_BYTES,
         SIP2_BYTES,
+        /* SIP server domains */
+        0x00, SD_DHCP6_OPTION_SIP_SERVER_DOMAIN_NAME, 0x00, 0x0b,
+        0x03, 's', 'i', 'p', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
         /* Domain list */
         0x00, SD_DHCP6_OPTION_DOMAIN, 0x00, 0x0b,
         0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
@@ -917,6 +923,10 @@ static void test_lease_common(sd_dhcp6_client *client) {
         assert_se(sd_dhcp6_lease_get_sip_addrs(lease, &addrs) == 2);
         assert_se(in6_addr_equal(&addrs[0], &sip1));
         assert_se(in6_addr_equal(&addrs[1], &sip2));
+
+        assert_se(sd_dhcp6_lease_get_sip_domains(lease, &strv) == 1);
+        assert_se(streq(strv[0], "sip.intra"));
+        assert_se(!strv[1]);
 
         assert_se(lease->sntp_count == 2);
         assert_se(in6_addr_equal(&lease->sntp[0], &sntp1));

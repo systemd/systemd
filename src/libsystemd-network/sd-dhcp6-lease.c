@@ -651,6 +651,34 @@ int sd_dhcp6_lease_get_sip_addrs(sd_dhcp6_lease *lease, const struct in6_addr **
         return -ENODATA;
 }
 
+int dhcp6_lease_add_sip_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
+        _cleanup_strv_free_ char **domains = NULL;
+        int r;
+
+        assert(lease);
+        assert(optval || optlen == 0);
+
+        if (optlen == 0)
+                return 0;
+
+        r = dhcp6_option_parse_domainname_list(optval, optlen, &domains);
+        if (r < 0)
+                return r;
+
+        return strv_extend_strv_consume(&lease->sip_domains, TAKE_PTR(domains), /* filter_duplicates = */ true);
+}
+
+int sd_dhcp6_lease_get_sip_domains(sd_dhcp6_lease *lease, char ***ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!lease->sip_domains)
+                return -ENODATA;
+
+        *ret = lease->sip_domains;
+        return strv_length(lease->sip_domains);
+}
+
 int dhcp6_lease_set_fqdn(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
         char *fqdn;
         int r;
@@ -959,6 +987,12 @@ static int dhcp6_lease_parse_message(
 
                         break;
 
+                case SD_DHCP6_OPTION_SIP_SERVER_DOMAIN_NAME:
+                        r = dhcp6_lease_add_sip_domains(lease, optval, optlen);
+                        if (r < 0)
+                                log_dhcp6_client_errno(client, r, "Failed to parse SIP server domain name option, ignoring: %m");
+                        break;
+
                 case SD_DHCP6_OPTION_CAPTIVE_PORTAL:
                         r = dhcp6_lease_set_captive_portal(lease, optval, optlen);
                         if (r < 0)
@@ -1050,6 +1084,7 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
         strv_free(lease->ntp_fqdn);
         free(lease->sntp);
         free(lease->sip);
+        strv_free(lease->sip_domains);
 
         return mfree(lease);
 }

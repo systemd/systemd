@@ -819,6 +819,18 @@ static int ntp_append_json(Link *link, sd_json_variant **v) {
         return json_variant_set_field_non_null(v, "NTP", array);
 }
 
+static int domain_append_json(int family, const char *domain, NetworkConfigSource s, const union in_addr_union *p, sd_json_variant **array) {
+        assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
+        assert(domain);
+        assert(array);
+
+        return sd_json_variant_append_arraybo(
+                        array,
+                        SD_JSON_BUILD_PAIR_STRING("Domain", domain),
+                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family));
+}
+
 static int sip_append_json(Link *link, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         int r;
@@ -857,6 +869,7 @@ static int sip_append_json(Link *link, sd_json_variant **v) {
         if (link->dhcp6_lease && link->network->dhcp6_use_sip) {
                 const struct in6_addr *sip_addr;
                 union in_addr_union s;
+                char **domains;
                 int n_sip;
 
                 r = sd_dhcp6_lease_get_server_address(link->dhcp6_lease, &s.in6);
@@ -873,21 +886,21 @@ static int sip_append_json(Link *link, sd_json_variant **v) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (sd_dhcp6_lease_get_sip_domains(link->dhcp6_lease, &domains) >= 0)
+                        STRV_FOREACH(p, domains) {
+                                r = domain_append_json(AF_INET6,
+                                                       *p,
+                                                       NETWORK_CONFIG_SOURCE_DHCP6,
+                                                       &s,
+                                                       &array);
+                                if (r < 0)
+                                        return r;
+                        }
+
         }
 
         return json_variant_set_field_non_null(v, "SIP", array);
-}
-
-static int domain_append_json(int family, const char *domain, NetworkConfigSource s, const union in_addr_union *p, sd_json_variant **array) {
-        assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
-        assert(domain);
-        assert(array);
-
-        return sd_json_variant_append_arraybo(
-                        array,
-                        SD_JSON_BUILD_PAIR_STRING("Domain", domain),
-                        SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
-                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, family));
 }
 
 static int domains_append_json(Link *link, bool is_route, sd_json_variant **v) {
