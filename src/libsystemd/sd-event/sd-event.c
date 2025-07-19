@@ -4023,9 +4023,12 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
                         }
                 }
 
-                /* Something pending now? If so, let's finish, otherwise let's read more. */
+                /* Something pending now? If so, let's finish. */
                 if (d->n_pending > 0)
                         return 1;
+
+                /* otherwise, drop the event and let's read more */
+                event_inotify_data_drop(e, d, sz);
         }
 
         return 0;
