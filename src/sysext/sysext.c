@@ -1731,7 +1731,7 @@ static int merge_subprocess(
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(arg_root));
         if (isempty(host_os_release_id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m",
+                                       "'ID' field not found or empty in 'os-release' data of OS tree '%s'.",
                                        empty_to_root(arg_root));
 
         /* Let's now mount all images */

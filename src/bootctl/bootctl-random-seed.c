@@ -34,7 +34,7 @@ static int random_seed_verify_permissions(int fd, mode_t expected_type) {
 
         if (((st.st_mode ^ expected_type) & S_IFMT) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADF),
-                                       "Unexpected inode type when validating random seed access mode on %s: %m", full_path);
+                                       "Unexpected inode type when validating random seed access mode on '%s'.", full_path);
 
         if ((st.st_mode & 0007) == 0) /* All world bits are off? Then all is good */
                 return 0;
