@@ -2791,7 +2791,7 @@ static int apply_exec_quotas(
 #define MAX_PROJ_ID_RETRIES 10
                 for (unsigned attempt = 0;; attempt++) {
                         if (attempt >= MAX_PROJ_ID_RETRIES)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Failed to generate unique project ID for %s: %m", target_dir);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Failed to generate unique project ID for '%s'.", target_dir);
 
                         /* Check if project quotas are supported */
                         struct dqblk req;
@@ -4608,7 +4608,7 @@ static int setup_delegated_namespaces(
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWPID) == delegate) {
                 if (params->pidref_transport_fd < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTCONN), "PidRef socket is not set up: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTCONN), "PidRef socket is not set up.");
                 }
 
                 /* If we had CAP_SYS_ADMIN prior to joining the user namespace, then we are privileged and don't need
