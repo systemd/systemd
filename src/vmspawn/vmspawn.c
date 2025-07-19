@@ -115,7 +115,6 @@ static ConsoleMode arg_console_mode = CONSOLE_INTERACTIVE;
 static NetworkStack arg_network_stack = NETWORK_STACK_NONE;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
-static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static RuntimeMountContext arg_runtime_mounts = {};
 static char *arg_firmware = NULL;
 static char *arg_forward_journal = NULL;
@@ -205,10 +204,6 @@ static int help(void) {
                "     --register=BOOLEAN    Register VM as machine\n"
                "     --keep-unit           Do not register a scope for the machine, reuse\n"
                "                           the service unit vmspawn is running in\n"
-               "\n%3$sUser Namespacing:%4$s\n"
-               "     --private-users=UIDBASE[:NUIDS]\n"
-               "                           Configure the UID/GID range to map into the\n"
-               "                           virtiofsd namespace\n"
                "\n%3$sMounts:%4$s\n"
                "     --bind=SOURCE[:TARGET]\n"
                "                           Mount a file or directory from the host into the VM\n"
@@ -275,7 +270,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_RO,
                 ARG_EXTRA_DRIVE,
                 ARG_SECURE_BOOT,
-                ARG_PRIVATE_USERS,
                 ARG_FORWARD_JOURNAL,
                 ARG_PASS_SSH_KEY,
                 ARG_SSH_KEY_TYPE,
@@ -323,7 +317,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-ro",           required_argument, NULL, ARG_BIND_RO           },
                 { "extra-drive",       required_argument, NULL, ARG_EXTRA_DRIVE       },
                 { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
-                { "private-users",     required_argument, NULL, ARG_PRIVATE_USERS     },
                 { "forward-journal",   required_argument, NULL, ARG_FORWARD_JOURNAL   },
                 { "pass-ssh-key",      required_argument, NULL, ARG_PASS_SSH_KEY      },
                 { "ssh-key-type",      required_argument, NULL, ARG_SSH_KEY_TYPE      },
@@ -363,6 +356,9 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_directory);
                         if (r < 0)
                                 return r;
+
+                        if (!arg_privileged)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Must be privileged to use --directory=");
 
                         break;
 
@@ -520,12 +516,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_tristate(optarg, &arg_secure_boot);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --secure-boot=%s: %m", optarg);
-                        break;
-
-                case ARG_PRIVATE_USERS:
-                        r = parse_userns_uid_range(optarg, &arg_uid_shift, &arg_uid_range);
-                        if (r < 0)
-                                return r;
                         break;
 
                 case ARG_FORWARD_JOURNAL:
@@ -1333,7 +1323,9 @@ static int find_virtiofsd(char **ret) {
 static int start_virtiofsd(
                 const char *scope,
                 const char *directory,
-                bool uidmap,
+                uid_t source_uid,
+                uid_t target_uid,
+                uid_t uid_range,
                 const char *runtime_dir,
                 const char *sd_socket_activate,
                 char **ret_listen_address,
@@ -1371,20 +1363,20 @@ static int start_virtiofsd(
         if (!argv)
                 return log_oom();
 
-        if (uidmap && arg_uid_shift != UID_INVALID) {
-                r = strv_extend(&argv, "--uid-map");
+        if (source_uid != UID_INVALID && target_uid != UID_INVALID && uid_range != UID_INVALID) {
+                r = strv_extend(&argv, "--translate-uid");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&argv, ":0:" UID_FMT ":" UID_FMT ":", arg_uid_shift, arg_uid_range);
+                r = strv_extendf(&argv, "map:" UID_FMT ":" UID_FMT ":" UID_FMT, target_uid, source_uid, uid_range);
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extend(&argv, "--gid-map");
+                r = strv_extend(&argv, "--translate-gid");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&argv, ":0:" GID_FMT ":" GID_FMT ":", arg_uid_shift, arg_uid_range);
+                r = strv_extendf(&argv, "map:" GID_FMT ":" GID_FMT ":" GID_FMT, target_uid, source_uid, uid_range);
                 if (r < 0)
                         return log_oom();
         }
@@ -2146,7 +2138,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = start_virtiofsd(
                                 unit,
                                 arg_directory,
-                                /* uidmap= */ true,
+                                /* source_uid= */ UID_INVALID,
+                                /* target_uid= */ UID_INVALID,
+                                /* uid_range= */ UID_INVALID,
                                 runtime_dir,
                                 sd_socket_activate,
                                 &listen_address,
@@ -2233,7 +2227,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = start_virtiofsd(
                                 unit,
                                 mount->source,
-                                /* uidmap= */ false,
+                                /* source_uid= */ UID_INVALID,
+                                /* target_uid= */ UID_INVALID,
+                                /* uid_range= */ UID_INVALID,
                                 runtime_dir,
                                 sd_socket_activate,
                                 &listen_address,

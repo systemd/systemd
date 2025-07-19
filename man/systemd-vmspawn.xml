@@ -84,10 +84,6 @@
           <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.
           If neither are specified <option>--directory=.</option> is assumed.</para>
 
-          <para>Note: If mounting a non-root owned directory you may require <option>--private-users=</option>
-          to map into the user's subuid namespace. An example of how to use <constant>/etc/subuid</constant>
-          for this is given later.</para>
-
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
         </varlistentry>
@@ -405,33 +401,6 @@
     </refsect2>
 
     <refsect2>
-      <title>User Namespacing Options</title>
-
-      <variablelist>
-        <varlistentry>
-          <term><option>--private-users=<replaceable>UID_SHIFT[:UID_RANGE]</replaceable></option></term>
-
-          <listitem><para>Controls user namespacing under <option>--directory=</option>.
-          If enabled,
-          <citerefentry><refentrytitle>virtiofsd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          is instructed to map user and group ids (UIDs and GIDs).
-          This involves mapping the private UIDs/GIDs used in the virtual machine (starting with the virtual machine's
-          root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other purposes (usually in the
-          range beyond the host's UID/GID 65536).</para>
-
-          <para>If one or two colon-separated numbers are specified, user namespacing is turned on. <replaceable>UID_SHIFT</replaceable>
-          specifies the first host UID/GID to map, <replaceable>UID_RANGE</replaceable> is optional and specifies number of host
-          UIDs/GIDs to assign to the virtual machine. If <replaceable>UID_RANGE</replaceable> is omitted, 65536 UIDs/GIDs are assigned.</para>
-
-          <para>When user namespaces are used, the GID range assigned to each virtual machine is always chosen identical to the
-          UID range.</para>
-
-          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-        </varlistentry>
-      </variablelist>
-    </refsect2>
-
-    <refsect2>
       <title>Mount Options</title>
 
       <variablelist>
@@ -616,7 +585,6 @@ $ sha256sum -c Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_6
 $ mkosi build
 $ systemd-vmspawn \
     -D mkosi.output/system \
-    --private-users $(grep $(whoami) /etc/subuid | cut -d: -f2) \
     --linux mkosi.output/system.efi \
     --forward-journal=vm.journal \
     enforcing=0
@@ -634,7 +602,6 @@ $ mkosi build
 $ my_vsock_cid=3735928559
 $ systemd-vmspawn \
     -D mkosi.output/system \
-    --private-users $(grep $(whoami) /etc/subuid | cut -d: -f2) \
     --linux mkosi.output/system.efi \
     --vsock-cid $my_vsock_cid \
     enforcing=0
