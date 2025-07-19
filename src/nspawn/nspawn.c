@@ -3583,6 +3583,8 @@ static int inner_child(
 
                 if ((asprintf(envp + n_env++, "LISTEN_FDS=%u", fdset_size(fds)) < 0) ||
                     (asprintf(envp + n_env++, "LISTEN_PID=1") < 0))
+                    // is it necessary here? surely a PID 1 is not subject to recycling, and it would just
+                    // lead to extra work for the child to handle it. plus i'm lazy :p
                         return log_oom();
         }
         if (asprintf(envp + n_env++, "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
