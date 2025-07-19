@@ -103,7 +103,7 @@ int manager_new(Manager **ret) {
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         r = sd_event_set_watchdog(m->event, true);
         if (r < 0)
@@ -198,7 +198,7 @@ static int start_one_worker(Manager *m) {
                 }
 
                 r = invoke_callout_binary(SYSTEMD_USERWORK_PATH, STRV_MAKE(SYSTEMD_USERWORK_PATH, "xxxxxxxxxxxxxxxx")); /* With some extra space rename_process() can make use of */
-                log_error_errno(r, "Failed start worker process: %m");
+                log_error_errno(r, "Failed to start worker process: %m");
                 _exit(EXIT_FAILURE);
         }
 

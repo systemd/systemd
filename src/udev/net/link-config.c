@@ -661,7 +661,7 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
                 memcpy(p, &result, len);
                 if (!hw_addr_is_valid(link, &hw_addr))
                         return log_link_warning_errno(link, SYNTHETIC_ERRNO(EINVAL),
-                                                      "Could not generate valid persistent MAC address: %m");
+                                                      "Could not generate valid persistent MAC address.");
         }
 
 finalize:

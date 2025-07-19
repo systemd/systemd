@@ -249,7 +249,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                          (arg_read_only ? INSTALL_READ_ONLY : 0) |
                          (arg_sync ? INSTALL_SYNCFS : 0));
         if (r < 0)
-                return log_error_errno(r, "Failed install directory as '%s': %m", final_path);
+                return log_error_errno(r, "Failed to install directory as '%s': %m", final_path);
 
         temp_path = mfree(temp_path);
 

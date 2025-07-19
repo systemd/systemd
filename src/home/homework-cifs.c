@@ -49,7 +49,7 @@ int home_setup_cifs(
 
         r = parse_cifs_service(h->cifs_service, &chost, &cservice, &cdir);
         if (r < 0)
-                return log_error_errno(r, "Failed parse CIFS service specification: %m");
+                return log_error_errno(r, "Failed to parse CIFS service specification: %m");
 
         /* Just the host and service part, without the directory */
         chost_and_service = strjoin("//", chost, "/", cservice);

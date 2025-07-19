@@ -527,13 +527,13 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
 
         if (mem_available > ctx.mem_total)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "MemAvailable (%" PRIu64 ") cannot be greater than MemTotal (%" PRIu64 ") %m",
+                                       "MemAvailable (%" PRIu64 ") cannot be greater than MemTotal (%" PRIu64 ")",
                                        mem_available,
                                        ctx.mem_total);
 
         if (swap_free > ctx.swap_total)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "SwapFree (%" PRIu64 ") cannot be greater than SwapTotal (%" PRIu64 ") %m",
+                                       "SwapFree (%" PRIu64 ") cannot be greater than SwapTotal (%" PRIu64 ")",
                                        swap_free,
                                        ctx.swap_total);
 

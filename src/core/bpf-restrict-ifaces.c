@@ -211,7 +211,7 @@ int bpf_restrict_ifaces_supported(void) {
 
 int bpf_restrict_ifaces_install(Unit *u) {
         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                        "restrict-interfaces: Failed to install; BPF programs built from source code are not supported: %m");
+                        "restrict-interfaces: Failed to install; BPF programs built from source code are not supported.");
 }
 
 int bpf_restrict_ifaces_serialize(Unit *u, FILE *f, FDSet *fds) {

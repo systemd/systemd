@@ -31,7 +31,7 @@ static int add_privileged(sd_json_variant **v, const char *hashed) {
 
         r = sd_json_variant_append_array(&l, e);
         if (r < 0)
-                return log_error_errno(r, "Failed append recovery key: %m");
+                return log_error_errno(r, "Failed to append recovery key: %m");
 
         r = sd_json_variant_set_field(&w, "recoveryKey", l);
         if (r < 0)
