@@ -19,6 +19,7 @@
 #include "log.h"
 #include "mkdir-label.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ratelimit.h"
@@ -57,7 +58,7 @@ typedef struct TarImport {
 
         struct stat input_stat;
 
-        pid_t tar_pid;
+        PidRef tar_pid;
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
@@ -69,8 +70,7 @@ TarImport* tar_import_unref(TarImport *i) {
 
         sd_event_source_unref(i->input_event_source);
 
-        if (i->tar_pid > 1)
-                sigkill_wait(i->tar_pid);
+        pidref_done_sigkill_wait(&i->tar_pid);
 
         rm_rf_subvolume_and_free(i->temp_path);
 
@@ -116,6 +116,7 @@ int tar_import_new(
                 .last_percent = UINT_MAX,
                 .image_root = TAKE_PTR(root),
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
+                .tar_pid = PIDREF_NULL,
         };
 
         if (event)
@@ -174,10 +175,13 @@ static int tar_import_finish(TarImport *i) {
 
         i->tar_fd = safe_close(i->tar_fd);
 
-        if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", TAKE_PID(i->tar_pid), WAIT_LOG);
+        if (pidref_is_set(&i->tar_pid)) {
+                r = pidref_wait_for_terminate_and_check("tar", &i->tar_pid, WAIT_LOG);
                 if (r < 0)
                         return r;
+
+                pidref_done(&i->tar_pid);
+
                 if (r != EXIT_SUCCESS)
                         return -EPROTO;
         }
