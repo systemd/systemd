@@ -181,6 +181,7 @@ typedef struct Network {
         int dhcp6_use_dnr;
         bool dhcp6_use_hostname;
         int dhcp6_use_ntp;
+        bool dhcp6_use_sip;
         bool dhcp6_use_captive_portal;
         bool dhcp6_use_rapid_commit;
         UseDomains dhcp6_use_domains;
