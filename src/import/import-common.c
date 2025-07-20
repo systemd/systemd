@@ -15,15 +15,16 @@
 #include "import-common.h"
 #include "log.h"
 #include "os-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "stat-util.h"
 #include "tmpfile-util.h"
 
-int import_fork_tar_x(const char *path, pid_t *ret) {
+int import_fork_tar_x(const char *path, PidRef *ret) {
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         bool use_selinux;
-        pid_t pid;
         int r;
 
         assert(path);
@@ -34,10 +35,12 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 
         use_selinux = mac_selinux_use();
 
-        r = safe_fork_full("(tar)",
-                           (int[]) { pipefd[0], -EBADF, STDERR_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
+        r = pidref_safe_fork_full(
+                        "(tar)",
+                        (int[]) { pipefd[0], -EBADF, STDERR_FILENO },
+                        NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
+                        &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -84,15 +87,15 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
                 _exit(EXIT_FAILURE);
         }
 
-        *ret = pid;
+        *ret = TAKE_PIDREF(pid);
 
         return TAKE_FD(pipefd[1]);
 }
 
-int import_fork_tar_c(const char *path, pid_t *ret) {
+int import_fork_tar_c(const char *path, PidRef *ret) {
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         bool use_selinux;
-        pid_t pid;
         int r;
 
         assert(path);
@@ -103,10 +106,12 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
 
         use_selinux = mac_selinux_use();
 
-        r = safe_fork_full("(tar)",
-                           (int[]) { -EBADF, pipefd[1], STDERR_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
+        r = pidref_safe_fork_full(
+                        "(tar)",
+                        (int[]) { -EBADF, pipefd[1], STDERR_FILENO },
+                        NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
+                        &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -139,7 +144,7 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
                 _exit(EXIT_FAILURE);
         }
 
-        *ret = pid;
+        *ret = TAKE_PIDREF(pid);
 
         return TAKE_FD(pipefd[0]);
 }
