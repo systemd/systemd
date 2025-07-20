@@ -27,6 +27,7 @@ PACKAGES=(
     isc-dhcp-client
     itstool
     kbd
+    libarchive-dev
     libblkid-dev
     libbpf-dev
     libcap-dev
