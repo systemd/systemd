@@ -28,6 +28,8 @@ IgnoreOnIsolate=yes
 Conflicts=rescue.service
 Before=rescue.service
 
+Conflicts=serial-getty@%I.service
+
 # On systems without virtual consoles, don't start any getty. Note
 # that serial gettys are covered by serial-getty@.service, not this
 # unit.
