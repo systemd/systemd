@@ -269,8 +269,9 @@ $ ./mark-suite-dirty -A ppa:upstream-systemd-ci/ubuntu/systemd-ci -s noble
 
 will create an empty 'noble' repository that can be used for 'noble' CI jobs.
 
-For infrastructure help, reaching out to 'qa-help' via the #ubuntu-quality
-channel on libera.chat is an effective way to receive support in general.
+For infrastructure help (e.g.: Github token refresh) a bug can be filed at:
+https://launchpad.net/auto-package-testing or an email can be sent to the
+ubuntu-quality mailing list: https://lists.ubuntu.com/mailman/listinfo/ubuntu-quality
 
 Given access to the shared secret, tests can be re-run using the generic
 retry-github-test tool:
