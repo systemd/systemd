@@ -17,6 +17,7 @@
 #include "log.h"
 #include "mkdir-label.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
@@ -51,7 +52,7 @@ typedef struct TarPull {
 
         char *local;
 
-        pid_t tar_pid;
+        PidRef tar_pid;
 
         char *final_path;
         char *temp_path;
@@ -66,8 +67,7 @@ TarPull* tar_pull_unref(TarPull *i) {
         if (!i)
                 return NULL;
 
-        if (i->tar_pid > 1)
-                sigkill_wait(i->tar_pid);
+        pidref_done_sigkill_wait(&i->tar_pid);
 
         pull_job_unref(i->tar_job);
         pull_job_unref(i->checksum_job);
@@ -131,6 +131,7 @@ int tar_pull_new(
                 .image_root = TAKE_PTR(root),
                 .event = TAKE_PTR(e),
                 .glue = TAKE_PTR(g),
+                .tar_pid = PIDREF_NULL,
         };
 
         i->glue->on_finished = pull_job_curl_on_finished;
@@ -377,10 +378,11 @@ static void tar_pull_job_on_finished(PullJob *j) {
         pull_job_close_disk_fd(i->tar_job);
         pull_job_close_disk_fd(i->settings_job);
 
-        if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", TAKE_PID(i->tar_pid), WAIT_LOG);
+        if (pidref_is_set(&i->tar_pid)) {
+                r = pidref_wait_for_terminate_and_check("tar", &i->tar_pid, WAIT_LOG);
                 if (r < 0)
                         goto finish;
+                pidref_done(&i->tar_pid);
                 if (r != EXIT_SUCCESS) {
                         r = -EIO;
                         goto finish;
@@ -509,7 +511,7 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
 
         i = j->userdata;
         assert(i->tar_job == j);
-        assert(i->tar_pid <= 0);
+        assert(!pidref_is_set(&i->tar_pid));
 
         if (i->flags & IMPORT_DIRECT)
                 where = i->local;
