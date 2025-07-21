@@ -303,8 +303,12 @@ static void exclude_problematic_devices(sd_device_enumerator *e) {
          * disappear during running this test. Let's exclude them here for stability. */
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
         ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
-        /* On CentOS CI, systemd-networkd-tests.py may be running when this test is invoked. The networkd
-         * test creates and removes many network interfaces, and may interfere with this test. */
+        /* On some CI environments, it seems dm block devices sometimes disappear during running this test.
+         * Let's exclude them here for stability. */
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "dm-*"));
+        /* Several other unit tests create and remove virtual network interfaces, e.g. test-netlink and
+         * test-local-addresses. When one of these tests run in parallel with this unit test, the enumerated
+         * device may disappear. Let's exclude them here for stability. */
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
 }
 
