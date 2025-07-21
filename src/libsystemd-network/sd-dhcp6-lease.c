@@ -112,7 +112,7 @@ static void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease) {
         }
 
 DEFINE_GET_TIME_FUNCTIONS(t1, lifetime_t1);
-DEFINE_GET_TIME_FUNCTIONS(t2, lifetime_t1);
+DEFINE_GET_TIME_FUNCTIONS(t2, lifetime_t2);
 DEFINE_GET_TIME_FUNCTIONS(valid_lifetime, lifetime_valid);
 
 static void dhcp6_lease_set_server_address(sd_dhcp6_lease *lease, const struct in6_addr *server_address) {
