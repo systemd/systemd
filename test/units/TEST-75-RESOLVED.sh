@@ -16,7 +16,7 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-if ! command knotc >/dev/null; then
+if ! command -v knotc >/dev/null; then
     echo "command knotc not found, skipping..." | tee --append /skipped
     exit 77
 fi

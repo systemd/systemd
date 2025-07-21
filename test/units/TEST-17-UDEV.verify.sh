@@ -293,7 +293,7 @@ test_syntax_error 'OWNER!="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER+="0"' "OWNER key takes '=' or ':=' operator, assuming '='."
 # numeric system UID is valid even if it does not exist
 SYS_UID_MAX=999
-if command userdbctl >/dev/null; then
+if command -v userdbctl >/dev/null; then
     # For the case if non-default setting is used. E.g. OpenSUSE uses 499.
     SYS_UID_MAX="$(userdbctl user -S --no-legend --no-pager | grep 'end system' | awk '{print $8}')"
     echo "SYS_UID_MAX=$SYS_UID_MAX acquired from userdbctl"
@@ -325,7 +325,7 @@ test_syntax_error 'GROUP!="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP+="0"' "GROUP key takes '=' or ':=' operator, assuming '='."
 # numeric system GID is valid even if it does not exist
 SYS_GID_MAX=999
-if command userdbctl >/dev/null; then
+if command -v userdbctl >/dev/null; then
     # For the case if non-default setting is used. E.g. OpenSUSE uses 499.
     SYS_GID_MAX="$(userdbctl group -S --no-legend --no-pager | grep 'end system' | awk '{print $8}')"
     echo "SYS_GID_MAX=$SYS_GID_MAX acquired from userdbctl"
