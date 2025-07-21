@@ -54,6 +54,7 @@ static bool arg_chain = false;
 static uint64_t arg_disposition_mask = UINT64_MAX;
 static uid_t arg_uid_min = 0;
 static uid_t arg_uid_max = UID_INVALID-1;
+static sd_id128_t arg_uuid = SD_ID128_NULL;
 static bool arg_fuzzy = false;
 static bool arg_boundaries = true;
 static sd_json_variant *arg_from_file = NULL;
@@ -399,7 +400,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) || !sd_id128_is_null(arg_uuid) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "uid", "gid", "realname", "home", "shell", "order");
@@ -419,6 +420,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 .disposition_mask = arg_disposition_mask,
                 .uid_min = arg_uid_min,
                 .uid_max = arg_uid_max,
+                .uuid = arg_uuid,
         };
 
         if (arg_from_file) {
@@ -741,7 +743,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) || !sd_id128_is_null(arg_uuid) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "gid", "description", "order");
@@ -760,6 +762,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 .disposition_mask = arg_disposition_mask,
                 .gid_min = arg_uid_min,
                 .gid_max = arg_uid_max,
+                .uuid = arg_uuid,
         };
 
         if (arg_from_file) {
@@ -1580,6 +1583,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CHAIN,
                 ARG_UID_MIN,
                 ARG_UID_MAX,
+                ARG_UUID,
                 ARG_DISPOSITION,
                 ARG_BOUNDARIES,
         };
@@ -1600,6 +1604,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "chain",        no_argument,       NULL, ARG_CHAIN        },
                 { "uid-min",      required_argument, NULL, ARG_UID_MIN      },
                 { "uid-max",      required_argument, NULL, ARG_UID_MAX      },
+                { "uuid",         required_argument, NULL, ARG_UUID         },
                 { "fuzzy",        no_argument,       NULL, 'z'              },
                 { "disposition",  required_argument, NULL, ARG_DISPOSITION  },
                 { "boundaries",   required_argument, NULL, ARG_BOUNDARIES   },
@@ -1793,6 +1798,12 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_uid(optarg, &arg_uid_max);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --uid-max= value: %s", optarg);
+                        break;
+
+                case ARG_UUID:
+                        r = sd_id128_from_string(optarg, &arg_uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --uuid= value: %s", optarg);
                         break;
 
                 case 'z':
