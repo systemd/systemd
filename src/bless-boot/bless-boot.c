@@ -236,7 +236,7 @@ static int acquire_boot_count_path(
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from LoaderBootCountPath '%s': %m", path);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "LoaderBootCountPath '%s' refers to the root directory: %m", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "LoaderBootCountPath '%s' refers to the root directory.", path);
         if (strlen(last) > (size_t) r)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "LoaderBootCountPath '%s' refers to directory path, refusing.", path);
 

@@ -887,7 +887,7 @@ static int parse_cmdline_ip_interface(Context *context, const char *value) {
                 return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL), "Failed to parse interface name in ip=%s: %m", value);
 
         if (isempty(ifname))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing interface name in ip=%s: %m", value);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing interface name in ip=%s.", value);
 
         r = extract_first_word(&p, &dhcp_type, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r <= 0)

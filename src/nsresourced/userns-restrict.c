@@ -40,7 +40,7 @@ static int make_inner_hash_map(void) {
                         MOUNTS_MAX,
                         NULL);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed allocate inner BPF map: %m");
+                return log_debug_errno(errno, "Failed to allocate inner BPF map: %m");
 
         return fd;
 }

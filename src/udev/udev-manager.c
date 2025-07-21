@@ -861,7 +861,7 @@ static int event_enter_locked(Event *event, const char *whole_disk) {
         if (isempty(whole_disk))
                 return log_device_warning_errno(
                                 dev, SYNTHETIC_ERRNO(EBADMSG),
-                                "Unexpected notify message received, skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
+                                "Unexpected notify message received, skipping event (SEQNUM=%"PRIu64", ACTION=%s).",
                                 event->seqnum, strna(device_action_to_string(event->action)));
 
         _cleanup_free_ char *whole_disk_copy = strdup(whole_disk);

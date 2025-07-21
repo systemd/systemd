@@ -682,7 +682,7 @@ static int parse_config(void) {
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
                 { "Upload",  "Header",                 config_parse_header,         0,                        &arg_headers              },
-                { "Upload",  "Compression",            config_parse_compression,    /* with_level */ true,    &arg_compression          },
+                { "Upload",  "Compression",            config_parse_compression,    /* with_level = */ true,  &arg_compression          },
                 { "Upload",  "ForceCompression",       config_parse_bool,           0,                        &arg_force_compression    },
                 {}
         };

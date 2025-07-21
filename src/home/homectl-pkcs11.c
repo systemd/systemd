@@ -135,7 +135,7 @@ static int add_pkcs11_encrypted_key(
 
         r = sd_json_variant_append_array(&l, e);
         if (r < 0)
-                return log_error_errno(r, "Failed append PKCS#11 encrypted key: %m");
+                return log_error_errno(r, "Failed to append PKCS#11 encrypted key: %m");
 
         r = sd_json_variant_set_field(&w, "pkcs11EncryptedKey", l);
         if (r < 0)

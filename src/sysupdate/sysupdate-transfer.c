@@ -409,7 +409,7 @@ static int config_parse_resource_ptype(
         r = gpt_partition_type_from_string(rvalue, &rr->partition_type);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed parse partition type, ignoring: %s", rvalue);
+                           "Failed to parse partition type, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -437,7 +437,7 @@ static int config_parse_partition_uuid(
         r = sd_id128_from_string(rvalue, &t->partition_uuid);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed parse partition UUID, ignoring: %s", rvalue);
+                           "Failed to parse partition UUID, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -465,7 +465,7 @@ static int config_parse_partition_flags(
         r = safe_atou64(rvalue, &t->partition_flags);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed parse partition flags, ignoring: %s", rvalue);
+                           "Failed to parse partition flags, ignoring: %s", rvalue);
                 return 0;
         }
 

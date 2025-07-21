@@ -490,7 +490,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected user database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next user: %m");
+                                        return log_error_errno(r, "Failed to acquire next user: %m");
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -830,7 +830,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected group database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next group: %m");
+                                        return log_error_errno(r, "Failed to acquire next group: %m");
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -977,7 +977,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected membership database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next membership: %m");
+                                        return log_error_errno(r, "Failed to acquire next membership: %m");
 
                                 r = show_membership(user, group, table);
                                 if (r < 0)
@@ -1004,7 +1004,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected membership database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next membership: %m");
+                                        return log_error_errno(r, "Failed to acquire next membership: %m");
 
                                 r = show_membership(user, group, table);
                                 if (r < 0)

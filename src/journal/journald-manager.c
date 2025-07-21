@@ -1467,7 +1467,7 @@ int manager_relinquish_var(Manager *m) {
 
         log_debug("Relinquishing %s...", m->system_storage.path);
 
-        (void) manager_system_journal_open(m, /* flush_requested */ false, /* relinquish_requested=*/ true);
+        (void) manager_system_journal_open(m, /* flush_requested = */ false, /* relinquish_requested = */ true);
 
         m->system_journal = journal_file_offline_close(m->system_journal);
         ordered_hashmap_clear(m->user_journals);
@@ -2290,7 +2290,7 @@ void manager_reopen_journals(Manager *m, const JournalConfig *old) {
         (void) manager_system_journal_open(m, /* flush_requested = */ false, /* relinquish_requested = */ false);
 
         /* To make the storage related settings applied, vacuum the storage. */
-        manager_vacuum(m, /* verbose */ false);
+        manager_vacuum(m, /* verbose = */ false);
 }
 
 int manager_new(Manager **ret) {

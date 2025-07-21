@@ -79,7 +79,7 @@ int mac_selinux_setup(bool *loaded_policy) {
                 if (enforce > 0) {
                         if (!initialized)
                                 return log_struct_errno(LOG_EMERG, SYNTHETIC_ERRNO(EIO),
-                                                        LOG_MESSAGE("Failed to load SELinux policy :%m"),
+                                                        LOG_MESSAGE("Failed to load SELinux policy."),
                                                         LOG_MESSAGE_ID(SD_MESSAGE_SELINUX_FAILED_STR));
 
                         log_notice("Failed to load new SELinux policy. Continuing with old policy.");
