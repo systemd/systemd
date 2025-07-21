@@ -1764,22 +1764,24 @@ if conf.get('BPF_FRAMEWORK') == 1
 
         bpf_o_unstripped_cmd += ['-I.']
 
-        if cc.get_id() == 'gcc' or meson.is_cross_build()
-                if cc.get_id() != 'gcc'
-                        warning('Cross compiler is not gcc. Guessing the target triplet for bpf likely fails.')
+        if not meson.is_cross_build()
+                if cc.get_id() == 'gcc'
+                        if cc.get_id() != 'gcc'
+                                warning('Cross compiler is not gcc. Guessing the target triplet for bpf likely fails.')
+                        endif
+                        target_triplet_cmd = run_command(cc.cmd_array(), '-print-multiarch', check: false)
+                else
+                        # clang does not support -print-multiarch (D133170) and its -dump-machine
+                        # does not match multiarch. Query gcc instead.
+                        target_triplet_cmd = run_command('gcc', '-print-multiarch', check: false)
                 endif
-                target_triplet_cmd = run_command(cc.cmd_array(), '-print-multiarch', check: false)
-        else
-                # clang does not support -print-multiarch (D133170) and its -dump-machine
-                # does not match multiarch. Query gcc instead.
-                target_triplet_cmd = run_command('gcc', '-print-multiarch', check: false)
-        endif
-        if target_triplet_cmd.returncode() == 0
-                target_triplet = target_triplet_cmd.stdout().strip()
-                bpf_o_unstripped_cmd += [
-                        '-isystem',
-                        '/usr/include/@0@'.format(target_triplet)
-                ]
+                if target_triplet_cmd.returncode() == 0
+                        target_triplet = target_triplet_cmd.stdout().strip()
+                        bpf_o_unstripped_cmd += [
+                                '-isystem',
+                                '/usr/include/@0@'.format(target_triplet)
+                        ]
+                endif
         endif
 
         bpf_o_unstripped_cmd += [
