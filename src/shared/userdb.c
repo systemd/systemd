@@ -799,27 +799,29 @@ nomatch:
         return 0;
 }
 
-static int query_append_disposition_mask(sd_json_variant **query, uint64_t mask) {
+static int query_append_common(sd_json_variant **query, const UserDBMatch *match) {
         int r;
+        _cleanup_strv_free_ char **dispositions = NULL;
 
         assert(query);
 
-        if (FLAGS_SET(mask, USER_DISPOSITION_MASK_ALL))
-                return 0;
+        uint64_t mask = match->disposition_mask;
+        if (FLAGS_SET(mask, USER_DISPOSITION_MASK_ALL)) {
+                for (UserDisposition d = 0; d < _USER_DISPOSITION_MAX; d++) {
+                        if (!BIT_SET(mask, d))
+                                continue;
 
-        _cleanup_strv_free_ char **dispositions = NULL;
-        for (UserDisposition d = 0; d < _USER_DISPOSITION_MAX; d++) {
-                if (!BITS_SET(mask, d))
-                        continue;
-
-                r = strv_extend(&dispositions, user_disposition_to_string(d));
-                if (r < 0)
-                        return r;
+                        r = strv_extend(&dispositions, user_disposition_to_string(d));
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return sd_json_variant_merge_objectbo(
                         query,
-                        SD_JSON_BUILD_PAIR_STRV("dispositionMask", dispositions));
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(match->fuzzy_names), "fuzzyNames", SD_JSON_BUILD_STRV(match->fuzzy_names)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(match->uuid), "uuid", SD_JSON_BUILD_UUID(match->uuid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(dispositions), "dispositionMask", SD_JSON_BUILD_STRV(dispositions)));
 }
 
 static int query_append_uid_match(sd_json_variant **query, const UserDBMatch *match) {
@@ -832,13 +834,12 @@ static int query_append_uid_match(sd_json_variant **query, const UserDBMatch *ma
 
         r = sd_json_variant_merge_objectbo(
                         query,
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(match->fuzzy_names), "fuzzyNames", SD_JSON_BUILD_STRV(match->fuzzy_names)),
                         SD_JSON_BUILD_PAIR_CONDITION(match->uid_min > 0, "uidMin", SD_JSON_BUILD_UNSIGNED(match->uid_min)),
                         SD_JSON_BUILD_PAIR_CONDITION(match->uid_max < UID_INVALID-1, "uidMax", SD_JSON_BUILD_UNSIGNED(match->uid_max)));
         if (r < 0)
                 return r;
 
-        return query_append_disposition_mask(query, match->disposition_mask);
+        return query_append_common(query, match);
 }
 
 static int userdb_by_name_fallbacks(
@@ -1298,13 +1299,13 @@ static int query_append_gid_match(sd_json_variant **query, const UserDBMatch *ma
 
         r = sd_json_variant_merge_objectbo(
                         query,
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(match->fuzzy_names), "fuzzyNames", SD_JSON_BUILD_STRV(match->fuzzy_names)),
                         SD_JSON_BUILD_PAIR_CONDITION(match->gid_min > 0, "gidMin", SD_JSON_BUILD_UNSIGNED(match->gid_min)),
                         SD_JSON_BUILD_PAIR_CONDITION(match->gid_max < GID_INVALID-1, "gidMax", SD_JSON_BUILD_UNSIGNED(match->gid_max)));
+
         if (r < 0)
                 return r;
 
-        return query_append_disposition_mask(query, match->disposition_mask);
+        return query_append_common(query, match);
 }
 
 static int groupdb_by_name_fallbacks(
