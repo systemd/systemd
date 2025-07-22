@@ -47,6 +47,10 @@
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05
 #define NTP2_BYTES                                                      \
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06
+#define SIP1_BYTES                                                      \
+        0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07
+#define SIP2_BYTES                                                      \
+        0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08
 #define CLIENT_ID_BYTES                                                 \
         0x00, 0x02, 0x00, 0x00, 0xab, 0x11, 0x61, 0x77, 0x40, 0xde, 0x13, 0x42, 0xc3, 0xa2
 #define SERVER_ID_BYTES                                                 \
@@ -67,6 +71,8 @@ static const struct in6_addr sntp1 = { { { SNTP1_BYTES } } };
 static const struct in6_addr sntp2 = { { { SNTP2_BYTES } } };
 static const struct in6_addr ntp1 = { { { NTP1_BYTES } } };
 static const struct in6_addr ntp2 = { { { NTP2_BYTES } } };
+static const struct in6_addr sip1 = { { { SIP1_BYTES } } };
+static const struct in6_addr sip2 = { { { SIP2_BYTES } } };
 static const uint8_t client_id[] = { CLIENT_ID_BYTES };
 static const uint8_t server_id[] = { SERVER_ID_BYTES };
 static uint8_t vendor_suboption_data[] = { VENDOR_SUBOPTION_BYTES };
@@ -107,6 +113,7 @@ TEST(client_basic) {
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVER) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_NTP_SERVER) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_SNTP_SERVER) >= 0);
+        assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_SIP_SERVER_ADDRESS) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_VENDOR_OPTS) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DOMAIN) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, 10) == -EINVAL);
@@ -737,6 +744,10 @@ static const uint8_t msg_reply[] = {
         /* NTP server (fqdn suboption) */
         0x00, DHCP6_NTP_SUBOPTION_SRV_FQDN, 0x00, 0x0b,
         0x03, 'n', 't', 'p', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        /* SIP server addresses */
+        0x00, SD_DHCP6_OPTION_SIP_SERVER_ADDRESS, 0x00, 0x20,
+        SIP1_BYTES,
+        SIP2_BYTES,
         /* Domain list */
         0x00, SD_DHCP6_OPTION_DOMAIN, 0x00, 0x0b,
         0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
@@ -819,6 +830,10 @@ static const uint8_t msg_advertise[] = {
         /* NTP server (fqdn suboption) */
         0x00, DHCP6_NTP_SUBOPTION_SRV_FQDN, 0x00, 0x0b,
         0x03, 'n', 't', 'p', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        /* SIP server addresses */
+        0x00, SD_DHCP6_OPTION_SIP_SERVER_ADDRESS, 0x00, 0x20,
+        SIP1_BYTES,
+        SIP2_BYTES,
         /* Domain list */
         0x00, SD_DHCP6_OPTION_DOMAIN, 0x00, 0x0b,
         0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
@@ -898,6 +913,10 @@ static void test_lease_common(sd_dhcp6_client *client) {
         assert_se(sd_dhcp6_lease_get_ntp_fqdn(lease, &strv) == 1);
         assert_se(streq(strv[0], "ntp.intra"));
         assert_se(!strv[1]);
+
+        assert_se(sd_dhcp6_lease_get_sip_addrs(lease, &addrs) == 2);
+        assert_se(in6_addr_equal(&addrs[0], &sip1));
+        assert_se(in6_addr_equal(&addrs[1], &sip2));
 
         assert_se(lease->sntp_count == 2);
         assert_se(in6_addr_equal(&lease->sntp[0], &sntp1));
