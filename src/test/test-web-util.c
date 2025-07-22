@@ -12,9 +12,9 @@ TEST(is_valid_documentation_url) {
         ASSERT_TRUE(documentation_url_is_valid("man:systemd.special(7)"));
         ASSERT_TRUE(documentation_url_is_valid("info:bar"));
 
-        ASSERT_TRUE(!documentation_url_is_valid("foo:"));
-        ASSERT_TRUE(!documentation_url_is_valid("info:"));
-        ASSERT_TRUE(!documentation_url_is_valid(""));
+        ASSERT_FALSE(documentation_url_is_valid("foo:"));
+        ASSERT_FALSE(documentation_url_is_valid("info:"));
+        ASSERT_FALSE(documentation_url_is_valid(""));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
