@@ -1218,6 +1218,6 @@ systems. It would hence look like this:
                         "key" : "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA/QT6kQWOAMhDJf56jBmszEQQpJHqDsGDMZOdiptBgRk=\n-----END PUBLIC KEY-----\n"
                 }
         ],
-        "userName" : "grobie",
+        "userName" : "grobie"
 }
 ```
