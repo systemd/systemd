@@ -3233,6 +3233,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>UseDNS=</varname></term>
         <term><varname>UseDNR=</varname></term>
         <term><varname>UseNTP=</varname></term>
+        <term><varname>UseSIP=</varname></term>
         <term><varname>UseHostname=</varname></term>
         <term><varname>UseDomains=</varname></term>
         <term><varname>NetLabel=</varname></term>

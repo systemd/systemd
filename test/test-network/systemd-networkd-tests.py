@@ -8433,6 +8433,52 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         check(self, False, True, needs_reconfigure=True)
         check(self, False, False)
 
+    def test_dhcp_client_use_sip(self):
+        def check(self, ipv4, ipv6, needs_reconfigure=False):
+            os.makedirs(os.path.join(network_unit_dir, '25-dhcp-client.network.d'), exist_ok=True)
+            with open(os.path.join(network_unit_dir, '25-dhcp-client.network.d/override.conf'), mode='w', encoding='utf-8') as f:
+                f.write('[DHCPv4]\nUseSIP=')
+                f.write('yes' if ipv4 else 'no')
+                f.write('\n[DHCPv6]\nUseSIP=')
+                f.write('yes' if ipv6 else 'no')
+
+            networkctl_reload()
+            if needs_reconfigure:
+                networkctl_reconfigure('veth99')
+            self.wait_online('veth99:routable')
+
+            # link becomes 'routable' when at least one protocol provide an valid address. Hence, we need to explicitly wait for both addresses.
+            self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
+            self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+            output = networkctl_status('veth99')
+            print(output)
+            if ipv4 and ipv6:
+                self.assertRegex(output, 'SIP: 192.168.5.1\n *2600::1\n *foo.example.com')
+            elif ipv4:
+                self.assertIn('SIP: 192.168.5.1', output)
+            elif ipv6:
+                self.assertRegex(output, 'SIP: 2600::1\n *foo.example.com')
+            else:
+                self.assertNotIn('SIP: 192.168.5.1', output)
+                self.assertNotIn('SIP: 2600::1', output)
+                self.assertNotIn('SIP: foo.example.com', output)
+
+            check_json(networkctl_json())
+
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
+
+        start_networkd()
+        self.wait_online('veth-peer:carrier')
+        start_dnsmasq('--dhcp-option=option:sip-server,192.168.5.1',
+                      '--dhcp-option=option6:sip-server,[2600::1]',
+                      '--dhcp-option=option6:sip-server-domain,foo.example.com')
+
+        check(self, True, True)
+        check(self, True, False)
+        check(self, False, True, needs_reconfigure=True)
+        check(self, False, False)
+
     def test_dhcp_client_use_captive_portal(self):
         def check(self, ipv4, ipv6, needs_reconfigure=False):
             os.makedirs(os.path.join(network_unit_dir, '25-dhcp-client.network.d'), exist_ok=True)
