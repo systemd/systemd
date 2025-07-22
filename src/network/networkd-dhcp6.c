@@ -687,6 +687,16 @@ static int dhcp6_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request SNTP servers: %m");
         }
 
+        if (link->network->dhcp6_use_sip > 0) {
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_SIP_SERVER_ADDRESS);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request SIP servers: %m");
+
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_SIP_SERVER_DOMAIN_NAME);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request SIP server domain names: %m");
+        }
+
         SET_FOREACH(request_options, link->network->dhcp6_request_options) {
                 uint32_t option = PTR_TO_UINT32(request_options);
 
