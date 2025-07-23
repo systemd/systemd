@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-23 15:38+0100\n"
+"POT-Creation-Date: 2025-07-24 02:24+0900\n"
 "PO-Revision-Date: 2025-03-17 03:11+0000\n"
 "Last-Translator: Y T <yi818670@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
@@ -828,45 +828,40 @@ msgstr "ローカルホストの仮想TTYを取得するには認証が必要で
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
-msgstr "ローカルな仮想マシンやコンテナの管理"
+msgstr "ローカルに存在する仮想マシンやコンテナの管理"
 
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
-msgstr "ローカルな仮想マシンやコンテナを管理するには認証が必要です。"
+msgstr "ローカルに存在する仮想マシンやコンテナを管理するには認証が必要です。"
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Create a local virtual machine or container"
-msgstr "ローカルな仮想マシンやコンテナの作成"
+msgstr "ローカルに存在する仮想マシンやコンテナの作成"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to create a local virtual machine or container."
-msgstr "ローカルな仮想マシンやコンテナを作成するには認証が必要です。"
+msgstr "ローカルに存在する仮想マシンやコンテナを作成するには認証が必要です。"
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "ローカルな仮想マシンやコンテナの作成"
+msgstr "ローカルに存在する仮想マシンやコンテナの登録"
 
-#: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to register a local virtual machine or container."
-msgstr "ローカルな仮想マシンやコンテナを作成するには認証が必要です。"
+msgstr "ローカルに存在する仮想マシンやコンテナを登録するには認証が必要です。"
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
-msgstr "ローカルな仮想マシンやコンテナのイメージ管理"
+msgstr "ローカルに存在する仮想マシンやコンテナのイメージ管理"
 
 #: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
-msgstr "ローカルな仮想マシンやコンテナのイメージを管理するには認証が必要です。"
+msgstr "ローカルに存在する仮想マシンやコンテナのイメージを管理するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1216,14 +1211,10 @@ msgid ""
 msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
+msgstr "'$(unit)'のサブグループ内のプロセスにUNIXシグナルを送るには認証が必要です。"
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
