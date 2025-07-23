@@ -34,9 +34,9 @@ typedef enum UnitFileFlags {
         UNIT_FILE_RUNTIME                  = 1 << 0, /* Public API via DBUS, do not change */
         UNIT_FILE_FORCE                    = 1 << 1, /* Public API via DBUS, do not change */
         UNIT_FILE_PORTABLE                 = 1 << 2, /* Public API via DBUS, do not change */
-        UNIT_FILE_DRY_RUN                  = 1 << 3,
+        UNIT_FILE_DRY_RUN                  = 1 << 3, /* Public API via DBUS, do not change */
         UNIT_FILE_IGNORE_AUXILIARY_FAILURE = 1 << 4,
-        _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
+        _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE|UNIT_FILE_DRY_RUN
 } UnitFileFlags;
 
 /* type can be either one of the INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK, … listed above, or a negative
@@ -116,6 +116,7 @@ int unit_file_preset(
                 const char *root_dir,
                 char * const *names,
                 UnitFilePresetMode mode,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_preset_all(
@@ -123,6 +124,7 @@ int unit_file_preset_all(
                 UnitFileFlags file_flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
+                bool dry_run,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_mask(
