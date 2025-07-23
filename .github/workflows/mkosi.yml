@@ -216,6 +216,9 @@ jobs:
       - name: Build tools tree
         run: sudo mkosi -f box -- true
 
+      - name: Build with musl
+        run: mkosi box -- .github/workflows/build-with-musl.sh
+
       - name: Configure meson
         run: |
           # /usr/sbin/bpftool is completely broken inside containers on Ubuntu which makes meson blow up so
