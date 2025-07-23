@@ -262,6 +262,7 @@ static EFIAPI EFI_STATUS security2_hook(
  * of their spec. But there is little else we can do to circumvent secure boot short of implementing our own
  * PE loader. We could replace the firmware instances with our own instance using
  * ReinstallProtocolInterface(), but some firmware will still use the old ones. */
+// TODO: now that there is a custom PE loader, this can be dropped once shim < v16 is no longer supported.
 void install_security_override(security_validator_t validator, const void *validator_ctx) {
         EFI_STATUS err;
 
@@ -290,6 +291,14 @@ void install_security_override(security_validator_t validator, const void *valid
                 security_override.original_hook2 = security2->FileAuthentication;
                 security2->FileAuthentication = security2_hook;
         }
+}
+
+bool security_override_available(void) {
+        EFI_SECURITY_ARCH_PROTOCOL *security;
+        EFI_SECURITY2_ARCH_PROTOCOL *security2;
+
+        return BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY_ARCH_PROTOCOL), NULL, (void **) &security) == EFI_SUCCESS &&
+               BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY2_ARCH_PROTOCOL), NULL, (void **) &security2) == EFI_SUCCESS;
 }
 
 void uninstall_security_override(void) {
