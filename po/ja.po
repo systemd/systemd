@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-24 02:24+0900\n"
+"POT-Creation-Date: 2025-03-10 03:26+0900\n"
 "PO-Revision-Date: 2025-03-17 03:11+0000\n"
 "Last-Translator: Y T <yi818670@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
@@ -147,7 +147,7 @@ msgstr "ホームディレクトリの署名キーの管理"
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "ホームディレクトリの署名キーを管理するには認証が必要です。"
 
-#: src/home/pam_systemd_home.c:336
+#: src/home/pam_systemd_home.c:334
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -156,49 +156,49 @@ msgstr ""
 "ユーザ%sのホーム領域が存在しません。必要なストレージデバイスもしくは基盤ファ"
 "イルシステムを接続して下さい。"
 
-#: src/home/pam_systemd_home.c:341
+#: src/home/pam_systemd_home.c:339
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "ユーザ%sのログイン試行が頻繁すぎます。後ほどやり直して下さい。"
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:351
 msgid "Password: "
 msgstr "パスワード: "
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:353
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "ユーザ%sの認証のためのパスワードが無効です。"
 
-#: src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:354
 msgid "Sorry, try again: "
 msgstr "すみません、パスワードを再入力して下さい: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:376
 msgid "Recovery key: "
 msgstr "復旧キー: "
 
-#: src/home/pam_systemd_home.c:380
+#: src/home/pam_systemd_home.c:378
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr "ユーザ%sの認証のためのパスワードもしくは復旧キーが無効です。"
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:379
 msgid "Sorry, reenter recovery key: "
 msgstr "すみません、復旧キーを再入力して下さい: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:399
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "ユーザ%sのセキュリティトークンが挿入されていません。"
 
-#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
+#: src/home/pam_systemd_home.c:400 src/home/pam_systemd_home.c:403
 msgid "Try again with password: "
 msgstr "パスワードを入力して再試行して下さい: "
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:402
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -207,26 +207,26 @@ msgstr ""
 "ユーザ%sのパスワードが無効、もしくはセキュリティトークンが挿入されていませ"
 "ん。"
 
-#: src/home/pam_systemd_home.c:424
+#: src/home/pam_systemd_home.c:422
 msgid "Security token PIN: "
 msgstr "セキュリティトークンPIN: "
 
-#: src/home/pam_systemd_home.c:441
+#: src/home/pam_systemd_home.c:439
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "ユーザ%sのセキュリティトークン上で物理的な認証を行って下さい。"
 
-#: src/home/pam_systemd_home.c:452
+#: src/home/pam_systemd_home.c:450
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "ユーザ%sのセキュリティトークンが存在していることを確認して下さい。"
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:461
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "ユーザ%sのセキュリティトークン上のユーザを確認して下さい。"
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:470
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -234,85 +234,85 @@ msgstr ""
 "セキュリティトークンPINがロックされています。アンロックして下さい。(ヒント: "
 "一旦トークンを外して再挿入してみて下さい。)"
 
-#: src/home/pam_systemd_home.c:480
+#: src/home/pam_systemd_home.c:478
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "ユーザ%sのセキュリティトークンPINが正しくありません。"
 
-#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
-#: src/home/pam_systemd_home.c:519
+#: src/home/pam_systemd_home.c:479 src/home/pam_systemd_home.c:498
+#: src/home/pam_systemd_home.c:517
 msgid "Sorry, retry security token PIN: "
 msgstr "すみません、セキュリティトークンPINを再入力して下さい: "
 
-#: src/home/pam_systemd_home.c:499
+#: src/home/pam_systemd_home.c:497
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "ユーザ%sのセキュリティトークンPINが正しくありません (残り試行可能回数が少なく"
 "なっています!)"
 
-#: src/home/pam_systemd_home.c:518
+#: src/home/pam_systemd_home.c:516
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "ユーザ%sのセキュリティトークンPINが正しくありません (残り試行可能回数が1回で"
 "す!)"
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:683
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "ユーザ%sのホーム領域がアクティブでありません。ローカル環境にログインして下さ"
 "い。"
 
-#: src/home/pam_systemd_home.c:687
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "ユーザ%sのホーム領域がロックされています。ローカル環境にてアンロックして下さ"
 "い。"
 
-#: src/home/pam_systemd_home.c:719
+#: src/home/pam_systemd_home.c:717
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "ユーザ%sのログイン試行の失敗回数が多すぎたため、拒否されました。"
 
-#: src/home/pam_systemd_home.c:1005
+#: src/home/pam_systemd_home.c:1003
 msgid "User record is blocked, prohibiting access."
 msgstr "ユーザレコードがブロックされたため、アクセスが禁止されています。"
 
-#: src/home/pam_systemd_home.c:1009
+#: src/home/pam_systemd_home.c:1007
 msgid "User record is not valid yet, prohibiting access."
 msgstr "ユーザレコードがまだ有効でないため、アクセスが禁止されています。"
 
-#: src/home/pam_systemd_home.c:1013
+#: src/home/pam_systemd_home.c:1011
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "ユーザレコードがもはや有効でないため、アクセスが禁止されています。"
 
-#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
+#: src/home/pam_systemd_home.c:1016 src/home/pam_systemd_home.c:1065
 msgid "User record not valid, prohibiting access."
 msgstr "ユーザレコードが有効でないため、アクセスが禁止されています。"
 
-#: src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1026
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "ログイン回数が多すぎます。%s後に試して下さい。"
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1037
 msgid "Password change required."
 msgstr "パスワードの更新が必要です。"
 
-#: src/home/pam_systemd_home.c:1043
+#: src/home/pam_systemd_home.c:1041
 msgid "Password expired, change required."
 msgstr "パスワードの有効期限が切れたため、パスワードの更新が必要です。"
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1047
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "パスワードの有効期限が切れましたが、パスワードの更新できませんでした。ログイ"
 "ンを拒否します。"
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1051
 msgid "Password will expire soon, please change."
 msgstr "パスワードの有効期限がまもなく切れます。パスワードを更新して下さい。"
 
@@ -828,40 +828,31 @@ msgstr "ローカルホストの仮想TTYを取得するには認証が必要で
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
-msgstr "ローカルに存在する仮想マシンやコンテナの管理"
+msgstr "ローカルな仮想マシンやコンテナの管理"
 
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
-msgstr "ローカルに存在する仮想マシンやコンテナを管理するには認証が必要です。"
+msgstr "ローカルな仮想マシンやコンテナを管理するには認証が必要です。"
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Create a local virtual machine or container"
-msgstr "ローカルに存在する仮想マシンやコンテナの作成"
+msgstr "ローカルな仮想マシンやコンテナの作成"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to create a local virtual machine or container."
-msgstr "ローカルに存在する仮想マシンやコンテナを作成するには認証が必要です。"
+msgstr "ローカルな仮想マシンやコンテナを作成するには認証が必要です。"
 
 #: src/machine/org.freedesktop.machine1.policy:106
-msgid "Register a local virtual machine or container"
-msgstr "ローカルに存在する仮想マシンやコンテナの登録"
+msgid "Manage local virtual machine and container images"
+msgstr "ローカルな仮想マシンやコンテナのイメージ管理"
 
 #: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
-"Authentication is required to register a local virtual machine or container."
-msgstr "ローカルに存在する仮想マシンやコンテナを登録するには認証が必要です。"
-
-#: src/machine/org.freedesktop.machine1.policy:116
-msgid "Manage local virtual machine and container images"
-msgstr "ローカルに存在する仮想マシンやコンテナのイメージ管理"
-
-#: src/machine/org.freedesktop.machine1.policy:117
-msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
-msgstr "ローカルに存在する仮想マシンやコンテナのイメージを管理するには認証が必要です。"
+msgstr "ローカルな仮想マシンやコンテナのイメージを管理するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1188,50 +1179,44 @@ msgid ""
 "shall be enabled."
 msgstr "ネットワーク経由の時刻同期を有効もしくは無効にするには認証が必要です。"
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:367
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)'を開始するには認証が必要です。"
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:368
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)'を停止するには認証が必要です。"
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:369
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)'を再読み込みするには認証が必要です。"
 
-#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
+#: src/core/dbus-unit.c:370 src/core/dbus-unit.c:371
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)'を再起動するには認証が必要です。"
 
-#: src/core/dbus-unit.c:567
+#: src/core/dbus-unit.c:563
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
 
-#: src/core/dbus-unit.c:620
-msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"subgroup of '$(unit)'."
-msgstr "'$(unit)'のサブグループ内のプロセスにUNIXシグナルを送るには認証が必要です。"
-
-#: src/core/dbus-unit.c:648
+#: src/core/dbus-unit.c:591
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)'の「失敗」状態をリセットするには認証が必要です。"
 
-#: src/core/dbus-unit.c:678
+#: src/core/dbus-unit.c:621
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)'のプロパティを設定するには認証が必要です。"
 
-#: src/core/dbus-unit.c:775
+#: src/core/dbus-unit.c:718
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 "'$(unit)'に関連付けられたファイルやディレクトリの削除には認証が必要です。"
 
-#: src/core/dbus-unit.c:812
+#: src/core/dbus-unit.c:755
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'のプロセスを凍結もしくは凍結解除するには認証が必要です。"
