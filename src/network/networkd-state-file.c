@@ -153,7 +153,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 sd_dns_resolver *resolvers;
 
                 r = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &resolvers);
-                if (r >= 0 ) {
+                if (r >= 0) {
                         struct in_addr_full **dot_servers;
                         size_t n = 0;
                         CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
@@ -643,10 +643,7 @@ static void serialize_resolvers(
                 int r;
 
                 r = sd_dhcp6_lease_get_dnr(lease6, &resolvers);
-                if (r < 0 && r != -ENODATA)
-                        log_warning_errno(r, "Failed to get DNR from DHCPv6 lease, ignoring: %m");
-
-                if (r > 0) {
+                if (r >= 0) {
                         r = dns_resolvers_to_dot_strv(resolvers, r, &names);
                         if (r < 0)
                                 return (void) log_warning_errno(r, "Failed to get DoT servers from DHCPv6 DNR, ignoring: %m");
