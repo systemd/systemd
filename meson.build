@@ -1726,9 +1726,21 @@ if conf.get('BPF_FRAMEWORK') == 1
         #
         # C.f. https://mesonbuild.com/Reference-tables.html#cpu-families
         # and src/basic/missing_syscall_def.h.
+
+        # Start with older ABI. When define is missing, we're likely targeting that.
+        ppc64_elf_version = '1'
+
+        if host_machine.cpu_family() == 'ppc64'
+                # cc doesn't have to be bpf_compiler, but they should be targeting the same ABI
+                call_elf_value = cc.get_define('_CALL_ELF')
+                if call_elf_value != ''
+                        ppc64_elf_version = call_elf_value
+                endif
+        endif
+
         cpu_arch_defines = {
                 'ppc'         : ['-D__powerpc__', '-D__TARGET_ARCH_powerpc'],
-                'ppc64'       : ['-D__powerpc64__', '-D__TARGET_ARCH_powerpc', '-D_CALL_ELF=2'],
+                'ppc64'       : ['-D__powerpc64__', '-D__TARGET_ARCH_powerpc', '-D_CALL_ELF=' + ppc64_elf_version],
                 'riscv32'     : ['-D__riscv', '-D__riscv_xlen=32', '-D__TARGET_ARCH_riscv'],
                 'riscv64'     : ['-D__riscv', '-D__riscv_xlen=64', '-D__TARGET_ARCH_riscv'],
                 'x86'         : ['-D__i386__', '-D__TARGET_ARCH_x86'],
