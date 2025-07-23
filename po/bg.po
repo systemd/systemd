@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd main\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-03 13:41+0100\n"
+"POT-Creation-Date: 2025-07-23 14:29+0100\n"
 "PO-Revision-Date: 2025-02-11 01:17+0000\n"
 "Last-Translator: Alexander Shopov <ash@kambanaria.org>\n"
 "Language-Team: Bulgarian <https://translate.fedoraproject.org/projects/"
@@ -89,7 +89,8 @@ msgstr "Създаване на домашно място за потребит�
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr "За създаване на домашно място за потребител е необходима идентификация."
+msgstr ""
+"За създаване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
@@ -97,7 +98,8 @@ msgstr "Изтриване на домашно място за потребит�
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr "За изтриване на домашно място за потребител е необходима идентификация."
+msgstr ""
+"За изтриване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
@@ -106,7 +108,9 @@ msgstr "Проверка на идентификация на домашно м�
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "За проверка на идентификация на домашно място за потребител е необходима идентификация."
+msgstr ""
+"За проверка на идентификация на домашно място за потребител е необходима "
+"идентификация."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -122,7 +126,8 @@ msgstr "Обновяване на домашно място за потреби�
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr "За обновяване на домашно място за потребител е необходима идентификация."
+msgstr ""
+"За обновяване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -130,7 +135,8 @@ msgstr "Преоразмеряване на място за потребител
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
-msgstr "За преоразмеряване на домашно място за потребител е необходима идентификация."
+msgstr ""
+"За преоразмеряване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
@@ -139,7 +145,9 @@ msgstr "Промяна на парола на домашно място за п�
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "За промяна на парола на домашно място за потребител е необходима идентификация."
+msgstr ""
+"За промяна на парола на домашно място за потребител е необходима "
+"идентификация."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
@@ -147,160 +155,192 @@ msgstr "Създаване на домашно място за потребит�
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr "За създаване на домашно място за потребител е необходима идентификация."
+msgstr ""
+"За създаване на домашно място за потребител е необходима идентификация."
 
-#: src/home/pam_systemd_home.c:310
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:94
+#, fuzzy
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr ""
+"За управление на услугите или другите модули е необходима идентификация."
+
+#: src/home/pam_systemd_home.c:336
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
-msgstr "Домашното място на потребителя „%s“ в момента липсва, включете необходимото устройство за съхранение на данни и/или монтирайте съответната файлова система."
+msgstr ""
+"Домашното място на потребителя „%s“ в момента липсва, включете необходимото "
+"устройство за съхранение на данни и/или монтирайте съответната файлова "
+"система."
 
-#: src/home/pam_systemd_home.c:315
+#: src/home/pam_systemd_home.c:341
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr "Прекалено много опити за вписване за потребителя „%s“, пробвайте по-късно."
+msgstr ""
+"Прекалено много опити за вписване за потребителя „%s“, пробвайте по-късно."
 
-#: src/home/pam_systemd_home.c:327
+#: src/home/pam_systemd_home.c:353
 msgid "Password: "
 msgstr "Парола: "
 
-#: src/home/pam_systemd_home.c:329
+#: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr "Паролата е неправилна или недостатъчна за идентификация на потребител „%s“."
+msgstr ""
+"Паролата е неправилна или недостатъчна за идентификация на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:330
+#: src/home/pam_systemd_home.c:356
 msgid "Sorry, try again: "
 msgstr "Пробвайте отново: "
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:378
 msgid "Recovery key: "
 msgstr "Ключ за възстановяване: "
 
-#: src/home/pam_systemd_home.c:354
+#: src/home/pam_systemd_home.c:380
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr "Паролата/Ключът за възстановяване са неправилни или недостатъчни за идентификация на потребител „%s“."
+msgstr ""
+"Паролата/Ключът за възстановяване са неправилни или недостатъчни за "
+"идентификация на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:381
 msgid "Sorry, reenter recovery key: "
 msgstr "Въведето отново ключа за възстановяване: "
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:401
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Жетонът за сигурност на потребител „%s“ не е поставен."
 
-#: src/home/pam_systemd_home.c:376 src/home/pam_systemd_home.c:379
+#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
 msgid "Try again with password: "
 msgstr "Пробвайте отново с парола: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:404
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
-msgstr "Паролата е неправилна или недостатъчна, а настроеният жетон за сигурност на потребител „%s“ не е поставен."
+msgstr ""
+"Паролата е неправилна или недостатъчна, а настроеният жетон за сигурност на "
+"потребител „%s“ не е поставен."
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:424
 msgid "Security token PIN: "
 msgstr "ПИН за жетон за сигурност: "
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:441
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr "Идентифицирайте се физически чрез жетона за сигурност на потребител „%s“."
+msgstr ""
+"Идентифицирайте се физически чрез жетона за сигурност на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:426
+#: src/home/pam_systemd_home.c:452
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr "Потвърдете физическо присъствие чрез жетона за сигурност на потребител „%s“."
+msgstr ""
+"Потвърдете физическо присъствие чрез жетона за сигурност на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:437
+#: src/home/pam_systemd_home.c:463
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Идентифицирайте се чрез жетона за сигурност на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:446
+#: src/home/pam_systemd_home.c:472
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"ПИНът на жетона за сигурност на потребител е заключен, отключете го! ("
-"Понякога изваждането и повторното поставяне е достатъчно за това.)"
+"ПИНът на жетона за сигурност на потребител е заключен, отключете го! "
+"(Понякога изваждането и повторното поставяне е достатъчно за това.)"
 
-#: src/home/pam_systemd_home.c:454
+#: src/home/pam_systemd_home.c:480
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен."
 
-#: src/home/pam_systemd_home.c:455 src/home/pam_systemd_home.c:474
-#: src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
+#: src/home/pam_systemd_home.c:519
 msgid "Sorry, retry security token PIN: "
 msgstr "Въведете отново ПИН за жетона за сигурност: "
 
-#: src/home/pam_systemd_home.c:473
+#: src/home/pam_systemd_home.c:499
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr "ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен (остават малко пъти!)"
+msgstr ""
+"ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен (остават малко "
+"пъти!)"
 
-#: src/home/pam_systemd_home.c:492
+#: src/home/pam_systemd_home.c:518
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr "ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен (остава един път!)"
+msgstr ""
+"ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен (остава един "
+"път!)"
 
-#: src/home/pam_systemd_home.c:659
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr "Домашното масто на потребител „%s“ в момента не е активно, впишете се локално."
+msgstr ""
+"Домашното масто на потребител „%s“ в момента не е активно, впишете се "
+"локално."
 
-#: src/home/pam_systemd_home.c:661
+#: src/home/pam_systemd_home.c:687
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr "Домашното масто на потребител „%s“ в момента е заключено, отключете го локално."
+msgstr ""
+"Домашното масто на потребител „%s“ в момента е заключено, отключете го "
+"локално."
 
-#: src/home/pam_systemd_home.c:693
+#: src/home/pam_systemd_home.c:719
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr "Прекалено много неуспешни опити за вписване за потребител „%s“, достъпът е отказан."
+msgstr ""
+"Прекалено много неуспешни опити за вписване за потребител „%s“, достъпът е "
+"отказан."
 
-#: src/home/pam_systemd_home.c:979
+#: src/home/pam_systemd_home.c:1005
 msgid "User record is blocked, prohibiting access."
 msgstr "Записът на потребителя е блокиран, достъпът е забранен."
 
-#: src/home/pam_systemd_home.c:983
+#: src/home/pam_systemd_home.c:1009
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Записът за потребител все още не е валиден, достъпът е забранен."
 
-#: src/home/pam_systemd_home.c:987
+#: src/home/pam_systemd_home.c:1013
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Записът за потребител вече е невалиден, достъпът е забранен."
 
-#: src/home/pam_systemd_home.c:992 src/home/pam_systemd_home.c:1043
+#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
 msgid "User record not valid, prohibiting access."
 msgstr "Записът за потребител е невалиден, достъпът е забранен."
 
-#: src/home/pam_systemd_home.c:1004
+#: src/home/pam_systemd_home.c:1028
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Прекалено много опити за вписване, пробвайте отново след %s."
 
-#: src/home/pam_systemd_home.c:1015
+#: src/home/pam_systemd_home.c:1039
 msgid "Password change required."
 msgstr "Необходима е смяна на паролата."
 
-#: src/home/pam_systemd_home.c:1019
+#: src/home/pam_systemd_home.c:1043
 msgid "Password expired, change required."
 msgstr "Паролата е изтекла, трябва да се смени."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1049
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Паролата е изтекла, но не може да се променя, вписването е отказано."
 
-#: src/home/pam_systemd_home.c:1029
+#: src/home/pam_systemd_home.c:1053
 msgid "Password will expire soon, please change."
 msgstr "Паролата ще изтече скоро, сменете я."
 
@@ -895,10 +935,23 @@ msgstr ""
 "идентификация."
 
 #: src/machine/org.freedesktop.machine1.policy:106
+#, fuzzy
+msgid "Register a local virtual machine or container"
+msgstr "Създаване на локални виртуални машини и контейнери"
+
+#: src/machine/org.freedesktop.machine1.policy:107
+#, fuzzy
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr ""
+"За създаване на локални виртуални машини и контейнери е необходима "
+"идентификация."
+
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
 msgstr "Управление на изображения на виртуални машини или контейнери"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1252,43 +1305,60 @@ msgstr ""
 "За превключване на синхронизацията на времето по мрежата е необходима "
 "идентификация."
 
-#: src/core/dbus-unit.c:367
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to start '$(unit)'."
 msgstr "За стартиране на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "За спиране на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:369
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "За презареждане на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:370 src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "За рестартиране на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:563
+#: src/core/dbus-unit.c:567
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
-msgstr "За изпращане на сигнал на UNIX към процесите на „$(unit)“ е необходима идентификация."
+msgstr ""
+"За изпращане на сигнал на UNIX към процесите на „$(unit)“ е необходима "
+"идентификация."
 
-#: src/core/dbus-unit.c:591
+#: src/core/dbus-unit.c:620
+#, fuzzy
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr ""
+"За изпращане на сигнал на UNIX към процесите на „$(unit)“ е необходима "
+"идентификация."
+
+#: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "За изчистване на състоянието за неуспех (failed) на „$(unit)“ е необходима идентификация."
+msgstr ""
+"За изчистване на състоянието за неуспех (failed) на „$(unit)“ е необходима "
+"идентификация."
 
-#: src/core/dbus-unit.c:621
+#: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "За задаване на свойства на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:718
+#: src/core/dbus-unit.c:775
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
-msgstr "За изтриване на файловете и директориите свързани с „$(unit)“ е необходима идентификация."
+msgstr ""
+"За изтриване на файловете и директориите свързани с „$(unit)“ е необходима "
+"идентификация."
 
-#: src/core/dbus-unit.c:755
+#: src/core/dbus-unit.c:812
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr "За замразяване/размразяване на процесите на „$(unit)“ е необходима идентификация."
+msgstr ""
+"За замразяване/размразяване на процесите на „$(unit)“ е необходима "
+"идентификация."

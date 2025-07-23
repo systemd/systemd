@@ -10,7 +10,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2025-07-23 14:29+0100\n"
 "PO-Revision-Date: 2023-09-27 01:36+0000\n"
 "Last-Translator: Balázs Úr <balazs@urbalazs.hu>\n"
 "Language-Team: Hungarian <https://translate.fedoraproject.org/projects/"
@@ -158,7 +158,17 @@ msgstr "Saját terület létrehozása"
 msgid "Authentication is required to activate a user's home area."
 msgstr "Hitelesítés szükséges a felhasználó saját területének létrehozásához."
 
-#: src/home/pam_systemd_home.c:293
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:94
+#, fuzzy
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr ""
+"Hitelesítés szükséges a rendszerszolgáltatások vagy más egységek kezeléséhez."
+
+#: src/home/pam_systemd_home.c:336
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -167,31 +177,31 @@ msgstr ""
 "%s felhasználó saját mappája jelenleg hiányzik, csatlakoztassa a szükséges "
 "tárolóeszközt vagy a biztonsági mentési fájlrendszert."
 
-#: src/home/pam_systemd_home.c:298
+#: src/home/pam_systemd_home.c:341
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Túl gyakori bejelentkezési kísérletek %s felhasználónál, próbálja újra "
 "később."
 
-#: src/home/pam_systemd_home.c:310
+#: src/home/pam_systemd_home.c:353
 msgid "Password: "
 msgstr "Jelszó: "
 
-#: src/home/pam_systemd_home.c:312
+#: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "A jelszó helytelen vagy nem elegendő %s felhasználó hitelesítéséhez."
 
-#: src/home/pam_systemd_home.c:313
+#: src/home/pam_systemd_home.c:356
 msgid "Sorry, try again: "
 msgstr "Elnézést, próbálja újra: "
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:378
 msgid "Recovery key: "
 msgstr "Helyreállítási kulcs: "
 
-#: src/home/pam_systemd_home.c:337
+#: src/home/pam_systemd_home.c:380
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -200,20 +210,20 @@ msgstr ""
 "A jelszó vagy a helyreállítási kulcs helytelen vagy nem elegendő %s "
 "felhasználó hitelesítéséhez."
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:381
 msgid "Sorry, reenter recovery key: "
 msgstr "Elnézést, adja meg újra a helyreállítási kulcsot: "
 
-#: src/home/pam_systemd_home.c:358
+#: src/home/pam_systemd_home.c:401
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "%s felhasználó biztonsági tokenje nincs behelyezve."
 
-#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
+#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
 msgid "Try again with password: "
 msgstr "Próbálja újra jelszóval: "
 
-#: src/home/pam_systemd_home.c:361
+#: src/home/pam_systemd_home.c:404
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -222,26 +232,26 @@ msgstr ""
 "A jelszó helytelen vagy nem elegendő, és %s felhasználó beállított "
 "biztonsági tokenje nincs behelyezve."
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:424
 msgid "Security token PIN: "
 msgstr "Biztonsági token PIN-kódja: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:441
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Hitelesítsen fizikailag %s felhasználó biztonsági tokenjén."
 
-#: src/home/pam_systemd_home.c:409
+#: src/home/pam_systemd_home.c:452
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Erősítse meg a jelenlétet %s felhasználó biztonsági tokenjén."
 
-#: src/home/pam_systemd_home.c:420
+#: src/home/pam_systemd_home.c:463
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Ellenőrizze a felhasználót %s felhasználó biztonsági tokenjén."
 
-#: src/home/pam_systemd_home.c:429
+#: src/home/pam_systemd_home.c:472
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -249,85 +259,85 @@ msgstr ""
 "A biztonsági token PIN-kódja zárolva van, először oldja fel (tipp: az "
 "eltávolítás és az ismételt behelyezés elegendő lehet)."
 
-#: src/home/pam_systemd_home.c:437
+#: src/home/pam_systemd_home.c:480
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "A biztonsági token PIN-kódja helytelen %s felhasználónál."
 
-#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
-#: src/home/pam_systemd_home.c:476
+#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
+#: src/home/pam_systemd_home.c:519
 msgid "Sorry, retry security token PIN: "
 msgstr "Elnézést, próbálja újra a biztonsági token PIN-kódját: "
 
-#: src/home/pam_systemd_home.c:456
+#: src/home/pam_systemd_home.c:499
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "%s felhasználó biztonsági tokenjének PIN-kódja helytelen (már csak néhány "
 "próbálkozás maradt!)"
 
-#: src/home/pam_systemd_home.c:475
+#: src/home/pam_systemd_home.c:518
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "%s felhasználó biztonsági tokenjének PIN-kódja helytelen (már egy "
 "próbálkozás maradt!)"
 
-#: src/home/pam_systemd_home.c:643
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "%s felhasználó saját mappája jelenleg nem aktív, először jelentkezzen be "
 "helyileg."
 
-#: src/home/pam_systemd_home.c:645
+#: src/home/pam_systemd_home.c:687
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "%s felhasználó saját mappája jelenleg zárolva van, először oldja fel "
 "helyileg."
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:719
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Túl sok sikertelen bejelentkezési kísérlet %s felhasználónál, elutasítás."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:1005
 msgid "User record is blocked, prohibiting access."
 msgstr "A felhasználói bejegyzés tiltva van, a hozzáférés megtiltása."
 
-#: src/home/pam_systemd_home.c:968
+#: src/home/pam_systemd_home.c:1009
 msgid "User record is not valid yet, prohibiting access."
 msgstr "A felhasználói bejegyzés még nem érvényes, a hozzáférés megtiltása."
 
-#: src/home/pam_systemd_home.c:972
+#: src/home/pam_systemd_home.c:1013
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "A felhasználói bejegyzés már nem érvényes, a hozzáférés megtiltása."
 
-#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
 msgid "User record not valid, prohibiting access."
 msgstr "A felhasználói bejegyzés nem érvényes, a hozzáférés megtiltása."
 
-#: src/home/pam_systemd_home.c:989
+#: src/home/pam_systemd_home.c:1028
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Túl sok bejelentkezés, próbálja újra %s múlva."
 
-#: src/home/pam_systemd_home.c:1000
+#: src/home/pam_systemd_home.c:1039
 msgid "Password change required."
 msgstr "Jelszóváltoztatás szükséges."
 
-#: src/home/pam_systemd_home.c:1004
+#: src/home/pam_systemd_home.c:1043
 msgid "Password expired, change required."
 msgstr "A jelszó lejárt, változtatás szükséges."
 
-#: src/home/pam_systemd_home.c:1010
+#: src/home/pam_systemd_home.c:1049
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "A jelszó lejárt, de nem lehet megváltoztatni, a bejelentkezés elutasítása."
 
-#: src/home/pam_systemd_home.c:1014
+#: src/home/pam_systemd_home.c:1053
 msgid "Password will expire soon, please change."
 msgstr "A jelszó hamarosan lejár, változtassa meg."
 
@@ -923,10 +933,21 @@ msgid ""
 msgstr "Hitelesítés szükséges helyi virtuális gépek és konténerek kezeléséhez."
 
 #: src/machine/org.freedesktop.machine1.policy:106
+#, fuzzy
+msgid "Register a local virtual machine or container"
+msgstr "Helyi virtuális gépek és konténerek kezelése"
+
+#: src/machine/org.freedesktop.machine1.policy:107
+#, fuzzy
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr "Hitelesítés szükséges helyi virtuális gépek és konténerek kezeléséhez."
+
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
 msgstr "Helyi virtuális gépek és konténerek lemezképeinek kezelése"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1150,37 +1171,46 @@ msgid "Authentication is required to subscribe query results."
 msgstr "Hitelesítés szükséges a rendszer felfüggesztéséhez."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
-msgid "Dump cache"
+msgid "Subscribe to DNS configuration"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 #, fuzzy
-msgid "Authentication is required to dump cache."
-msgstr "Hitelesítés szükséges a tartományok beállításához."
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "Hitelesítés szükséges a rendszer felfüggesztéséhez."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
-msgid "Dump server state"
+msgid "Dump cache"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
 #, fuzzy
-msgid "Authentication is required to dump server state."
-msgstr "Hitelesítés szükséges az NTP-kiszolgálók beállításához."
+msgid "Authentication is required to dump cache."
+msgstr "Hitelesítés szükséges a tartományok beállításához."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
-msgid "Dump statistics"
+msgid "Dump server state"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 #, fuzzy
-msgid "Authentication is required to dump statistics."
-msgstr "Hitelesítés szükséges a tartományok beállításához."
+msgid "Authentication is required to dump server state."
+msgstr "Hitelesítés szükséges az NTP-kiszolgálók beállításához."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
-msgid "Reset statistics"
+msgid "Dump statistics"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Hitelesítés szükséges a tartományok beállításához."
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
 #, fuzzy
 msgid "Authentication is required to reset statistics."
 msgstr "Hitelesítés szükséges az NTP-beállítások visszaállításához."
@@ -1274,50 +1304,59 @@ msgstr ""
 "Hitelesítés szükséges annak vezérléséhez, hogy a hálózati időszinkronizáció "
 "engedélyezve legyen."
 
-#: src/core/dbus-unit.c:370
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Hitelesítés szükséges a(z) „$(unit)” elindításához."
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Hitelesítés szükséges a(z) „$(unit)” leállításához."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Hitelesítés szükséges a(z) „$(unit)” újratöltéséhez."
 
-#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
+#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Hitelesítés szükséges a(z) „$(unit)” újraindításához."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
 "Hitelesítés szükséges a(z) „$(unit)” folyamatainak történő UNIX szignál "
 "küldéséhez."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:620
+#, fuzzy
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr ""
+"Hitelesítés szükséges a(z) „$(unit)” folyamatainak történő UNIX szignál "
+"küldéséhez."
+
+#: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Hitelesítés szükséges a(z) „$(unit)” „failed” állapotának visszaállításához."
 
-#: src/core/dbus-unit.c:624
+#: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Hitelesítés szükséges a(z) „$(unit)” egységen lévő tulajdonságok "
 "beállításához."
 
-#: src/core/dbus-unit.c:721
+#: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "Hitelesítés szükséges a(z) „$(unit)” egységhez hozzárendelt fájlok és "
 "könyvtárak törléséhez."
 
-#: src/core/dbus-unit.c:758
+#: src/core/dbus-unit.c:812
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
