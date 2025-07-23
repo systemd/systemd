@@ -31,6 +31,7 @@ typedef bool (*security_validator_t)(
 
 void install_security_override(security_validator_t validator, const void *validator_ctx);
 void uninstall_security_override(void);
+bool security_override_available(void);
 
 const char* secure_boot_enroll_to_string(secure_boot_enroll e) _const_;
 const char* secure_boot_enroll_action_to_string(secure_boot_enroll_action e) _const_;
