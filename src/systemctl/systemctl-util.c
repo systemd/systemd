@@ -928,7 +928,8 @@ bool show_preset_for_state(UnitFileState state) {
 
 UnitFileFlags unit_file_flags_from_args(void) {
         return (arg_runtime ? UNIT_FILE_RUNTIME : 0) |
-               (arg_force   ? UNIT_FILE_FORCE   : 0);
+               (arg_force   ? UNIT_FILE_FORCE   : 0) |
+               (arg_dry_run ? UNIT_FILE_DRY_RUN : 0);
 }
 
 int mangle_names(const char *operation, char * const *original_names, char ***ret) {

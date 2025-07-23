@@ -25,7 +25,7 @@ int verb_preset_all(int argc, char *argv[], void *userdata) {
 
                 CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
-                r = unit_file_preset_all(arg_runtime_scope, unit_file_flags_from_args(), arg_root, arg_preset_mode, &changes, &n_changes);
+                r = unit_file_preset_all(arg_runtime_scope, unit_file_flags_from_args(), arg_root, arg_preset_mode, arg_dry_run, &changes, &n_changes);
                 install_changes_dump(r, "preset", changes, n_changes, arg_quiet);
 
                 if (r > 0)
@@ -44,13 +44,12 @@ int verb_preset_all(int argc, char *argv[], void *userdata) {
                 r = bus_call_method(
                                 bus,
                                 bus_systemd_mgr,
-                                "PresetAllUnitFiles",
+                                "PresetAllUnitFilesWithFlags",
                                 &error,
                                 &reply,
-                                "sbb",
+                                "st",
                                 unit_file_preset_mode_to_string(arg_preset_mode),
-                                arg_runtime,
-                                arg_force);
+                                (uint64_t) unit_file_flags_from_args());
                 if (r < 0)
                         return log_error_errno(r, "Failed to preset all units: %s", bus_error_message(&error, r));
 
