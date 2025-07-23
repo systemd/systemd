@@ -758,7 +758,7 @@ CHANGES WITH 258 in spe:
           more reliable then trying to figure this out through sysfs.
 
         * systemd-stub will now also load global sysexts and confexts from
-          ESP/loader/credentials/*.{sysext,confext}.raw.
+          ESP/loader/extensions/*.{sysext,confext}.raw.
 
         systemd-nsresourced & systemd-mountfsd:
 
