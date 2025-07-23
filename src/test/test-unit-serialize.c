@@ -18,11 +18,11 @@ static void test_deserialize_exec_command_one(Manager *m, const char *key, const
         _cleanup_(unit_freep) Unit *u = NULL;
         int r;
 
-        assert_se(unit_new_for_name(m, sizeof(Service), "test.service", &u) >= 0);
+        ASSERT_OK(unit_new_for_name(m, sizeof(Service), "test.service", &u));
 
         r = service_deserialize_exec_command(u, key, line);
         log_debug("[%s] → %d (expected: %d)", line, r, expected);
-        assert_se(r == expected);
+        ASSERT_EQ(r == expected);
 
         /* Note that the command doesn't match any command in the empty list of commands in 's', so it is
          * always rejected with "Current command vanished from the unit file", and we don't leak anything. */
@@ -38,7 +38,7 @@ TEST(deserialize_exec_command) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         test_deserialize_exec_command_one(m, "main-command", EXEC_START_ABSOLUTE, 0);
         test_deserialize_exec_command_one(m, "main-command", EXEC_START_RELATIVE, 0);
@@ -57,7 +57,7 @@ static int intro(void) {
         if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
-        assert_se(runtime_dir = setup_fake_runtime_dir());
+        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
         return EXIT_SUCCESS;
 }
 
