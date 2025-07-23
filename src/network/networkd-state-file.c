@@ -643,10 +643,7 @@ static void serialize_resolvers(
                 int r;
 
                 r = sd_dhcp6_lease_get_dnr(lease6, &resolvers);
-                if (r < 0 && r != -ENODATA)
-                        log_warning_errno(r, "Failed to get DNR from DHCPv6 lease, ignoring: %m");
-
-                if (r > 0) {
+                if (r >= 0) {
                         r = dns_resolvers_to_dot_strv(resolvers, r, &names);
                         if (r < 0)
                                 return (void) log_warning_errno(r, "Failed to get DoT servers from DHCPv6 DNR, ignoring: %m");
