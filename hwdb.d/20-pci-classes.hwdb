@@ -395,6 +395,9 @@ pci:v*d*sv*sd*bc08sc05*
 pci:v*d*sv*sd*bc08sc06*
  ID_PCI_SUBCLASS_FROM_DATABASE=IOMMU
 
+pci:v*d*sv*sd*bc08sc07*
+ ID_PCI_SUBCLASS_FROM_DATABASE=Root Complex Event Collector
+
 pci:v*d*sv*sd*bc08sc80*
  ID_PCI_SUBCLASS_FROM_DATABASE=System peripheral
 
