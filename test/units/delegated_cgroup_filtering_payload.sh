@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 mkdir /sys/fs/cgroup/system.slice/delegated-cgroup-filtering.service/the_child
