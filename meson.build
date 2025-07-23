@@ -1012,10 +1012,14 @@ else
         libatomic = []
 endif
 
-libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
-if not libcrypt.found()
-        # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
-        libcrypt = cc.find_library('crypt')
+if get_option('libc') == 'musl'
+        libcrypt = []
+else
+        libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
+        if not libcrypt.found()
+                # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
+                libcrypt = cc.find_library('crypt')
+        endif
 endif
 
 foreach func : [
