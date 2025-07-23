@@ -153,7 +153,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 sd_dns_resolver *resolvers;
 
                 r = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &resolvers);
-                if (r >= 0 ) {
+                if (r >= 0) {
                         struct in_addr_full **dot_servers;
                         size_t n = 0;
                         CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
