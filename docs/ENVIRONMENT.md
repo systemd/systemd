@@ -433,14 +433,6 @@ All tools:
   as a child process by another tool, such as package managers running it in a
   postinstall script.
 
-`systemd-sysv-generator`:
-
-* `$SYSTEMD_SYSVINIT_PATH` — Controls where `systemd-sysv-generator` looks for
-  SysV init scripts.
-
-* `$SYSTEMD_SYSVRCND_PATH` — Controls where `systemd-sysv-generator` looks for
-  SysV init script runlevel link farms.
-
 systemd tests:
 
 * `$SYSTEMD_TEST_DATA` — override the location of test data. This is useful if

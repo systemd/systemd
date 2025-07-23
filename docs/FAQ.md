@@ -81,10 +81,6 @@ Or you can even check /proc/$PID/cgroup directly. Also see [this blog story](htt
 
 A: Unfortunately that would be a racy operation. For an explanation why and how we tried to improve the situation, see [the bugzilla report about this](https://bugzilla.redhat.com/show_bug.cgi?id=615527).
 
-**Q: I have a native systemd service file and a SysV init script installed which share the same basename, e.g. /usr/lib/systemd/system/foobar.service vs. /etc/init.d/foobar -- which one wins?**
-
-A: If both files are available the native unit file always takes precedence and the SysV init script is ignored, regardless whether either is enabled or disabled. Note that a SysV service that is enabled but overridden by a native service does not have the effect that the native service would be enabled, too. Enabling of native and SysV services is completely independent. Or in other words: you cannot enable a native service by enabling a SysV service by the same name, and if a SysV service is enabled but the respective native service is not, this will not have the effect that the SysV script is executed.
-
 **Q: How can I use journalctl to display full (= not truncated) messages even if less is not used?**
 
 A: Use:
