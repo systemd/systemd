@@ -27,7 +27,11 @@ TEST(hash_password) {
                        "$2b$12$BlqcGkB/7BFvNMXKGxDea.5/8D6FTny.cbNcHW/tqcrcyo6ZJd8u2",
                        "$5$lGhDrcrao9zb5oIK$05KlOVG3ocknx/ThreqXE/gk.XzFFBMTksc4t2CPDUD",
                        "$6$c7wB/3GiRk0VHf7e$zXJ7hN0aLZapE.iO4mn/oHu6.prsXTUG/5k1AxpgR85ELolyAcaIGRgzfwJs3isTChMDBjnthZyaMCfCNxo9I.",
-                       "$y$j9T$$9cKOWsAm4m97WiYk61lPPibZpy3oaGPIbsL4koRe/XD")
+#ifdef __GLIBC__
+                       /* musl does not support yescrypt yet. */
+                       "$y$j9T$$9cKOWsAm4m97WiYk61lPPibZpy3oaGPIbsL4koRe/XD",
+#endif
+                       NULL)
                 ASSERT_OK_POSITIVE(test_password_one(hash, "ppp"));
 
         _cleanup_free_ void *cd_data = NULL;
