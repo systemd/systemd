@@ -66,21 +66,22 @@ CHANGES WITH 258 in spe:
 
         * Support for the SystemdOptions EFI variable has been removed.
 
-        * The meson options 'split-usr', 'rootlibdir', 'rootprefix' (deprecated
-          in v255), 'default-hierarchy' (v256), and 'nscd' (v257) have been
-          removed.
+        * Meson options '-Dsplit-usr=', '-Drootlibdir=', '-Drootprefix='
+          (deprecated in v255), '-Ddefault-hierarchy=' (deprecated in v256),
+          and '-Dnscd=' (deprecated in v257) have been removed.
 
         * OpenSSL is now the only supported cryptography backend for
           systemd-resolved and systemd-importd, and support for gnutls and
-          gcrypt has been removed.  Hence, 'gnutls' for 'dns-over-tls=' meson
-          option has been deprecated. Also, the 'cryptolib' meson option has
-          been deprecated. They will be removed in a future release.
+          gcrypt has been removed. Hence, 'gnutls' setting for the
+          '-Ddns-over-tls=' meson option has been deprecated. Also, the
+          '-Dcryptolib=' meson option has been deprecated. They will be removed
+          in a future release.
 
         * systemd-logind's session tracking, which used to be performed via a
-          FIFO installed in the client, has been fully switched to be
-          pidfd-based. The fd returned by CreateSession() and related calls is
-          therefore unused. Moreover, the exit of session leader process will
-          immediately cause the session to be stopped.
+          FIFO installed in the client, now uses PIDFDs. The file descriptor
+          returned by CreateSession() and related calls is therefore unused.
+          Moreover, the exit of the session leader process will immediately
+          cause the session to be stopped.
 
         * To work around limitations of X11's keyboard handling systemd's
           keyboard mapping hardware database (hwdb.d/60-keyboard.hwdb) so far
@@ -106,7 +107,7 @@ CHANGES WITH 258 in spe:
           through LLDP protocol, but now emits a deterministic ID,
           cryptographically derived from the machine ID as chassis ID. If you
           want to use the previous behavior, please set
-          SYSTEMD_LLDP_SEND_MACHINE_ID=1 environment variable to
+          SYSTEMD_LLDP_SEND_MACHINE_ID=1 environment variable for
           systemd-networkd.
 
         * Support for the !! command line prefix on ExecStart= lines (and
@@ -137,11 +138,11 @@ CHANGES WITH 258 in spe:
           of the DeviceAllow= list. The latter behaviour has been removed.
 
         * The command 'journalctl --follow' now exits with success on
-          SIGTERM/SIGINT, or its pipe STDOUT is disconnected.
+          SIGTERM/SIGINT and when the pipe it is writing to is disconnected.
 
         * Support for System V style system state control has been removed:
           - The /dev/initctl device node has been removed.
-          - The initctl, runlevel and telinit commands have been removed.
+          - The initctl, runlevel, and telinit commands have been removed.
           - Support for system state control via the init command (e.g.
             'init 3') has been removed.
           - The units runlevel[0-6].target have been removed.
@@ -171,8 +172,8 @@ CHANGES WITH 258 in spe:
           managed by "systemd-factory-reset request" and "systemd-factory-reset
           complete".
 
-        * The meson option 'integration-tests' has been deprecated, and will be
-          removed in a future release.
+        * The meson option '-Dintegration-tests=' has been deprecated, and will
+          be removed in a future release.
 
         Service manager/PID1:
 
@@ -214,8 +215,8 @@ CHANGES WITH 258 in spe:
         * The security rules enforced by the per-unit AttachProcesses() bus API
           call have been relaxed a bit: unprivileged clients may now use the
           call on arbitrary processes which run in any user namespace owned by
-          the client's UID. Previously, a stricter rule applied, that required
-          the UID of the process to move and of the client to match exactly.
+          the client's UID. Previously, a stricter rule applied that required
+          the UIDs of the process to move and of the client to match exactly.
 
         * A new per-unit RemoveSubgroup() D-Bus API call has been added that
           makes the service manager attempt to remove a sub-cgroup of units
@@ -258,7 +259,7 @@ CHANGES WITH 258 in spe:
 
         * So far the ConditionHost= condition matched against the local host
           name and machine UUID. It now also matches against the local product
-          ID of the system (as provided by SMBIOS/DMI), and the boot ID.
+          ID of the system (as provided by SMBIOS/DMI) and the boot ID.
 
         * A new setting DelegateNamespaces= for units has been added, which
           controls which type of Linux namespaces to delegate to the invoked
@@ -297,9 +298,8 @@ CHANGES WITH 258 in spe:
           with strong resource management, and support for hierarchial job
           pools (by means of slices).
 
-        * ExecStart= lines (and the other ExecXYZ= lines) gained a new '|'
-          special prefix that if specified causes the command line to be
-          invoked via a shell.
+        * ExecStart= lines (and the other ExecXYZ= lines) now support a new '|'
+          prefix that causes the command line to be invoked via a shell.
 
         * A basic Varlink API is now implemented in the service manager that
           can be used to determine its current state, and list units and their
@@ -820,8 +820,7 @@ CHANGES WITH 258 in spe:
 
         systemd-machined:
 
-        * systemd-machined now provides a comprehensive Varlink IPC API to its
-          functionality.
+        * systemd-machined now provides a comprehensive Varlink IPC API.
 
         * The pidfd inode ID of a machine's leader process is now exposed as
           D-Bus property for machine objects, in addition to the PID. The inode
@@ -966,22 +965,24 @@ CHANGES WITH 258 in spe:
 
         * systemd-homed gained two new bus API calls RegisterHome() and
           UnregisterHome() for registering a home locally by providing just the
-          user record, without any logic to actually create the home
-          directory. homectl gained "register" and "unregister" verbs exposing
-          this. This is useful for registering network user accounts locally,
-          i.e. where some foreign user record and home directory already exists
-          on some server, and just need to be registered locally. This can be
-          used like the following to make a local systemd-homed home directory
-          securely accessible from some other system:
+          user record, without any logic to actually create the home directory.
+          homectl gained "register" and "unregister" verbs exposing this. This
+          is useful for registering network user accounts locally, i.e. where
+          some foreign user record and home directory already exists on some
+          server, and just need to be registered locally. This can be used to
+          make a local systemd-homed home directory securely accessible from
+          some other system:
 
-          homectl update lennart --ssh-authorized-keys=… -N --storage=cifs --cifs-service="//$HOSTNAME/lennart"
-          homectl get-signing-key | ssh targetsystem homectl add-signing-key --key-name="$HOSTNAME".public
-          homectl inspect -E lennart | ssh targetsystem homectl register -
-          ssh lennart@targetsystem
+          $ homectl update lennart --ssh-authorized-keys=… -N \
+              --storage=cifs --cifs-service="//$HOSTNAME/lennart"
+          $ homectl get-signing-key |
+              ssh targetsystem homectl add-signing-key --key-name="$HOSTNAME".public
+          $ homectl inspect -E lennart |
+              ssh targetsystem homectl register -
+          $ ssh lennart@targetsystem
 
-          There's also a system credential home.register.* now that can execute
-          the registration operation for a provided user record automatically
-          at boot.
+          There's also a new system credential 'home.register.*' that causes
+          registration for the provided user record automatically at boot.
 
         * homectl gained a new switch --seize= taking a boolean argument. If
           true when used together with the "create" or "register" verbs any
@@ -1112,7 +1113,8 @@ CHANGES WITH 258 in spe:
           after download. This may be used to boot directly into a disk image
           downloaded via HTTP via a kernel command line like this:
 
-          rd.systemd.pull=raw,machine,verify=no,blockdev:image:https://192.168.100.1:8081/image.raw root=/dev/disk/by-loop-ref/image.raw-part2
+          rd.systemd.pull=raw,machine,verify=no,blockdev:image:https://192.168.100.1:8081/image.raw \
+              root=/dev/disk/by-loop-ref/image.raw-part2
 
         * systemd.pull=/rd.systemd.pull= also gained support for a new flag
           "bootorigin". If specified and if the system was network booted
@@ -1120,7 +1122,8 @@ CHANGES WITH 258 in spe:
           variable, see above), the URL to boot from is now automatically
           formed from the UKI network boot URL with a new suffix. Example:
 
-          rd.systemd.pull=raw,machine,verify=no,blockdev,bootorigin:rootdisk:image.raw.xz root=/dev/disk/by-loop-ref/rootdisk.raw-part2
+          rd.systemd.pull=raw,machine,verify=no,blockdev,bootorigin:rootdisk:image.raw.xz \
+              root=/dev/disk/by-loop-ref/rootdisk.raw-part2
 
         * The systemd.pull=/rd.systemd.pull= switches now also support a new
           flag "runtime=", taking a boolean argument. If true the downloaded
@@ -2282,8 +2285,8 @@ CHANGES WITH 256:
           considered obsolete and systemd by default will refuse to boot under
           it. To forcibly reenable cgroup v1 support,
           SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 must be set on kernel command
-          line. The meson option 'default-hierarchy=' is also deprecated, i.e.
-          only cgroup v2 ('unified' hierarchy) can be selected as build-time
+          line. The meson option '-Ddefault-hierarchy=' is also deprecated, and
+          only cgroup v2 ('unified' hierarchy) can be selected as the build-time
           default.
 
         * Support for System V service scripts is deprecated and will be
