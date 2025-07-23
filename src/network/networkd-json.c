@@ -846,14 +846,11 @@ static int sip_append_json(Link *link, sd_json_variant **v) {
                 union in_addr_union s;
                 int n_sip;
 
-                n_sip = sd_dhcp_lease_get_sip(link->dhcp_lease, &sip);
-                if (n_sip <= 0)
-                        return 0;
-
                 r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &s.in);
                 if (r < 0)
                         return r;
 
+                n_sip = sd_dhcp_lease_get_sip(link->dhcp_lease, &sip);
                 for (int i = 0; i < n_sip; i++) {
                         r = server_append_json_one_addr(AF_INET,
                                                         &(union in_addr_union) { .in = sip[i], },
