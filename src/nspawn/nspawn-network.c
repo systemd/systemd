@@ -1011,7 +1011,7 @@ static int network_iface_pair_parse(const char* iftype, char ***l, const char *p
                         return log_error_errno(r, "Failed to extract first word in %s parameter: %m", iftype);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Short read while reading %s parameter: %m", iftype);
+                                               "Short read while reading %s parameter.", iftype);
                 if (!ifname_valid(a))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "%s, interface name not valid: %s", iftype, a);

@@ -327,7 +327,7 @@ static int download_manifest(
 
         manifest = fdopen(pfd[0], "r");
         if (!manifest)
-                return log_error_errno(errno, "Failed allocate FILE object for manifest file: %m");
+                return log_error_errno(errno, "Failed to allocate FILE object for manifest file: %m");
 
         TAKE_FD(pfd[0]);
 

@@ -1227,7 +1227,7 @@ static int open_image_file(
         if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
                 return log_error_errno(
                                 S_ISDIR(st.st_mode) ? SYNTHETIC_ERRNO(EISDIR) : SYNTHETIC_ERRNO(EBADFD),
-                                "Image file %s is not a regular file or block device: %m", ip);
+                                "Image file %s is not a regular file or block device.", ip);
 
         /* Locking block devices doesn't really make sense, as this might interfere with
          * udev's workings, and these locks aren't network propagated anyway, hence not what
@@ -2731,7 +2731,7 @@ static int prepare_resize_partition(
 
         r = sd_id128_from_string(disk_uuid_as_string, &disk_uuid);
         if (r < 0)
-                return log_error_errno(r, "Failed parse disk UUID: %m");
+                return log_error_errno(r, "Failed to parse disk UUID: %m");
 
         r = fdisk_get_partitions(c, &t);
         if (r < 0)

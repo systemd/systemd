@@ -3631,7 +3631,7 @@ static int process_timer(
                          * again. */
                         assert(s->ratelimited);
 
-                        r = event_source_leave_ratelimit(s, /* run_callback */ true);
+                        r = event_source_leave_ratelimit(s, /* run_callback = */ true);
                         if (r < 0)
                                 return r;
                         else if (r == 1)
@@ -5116,7 +5116,7 @@ _public_ int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval
 
         /* When ratelimiting is configured we'll always reset the rate limit state first and start fresh,
          * non-ratelimited. */
-        r = event_source_leave_ratelimit(s, /* run_callback */ false);
+        r = event_source_leave_ratelimit(s, /* run_callback = */ false);
         if (r < 0)
                 return r;
 
@@ -5179,7 +5179,7 @@ _public_ int sd_event_source_leave_ratelimit(sd_event_source *s) {
         if (!s->ratelimited)
                 return 0;
 
-        r = event_source_leave_ratelimit(s, /* run_callback */ false);
+        r = event_source_leave_ratelimit(s, /* run_callback = */ false);
         if (r < 0)
                 return r;
 

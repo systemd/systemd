@@ -1738,7 +1738,7 @@ static int manager_new(Manager **ret) {
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         r = sd_bus_default_system(&m->bus);
         if (r < 0)

@@ -636,7 +636,7 @@ static const char* fallback_chassis_by_acpi(Context *c) {
 
         r = device_get_sysattr_unsigned(c->device_acpi, "pm_profile", &t);
         if (r < 0) {
-                log_debug_errno(r, "Failed read/parse ACPI PM profile, ignoring: %m");
+                log_debug_errno(r, "Failed to read/parse ACPI PM profile, ignoring: %m");
                 return NULL;
         }
 

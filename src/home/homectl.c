@@ -2623,7 +2623,7 @@ static int acquire_group_list(char ***ret) {
                         if (r == -ESRCH)
                                 break;
                         if (r < 0)
-                                return log_debug_errno(r, "Failed acquire next group: %m");
+                                return log_debug_errno(r, "Failed to acquire next group: %m");
 
                         if (group_record_disposition(gr) == USER_REGULAR) {
                                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
@@ -5227,7 +5227,7 @@ static int verb_list_signing_keys(int argc, char *argv[], void *userdata) {
                         _cleanup_free_ void *der = NULL;
                         int n = i2d_PUBKEY(key, (unsigned char**) &der);
                         if (n < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to encode key as DER: %m");
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to encode key as DER.");
 
                         ssize_t m = base64mem(der, MIN(n, 64), &h);
                         if (m < 0)

@@ -84,7 +84,7 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
         const char *deny_list_xattr = memchr(xattr, (char)0xff, xattr_size);
         if (!deny_list_xattr)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Missing delimiter in cgroup user.journald_log_filter_patterns attribute: %m");
+                                       "Missing delimiter in cgroup user.journald_log_filter_patterns attribute.");
 
         _cleanup_set_free_ Set *allow_list = NULL;
         r = client_parse_log_filter_nulstr(xattr, deny_list_xattr - xattr, &allow_list);

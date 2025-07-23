@@ -384,7 +384,7 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
 
         r = mdns_notify_browsers_goodbye(scope);
         if (r < 0)
-                log_warning_errno(r, "mDNS: Failed to notify service subscribers of goodbyes, ignoring:  %m");
+                log_warning_errno(r, "mDNS: Failed to notify service subscribers of goodbyes, ignoring: %m");
 
         if (dns_cache_expiry_in_one_second(&scope->cache, usec)) {
                 r = sd_event_add_time_relative(

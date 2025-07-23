@@ -7601,7 +7601,7 @@ static int resolve_copy_blocks_auto(
                         }
                 }
         } else if (errno != ENOENT)
-                return log_error_errno(errno, "Failed open %s: %m", p);
+                return log_error_errno(errno, "Failed to open %s: %m", p);
         else {
                 r = resolve_copy_blocks_auto_candidate(devno, type, restrict_devno, &found_uuid);
                 if (r < 0)
