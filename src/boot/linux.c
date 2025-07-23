@@ -169,7 +169,7 @@ EFI_STATUS linux_exec(
          *
          * See https://github.com/rhboot/shim/blob/main/README.md#shim-loader-protocol
          */
-        if (secure_boot_enabled() && (shim_loader_available() || shim_loaded()))
+        if (secure_boot_enabled() && (shim_loader_available() || (shim_loaded() && security_override_available())))
                 return load_via_boot_services(
                                 parent,
                                 parent_loaded_image,
