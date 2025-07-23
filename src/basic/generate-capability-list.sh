@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -eu
 set -o pipefail
