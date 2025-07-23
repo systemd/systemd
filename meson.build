@@ -1047,7 +1047,11 @@ else
         libatomic = []
 endif
 
-libcrypt = dependency('libcrypt', 'libxcrypt', version : '>=4.4.0', required : true)
+if get_option('libc') == 'musl'
+        libcrypt = []
+else
+        libcrypt = dependency('libcrypt', 'libxcrypt', version : '>=4.4.0', required : true)
+endif
 
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
