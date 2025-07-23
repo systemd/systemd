@@ -2287,6 +2287,11 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn
  KEYBOARD_KEY_7006d=prog3                               # Programmable button
  KEYBOARD_KEY_7006e=prog4                               # Programmable button
 
+# Positivo (K116J)
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositivo*:rnK116J*
+ KEYBOARD_KEY_69=www                                    
+ KEYBOARD_KEY_6e=search                                 
+
 ###########################################################
 # Multilaser
 ###########################################################
