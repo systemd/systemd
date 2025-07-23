@@ -371,6 +371,10 @@ CHANGES WITH 258 in spe:
         * A new PrivateBPF= switch has been added for unit files, which may be
           used to mount a private bpffs instance for the unit's processes.
 
+        * New user manager services systemd-nspawn@.service and
+          systemd-vmspawn@.service and a machines.target unit to manage them
+          have been added.
+
         systemd-journald & journal-remote:
 
         * journalctl's --setup-keys command now supports JSON output.
@@ -526,6 +530,9 @@ CHANGES WITH 258 in spe:
 
         * The DHCPv4 client in systemd-networkd now also supports BOOTP (via
           the new BOOTP= setting).
+
+        * The Local= setting in [Tunnel] section gained a new "dhcp_pd" value
+          to allow setting the local address based on dhcp-pd addresses.
 
         sd-varlink & sd-json:
 
@@ -739,12 +746,19 @@ CHANGES WITH 258 in spe:
           once automatic Secure Boot keys have been enrolled, i.e. whether to
           reboot or whether to shut down the system.
 
-        * There's a new LoaderSysFail EFI environment variable that userspace
-          may set to an entry match pattern for systemd-boot. If set, and the
-          system firmware reports some kind of system failure (for now this is
-          pretty much only about failed firmware updates) the selected entry is
-          booted into, instead of following the usual entry selection
-          logic. bootctl gained a new "set-sysfail" verb to set this variable.
+        * Userspace may set a new LoaderSysFail EFI variable. It is used by
+          systemd-boot: when set and the system firmware reports some kind of
+          system failure (for now this is pretty much only about failed
+          firmware updates), systemd-boot will use the specified entry instead
+          of following the usual fallback entry selection logic. bootctl gained
+          a new "set-sysfail" verb to set this variable.
+
+        * systemd-boot will now set LoaderTpm2ActivePcrBanks EFI variable to
+          let the userspace know which TPM2 PCR banks are available. This is
+          more reliable then trying to figure this out through sysfs.
+
+        * systemd-stub will now also load global sysexts and confexts from
+          ESP/loader/credentials/*.{sysext,confext}.raw.
 
         systemd-nsresourced & systemd-mountfsd:
 
@@ -818,6 +832,32 @@ CHANGES WITH 258 in spe:
           tweak the shell field of users bound into a container with
           --bind-user=….
 
+        systemd-vmspawn:
+
+        * A new --smbios11= switch may be used to pass an SMBIOS Type #11
+          vendor string easily into the booted process. This has various uses,
+          one of them is to add additional menu entries to systemd-boot for a
+          specific invocation. Example:
+
+          --smbios11=io.systemd.boot.entries-extra:particleos-current.conf=$'title ParticleOS Current\nuki-url http://example.com/somedir/uki.efi'
+
+        * A new switch --grow-image= has been added taking a size in bytes. If
+          specified, the image booted into is grown to the specified size if
+          found to be smaller.
+
+        * systemd-vmspawn supports unprivileged networking now, using
+          systemd-nsresourced's new API to acquire a TAP network device
+          unprivileged.
+
+        * systemd-vmspawn now supports --slice and --property= settings,
+          matching systemd-nspawn.
+
+        * A new --tpm-state= setting allows precise control of TPM state
+          persistency.
+
+        * A new --notify-ready= setting can be used to specify whether to
+          expect a READY=1 notification from the guest.
+
         systemd-machined:
 
         * systemd-machined now provides a comprehensive Varlink IPC API.
@@ -826,6 +866,18 @@ CHANGES WITH 258 in spe:
           D-Bus property for machine objects, in addition to the PID. The inode
           ID is a 64bit unique identifier for a process that is not vulnerable
           to recycling issues.
+
+        * A new "org.freedesktop.machine1.register-machine" polkit action is
+          used when checking for privileges to register a machine. Previously,
+          "org.freedesktop.machine1.create-machine" was used for creation and
+          registration operations. The policy for the new action is more
+          permissive: active users are allowed to perform the action without
+          authentication.
+
+        * systemd-machined now also tracks the "supervisor" process of a
+          machine, i.e. the host process that manages the payload. This
+          information is exposed through the Supervisor/SupervisorPIDFDId D-Bus
+          properties and "supervisor"/supervisorProcessId" varlink properties.
 
         systemd-measure, ukify, systemd-keyutil, systemd-sbsign:
 
@@ -1138,26 +1190,6 @@ CHANGES WITH 258 in spe:
         * systemd-importd gained support for downloading images compressed with
           zstd now, too. (In addition to .xz, .gz and .bz2.)
 
-        systemd-vmspawn:
-
-        * A new --smbios11= switch may be used to pass an SMBIOS Type #11
-          vendor string easily into the booted process. This has various uses,
-          one of them is to add additional menu entries to systemd-boot for a
-          specific invocation. Example:
-
-          --smbios11=io.systemd.boot.entries-extra:particleos-current.conf=$'title ParticleOS Current\nuki-url http://example.com/somedir/uki.efi'
-
-        * A new switch --grow-image= has been added taking a size in bytes. If
-          specified the image booted into is grown to the specified size if
-          found to be smaller.
-
-        * systemd-vmspawn supports unprivileged network now, using
-          systemd-nsresourced's new API to acquire a TAP network device
-          unprivileged.
-
-        * A new --tpm-state= setting allows precise control of TPM state
-          persistency.
-
         Factory Reset:
 
         * A new tool systemd-factory-reset has been added that may be used to
@@ -1211,6 +1243,24 @@ CHANGES WITH 258 in spe:
           partition is not automatically made used of as is, on any OS that
           supports GPT.
 
+        systemd-analyze:
+
+        * systemd-analyze gained a new "chid" verb, which shows the "Computer
+          Hardware IDs" (CHIDs) of the local system. This is useful for
+          preparing CHID-to-DeviceTree mappings when building UKIs.
+
+        * systemd-analyze gained a new "transient-settings" verb, which shows
+          all unit settings one can configure dynamically via the
+          "--property="/"-p" switch when invoking transient units.
+
+        * systemd-analyze gained a new "unit-shell" verb that invokes an
+          interactive shell inside the namespaces of the main process
+          of a specified unit. This is useful for debugging unit sandboxes, and
+          getting an idea how things look like from the "inside" of a service.
+
+        * systemd-analyze gained a new "unit-gdb" verb to attach a debugger
+          to a unit.
+
         Other:
 
         * systemd-ask-password now provides a small Varlink API to
@@ -1224,19 +1274,6 @@ CHANGES WITH 258 in spe:
           in other words: the RestartMode=debug setting may now be added for
           any of systemd's own service and has the intended effect of enabling
           debug logging if it gets automatically restarted.
-
-        * systemd-analyze gained a new "chid" verb, which shows the "Computer
-          Hardware IDs" (CHIDs) of the local system. This is useful for
-          preparing CHID-to-DeviceTree mappings when building UKIs.
-
-        * systemd-analyze gained a new "transient-settings" verb, which shows
-          all unit settings one can configure dynamically via the "-p" switch
-          when invoking transient units.
-
-        * systemd-analyze gained a new "unit-shell" verb that invokes an
-          interactive shell inside the namespaces of the main process
-          of a specified unit. This is useful for debugging unit sandboxes, and
-          getting an idea how things look like from the "inside" of a service.
 
         * The "package note" specification ELF binaries has been extended to
           cover PE binaries (i.e. UEFI binaries), too.
@@ -1265,6 +1302,10 @@ CHANGES WITH 258 in spe:
 
         * systemd-detect & ConditionVirtualization= now recognize the "Arm
           Confidential Compute Architecture" (cca) confidential virtualization.
+
+        * systemd-detect-virt now correctly distinguishes between bare-metal
+          and virtualized machines in Google Compute Engine, and will not
+          report the former as virtualized.
 
         * systemd-sysusers now generates Linux audit records when it adds
           system users.
@@ -1745,7 +1786,7 @@ CHANGES WITH 257:
           exposing its functionality. This is an alternative to the
           pre-existing D-Bus interface.
 
-        systemd-resolved:
+        systemd-resolved and resolvectl:
 
         * The resolvconf command now supports '-p' switch. If specified, the
           interface will not be used as the default route for domain name
@@ -1753,6 +1794,10 @@ CHANGES WITH 257:
 
         * resolvectl now enables interactive polkit authorization. It gained a
           --no-ask-password option to suppress it.
+
+        * systemd-resolved now implements continuous mDNS querying as per
+          RFC6762 §5.2. Clients can subscribe to the notification stream using
+          varlink.
 
         systemd-networkd and networkctl:
 
