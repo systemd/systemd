@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2025-07-23 15:38+0100\n"
 "PO-Revision-Date: 2024-11-19 07:38+0000\n"
 "Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
 "Language-Team: Hebrew <https://translate.fedoraproject.org/projects/systemd/"
@@ -138,7 +138,17 @@ msgstr "הפעלת אזור בית"
 msgid "Authentication is required to activate a user's home area."
 msgstr "נדרש אימות כדי להפעיל אזור בית של משתמש."
 
-#: src/home/pam_systemd_home.c:293
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:94
+#, fuzzy
+#| msgid "Authentication is required to manage system services or other units."
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr "נדרש אימות כדי לנהל שירותי מערכת או יחידות אחרות."
+
+#: src/home/pam_systemd_home.c:336
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -147,75 +157,75 @@ msgstr ""
 "למשתמש %s חסר בית, נא לחבר את התקן האחסון הנחוץ או את מערכת הקבצים שמגבה "
 "אותו."
 
-#: src/home/pam_systemd_home.c:298
+#: src/home/pam_systemd_home.c:341
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "ניסיונות כניסה תכופים מדי למשתמש %s, נא לנסות שוב מאוחר יותר."
 
-#: src/home/pam_systemd_home.c:310
+#: src/home/pam_systemd_home.c:353
 msgid "Password: "
 msgstr "סיסמה: "
 
-#: src/home/pam_systemd_home.c:312
+#: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "הסיסמה שגויה או בלתי הולמת לאימות המשתמש %s."
 
-#: src/home/pam_systemd_home.c:313
+#: src/home/pam_systemd_home.c:356
 msgid "Sorry, try again: "
 msgstr "מחילה, נא לנסות שוב: "
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:378
 msgid "Recovery key: "
 msgstr "מפתח שחזור: "
 
-#: src/home/pam_systemd_home.c:337
+#: src/home/pam_systemd_home.c:380
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr "סיסמה/מפתח שחזור שגויים או לא מספיקים לאימות המשתמש %s."
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:381
 msgid "Sorry, reenter recovery key: "
 msgstr "מחילה, נא לספק את מפתח השחזור מחדש: "
 
-#: src/home/pam_systemd_home.c:358
+#: src/home/pam_systemd_home.c:401
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "לא סופק אסימון אבטחה למשתמש %s."
 
-#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
+#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
 msgid "Try again with password: "
 msgstr "נא לנסות שוב עם סיסמה: "
 
-#: src/home/pam_systemd_home.c:361
+#: src/home/pam_systemd_home.c:404
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr "הסיסמה שגויה או שאינה מספיקה, ואסימון האבטחה למשתמש %s לא סופק."
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:424
 msgid "Security token PIN: "
 msgstr "קוד אישי לאסימון אבטחה: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:441
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "נא לבצע אימות פיזי באסימון האבטחה למשתמש %s."
 
-#: src/home/pam_systemd_home.c:409
+#: src/home/pam_systemd_home.c:452
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "נא לאשר את נוכחות אסימון האבטחה למשתמש %s."
 
-#: src/home/pam_systemd_home.c:420
+#: src/home/pam_systemd_home.c:463
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "נא לאמת את המשתמש באסימון האבטחה למשתמש %s."
 
-#: src/home/pam_systemd_home.c:429
+#: src/home/pam_systemd_home.c:472
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -223,76 +233,76 @@ msgstr ""
 "אסימון האבטחה נעול בקוד אישי (PIN), נא לשחרר אותו תחילה. (הסרה: ניתוק וחיבור "
 "מחדש אמורים להספיק.)"
 
-#: src/home/pam_systemd_home.c:437
+#: src/home/pam_systemd_home.c:480
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "הקוד האישי (PIN) למשתמש %s שגוי."
 
-#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
-#: src/home/pam_systemd_home.c:476
+#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
+#: src/home/pam_systemd_home.c:519
 msgid "Sorry, retry security token PIN: "
 msgstr "מחילה, נא לנסות שוב קוד אסימון אבטחה אישי (PIN): "
 
-#: src/home/pam_systemd_home.c:456
+#: src/home/pam_systemd_home.c:499
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "קוד אסימון אבטחה אישי (PIN) למשתמש %s שגוי (נותרו עוד מספר ניסיונות בודדים!)"
 
-#: src/home/pam_systemd_home.c:475
+#: src/home/pam_systemd_home.c:518
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "קוד אסימון אבטחה אישי (PIN) למשתמש %s שגוי (נותר עוד ניסיון אחד!)"
 
-#: src/home/pam_systemd_home.c:643
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "הבית של המשתמש %s אינו פעיל כרגע, נא להיכנס מקומית תחילה."
 
-#: src/home/pam_systemd_home.c:645
+#: src/home/pam_systemd_home.c:687
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "הבית של המשתמש %s נעול כרגע, נא לשחרר אותו מקומית תחילה."
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:719
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "יותר מדי ניסיונות כניסה כושלים למשתמש %s, יסורב מעתה."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:1005
 msgid "User record is blocked, prohibiting access."
 msgstr "רשומת המשתמש חסומה, הגישה נמנעת."
 
-#: src/home/pam_systemd_home.c:968
+#: src/home/pam_systemd_home.c:1009
 msgid "User record is not valid yet, prohibiting access."
 msgstr "רשומת המשתמש לא תקפה עדיין, הגישה נמנעת."
 
-#: src/home/pam_systemd_home.c:972
+#: src/home/pam_systemd_home.c:1013
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "רשומת המשתמש אינה תקפה עוד, הגישה נמנעת."
 
-#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
 msgid "User record not valid, prohibiting access."
 msgstr "רשומת המשתמש אינה תקפה, הגישה נמנעת."
 
-#: src/home/pam_systemd_home.c:989
+#: src/home/pam_systemd_home.c:1028
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "יותר מדי ניסיונות כניסה, כדאי לנסות שוב בעוד %s."
 
-#: src/home/pam_systemd_home.c:1000
+#: src/home/pam_systemd_home.c:1039
 msgid "Password change required."
 msgstr "צריך לשנות את הסיסמה."
 
-#: src/home/pam_systemd_home.c:1004
+#: src/home/pam_systemd_home.c:1043
 msgid "Password expired, change required."
 msgstr "תוקף הסיסמה פג, צריך להחליף."
 
-#: src/home/pam_systemd_home.c:1010
+#: src/home/pam_systemd_home.c:1049
 msgid "Password is expired, but can't change, refusing login."
 msgstr "תוקף הסיסמה פג, אך אי אפשר להחליף, הכניסה מסורבת."
 
-#: src/home/pam_systemd_home.c:1014
+#: src/home/pam_systemd_home.c:1053
 msgid "Password will expire soon, please change."
 msgstr "תוקף הסיסמה יפוג בקרוב, נא להחליף."
 
@@ -800,10 +810,25 @@ msgstr ""
 "נדרש אימות כדי ליצור מכונות וירטואליות (VM) או מכולות (container) מקומיות."
 
 #: src/machine/org.freedesktop.machine1.policy:106
+#, fuzzy
+#| msgid "Create a local virtual machine or container"
+msgid "Register a local virtual machine or container"
+msgstr "יצירת מכונה וירטואלית או מכולה מקומיות"
+
+#: src/machine/org.freedesktop.machine1.policy:107
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to create a local virtual machine or container."
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr ""
+"נדרש אימות כדי ליצור מכונות וירטואליות (VM) או מכולות (container) מקומיות."
+
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
 msgstr "ניהול דמויות של מכונות וירטואליות ומכולות"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1016,34 +1041,44 @@ msgid "Authentication is required to subscribe query results."
 msgstr "נדרש אימות כדי להירשם לתוצאות שאילתה."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Subscribe to DNS configuration"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+#| msgid "Authentication is required to subscribe query results."
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "נדרש אימות כדי להירשם לתוצאות שאילתה."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
 msgstr "היטל המטמון"
 
-#: src/resolve/org.freedesktop.resolve1.policy:155
+#: src/resolve/org.freedesktop.resolve1.policy:166
 msgid "Authentication is required to dump cache."
 msgstr "נדרש אימות כדי להטיל את המטמון."
 
-#: src/resolve/org.freedesktop.resolve1.policy:165
+#: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump server state"
 msgstr "היטל מצב השרת"
 
-#: src/resolve/org.freedesktop.resolve1.policy:166
+#: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
 msgstr "נדרש אימות כדי להטיל את מצב השרת."
 
-#: src/resolve/org.freedesktop.resolve1.policy:176
+#: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
 msgstr "היטל סטטיסטיקה"
 
-#: src/resolve/org.freedesktop.resolve1.policy:177
+#: src/resolve/org.freedesktop.resolve1.policy:188
 msgid "Authentication is required to dump statistics."
 msgstr "נדרש אימות כדי להטיל סטטיסטיקה."
 
-#: src/resolve/org.freedesktop.resolve1.policy:187
+#: src/resolve/org.freedesktop.resolve1.policy:198
 msgid "Reset statistics"
 msgstr "איפוס סטטיסטיקה"
 
-#: src/resolve/org.freedesktop.resolve1.policy:188
+#: src/resolve/org.freedesktop.resolve1.policy:199
 msgid "Authentication is required to reset statistics."
 msgstr "נדרש אימות כדי לאפס סטטיסטיקה."
 
@@ -1129,43 +1164,53 @@ msgid ""
 "shall be enabled."
 msgstr "נדרש אימות כדי להפעיל או לכבות סנכרון שעון מהרשת."
 
-#: src/core/dbus-unit.c:370
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to start '$(unit)'."
 msgstr "נדרש אימות כדי להפעיל את ‚$(unit)’."
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "נדרש אימות כדי לעצור את ‚$(unit)’."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "נדרש אימות כדי לרענן את ‚$(unit)’."
 
-#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
+#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "נדרש אימות כדי להפעיל את ‚$(unit)’ מחדש."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:567
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "נדרש אימות כדי לשלוח אות יוניקס לתהליכים של ‚$(unit)’."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:620
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to send a UNIX signal to the processes of "
+#| "'$(unit)'."
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr "נדרש אימות כדי לשלוח אות יוניקס לתהליכים של ‚$(unit)’."
+
+#: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "נדרש אימות כדי לאפס את המצב „נכשל” של ‚$(unit)’."
 
-#: src/core/dbus-unit.c:624
+#: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "נדרש אימות כדי להגדיר מאפיינים על ‚$(unit)’."
 
-#: src/core/dbus-unit.c:721
+#: src/core/dbus-unit.c:775
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr "נדרש אימות כדי למחוק קבצים ותיקיות שמשויכים אל ‚$(unit)’."
 
-#: src/core/dbus-unit.c:758
+#: src/core/dbus-unit.c:812
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "נדרש אימות כדי להפשיר או להקפיא את התהליכים של ‚$(unit)’."
