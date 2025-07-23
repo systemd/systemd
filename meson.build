@@ -685,15 +685,22 @@ conf.set('GPERF_LEN_TYPE', gperf_len_type,
 
 #####################################################################
 
-if not cc.has_header('sys/capability.h')
-        error('POSIX caps headers not found')
-endif
-foreach header : ['crypt.h',
-                  'sys/sdt.h',
-                  'threads.h',
-                  'valgrind/memcheck.h',
-                  'valgrind/valgrind.h',
-                 ]
+foreach header : [
+        'crypt.h',
+        'sys/capability.h',
+]
+
+        if not cc.has_header(header)
+                error('Header file @0@ not found.'.format(header))
+        endif
+endforeach
+
+foreach header : [
+        'sys/sdt.h',
+        'threads.h',
+        'valgrind/memcheck.h',
+        'valgrind/valgrind.h',
+]
 
         conf.set10('HAVE_' + header.underscorify().to_upper(),
                    cc.has_header(header))
@@ -989,11 +996,6 @@ threads = dependency('threads')
 librt = cc.find_library('rt')
 libm = cc.find_library('m')
 libdl = cc.find_library('dl')
-libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
-if not libcrypt.found()
-        # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
-        libcrypt = cc.find_library('crypt')
-endif
 libcap = dependency('libcap')
 
 # On some architectures, libatomic is required. But on some installations,
@@ -1007,15 +1009,21 @@ else
         libatomic = []
 endif
 
-crypt_header = conf.get('HAVE_CRYPT_H') == 1 ? '''#include <crypt.h>''' : '''#include <unistd.h>'''
-foreach ident : [
-        ['crypt_ra',               crypt_header],
-        ['crypt_preferred_method', crypt_header],
-        ['crypt_gensalt_ra',       crypt_header]]
+libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
+if not libcrypt.found()
+        # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
+        libcrypt = cc.find_library('crypt')
+endif
 
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE',
+foreach func : [
+        'crypt_ra',               # since libxcrypt-4.0.0
+        'crypt_gensalt_ra',       # since libxcrypt-4.0.0
+        'crypt_preferred_method', # since libxcrypt-4.4.0
+]
+
+        have = cc.has_function(func, prefix : '''#include <crypt.h>''', args : '-D_GNU_SOURCE',
                                dependencies : libcrypt)
-        conf.set10('HAVE_' + ident[0].to_upper(), have)
+        conf.set10('HAVE_' + func.to_upper(), have)
 endforeach
 
 bpf_framework = get_option('bpf-framework')
