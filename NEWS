@@ -132,8 +132,8 @@ CHANGES WITH 258 in spe:
           DeviceAllow=/DevicePolicy= (and thus restrict access to device nodes)
           will now also make use of the systemd-creds.socket Varlink
           functionality, and will not attempt to decrypt the credentials
-          in-process (and attempt to try to talk to the TPM for
-          that). Previously, encrypted credentials for per-system services were
+          in-process (and attempt to try to talk to the TPM for that).
+          Previously, encrypted credentials for per-system services were
           incompatible with PrivateDevices= and resulted in automatic extension
           of the DeviceAllow= list. The latter behaviour has been removed.
 
@@ -162,9 +162,9 @@ CHANGES WITH 258 in spe:
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
-          removed in v259. Please make sure to update your software
-          *now* to include a native systemd unit file instead of a legacy
-          System V script to retain compatibility with future systemd releases.
+          removed in v259. Please make sure to update your software *now* to
+          include a native systemd unit file instead of a legacy System V
+          script to retain compatibility with future systemd releases.
 
         * Support for systemd-repart's FactoryReset EFI variable has been
           deprecated and support for it will be removed in v260. Use the newer,
@@ -522,14 +522,14 @@ CHANGES WITH 258 in spe:
         * .netdev files gained new External=/VNIFilter= settings in [VXLAN]
           section.
 
-        * .netdev files can now configure HSR/SRP network devices too, via he new
-          [HSR] section.
+        * .netdev files can now configure HSR/SRP network devices too, via a
+          new [HSR] section.
 
         * The LLDP client will now pick up the VLAN Id from LLDP data. The LLDP
           sender will now send this field on VLAN devices.
 
-        * The DHCPv4 client in systemd-networkd now also supports BOOTP (via
-          the new BOOTP= setting).
+        * The DHCPv4 client in systemd-networkd now also supports BOOTP (via a
+          new BOOTP= setting).
 
         * The Local= setting in [Tunnel] section gained a new "dhcp_pd" value
           to allow setting the local address based on dhcp-pd addresses.
