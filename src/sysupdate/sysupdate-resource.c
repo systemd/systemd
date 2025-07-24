@@ -647,7 +647,7 @@ int resource_resolve_path(
 
         } else if (RESOURCE_IS_FILESYSTEM(rr->type)) {
                 _cleanup_free_ char *resolved = NULL, *relative_to = NULL;
-                ChaseFlags chase_flags = CHASE_PREFIX_ROOT;
+                ChaseFlags chase_flags = CHASE_NONEXISTENT | CHASE_PREFIX_ROOT;
 
                 if (rr->path_relative_to == PATH_RELATIVE_TO_EXPLICIT) {
                         assert(relative_to_directory);
