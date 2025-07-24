@@ -2290,6 +2290,8 @@ void manager_reopen_journals(Manager *m, const JournalConfig *old) {
         (void) manager_system_journal_open(m, /* flush_requested = */ false, /* relinquish_requested = */ false);
 
         /* To make the storage related settings applied, vacuum the storage. */
+        cache_space_invalidate(&m->system_storage.space);
+        cache_space_invalidate(&m->runtime_storage.space);
         manager_vacuum(m, /* verbose = */ false);
 }
 
