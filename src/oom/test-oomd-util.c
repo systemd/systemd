@@ -421,7 +421,7 @@ TEST(oomd_fetch_cgroup_oom_preference) {
                 return (void) log_tests_skipped("system does not support pressure");
 
         if (enter_cgroup_root_cached() < 0)
-                return;
+                return (void) log_tests_skipped("Failed to enter cgroup root");
 
         ASSERT_OK(cg_mask_supported(&mask));
         if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
