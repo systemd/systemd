@@ -366,6 +366,12 @@ CHANGES WITH 258 in spe:
         * A new PrivateBPF= switch has been added for unit files, which may be
           used to mount a private bpffs instance for the unit's processes.
 
+        * Four new options added to mount the bpffs with the delegate options:
+          BPFDelegateCommands= BPFDelegateMaps=
+          BPFDelegatePrograms= BPFDelegateAttachments=
+          These allow an unprivileged container to use some BPF functionalities.
+          See also https://lwn.net/Articles/947173/
+
         * New user manager services systemd-nspawn@.service and
           systemd-vmspawn@.service and a machines.target unit to manage them
           have been added.
