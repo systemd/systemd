@@ -70,8 +70,8 @@ The following exceptions apply:
    - src/fundamental/sha1-fundamental.c
    - src/fundamental/sha1-fundamental.h
  * the following files are licensed under **BSD-3-Clause** license:
-   - src/boot/efi/chid.c
-   - src/boot/efi/chid.h
+   - src/boot/chid.c
+   - src/boot/chid.h
  * Heebo fonts under docs/fonts/ are licensed under the **SIL Open Font License 1.1**,
  * any files under test/ without an explicit license we assume non-copyrightable
    (eg: computer-generated fuzzer data)
