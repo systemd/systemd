@@ -34,21 +34,21 @@ The following exceptions apply:
    and test programs) are also distributed under **GPL-2.0-or-later**.
    Note, sources under src/libudev are licensed under **LGPL-2.1-or-later**,
    so libudev library is also distributed under **LGPL-2.1-or-later**.
- * the header files contained in src/basic/include/linux are copied
+ * the header files contained in src/include/uapi/linux/ are copied
    verbatim from the Linux kernel source tree and are licensed under **GPL-2.0 WITH
    Linux-syscall-note** and are used within the scope of the Linux-syscall-note
    exception provisions
  * the src/basic/utf8.c source is licensed under the **LGPL-2.0-or-later** license.
- * the src/basic/include/linux/bpf_insn.h header is copied from the Linux kernel
+ * the src/include/uapi/linux/bpf_insn.h header is copied from the Linux kernel
    source tree and is licensed under either **BSD-2-Clause** or **GPL-2.0-only**,
    and thus is included in the systemd build under the BSD-2-Clause license.
- * The src/basic/include/linux/wireguard.h header is copied from the Linux kernel
+ * The src/include/uapi/linux/wireguard.h header is copied from the Linux kernel
    source tree and is licensed under either **MIT** or **GPL-2.0 WITH Linux-syscall-note**,
    and thus is included in the systemd build under the MIT license.
  * the following sources are licensed under the **MIT** license (in case of our
    scripts, to facilitate copying and reuse of those helpers to other projects):
    - hwdb.d/parse_hwdb.py
-   - src/basic/include/linux/batman_adv.h
+   - src/include/uapi/linux/batman_adv.h
    - src/basic/sparse-endian.h
    - tools/catalog-report.py
  * the following sources are licensed under the **CC0-1.0** license:
@@ -70,8 +70,8 @@ The following exceptions apply:
    - src/fundamental/sha1-fundamental.c
    - src/fundamental/sha1-fundamental.h
  * the following files are licensed under **BSD-3-Clause** license:
-   - src/boot/efi/chid.c
-   - src/boot/efi/chid.h
+   - src/boot/chid.c
+   - src/boot/chid.h
  * Heebo fonts under docs/fonts/ are licensed under the **SIL Open Font License 1.1**,
  * any files under test/ without an explicit license we assume non-copyrightable
    (eg: computer-generated fuzzer data)
