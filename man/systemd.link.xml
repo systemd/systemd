@@ -1073,7 +1073,7 @@
       <varlistentry>
         <term><varname>ReceiveAll=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, allow to also receive damaged ethernet frames.
+          <para>Takes a boolean. If set to true, allow the interface to also receive damaged ethernet frames.
           When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/>
