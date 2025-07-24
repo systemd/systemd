@@ -176,7 +176,7 @@ cat >/run/systemd/journald.conf.d/99-ratelimit.conf <<EOF
 [Journal]
 RateLimitBurst=0
 EOF
-systemctl restart systemd-journald.service
+systemctl reload systemd-journald.service
 
 run_testcases
 
