@@ -133,6 +133,10 @@ that make use of `run_testcases`.
 
 `TEST_SKIP_TESTCASE=testcase`: takes a space separated list of testcases to skip.
 
+`TEST_SAVE_JOURNAL=0|1|fail`: When `0`, journal file will be removed on exit.
+When `1`, journal file will be saved at `$BUILD_DIR/test/journal`. When `fail`,
+journal file will be saved only when the test is failed. Defaults to `fail`.
+
 `TEST_JOURNAL_USE_TMP=1`: Write test journal to `/tmp` while the test is in
 progress and only move the journal to its final location in the build directory
 (`$BUILD_DIR/test/journal`) when the test is finished.
