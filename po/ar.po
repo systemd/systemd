@@ -2,13 +2,14 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the systemd package.
 # joo es <johndevand@tutanota.com>, 2025.
+# joo es <jonnyse@users.noreply.translate.fedoraproject.org>, 2025.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-04-28 17:31+0000\n"
-"Last-Translator: joo es <johndevand@tutanota.com>\n"
+"PO-Revision-Date: 2025-07-24 14:54+0000\n"
+"Last-Translator: joo es <jonnyse@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Arabic <https://translate.fedoraproject.org/projects/systemd/"
 "main/ar/>\n"
 "Language: ar\n"
@@ -17,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
 "&& n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
-"X-Generator: Weblate 5.11\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -140,13 +141,11 @@ msgstr "الاستيثاق مطلوب لتفعيل منطقة مستخدم ال�
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "أدر مفاتيح توقيع مجلد المنزل"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "الاستيثاق مطلوب لإدارة خدمات النظام أو الوحدات الأخرى."
+msgstr "الاستيثاق مطلوب لإدارة مفاتيح التوقيع لوحدات مجلد المنزل."
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -257,12 +256,12 @@ msgstr "رمز PIN لرمز الأمان للمستخدم %s غير صحيح (ت
 #: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr "مجلد المستخدم %s غير نشط حالياً، يُرجى الولوج محلياً أولاً."
+msgstr "مجلد منزل المستخدم %s غير نشط حاليًا، يُرجى الولوج محليًا أولاً."
 
 #: src/home/pam_systemd_home.c:687
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr "مجلد المستخدم %s مُقفل حالياً، يُرجى فتحه محلياً أولاً."
+msgstr "مجلد منزل المستخدم %s مُقفل حاليًا، يُرجى فتحه محليًا أولاً."
 
 #: src/home/pam_systemd_home.c:719
 #, c-format
@@ -811,18 +810,13 @@ msgid ""
 msgstr "الاستيثاق مطلوب لإنشاء جهاز افتراضي محلي أو حاوية."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "أنشئ جهازًا افتراضيًا محليًا أو حاوية"
+msgstr "سجّل جهازًا افتراضيًا محليًا أو حاوية"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
-msgstr "الاستيثاق مطلوب لإنشاء جهاز افتراضي محلي أو حاوية."
+msgstr "الاستيثاق مطلوب لتسجيل جهاز افتراضي محلي أو حاوية."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1042,13 +1036,11 @@ msgstr "الاستيثاق مطلوب لاشتراك نتائج الاستعلا
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "اشترك في تضبيط DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "الاستيثاق مطلوب لاشتراك نتائج الاستعلام."
+msgstr "الاستيثاق مطلوب لإشتراك في تضبيط DNS."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1187,14 +1179,11 @@ msgid ""
 msgstr "الاستيثاق مطلوب لإرسال إشارة UNIX إلى عمليات '$(unit)'."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "الاستيثاق مطلوب لإرسال إشارة UNIX إلى عمليات '$(unit)'."
+msgstr ""
+"الاستيثاق مطلوب لإرسال إشارة UNIX إلى عمليات المجموعة الفرعية ل '$(unit)'."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
