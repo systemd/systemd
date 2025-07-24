@@ -109,7 +109,8 @@ assert_cc(INT_MAX <= INTMAX_MAX);
 static inline bool ERRNO_IS_NEG_TRANSIENT(intmax_t r) {
         return IN_SET(r,
                       -EAGAIN,
-                      -EINTR);
+                      -EINTR,
+                      -ETIMEDOUT);
 }
 _DEFINE_ABS_WRAPPER(TRANSIENT);
 

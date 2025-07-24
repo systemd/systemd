@@ -82,6 +82,14 @@ struct Request {
         request_netlink_handler_t netlink_handler;
 
         bool waiting_reply;
+
+        /* retry fields */
+        unsigned retry_count;
+        unsigned max_retry_count;
+        usec_t base_retry_delay_usec;
+        usec_t max_retry_delay_usec;
+        usec_t next_retry_time;
+        sd_event_source *retry_timer_source;
 };
 
 Request *request_ref(Request *req);
