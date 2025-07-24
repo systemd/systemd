@@ -724,6 +724,10 @@ int resource_resolve_path(
                 }
 
                 r = chase(rr->path, relative_to, chase_flags, &resolved, NULL);
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "Failed to resolve filesystem resource path '%s' (relative to '%s'), ignoring: %m", rr->path, relative_to);
+                        return 0;
+                }
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s' (relative to '%s'): %m", rr->path, relative_to);
 
