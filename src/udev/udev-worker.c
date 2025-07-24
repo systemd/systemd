@@ -112,7 +112,7 @@ static int worker_lock_whole_disk(UdevWorker *worker, sd_device *dev, int *ret_f
 
         fd = sd_device_open(dev_whole_disk, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
 
                 log_device_debug_errno(dev, fd, "Failed to open '%s'%s: %m", whole_disk, ignore ? ", ignoring" : "");
                 if (!ignore)
@@ -178,7 +178,7 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 
         _cleanup_close_ int fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
                 log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
                                       "Failed to open device node '%s'%s: %m",
                                       node, ignore ? ", ignoring" : "");

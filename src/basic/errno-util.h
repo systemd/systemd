@@ -212,6 +212,13 @@ static inline bool ERRNO_IS_NEG_DEVICE_ABSENT(intmax_t r) {
 }
 _DEFINE_ABS_WRAPPER(DEVICE_ABSENT);
 
+/* Device is absent or "empty". We get -ENOMEDIUM from CD/DVD devices, also in VMs. */
+static inline bool ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(intmax_t r) {
+        return ERRNO_IS_NEG_DEVICE_ABSENT(r) ||
+                r == -ENOMEDIUM;
+}
+_DEFINE_ABS_WRAPPER(DEVICE_ABSENT_OR_EMPTY);
+
 /* Quite often we want to handle cases where the backing FS doesn't support extended attributes at all and
  * where it simply doesn't have the requested xattr the same way */
 static inline bool ERRNO_IS_NEG_XATTR_ABSENT(intmax_t r) {

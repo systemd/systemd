@@ -35,7 +35,7 @@ static int builtin_btrfs(UdevEvent *event, int argc, char *argv[]) {
 
         _cleanup_close_ int fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(errno)) {
+                if (ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno)) {
                         /* Driver not installed? Then we aren't ready. This is useful in initrds that lack
                          * btrfs.ko. After the host transition (where btrfs.ko will hopefully become
                          * available) the device can be retriggered and will then be considered ready. */

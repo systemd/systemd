@@ -122,7 +122,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
 
         _cleanup_close_ int fd = sd_device_open(dev, O_CLOEXEC|O_PATH);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
                 log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
                                       "Failed to open device node%s: %m",
                                       ignore ? ", ignoring" : "");
