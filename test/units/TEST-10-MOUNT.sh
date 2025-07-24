@@ -82,6 +82,14 @@ check_dependencies() {
     # mount LOOP_1 (using fake _netdev option)
     mount -t ext4 -o _netdev "${LOOP_1}p1" /tmp/deptest
     timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
+    # When a device is mounted with userspace options such as _netdev, even when the mount event source is
+    # triggered, only /proc/self/mountinfo may be updated, and /run/mount/utab may not be updated yet.
+    # Hence, the mount unit may be created/updated without the userspace options. In that case, the mount
+    # event source will be retriggered when /run/mount/utab is updated, and the mount unit will be updated
+    # again with the userspace options. Typically, the window between the two calls is very short, but when
+    # the mount event source is ratelimited after the first event, processing the second event may be delayed
+    # about 1 secound. Hence, here we need to wait for a while.
+    timeout 10 bash -c 'until systemctl show --property=After --value tmp-deptest.mount | grep -q -F remote-fs-pre.target; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_not_in "local-fs-pre.target" "$after"
     assert_in "remote-fs-pre.target" "$after"
