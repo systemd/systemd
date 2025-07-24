@@ -128,7 +128,7 @@ testcase_dependencies() {
         return
     fi
 
-    trap teardown_test_dependencies RETURN
+    trap teardown_test_dependencies RETURN EXIT ERR INT TERM
 
     setup_loop 0
     LOOP_0="${LOOP}"
