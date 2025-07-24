@@ -2821,7 +2821,7 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_dump_unit_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_generic_unit_operation(message, userdata, error, bus_service_method_dump_file_descriptor_store, 0);
+        return method_generic_unit_operation(message, userdata, error, bus_service_method_dump_file_descriptor_store, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_start_aux_scope(sd_bus_message *message, void *userdata, sd_bus_error *error) {
