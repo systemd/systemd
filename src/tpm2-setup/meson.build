@@ -17,6 +17,8 @@ executables += [
                 'name' : 'systemd-tpm2-clear',
                 'sources' : files('tpm2-clear.c'),
                 'conditions' : [
+                        'ENABLE_BOOTLOADER',
+                        'HAVE_OPENSSL',
                         'HAVE_TPM2',
                 ],
         },
