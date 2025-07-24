@@ -98,11 +98,6 @@ CHANGES WITH 258 in spe:
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() has
           been removed, which was deprecated since v257.
 
-        * systemd-networkd now supports configuring the timeout for IPv4
-          Duplicate Address Detection via a new setting
-          IPv4DuplicateAddressDetectionTimeoutSec=. The default timeout value
-          has been changed from 7 seconds to 200 milliseconds.
-
         * systemd-networkd previously emitted the machine ID as chassis ID
           through LLDP protocol, but now emits a deterministic ID,
           cryptographically derived from the machine ID as chassis ID. If you
@@ -500,9 +495,19 @@ CHANGES WITH 258 in spe:
 
         systemd-networkd:
 
-        * The [Network] section in .network fails gained a new setting
-          MPLSRouting= which may be used to control Multi-Protocol Label
-          Switching on an interface.
+        * systemd-networkd now supports configuring the timeout for IPv4
+          Duplicate Address Detection via a new setting
+          IPv4DuplicateAddressDetectionTimeoutSec=. The default timeout value
+          has been changed from 7 seconds to 200 milliseconds.
+
+        * systemd-networkd gained support for IPv6 SIP, i.e. DHCPv6 options
+          SD_DHCP6_OPTION_SIP_SERVER_DOMAIN_NAME (21) and
+          SD_DHCP6_OPTION_SIP_SERVER_ADDRESS (22), controlled by a new UseSIP=
+          option in the [DHCPv6] section.
+
+        * A new MPLSRouting= setting in the [Network] section in .network files
+          can be used to control whether Multi-Protocol Label Switching is
+          enabled on an interface.
 
         * A system-wide default for ClientIdentifier= may now be set in
           networkd.conf. (Previously this had to be configured individually in
