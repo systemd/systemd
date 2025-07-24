@@ -220,20 +220,22 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
 }
 
 int fd_is_read_only_fs(int fd) {
-        struct statvfs st;
+        struct statfs st;
 
         assert(fd >= 0);
 
-        if (fstatvfs(fd, &st) < 0)
+        if (fstatfs(fd, &st) < 0)
                 return -errno;
 
-        if (st.f_flag & ST_RDONLY)
+        if (st.f_flags & ST_RDONLY)
                 return true;
 
-        /* On NFS, fstatvfs() might not reflect whether we can actually write to the remote share. Let's try
-         * again with access(W_OK) which is more reliable, at least sometimes. */
-        if (access_fd(fd, W_OK) == -EROFS)
-                return true;
+        if (is_network_fs(&st)) {
+                /* On NFS, fstatvfs() might not reflect whether we can actually write to the remote share.
+                 * Let's try again with access(W_OK) which is more reliable, at least sometimes. */
+                if (access_fd(fd, W_OK) == -EROFS)
+                        return true;
+        }
 
         return false;
 }
