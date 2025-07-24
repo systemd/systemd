@@ -1933,6 +1933,12 @@ static int mount_setup_unit(
         if (set_flags)
                 MOUNT(u)->proc_flags = flags;
 
+        Mount *mount = MOUNT(u);
+        MountParameters *pm = get_mount_parameters(mount);
+
+        log_unit_debug(u, "%s: proc: %s, netdev: %s", __func__,
+                       yes_no(mount->from_proc_self_mountinfo),
+                       yes_no(pm->options && fstab_test_option(pm->options, "_netdev\0")));
         return 0;
 }
 

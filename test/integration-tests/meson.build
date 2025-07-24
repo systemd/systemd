@@ -43,6 +43,7 @@ foreach dirname : [
         'TEST-07-PID1',
         'TEST-08-INITRD',
         'TEST-09-REBOOT',
+        'TEST-10-MOUNT',
         'TEST-13-NSPAWN',
         'TEST-15-DROPIN',
         'TEST-16-EXTEND-TIMEOUT',
