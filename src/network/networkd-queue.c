@@ -6,6 +6,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "string-table.h"
+#include "random-util.h"
 
 #define REPLY_CALLBACK_COUNT_THRESHOLD 128
 
@@ -164,6 +165,11 @@ static int request_new(
                 .compare_func = compare_func,
                 .process = process,
                 .netlink_handler = netlink_handler,
+                .retry_count = 0,
+                .max_retry_count = 3,
+                .base_retry_delay_usec = 100 * USEC_PER_MSEC, //10ms
+                .max_retry_delay_usec = 30 * USEC_PER_SEC, //30s
+                .retry_timer_source = NULL,
         };
 
         existing = ordered_set_get(manager->request_queue, req);
@@ -284,6 +290,9 @@ int manager_process_requests(Manager *manager) {
                 if (req->waiting_reply)
                         continue; /* Already processed, and waiting for netlink reply. */
 
+                if (req->retry_timer_source && now(CLOCK_MONOTONIC) < req->next_retry_time)
+                        continue; /* Skip request that are waiting to be retried. */
+
                 /* Typically, requests send netlink message asynchronously. If there are many requests
                  * queued, then this event may make reply callback queue in sd-netlink full. */
                 if (netlink_get_reply_callback_count(manager->rtnl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
@@ -320,7 +329,54 @@ int manager_process_requests(Manager *manager) {
         return 0;
 }
 
+static int request_schedule_retry(Request *req, int error_value) {
+        usec_t delay, jitter;
+        int r;
+
+        assert(req);
+        assert(req->manager);
+
+        req->retry_count++;
+
+        /*try to calculate backoff delay here, don't want to overwhelm with too frequent requests */
+        delay = req->base_retry_delay_usec * (1ULL << (req->retry_count - 1));
+
+        if (delay > req->max_retry_delay_usec)
+                delay = req->max_retry_delay_usec;
+
+        /* delay variables */
+        jitter = delay / 4;
+        delay += (random_u64() % (2 * jitter + 1)) - jitter;
+
+        req->next_retry_time = now(CLOCK_MONOTONIC) + delay;
+
+        /* schedule retry timer */
+        r = sd_event_add_time_relative(
+                req->manager->event,
+                &req->retry_timer_source,
+                CLOCK_MONOTONIC,
+                delay,
+                USEC_PER_MSEC * 10,
+                NULL,
+                req);
+        if (r < 0) {
+                log_link_warning_errno(req->link, r,
+                                       "Failed to schedule retry for %s request: %m",
+                                       request_type_to_string(req->type));
+                return r;
+        }
+
+        log_link_debug(req->link,
+                       "Scheduling retry for %u/%u for %s request in %s",
+                       req->retry_count, req->max_retry_count,
+                       request_type_to_string(req->type),
+                       FORMAT_TIMESPAN(delay,USEC_PER_MSEC));
+        return 1;
+}
 static int request_netlink_handler(sd_netlink *nl, sd_netlink_message *m, Request *req) {
+
+        int r; /* retry variable */
+
         assert(req);
 
         if (req->counter) {
@@ -331,6 +387,17 @@ static int request_netlink_handler(sd_netlink *nl, sd_netlink_message *m, Reques
 
         if (req->link && IN_SET(req->link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
+
+        /*handle retry mechanism here */
+        r = sd_netlink_message_get_errno(m);
+
+        if (r < 0 && ERRNO_IS_NEG_TRANSIENT(r) && req->retry_count < req->max_retry_count)
+                return request_schedule_retry(req, r);
+
+        /* reset retry state */
+        req->retry_timer_source = sd_event_source_unref(req->retry_timer_source);
+        req->retry_count = 0;
+
 
         if (req->netlink_handler)
                 return req->netlink_handler(nl, m, req, req->link, req->userdata);
