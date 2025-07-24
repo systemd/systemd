@@ -32,6 +32,11 @@ if ! systemd-detect-virt -qc; then
     sysctl net.ipv4.ping_group_range="0 2147483647"
 fi
 
+# Disable firewalld and friends to make them not disturb test-firewall-util
+systemctl disable --now firewalld.service || :
+systemctl disable --now iptables.service || :
+systemctl disable --now ip6tables.service || :
+
 # Check & report test results
 # Arguments:
 #   $1: test path
