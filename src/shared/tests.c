@@ -29,6 +29,7 @@
 #include "log.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
@@ -38,13 +39,11 @@
 #include "uid-range.h"
 
 char* setup_fake_runtime_dir(void) {
-        char t[] = "/tmp/fake-xdg-runtime-XXXXXX", *p;
+        char *t;
 
-        assert_se(mkdtemp(t));
-        assert_se(setenv("XDG_RUNTIME_DIR", t, 1) >= 0);
-        assert_se(p = strdup(t));
-
-        return p;
+        ASSERT_OK(mkdtemp_malloc("/tmp/fake-xdg-runtime-XXXXXX", &t));
+        ASSERT_OK(setenv("XDG_RUNTIME_DIR", t, /* overwrite = */ true));
+        return t;
 }
 
 static void load_testdata_env(void) {
@@ -57,18 +56,18 @@ static void load_testdata_env(void) {
                 return;
         called = true;
 
-        assert_se(readlink_and_make_absolute("/proc/self/exe", &s) >= 0);
-        assert_se(path_extract_directory(s, &d) >= 0);
-        assert_se(envpath = path_join(d, "systemd-runtest.env"));
+        ASSERT_OK(readlink_and_make_absolute("/proc/self/exe", &s));
+        ASSERT_OK(path_extract_directory(s, &d));
+        ASSERT_NOT_NULL(envpath = path_join(d, "systemd-runtest.env"));
 
         r = load_env_file_pairs(NULL, envpath, &pairs);
         if (r < 0) {
-                log_debug_errno(r, "Reading %s failed: %m", envpath);
+                log_debug_errno(r, "Reading %s failed, ignoring: %m", envpath);
                 return;
         }
 
         STRV_FOREACH_PAIR(k, v, pairs)
-                assert_se(setenv(*k, *v, 0) >= 0);
+                ASSERT_OK(setenv(*k, *v, /* overwrite = */ false));
 }
 
 int get_testdata_dir(const char *suffix, char **ret) {
@@ -144,16 +143,14 @@ int write_tmpfile(char *pattern, const char *contents) {
 }
 
 bool have_namespaces(void) {
-        siginfo_t si = {};
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        int r;
 
         /* Checks whether namespaces are available. In some cases they aren't. We do this by calling unshare(), and we
          * do so in a child process in order not to affect our own process. */
 
-        pid = fork();
-        assert_se(pid >= 0);
-
-        if (pid == 0) {
+        ASSERT_OK(r = pidref_safe_fork("(have_namespace)", /* flags = */ 0, &pid));
+        if (r == 0) {
                 /* child */
                 if (detach_mount_namespace() < 0)
                         _exit(EXIT_FAILURE);
@@ -161,13 +158,11 @@ bool have_namespaces(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(waitid(P_PID, pid, &si, WEXITED) >= 0);
-        assert_se(si.si_code == CLD_EXITED);
-
-        if (si.si_status == EXIT_SUCCESS)
+        ASSERT_OK(r = pidref_wait_for_terminate_and_check("(have_namespace)", &pid, /* flags = */ 0));
+        if (r == EXIT_SUCCESS)
                 return true;
 
-        if (si.si_status == EXIT_FAILURE)
+        if (r == EXIT_FAILURE)
                 return false;
 
         assert_not_reached();
@@ -203,9 +198,9 @@ bool can_memlock(void) {
 
         bool b = mlock(p, CAN_MEMLOCK_SIZE) >= 0;
         if (b)
-                assert_se(munlock(p, CAN_MEMLOCK_SIZE) >= 0);
+                ASSERT_OK(munlock(p, CAN_MEMLOCK_SIZE));
 
-        assert_se(munmap(p, CAN_MEMLOCK_SIZE) >= 0);
+        ASSERT_OK(munmap(p, CAN_MEMLOCK_SIZE));
         return b;
 }
 
@@ -301,16 +296,14 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         r = cg_pid_get_path(NULL, 0, &cgroup_root);
         if (IN_SET(r, -ENOMEDIUM, -ENOENT))
                 return log_warning_errno(r, "cg_pid_get_path(NULL, 0, ...) failed: %m");
-        assert(r >= 0);
+        ASSERT_OK(r);
 
         if (enter_subroot)
-                assert_se(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()) >= 0);
-        else {
-                cgroup_subroot = strdup(cgroup_root);
-                assert_se(cgroup_subroot != NULL);
-        }
+                ASSERT_OK(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()));
+        else
+                ASSERT_NOT_NULL(cgroup_subroot = strdup(cgroup_root));
 
-        assert_se(cg_mask_supported(&supported) >= 0);
+        ASSERT_OK(cg_mask_supported(&supported));
 
         /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if
          * we handle any errors at that point. */
