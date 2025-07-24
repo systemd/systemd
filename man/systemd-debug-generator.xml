@@ -101,8 +101,8 @@
         <listitem><para>Takes one of <option>pre-udev</option>, <option>pre-basic</option>,
         <option>pre-mount</option>, or <option>pre-switch-root</option> (the default for the
         <literal>rd.</literal> option). It also accepts multiple values separated by comma
-        (<literal>,</literal>). These options allow to pause the boot process at a certain point and spawn a
-        debug shell. After exiting this shell, the system will resume booting. The option prefixed with
+        (<literal>,</literal>). These options allow one to pause the boot process at a certain point and spawn
+        a debug shell. After exiting this shell, the system will resume booting. The option prefixed with
         <literal>rd.</literal> is honored only in the initrd, while the one without prefix is only honored on
         the host.</para>
 
