@@ -10,6 +10,11 @@ TEST(errno_list) {
         ASSERT_NULL(errno_to_name(0));
 
         for (size_t i = 0; i < ELEMENTSOF(errno_names); i++) {
+                /* On MIPS the kernel's errno header defines some errnos that glibc does not know about */
+#if defined(__mips__) || defined(__mips64__)
+                if (IN_SET(i, EINIT, EREMDEV))
+                        continue;
+#endif
                 if (errno_names[i]) {
                         ASSERT_STREQ(errno_to_name(i), errno_names[i]);
                         assert_se(errno_from_name(errno_names[i]) == (int) i);
