@@ -660,7 +660,12 @@ def main() -> None:
         journal_file = Path(shutil.move(journal_file, dst))
 
     if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
-        exit(0 if shell or result.returncode == args.exit_code else 77)
+        exit_code = 0 if shell or result.returncode == args.exit_code else 77
+        exit_str = 'succeeded' if exit_code == 0 else 'skipped'
+    else:
+        # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
+        exit_code = result.returncode or 1
+        exit_str = 'failed'
 
     if journal_file.exists():
         ops = []
@@ -678,10 +683,9 @@ def main() -> None:
 
         ops += [f'journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info']
 
-        print(f'Test failed, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr)
+        print(f'Test {exit_str}, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr)
 
-    # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
-    exit(result.returncode or 1)
+    exit(exit_code)
 
 
 if __name__ == '__main__':
