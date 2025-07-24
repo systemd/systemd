@@ -82,7 +82,7 @@ int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len);
 #define DEFINE_HEX_PTR(name, hex)                                       \
         _cleanup_free_ void *name = NULL;                               \
         size_t name##_len = 0;                                          \
-        assert_se(define_hex_ptr_internal(hex, &name, &name##_len) >= 0)
+        ASSERT_OK(define_hex_ptr_internal(hex, &name, &name##_len))
 
 /* Provide a convenient way to check if we're running in CI. */
 const char* ci_environment(void);
