@@ -763,6 +763,7 @@ static int method_generic_unit_operation(
                 sd_bus_message *message,
                 Manager *m,
                 sd_bus_error *error,
+                UnitType type,
                 sd_bus_message_handler_t handler,
                 GenericUnitOperationFlags flags) {
 
@@ -788,6 +789,11 @@ static int method_generic_unit_operation(
         if (r < 0)
                 return r;
 
+        if (type != _UNIT_TYPE_INVALID && u->type != type)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "%s operation is not supported for unit type '%s'",
+                                         sd_bus_message_get_member(message), unit_type_to_string(u->type));
+
         if (FLAGS_SET(flags, GENERIC_UNIT_VALIDATE_LOADED)) {
                 r = bus_unit_validate_load_state(u, error);
                 if (r < 0)
@@ -799,7 +805,7 @@ static int method_generic_unit_operation(
 
 static int method_enqueue_unit_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* We don't bother with GENERIC_UNIT_VALIDATE_LOADED here, as the job logic validates that anyway */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_enqueue_job, GENERIC_UNIT_LOAD);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_enqueue_job, GENERIC_UNIT_LOAD);
 }
 
 static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -824,57 +830,57 @@ static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        /* We don't bother with GENERIC_UNIT_LOAD nor GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
-         * matter whether a unit is loaded for killing any processes possibly in the unit's cgroup. */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_kill, 0);
+        /* We don't bother with GENERIC_UNIT_LOAD or GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
+         * matter whether a unit is loaded for killing any processes in the unit's cgroup. */
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_kill, /* flags = */ 0);
 }
 
 static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Load the unit if necessary, in order to load it, and insist on the unit being loaded to be
          * cleaned */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_clean, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_clean, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_freeze_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only active units can be frozen, which must be properly loaded already */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_freeze, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_freeze, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_thaw_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Same as freeze above */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_thaw, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_thaw, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Don't load the unit (because unloaded units can't be in failed state), and don't insist on the
          * unit to be loaded properly (since a failed unit might have its unit file disappeared) */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_reset_failed, 0);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_reset_failed, /* flags = */ 0);
 }
 
 static int method_set_unit_properties(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only change properties on fully loaded units, and load them in order to set properties */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_set_properties, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_set_properties, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_bind_mount_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only add mounts on fully loaded units */
-        return method_generic_unit_operation(message, userdata, error, bus_service_method_bind_mount, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, UNIT_SERVICE, bus_service_method_bind_mount, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_mount_image_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only add mounts on fully loaded units */
-        return method_generic_unit_operation(message, userdata, error, bus_service_method_mount_image, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, UNIT_SERVICE, bus_service_method_mount_image, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_ref_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only allow reffing of fully loaded units, and make sure reffing a unit loads it. */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_ref, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_ref, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_unref_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Dropping a ref OTOH should not require the unit to still be loaded. And since a reffed unit is a
          * loaded unit there's no need to load the unit for unreffing it. */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_unref, 0);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_unref, /* flags = */ 0);
 }
 
 static int reply_unit_info(sd_bus_message *reply, Unit *u) {
@@ -953,14 +959,14 @@ static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd
         /* Don't load a unit actively (since it won't have any processes if it's not loaded), but don't
          * insist on the unit being loaded either (because even improperly loaded units might still have
          * processes around). */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_get_processes, /* flags = */ 0);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_get_processes, /* flags = */ 0);
 }
 
 static int method_attach_processes_to_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Don't allow attaching new processes to units that aren't loaded. Don't bother with loading a unit
          * for this purpose though, as an unloaded unit is a stopped unit, and we don't allow attaching
          * processes to stopped units anyway. */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_attach_processes, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_attach_processes, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int transient_unit_from_message(
@@ -2890,7 +2896,7 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_dump_unit_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_generic_unit_operation(message, userdata, error, bus_service_method_dump_file_descriptor_store, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, UNIT_SERVICE, bus_service_method_dump_file_descriptor_store, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int aux_scope_from_message(Manager *m, sd_bus_message *message, Unit **ret_scope, sd_bus_error *error) {
