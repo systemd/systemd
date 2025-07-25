@@ -610,20 +610,20 @@ endforeach
 
 #####################################################################
 
-awk = find_program('awk')
-diff = find_program('diff')
-echo = find_program('echo')
-env = find_program('env')
-find = find_program('find')
+awk    = find_program('awk')
+diff   = find_program('diff')
+echo   = find_program('echo')
+env    = find_program('env')
+find   = find_program('find')
 getent = find_program('getent', required : false)
-git = find_program('git', required : false)
-gperf = find_program('gperf')
-id = find_program('id', required : false)
-ln = find_program('ln')
-rsync = find_program('rsync', required : false)
-sed = find_program('sed')
-sh = find_program('sh')
-stat = find_program('stat')
+git    = find_program('git', required : false)
+gperf  = find_program('gperf')
+id     = find_program('id', required : false)
+ln     = find_program('ln')
+rsync  = find_program('rsync', required : false)
+sed    = find_program('sed')
+sh     = find_program('sh')
+stat   = find_program('stat')
 
 ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'
 
