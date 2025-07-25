@@ -6,8 +6,12 @@
 
 /* The following macros add 1 when converting things, since 0 is a valid mode, while the pointer
  * NULL is special */
-#define PTR_TO_MODE(p) ((mode_t) ((uintptr_t) (p)-1))
-#define MODE_TO_PTR(u) ((void *) ((uintptr_t) (u)+1))
+static inline mode_t PTR_TO_MODE(void *p) {
+        return p ? (mode_t) ((uintptr_t) p - 1) : MODE_INVALID;
+}
+static inline void* MODE_TO_PTR(mode_t m) {
+        return m == MODE_INVALID ? NULL : (void *) ((uintptr_t) m + 1);
+}
 
 int rmdir_parents(const char *path, const char *stop);
 
