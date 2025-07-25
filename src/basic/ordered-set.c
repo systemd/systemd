@@ -61,7 +61,7 @@ int ordered_set_put_strdup_full(OrderedSet **s, const struct hash_ops *hash_ops,
 }
 
 int ordered_set_put_strdupv_full(OrderedSet **s, const struct hash_ops *hash_ops, char **l) {
-        int n = 0, r;
+        int r, ret = 0;
 
         assert(s);
 
@@ -70,14 +70,14 @@ int ordered_set_put_strdupv_full(OrderedSet **s, const struct hash_ops *hash_ops
                 if (r < 0)
                         return r;
 
-                n += r;
+                ret = ret || r > 0;
         }
 
-        return n;
+        return ret;
 }
 
 int ordered_set_put_string_set_full(OrderedSet **s, const struct hash_ops *hash_ops, OrderedSet *l) {
-        int n = 0, r;
+        int r, ret = 0;
         char *p;
 
         assert(s);
@@ -89,10 +89,10 @@ int ordered_set_put_string_set_full(OrderedSet **s, const struct hash_ops *hash_
                 if (r < 0)
                         return r;
 
-                n += r;
+                ret = ret || r > 0;
         }
 
-        return n;
+        return ret;
 }
 
 void ordered_set_print(FILE *f, const char *field, OrderedSet *s) {
