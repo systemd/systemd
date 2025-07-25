@@ -173,7 +173,8 @@ filesystem_sets_c = custom_target(
         output : 'filesystem-sets.c',
         command : [filesystem_sets_py,
                    'fs-type-to-string',
-                   'filesystem-sets'],
+                   'filesystem-sets',
+                   'fs-in-group'],
         capture : true)
 
 filesystems_gperf_gperf = custom_target(
