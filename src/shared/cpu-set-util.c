@@ -133,8 +133,10 @@ int cpu_set_realloc(CPUSet *c, size_t n) {
                 return -ERANGE;
 
         n = CPU_ALLOC_SIZE(n);
-        if (n <= c->allocated)
+        if (n <= c->allocated) {
+                assert(c->set);
                 return 0;
+        }
 
         if (!GREEDY_REALLOC0(c->set, DIV_ROUND_UP(n, sizeof(cpu_set_t))))
                 return -ENOMEM;
