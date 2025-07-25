@@ -344,7 +344,7 @@ static void test_sd_device_enumerator_filter_subsystem_one(
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, subsystem, true));
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
+        exclude_problematic_devices(e);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath;
@@ -613,9 +613,9 @@ TEST(sd_device_enumerator_add_all_parents) {
         /* STEP 1: enumerate all block devices without all_parents() */
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        exclude_problematic_devices(e);
 
         /* filter in only a subsystem */
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition"));
 
@@ -758,8 +758,9 @@ TEST(sd_device_new_from_path) {
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        exclude_problematic_devices(e);
+
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVNAME", "*"));
 
         FOREACH_DEVICE(e, dev) {
