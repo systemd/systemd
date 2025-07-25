@@ -43,6 +43,7 @@
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#  elif defined(__sh__)
 #  elif defined(__sparc__)
 #  elif defined(__x86_64__)
 #    if defined(__ILP32__)
@@ -93,6 +94,8 @@
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_close_range 436
+#  elif defined(__sh__)
 #    define systemd_NR_close_range 436
 #  elif defined(__sparc__)
 #    define systemd_NR_close_range 436
@@ -162,6 +165,8 @@ static_assert(__NR_close_range == systemd_NR_close_range, "");
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_fchmodat2 452
+#  elif defined(__sh__)
+#    define systemd_NR_fchmodat2 452
 #  elif defined(__sparc__)
 #    define systemd_NR_fchmodat2 452
 #  elif defined(__x86_64__)
@@ -229,6 +234,8 @@ static_assert(__NR_fchmodat2 == systemd_NR_fchmodat2, "");
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__sh__)
 #    define systemd_NR_mount_setattr 442
 #  elif defined(__sparc__)
 #    define systemd_NR_mount_setattr 442
@@ -298,6 +305,8 @@ static_assert(__NR_mount_setattr == systemd_NR_mount_setattr, "");
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_open_tree_attr 467
+#  elif defined(__sh__)
+#    define systemd_NR_open_tree_attr 467
 #  elif defined(__sparc__)
 #    define systemd_NR_open_tree_attr 467
 #  elif defined(__x86_64__)
@@ -365,6 +374,8 @@ static_assert(__NR_open_tree_attr == systemd_NR_open_tree_attr, "");
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_openat2 437
+#  elif defined(__sh__)
 #    define systemd_NR_openat2 437
 #  elif defined(__sparc__)
 #    define systemd_NR_openat2 437
@@ -434,6 +445,8 @@ static_assert(__NR_openat2 == systemd_NR_openat2, "");
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_quotactl_fd 443
+#  elif defined(__sh__)
+#    define systemd_NR_quotactl_fd 443
 #  elif defined(__sparc__)
 #    define systemd_NR_quotactl_fd 443
 #  elif defined(__x86_64__)
@@ -502,6 +515,8 @@ static_assert(__NR_quotactl_fd == systemd_NR_quotactl_fd, "");
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_removexattrat 466
+#  elif defined(__sh__)
+#    define systemd_NR_removexattrat 466
 #  elif defined(__sparc__)
 #    define systemd_NR_removexattrat 466
 #  elif defined(__x86_64__)
@@ -569,6 +584,8 @@ static_assert(__NR_removexattrat == systemd_NR_removexattrat, "");
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_setxattrat 463
+#  elif defined(__sh__)
 #    define systemd_NR_setxattrat 463
 #  elif defined(__sparc__)
 #    define systemd_NR_setxattrat 463

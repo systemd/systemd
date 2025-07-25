@@ -100,6 +100,8 @@ DEF_TEMPLATE_B = '''\
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_{syscall} {nr_s390}
+#  elif defined(__sh__)
+#    define systemd_NR_{syscall} {nr_sh}
 #  elif defined(__sparc__)
 #    define systemd_NR_{syscall} {nr_sparc}
 #  elif defined(__x86_64__)
