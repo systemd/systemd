@@ -198,7 +198,7 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
                 /* If next_time is still in the past, the service is being added
                  * after it has already expired. Just schedule a 100%
                  * maintenance query. */
-                next_time = usec + USEC_PER_SEC;
+                next_time = usec_add(usec, USEC_PER_SEC);
                 s->rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
         }
 

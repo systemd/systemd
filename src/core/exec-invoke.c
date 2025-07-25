@@ -2244,8 +2244,11 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
 
         /* Wait until the parent unshared the user namespace */
         uint64_t c;
-        if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
+        ssize_t n = read(unshare_ready_fd, &c, sizeof(c));
+        if (n < 0)
                 return log_debug_errno(errno, "Failed to read from signaling eventfd: %m");
+        if (n != sizeof(c))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from signaling eventfd.");
 
         /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
          * and using the system service manager. */
