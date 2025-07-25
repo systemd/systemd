@@ -24,6 +24,7 @@ void cpu_set_done(CPUSet *c);
 int cpu_set_realloc(CPUSet *c, size_t n);
 int cpu_set_add(CPUSet *c, size_t i);
 int cpu_set_add_set(CPUSet *c, const CPUSet *src);
+int cpu_set_add_range(CPUSet *c, size_t start, size_t end);
 int cpu_set_add_all(CPUSet *c);
 
 char* cpu_set_to_string(const CPUSet *c);
