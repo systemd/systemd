@@ -37,6 +37,7 @@
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-util.h"
 #include "verbs.h"
+#include "virt.h"
 
 /* EFI_BOOT_OPTION_DESCRIPTION_MAX sets the maximum length for the boot option description
  * stored in NVRAM. The UEFI spec does not specify a minimum or maximum length for this
@@ -238,6 +239,12 @@ bool touch_variables(void) {
         if (!is_efi_boot()) { /* NB: this internally checks if we run in a container */
                 log_once(LOG_NOTICE,
                          "Not booted with EFI or running in a container, skipping EFI variable modifications.");
+                return false;
+        }
+
+        if (running_in_chroot() > 0) {
+                log_once(LOG_NOTICE,
+                         "Running in a chroot, skipping EFI variable modifications.");
                 return false;
         }
 
