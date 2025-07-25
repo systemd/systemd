@@ -222,7 +222,7 @@ int config_parse_cpu_set(
                 void *userdata) {
 
         CPUSet *c = ASSERT_PTR(data);
-        int r, level = ltype ? LOG_DEBUG : LOG_DEBUG;
+        int r, level = ltype ? LOG_DEBUG : LOG_ERR;
         bool critical = ltype;
 
         assert(critical || lvalue);
