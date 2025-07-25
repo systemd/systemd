@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-generate_directives_py = find_program('generate-directives.py')
+generate_directives_py = files('generate-directives.py')
 
 fuzz_regression_tests = {}
 
