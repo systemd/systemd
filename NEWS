@@ -170,6 +170,10 @@ CHANGES WITH 258 in spe:
         * The meson option '-Dintegration-tests=' has been deprecated, and will
           be removed in a future release.
 
+        * The legacy iptables support through libiptc will be removed in v259.
+          Only nftables backend will be supported by systemd-networkd and
+          systemd-nspawn since v259.
+
         Service manager/PID1:
 
         * The PrivateUsers= unit setting now accepts a new value "full", which
