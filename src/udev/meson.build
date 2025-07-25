@@ -69,17 +69,15 @@ keyboard_keys_list_txt = custom_target(
         capture : true)
 
 generate_keyboard_keys_gperf = files('generate-keyboard-keys-gperf.sh')
-fname = 'keyboard-keys-from-name.gperf'
 gperf_file = custom_target(
         input : [generate_keyboard_keys_gperf, keyboard_keys_list_txt],
-        output : fname,
+        output : 'keyboard-keys-from-name.gperf',
         command : [env, 'bash', '@INPUT@'],
         capture : true)
 
-fname = 'keyboard-keys-from-name.inc'
 keyboard_keys_from_name_inc = custom_target(
         input : gperf_file,
-        output : fname,
+        output : 'keyboard-keys-from-name.inc',
         command : [gperf,
                    '-L', 'ANSI-C', '-t',
                    '-N', 'keyboard_lookup_key',

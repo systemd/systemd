@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # SPDX-License-Identifier: MIT-0
 
 """
