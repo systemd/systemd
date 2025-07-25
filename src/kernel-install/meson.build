@@ -51,4 +51,4 @@ if want_kernel_install
         endif
 endif
 
-test_kernel_install_sh = find_program('test-kernel-install.sh')
+test_kernel_install_sh = files('test-kernel-install.sh')

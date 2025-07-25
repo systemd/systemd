@@ -63,9 +63,8 @@ if conf.get('ENABLE_HWDB') == 1
         endif
 
         if want_tests != 'false'
-                parse_hwdb_py = find_program('parse_hwdb.py')
                 test('parse-hwdb',
-                     parse_hwdb_py,
+                     files('parse_hwdb.py'),
                      suite : 'dist',
                      args : [hwdb_files_test,
                              auto_suspend_rules],
