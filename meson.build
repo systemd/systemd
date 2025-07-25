@@ -345,7 +345,7 @@ cc = meson.get_compiler('c')
 userspace_c_args = []
 userspace_c_ld_args = []
 userspace_sources = []
-meson_build_sh = find_program('tools/meson-build.sh')
+meson_build_sh = files('tools/meson-build.sh')
 
 want_tests = get_option('tests')
 want_slow_tests = want_tests != 'false' and get_option('slow-tests')
@@ -1887,7 +1887,7 @@ conf.set10('ENABLE_UKIFY', want_ukify)
 
 #####################################################################
 
-check_efi_alignment_py = find_program('tools/check-efi-alignment.py')
+check_efi_alignment_py = files('tools/check-efi-alignment.py')
 
 #####################################################################
 
@@ -1960,21 +1960,21 @@ conf.set10('HAVE_VMLINUX_H', use_provided_vmlinux_h or use_generated_vmlinux_h)
 
 #####################################################################
 
-check_version_history_py = find_program('tools/check-version-history.py')
-elf2efi_py = find_program('tools/elf2efi.py')
-export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
-generate_gperfs = find_program('tools/generate-gperfs.py')
-make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
-make_directive_index_py = find_program('tools/make-directive-index.py')
-sync_docs_py = find_program('tools/sync-docs.py')
-make_man_index_py = find_program('tools/make-man-index.py')
-meson_render_jinja2 = find_program('tools/meson-render-jinja2.py')
-update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
-update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
-update_hwdb_sh = find_program('tools/update-hwdb.sh')
-update_man_rules_py = find_program('tools/update-man-rules.py')
-update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
-xml_helper_py = find_program('tools/xml_helper.py')
+check_version_history_py   = files('tools/check-version-history.py')
+elf2efi_py                 = files('tools/elf2efi.py')
+export_dbus_interfaces_py  = files('tools/dbus_exporter.py')
+generate_gperfs            = files('tools/generate-gperfs.py')
+make_autosuspend_rules_py  = files('tools/make-autosuspend-rules.py')
+make_directive_index_py    = files('tools/make-directive-index.py')
+sync_docs_py               = files('tools/sync-docs.py')
+make_man_index_py          = files('tools/make-man-index.py')
+meson_render_jinja2        = files('tools/meson-render-jinja2.py')
+update_dbus_docs_py        = files('tools/update-dbus-docs.py')
+update_hwdb_autosuspend_sh = files('tools/update-hwdb-autosuspend.sh')
+update_hwdb_sh             = files('tools/update-hwdb.sh')
+update_man_rules_py        = files('tools/update-man-rules.py')
+update_syscall_tables_sh   = files('tools/update-syscall-tables.sh')
+xml_helper_py              = files('tools/xml_helper.py')
 
 #####################################################################
 
@@ -2808,8 +2808,8 @@ endif
 
 #####################################################################
 
-check_help = find_program('tools/check-help.sh')
-check_version = find_program('tools/check-version.sh')
+check_help    = files('tools/check-help.sh')
+check_version = files('tools/check-version.sh')
 
 foreach exec : public_programs
         name = fs.name(exec.full_path())
@@ -2850,10 +2850,9 @@ if git.found()
 
         ####################################################
 
-        git_contrib_sh = find_program('tools/git-contrib.sh')
         run_target(
                 'git-contrib',
-                command : [git_contrib_sh])
+                command : files('tools/git-contrib.sh'))
 
         ####################################################
 
@@ -2911,11 +2910,12 @@ if meson.version().version_compare('>=1.4.0')
         endforeach
 endif
 
-check_api_docs_sh = find_program('tools/check-api-docs.sh')
 run_target(
         'check-api-docs',
         depends : [man, libsystemd, libudev],
-        command : [check_api_docs_sh, libsystemd.full_path(), libudev.full_path()])
+        command : [files('tools/check-api-docs.sh'),
+                   libsystemd.full_path(),
+                   libudev.full_path()])
 
 alias_target('update-dbus-docs', update_dbus_docs)
 alias_target('update-man-rules', update_man_rules)
@@ -2929,13 +2929,13 @@ if not meson.is_cross_build()
                 command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
 endif
 
-meson_extract_unit_files = find_program('tools/meson-extract-unit-files.py')
 custom_target(
         output : 'installed-unit-files.txt',
         capture : true,
         install : want_tests != 'no' and install_tests,
         install_dir : testdata_dir,
-        command : [meson_extract_unit_files, meson.project_build_root()])
+        command : [files('tools/meson-extract-unit-files.py'),
+                   meson.project_build_root()])
 
 #####################################################################
 

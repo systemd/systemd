@@ -231,11 +231,10 @@ if get_option('tests') != 'false'
         shared_sources += files('tests.c')
 endif
 
-generate_syscall_list = find_program('generate-syscall-list.py')
 syscall_list_inc = custom_target(
         input : syscall_list_txt,
         output : 'syscall-list.inc',
-        command : [generate_syscall_list,
+        command : [files('generate-syscall-list.py'),
                    '@INPUT@'],
         capture : true)
 

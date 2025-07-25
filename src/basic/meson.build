@@ -168,11 +168,12 @@ basic_sources += generated_gperf_headers
 
 ############################################################
 
-check_filesystems = find_program('check-filesystems.sh')
 r = run_command(
         [
                 'env', '--chdir', meson.project_build_root(),
-                check_filesystems, cpp, files('filesystems-gperf.gperf'),
+                files('check-filesystems.sh'),
+                cpp,
+                files('filesystems-gperf.gperf'),
                 system_include_args,
         ],
         check: false,
@@ -186,19 +187,17 @@ filesystems_gperf_h = custom_target(
         output : 'filesystems-gperf.h',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-generate_filesystem_list = find_program('generate-filesystem-list.py')
 filesystem_list_inc = custom_target(
         input : 'filesystems-gperf.gperf',
         output : 'filesystem-list.inc',
-        command : [generate_filesystem_list,
+        command : [files('generate-filesystem-list.py'),
                    '@INPUT@'],
         capture : true)
 
-generate_filesystem_switch_case_inc = find_program('generate-filesystem-switch-case.py')
 filesystem_switch_case_inc = custom_target(
         input : 'filesystems-gperf.gperf',
         output : 'filesystem-switch-case.inc',
-        command : [generate_filesystem_switch_case_inc,
+        command : [files('generate-filesystem-switch-case.py'),
                    '@INPUT@'],
         capture : true)
 
