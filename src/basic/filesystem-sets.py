@@ -297,6 +297,23 @@ const char* fs_type_to_string(statfs_f_type_t magic) {
         return NULL;
 }""")
 
+def generate_fs_in_group():
+    print('bool fs_in_group(const struct statfs *st, FilesystemGroups fs_group) {')
+    print('        switch (fs_group) {')
+
+    for name, _, *filesystems in FILESYSTEM_SETS:
+        magics = sorted(set(sum((NAME_TO_MAGIC[fs] for fs in filesystems),
+                                start=[])))
+        enum = 'FILESYSTEM_SET_' + name[1:].upper().replace('-', '_')
+        print(f'        case {enum}:')
+        opts = '\n                    || '.join(f'F_TYPE_EQUAL(st->f_type, {magic})'
+                                                for magic in magics)
+        print(f'                return {opts};')
+
+    print('        default: assert_not_reached();')
+    print('        }')
+    print('}')
+
 def generate_filesystem_sets():
     print('const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {')
 
@@ -346,6 +363,8 @@ if __name__ == '__main__':
             generate_fs_type_to_string()
         elif arg == 'filesystem-sets':
             generate_filesystem_sets()
+        elif arg == 'fs-in-group':
+            generate_fs_in_group()
         elif arg == 'check':
             check()
         else:
