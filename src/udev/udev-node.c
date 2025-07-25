@@ -431,7 +431,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 return r;
 
         r = node_get_current(slink, dirfd, &current_id, add ? &current_prio : NULL);
-        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(r))
                 return log_device_debug_errno(dev, r, "Failed to get the current device node priority for '%s': %m", slink);
 
         r = stack_directory_update(dev, dirfd, add);
@@ -702,7 +702,7 @@ int udev_node_apply_permissions(
 
         node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
         if (node_fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(node_fd)) {
+                if (ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(node_fd)) {
                         log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
                         return 0; /* This is necessarily racey, so ignore missing the device */
                 }
@@ -735,7 +735,7 @@ int static_node_apply_permissions(
 
         node_fd = open(devnode, O_PATH|O_CLOEXEC);
         if (node_fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT(errno);
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
                 log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
                                "Failed to open device node '%s'%s: %m",
                                devnode, ignore ? ", ignoring" : "");

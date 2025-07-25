@@ -1931,9 +1931,9 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_RUNNING)) {
 
                 /* Originally, we used to simply reopen all sockets here that we didn't have file descriptors
-                 * for. However, this is problematic, as we won't traverse through the SOCKET_START_CHOWN state for
-                 * them, and thus the UID/GID wouldn't be right. Hence, instead simply check if we have all fds open,
-                 * and if there's a mismatch, warn loudly.
+                 * for. However, this is problematic, as we won't traverse through the SOCKET_START_CHOWN
+                 * state for them, and thus the UID/GID wouldn't be right. Hence, instead simply check if we
+                 * have all fds open, and if there's a mismatch, warn loudly.
                  *
                  * Note that SOCKET_START_OPEN requires no special treatment, as it's only intermediate
                  * between SOCKET_START_PRE and SOCKET_START_CHOWN and shall otherwise not be observed.
@@ -1942,14 +1942,14 @@ static int socket_coldplug(Unit *u) {
                 r = socket_check_open(s);
                 if (r == SOCKET_OPEN_NONE)
                         log_unit_warning(UNIT(s),
-                                         "Socket unit configuration has changed while unit has been running, "
-                                         "no open socket file descriptor left. "
-                                         "The socket unit is not functional until restarted.");
+                                         "Unit configuration changed while unit was running, "
+                                         "and no socket file descriptors are open. "
+                                         "Unit not functional until restarted.");
                 else if (r == SOCKET_OPEN_SOME)
                         log_unit_warning(UNIT(s),
-                                         "Socket unit configuration has changed while unit has been running, "
+                                         "Unit configuration changed while unit was running, "
                                          "and some socket file descriptors have not been opened yet. "
-                                         "The socket unit is not fully functional until restarted.");
+                                         "Unit not fully functional until restarted.");
         }
 
         if (s->deserialized_state == SOCKET_LISTENING) {

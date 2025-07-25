@@ -75,7 +75,7 @@ static int run(int argc, char** argv) {
 
         mtd_fd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (mtd_fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT(errno);
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
                 log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
                                "Failed to open device node '%s'%s: %m",
                                argv[1], ignore ? ", ignoring" : "");
