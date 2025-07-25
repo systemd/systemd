@@ -262,4 +262,25 @@ TEST(print_cpu_alloc_size) {
         log_info("CPU_ALLOC_SIZE(8191) = %zu", CPU_ALLOC_SIZE(8191));
 }
 
+TEST(cpu_set_add) {
+        _cleanup_(cpu_set_done) CPUSet c = {};
+
+        for (size_t i = 0; i < 8192; i++)
+                ASSERT_OK(cpu_set_add(&c, 8191));
+
+        ASSERT_ERROR(cpu_set_add(&c, 8192), ERANGE);
+        ASSERT_ERROR(cpu_set_add(&c, SIZE_MAX), ERANGE);
+}
+
+TEST(cpu_set_add_range) {
+        _cleanup_(cpu_set_done) CPUSet c = {};
+
+        ASSERT_ERROR(cpu_set_add_range(&c, 0, 8192), ERANGE);
+        ASSERT_ERROR(cpu_set_add_range(&c, 0, SIZE_MAX), ERANGE);
+        ASSERT_SIGNAL(cpu_set_add_range(&c, 100, 0), SIGABRT);
+
+        ASSERT_OK(cpu_set_add_range(&c, 0, 0));
+        ASSERT_OK(cpu_set_add_range(&c, 0, 8191));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
