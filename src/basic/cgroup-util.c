@@ -46,7 +46,7 @@ typedef union {
                 .file_handle.handle_type = FILEID_KERNFS,       \
         }
 
-#define CG_FILE_HANDLE_CGROUPID(fh) (*CAST_ALIGN_PTR(uint64_t, (fh).file_handle.f_handle))
+#define CG_FILE_HANDLE_CGROUPID(fh) (*(uint64_t*) (fh).file_handle.f_handle)
 
 int cg_path_open(const char *controller, const char *path) {
         _cleanup_free_ char *fs = NULL;
