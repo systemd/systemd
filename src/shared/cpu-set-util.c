@@ -179,7 +179,7 @@ int cpu_set_add_set(CPUSet *c, const CPUSet *src) {
         return 1;
 }
 
-static int cpu_set_add_range(CPUSet *c, size_t start, size_t end) {
+int cpu_set_add_range(CPUSet *c, size_t start, size_t end) {
         int r;
 
         assert(c);
