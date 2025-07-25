@@ -38,7 +38,7 @@
 typedef union {
         struct file_handle file_handle;
         uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
-} cg_file_handle;
+} _align_(alignof(uint64_t)) cg_file_handle;
 
 #define CG_FILE_HANDLE_INIT                                     \
         (cg_file_handle) {                                      \
