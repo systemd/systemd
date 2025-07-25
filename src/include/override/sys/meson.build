@@ -34,8 +34,8 @@ foreach arch: arch_list
         syscall_lists += files('syscalls-@0@.txt'.format(arch))
 endforeach
 
-generate_syscall_py = find_program('generate-syscall.py')
-
 run_target(
         'update-syscall-header',
-        command : [generate_syscall_py, files('syscall.h')] + syscall_lists)
+        command : [files('generate-syscall.py'),
+                   files('syscall.h'),
+                   syscall_lists])

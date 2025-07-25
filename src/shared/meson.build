@@ -231,12 +231,10 @@ if get_option('tests') != 'false'
         shared_sources += files('tests.c')
 endif
 
-generate_syscall_list = find_program('generate-syscall-list.py')
-fname = 'syscall-list.inc'
 syscall_list_inc = custom_target(
         input : syscall_list_txt,
-        output : fname,
-        command : [generate_syscall_list,
+        output : 'syscall-list.inc',
+        command : [files('generate-syscall-list.py'),
                    '@INPUT@'],
         capture : true)
 
@@ -266,17 +264,15 @@ ip_protocol_list_txt = custom_target(
         command : [env, 'bash', generate_ip_protocol_list, cpp, system_include_args],
         capture : true)
 
-fname = 'ip-protocol-from-name.gperf'
 gperf_file = custom_target(
         input : ip_protocol_list_txt,
-        output : fname,
+        output : 'ip-protocol-from-name.gperf',
         command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@', '<netinet/in.h>'],
         capture : true)
 
-fname = 'ip-protocol-from-name.inc'
 target1 = custom_target(
         input : gperf_file,
-        output : fname,
+        output : 'ip-protocol-from-name.inc',
         command : [gperf,
                    '-L', 'ANSI-C', '-t', '--ignore-case',
                    '-N', 'lookup_ip_protocol',
@@ -285,11 +281,10 @@ target1 = custom_target(
                    '@INPUT@'],
         capture : true)
 
-fname = 'ip-protocol-to-name.inc'
 awkscript = 'ip-protocol-to-name.awk'
 target2 = custom_target(
         input : [awkscript, ip_protocol_list_txt],
-        output : fname,
+        output : 'ip-protocol-to-name.inc',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
@@ -297,10 +292,9 @@ generated_sources += [target1, target2]
 shared_sources += [target1, target2]
 
 ethtool_link_mode_py = files('ethtool-link-mode.py')
-fname = 'ethtool-link-mode.inc'
 ethtool_link_mode_inc = custom_target(
         input : [ethtool_link_mode_py, ethtool_link_mode_sources],
-        output : fname,
+        output : 'ethtool-link-mode.inc',
         command : [python, ethtool_link_mode_py, '--header', cpp, system_include_args],
         capture : true)
 
@@ -308,10 +302,9 @@ generated_sources += ethtool_link_mode_inc
 shared_sources += ethtool_link_mode_inc
 sources += shared_sources
 
-fname = 'ethtool-link-mode.xml'
 ethtool_link_mode_xml = custom_target(
         input : [ethtool_link_mode_py, ethtool_link_mode_sources],
-        output : fname,
+        output : 'ethtool-link-mode.xml',
         command : [python, ethtool_link_mode_py, '--xml', cpp, system_include_args],
         capture : true)
 man_page_depends += ethtool_link_mode_xml

@@ -52,12 +52,13 @@ dns_type_list_txt = custom_target(
         command : [sed, '-n', '-r', '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-generate_dns_type_gperf = find_program('generate-dns_type-gperf.py')
-
 gperf_file = custom_target(
         input : dns_type_list_txt,
         output : 'dns_type-from-name.gperf',
-        command : [generate_dns_type_gperf, 'dns_type', 'DNS_TYPE_', '@INPUT@'],
+        command : [files('generate-dns_type-gperf.py'),
+                   'dns_type',
+                   'DNS_TYPE_',
+                   '@INPUT@'],
         capture : true)
 
 dns_type_from_name_inc = custom_target(

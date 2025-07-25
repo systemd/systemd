@@ -23,19 +23,29 @@ endif
 
 ############################################################
 
-generate_sym_test_py = find_program('generate-sym-test.py')
+generate_sym_test_py = files('generate-sym-test.py')
 
 test_libsystemd_sym_c = custom_target(
-        input : [libsystemd_sym_path] + systemd_headers + libsystemd_sources,
+        input : [libsystemd_sym_path,
+                 systemd_headers,
+                 libsystemd_sources],
         output : 'test-libsystemd-sym.c',
-        command : [generate_sym_test_py, libsystemd_sym_path, libsystemd_dir_path] + systemd_headers,
+        command : [generate_sym_test_py,
+                   libsystemd_sym_path,
+                   libsystemd_dir_path,
+                   systemd_headers],
         capture : true,
         build_by_default : want_tests != 'false')
 
 test_libudev_sym_c = custom_target(
-        input : [libudev_sym_path, libudev_h_path] + libudev_sources,
+        input : [libudev_sym_path,
+                 libudev_h_path,
+                 libudev_sources],
         output : 'test-libudev-sym.c',
-        command : [generate_sym_test_py, libudev_sym_path, libudev_dir_path, libudev_h_path],
+        command : [generate_sym_test_py,
+                   libudev_sym_path,
+                   libudev_dir_path,
+                   libudev_h_path],
         capture : true,
         build_by_default : want_tests != 'false')
 
