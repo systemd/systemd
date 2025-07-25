@@ -200,6 +200,7 @@ arch_list = [
         'powerpc64',
         'riscv32',
         'riscv64',
+        'sh',
         's390',
         's390x',
         'sparc',
