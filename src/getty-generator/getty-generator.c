@@ -137,6 +137,8 @@ static int add_credential_gettys(void) {
         };
         int r;
 
+        log_debug("Checking credentials for configuration...");
+
         FOREACH_ELEMENT(t, table) {
                 _cleanup_free_ char *b = NULL;
                 size_t sz = 0;
@@ -247,11 +249,12 @@ static void parse_env(void) {
 
         r = getenv_for_pid(1, "SYSTEMD_GETTY_AUTO", &value);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse $SYSTEMD_GETTY_AUTO environment variable, ignoring: %m");
+                log_warning_errno(r, "Failed to read $SYSTEMD_GETTY_AUTO in PID 1's environment, ignoring: %m");
         else if (r > 0) {
                 r = parse_getty_sources(value, &arg_getty_sources);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse $SYSTEMD_GETTY_AUTO environment variable, ignoring: %s", value);
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_GETTY_AUTO from PID 1's environment, ignoring: %s",
+                                          value);
         }
 }
 
@@ -314,8 +317,8 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                         log_warning_errno(r, "Failed to get active kernel consoles, ignoring: %m");
                 else if (r > 0)
                         STRV_FOREACH(i, consoles) {
-                                /* We assume that gettys on virtual terminals are started via manual configuration
-                                 * and do this magic only for non-VC terminals. */
+                                /* We assume that gettys on virtual terminals are started via manual
+                                 * configuration and do this magic only for non-VC terminals. */
                                 if (tty_is_vc(*i))
                                         continue;
 
