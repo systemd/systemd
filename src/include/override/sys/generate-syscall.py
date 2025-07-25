@@ -39,6 +39,9 @@ HEADER = '''\
  *
  * Use 'ninja -C build update-syscall-tables' to download new syscall tables,
  * and 'ninja -C build update-syscall-header' to regenerate this file.
+ *
+ * To add a new architecture, extend the arch_list list in meson.build
+ * and the template in generate-syscall.py and then run the above commands.
  */
 #pragma once
 
@@ -97,6 +100,8 @@ DEF_TEMPLATE_B = '''\
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_{syscall} {nr_s390}
+#  elif defined(__sh__)
+#    define systemd_NR_{syscall} {nr_sh}
 #  elif defined(__sparc__)
 #    define systemd_NR_{syscall} {nr_sparc}
 #  elif defined(__x86_64__)
