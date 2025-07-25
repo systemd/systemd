@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# Martin Srebotnjak <miles@filmsi.net>, 2024.
+# Martin Srebotnjak <miles@filmsi.net>, 2024, 2025.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-12-04 02:38+0000\n"
+"PO-Revision-Date: 2025-07-25 00:08+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
 "systemd/main/sl/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=4; plural=n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || "
 "n%100==4 ? 2 : 3;\n"
-"X-Generator: Weblate 5.8.2\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -166,15 +166,13 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Upravljaj podpisne ključe domače mape"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Preverjanje pristnosti je potrebno za upravljanje sistemskih storitev ali "
-"drugih enot."
+"Preverjanje pristnosti je potrebno za upravljanje podpisnih ključev za "
+"domače mape."
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -929,19 +927,14 @@ msgstr ""
 "računalnikov in vsebnikov."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "Ustvari krajevni navidezni računalnik ali vsebnik"
+msgstr "Registriraj krajevni navidezni računalnik ali vsebnik"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"Preverjanje pristnosti je potrebno za ustvarjanje krajevnih navideznih "
+"Preverjanje pristnosti je potrebno za registracijo krajevnih navideznih "
 "računalnikov in vsebnikov."
 
 #: src/machine/org.freedesktop.machine1.policy:116
@@ -1187,14 +1180,11 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Naroči se na prilagoditev DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr ""
-"Za naročanje na rezultate poizvedbe je potrebno preverjanje pristnosti."
+msgstr "Za naročanje na prilagoditev DNS je potrebno preverjanje pristnosti."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1343,16 +1333,12 @@ msgstr ""
 "»$(unit)«."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
 "Preverjanje pristnosti je potrebno za pošiljanje signala UNIX procesom "
-"»$(unit)«."
+"podenote »$(unit)«."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
