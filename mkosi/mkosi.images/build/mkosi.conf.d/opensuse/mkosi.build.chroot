@@ -24,7 +24,6 @@ TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 while read -r filelist; do
     sed -E \
         -e 's/\.gz$//; /systemd-cgroups-agent/d; s/import-pubring.gpg/import-pubring.pgp/' \
-        -e '/(initctl|runlevel|telinit)/ d' \
         -e 's/systemd-quotacheck.service.8/systemd-quotacheck@.service.8/' \
         "$filelist" >"/tmp/$(basename "$filelist")"
     mount --bind "/tmp/$(basename "$filelist")" "$filelist"
@@ -95,6 +94,7 @@ build() {
         --noprep \
         --build-in-place \
         --with upstream \
+        --without sysvcompat \
         $( ((WITH_TESTS)) || echo "--nocheck") \
         --define "_topdir /var/tmp" \
         --define "_sourcedir $PWD/pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" \

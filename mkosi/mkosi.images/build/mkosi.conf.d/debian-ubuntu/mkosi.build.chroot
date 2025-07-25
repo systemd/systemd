@@ -34,6 +34,14 @@ fi
 # We transplant the debian/ folder from the deb package sources into the upstream sources.
 mount --mkdir --bind "$SRCDIR/pkg/$PKG_SUBDIR/debian" "$SRCDIR"/debian
 
+# TODO: drop this workaround when Debian/Ubuntu drops the following SysV compat files from the filelists
+mkdir -p /tmp/sysv-workaround
+for filelist in systemd.install systemd.manpages systemd-sysv.install systemd-sysv.manpages; do
+    cp "$SRCDIR/debian/$filelist" /tmp/sysv-workaround/.
+    sed -i -E -e '/(rc-local|systemd-sysv-install|sysv-generator)/ d' "/tmp/sysv-workaround/$filelist"
+    mount --bind "/tmp/sysv-workaround/$filelist" "$SRCDIR/debian/$filelist"
+done
+
 # We hide the patches so they don't get applied.
 if [[ -d "$SRCDIR/debian/patches" ]]; then
     mkdir /tmp/patches

@@ -244,12 +244,6 @@ const char* const systemd_features =
         " -UTMP"
 #endif
 
-#if HAVE_SYSV_COMPAT
-        " +SYSVINIT"
-#else
-        " -SYSVINIT"
-#endif
-
 #if HAVE_LIBARCHIVE
         " +LIBARCHIVE"
 #else
