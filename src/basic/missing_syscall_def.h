@@ -32,6 +32,7 @@
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#  elif defined(__sh__)
 #  elif defined(__sparc__)
 #  elif defined(__x86_64__)
 #    if defined(__ILP32__)
@@ -83,6 +84,8 @@
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_bpf 351
+#  elif defined(__sh__)
+#    define systemd_NR_bpf 375
 #  elif defined(__sparc__)
 #    define systemd_NR_bpf 349
 #  elif defined(__x86_64__)
@@ -150,6 +153,8 @@ assert_cc(__NR_bpf == systemd_NR_bpf);
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_close_range 436
+#  elif defined(__sh__)
 #    define systemd_NR_close_range 436
 #  elif defined(__sparc__)
 #    define systemd_NR_close_range 436
@@ -219,6 +224,8 @@ assert_cc(__NR_close_range == systemd_NR_close_range);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_copy_file_range 375
+#  elif defined(__sh__)
+#    define systemd_NR_copy_file_range 380
 #  elif defined(__sparc__)
 #    define systemd_NR_copy_file_range 357
 #  elif defined(__x86_64__)
@@ -286,6 +293,8 @@ assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__sh__)
 #    define systemd_NR_fchmodat2 452
 #  elif defined(__sparc__)
 #    define systemd_NR_fchmodat2 452
@@ -355,6 +364,8 @@ assert_cc(__NR_fchmodat2 == systemd_NR_fchmodat2);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_getrandom 349
+#  elif defined(__sh__)
+#    define systemd_NR_getrandom 373
 #  elif defined(__sparc__)
 #    define systemd_NR_getrandom 347
 #  elif defined(__x86_64__)
@@ -423,6 +434,8 @@ assert_cc(__NR_getrandom == systemd_NR_getrandom);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_memfd_create 350
+#  elif defined(__sh__)
+#    define systemd_NR_memfd_create 374
 #  elif defined(__sparc__)
 #    define systemd_NR_memfd_create 348
 #  elif defined(__x86_64__)
@@ -490,6 +503,8 @@ assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__sh__)
 #    define systemd_NR_mount_setattr 442
 #  elif defined(__sparc__)
 #    define systemd_NR_mount_setattr 442
@@ -559,6 +574,8 @@ assert_cc(__NR_mount_setattr == systemd_NR_mount_setattr);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_move_mount 429
+#  elif defined(__sh__)
+#    define systemd_NR_move_mount 429
 #  elif defined(__sparc__)
 #    define systemd_NR_move_mount 429
 #  elif defined(__x86_64__)
@@ -627,6 +644,8 @@ assert_cc(__NR_move_mount == systemd_NR_move_mount);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_name_to_handle_at 335
+#  elif defined(__sh__)
+#    define systemd_NR_name_to_handle_at 359
 #  elif defined(__sparc__)
 #    define systemd_NR_name_to_handle_at 332
 #  elif defined(__x86_64__)
@@ -694,6 +713,8 @@ assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_open_tree 428
+#  elif defined(__sh__)
 #    define systemd_NR_open_tree 428
 #  elif defined(__sparc__)
 #    define systemd_NR_open_tree 428
@@ -763,6 +784,8 @@ assert_cc(__NR_open_tree == systemd_NR_open_tree);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_openat2 437
+#  elif defined(__sh__)
+#    define systemd_NR_openat2 437
 #  elif defined(__sparc__)
 #    define systemd_NR_openat2 437
 #  elif defined(__x86_64__)
@@ -830,6 +853,8 @@ assert_cc(__NR_openat2 == systemd_NR_openat2);
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_pidfd_open 434
+#  elif defined(__sh__)
 #    define systemd_NR_pidfd_open 434
 #  elif defined(__sparc__)
 #    define systemd_NR_pidfd_open 434
@@ -899,6 +924,8 @@ assert_cc(__NR_pidfd_open == systemd_NR_pidfd_open);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_pidfd_send_signal 424
+#  elif defined(__sh__)
+#    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__sparc__)
 #    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__x86_64__)
@@ -966,6 +993,8 @@ assert_cc(__NR_pidfd_send_signal == systemd_NR_pidfd_send_signal);
 #      error "Unknown RISC-V ABI"
 #    endif
 #  elif defined(__s390__)
+#    define systemd_NR_pkey_mprotect 384
+#  elif defined(__sh__)
 #    define systemd_NR_pkey_mprotect 384
 #  elif defined(__sparc__)
 #    define systemd_NR_pkey_mprotect 362
@@ -1035,6 +1064,8 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_renameat2 347
+#  elif defined(__sh__)
+#    define systemd_NR_renameat2 371
 #  elif defined(__sparc__)
 #    define systemd_NR_renameat2 345
 #  elif defined(__x86_64__)
@@ -1103,6 +1134,8 @@ assert_cc(__NR_renameat2 == systemd_NR_renameat2);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_setns 339
+#  elif defined(__sh__)
+#    define systemd_NR_setns 364
 #  elif defined(__sparc__)
 #    define systemd_NR_setns 337
 #  elif defined(__x86_64__)
@@ -1171,6 +1204,8 @@ assert_cc(__NR_setns == systemd_NR_setns);
 #    endif
 #  elif defined(__s390__)
 #    define systemd_NR_statx 379
+#  elif defined(__sh__)
+#    define systemd_NR_statx 383
 #  elif defined(__sparc__)
 #    define systemd_NR_statx 360
 #  elif defined(__x86_64__)
