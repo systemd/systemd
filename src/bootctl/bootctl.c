@@ -37,6 +37,7 @@
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-util.h"
 #include "verbs.h"
+#include "virt.h"
 
 /* EFI_BOOT_OPTION_DESCRIPTION_MAX sets the maximum length for the boot option description
  * stored in NVRAM. The UEFI spec does not specify a minimum or maximum length for this
@@ -640,6 +641,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_secure_boot_auto_enroll && !arg_private_key)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no private key provided");
+
+        if (!arg_graceful && running_in_chroot() > 0) {
+                log_info("Running in a chroot, enabling --graceful.");
+                arg_graceful = true;
+        }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
